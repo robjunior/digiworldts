@@ -1,6 +1,6 @@
 import { loadCatalog } from '../digimon/xml.js';
 import { one, q, run, type RosterRow, type ShopItemRow, type WorldPositionRow } from '../db/index.js';
-import type { Element, TemplateDigimon } from '../digimon/types.js';
+import type { Element, Stage, TemplateDigimon } from '../digimon/types.js';
 import { biomeAt, BIOME_ELEMENT, seedForUser, type Biome } from './biomes.js';
 
 const SQL_SELECT_POSITION = `SELECT * FROM world_position WHERE user_id = ?`;
@@ -47,22 +47,37 @@ export type PartyRating = {
   rating: number;
   memberCount: number;
   meanLevel: number;
+  dominantStage: Stage;
 };
 
 export async function partyRating(userId: string): Promise<PartyRating> {
   const rows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
-  if (rows.length === 0) return { rating: 1, memberCount: 0, meanLevel: 1 };
+  if (rows.length === 0) return { rating: 1, memberCount: 0, meanLevel: 1, dominantStage: 'Rookie' };
+  const catalog = loadCatalog();
+  const templateById = new Map(catalog.digimons.map((t) => [t.id, t] as const));
   let sum = 0;
   let levelSum = 0;
+  const stageCounts = new Map<Stage, number>();
   for (const r of rows) {
     const statBonusSum = r.hp_bonus + r.en_bonus + r.atk_bonus + r.def_bonus + r.int_bonus + r.spd_bonus;
     sum += r.level * 10 + statBonusSum;
     levelSum += r.level;
+    const tpl = templateById.get(r.catalog_id);
+    if (tpl) stageCounts.set(tpl.stage, (stageCounts.get(tpl.stage) ?? 0) + 1);
+  }
+  let dominantStage: Stage = 'Rookie';
+  let bestCount = 0;
+  for (const [stage, count] of stageCounts) {
+    if (count > bestCount) {
+      dominantStage = stage;
+      bestCount = count;
+    }
   }
   return {
     rating: Math.max(1, Math.round(sum / rows.length)),
     memberCount: rows.length,
     meanLevel: Math.max(1, Math.round(levelSum / rows.length)),
+    dominantStage,
   };
 }
 
@@ -83,15 +98,18 @@ export type Encounter =
   | { kind: 'item'; item: ItemDrop }
   | { kind: 'none' };
 
-function pickTemplateByElement(
+function pickTemplateByBiomeAndStage(
   catalog: readonly TemplateDigimon[],
   preferredElement: Element,
+  preferredStage: Stage,
 ): TemplateDigimon | null {
   if (catalog.length === 0) return null;
-  const matches = catalog.filter((t) => t.element === preferredElement);
-  const pool = matches.length > 0 && Math.random() < BIOME_ELEMENT_PREFERENCE ? matches : [...catalog];
-  const idx = Math.floor(Math.random() * pool.length);
-  return pool[idx] ?? null;
+  const stageMatches = catalog.filter((t) => t.stage === preferredStage);
+  const pool = stageMatches.length > 0 ? stageMatches : [...catalog];
+  const elementMatches = pool.filter((t) => t.element === preferredElement);
+  const finalPool = elementMatches.length > 0 && Math.random() < BIOME_ELEMENT_PREFERENCE ? elementMatches : pool;
+  const idx = Math.floor(Math.random() * finalPool.length);
+  return finalPool[idx] ?? null;
 }
 
 function levelForRating(rating: number, rare: boolean): number {
@@ -101,10 +119,10 @@ function levelForRating(rating: number, rare: boolean): number {
   return Math.max(1, Math.min(99, level));
 }
 
-export async function generateWildMon(biome: Biome, rating: number): Promise<WildMon | null> {
+export async function generateWildMon(biome: Biome, rating: number, partyStage: Stage): Promise<WildMon | null> {
   const catalog = loadCatalog();
   const preferred = BIOME_ELEMENT[biome];
-  const template = pickTemplateByElement(catalog.digimons, preferred);
+  const template = pickTemplateByBiomeAndStage(catalog.digimons, preferred, partyStage);
   if (!template) return null;
   const rare = Math.random() < RARE_MON_RATE;
   return {
@@ -125,10 +143,10 @@ async function generateItemDrop(): Promise<ItemDrop | null> {
   return { itemId: item.id, name: item.name, qty: 1 };
 }
 
-export async function rollEncounter(biome: Biome, rating: number): Promise<Encounter> {
+export async function rollEncounter(biome: Biome, rating: number, partyStage: Stage): Promise<Encounter> {
   const r = Math.random();
   if (r < ENCOUNTER_RATE) {
-    const mon = await generateWildMon(biome, rating);
+    const mon = await generateWildMon(biome, rating, partyStage);
     if (mon) return { kind: 'wild-mon', mon };
   }
   if (r < ENCOUNTER_RATE + ITEM_DROP_RATE) {

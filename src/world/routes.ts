@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
+import type { Action } from '../battle/types.js';
 import { log } from '../util/log.js';
 import { biomeAt, BIOME_COLOR, BIOME_ELEMENT, BIOME_LABEL, tilesAround, type Biome } from './biomes.js';
 import {
@@ -13,6 +14,13 @@ import {
   type Direction,
   type Position,
 } from './engine.js';
+import {
+  actInPveBattle,
+  getPveBattleView,
+  grantItemDrop,
+  hasActivePveBattle,
+  startPveBattleFromEncounter,
+} from './pve-battle.js';
 
 const VIEW_RADIUS = 5;
 
@@ -54,6 +62,7 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
       partyRating: rating,
       steps,
       viewRadius: VIEW_RADIUS,
+      battleActive: hasActivePveBattle(user.id),
     });
   });
 
@@ -61,6 +70,9 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
     const user = await requireAuth(req, reply);
     if (!user.onboardingCompleted) {
       return reply.code(409).send({ error: 'onboarding-required' });
+    }
+    if (hasActivePveBattle(user.id)) {
+      return reply.code(409).send({ error: 'battle-in-progress', message: 'Resolve your active battle first.' });
     }
     const dir = req.body?.dir;
     if (dir !== 'up' && dir !== 'down' && dir !== 'left' && dir !== 'right') {
@@ -75,16 +87,29 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
 
     const biome = currentBiome(nextPos);
     const rating = await partyRating(user.id);
-    const encounter = await rollEncounter(biome, rating.rating);
+    const encounter = await rollEncounter(biome, rating.rating, rating.dominantStage);
 
-    if (encounter.kind !== 'none') {
-      log.info('world.encounter', {
-        userId: user.id,
-        biome,
-        kind: encounter.kind,
-        rating: rating.rating,
-        rare: encounter.kind === 'wild-mon' ? encounter.mon.rare : undefined,
-      });
+    let battleView: ReturnType<typeof getPveBattleView> = null;
+    let battleStartError: string | null = null;
+
+    if (encounter.kind === 'wild-mon') {
+      const started = await startPveBattleFromEncounter(user.id, encounter.mon);
+      if (started.ok) {
+        battleView = started.view;
+        log.info('world.encounter', {
+          userId: user.id,
+          biome,
+          kind: 'wild-mon',
+          rating: rating.rating,
+          rare: encounter.mon.rare,
+        });
+      } else {
+        battleStartError = started.error;
+        log.warn('world.encounter.start-fail', { userId: user.id, error: started.error });
+      }
+    } else if (encounter.kind === 'item') {
+      await grantItemDrop(user.id, encounter.item);
+      log.info('world.encounter', { userId: user.id, biome, kind: 'item', item: encounter.item.itemId });
     }
 
     return reply.send({
@@ -92,6 +117,33 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
       partyRating: rating,
       steps,
       encounter,
+      battle: battleView,
+      battleStartError,
+    });
+  });
+
+  app.get('/api/world/battle', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const view = getPveBattleView(user.id);
+    if (!view) return reply.code(404).send({ error: 'no-active-battle' });
+    return reply.send({ battle: view });
+  });
+
+  app.post<{ Body: { action?: Action } }>('/api/world/battle/act', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const action = req.body?.action;
+    if (!action || typeof action !== 'object' || typeof action.type !== 'string') {
+      return reply.code(400).send({ error: 'invalid-input', message: 'action required' });
+    }
+    const result = await actInPveBattle(user.id, action);
+    if (!result.ok) {
+      const status = result.code === 'no-battle' ? 404 : 400;
+      return reply.code(status).send({ error: result.error, ...(result.code ? { code: result.code } : {}) });
+    }
+    return reply.send({
+      battle: result.view,
+      ended: result.ended,
+      ...(result.capturedMonId ? { capturedMonId: result.capturedMonId } : {}),
     });
   });
 };
