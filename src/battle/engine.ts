@@ -25,6 +25,11 @@ import { affinity, AFFINITY_MULT, scaleStatsForLevel } from '../digimon/element.
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
+  CAPTURE_ANALYZED_MULT,
+  CAPTURE_BASE,
+  CAPTURE_HP_FACTOR,
+  CAPTURE_MAX,
+  CAPTURE_RARE_MULT,
   CHAIN_MULT,
   CRIT_CHANCE,
   CRIT_MULT,
@@ -37,6 +42,7 @@ import {
   type Ailmented,
   type Battle,
   type BattleEvent,
+  type BattleMode,
   type BattleOutcome,
   type BattleSide,
   type BattleUnit,
@@ -46,6 +52,7 @@ import {
   type SlotIndex,
   type TurnEntry,
   type UnitId,
+  type WildInfo,
 } from './types.js';
 
 // ----- Loadout / unit construction ------------------------------------------
@@ -64,10 +71,10 @@ export type Loadout = {
   members: [LoadoutMember, LoadoutMember, LoadoutMember];
 };
 
-function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember): BattleUnit {
+function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
   const skills = m.template.skillPool.slice(0, SKILLS_PER_DIGIMON);
-  return {
+  const unit: BattleUnit = {
     id: `${side}:${slot}` as UnitId,
     side,
     slot,
@@ -85,7 +92,10 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember): B
     skills,
     ailments: [],
     guarding: false,
+    analyzed: false,
   };
+  if (wildInfo) unit.wildInfo = wildInfo;
+  return unit;
 }
 
 // ----- Initiative + turn queue ----------------------------------------------
@@ -140,11 +150,20 @@ function currentEntry(battle: Battle): TurnEntry | null {
 // ----- Init -----------------------------------------------------------------
 
 /** Fresh Battle instance. `matchId` and side ownership fixed for its lifetime. */
-export function initBattle(input: { matchId?: string; loadoutA: Loadout; loadoutB: Loadout }): Battle {
+export function initBattle(input: {
+  matchId?: string;
+  loadoutA: Loadout;
+  loadoutB: Loadout;
+  mode?: BattleMode;
+  wildFlags?: ReadonlyArray<WildInfo | undefined>;
+}): Battle {
   const id = input.matchId ?? newId('mtc');
+  const mode = input.mode ?? 'pvp';
   const now = Date.now();
   const unitsA = input.loadoutA.members.map((m, i) => unitFromLoadout('a', i as SlotIndex, m));
-  const unitsB = input.loadoutB.members.map((m, i) => unitFromLoadout('b', i as SlotIndex, m));
+  const unitsB = input.loadoutB.members.map((m, i) =>
+    unitFromLoadout('b', i as SlotIndex, m, input.wildFlags?.[i]),
+  );
   const units = [...unitsA, ...unitsB];
   const queue = buildTurnQueue(units);
   const firstEntry = queue[0];
@@ -162,6 +181,7 @@ export function initBattle(input: { matchId?: string; loadoutA: Loadout; loadout
   ];
   return {
     id,
+    mode,
     playerA: input.loadoutA.playerId,
     playerB: input.loadoutB.playerId,
     units,
@@ -177,6 +197,61 @@ export function initBattle(input: { matchId?: string; loadoutA: Loadout; loadout
     endedAt: null,
     lastAction: null,
   };
+}
+
+/**
+ * PVE variant. `wildParty` is 1-3 wild mons — remaining slot(s) get a "phantom"
+ * dead-from-start unit so the 3v3 shape is preserved and dead units auto-skip.
+ */
+export function initPveBattle(input: {
+  matchId?: string;
+  playerLoadout: Loadout;
+  wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
+}): Battle {
+  if (input.wildParty.length < 1 || input.wildParty.length > 3) {
+    throw new Error(`initPveBattle: wildParty must be 1-3 mons, got ${input.wildParty.length}`);
+  }
+  const first = input.wildParty[0]!;
+  const phantomTemplate = first.member.template;
+  const phantomMember: LoadoutMember = {
+    monId: 'phantom',
+    templateId: phantomTemplate.id,
+    template: phantomTemplate,
+    level: 1,
+    nickname: '—',
+    statBonus: { hp: -9999, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
+  };
+  const wildMembers: LoadoutMember[] = [];
+  const wildFlags: Array<WildInfo | undefined> = [];
+  for (let i = 0; i < 3; i++) {
+    const w = input.wildParty[i];
+    if (w) {
+      wildMembers.push(w.member);
+      wildFlags.push(w.wildInfo);
+    } else {
+      wildMembers.push(phantomMember);
+      wildFlags.push(undefined);
+    }
+  }
+  const wildLoadout: Loadout = {
+    playerId: 'wild',
+    members: [wildMembers[0]!, wildMembers[1]!, wildMembers[2]!],
+  };
+  const battle = initBattle({
+    ...(input.matchId ? { matchId: input.matchId } : {}),
+    loadoutA: input.playerLoadout,
+    loadoutB: wildLoadout,
+    mode: 'pve',
+    wildFlags,
+  });
+  for (let i = input.wildParty.length; i < 3; i++) {
+    const phantom = battle.units.find((u) => u.id === (`b:${i}` as UnitId));
+    if (phantom) {
+      phantom.hp = 0;
+      phantom.hpMax = 0;
+    }
+  }
+  return battle;
 }
 
 // ----- Helpers --------------------------------------------------------------
@@ -295,6 +370,101 @@ export function applyAction(
   const target = unitBy(battle, action.targetId);
   if (!target || target.side !== opponentOf(actingSide) || target.hp <= 0) {
     return { ok: false, error: 'invalid target', code: 'target-invalid' };
+  }
+
+  if (action.type === 'analyze') {
+    target.analyzed = true;
+    const now = Date.now();
+    pushEvent(battle, {
+      at: now,
+      round: battle.round,
+      type: 'action',
+      actor: actor.id,
+      actorName: actor.name,
+      action,
+      targetId: target.id,
+      targetName: target.name,
+      cue: 'analyzed',
+      analyzedInfo: {
+        name: target.name,
+        element: target.element,
+        level: target.level,
+        hp: target.hp,
+        hpMax: target.hpMax,
+        en: target.en,
+        enMax: target.enMax,
+        atk: target.atk,
+        def: target.def,
+        spd: target.spd,
+        skills: target.skills.map((s) => ({ name: s.name, element: s.element, power: s.power, energyCost: s.energyCost })),
+        ...(target.wildInfo ? { wild: target.wildInfo } : {}),
+      },
+    });
+    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
+    tickActorAilments(battle, actor);
+    advanceTurnQueue(battle);
+    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
+  }
+
+  if (action.type === 'capture') {
+    if (battle.mode !== 'pve') {
+      return { ok: false, error: 'capture only allowed in PVE battles', code: 'target-invalid' };
+    }
+    if (!target.wildInfo) {
+      return { ok: false, error: 'target is not a wild mon', code: 'target-invalid' };
+    }
+    const hpFactor = 1 - target.hp / target.hpMax;
+    const rareMult = target.wildInfo.rare ? CAPTURE_RARE_MULT : 1;
+    const analyzedMult = target.analyzed ? CAPTURE_ANALYZED_MULT : 1;
+    const rawChance = (CAPTURE_BASE + CAPTURE_HP_FACTOR * hpFactor) * rareMult * analyzedMult;
+    const chance = clamp(rawChance, 0, CAPTURE_MAX);
+    const roll = Math.random();
+    const captured = roll < chance;
+    const now = Date.now();
+    if (captured) {
+      target.hp = 0;
+      pushEvent(battle, {
+        at: now,
+        round: battle.round,
+        type: 'action',
+        actor: actor.id,
+        actorName: actor.name,
+        action,
+        targetId: target.id,
+        targetName: target.name,
+        cue: 'capture-hit',
+        captureChance: chance,
+      });
+      battle.status = 'ended';
+      battle.outcome = 'captured_a';
+      battle.winner = actingSide;
+      battle.endedAt = now;
+      pushEvent(battle, {
+        at: now,
+        round: battle.round,
+        type: 'end',
+        outcome: 'captured_a',
+        winner: actingSide,
+        capturedUnitId: target.id,
+      });
+      return { ok: true, battle, events: battle.log.slice(eventsBefore) };
+    }
+    pushEvent(battle, {
+      at: now,
+      round: battle.round,
+      type: 'action',
+      actor: actor.id,
+      actorName: actor.name,
+      action,
+      targetId: target.id,
+      targetName: target.name,
+      cue: 'capture-miss',
+      captureChance: chance,
+    });
+    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
+    tickActorAilments(battle, actor);
+    advanceTurnQueue(battle);
+    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
   }
 
   let skill: Skill;
@@ -610,21 +780,27 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
     .map((u) => ({ ...u, down: u.hp === 0 }));
   const enemy: EnemyUnitView[] = battle.units
     .filter((u) => u.side !== side)
-    .map((u) => ({
-      id: u.id,
-      slot: u.slot,
-      name: u.name,
-      element: u.element,
-      level: u.level,
-      hp: u.hp,
-      hpMax: u.hpMax,
-      ailments: u.ailments,
-      down: u.hp === 0,
-    }));
+    .map((u) => {
+      const view: EnemyUnitView = {
+        id: u.id,
+        slot: u.slot,
+        name: u.name,
+        element: u.element,
+        level: u.level,
+        hp: u.hp,
+        hpMax: u.hpMax,
+        ailments: u.ailments,
+        down: u.hp === 0,
+      };
+      if (u.analyzed) view.analyzed = true;
+      if (u.wildInfo) view.wild = u.wildInfo;
+      return view;
+    });
   const head = currentEntry(battle);
   const upcoming = battle.turnQueue.slice(battle.turnCursor, battle.turnCursor + 8);
   return {
     id: battle.id,
+    mode: battle.mode,
     round: battle.round,
     status: battle.status,
     activeSide: battle.activeSide,

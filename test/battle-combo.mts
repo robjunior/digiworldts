@@ -8,7 +8,7 @@
  * Uses fixed Math.random for deterministic damage math (variance/crit/miss).
  * Runs standalone: `pnpm tsx test/battle-combo.mts`
  */
-import { initBattle, applyAction, shiftInitiative } from '../src/battle/engine.js';
+import { initBattle, initPveBattle, applyAction, shiftInitiative } from '../src/battle/engine.js';
 import type { LoadoutMember, Loadout } from '../src/battle/engine.js';
 import type { TemplateDigimon } from '../src/digimon/types.js';
 
@@ -141,6 +141,134 @@ console.log('\n=== Test 5: shiftInitiative reorders queue ===');
 }
 
 Math.random = originalRandom;
+
+console.log('\n=== Test 6: initPveBattle sets mode=pve + phantom slots ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-0', fireB, 0);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
+  });
+  check('battle.mode = pve', b.mode === 'pve');
+  const wildUnit = b.units.find((u) => u.id === 'b:0')!;
+  check('wild unit has wildInfo', wildUnit.wildInfo !== undefined, `wildInfo=${JSON.stringify(wildUnit.wildInfo)}`);
+  check('wild unit analyzed=false initially', wildUnit.analyzed === false);
+  const phantom1 = b.units.find((u) => u.id === 'b:1')!;
+  const phantom2 = b.units.find((u) => u.id === 'b:2')!;
+  check('phantom b:1 dead from init (hp=0)', phantom1.hp === 0, `hp=${phantom1.hp}`);
+  check('phantom b:2 dead from init (hp=0)', phantom2.hp === 0);
+  check('phantoms have no wildInfo', phantom1.wildInfo === undefined && phantom2.wildInfo === undefined);
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 7: Analyze action marks target + emits analyzedInfo ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-a', fireB, -1000);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
+  });
+  const r = applyAction(b, 'a', { type: 'analyze', unitId: 'a:0', targetId: 'b:0' });
+  check('analyze accepted', r.ok);
+  const wildUnit = b.units.find((u) => u.id === 'b:0')!;
+  check('target.analyzed=true after analyze', wildUnit.analyzed === true);
+  const evt = b.log.filter((e) => e.type === 'action').at(-1);
+  check('event cue=analyzed', (evt as { cue: string }).cue === 'analyzed');
+  const info = (evt as { analyzedInfo?: { name: string; level: number; hp: number; skills: Array<{ name: string }> } }).analyzedInfo;
+  check('analyzedInfo populated with name+stats+skills', info !== undefined && info.name === wildUnit.name && info.hp === wildUnit.hp);
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 8: Capture miss at full HP (non-rare) - chance 0.15 vs roll 0.5 ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-cap', fireB, -1000);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
+  });
+  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
+  check('capture accepted', r.ok);
+  const evt = b.log.filter((e) => e.type === 'action').at(-1);
+  const cue = (evt as { cue: string }).cue;
+  check('cue is capture-miss at full HP non-rare', cue === 'capture-miss', `cue=${cue}`);
+  const chance = (evt as { captureChance?: number }).captureChance;
+  check('captureChance = 0.15', Math.abs((chance ?? 0) - 0.15) < 0.001, `chance=${chance}`);
+  check('battle not ended', b.status === 'active');
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 9: Capture HIT at 50% HP (non-rare) - chance 0.525 vs roll 0.5 ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-half', fireB, -1000);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
+  });
+  const wild = b.units.find((u) => u.id === 'b:0')!;
+  wild.hp = Math.floor(wild.hpMax * 0.5);
+  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
+  check('capture accepted at 50% HP', r.ok);
+  const evt = b.log.filter((e) => e.type === 'action').at(-1);
+  const cue = (evt as { cue: string }).cue;
+  check('cue is capture-hit at 50% HP', cue === 'capture-hit', `cue=${cue}`);
+  const chance = (evt as { captureChance?: number }).captureChance;
+  check('captureChance ≈ 0.525', Math.abs((chance ?? 0) - 0.525) < 0.005, `chance=${chance}`);
+  check('battle ended with captured_a', b.status === 'ended' && b.outcome === 'captured_a');
+  check('winner=a', b.winner === 'a');
+  const endEvt = b.log.find((e) => e.type === 'end');
+  check('end event has capturedUnitId', (endEvt as { capturedUnitId?: string }).capturedUnitId === 'b:0');
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 10: Rare mon halves capture chance ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-rare', fireB, -1000);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: true } }],
+  });
+  const wild = b.units.find((u) => u.id === 'b:0')!;
+  wild.hp = Math.floor(wild.hpMax * 0.5);
+  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
+  check('capture accepted', r.ok);
+  const evt = b.log.filter((e) => e.type === 'action').at(-1);
+  const chance = (evt as { captureChance?: number }).captureChance;
+  check('rare captureChance ≈ 0.2625 (half of 0.525)', Math.abs((chance ?? 0) - 0.2625) < 0.005, `chance=${chance}`);
+  const cue = (evt as { cue: string }).cue;
+  check('rare 50% HP miss (chance 0.26 < roll 0.5)', cue === 'capture-miss', `cue=${cue}`);
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 11: Analyzed bonus boosts capture chance (1.3x) ===');
+{
+  Math.random = () => 0.5;
+  const wildMember: LoadoutMember = mem('wild-anal', fireB, -1000);
+  const b = initPveBattle({
+    playerLoadout: loadoutA,
+    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
+  });
+  const wild = b.units.find((u) => u.id === 'b:0')!;
+  wild.analyzed = true;
+  wild.hp = Math.floor(wild.hpMax * 0.5);
+  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
+  check('capture accepted', r.ok);
+  const evt = b.log.filter((e) => e.type === 'action').at(-1);
+  const chance = (evt as { captureChance?: number }).captureChance;
+  check('analyzed captureChance ≈ 0.6825 (0.525 * 1.3)', Math.abs((chance ?? 0) - 0.6825) < 0.005, `chance=${chance}`);
+  Math.random = originalRandom;
+}
+
+console.log('\n=== Test 12: Capture in PVP mode is rejected ===');
+{
+  const b = initBattle({ loadoutA, loadoutB });
+  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
+  check('capture rejected in PVP', !r.ok, `error=${!r.ok ? r.error : 'none'}`);
+}
 
 console.log(`\n=== Summary ===`);
 console.log(`  passed: ${passed}`);

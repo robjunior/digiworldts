@@ -309,6 +309,7 @@ function outcomeToSummary(outcome: BattleOutcome): {
     case 'win_b': return { winnerId: 'b', aResult: 'loss', bResult: 'win' };
     case 'fled_a': return { winnerId: 'b', aResult: 'fled', bResult: 'win' };
     case 'fled_b': return { winnerId: 'a', aResult: 'win', bResult: 'fled' };
+    case 'captured_a': return { winnerId: 'a', aResult: 'win', bResult: 'loss' };
     case 'draw':
     case 'abandoned': return { winnerId: null, aResult: 'draw', bResult: 'draw' };
   }
