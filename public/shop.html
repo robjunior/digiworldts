@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Shop</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    .balance { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:16px 0; border-bottom:1px solid var(--hairline); margin-bottom:28px; }
+    .balance .spacer { flex:1; }
+    .balance .credits { font-size:14px; border:1px solid color-mix(in oklab, var(--credits) 40%, var(--hairline)); padding:8px 13px; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    
+    .layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+    @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+    
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px; }
+    .filter-btn { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 6px 12px; border: 1px solid var(--hairline); background: var(--panel); color: var(--muted); cursor: pointer; transition: all 0.2s; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    .filter-btn.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--hairline); padding: 16px; display: flex; flex-direction: column; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .card .icon-slot { height: 64px; background: var(--bg); border: 1px dashed var(--hairline); margin-bottom: 16px; display: grid; place-items: center; color: var(--muted); font-size: 11px; }
+    .card .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .card .desc { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.4; flex: 1; }
+    .card .badge-row { margin-bottom: 12px; }
+    .card .price-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .card .price { font-size: 16px; font-weight: 600; color: var(--signal); }
+    .card .price small { font-size: 11px; font-weight: 400; color: var(--muted); }
+    .card .buy-actions { display: flex; gap: 8px; }
+    .card .qty-input { width: 50px; background: var(--bg); border: 1px solid var(--hairline); color: var(--ink); text-align: center; font-family: var(--font); font-size: 13px; clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+    
+    
+    .owned { font-size: 11px; color: var(--gold); border: 1px solid color-mix(in oklab, var(--gold) 30%, transparent); background: color-mix(in oklab, var(--gold) 10%, transparent); padding: 3px 8px; border-radius: 4px; align-self: flex-start; margin-top: 12px; font-weight: 600; }
+    
+    .inventory { background: var(--panel); border: 1px solid var(--hairline); padding: 20px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .inventory h2 { margin: 0 0 16px 0; font-size: 14px; font-weight: 600; padding-bottom: 12px; border-bottom: 1px solid var(--hairline); display:flex; justify-content:space-between; }
+    .inv-list { display: flex; flex-direction: column; gap: 12px; }
+    .inv-item { padding: 12px; background: var(--bg); border: 1px solid var(--hairline); }
+    .inv-item .inv-name { font-weight: 600; font-size: 13px; display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .inv-item .inv-qty { color: var(--signal); }
+    .inv-item .inv-desc { font-size: 11px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+    .inv-item .inv-info { font-size: 11px; color: var(--muted); font-style: italic; }
+    .inv-empty { color: var(--muted); font-size: 12px; font-style: italic; }
+    
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; z-index:100; place-items:center; padding:24px; }
+    .modal-overlay.show { display:grid; }
+    .modal-card { background:var(--panel); border:1px solid var(--hairline); max-width:520px; width:100%; padding:20px 24px 24px; max-height:90vh; overflow:auto; }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
+    .modal-header h3 { margin:0; font-size:18px; font-weight:600; }
+    .modal-close { background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+    .modal-close:hover { color:var(--ink); }
+    .mon-option { display:flex; gap:12px; align-items:center; padding:12px; background:var(--panel); border:1px solid var(--hairline); margin-bottom:8px; transition:border-color 0.15s; cursor:pointer; }
+    .mon-option:hover { border-color:var(--ink); }
+    .mon-option img { width:48px; height:48px; object-fit:contain; background:rgba(0,0,0,0.2); }
+    .mon-option .info { flex:1; }
+    .mon-option .info .name { font-weight:600; margin-bottom:2px; font-size: 13px; }
+    .mon-option .info .sub { font-size:11px; color:var(--muted); }
+  
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; flex-wrap: wrap; grid-column: 1/-1; }
+    .pagination .page-info { margin-right: 16px; font-size: 13px; color: var(--muted); }
+    .pagination button { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all 0.2s; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    .pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+    .pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .picker-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; max-height:400px; overflow-y:auto; margin-bottom:20px; }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="app-nav" id="app-nav"></nav>
+    <main class="app-main">
+      <div class="hud-header">
+        <div>
+          <div class="eyebrow">Commerce</div>
+          <h1>Shop</h1>
+        </div>
+      </div>
+
+      <section class="balance" aria-label="Wallet" role="status">
+        <span class="spacer"></span>
+        <span class="credits"><b id="bal-credits-n">0</b> DigiCredits</span>
+      </section>
+
+      <div class="layout">
+        <div class="shop-main">
+          <div class="filters" id="shop-filters">
+            <button class="filter-btn active" data-kind="all">All</button>
+            <button class="filter-btn" data-kind="consumable">Consumables</button>
+            <button class="filter-btn" data-kind="evolve">Chips</button>
+            <button class="filter-btn" data-kind="building_placement">Buildings</button>
+            <button class="filter-btn" data-kind="cosmetic">Cosmetics</button>
+          </div>
+          <div class="grid" id="shop-grid">
+            <div style="color:var(--muted); font-size:13px;">Loading shop items...</div>
+          </div>
+        </div>
+
+        <aside class="inventory">
+          <h2>Inventory <span id="inv-count" style="color:var(--muted);font-weight:400;font-size:12px;">0 items</span></h2>
+          <div class="inv-list" id="inv-list">
+            <div class="inv-empty">Loading inventory...</div>
+          </div>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <div id="mon-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="mon-modal-title">Apply Item</h3>
+        <button class="modal-close" id="btn-modal-close" aria-label="Close">×</button>
+      </div>
+      <div id="mon-list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, toast, setText } from '/assets/js/api.js';
+    import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
+
+    let state = {
+      items: [],
+      inventory: [],
+      credits: 0,
+      filter: 'all',
+      roster: null,
+      applyingItemId: null
+    };
+
+    let currentPage = 1;
+    const PER_PAGE = 9;
+
+    const KIND_COLORS = {
+      consumable: '#3b82f6',
+      evolve: '#8b5cf6',
+      building_placement: '#10b981',
+      cosmetic: '#f59e0b',
+      xp_mult: '#f97316'
+    };
+    
+    const KIND_LABELS = {
+      consumable: 'Consumable',
+      evolve: 'Evolution',
+      building_placement: 'Building',
+      cosmetic: 'Cosmetic',
+      xp_mult: 'Booster'
+    };
+
+    (async () => {
+      await requireLogin();
+      renderNav(document.getElementById('app-nav'), 'shop');
+      
+      document.getElementById('shop-filters').addEventListener('click', (e) => {
+        if (e.target.classList.contains('filter-btn')) {
+          document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          e.target.classList.add('active');
+          state.filter = e.target.dataset.kind;
+          renderGrid();
+        }
+      });
+
+      document.getElementById('btn-modal-close').addEventListener('click', closeModal);
+      document.getElementById('mon-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'mon-modal') closeModal();
+      });
+
+      await load();
+    })().catch((err) => { console.error(err); toast(err.message || 'boot failed', { error: true }); });
+
+    async function load() {
+      try {
+        const res = await api.get('/api/shop');
+        state.items = res.items || [];
+        state.inventory = res.inventory || [];
+        state.credits = res.credits || 0;
+        
+        setText('bal-credits-n', state.credits);
+        renderGrid();
+        renderInventory();
+      } catch (err) {
+        toast(err.message || 'load failed', { error: true });
+        document.getElementById('shop-grid').innerHTML = `<div style="color:var(--battle);">Failed to load shop.</div>`;
+        document.getElementById('inv-list').innerHTML = `<div class="inv-empty">Failed to load.</div>`;
+      }
+    }
+
+    
+    function renderPagination(total, page, setPageFnStr) {
+      if (total <= PER_PAGE) return '';
+      const totalPages = Math.ceil(total / PER_PAGE);
+      let phtml = `<div class="pagination">
+        <div class="page-info">Showing ${(page-1)*PER_PAGE + 1}-${Math.min(page*PER_PAGE, total)} of ${total}</div>
+        <button ${page === 1 ? 'disabled' : ''} onclick="${setPageFnStr}(${page-1})">← Prev</button>
+      `;
+      for(let i=1; i<=totalPages; i++) {
+        phtml += `<button class="${i === page ? 'active' : ''}" onclick="${setPageFnStr}(${i})">${i}</button>`;
+      }
+      phtml += `<button ${page === totalPages ? 'disabled' : ''} onclick="${setPageFnStr}(${page+1})">Next →</button></div>`;
+      return phtml;
+    }
+
+    window.setPage = function(p) { currentPage = p; renderGrid(); };
+
+    function renderGrid() {
+      const grid = document.getElementById('shop-grid');
+      let filtered = state.items;
+      
+      if (state.filter !== 'all') {
+        filtered = state.items.filter(i => {
+          if (state.filter === 'consumable') return i.kind === 'consumable' || i.kind === 'xp_mult';
+          return i.kind === state.filter;
+        });
+      }
+      
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div style="grid-column:1/-1; padding:40px; text-align:center; color:var(--muted); border:1px dashed var(--hairline);">No items found.</div>`;
+        return;
+      }
+      
+      const startIdx = (currentPage - 1) * PER_PAGE;
+      const paginated = filtered.slice(startIdx, startIdx + PER_PAGE);
+
+      grid.innerHTML = paginated.map(item => {
+        const invItem = state.inventory.find(inv => inv.itemId === item.id);
+        const ownedQty = invItem ? invItem.qty : 0;
+        const color = KIND_COLORS[item.kind] || '#888';
+        const label = KIND_LABELS[item.kind] || item.kind;
+        const canAfford = state.credits >= item.priceCredits;
+        
+        let extraBuyDesc = '';
+        if (item.kind === 'building_placement') extraBuyDesc = '<div style="font-size:10px; color:var(--muted); margin-bottom:8px; font-style:italic;">Auto-placed at your Training Ground on purchase.</div>';
+        if (item.kind === 'evolve') extraBuyDesc = '<div style="font-size:10px; color:var(--muted); margin-bottom:8px; font-style:italic;">Use from Roster page to digivolve a Digimon.</div>';
+        
+        const isQtyItem = (item.kind === 'consumable' || item.kind === 'evolve' || item.kind === 'xp_mult');
+        
+        let actionHtml = '';
+        if (isQtyItem) {
+          actionHtml = `
+            <div class="buy-actions">
+              <input type="number" id="qty-${escape(item.id)}" class="qty-input" value="1" min="1" max="99" ${canAfford ? '' : 'disabled'}>
+              <button class="btn btn--sm" style="flex:1" onclick="window.buyItem('${escape(item.id)}', true)" ${canAfford ? '' : 'disabled'} title="${canAfford ? '' : 'Insufficient credits'}">Buy</button>
+            </div>
+          `;
+        } else {
+          actionHtml = `<button class="btn btn--sm" style="width:100%" onclick="window.buyItem('${escape(item.id)}')"${canAfford ? '' : 'disabled'}>Buy (x1)</button>`;
+        }
+
+        return `
+          <div class="card">
+            <div class="icon-slot">${escape(item.icon)}</div>
+            <div class="badge-row">
+              <span style="font-size:10px;font-weight:600;text-transform:uppercase;color:${color};border:1px solid ${color};padding:2px 6px;border-radius:4px;">${label}</span>
+            </div>
+            <div class="name">${escape(item.name)}</div>
+            <div class="desc">${escape(item.desc)}</div>
+            <div class="price-row">
+              <div class="price">${item.priceCredits} <small>cr</small></div>
+            </div>
+            ${extraBuyDesc}
+            ${actionHtml}
+            ${ownedQty > 0 ? `<div class="owned">Owned: ${ownedQty}</div>` : ''}
+          </div>
+        `;
+      }).join('') + renderPagination(filtered.length, currentPage, 'window.setPage');
+    }
+
+    function renderInventory() {
+      const list = document.getElementById('inv-list');
+      const countEl = document.getElementById('inv-count');
+      
+      const totalCount = state.inventory.reduce((acc, curr) => acc + curr.qty, 0);
+      setText('inv-count', `${totalCount} item${totalCount !== 1 ? 's' : ''}`);
+      
+      if (state.inventory.length === 0) {
+        list.innerHTML = `<div class="inv-empty">Nothing yet, buy something above.</div>`;
+        return;
+      }
+
+      list.innerHTML = state.inventory.map(inv => {
+        const shopItem = state.items.find(i => i.id === inv.itemId);
+        const kind = shopItem ? shopItem.kind : 'unknown';
+        
+        let actionHtml = '';
+        if (kind === 'consumable') {
+          actionHtml = `<button class="btn btn--sm btn--secondary btn--wide" onclick="window.openApplyModal('${escape(inv.itemId)}')">Apply to a Mon</button>`;
+        } else if (kind === 'xp_mult') {
+          actionHtml = `<button class="btn btn--sm btn--secondary btn--wide" onclick="window.applyItem('${escape(inv.itemId)}')">Activate for next win</button>`;
+        } else if (kind === 'evolve') {
+          actionHtml = `<div class="inv-info">Use from Roster page (click Evolve on a mon)</div>`;
+        } else if (kind === 'cosmetic') {
+          actionHtml = `<div class="inv-info">Equipped by default</div>`;
+        } else {
+          actionHtml = `<div class="inv-info">Cannot be used directly</div>`;
+        }
+        
+        return `
+          <div class="inv-item">
+            <div class="inv-name">
+              <span>${escape(inv.name)}</span>
+              <span class="inv-qty">x${inv.qty}</span>
+            </div>
+            <div class="inv-desc">${escape(inv.description)}</div>
+            <div class="inv-action">
+              ${actionHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.buyItem = async (itemId, useQty) => {
+      let qty = 1;
+      if (useQty) {
+        const input = document.getElementById(`qty-${itemId}`);
+        if (input) qty = parseInt(input.value, 10) || 1;
+      }
+      
+      const item = state.items.find(i => i.id === itemId);
+      if (!item) return;
+      
+      if (item.priceCredits >= 1000 && !useQty) {
+        if (!confirm(`Buy ${item.name} for ${item.priceCredits} credits?`)) return;
+      }
+
+      try {
+        const res = await api.post('/api/shop/buy', { itemId, qty });
+        state.credits = res.credits;
+        
+        if (item.kind === 'building_placement') {
+          toast('Placed! Visit the Training page to assign a Digimon.');
+        } else {
+          toast(`Bought ${qty}x ${item.name}`);
+        }
+        
+        await load(); // Reload everything to get updated inventory and credits
+      } catch (err) {
+        toast(err.message || 'Purchase failed', { error: true });
+      }
+    };
+
+    window.openApplyModal = async (itemId) => {
+      state.applyingItemId = itemId;
+      const inv = state.inventory.find(i => i.itemId === itemId);
+      setText('mon-modal-title', `Apply ${inv ? inv.name : 'Item'}`);
+      
+      document.getElementById('mon-modal').classList.add('show');
+      const listEl = document.getElementById('mon-list');
+      listEl.innerHTML = '<div style="color:var(--muted);">Loading roster...</div>';
+      
+      try {
+        if (!state.roster) {
+          const res = await api.get('/api/roster');
+          state.roster = res.roster || [];
+        }
+        
+        if (state.roster.length === 0) {
+          listEl.innerHTML = '<div style="color:var(--muted);">No Digimon in your roster.</div>';
+          return;
+        }
+        
+        listEl.innerHTML = state.roster.map(m => {
+          const portrait = m.template && m.template.assets && m.template.assets.portrait ? m.template.assets.portrait : '';
+          const stage = m.template ? m.template.stage : '?';
+          return `
+            <div class="mon-option" onclick="window.applyItem('${escape(itemId)}', '${escape(m.id)}')">
+              <img src="${escape(portrait)}" alt="${escape(m.nickname)}" onerror="this.style.opacity=0.15">
+              <div class="info">
+                <div class="name">${escape(m.nickname)}</div>
+                <div class="sub">Lv ${m.level} · ${escape(stage)}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        listEl.innerHTML = `<div style="color:var(--battle);">Failed to load roster.</div>`;
+      }
+    };
+
+    window.applyItem = async (itemId, monId) => {
+      closeModal();
+      try {
+        const payload = { itemId };
+        if (monId) payload.monId = monId;
+        
+        await api.post('/api/shop/apply', payload);
+        toast('Item applied successfully!');
+        await load();
+      } catch (err) {
+        toast(err.message || 'Apply failed', { error: true });
+      }
+    };
+
+    function closeModal() {
+      document.getElementById('mon-modal').classList.remove('show');
+      state.applyingItemId = null;
+    }
+
+    function escape(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+  </script>
+</body>
+</html>
+

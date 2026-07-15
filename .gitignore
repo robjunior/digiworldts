@@ -1,0 +1,44 @@
+# deps
+node_modules/
+pnpm-lock.yaml.bak
+package-lock.json
+yarn.lock
+
+# build
+dist/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.local
+.env.*.local
+
+# data (SQLite + cached scraper artifacts)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/cache/
+!data/catalog/
+
+# assets: keep folder shape but not the downloaded blobs (regenerated on startup)
+public/assets/digimon/*/
+!public/assets/digimon/.keep
+
+# runtime logs
+logs/
+*.log
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# temp
+/tmp/
+tmp/
+.tmp/
+
+# codegraph db (existing)
+.codegraph/

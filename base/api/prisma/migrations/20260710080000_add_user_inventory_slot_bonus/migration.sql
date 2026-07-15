@@ -1,0 +1,14 @@
+-- AlterTable
+-- TASK-281 (R-31b child iv): add the additive `inventorySlotBonus` column to User —
+-- the per-user number of EXTRA distinct-stack inventory slots a player has PURCHASED
+-- on top of the flat INVENTORY_SLOT_CAP base (10). A defaulted (0) NOT NULL INTEGER
+-- column, so every existing row reads 0 (= the flat cap of 10, byte-identical prior
+-- behaviour) and no account's inventory cap changes silently on deploy; the 16 prior
+-- committed migrations stay byte-stable and no released contract breaks (invariant 5).
+-- SQLite supports adding a column with a constant default in place. Buying the
+-- `inventory_slot`-kind shop item increments this INSIDE the existing audited purchase
+-- `$transaction` (invariant 3); the effective cap the write guard + the read display
+-- both enforce is `INVENTORY_SLOT_CAP + inventorySlotBonus`. Domain state, not a
+-- spendable resource — the SPEND that raises it debits DigiCredits + writes the
+-- existing 'purchase' AuditLog row.
+ALTER TABLE "User" ADD COLUMN "inventorySlotBonus" INTEGER NOT NULL DEFAULT 0;

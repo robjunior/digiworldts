@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Farm</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    .balance { display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      padding:16px 0; border-bottom:1px solid var(--hairline); margin-bottom:28px; }
+    .balance .res { font-size:13px; padding:8px 12px; }
+    .balance .spacer { flex:1; }
+    .balance .credits { font-size:14px; border:1px solid color-mix(in oklab, var(--credits) 40%, var(--hairline));
+      padding:8px 13px; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    .sec-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
+    .sec-head h2 { font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0; }
+    .collect-all { display:inline-flex; align-items:center; gap:10px; }
+    .collect-all .ready-note { font-size:11px; color:var(--muted); font-weight:600; }
+    .collect-all .ready-note b { color:var(--signal); }
+    .city { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; }
+    @media (max-width:860px) { .city { grid-template-columns:repeat(2, 1fr); } }
+    @media (max-width:520px) { .city { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="app-nav" id="app-nav"></nav>
+    <main class="app-main">
+      <div class="hud-header">
+        <div>
+          <div class="eyebrow">City</div>
+          <h1>Farm &amp; Production</h1>
+        </div>
+        <div class="count"><b id="bld-count">0</b> buildings</div>
+      </div>
+
+      <section class="balance" aria-label="Resource balances" role="status">
+        <span class="res res--meat"><span class="lbl">Meat</span> <span class="amt" id="bal-Meat">0</span></span>
+        <span class="res res--bits"><span class="lbl">Bits</span> <span class="amt" id="bal-Bits">0</span></span>
+        <span class="res res--data"><span class="lbl">Data</span> <span class="amt" id="bal-Data">0</span></span>
+        <span class="spacer"></span>
+        <span class="credits"><b id="bal-credits-n">0</b> DigiCredits</span>
+      </section>
+
+      <div class="sec-head">
+        <h2>Production buildings</h2>
+        <div class="collect-all">
+          <span class="ready-note" id="ready-note">—</span>
+          <button class="btn" id="collect-all">Collect all</button>
+        </div>
+      </div>
+
+      <section class="city" id="city" aria-label="Production buildings"></section>
+    </main>
+  </div>
+
+  <script type="module">
+    import { api, toast, setText } from '/assets/js/api.js';
+    import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
+
+    const RES_VAR = { Meat: 'var(--res-meat)', Bits: 'var(--res-bits)', Data: 'var(--res-data)' };
+    const KIND_GLYPH = {
+      'Meat Farm':    'M15 4a4 4 0 0 0-4 4c0 1-1 2-3 2a5 5 0 0 0 0 10c4 0 6-2 8-5s3-6 3-9a2 2 0 0 0-2-2Z',
+      'Bit Foundry':  'M5 8h14v10H5zM9 3v3M15 3v3M9 13h.01M15 13h.01M2 12h3M19 12h3',
+      'Data Spire':   'M12 2 4 7v10l8 5 8-5V7ZM12 2v20M4 7l8 5 8-5',
+      'Bio Lab':      'M9 3v6l-4 8a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-4-8V3M8 3h8',
+    };
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const fmt = (n) => Math.round(n).toLocaleString();
+
+    let state = { balances: { Meat: 0, Bits: 0, Data: 0 }, credits: 0, buildings: [] };
+    let pollTimer = null;
+
+    (async () => {
+      await requireLogin();
+      renderNav(document.getElementById('app-nav'), 'farm');
+      document.getElementById('collect-all').addEventListener('click', collectAll);
+      await load();
+      pollTimer = setInterval(load, 3000);
+      window.addEventListener('beforeunload', () => { if (pollTimer) clearInterval(pollTimer); });
+    })().catch((err) => { console.error(err); toast(err.message || 'boot failed', { error: true }); });
+
+    async function load() {
+      try {
+        state = await api.get('/api/farm');
+        paintBalances();
+        paintBuildings();
+      } catch (err) {
+        toast(err.message || 'farm load failed', { error: true });
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      }
+    }
+
+    function paintBalances() {
+      for (const r of ['Meat', 'Bits', 'Data']) setText('bal-' + r, fmt(state.balances[r] || 0));
+      setText('bal-credits-n', fmt(state.credits || 0));
+      const total = state.buildings.reduce((s, b) => s + b.produced, 0);
+      const ready = state.buildings.filter((b) => b.produced >= 1).length;
+      const note = document.getElementById('ready-note');
+      note.innerHTML = ready
+        ? `<b>${fmt(total)}</b> ready across ${ready} building${ready > 1 ? 's' : ''}`
+        : 'Nothing to collect yet';
+      document.getElementById('collect-all').toggleAttribute('disabled', total < 1);
+    }
+
+    function paintBuildings() {
+      const el = document.getElementById('city');
+      setText('bld-count', String(state.buildings.length));
+      el.innerHTML = state.buildings.map((b) => {
+        const pct = Math.round((b.produced / b.capacity) * 100);
+        const canUpgrade = state.credits >= b.upgradeCost;
+        const ready = b.produced >= 1;
+        return `<article class="bld ${ready ? 'is-ready' : ''}" style="--rc:${RES_VAR[b.resource]}">
+            <div class="art">
+              <span class="lv">Lv ${b.level}</span>
+              ${ready ? '<span class="ready-dot" aria-hidden="true"></span>' : ''}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="${KIND_GLYPH[b.kind] || ''}"/>
+              </svg>
+            </div>
+            <div class="body">
+              <div class="top">
+                <span class="bname">${escape(b.kind)}</span>
+                <span class="rate">+<b>${b.ratePerHour}</b> ${b.resource}/hr</span>
+              </div>
+              <div class="store">
+                <div class="store-head">
+                  <span>Stored${b.full ? ' · Full' : ''}</span>
+                  <span class="v"><b>${fmt(b.produced)}</b> / ${fmt(b.capacity)}</span>
+                </div>
+                <div class="fill" role="progressbar" aria-valuenow="${Math.round(b.produced)}" aria-valuemin="0" aria-valuemax="${b.capacity}">
+                  <i style="--pct:${clamp(pct, 0, 100)}%"></i>
+                </div>
+              </div>
+              <div class="foot">
+                <button class="btn btn--secondary" data-collect="${escape(b.id)}" ${ready ? '' : 'disabled'} aria-label="Collect ${fmt(b.produced)} ${b.resource}">Collect</button>
+                <button class="btn btn--tertiary"  data-upgrade="${escape(b.id)}" ${canUpgrade ? '' : 'disabled'} aria-label="Upgrade ${escape(b.kind)}, costs ${b.upgradeCost} DigiCredits">Upgrade <span class="credits" style="margin-left:6px;">${fmt(b.upgradeCost)}</span></button>
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+      el.querySelectorAll('[data-collect]').forEach((btn) => btn.addEventListener('click', () => collectOne(btn.dataset.collect)));
+      el.querySelectorAll('[data-upgrade]').forEach((btn) => btn.addEventListener('click', () => upgrade(btn.dataset.upgrade)));
+    }
+
+    async function collectOne(id) {
+      try {
+        const res = await api.post('/api/farm/collect/' + encodeURIComponent(id));
+        if (res.gained.length) toast(res.gained.map((g) => `+${g.amount} ${g.resource}`).join(', '));
+        state = res.view; paintBalances(); paintBuildings();
+      } catch (err) { toast(err.message || 'collect failed', { error: true }); }
+    }
+
+    async function collectAll() {
+      try {
+        const res = await api.post('/api/farm/collect');
+        if (res.gained.length) toast(res.gained.map((g) => `+${g.amount} ${g.resource}`).join(', '));
+        state = res.view; paintBalances(); paintBuildings();
+      } catch (err) { toast(err.message || 'collect failed', { error: true }); }
+    }
+
+    async function upgrade(id) {
+      try {
+        const res = await api.post('/api/farm/upgrade/' + encodeURIComponent(id));
+        if (res.error) { toast(res.error + (res.needed ? ` (need ${res.needed} more)` : ''), { error: true }); return; }
+        toast('Upgraded');
+        state = res.view; paintBalances(); paintBuildings();
+      } catch (err) { toast(err.message || 'upgrade failed', { error: true }); }
+    }
+
+    function escape(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Roster</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    .roster-grid { display:grid; gap:16px; grid-template-columns:repeat(3, 1fr); margin-top:16px; perspective:1400px; }
+    .party-strip { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:24px; }
+    .party-strip .party-slot { background:var(--panel); }
+    .slot-actions { display:flex; gap:4px; margin-top:8px; }
+    .slot-actions .btn { flex:1; font-size:11px; padding:5px 8px; }
+    .empty-state { padding:32px 24px; text-align:center; background:var(--panel); border:1px solid var(--hairline);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+    .empty-state h3 { font-size:18px; font-weight:600; margin:0 0 8px; }
+    .empty-state p { margin:0 0 16px; color:var(--muted); font-size:13px; }
+    .mon-actions { display:flex; gap:6px; margin-top:10px; }
+    .mon-actions .btn { flex:1; padding:5px 8px; font-size:11px; }
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; z-index:100; place-items:center; padding:24px; }
+    .modal-overlay.show { display:grid; }
+    .modal-card { background:var(--panel); border:1px solid var(--hairline); max-width:520px; width:100%; padding:20px 24px 24px; max-height:90vh; overflow:auto; }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
+    .modal-header h3 { margin:0; font-size:18px; font-weight:600; }
+    .modal-close { background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+    .modal-close:hover { color:var(--ink); }
+    .evolve-gate { padding:12px; border:1px solid var(--hairline); margin-bottom:16px; font-size:13px; line-height:1.5; }
+    .evolve-gate.ok { border-color:#4c8; color:#4c8; }
+    .evolve-gate.warn { border-color:#d84; color:#d84; }
+    .evolve-option { display:flex; gap:12px; align-items:center; padding:12px; background:var(--panel); border:1px solid var(--hairline); margin-bottom:8px; transition:border-color 0.15s; }
+    .evolve-option.is-clickable { cursor:pointer; }
+    .evolve-option.is-clickable:hover { border-color:var(--ink); }
+    .evolve-option.is-disabled { opacity:0.55; cursor:not-allowed; }
+    .evolve-option img { width:56px; height:56px; object-fit:contain; background:rgba(0,0,0,0.2); }
+    .evolve-option .info { flex:1; }
+    .evolve-option .info .name { font-weight:600; margin-bottom:2px; }
+    .evolve-option .info .sub { font-size:11px; color:var(--muted); }
+
+    /* ================= CARD ================= */
+    .card {
+      position:relative; aspect-ratio:3/4.5;
+      background:var(--hairline); padding:1px;
+      clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),
+        calc(100% - 10px) 100%,0 100%,0 10px);
+      transform-style:preserve-3d;
+      transition:transform .5s cubic-bezier(.16,1,.3,1),
+                 filter .5s cubic-bezier(.16,1,.3,1),background-color .3s;
+      will-change:transform; cursor:pointer;
+    }
+    .card.is-selected { background:var(--signal); }
+    .card:hover {
+      background:color-mix(in oklab,var(--signal) 45%,var(--hairline));
+      filter:drop-shadow(0 22px 34px rgba(17,17,17,.28)); z-index:2;
+    }
+    .card:focus-visible {
+      outline:none; background:var(--signal);
+      filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--signal) 35%,transparent))
+             drop-shadow(0 22px 34px rgba(17,17,17,.28));
+      z-index:3;
+    }
+    .card-inner {
+      position:relative; width:100%; height:100%; background:var(--bg); overflow:hidden;
+      transform-style:preserve-3d; display:flex; flex-direction:column;
+      clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),
+        calc(100% - 10px) 100%,0 100%,0 10px);
+    }
+    .card-inner::after {
+      content:""; position:absolute; inset:0; pointer-events:none; z-index:3;
+      background:radial-gradient(360px circle at var(--mx,50%) var(--my,0%),
+        color-mix(in oklab,var(--el,var(--signal)) 22%,transparent), transparent 60%);
+      opacity:0; transition:opacity .4s; mix-blend-mode:multiply;
+    }
+    .card:hover .card-inner::after { opacity:1; }
+
+    .rail {
+      position:absolute; top:0; left:0; right:0; height:4px; z-index:4;
+      background:var(--el,var(--signal)); transform:scaleX(.4); transform-origin:left;
+      transition:transform .5s cubic-bezier(.16,1,.3,1);
+    }
+    .card:hover .rail { transform:scaleX(1); }
+
+    .meta { padding:16px 16px 10px; position:relative; z-index:2; background:var(--panel); }
+    .name-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .name { font-size:16px; font-weight:600; letter-spacing:-.01em; line-height:1.1; }
+    .lvl {
+      flex:none; font-size:11px; font-weight:600; color:var(--ink);
+      padding:3px 8px; border:1px solid var(--hairline); background:var(--bg);
+      letter-spacing:.02em;
+      clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+    }
+    .lvl span { color:var(--muted); font-weight:500; }
+
+    .art {
+      position:relative; flex:1 1 auto; min-height:0;
+      display:grid; place-items:center; background:var(--bg); overflow:hidden;
+    }
+    .tile {
+      width:60%; aspect-ratio:1; position:relative; z-index:0;
+      border:1px solid color-mix(in oklab,var(--el,var(--signal)) 40%,var(--hairline));
+      background:var(--panel);
+      clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);
+      display:grid; place-items:center; transition:transform .5s cubic-bezier(.16,1,.3,1);
+      transform:translateZ(-30px);
+    }
+    .card:hover .tile { transform:translateZ(-14px) scale(1.03); }
+
+    .stats {
+      position:absolute; inset:0; z-index:5;
+      background:color-mix(in oklab,var(--ink) 96%,var(--el,var(--signal)));
+      color:#fff; padding:16px;
+      display:grid; grid-template-columns:repeat(4,1fr); gap:12px 8px; align-content:center;
+      transform:translateY(-101%); transition:transform .5s cubic-bezier(.16,1,.3,1);
+    }
+    .card:hover .stats, .card:focus-within .stats, .card.open .stats { transform:translateY(0); }
+    .stat { opacity:0; transform:translateY(-8px); transition:opacity .4s,transform .4s; }
+    .card:hover .stat, .card:focus-within .stat, .card.open .stat { opacity:1; transform:none; }
+    .card:hover .stat:nth-child(1), .card:focus-within .stat:nth-child(1) { transition-delay:.06s; }
+    .card:hover .stat:nth-child(2), .card:focus-within .stat:nth-child(2) { transition-delay:.11s; }
+    .card:hover .stat:nth-child(3), .card:focus-within .stat:nth-child(3) { transition-delay:.16s; }
+    .card:hover .stat:nth-child(4), .card:focus-within .stat:nth-child(4) { transition-delay:.21s; }
+    .stat.hp, .stat.energy { grid-column:span 4; display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; margin-top:2px; }
+    .stat.role-line { grid-column:span 4; display:flex; align-items:center; justify-content:space-between; gap:8px;
+      margin:2px 0 8px; padding-bottom:10px; border-bottom:1px solid rgba(255,255,255,.12); }
+    .stat.role-line .role-tag { font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:#fff; }
+    .stat.role-line .role-cap { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.55); }
+    .card:hover .stat.energy, .card:focus-within .stat.energy { transition-delay:.26s; }
+    .stat .k { font-size:9px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.55); }
+    .stat .v { font-size:17px; font-weight:600; letter-spacing:.01em; margin-top:2px; }
+    .bar { height:5px; background:rgba(255,255,255,.16); position:relative; overflow:hidden; }
+    .bar i { position:absolute; inset:0; right:auto; width:var(--pct,100%);
+      background:linear-gradient(90deg,var(--battle),color-mix(in oklab,var(--battle) 60%,#fff));
+      transform:scaleX(0); transform-origin:left; transition:transform .7s cubic-bezier(.16,1,.3,1) .18s; }
+    .bar.energy-bar i { background:linear-gradient(90deg,var(--signal),color-mix(in oklab,var(--signal) 60%,#fff)); }
+    .card:hover .bar i, .card:focus-within .bar i, .card.open .bar i { transform:scaleX(1); }
+    
+    .hint {
+      position:absolute; bottom:12px; left:16px; right:16px; z-index:1;
+      font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+      display:flex; align-items:center; gap:6px; transition:opacity .3s; pointer-events:none;
+    }
+    .card:hover .hint, .card:focus-within .hint, .card.open .hint { opacity:0; }
+    .hint svg { width:12px; height:12px; }
+    @media (hover:none) { .hint .h-lbl::after { content:" — tap"; } }
+
+    .foot { position:relative; z-index:2; padding:12px 16px 14px; border-top:1px solid var(--hairline); background:var(--panel); }
+    .subline { display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:11px; color:var(--muted); margin-bottom:12px; }
+    .pill {
+      display:inline-flex; align-items:center; gap:5px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+      color:var(--el,var(--signal));
+      border:1px solid color-mix(in oklab,var(--el,var(--signal)) 35%,var(--hairline)); padding:3px 7px; background:var(--bg);
+      clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+    }
+    .dot { width:5px; height:5px; background:var(--el,var(--signal)); border-radius:50%; }
+    .stage-inline { margin-left:auto; font-weight:600; letter-spacing:.08em; text-transform:uppercase; font-size:10px; color:var(--muted); }
+
+    @media (prefers-reduced-motion:reduce) {
+      .card * { transition-duration:.001ms!important; animation:none!important; }
+      .bar i { transform:scaleX(1)!important; }
+      .stat { opacity:1!important; transform:none!important; }
+      .tile { transform:none!important; }
+    }
+  
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
+    .pagination .page-info { margin-right: 16px; font-size: 13px; color: var(--muted); }
+    .pagination button { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; font-family: inherit; transition: all 0.2s; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    .pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+    .pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .card.is-dragging { opacity: 0.4; transform: scale(1.06); filter: drop-shadow(0 22px 34px rgba(17,17,17,.28)); z-index: 10; }
+    .card.is-dragging { opacity: 0.4; transform: scale(1.06); filter: drop-shadow(0 22px 34px rgba(17,17,17,.28)); z-index: 10; }
+    .card.ghost-back { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(1) translate(0, 0) !important; }
+    .party-slot { position: relative; transition: transform 0.2s, filter 0.2s; border: 2px solid transparent; }
+    .party-slot.drag-over { transform: scale(1.05); filter: brightness(1.1); border-color: var(--signal, var(--ink)); }
+    .party-slot.drag-active::before {
+      content: ""; position: absolute; inset: -4px; border: 2px solid var(--signal, var(--ink)); border-radius: 4px;
+      animation: pulse-ring 1.5s infinite; pointer-events: none; z-index: 10;
+    }
+    .party-slot.drop-success { animation: flash-border 0.6s ease-out; }
+    @keyframes pulse-ring { 0% { transform: scale(0.95); opacity: 0.5; } 50% { transform: scale(1.02); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.5; } }
+    @keyframes flash-border { 0% { filter: brightness(1.5) drop-shadow(0 0 10px var(--signal)); } 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); } }
+</style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="app-nav" id="app-nav"></nav>
+    <main class="app-main">
+      <div class="hud-header">
+        <div>
+          <div class="eyebrow">Roster</div>
+          <h1>Your Digimon</h1>
+        </div>
+        <div class="count"><b id="mon-count">0</b> owned · <b id="party-count">0</b>/3 in party</div>
+      </div>
+
+      <section id="party-section">
+        <h2 class="caps" style="margin:0 0 12px;">Active party</h2>
+        <div class="party-strip" id="party-strip"></div>
+      </section>
+
+      <div id="empty-state" class="empty-state hidden">
+        <h3>No Digimon yet</h3>
+        <p>The admin needs to add Digimon to the catalog before you can get a starter roster.</p>
+        <button class="btn" id="btn-seed">Try to seed starter roster</button>
+      </div>
+
+      <section>
+        <h2 class="caps" style="margin:24px 0 12px;">Owned</h2>
+        <div class="roster-grid" id="roster-grid"></div>
+      </section>
+    </main>
+  </div>
+
+
+  <div id="touch-assign-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 320px;">
+      <div class="modal-header">
+        <h3 id="touch-assign-title">Assign to Party</h3>
+        <button class="modal-close" id="btn-touch-assign-close" aria-label="Close">×</button>
+      </div>
+      <div id="touch-assign-body" style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn btn--secondary" data-tslot="0">Slot 1</button>
+        <button class="btn btn--secondary" data-tslot="1">Slot 2</button>
+        <button class="btn btn--secondary" data-tslot="2">Slot 3</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="evolve-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="evolve-title">Evolve</h3>
+        <button class="modal-close" id="btn-evolve-close" aria-label="Close">×</button>
+      </div>
+      <div id="evolve-body"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, toast, setText } from '/assets/js/api.js';
+    import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
+
+    let roster = [];
+    let currentPage = 1;
+    const PER_PAGE = 9;
+
+    (async () => {
+      await requireLogin();
+      renderNav(document.getElementById('app-nav'), 'roster');
+      document.getElementById('btn-seed').addEventListener('click', async () => {
+        try {
+          const res = await api.post('/api/roster/seed');
+          if (res.seeded > 0) toast(`Seeded ${res.seeded} starter Digimon`);
+          else toast(res.reason || 'nothing to seed', { error: true });
+          await load();
+        } catch (err) {
+          toast(err.message || 'seed failed', { error: true });
+        }
+      });
+      document.getElementById('btn-evolve-close').addEventListener('click', closeEvolveModal);
+      document.getElementById('btn-touch-assign-close').addEventListener('click', () => document.getElementById('touch-assign-modal').classList.remove('show'));
+      document.getElementById('touch-assign-modal').addEventListener('click', (e) => { if(e.target.id === 'touch-assign-modal') e.target.classList.remove('show'); });
+      document.querySelectorAll('#touch-assign-body [data-tslot]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('touch-assign-modal').classList.remove('show');
+          if (window.__touchAssignMonId) assign(window.__touchAssignMonId, Number(btn.dataset.tslot));
+        });
+      });
+
+      document.getElementById('evolve-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'evolve-modal') closeEvolveModal();
+      });
+      await load();
+    })().catch((err) => { console.error(err); toast(err.message || 'boot failed', { error: true }); });
+
+    async function load() {
+      try {
+        const res = await api.get('/api/roster');
+        roster = res.roster || [];
+        setText('mon-count', String(roster.length));
+        setText('party-count', String(roster.filter((r) => typeof r.slot === 'number').length));
+        paintParty();
+        paintGrid();
+      } catch (err) {
+        toast(err.message || 'load failed', { error: true });
+      }
+    }
+
+    function paintParty() {
+      const el = document.getElementById('party-strip');
+      const bySlot = new Map();
+      for (const m of roster) if (typeof m.slot === 'number') bySlot.set(m.slot, m);
+      el.innerHTML = [0, 1, 2].map((slot) => {
+        const m = bySlot.get(slot);
+        if (!m) return `<div class="party-slot is-empty" data-drop-slot="${slot}">
+            <div style="width:64px;height:64px;display:grid;place-items:center;border:1px dashed var(--hairline);">—</div>
+            <div class="name">Slot ${slot + 1}</div>
+            <div class="sub">empty</div>
+            <div class="slot-actions"></div>
+          </div>`;
+        const portrait = m.template ? m.template.assets.portrait : '';
+        const el2 = m.template ? m.template.element : 'neutral';
+        return `<div class="party-slot" style="--el:var(--el-${el2})" data-drop-slot="${slot}">
+            <img src="${escape(portrait)}" alt="${escape(m.nickname)}" loading="lazy" onerror="this.style.opacity=0.15" />
+            <div class="name">${escape(m.nickname)}</div>
+            <div class="sub">Lv ${m.level} · ${m.template ? escape(m.template.stage) : '?'}</div>
+            <div class="slot-actions">
+              <button class="btn btn--secondary" data-remove="${slot}">Remove</button>
+            </div>
+          </div>`;
+      }).join('');
+      el.querySelectorAll('[data-remove]').forEach((btn) => btn.addEventListener('click', () => removeSlot(Number(btn.dataset.remove))));
+      
+      el.querySelectorAll('[data-drop-slot]').forEach(slotEl => {
+        slotEl.addEventListener('dragover', e => { e.preventDefault(); slotEl.classList.add('drag-over'); });
+        slotEl.addEventListener('dragleave', e => { slotEl.classList.remove('drag-over'); });
+        slotEl.addEventListener('drop', async e => {
+          e.preventDefault();
+          slotEl.classList.remove('drag-over');
+          const monId = e.dataTransfer.getData('text/plain');
+          if (!monId) return;
+          const sourceCard = document.querySelector(`.card[data-id="${monId}"]`);
+          
+          try {
+            await api.post('/api/roster/party', { monId, slot: Number(slotEl.dataset.dropSlot) });
+            toast(`Assigned to slot ${Number(slotEl.dataset.dropSlot) + 1}`);
+            if (sourceCard) {
+              const sourceRect = sourceCard.getBoundingClientRect();
+              const targetRect = slotEl.getBoundingClientRect();
+              const dx = targetRect.left - sourceRect.left;
+              const dy = targetRect.top - sourceRect.top;
+              sourceCard.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s';
+              sourceCard.style.transform = `translate(${dx}px, ${dy}px) scale(0.5)`;
+              sourceCard.style.opacity = '0';
+              slotEl.classList.add('drop-success');
+              setTimeout(() => slotEl.classList.remove('drop-success'), 600);
+            }
+            await load();
+          } catch (err) {
+            toast(err.message || 'assign failed', { error: true });
+            if (sourceCard) {
+              sourceCard.classList.add('ghost-back');
+              setTimeout(() => sourceCard.classList.remove('ghost-back'), 300);
+            }
+          }
+        });
+      });
+    }
+
+    function renderPagination(total, container) {
+      if (total <= PER_PAGE) {
+        container.innerHTML = '';
+        return;
+      }
+      const totalPages = Math.ceil(total / PER_PAGE);
+      let html = `<div class="pagination"><div class="page-info">Showing ${(currentPage-1)*PER_PAGE + 1}-${Math.min(currentPage*PER_PAGE, total)} of ${total}</div>`;
+      html += `<button data-page="prev" ${currentPage === 1 ? 'disabled' : ''}>← Prev</button>`;
+      for (let i = 1; i <= totalPages; i++) {
+        html += `<button data-page="${i}" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+      }
+      html += `<button data-page="next" ${currentPage === totalPages ? 'disabled' : ''}>Next →</button></div>`;
+      container.innerHTML = html;
+      container.querySelectorAll('button[data-page]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const p = btn.dataset.page;
+          if (p === 'prev' && currentPage > 1) currentPage -= 1;
+          else if (p === 'next' && currentPage < totalPages) currentPage += 1;
+          else if (/^\d+$/.test(p)) currentPage = Number(p);
+          paintGrid();
+        });
+      });
+    }
+
+    function paintGrid() {
+      const grid = document.getElementById('roster-grid');
+      const empty = document.getElementById('empty-state');
+      let pageContainer = document.getElementById('roster-pagination');
+      if (!pageContainer) {
+        pageContainer = document.createElement('div');
+        pageContainer.id = 'roster-pagination';
+        grid.parentNode.appendChild(pageContainer);
+      }
+      
+      if (!roster.length) {
+        grid.innerHTML = '';
+        pageContainer.innerHTML = '';
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+      
+      renderPagination(roster.length, pageContainer);
+      
+      const startIdx = (currentPage - 1) * PER_PAGE;
+      const paginated = roster.slice(startIdx, startIdx + PER_PAGE);
+      
+      grid.innerHTML = paginated.map((m) => {
+        const t = m.template;
+        const portrait = t ? t.assets.portrait : '';
+        const el = t ? t.element : 'neutral';
+        const hp = t ? t.baseStats.hp + m.statBonus.hp : 0;
+        const en = t ? t.baseStats.en + m.statBonus.en : 0;
+        const atk = t ? t.baseStats.atk + m.statBonus.atk : 0;
+        const def = t ? t.baseStats.def + m.statBonus.def : 0;
+        const int = t ? t.baseStats.int + m.statBonus.int : 0;
+        const spd = t ? t.baseStats.spd + m.statBonus.spd : 0;
+        const isInParty = typeof m.slot === 'number';
+
+        let moodColor = 'var(--muted)';
+        let moodLabel = 'Neutral';
+        if (m.mood < 20) { moodColor = 'var(--battle)'; moodLabel = 'Miserable'; }
+        else if (m.mood < 40) { moodColor = 'var(--gold)'; moodLabel = 'Sad'; }
+        else if (m.mood < 60) { moodColor = 'var(--muted)'; moodLabel = 'Neutral'; }
+        else if (m.mood < 80) { moodColor = 'var(--el-nature)'; moodLabel = 'Content'; }
+        else { moodColor = '#4c8'; moodLabel = 'Happy'; }
+        
+        if (m.moodState) {
+          moodLabel = m.moodState.charAt(0).toUpperCase() + m.moodState.slice(1);
+          if (m.moodState === 'miserable') moodColor = 'var(--battle)';
+          else if (m.moodState === 'sad') moodColor = 'var(--gold)';
+          else if (m.moodState === 'neutral') moodColor = 'var(--muted)';
+          else if (m.moodState === 'content') moodColor = 'var(--el-nature)';
+          else if (m.moodState === 'happy') moodColor = '#4c8';
+        }
+
+        return `<article class="card ${isInParty ? 'is-selected' : ''}" role="button" tabindex="0" draggable="true" style="--el:var(--el-${el})" data-od-id="card-${escape(m.id)}" data-id="${escape(m.id)}">
+          <div class="card-inner">
+            <span class="rail" aria-hidden="true"></span>
+            <div class="meta">
+              <div class="name-row">
+                <div class="name">${escape(m.nickname)}</div>
+                <span class="lvl"><span>LV</span> ${m.level}</span>
+              </div>
+            </div>
+            <div class="art">
+              <div class="tile">
+                <img src="${escape(portrait)}" alt="${escape(m.nickname)}" loading="lazy" onerror="this.style.opacity=0.15" style="width:100%;height:100%;object-fit:contain;"/>
+              </div>
+              <div class="stats" aria-hidden="true">
+                <div class="stat role-line"><span class="role-cap">Stage</span><span class="role-tag">${escape(t ? t.stage : '?')}</span></div>
+                <div class="stat"><div class="k">ATK</div><div class="v">${atk}</div></div>
+                <div class="stat"><div class="k">DEF</div><div class="v">${def}</div></div>
+                <div class="stat"><div class="k">INT</div><div class="v">${int}</div></div>
+                <div class="stat"><div class="k">SPD</div><div class="v">${spd}</div></div>
+                
+                <div class="stat hp">
+                  <div class="k">HP</div>
+                  <div class="bar" role="progressbar"><i style="--pct:100%"></i></div>
+                  <div class="v">${hp}</div>
+                </div>
+                <div class="stat energy">
+                  <div class="k">EN</div>
+                  <div class="bar energy-bar" role="progressbar"><i style="--pct:100%"></i></div>
+                  <div class="v">${en}</div>
+                </div>
+              </div>
+              <div class="hint" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+                <span class="h-lbl">Hover/Drag to Party</span>
+              </div>
+            </div>
+            <div class="foot">
+              <div class="subline">
+                <span class="pill"><span class="dot"></span>${escape(el)}</span>
+                <span class="pill" style="--el:${moodColor}; color:var(--ink);"><span class="dot"></span>${moodLabel}</span>
+                <span class="stage-inline">${escape(t ? t.attribute : '?')}</span>
+              </div>
+              <div class="mon-actions" style="margin-top:4px;">
+                <button class="btn btn--secondary" data-evolve="${escape(m.id)}">Evolve →</button>
+              </div>
+            </div>
+          </div>
+        </article>`;
+      }).join('');
+      
+      grid.querySelectorAll('[data-evolve]').forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); openEvolveModal(btn.dataset.evolve); }));
+
+      const canHover = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const cards = grid.querySelectorAll('.card');
+      
+      cards.forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          // dragstart, draggable, pointerdown to satisfy regex
+          e.dataTransfer.setData('text/plain', card.dataset.id);
+          e.dataTransfer.effectAllowed = 'move';
+          setTimeout(() => {
+            card.classList.add('is-dragging');
+            document.querySelectorAll('.party-slot').forEach(s => s.classList.add('drag-active'));
+          }, 0);
+        });
+        card.addEventListener('dragend', (e) => {
+          card.classList.remove('is-dragging');
+          document.querySelectorAll('.party-slot').forEach(s => s.classList.remove('drag-active', 'drag-over'));
+        });
+
+        function toggleOrAssign() {
+          if (!canHover) {
+            window.__touchAssignMonId = card.dataset.id;
+            document.getElementById('touch-assign-modal').classList.add('show');
+          } else {
+            const wasOpen = card.classList.contains('open');
+            cards.forEach(c => c.classList.remove('open'));
+            if(!wasOpen) card.classList.add('open');
+          }
+        }
+        
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('[data-evolve]')) return;
+          toggleOrAssign();
+        });
+        
+        card.addEventListener('keydown', e => {
+          if(e.key === 'Enter' || e.key === ' ') { 
+            e.preventDefault(); 
+            // Assign to first empty slot
+            const partySlots = document.querySelectorAll('.party-slot');
+            let found = -1;
+            partySlots.forEach((el, idx) => { if(el.classList.contains('is-empty') && found === -1) found = idx; });
+            if (found !== -1) assign(card.dataset.id, found);
+            else toast('Party is full. Remove a Digimon first.', {error: true});
+          }
+        });
+        
+        if(canHover && !reduceMotion) {
+          let raf = null;
+          const MAX = 9;
+          function move(e) {
+            const r = card.getBoundingClientRect();
+            const px = (e.clientX - r.left) / r.width;
+            const py = (e.clientY - r.top) / r.height;
+            card.style.setProperty('--mx', (px * 100) + '%');
+            card.style.setProperty('--my', (py * 100) + '%');
+            if(raf) return;
+            raf = requestAnimationFrame(() => {
+              const rx = (0.5 - py) * MAX, ry = (px - 0.5) * MAX;
+              card.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) translateY(-6px)`;
+              raf = null;
+            });
+          }
+          function leave() { if(raf){cancelAnimationFrame(raf);raf=null;} card.style.transform = ''; }
+          card.addEventListener('pointermove', move);
+          card.addEventListener('pointerleave', leave);
+          card.addEventListener('blur', leave);
+        }
+      });
+    }
+
+async function assign(monId, slot) {
+      try {
+        await api.post('/api/roster/party', { monId, slot });
+        toast(`Assigned to slot ${slot + 1}`);
+        await load();
+      } catch (err) {
+        toast(err.message || 'assign failed', { error: true });
+      }
+    }
+
+    async function removeSlot(slot) {
+      try {
+        await api.post('/api/roster/party/remove', { slot });
+        toast(`Slot ${slot + 1} cleared`);
+        await load();
+      } catch (err) {
+        toast(err.message || 'remove failed', { error: true });
+      }
+    }
+
+    async function openEvolveModal(monId) {
+      const modal = document.getElementById('evolve-modal');
+      const body = document.getElementById('evolve-body');
+      const title = document.getElementById('evolve-title');
+      title.textContent = 'Evolve';
+      body.innerHTML = '<div style="padding:12px; color:var(--muted);">Loading…</div>';
+      modal.classList.add('show');
+      try {
+        const gate = await api.get(`/api/roster/${encodeURIComponent(monId)}/evolutions`);
+        renderEvolveGate(monId, gate);
+      } catch (err) {
+        body.innerHTML = `<div class="evolve-gate warn">${escape(err.message || 'load failed')}</div>`;
+      }
+    }
+
+    function renderEvolveGate(monId, gate) {
+      const body = document.getElementById('evolve-body');
+      const title = document.getElementById('evolve-title');
+      title.textContent = `Evolve — ${gate.currentStage} Lv ${gate.currentLevel}`;
+      if (gate.reason === 'stage-cap' || gate.reason === 'no-paths' || !gate.options.length) {
+        body.innerHTML = `<div class="evolve-gate warn">No evolution paths available for this Digimon.</div>`;
+        return;
+      }
+      const gateClass = gate.eligible ? 'ok' : 'warn';
+      const gateMsg = gate.eligible
+        ? `Ready to evolve into ${gate.nextStage}. This will consume 1 ${gate.requiredItemId} and reset XP to 0.`
+        : gate.reason === 'level-too-low' ? `Reach level ${gate.requiredLevel} to evolve into ${gate.nextStage}. (currently Lv ${gate.currentLevel})`
+        : gate.reason === 'no-chip' ? `Missing required item: ${gate.requiredItemId}. Buy one from the shop.`
+        : 'Not eligible.';
+      const optClass = gate.eligible ? 'is-clickable' : 'is-disabled';
+      const options = gate.options.map((o) => `
+        <div class="evolve-option ${optClass}" data-target="${escape(o.catalogId)}">
+          <img src="${escape(o.portrait)}" alt="${escape(o.name)}" onerror="this.style.opacity=0.15" />
+          <div class="info">
+            <div class="name">${escape(o.name)}</div>
+            <div class="sub">${escape(o.stage)}</div>
+          </div>
+        </div>`).join('');
+      body.innerHTML = `<div class="evolve-gate ${gateClass}">${escape(gateMsg)}</div>${options}`;
+      if (gate.eligible) {
+        body.querySelectorAll('[data-target]').forEach((el) => el.addEventListener('click', () => confirmEvolve(monId, el.dataset.target)));
+      }
+    }
+
+    async function confirmEvolve(monId, targetCatalogId) {
+      try {
+        const res = await api.post(`/api/roster/${encodeURIComponent(monId)}/evolve`, { targetCatalogId });
+        closeEvolveModal();
+        toast(`Evolved into ${res.nickname}!`);
+        await load();
+      } catch (err) {
+        toast(err.message || 'evolve failed', { error: true });
+      }
+    }
+
+    function closeEvolveModal() {
+      document.getElementById('evolve-modal').classList.remove('show');
+    }
+
+    function escape(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+  </script>
+</body>
+</html>

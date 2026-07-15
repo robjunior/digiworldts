@@ -1,0 +1,103 @@
+# ============================================================================
+# DigiWorld — multi-node deployment stack.
+#
+#   ┌─────────┐    :80    ┌───────────┐
+#   │  nginx  │────────▶  │ game-node1 │──┐
+#   │ ip_hash │            └───────────┘  ├──▶ redis:6379
+#   │  upstream            ┌───────────┐  │
+#   │  (both)  ├────────▶  │ game-node2 │──┤
+#   └─────────┘            └───────────┘  ├──▶ postgres:5432
+#                                          │
+#                                          └──▶ (shared volume for XML catalog +
+#                                                    scraped assets)
+#
+# Both game nodes share Redis for cluster state (sessions, presence, chat,
+# matchmaking queue, live battle state) and Postgres for durable data
+# (users, roster, wallet, matches, farm, catalog metadata).
+#
+# `ip_hash` sticky routing keeps a client's WebSocket pinned to a single
+# node for the connection's lifetime; sessions in Redis mean HTTP fallback
+# still works if the client hits the other node.
+#
+# Usage:
+#   docker compose -f docker-compose.multinode.yml up --build
+#   Open http://localhost:8080/
+#
+# The DB refactor to fully drive Postgres is on the roadmap (see README).
+# Today: CLUSTER=redis works out of the box; DATABASE=postgres requires the
+# route-file async refactor to be complete.
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: digiworld
+      POSTGRES_PASSWORD: digiworld
+      POSTGRES_DB: digiworld
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U digiworld']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  game-node1: &game
+    build: .
+    depends_on:
+      redis: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      NODE_ID: game-node1
+      HOST: 0.0.0.0
+      PORT: 3000
+      CLUSTER: redis
+      REDIS_URL: redis://redis:6379
+      DATABASE: sqlite
+      DB_PATH: /data/digiworld.db
+      SESSION_SECRET: change-me-32-char-min-in-production-please
+      ADMIN_BOOTSTRAP: open
+    volumes:
+      - gamedata:/data
+      - ./public/assets/digimon:/app/public/assets/digimon
+      - ./data/catalog:/app/data/catalog
+
+  game-node2:
+    <<: *game
+    environment:
+      NODE_ENV: production
+      NODE_ID: game-node2
+      HOST: 0.0.0.0
+      PORT: 3000
+      CLUSTER: redis
+      REDIS_URL: redis://redis:6379
+      DATABASE: sqlite
+      DB_PATH: /data/digiworld.db
+      SESSION_SECRET: change-me-32-char-min-in-production-please
+      ADMIN_BOOTSTRAP: open
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on: [game-node1, game-node2]
+    ports:
+      - '8080:80'
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  pgdata:
+  redisdata:
+  gamedata:

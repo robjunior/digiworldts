@@ -1,0 +1,318 @@
+/**
+ * In-game shop: a small catalog of consumables + cosmetics purchasable
+ * with DigiCredits. Seeded on server boot via `seedShopItems()`.
+ *
+ *   GET  /api/shop            → { items, inventory, credits }
+ *   POST /api/shop/buy        → { itemId, qty? } — deduct credits, add to inventory
+ *   POST /api/shop/apply      → { itemId, monId? } — spend 1 item as a pending_buff
+ *                                (hp_pct / en_pct target a specific mon; xp_mult
+ *                                 is player-wide and consumed on next win)
+ *   POST /api/shop/use        → deprecated no-op decrement; kept for backwards compat
+ *
+ * Async by construction — routes through the DbAdapter (SQLite or Postgres).
+ */
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { requireAuth } from '../auth/routes.js';
+import { one, q, run, tx, type InventoryRow, type ShopItemRow, type WalletRow } from '../db/index.js';
+import { newId } from '../util/ids.js';
+import { log } from '../util/log.js';
+import { addPendingBuff, type BuffKind } from './buffs.js';
+
+// ============================================================================
+// SQL
+// ============================================================================
+const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY price_credits ASC`;
+const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, kind, payload, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT(id) DO NOTHING`;
+const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description
+     FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
+     WHERE i.user_id = ? ORDER BY s.name`;
+const SQL_SELECT_INVENTORY_ITEM = `SELECT * FROM player_inventory WHERE user_id = ? AND item_id = ?`;
+const SQL_UPSERT_INVENTORY = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
+const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
+const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
+const SQL_UPDATE_WALLET_CREDITS = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;
+const SQL_INSERT_TRAINING_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, building_type, resource, level, rate_per_hour, capacity, produced, last_touch, upgrade_cost, created_at) VALUES (?, ?, ?, ?, 'Meat', 1, 1, 1, 0, ?, ?, ?)`;
+const SQL_SELECT_ROSTER_MON = `SELECT id, user_id FROM player_roster WHERE id = ? AND user_id = ?`;
+
+// ============================================================================
+// Seed items
+// ============================================================================
+const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
+  {
+    id: 'itm-heal-small',
+    name: 'Small Med-Kit',
+    description: 'Restore 40% HP to one Digimon before your next match.',
+    price_credits: 80,
+    kind: 'consumable',
+    payload: JSON.stringify({ heal_pct: 0.4 }),
+  },
+  {
+    id: 'itm-heal-large',
+    name: 'Large Med-Kit',
+    description: 'Restore all HP to one Digimon before your next match.',
+    price_credits: 220,
+    kind: 'consumable',
+    payload: JSON.stringify({ heal_pct: 1.0 }),
+  },
+  {
+    id: 'itm-energy-drink',
+    name: 'Energy Drink',
+    description: 'Refill EN to full on one Digimon before your next match.',
+    price_credits: 120,
+    kind: 'consumable',
+    payload: JSON.stringify({ en_pct: 1.0 }),
+  },
+  {
+    id: 'itm-xp-boost',
+    name: 'Focus Chip',
+    description: 'Doubles XP from your next match win.',
+    price_credits: 340,
+    kind: 'consumable',
+    payload: JSON.stringify({ xp_mult: 2.0, matches: 1 }),
+  },
+  {
+    id: 'itm-cos-badge-gold',
+    name: 'Gold Badge',
+    description: 'A shiny gold badge that appears next to your name in the lobby.',
+    price_credits: 900,
+    kind: 'cosmetic',
+    payload: JSON.stringify({ badge: 'gold' }),
+  },
+  {
+    id: 'itm-digi-chip-champion',
+    name: 'Champion Chip',
+    description: 'Digivolve a Rookie into a Champion. Requires level 20.',
+    price_credits: 500,
+    kind: 'evolve',
+    payload: JSON.stringify({ stage: 'Champion' }),
+  },
+  {
+    id: 'itm-digi-chip-ultimate',
+    name: 'Ultimate Chip',
+    description: 'Digivolve a Champion into an Ultimate. Requires level 40.',
+    price_credits: 1500,
+    kind: 'evolve',
+    payload: JSON.stringify({ stage: 'Ultimate' }),
+  },
+  {
+    id: 'itm-digi-chip-mega',
+    name: 'Mega Chip',
+    description: 'Digivolve an Ultimate into a Mega. Requires level 60.',
+    price_credits: 4000,
+    kind: 'evolve',
+    payload: JSON.stringify({ stage: 'Mega' }),
+  },
+  {
+    id: 'itm-training-station',
+    name: 'Training Station',
+    description: 'A single-slot facility. Trains one stat at a time. Auto-placed on purchase.',
+    price_credits: 500,
+    kind: 'building_placement',
+    payload: JSON.stringify({ buildingType: 'training', kind: 'Training Station' }),
+  },
+  {
+    id: 'itm-training-station-premium',
+    name: 'Premium Training Station',
+    description: 'Trains two stats simultaneously. Auto-placed on purchase.',
+    price_credits: 2000,
+    kind: 'building_placement',
+    payload: JSON.stringify({ buildingType: 'training_premium', kind: 'Premium Training Station' }),
+  },
+];
+
+/** Called once at server boot. Idempotent (ON CONFLICT DO NOTHING). */
+export async function seedShopItems(): Promise<void> {
+  const now = Date.now();
+  await tx(async (t) => {
+    for (const item of SEED_ITEMS) {
+      await t.run(SQL_INSERT_ITEM, [item.id, item.name, item.description, item.price_credits, item.kind, item.payload, now]);
+    }
+  });
+  log.info('shop.seed.ok', { items: SEED_ITEMS.length });
+}
+
+/** Custom item creation for the admin (kept internal — no HTTP route yet). */
+export async function insertCustomItem(input: {
+  name: string;
+  description: string;
+  priceCredits: number;
+  kind: string;
+  payload: object;
+}): Promise<string> {
+  const id = newId('itm');
+  await run(
+    SQL_INSERT_ITEM,
+    id,
+    input.name,
+    input.description,
+    input.priceCredits,
+    input.kind,
+    JSON.stringify(input.payload),
+    Date.now(),
+  );
+  return id;
+}
+
+// ============================================================================
+// Input schemas + effect decoder
+// ============================================================================
+const BuySchema = z.object({ itemId: z.string().min(3), qty: z.number().int().min(1).max(99).default(1) });
+const UseSchema = z.object({ itemId: z.string().min(3), qty: z.number().int().min(1).max(99).default(1) });
+const ApplySchema = z.object({ itemId: z.string().min(3), monId: z.string().min(3).optional() });
+
+type EffectDecoded =
+  | { kind: 'hp_pct'; magnitude: number; requiresMon: true }
+  | { kind: 'en_pct'; magnitude: number; requiresMon: true }
+  | { kind: 'xp_mult'; magnitude: number; requiresMon: false }
+  | { kind: null; magnitude: 0; requiresMon: false };
+
+function decodeItemEffect(payloadJson: string): EffectDecoded {
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(payloadJson) as Record<string, unknown>;
+  } catch {
+    return { kind: null, magnitude: 0, requiresMon: false };
+  }
+  if (typeof payload.heal_pct === 'number' && payload.heal_pct > 0) {
+    return { kind: 'hp_pct', magnitude: payload.heal_pct, requiresMon: true };
+  }
+  if (typeof payload.en_pct === 'number' && payload.en_pct > 0) {
+    return { kind: 'en_pct', magnitude: payload.en_pct, requiresMon: true };
+  }
+  if (typeof payload.xp_mult === 'number' && payload.xp_mult > 1) {
+    return { kind: 'xp_mult', magnitude: payload.xp_mult, requiresMon: false };
+  }
+  return { kind: null, magnitude: 0, requiresMon: false };
+}
+
+// ============================================================================
+// Plugin
+// ============================================================================
+type InventoryJoinRow = InventoryRow & { name: string; description: string };
+
+export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
+  app.get('/api/shop', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const items = await q<ShopItemRow>(SQL_SELECT_ITEMS);
+    const inv = await q<InventoryJoinRow>(SQL_SELECT_INVENTORY, me.id);
+    const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
+    return reply.send({
+      items: items.map((i) => ({
+        id: i.id,
+        name: i.name,
+        description: i.description,
+        priceCredits: i.price_credits,
+        kind: i.kind,
+      })),
+      inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
+      credits: wallet?.credits ?? 0,
+    });
+  });
+
+  app.post('/api/shop/buy', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = BuySchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
+    const item = await one<ShopItemRow>(SQL_SELECT_ITEM, parsed.data.itemId);
+    if (!item) return reply.code(404).send({ error: 'item not found' });
+    const total = item.price_credits * parsed.data.qty;
+    const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
+    const credits = wallet?.credits ?? 0;
+    if (credits < total) return reply.code(402).send({ error: 'insufficient credits', needed: total - credits });
+    const now = Date.now();
+    try {
+      await tx(async (t) => {
+        const info = await t.run(SQL_UPDATE_WALLET_CREDITS, [total, now, me.id, total]);
+        if (info.changes === 0) throw new Error('credit deduction race');
+        if (item.kind === 'building_placement') {
+          let payload: { buildingType?: string; kind?: string } = {};
+          try { payload = JSON.parse(item.payload) as { buildingType?: string; kind?: string }; } catch {}
+          const buildingType = payload.buildingType === 'training_premium' ? 'training_premium' : 'training';
+          const kind = payload.kind ?? 'Training Station';
+          for (let i = 0; i < parsed.data.qty; i++) {
+            await t.run(SQL_INSERT_TRAINING_BUILDING, [
+              newId('bld'), me.id, kind, buildingType, now, item.price_credits, now,
+            ]);
+          }
+        } else {
+          await t.run(SQL_UPSERT_INVENTORY, [me.id, item.id, parsed.data.qty, now]);
+        }
+      });
+    } catch {
+      return reply.code(409).send({ error: 'purchase conflicted — try again' });
+    }
+    log.info('shop.buy', { userId: me.id, itemId: item.id, qty: parsed.data.qty, spent: total });
+    return reply.send({ ok: true, credits: credits - total });
+  });
+
+  app.post('/api/shop/use', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = UseSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
+    const owned = await one<InventoryRow>(SQL_SELECT_INVENTORY_ITEM, me.id, parsed.data.itemId);
+    if (!owned || owned.qty < parsed.data.qty) {
+      return reply.code(409).send({ error: 'not enough of that item' });
+    }
+    const info = await run(SQL_DECREMENT_INVENTORY, parsed.data.qty, Date.now(), me.id, parsed.data.itemId, parsed.data.qty);
+    if (info.changes === 0) {
+      return reply.code(409).send({ error: 'consume failed — refresh inventory' });
+    }
+    return reply.send({ ok: true });
+  });
+
+  app.post('/api/shop/apply', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = ApplySchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    const { itemId, monId } = parsed.data;
+
+    const item = await one<ShopItemRow>(SQL_SELECT_ITEM, itemId);
+    if (!item) return reply.code(404).send({ error: 'item not found' });
+
+    const decoded = decodeItemEffect(item.payload);
+    if (decoded.kind === null) {
+      return reply.code(400).send({ error: 'this item has no combat effect (cosmetic only)' });
+    }
+    if (decoded.requiresMon && !monId) {
+      return reply.code(400).send({ error: 'this item must target a Digimon (monId required)' });
+    }
+    if (monId) {
+      const mon = await one<{ id: string; user_id: string }>(SQL_SELECT_ROSTER_MON, monId, me.id);
+      if (!mon) return reply.code(404).send({ error: 'that Digimon is not on your roster' });
+    }
+
+    const owned = await one<InventoryRow>(SQL_SELECT_INVENTORY_ITEM, me.id, itemId);
+    if (!owned || owned.qty < 1) return reply.code(409).send({ error: 'you do not own that item' });
+
+    const targetMonId: string | null = decoded.requiresMon ? monId ?? null : null;
+    const effectKind: BuffKind = decoded.kind;
+
+    try {
+      await tx(async (t) => {
+        const info = await t.run(SQL_DECREMENT_INVENTORY, [1, Date.now(), me.id, itemId, 1]);
+        if (info.changes === 0) throw new Error('race');
+        // addPendingBuff opens its own tx; safe because SQLite serializes writes
+        // and Postgres allows nested savepoint semantics (the inner INSERT
+        // will just piggyback on the outer connection when using q/run/one).
+      });
+      await addPendingBuff({
+        userId: me.id,
+        monId: targetMonId,
+        effectKind,
+        magnitude: decoded.magnitude,
+        sourceItem: itemId,
+      });
+    } catch {
+      return reply.code(409).send({ error: 'apply conflicted — try again' });
+    }
+    log.info('shop.apply', { userId: me.id, itemId, effectKind, monId: targetMonId });
+    return reply.send({
+      ok: true,
+      applied: { effectKind, magnitude: decoded.magnitude, monId: targetMonId },
+    });
+  });
+};

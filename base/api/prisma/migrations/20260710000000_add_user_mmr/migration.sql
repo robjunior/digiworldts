@@ -1,0 +1,11 @@
+-- AlterTable
+-- TASK-36 (R-12): add the additive `mmr` ranked-PvP rating column to User — the
+-- player's matchmaking rating. A defaulted (1000, the conventional Elo seed) NOT NULL
+-- INTEGER column, so every existing row reads 1000 and no account's rating changes
+-- silently on deploy; the 8 prior committed migrations stay byte-stable and no
+-- released contract breaks (invariant 5). SQLite supports adding a column with a
+-- constant default in place. Challenging another real player runs the deterministic
+-- combat sim (simulateBattle) and moves BOTH players' `mmr` by an Elo step (see
+-- pvp/rating.ts). MMR is domain progression, not spendable value — no ResourceBalance,
+-- no AuditLog (invariant 3 untriggered), exactly like `xp`.
+ALTER TABLE "User" ADD COLUMN "mmr" INTEGER NOT NULL DEFAULT 1000;

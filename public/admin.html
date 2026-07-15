@@ -1,0 +1,1376 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Admin</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr 240px;
+      gap: 20px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .admin-sidebar-left { flex-direction: row; flex-wrap: wrap; overflow-x: auto; margin-bottom: 16px; position: static; }
+      .admin-nav-item { width: auto; flex: none; }
+      .admin-sidebar-right { position: static; display: grid; grid-template-columns: 1fr 1fr; margin-top: 16px; }
+    }
+    .admin-sidebar-left { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 4px; }
+    .admin-nav-item {
+      display: block; width: 100%; text-align: left; background: transparent; border: 1px solid transparent;
+      padding: 10px 14px; font-family: var(--font); font-size: 13px; font-weight: 600; letter-spacing: .02em;
+      color: var(--muted); cursor: pointer;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+    }
+    .admin-nav-item:hover { background: var(--panel); color: var(--ink); }
+    .admin-nav-item.is-active { background: var(--bg); border-color: var(--signal); color: var(--signal); }
+
+    .admin-sidebar-right { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .stat-tile {
+      background: var(--panel); border: 1px solid var(--hairline); padding: 14px 16px;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .stat-tile .lbl { font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+    .stat-tile .val { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+    .stat-refresh-time { font-size: 10px; color: var(--muted); text-align: right; }
+
+    .tab-content { display: none; }
+    .tab-content.is-active { display: block; }
+
+    .admin-section { background:var(--panel); border:1px solid var(--hairline); padding:16px 18px;
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); margin-bottom: 20px; }
+    .admin-section h2 { font-size:12px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; }
+
+    .admin-scroll { max-height:520px; overflow:auto; border:1px solid var(--hairline); background:var(--bg);
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    
+    .badge { display:inline-block; font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+      color:var(--ink); background:var(--panel); border:1px solid var(--hairline); padding:2px 6px;
+      clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px); }
+    .badge.in-catalog { color:var(--el-nature); border-color: color-mix(in oklab, var(--el-nature) 45%, var(--hairline)); }
+    
+    .catalog-list { display:flex; flex-direction:column; gap:8px; }
+    .catalog-row { background:var(--bg); border:1px solid var(--hairline); display:flex; flex-direction:column;
+      clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+    .catalog-row-header { display:flex; align-items:center; gap:12px; padding:8px 12px; cursor:pointer; user-select:none; }
+    .catalog-row-header img { width:48px; height:48px; object-fit:contain; background:var(--panel); border:1px solid color-mix(in oklab, var(--el, var(--signal)) 40%, var(--hairline)); clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); }
+    .catalog-row-header .name { font-size:14px; font-weight:600; flex:1; }
+    .catalog-row-header .chevron { color:var(--muted); transition:transform 0.2s; }
+    .catalog-row.is-expanded .catalog-row-header .chevron { transform:rotate(180deg); }
+    .catalog-row-body { display:none; padding:12px 16px; border-top:1px solid var(--hairline); background:var(--panel); font-size:12px; }
+    .catalog-row.is-expanded .catalog-row-body { display:block; }
+    .catalog-stats { display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+    .catalog-stats div { display:flex; flex-direction:column; gap:2px; }
+    .catalog-stats div b { color:var(--muted); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; }
+    .catalog-stats div span { font-size:14px; font-weight:600; }
+    .catalog-skills { display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:12px; margin-bottom:16px; }
+    .catalog-links { display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+    .catalog-links a { color:var(--signal); text-decoration:underline; }
+    .catalog-row-body .actions { display:flex; gap:8px; }
+    
+    .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    @media (max-width:640px) { .form-grid { grid-template-columns:1fr; } }
+    .skill-editor { background:var(--bg); border:1px solid var(--hairline); padding:10px; margin-bottom:8px;
+      clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+    .skill-editor .row { display:grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap:8px; align-items:end; }
+    .skill-editor .row .field { grid-column:auto; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.75); display:none; z-index:100; place-items:center; padding:24px; }
+    .modal-overlay.show { display:grid; }
+    .modal-card { background:var(--panel); border:1px solid var(--hairline); max-width:640px; width:100%; padding:20px 24px 24px; max-height:90vh; overflow:auto; }
+    .modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
+    .modal-header h3 { margin:0; font-size:18px; font-weight:600; }
+    .modal-close { background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+    .modal-close:hover { color:var(--ink); }
+    .blueprints-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .blueprint-card { background: var(--bg); border: 1px solid var(--hairline); padding: 12px; display: flex; flex-direction: column; gap: 8px; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+    .blueprint-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+    .blueprint-card-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .blueprint-card-body { font-size: 12px; color: var(--muted); }
+    .blueprint-card-stats { display: flex; gap: 12px; font-size: 11px; flex-wrap: wrap; margin-top: 4px; }
+    .blueprint-card-stats span { background: var(--panel); padding: 2px 6px; border: 1px solid var(--hairline); border-radius: 4px; color: var(--ink); }
+    .blueprint-card-actions { display: flex; gap: 8px; margin-top: auto; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <nav class="app-nav" id="app-nav"></nav>
+    <main class="app-main">
+      <div class="admin-layout">
+        
+        <!-- LEFT SIDEBAR -->
+        <div class="admin-sidebar-left">
+          <button class="admin-nav-item" data-tab="overview">Overview</button>
+          <button class="admin-nav-item" data-tab="catalog">Digimon Catalog</button>
+          <button class="admin-nav-item" data-tab="scraped">Scraped List</button>
+          <button class="admin-nav-item" data-tab="blueprints">Building Blueprints</button>
+          <button class="admin-nav-item" data-tab="impex">Import / Export</button>
+          <button class="admin-nav-item" data-tab="skills">Skills Editor</button>
+          <button class="admin-nav-item" data-tab="shop">Edit Shop</button>
+          <button class="admin-nav-item" data-tab="player">Edit Player</button>
+          <button class="admin-nav-item" data-tab="player-mons">Edit Player Digimon</button>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="admin-content">
+          
+          <!-- TAB: Overview -->
+          <div id="tab-overview" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Welcome, <span id="admin-display-name">Admin</span></h1>
+              </div>
+            </div>
+            <section class="admin-section">
+              <h2>Overview</h2>
+              <div class="form-grid" id="overview-tiles">
+                <!-- populated by stats -->
+              </div>
+            </section>
+          </div>
+
+          <!-- TAB: Catalog -->
+          <div id="tab-catalog" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Digimon catalog</h1>
+              </div>
+              <div class="row" style="gap:8px;">
+                <button class="btn btn--secondary" id="btn-add-custom">Add custom entry</button>
+                <span class="pill" id="catalog-count-pill"><span class="dot"></span><span id="catalog-count">0</span> in catalog</span>
+              </div>
+            </div>
+            <section class="admin-section">
+              <h2>Game catalog</h2>
+              <div id="catalog-list" class="catalog-list"></div>
+              <div id="catalog-empty" class="lede hidden" style="font-size:13px;">Catalog is empty. Add entries from the scraped list or create a custom one.</div>
+            </section>
+          </div>
+
+          <!-- TAB: Scraped List -->
+          <div id="tab-scraped" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Scraped list</h1>
+              </div>
+              <div class="row" style="gap:8px;">
+                <button class="btn btn--secondary" id="btn-refresh-scrape">Refresh from skullbot</button>
+              </div>
+            </div>
+            <section class="admin-section">
+              <div class="admin-filter-bar">
+                <label class="field" style="flex:1; min-width:220px;">Search
+                  <input class="input" id="filter-search" type="text" placeholder="e.g. agumon" />
+                </label>
+                <label class="field">Stage
+                  <select class="input" id="filter-stage">
+                    <option value="">Any</option>
+                    <option>Baby</option><option>In-Training</option><option>Rookie</option><option>Champion</option><option>Ultimate</option><option>Mega</option>
+                  </select>
+                </label>
+                <label class="field">Attribute
+                  <select class="input" id="filter-attr">
+                    <option value="">Any</option>
+                    <option>Data</option><option>Vaccine</option><option>Virus</option><option>Free</option><option>Unknown</option>
+                  </select>
+                </label>
+                <button class="btn btn--secondary" id="btn-filter">Filter</button>
+              </div>
+
+              <div class="admin-scroll">
+                <table class="admin-table" id="scraped-table">
+                  <thead>
+                    <tr><th></th><th>ID</th><th>Name</th><th>Stage</th><th>Attribute</th><th>Status</th><th></th></tr>
+                  </thead>
+                  <tbody id="scraped-tbody"></tbody>
+                </table>
+              </div>
+              <div class="row spread" style="margin-top:8px;">
+                <span id="scraped-page-info" class="lede" style="font-size:11px;"></span>
+                <div class="row" style="gap:4px;">
+                  <button class="btn btn--secondary btn--sm" id="btn-prev">Prev</button>
+                  <button class="btn btn--secondary btn--sm" id="btn-next">Next</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <!-- TAB: Blueprints -->
+          <div id="tab-blueprints" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Building Blueprints</h1>
+              </div>
+              <div class="row" style="gap:8px;">
+                <button class="btn" id="btn-create-blueprint">Create Blueprint</button>
+              </div>
+            </div>
+            <section class="admin-section">
+              <div id="blueprints-list" class="blueprints-grid"></div>
+            </section>
+          </div>
+
+          <!-- TAB: Import / Export -->
+          <div id="tab-impex" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Import / Export</h1>
+              </div>
+            </div>
+            
+            <section class="admin-section">
+              <h2>Export admin content</h2>
+              <div class="form-grid" style="margin-bottom: 12px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="exp-items" checked /> Shop items
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="exp-blueprints" checked /> Building blueprints
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="exp-catalog" checked /> Digimon catalog
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer;">
+                  <input type="checkbox" id="exp-scraped" checked /> Scraped list
+                </label>
+              </div>
+              <p class="lede" id="export-summary" style="margin-bottom: 16px;">Will export ...</p>
+              <button class="btn btn--secondary" id="btn-export">Download JSON</button>
+            </section>
+
+            <section class="admin-section" style="border-color: var(--battle, #dc2626);">
+              <h2 style="color: var(--battle, #dc2626);">Import admin content</h2>
+              <div style="background: color-mix(in oklab, var(--battle, #dc2626) 10%, var(--bg)); border: 1px solid color-mix(in oklab, var(--battle, #dc2626) 30%, var(--hairline)); padding: 12px; margin-bottom: 16px; font-size: 12px; line-height: 1.4; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);">
+                <b>Warning:</b> Import uses MERGE semantics: rows with matching IDs are updated in place. New IDs are inserted. Player-owned data (rosters, wallets, inventories) is NEVER modified. Existing farm_buildings referencing modified blueprints keep their current stats.
+              </div>
+              <input type="file" id="import-file" accept=".json" class="input" style="margin-bottom: 12px; width: 100%;" />
+              <p class="lede hidden" id="import-preview" style="margin-bottom: 16px;"></p>
+              <button class="btn btn--danger" id="btn-import" disabled>Apply Import</button>
+              <pre id="import-result" class="hidden" style="margin-top: 16px; background: var(--bg); padding: 12px; border: 1px solid var(--hairline); font-size: 11px; white-space: pre-wrap; overflow-x: auto; clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);"></pre>
+            </section>
+          </div>
+
+          <!-- TAB: Skills Editor -->
+          <div id="tab-skills" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <h2>Skills Editor</h2>
+            </div>
+            <div style="display: grid; grid-template-columns: 320px 1fr; gap: 20px;">
+              
+              <!-- LEFT: List -->
+              <div class="admin-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <h2 style="margin:0;">Skills Catalog (<span id="skills-count">0</span>)</h2>
+                  <button class="btn btn--sm" id="btn-create-skill" style="padding:4px 8px; font-size:11px;">+ New</button>
+                </div>
+                <div class="admin-scroll" style="max-height:600px; padding:8px;">
+                  <div id="skills-list" class="catalog-list"></div>
+                </div>
+              </div>
+              
+              <!-- RIGHT: Editor & Reference -->
+              <div style="display:flex; flex-direction:column; gap:20px;">
+                
+                <div class="admin-section" id="skill-editor-section" style="display:none; margin-bottom:0;">
+                  <h2 id="skill-editor-title" style="color:var(--signal); border-bottom:1px solid var(--hairline); padding-bottom:8px;">New Skill</h2>
+                  
+                  <div class="form-grid" style="margin-bottom:12px;">
+                    <label class="field">Name
+                      <input type="text" class="input" id="skill-name" />
+                    </label>
+                    <label class="field">Element
+                      <select class="input" id="skill-element">
+                        <option value="fire">Fire</option>
+                        <option value="water">Water</option>
+                        <option value="nature">Nature</option>
+                        <option value="electric">Electric</option>
+                        <option value="neutral">Neutral</option>
+                      </select>
+                    </label>
+                    <label class="field">Energy Cost
+                      <input type="number" class="input" id="skill-energy" min="0" max="41" value="0" />
+                    </label>
+                    <label class="field">Cooldown
+                      <input type="number" class="input" id="skill-cooldown" min="0" max="10" value="0" />
+                    </label>
+                  </div>
+                  
+                  <div style="margin-bottom:12px;">
+                    <label class="field">Description
+                      <textarea class="input" id="skill-description" rows="2" style="resize:vertical;"></textarea>
+                    </label>
+                  </div>
+                  
+                  <div class="form-grid" style="margin-bottom:12px;">
+                    <label class="field">Tags (comma-separated)
+                      <input type="text" class="input" id="skill-tags" placeholder="e.g. fire, aoe" />
+                    </label>
+                    <label class="field">Animation
+                      <input type="text" class="input" id="skill-animation" placeholder="e.g. anim_fireball" />
+                    </label>
+                  </div>
+                  
+                  <div style="margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" id="skill-enabled" checked />
+                    <label for="skill-enabled" class="lbl" style="margin:0; cursor:pointer;">Enabled</label>
+                  </div>
+                  
+                  <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:end;">
+                    <label class="lbl" style="margin:0;">Actions (JSON DSL)</label>
+                    <button class="btn btn--sm btn--secondary" id="btn-load-sample-skill" style="padding:2px 6px; font-size:10px;">Load Example JSON</button>
+                  </div>
+                  <textarea id="skill-actions" class="input" rows="16" style="font-family:monospace; font-size:12px; width:100%; white-space:pre; overflow-wrap:normal; overflow-x:auto;" placeholder="[]"></textarea>
+                  <div id="skill-json-feedback" style="margin-top:6px; font-size:11px; font-family:monospace; white-space:pre-wrap;"></div>
+                  
+                  <div style="display:flex; justify-content:space-between; margin-top:20px; border-top:1px solid var(--hairline); padding-top:16px;">
+                    <div>
+                      <button class="btn btn--sm btn--danger" id="btn-delete-skill" style="display:none;">Delete Skill</button>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                      <button class="btn btn--sm btn--secondary" id="btn-cancel-skill">Cancel</button>
+                      <button class="btn btn--sm" id="btn-save-skill">Save Skill</button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Quick Reference -->
+                <div class="admin-section" style="margin-bottom:0;">
+                  <details>
+                    <summary style="font-size:12px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); cursor:pointer; user-select:none;">DSL Quick Reference</summary>
+                    <div style="margin-top:12px; font-size:11px; line-height:1.5; color:var(--muted); font-family:monospace; white-space:pre-wrap;"><b>Actions:</b> deal_damage, heal, apply_status, modify_stat, consume_en, restore_en, schedule, conditional
+<b>Targets:</b> self, primary_target, caster_ally_all, caster_ally_lowest_hp, caster_ally_slot_0/1/2, enemy_all, enemy_front, enemy_back, enemy_center, enemy_random, enemy_first_two, enemy_last_two, enemy_slot_0/1/2
+<b>Conditions:</b> {"kind":"has_status", "status":Ailment}, {"kind":"hp_below_pct", "pct":0-100}, {"kind":"hp_above_pct", "pct":0-100}
+<b>Ailments:</b> burn, poison, weaken, freeze, stun, sleep
+<b>Amounts:</b> 10 OR {"base":30, "scale":"atk", "factor":1.2}</div>
+                  </details>
+                </div>
+                
+              </div>
+            </div>
+          </div>
+
+          
+          
+          <!-- TAB: Edit Shop -->
+          <div id="tab-shop" class="tab-content">
+            <section class="admin-section">
+              <h2>Edit Shop</h2>
+              <p class="lede">Coming in the next ship. Will let admins create/edit shop items.</p>
+            </section>
+          </div>
+
+          <!-- TAB: Edit Player -->
+          <div id="tab-player" class="tab-content">
+            <section class="admin-section">
+              <h2>Edit Player</h2>
+              <p class="lede">Coming next ship. Will let admins view/edit user accounts.</p>
+            </section>
+          </div>
+
+          <!-- TAB: Edit Player Digimon -->
+          <div id="tab-player-mons" class="tab-content">
+            <section class="admin-section">
+              <h2>Edit Player Digimon</h2>
+              <p class="lede">Coming next ship. Will let admins tweak individual mon stats and mood.</p>
+            </section>
+          </div>
+
+        </div>
+
+        <!-- RIGHT SIDEBAR: Stats -->
+        <div class="admin-sidebar-right" id="right-stats-panel">
+          <div class="stat-tile"><div class="lbl">Users</div><div class="val" id="stat-users">—</div></div>
+          <div class="stat-tile"><div class="lbl">Active Matches</div><div class="val" id="stat-matches">—</div></div>
+          <div class="stat-tile"><div class="lbl">Catalog Templates</div><div class="val" id="stat-templates">—</div></div>
+          <div class="stat-tile"><div class="lbl">Blueprints</div><div class="val" id="stat-blueprints">—</div></div>
+          <div class="stat-tile"><div class="lbl">Player Mons</div><div class="val" id="stat-playermons">—</div></div>
+          <div class="stat-tile"><div class="lbl">Player Buildings</div><div class="val" id="stat-playerbuildings">—</div></div>
+          <div class="stat-refresh-time" id="stat-refresh-time">Waiting for data...</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL: Custom Catalog Entry -->
+  <div id="custom-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Add Custom Entry</h3>
+        <button class="modal-close" id="btn-custom-close" aria-label="Close">×</button>
+      </div>
+      <form id="custom-form" class="stack">
+        <div class="form-grid">
+          <label class="field">ID (unique, alphanumeric + -_)
+            <input class="input" name="id" required minlength="3" maxlength="48" placeholder="cst-mycreation" />
+          </label>
+          <label class="field">Name
+            <input class="input" name="name" required minlength="1" maxlength="48" />
+          </label>
+          <label class="field">Stage
+            <select class="input" name="stage" required>
+              <option>Rookie</option><option>Baby</option><option>In-Training</option>
+              <option>Champion</option><option>Ultimate</option><option>Mega</option>
+            </select>
+          </label>
+          <label class="field">Attribute
+            <select class="input" name="attribute" required>
+              <option>Data</option><option>Vaccine</option><option>Virus</option><option>Free</option><option>Unknown</option>
+            </select>
+          </label>
+          <label class="field">Element
+            <select class="input" name="element" required>
+              <option>fire</option><option>water</option><option>nature</option><option>electric</option><option>neutral</option>
+            </select>
+          </label>
+          <label class="field">Wikimon slug (optional)
+            <input class="input" name="wikimonSlug" maxlength="64" placeholder="e.g. Agumon_X" />
+          </label>
+        </div>
+
+        <div class="form-grid" style="grid-template-columns:repeat(5, 1fr);">
+          <label class="field">HP <input class="input" name="hp" type="number" min="1" max="99999" value="500" required /></label>
+          <label class="field">EN <input class="input" name="en" type="number" min="1" max="41" value="30" required /></label>
+          <label class="field">ATK <input class="input" name="atk" type="number" min="1" max="9999" value="100" required /></label>
+          <label class="field">DEF <input class="input" name="def" type="number" min="1" max="9999" value="80" required /></label>
+          <label class="field">SPD <input class="input" name="spd" type="number" min="1" max="9999" value="100" required /></label>
+        </div>
+
+        <div class="form-grid">
+          <label class="field">Portrait URL / path
+            <input class="input" name="portrait" required maxlength="400" placeholder="/assets/digimon/cst-xyz/portrait.webp OR https://..." />
+          </label>
+          <label class="field">Dot URL / path
+            <input class="input" name="dot" required maxlength="400" placeholder="/assets/digimon/cst-xyz/dot.gif OR https://..." />
+          </label>
+        </div>
+
+        <fieldset style="border:1px dashed var(--hairline); padding:12px; margin-top:8px;">
+          <legend class="caps" style="padding:0 6px;">Skill pool (4 required)</legend>
+          <div id="skills-editor"></div>
+        </fieldset>
+
+        <div class="auth-error" id="err-custom"></div>
+        <div class="row" style="gap:8px; margin-top:16px;">
+          <button class="btn" type="submit">Create entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: Blueprint CRUD -->
+  <div id="blueprint-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="blueprint-modal-title">Create Blueprint</h3>
+        <button class="modal-close" id="btn-blueprint-close" aria-label="Close">×</button>
+      </div>
+      <form id="blueprint-form" class="stack">
+        <input type="hidden" name="id" id="bp-id" />
+        <div class="form-grid">
+          <label class="field">Name
+            <input class="input" name="name" id="bp-name" required minlength="2" maxlength="48" />
+          </label>
+          <label class="field">Building Type
+            <select class="input" name="buildingType" id="bp-type" required>
+              <option value="resource_generator">Resource Generator</option>
+              <option value="training">Training</option>
+              <option value="training_premium">Training (Premium)</option>
+            </select>
+          </label>
+        </div>
+        <label class="field" style="margin-top:8px;">Description
+          <textarea class="input" name="description" id="bp-desc" rows="2"></textarea>
+        </label>
+        
+        <div class="form-grid" style="margin-top:8px;" id="bp-res-fields">
+          <label class="field">Resource
+            <select class="input" name="resource" id="bp-res">
+              <option value="Meat">Meat</option>
+              <option value="Bits">Bits</option>
+              <option value="Data">Data</option>
+            </select>
+          </label>
+          <label class="field">Rate Per Hour
+            <input class="input" name="ratePerHour" id="bp-rate" type="number" min="1" />
+          </label>
+          <label class="field">Capacity
+            <input class="input" name="capacity" id="bp-cap" type="number" min="1" />
+          </label>
+        </div>
+
+        <div class="form-grid" style="margin-top:8px;">
+          <label class="field">Upgrade Cost
+            <input class="input" name="upgradeCost" id="bp-upg-cost" type="number" min="1" required />
+          </label>
+          <label class="field">Shop Price (null if not for sale)
+            <div style="display:flex; gap:8px;">
+              <input type="checkbox" id="bp-for-sale" checked />
+              <input class="input" name="shopPrice" id="bp-shop-price" type="number" min="0" />
+            </div>
+          </label>
+        </div>
+
+        <div style="margin-top:12px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer;">
+            <input type="checkbox" name="starterSeed" id="bp-starter" />
+            Auto-seed to new players
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:12px; cursor:pointer; margin-top:4px;">
+            <input type="checkbox" name="enabled" id="bp-enabled" checked />
+            Enabled
+          </label>
+        </div>
+
+        <div class="auth-error" id="err-blueprint" style="margin-top:8px;"></div>
+        <div class="row" style="gap:8px; margin-top:16px;">
+          <button class="btn" type="submit" id="bp-submit-btn">Save Blueprint</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, toast, setText } from '/assets/js/api.js';
+    import { requireAdmin, renderNav } from '/assets/js/auth-guard.js';
+
+    (async () => {
+      const me = await requireAdmin();
+      renderNav(document.getElementById('app-nav'), 'admin');
+      if(me) setText('admin-display-name', me.displayName || me.username);
+      
+      wireTabs();
+      wireFilters();
+      wireCustomForm();
+      wireBlueprintsForm();
+      wireRefresh();
+      wireImpex();
+      wireSkills();
+      
+      // Hash routing
+      if(location.hash) {
+        const t = location.hash.replace('#', '');
+        const btn = document.querySelector(`.admin-nav-item[data-tab="${t}"]`);
+        if(btn) btn.click();
+      }
+
+      await Promise.all([loadCatalog(), loadScraped(), loadBlueprints(), pollStats()]);
+      setInterval(pollStats, 15000);
+    })().catch((err) => { console.error(err); toast(err.message || 'boot failed', { error: true }); });
+
+    let currentSkillId = null;
+
+    async function loadSkills() {
+      try {
+        const res = await api('/api/admin/skills');
+        const list = res.skills || [];
+        document.getElementById('skills-count').textContent = list.length;
+        const el = document.getElementById('skills-list');
+        if (list.length === 0) {
+          el.innerHTML = '<div style="padding:12px; color:var(--muted); text-align:center; font-size:12px;">No skills found.</div>';
+          return;
+        }
+        
+        el.innerHTML = list.map(s => `
+          <div class="catalog-row" style="--el:var(--el-${s.element || 'neutral'});">
+            <div class="catalog-row-header" style="cursor:default; padding:8px;">
+              <div class="pill" style="--el:var(--el-${s.element || 'neutral'}); font-size:9px; padding:3px 6px; flex-shrink:0;">
+                <span class="dot"></span>${escape(s.element)}
+              </div>
+              <div class="name" style="font-size:13px; margin-left:8px;">${escape(s.name)}</div>
+              <div class="badge" style="color:var(--muted); border-color:var(--hairline); flex-shrink:0;">EN: ${s.energyCost}</div>
+              <div class="badge" style="color:var(--muted); border-color:var(--hairline); flex-shrink:0;">${(s.actions || []).length} acts</div>
+              <div class="badge" style="color:var(--muted); border-color:var(--hairline); flex-shrink:0; background: ${s.enabled !== false ? 'var(--el-nature)' : 'var(--muted)'}; color: var(--bg); border: none;">
+                ${s.enabled !== false ? 'ON' : 'OFF'}
+              </div>
+              <div style="display:flex; gap:4px; flex-shrink:0; margin-left:4px;">
+                <button class="btn btn--sm btn--secondary" onclick="editSkill('${escape(s.id)}')" style="padding:2px 6px; font-size:10px;">Edit</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        toast('Failed to load skills: ' + err.message, { error: true });
+      }
+    }
+
+    window.editSkill = async function(id) {
+      try {
+        const res = await api('/api/admin/skills/' + id);
+        openSkillEditor(res.skill);
+      } catch (err) {
+        toast('Failed to load skill: ' + err.message, { error: true });
+      }
+    };
+
+    function openSkillEditor(skill = null) {
+      currentSkillId = skill ? skill.id : null;
+      document.getElementById('skill-editor-section').style.display = 'block';
+      document.getElementById('skill-editor-title').textContent = skill ? 'Edit Skill: ' + skill.name : 'New Skill';
+      
+      document.getElementById('skill-name').value = skill ? skill.name : '';
+      document.getElementById('skill-element').value = skill ? skill.element : 'neutral';
+      document.getElementById('skill-energy').value = skill ? skill.energyCost : 0;
+      document.getElementById('skill-cooldown').value = skill ? (skill.cooldown || 0) : 0;
+      document.getElementById('skill-description').value = skill ? (skill.description || '') : '';
+      document.getElementById('skill-tags').value = skill ? (skill.tags || []).join(', ') : '';
+      document.getElementById('skill-animation').value = skill ? (skill.animation || '') : '';
+      document.getElementById('skill-enabled').checked = skill ? (skill.enabled !== false) : true;
+      document.getElementById('skill-actions').value = skill ? JSON.stringify(skill.actions, null, 2) : '[]';
+      
+      document.getElementById('btn-delete-skill').style.display = skill ? 'block' : 'none';
+      validateSkillJson();
+    }
+
+    function closeSkillEditor() {
+      currentSkillId = null;
+      document.getElementById('skill-editor-section').style.display = 'none';
+    }
+
+    function validateSkillJson() {
+      const fb = document.getElementById('skill-json-feedback');
+      const val = document.getElementById('skill-actions').value;
+      try {
+        const parsed = JSON.parse(val);
+        if (!Array.isArray(parsed)) throw new Error('Root must be an array of actions');
+        fb.textContent = '✓ Valid JSON — ' + parsed.length + ' actions';
+        fb.style.color = 'var(--el-nature)';
+        return parsed;
+      } catch (e) {
+        fb.textContent = 'JSON syntax error: ' + e.message;
+        fb.style.color = 'var(--signal)';
+        return null;
+      }
+    }
+
+    function wireSkills() {
+      document.querySelector('.admin-nav-item[data-tab="skills"]').addEventListener('click', () => {
+        loadSkills();
+      });
+
+      document.getElementById('btn-create-skill').addEventListener('click', () => {
+        openSkillEditor(null);
+      });
+
+      document.getElementById('btn-cancel-skill').addEventListener('click', () => {
+        closeSkillEditor();
+      });
+
+      document.getElementById('btn-load-sample-skill').addEventListener('click', () => {
+        const sample = [
+          {"kind":"deal_damage","target":"enemy_first_two","amount":{"base":30,"scale":"atk","factor":1.2},"element":"fire"},
+          {"kind":"apply_status","target":"enemy_first_two","status":"burn","chance":0.7,"turns":3},
+          {"kind":"deal_damage","target":"self","amount":10},
+          {"kind":"schedule","delay":1,"action":{"kind":"heal","target":"self","amount":5}}
+        ];
+        document.getElementById('skill-actions').value = JSON.stringify(sample, null, 2);
+        validateSkillJson();
+      });
+
+      let timeout;
+      document.getElementById('skill-actions').addEventListener('input', () => {
+        clearTimeout(timeout);
+        timeout = setTimeout(validateSkillJson, 300);
+      });
+
+      document.getElementById('btn-save-skill').addEventListener('click', async () => {
+        const parsedActions = validateSkillJson();
+        if (!parsedActions) {
+          toast('Cannot save: Invalid JSON actions', { error: true });
+          return;
+        }
+
+        const payload = {
+          name: document.getElementById('skill-name').value.trim(),
+          element: document.getElementById('skill-element').value,
+          energyCost: parseInt(document.getElementById('skill-energy').value, 10) || 0,
+          cooldown: parseInt(document.getElementById('skill-cooldown').value, 10) || 0,
+          description: document.getElementById('skill-description').value.trim() || undefined,
+          tags: document.getElementById('skill-tags').value.split(',').map(s => s.trim()).filter(Boolean),
+          animation: document.getElementById('skill-animation').value.trim() || undefined,
+          enabled: document.getElementById('skill-enabled').checked,
+          actions: parsedActions
+        };
+        // Remove empty tags array if needed, but backend takes it
+        if (payload.tags.length === 0) payload.tags = undefined;
+
+        try {
+          const method = currentSkillId ? 'PUT' : 'POST';
+          const url = currentSkillId ? '/api/admin/skills/' + currentSkillId : '/api/admin/skills';
+          
+          const res = await api(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          
+          toast(currentSkillId ? 'Skill updated' : 'Skill created');
+          closeSkillEditor();
+          loadSkills();
+        } catch (err) {
+          console.error(err);
+          if (err.details && Array.isArray(err.details)) {
+            const msgs = err.details.map(d => `${d.path.join('.')}: ${d.message}`).join('\n');
+            document.getElementById('skill-json-feedback').textContent = 'Validation Errors:\n' + msgs;
+            document.getElementById('skill-json-feedback').style.color = 'var(--signal)';
+          } else {
+            toast(err.message || 'Save failed', { error: true });
+          }
+        }
+      });
+
+      document.getElementById('btn-delete-skill').addEventListener('click', async () => {
+        if (!currentSkillId) return;
+        if (!confirm('Are you sure you want to delete this skill?')) return;
+        try {
+          await api('/api/admin/skills/' + currentSkillId, { method: 'DELETE' });
+          toast('Skill deleted');
+          closeSkillEditor();
+          loadSkills();
+        } catch (err) {
+          toast('Failed to delete skill: ' + err.message, { error: true });
+        }
+      });
+    }
+
+    function wireTabs() {
+      const tabs = document.querySelectorAll('.admin-nav-item');
+      const contents = document.querySelectorAll('.tab-content');
+      tabs.forEach((btn) => btn.addEventListener('click', () => {
+        tabs.forEach((b) => b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+        contents.forEach(c => c.classList.remove('is-active'));
+        const tabId = 'tab-' + btn.dataset.tab;
+        document.getElementById(tabId)?.classList.add('is-active');
+        location.hash = btn.dataset.tab;
+      }));
+    }
+
+    async function pollStats() {
+      try {
+        const res = await api.get('/api/admin/stats');
+        setText('stat-users', String(res.users ?? 0));
+        setText('stat-matches', String(res.activeMatches ?? 0));
+        setText('stat-templates', String(res.catalogTemplates ?? 0));
+        setText('stat-blueprints', String(res.buildingBlueprints ?? 0));
+        setText('stat-playermons', String(res.totalPlayerMons ?? 0));
+        setText('stat-playerbuildings', String(res.totalPlayerBuildings ?? 0));
+        
+        // update overview tiles too
+        document.getElementById('overview-tiles').innerHTML = `
+          <div class="stat-tile"><div class="lbl">Users</div><div class="val">${res.users ?? 0}</div></div>
+          <div class="stat-tile"><div class="lbl">Active Matches</div><div class="val">${res.activeMatches ?? 0}</div></div>
+          <div class="stat-tile"><div class="lbl">Catalog</div><div class="val">${res.catalogTemplates ?? 0}</div></div>
+          <div class="stat-tile"><div class="lbl">Blueprints</div><div class="val">${res.buildingBlueprints ?? 0}</div></div>
+        `;
+        
+        const now = new Date();
+        setText('stat-refresh-time', 'Refreshed ' + now.toLocaleTimeString());
+      } catch (err) {
+        setText('stat-refresh-time', 'Failed to refresh');
+        console.error('Stats poll failed', err);
+      }
+    }
+
+    function wireRefresh() {
+      document.getElementById('btn-refresh-scrape').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-refresh-scrape');
+        btn.disabled = true;
+        try {
+          const res = await api.post('/api/admin/scrape/refresh');
+          toast(`Fetched ${res.entries} entries from skullbot`);
+          await loadScraped();
+        } catch (err) {
+          toast(err.message || 'refresh failed', { error: true });
+        } finally { btn.disabled = false; }
+      });
+    }
+
+    // ---------- Catalog ----------
+    async function loadCatalog() {
+      try {
+        const cat = await api.get('/api/catalog');
+        const list = cat.digimons || [];
+        setText('catalog-count', String(list.length));
+        const el = document.getElementById('catalog-list');
+        const empty = document.getElementById('catalog-empty');
+        if (!list.length) {
+          el.innerHTML = '';
+          empty.classList.remove('hidden');
+          return;
+        }
+        empty.classList.add('hidden');
+        el.innerHTML = list.map((t) => `
+          <div class="catalog-row" style="--el:var(--el-${t.element || 'neutral'});">
+            <div class="catalog-row-header">
+              <img src="${escape(t.assets.portrait)}" alt="${escape(t.name)}" loading="lazy" onerror="this.style.opacity=0.15" />
+              <div class="name">${escape(t.name)}</div>
+              <div class="badge">${escape(t.stage)}</div>
+              <div class="badge" style="color:var(--muted); border-color:var(--hairline);">${escape(t.attribute)}</div>
+              <div class="pill" style="--el:var(--el-${t.element || 'neutral'}); font-size:9px; padding:3px 6px;"><span class="dot"></span>${escape(t.element)}</div>
+              <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="catalog-row-body">
+              <div class="catalog-stats">
+                <div><b>HP</b><span>${t.baseStats?.hp || 0}</span></div>
+                <div><b>EN</b><span>${t.baseStats?.en || 0}</span></div>
+                <div><b>ATK</b><span>${t.baseStats?.atk || 0}</span></div>
+                <div><b>DEF</b><span>${t.baseStats?.def || 0}</span></div>
+                <div><b>INT</b><span>${t.baseStats?.int || 0}</span></div>
+                <div><b>SPD</b><span>${t.baseStats?.spd || 0}</span></div>
+              </div>
+              <div class="catalog-skills">
+                ${(t.skillPool || []).map(s => `
+                  <div>
+                    <div style="font-weight:600; margin-bottom:2px;">${escape(s.name)}</div>
+                    <div style="font-size:10px; color:var(--muted); margin-bottom:4px;">${escape(s.element)} · ${s.energyCost} EN · ${s.power} PWR</div>
+                    ${s.description ? `<div style="color:var(--muted);">${escape(s.description)}</div>` : ''}
+                  </div>
+                `).join('')}
+              </div>
+              <div class="catalog-links">
+                ${t.sourceUrl ? `<a href="${escape(t.sourceUrl)}" target="_blank" rel="noopener noreferrer">Skullbot Source</a>` : ''}
+                ${t.wikimonSlug ? `<a href="https://wikimon.net/wiki/${escape(t.wikimonSlug)}" target="_blank" rel="noopener noreferrer">Wikimon Entry</a>` : ''}
+                ${t.evolvesInto && t.evolvesInto.length ? `<span style="color:var(--muted);">Evolves to: ${t.evolvesInto.map(eId => escape(list.find(x => x.id === eId)?.name || eId)).join(', ')}</span>` : ''}
+              </div>
+              <div class="actions">
+                <button class="btn btn--secondary" data-download="${escape(t.id)}">Re-download assets</button>
+                <button class="btn btn--danger" data-remove="${escape(t.id)}">Remove</button>
+              </div>
+            </div>
+          </div>`).join('');
+        el.querySelectorAll('.catalog-row-header').forEach((hdr) => {
+          hdr.addEventListener('click', () => {
+            const row = hdr.parentElement;
+            const wasExpanded = row.classList.contains('is-expanded');
+            el.querySelectorAll('.catalog-row').forEach(r => r.classList.remove('is-expanded'));
+            if (!wasExpanded) row.classList.add('is-expanded');
+          });
+        });
+        el.querySelectorAll('[data-remove]').forEach((btn) => btn.addEventListener('click', () => removeEntry(btn.dataset.remove)));
+        el.querySelectorAll('[data-download]').forEach((btn) => btn.addEventListener('click', () => forceDownload(btn.dataset.download)));
+      } catch (err) {
+        toast(err.message || 'catalog load failed', { error: true });
+      }
+    }
+
+    async function removeEntry(id) {
+      if (!confirm(`Remove ${id} from the catalog?`)) return;
+      try {
+        await api.del('/api/admin/catalog/' + encodeURIComponent(id));
+        toast('Removed');
+        await Promise.all([loadCatalog(), loadScraped()]);
+      } catch (err) { toast(err.message || 'remove failed', { error: true }); }
+    }
+    async function forceDownload(id) {
+      try {
+        const r = await api.post('/api/admin/assets/' + encodeURIComponent(id) + '/download');
+        toast(`Portrait: ${r.result.portraitStatus}, Dot: ${r.result.dotStatus}`);
+      } catch (err) { toast(err.message || 'download failed', { error: true }); }
+    }
+
+    // ---------- Scraped list ----------
+    const scrapedState = { offset: 0, limit: 40, total: 0, search: '', stage: '', attribute: '' };
+
+    function wireFilters() {
+      const btn = document.getElementById('btn-filter');
+      const apply = () => {
+        scrapedState.search = document.getElementById('filter-search').value.trim();
+        scrapedState.stage  = document.getElementById('filter-stage').value;
+        scrapedState.attribute = document.getElementById('filter-attr').value;
+        scrapedState.offset = 0;
+        loadScraped();
+      };
+      btn.addEventListener('click', apply);
+      document.getElementById('filter-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); apply(); } });
+      document.getElementById('btn-prev').addEventListener('click', () => { scrapedState.offset = Math.max(0, scrapedState.offset - scrapedState.limit); loadScraped(); });
+      document.getElementById('btn-next').addEventListener('click', () => { if (scrapedState.offset + scrapedState.limit < scrapedState.total) { scrapedState.offset += scrapedState.limit; loadScraped(); } });
+    }
+
+    async function loadScraped() {
+      const qs = new URLSearchParams();
+      qs.set('limit',  String(scrapedState.limit));
+      qs.set('offset', String(scrapedState.offset));
+      if (scrapedState.search) qs.set('search', scrapedState.search);
+      if (scrapedState.stage) qs.set('stage', scrapedState.stage);
+      if (scrapedState.attribute) qs.set('attribute', scrapedState.attribute);
+      try {
+        const res = await api.get('/api/admin/scraped-list?' + qs.toString());
+        scrapedState.total = res.total;
+        const tbody = document.getElementById('scraped-tbody');
+        tbody.innerHTML = (res.entries || []).map((row) => `
+          <tr>
+            <td><img src="${escape(row.portrait_url)}" alt="" loading="lazy" onerror="this.style.opacity=0.15" /></td>
+            <td class="mono">#${row.skullbot_id}</td>
+            <td><b>${escape(row.name)}</b></td>
+            <td>${escape(row.stage)}</td>
+            <td>${escape(row.attribute)}</td>
+            <td>${row.in_catalog ? '<span class="badge in-catalog">in catalog</span>' : '<span class="badge">available</span>'}</td>
+            <td>
+              <button class="btn btn--sm ${row.in_catalog ? 'btn--secondary' : ''}" data-add="${row.skullbot_id}" ${row.in_catalog ? 'disabled' : ''}>${row.in_catalog ? 'Added' : 'Add to catalog'}</button>
+            </td>
+          </tr>`).join('');
+        tbody.querySelectorAll('[data-add]').forEach((btn) => btn.addEventListener('click', () => addFromScraped(Number(btn.dataset.add))));
+        setText('scraped-page-info', `Showing ${scrapedState.offset + 1}-${Math.min(scrapedState.offset + scrapedState.limit, res.total)} of ${res.total}`);
+      } catch (err) {
+        if (err.status === 404) toast('Scraped list is empty — click "Refresh from skullbot"');
+        else toast(err.message || 'load failed', { error: true });
+      }
+    }
+
+    async function addFromScraped(skullbotId) {
+      try {
+        const res = await api.post('/api/admin/catalog/from-scraped', { skullbotId, enrich: true });
+        toast(`Added ${res.template.name}`);
+        await Promise.all([loadCatalog(), loadScraped()]);
+      } catch (err) { toast(err.message || 'add failed', { error: true }); }
+    }
+
+    // ---------- Custom Entry Modal ----------
+    function wireCustomForm() {
+      const modal = document.getElementById('custom-modal');
+      document.getElementById('btn-add-custom').addEventListener('click', () => modal.classList.add('show'));
+      document.getElementById('btn-custom-close').addEventListener('click', () => modal.classList.remove('show'));
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+      const skillsEditor = document.getElementById('skills-editor');
+      const defaults = [
+        { name: 'Basic Strike', element: 'neutral', cost: 0,  power: 100 },
+        { name: 'Focused Blow', element: 'neutral', cost: 14, power: 180 },
+        { name: 'Heavy Slam',   element: 'neutral', cost: 26, power: 280 },
+        { name: 'Overdrive',    element: 'neutral', cost: 38, power: 420 },
+      ];
+      skillsEditor.innerHTML = defaults.map((d, i) => `
+        <div class="skill-editor">
+          <div class="row">
+            <label class="field">Skill ${i + 1} name
+              <input class="input" name="skill_name_${i}" value="${escape(d.name)}" required maxlength="48" />
+            </label>
+            <label class="field">Element
+              <select class="input" name="skill_el_${i}">
+                <option value="fire">fire</option><option value="water">water</option>
+                <option value="nature">nature</option><option value="electric">electric</option>
+                <option value="neutral" selected>neutral</option>
+              </select>
+            </label>
+            <label class="field">Cost (EN)
+              <input class="input" type="number" name="skill_cost_${i}" min="0" max="41" value="${d.cost}" required />
+            </label>
+            <label class="field">Power
+              <input class="input" type="number" name="skill_power_${i}" min="0" max="9999" value="${d.power}" required />
+            </label>
+          </div>
+        </div>`).join('');
+
+      document.getElementById('custom-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('err-custom');
+        err.textContent = '';
+        const fd = new FormData(e.target);
+        const skillPool = [0, 1, 2, 3].map((i) => ({
+          id: 's' + i,
+          name: String(fd.get('skill_name_' + i) || '').trim(),
+          element: String(fd.get('skill_el_' + i) || 'neutral'),
+          energyCost: Number(fd.get('skill_cost_' + i) || 0),
+          power: Number(fd.get('skill_power_' + i) || 0),
+        }));
+        const body = {
+          id: String(fd.get('id') || '').trim(),
+          name: String(fd.get('name') || '').trim(),
+          stage: String(fd.get('stage') || 'Rookie'),
+          attribute: String(fd.get('attribute') || 'Data'),
+          element: String(fd.get('element') || 'neutral'),
+          baseStats: {
+            hp:  Number(fd.get('hp')  || 500),
+            en:  Number(fd.get('en')  || 30),
+            atk: Number(fd.get('atk') || 100),
+            def: Number(fd.get('def') || 80),
+            spd: Number(fd.get('spd') || 100),
+          },
+          assets: {
+            portrait: String(fd.get('portrait') || '').trim(),
+            dot: String(fd.get('dot') || '').trim(),
+          },
+          skillPool,
+        };
+        const slug = String(fd.get('wikimonSlug') || '').trim();
+        if (slug) body.wikimonSlug = slug;
+        try {
+          const res = await api.post('/api/admin/catalog/custom', body);
+          toast(`Created ${res.template.name}`);
+          e.target.reset();
+          modal.classList.remove('show');
+          await loadCatalog();
+        } catch (ex) {
+          err.textContent = ex.message || 'create failed';
+          if (ex.details) err.textContent += ' — ' + JSON.stringify(ex.details);
+        }
+      });
+    }
+
+    // ---------- Blueprints ----------
+    let blueprints = [];
+    async function loadBlueprints() {
+      try {
+        const res = await api.get('/api/admin/blueprints');
+        blueprints = res.blueprints || [];
+        const el = document.getElementById('blueprints-list');
+        if(!blueprints.length) {
+          el.innerHTML = '<div class="lede" style="font-size:13px;">No blueprints exist. Create one.</div>';
+          return;
+        }
+        el.innerHTML = blueprints.map(b => `
+          <div class="blueprint-card" style="opacity: ${b.enabled ? 1 : 0.6}">
+            <div class="blueprint-card-header">
+              <div class="blueprint-card-title">
+                ${escape(b.name)}
+                ${!b.enabled ? '<span class="badge" style="background:var(--bg);">disabled</span>' : ''}
+                ${b.starterSeed ? '<span class="badge" style="background:var(--el-nature); color:#fff; border:0;">starter</span>' : ''}
+              </div>
+              <div class="badge">${escape(b.buildingType)}</div>
+            </div>
+            ${b.description ? `<div class="blueprint-card-body">${escape(b.description)}</div>` : ''}
+            <div class="blueprint-card-stats">
+              ${b.resource ? `<span>Resource: ${escape(b.resource)}</span>` : ''}
+              ${b.ratePerHour ? `<span>Rate: ${b.ratePerHour}/hr</span>` : ''}
+              ${b.capacity ? `<span>Cap: ${b.capacity}</span>` : ''}
+              <span>Upgrade: ${b.upgradeCost} CR</span>
+              ${b.shopPrice != null ? `<span>Shop: ${b.shopPrice} CR</span>` : '<span>Not for sale</span>'}
+            </div>
+            <div class="blueprint-card-actions">
+              <button class="btn btn--secondary btn--sm" data-edit-bp="${escape(b.id)}">Edit</button>
+              <button class="btn btn--danger btn--sm" data-del-bp="${escape(b.id)}">Delete</button>
+            </div>
+          </div>
+        `).join('');
+
+        el.querySelectorAll('[data-edit-bp]').forEach(btn => btn.addEventListener('click', () => openBlueprintModal(btn.dataset.editBp)));
+        el.querySelectorAll('[data-del-bp]').forEach(btn => btn.addEventListener('click', () => deleteBlueprint(btn.dataset.delBp)));
+      } catch (err) {
+        toast(err.message || 'blueprints load failed', { error: true });
+      }
+    }
+
+    function wireBlueprintsForm() {
+      const modal = document.getElementById('blueprint-modal');
+      document.getElementById('btn-create-blueprint').addEventListener('click', () => openBlueprintModal());
+      document.getElementById('btn-blueprint-close').addEventListener('click', () => modal.classList.remove('show'));
+      modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
+
+      const typeSel = document.getElementById('bp-type');
+      const resFields = document.getElementById('bp-res-fields');
+      typeSel.addEventListener('change', () => {
+        const isRes = typeSel.value === 'resource_generator';
+        resFields.style.display = isRes ? 'grid' : 'none';
+        if(isRes) {
+          document.getElementById('bp-res').required = true;
+          document.getElementById('bp-rate').required = true;
+          document.getElementById('bp-cap').required = true;
+        } else {
+          document.getElementById('bp-res').required = false;
+          document.getElementById('bp-rate').required = false;
+          document.getElementById('bp-cap').required = false;
+        }
+      });
+
+      const shopCb = document.getElementById('bp-for-sale');
+      const shopInput = document.getElementById('bp-shop-price');
+      shopCb.addEventListener('change', () => {
+        shopInput.disabled = !shopCb.checked;
+        if(!shopCb.checked) shopInput.value = '';
+      });
+
+      document.getElementById('blueprint-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = document.getElementById('err-blueprint');
+        err.textContent = '';
+        const fd = new FormData(e.target);
+        
+        const id = fd.get('id');
+        const isRes = fd.get('buildingType') === 'resource_generator';
+        const body = {
+          name: fd.get('name').trim(),
+          description: fd.get('description')?.trim() || '',
+          buildingType: fd.get('buildingType'),
+          upgradeCost: Number(fd.get('upgradeCost')),
+          starterSeed: document.getElementById('bp-starter').checked,
+          enabled: document.getElementById('bp-enabled').checked,
+        };
+        
+        if(isRes) {
+          body.resource = fd.get('resource');
+          body.ratePerHour = Number(fd.get('ratePerHour'));
+          body.capacity = Number(fd.get('capacity'));
+        }
+
+        if(shopCb.checked && fd.get('shopPrice')) {
+          body.shopPrice = Number(fd.get('shopPrice'));
+        } else {
+          body.shopPrice = null;
+        }
+
+        try {
+          if (id) {
+            await api.put(`/api/admin/blueprints/${id}`, body);
+            toast('Blueprint updated');
+          } else {
+            await api.post('/api/admin/blueprints', body);
+            toast('Blueprint created');
+          }
+          modal.classList.remove('show');
+          await loadBlueprints();
+        } catch(ex) {
+          err.textContent = ex.message || 'save failed';
+          if(ex.details) err.textContent += ' ' + JSON.stringify(ex.details);
+        }
+      });
+    }
+
+    function openBlueprintModal(id = null) {
+      const modal = document.getElementById('blueprint-modal');
+      const form = document.getElementById('blueprint-form');
+      form.reset();
+      document.getElementById('err-blueprint').textContent = '';
+      
+      const title = document.getElementById('blueprint-modal-title');
+      if (id) {
+        title.textContent = 'Edit Blueprint';
+        const bp = blueprints.find(b => b.id == id);
+        if(bp) {
+          document.getElementById('bp-id').value = bp.id;
+          document.getElementById('bp-name').value = bp.name;
+          document.getElementById('bp-type').value = bp.buildingType;
+          document.getElementById('bp-desc').value = bp.description || '';
+          if(bp.buildingType === 'resource_generator') {
+            document.getElementById('bp-res').value = bp.resource;
+            document.getElementById('bp-rate').value = bp.ratePerHour;
+            document.getElementById('bp-cap').value = bp.capacity;
+          }
+          document.getElementById('bp-upg-cost').value = bp.upgradeCost;
+          if(bp.shopPrice !== null) {
+            document.getElementById('bp-for-sale').checked = true;
+            document.getElementById('bp-shop-price').disabled = false;
+            document.getElementById('bp-shop-price').value = bp.shopPrice;
+          } else {
+            document.getElementById('bp-for-sale').checked = false;
+            document.getElementById('bp-shop-price').disabled = true;
+          }
+          document.getElementById('bp-starter').checked = !!bp.starterSeed;
+          document.getElementById('bp-enabled').checked = !!bp.enabled;
+        }
+      } else {
+        title.textContent = 'Create Blueprint';
+        document.getElementById('bp-id').value = '';
+        document.getElementById('bp-for-sale').checked = true;
+        document.getElementById('bp-shop-price').disabled = false;
+        document.getElementById('bp-enabled').checked = true;
+      }
+      
+      // trigger change events
+      document.getElementById('bp-type').dispatchEvent(new Event('change'));
+      modal.classList.add('show');
+    }
+
+    async function deleteBlueprint(id) {
+      if(!confirm('Delete this blueprint?')) return;
+      try {
+        await api.del(`/api/admin/blueprints/${id}`);
+        toast('Blueprint deleted');
+        await loadBlueprints();
+      } catch(err) {
+        toast(err.message || 'delete failed', { error: true });
+      }
+    }
+
+    // ---------- Import / Export ----------
+    let impexStats = { items: 0, blueprints: 0, catalog: 0, scraped: 0 };
+    let parsedImportManifest = null;
+
+    async function loadImpexStats() {
+      try {
+        const stats = await api.get('/api/admin/stats');
+        impexStats.catalog = stats.catalogTemplates || 0;
+        impexStats.blueprints = stats.buildingBlueprints || 0;
+        const scraped = await api.get('/api/admin/scraped-list?limit=1');
+        impexStats.scraped = scraped.total || 0;
+        try {
+          const shop = await api.get('/api/shop');
+          impexStats.items = (shop.items || []).length;
+        } catch(e) { impexStats.items = 0; }
+        updateExportSummary();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function updateExportSummary() {
+      const cItems = document.getElementById('exp-items').checked;
+      const cBp = document.getElementById('exp-blueprints').checked;
+      const cCat = document.getElementById('exp-catalog').checked;
+      const cScr = document.getElementById('exp-scraped').checked;
+      
+      const parts = [];
+      if(cItems) parts.push(`${impexStats.items} items`);
+      if(cBp) parts.push(`${impexStats.blueprints} blueprints`);
+      if(cCat) parts.push(`${impexStats.catalog} digimons`);
+      if(cScr) parts.push(`${impexStats.scraped} scraped rows`);
+      
+      const sum = document.getElementById('export-summary');
+      if(parts.length === 0) sum.textContent = 'Nothing selected for export.';
+      else sum.textContent = `Will export ${parts.join(', ')}.`;
+    }
+
+    function wireImpex() {
+      document.querySelector('.admin-nav-item[data-tab="impex"]').addEventListener('click', () => {
+        loadImpexStats();
+      });
+
+      ['exp-items', 'exp-blueprints', 'exp-catalog', 'exp-scraped'].forEach(id => {
+        document.getElementById(id).addEventListener('change', updateExportSummary);
+      });
+
+      document.getElementById('btn-export').addEventListener('click', async () => {
+        const cItems = document.getElementById('exp-items').checked;
+        const cBp = document.getElementById('exp-blueprints').checked;
+        const cCat = document.getElementById('exp-catalog').checked;
+        const cScr = document.getElementById('exp-scraped').checked;
+
+        if(!cItems && !cBp && !cCat && !cScr) return toast('Nothing selected', {error:true});
+
+        const all = cItems && cBp && cCat && cScr;
+        const onlyOne = (cItems ? 1 : 0) + (cBp ? 1 : 0) + (cCat ? 1 : 0) + (cScr ? 1 : 0) === 1;
+
+        let scope = 'all';
+        if (onlyOne) {
+          if(cItems) scope = 'items';
+          if(cBp) scope = 'blueprints';
+          if(cCat) scope = 'catalog';
+          if(cScr) scope = 'scraped';
+        }
+
+        try {
+          const res = await fetch('/api/admin/export?scope=' + scope);
+          if (!res.ok) throw new Error('Export failed');
+          
+          let filename = `digiworld-export-${scope}-${new Date().toISOString().split('T')[0]}.json`;
+          const cd = res.headers.get('Content-Disposition');
+          if (cd && cd.includes('filename=')) {
+            const m = cd.match(/filename="?([^"]+)"?/);
+            if (m) filename = m[1];
+          }
+
+          let json = await res.json();
+          
+          if (!all && !onlyOne) {
+             if (!cItems) delete json.entities.items;
+             if (!cBp) delete json.entities.blueprints;
+             if (!cCat) delete json.entities.catalog;
+             if (!cScr) delete json.entities.scraped;
+          }
+
+          const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          toast('Export downloaded');
+        } catch (e) {
+          toast(e.message || 'Export failed', { error: true });
+        }
+      });
+
+      document.getElementById('import-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const btn = document.getElementById('btn-import');
+        const prev = document.getElementById('import-preview');
+        const res = document.getElementById('import-result');
+        btn.disabled = true;
+        prev.classList.add('hidden');
+        res.classList.add('hidden');
+        parsedImportManifest = null;
+
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const json = JSON.parse(ev.target.result);
+            if (json.version !== 1 || !json.entities) throw new Error('Invalid manifest shape. Needs version: 1 and entities object.');
+            parsedImportManifest = json;
+            
+            const i = json.entities.items?.length || 0;
+            const b = json.entities.blueprints?.length || 0;
+            const c = json.entities.catalog?.digimons?.length || 0;
+            const s = json.entities.scraped?.length || 0;
+
+            prev.textContent = `This manifest contains: ${i} items, ${b} blueprints, ${c} digimons, ${s} scraped rows.`;
+            prev.classList.remove('hidden');
+            btn.disabled = false;
+          } catch(err) {
+            toast(err.message || 'Invalid JSON', {error: true});
+            e.target.value = '';
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      document.getElementById('btn-import').addEventListener('click', async () => {
+        if (!parsedImportManifest) return;
+        const res = document.getElementById('import-result');
+        try {
+          const result = await api.post('/api/admin/import', parsedImportManifest);
+          toast('Import complete');
+          res.classList.remove('hidden');
+          res.style.color = 'var(--ink)';
+          res.textContent = formatImportSummary(result.summary);
+          document.getElementById('import-file').value = '';
+          parsedImportManifest = null;
+          document.getElementById('btn-import').disabled = true;
+          document.getElementById('import-preview').classList.add('hidden');
+          
+          loadCatalog();
+          loadBlueprints();
+          loadScraped();
+          pollStats();
+        } catch(err) {
+          toast(err.message || 'Import failed', { error: true });
+          res.classList.remove('hidden');
+          res.style.color = 'var(--battle, #dc2626)';
+          res.textContent = err.message + '\n' + (err.details ? JSON.stringify(err.details, null, 2) : '');
+        }
+      });
+    }
+
+    function formatImportSummary(s) {
+      if(!s) return 'No summary provided';
+      let out = '';
+      if(s.items) out += `Items:      created ${s.items.created}, updated ${s.items.updated}, skipped ${s.items.skipped}${s.items.errors?.length ? ' [Errors: ' + s.items.errors.length + ']' : ''}\n`;
+      if(s.blueprints) {
+        out += `Blueprints: created ${s.blueprints.created}, updated ${s.blueprints.updated}, skipped ${s.blueprints.skipped}`;
+        if (s.blueprints.errors?.length) out += `  [❌ ${s.blueprints.errors.join(', ')}]`;
+        out += '\n';
+      }
+      if(s.catalog) out += `Catalog:    created ${s.catalog.created}, updated ${s.catalog.updated}, unchanged ${s.catalog.unchanged}\n`;
+      if(s.scraped) out += `Scraped:    created ${s.scraped.created}, updated ${s.scraped.updated}, skipped ${s.scraped.skipped}\n`;
+      return out.trim();
+    }
+
+    function escape(s) {
+      return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,894 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Battle — Creature Combat</title>
+<style data-od-inline-asset="colors_and_type.css">
+/* ============================================================
+   Creature Card Grid — Design Tokens
+   Extracted verbatim from source: examples/roster-grid.html
+   Paste this into the first <style>/<link> of any artifact.
+   Palette is closed: use only these color literals.
+   ============================================================ */
+
+:root {
+  /* --- Core palette (Browser based game, about) --- */
+  --bg:        #ffffff;   /* canvas / page background, art tiles */
+  --panel:     #f7f8fa;   /* surface — card body, foot panels */
+  --ink:       #111111;   /* primary text; HUD overlay base */
+  --muted:     #6b7280;   /* secondary text, captions, meta */
+  --hairline:  #d9dee7;   /* 1px borders, dividers, meter tracks */
+
+  /* --- Signals (reserved, sparing — never large washes) --- */
+  --signal:    #1677ff;   /* Signal Blue — primary action, XP, Energy, In Party */
+  --battle:    #e0384a;   /* Battle Red — danger / Sell / HP */
+  --gold:      #c8a24a;   /* Nimrod Gold — tertiary / Ascend / Treinando */
+
+  /* --- Element sub-palette (creature typing) --- */
+  --el-fire:     #e0384a;
+  --el-water:    #1677ff;
+  --el-nature:   #2f9e57;
+  --el-electric: #c8a24a;
+
+  /* --- Shape --- */
+  --notch: 10px;          /* cyberpunk clip depth (cards/buttons) */
+  --notch-sm: 5px;        /* chips, pills, small badges */
+  --notch-xs: 3px;        /* meters / tracks */
+  --radius: 0;            /* NO rounded corners — softness lives in the notch */
+
+  /* --- Type --- */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+
+  /* --- Spacing (8px baseline) --- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
+
+  /* --- Motion --- */
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  /* --- Semantic combat roles (extracted from game source: api/battle.ts) ---
+     All map onto the registered palette — no new hex. These name the JOB a
+     color does in combat so screens stay consistent with the roster HUD. */
+  --hp:      var(--battle);   /* HP bar + damage numbers (server clamps ≥0) */
+  --energy:  var(--signal);   /* Energy/EN gauge; skills gate on energyCost (MAX_ENERGY 41) */
+  --atb:     var(--signal);   /* ATB turn gauge fill (min 100%, ATB_THRESHOLD 100) */
+  --crit:    var(--gold);     /* "Critical hit!" log cue + bonus-action ×N combo */
+  --miss:    var(--muted);    /* "Missed!" / evaded log cue */
+  --resist:  var(--muted);    /* "Resisted!" cue + status that failed to land */
+  --enemy:   var(--battle);   /* enemy-side accent (intent telegraph, enemy HP) */
+  --ally:    var(--signal);   /* player-side accent (your party panels) */
+  --lock:    var(--gold);     /* control lock (stun/freeze/sleep) banner */
+  /* Status-ailment chips reuse the element ramp + signals; label via statusLabel() */
+  --status-burn:   var(--el-fire);      /* burn / fire-dot */
+  --status-poison: var(--el-nature);    /* poison-% */
+  --status-weaken: var(--muted);        /* weaken / def-down */
+  --status-freeze: var(--el-water);     /* freeze / stun / sleep control */
+
+  /* --- Economy & world roles (extracted from api/farm.ts, market.ts, world.ts,
+     daily.ts) — resources {resource,amount}, DigiCredits (priceCredits), loot
+     rarity, biome danger scale, daily streak. Palette-only, no new hex. */
+  --res-meat:   var(--el-fire);     /* Meat resource */
+  --res-bits:   var(--signal);      /* Bits resource */
+  --res-data:   var(--el-nature);   /* Data resource */
+  --credits:    var(--gold);        /* DigiCredits (market currency, priceCredits) */
+  --danger:     var(--battle);      /* biome danger / enemyScale telegraph */
+  --streak:     var(--gold);        /* daily-reward streak count */
+  /* Loot rarity ramp — reuse the palette; higher tiers reserve the signals */
+  --rarity-common:    var(--muted);     /* common */
+  --rarity-uncommon:  var(--el-nature); /* uncommon */
+  --rarity-rare:      var(--signal);    /* rare */
+  --rarity-epic:      var(--gold);      /* epic (reserved gold) */
+  --rarity-legendary: var(--battle);    /* legendary (reserved red) */
+
+  /* --- Progression & social roles (extracted from api/daily.ts, shop.ts,
+     social.ts) — daily 7-day cycle (streakDay/nextDay), premium-time flag,
+     friend online status. Palette-only, no new hex. */
+  --claim-done:  var(--el-nature);  /* daily day already claimed */
+  --claim-next:  var(--signal);     /* the next-claimable day (today) */
+  --claim-todo:  var(--hairline);   /* future/unclaimed day pip */
+  --premium:     var(--gold);       /* premium-time active tag */
+  --online:      var(--el-nature);  /* friend seen within the online window */
+  --offline:     var(--muted);      /* friend offline */
+}
+
+
+
+
+/* Base defaults an artifact can rely on */
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Reusable notch utilities ---- */
+.notch    { clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+              calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)); }
+.notch-sm { clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+              calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm)); }
+.notch-xs { clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+              calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs)); }
+
+/* ---- Type helpers ---- */
+.eyebrow { font-size:11px; font-weight:600; letter-spacing:.14em;
+           text-transform:uppercase; color:var(--signal); }
+.caps    { font-size:9px; font-weight:600; letter-spacing:.12em;
+           text-transform:uppercase; color:var(--muted); }
+.num     { font-variant-numeric: tabular-nums; }
+
+</style>
+<style data-od-inline-asset="ui_kits/app/components.css">
+/* ============================================================
+   Creature Card Grid — Applied UI Kit components
+   Depends on ../../colors_and_type.css (tokens).
+   ============================================================ */
+@import url("../../colors_and_type.css");
+
+/* ---------- Buttons ---------- */
+.btn{
+  --_c:var(--signal);
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:.02em;
+  padding:10px 18px;border:1px solid transparent;cursor:pointer;color:#fff;
+  background:var(--_c);transition:filter .2s,background .2s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+.btn:hover{filter:brightness(1.06);}
+.btn:focus-visible{outline:none;filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--_c) 35%,transparent));}
+.btn--secondary{background:var(--bg);color:var(--ink);border-color:var(--hairline);}
+.btn--secondary:hover{border-color:var(--signal);color:var(--signal);filter:none;}
+.btn--danger{--_c:var(--battle);}
+/* Ascend — Nimrod Gold is a light accent; white text on it fails WCAG AA
+   (2.41:1). Use ink text (7.84:1) so the tertiary action stays readable. */
+.btn--tertiary{--_c:var(--gold);color:var(--ink);}
+
+/* ---------- Chips ---------- */
+.pill,.kind,.status-chip{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--hairline);
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+}
+.pill{color:var(--el,var(--signal));border-color:color-mix(in oklab,var(--el,var(--signal)) 35%,var(--hairline));}
+.pill .dot{width:5px;height:5px;border-radius:50%;background:var(--el,var(--signal));}
+.kind{color:var(--ink);background:var(--bg);}
+.kind svg{width:11px;height:11px;color:var(--muted);}
+
+/* ---------- Meters ---------- */
+.meter{height:6px;background:var(--bg);border:1px solid var(--hairline);position:relative;overflow:hidden;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);}
+.meter i{position:absolute;inset:0;right:auto;width:var(--pct,60%);background:var(--signal);}
+.meter--hp i{background:linear-gradient(90deg,var(--battle),color-mix(in oklab,var(--battle) 60%,#fff));}
+.meter--en i{background:linear-gradient(90deg,var(--signal),color-mix(in oklab,var(--signal) 60%,#fff));}
+
+/* ---------- Form control ---------- */
+.field{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.input{font-family:var(--font);font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;
+  color:var(--ink);background:var(--bg);border:1px solid var(--hairline);padding:10px 12px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.input:focus{outline:none;border-color:var(--signal);
+  box-shadow:inset 0 0 0 1px var(--signal);}
+
+/* ---------- Status chip (semantic) ---------- */
+.status-chip{--st:var(--muted);color:var(--ink);background:var(--bg);}
+.status-chip .status-dot{width:8px;height:8px;background:var(--st);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--st) 22%,transparent);}
+.status-chip .note{margin-left:2px;color:var(--muted);font-size:10px;}
+.status--party{--st:var(--signal);} .status--training{--st:var(--gold);} .status--resting{--st:#2f9e57;}
+
+/* ---------- Farm / building card ---------- */
+.farm{background:var(--panel);border:1px solid var(--hairline);padding:1px;width:260px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.farm-in{background:var(--panel);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.farm .art{background:var(--bg);height:120px;display:grid;place-items:center;border-bottom:1px solid var(--hairline);}
+.farm .art svg{width:40px;height:40px;color:var(--gold);}
+.farm .body{padding:14px 16px;}
+.farm .fname{font-size:16px;font-weight:600;}
+.farm .rate{font-size:12px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;}
+.farm .rate b{color:var(--signal);}
+.farm .store{display:flex;align-items:baseline;justify-content:space-between;margin:12px 0;
+  font-variant-numeric:tabular-nums;}
+.farm .store .k{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.farm .store .v{font-size:18px;font-weight:600;}
+.farm .actions{display:flex;gap:8px;}
+.farm .actions .btn{flex:1;justify-content:center;padding:9px 10px;font-size:12px;}
+
+/* ---------- Creature card shell ---------- */
+/* Notched card whose 1px border traces the notch (border color behind an
+   inset surface). See examples/roster-grid.html for the full three-zone card. */
+.creature-card{position:relative;background:var(--hairline);padding:1px;
+  clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,0 100%,0 var(--notch));}
+.creature-card-inner{background:var(--panel);height:100%;display:flex;flex-direction:column;overflow:hidden;
+  clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,0 100%,0 var(--notch));}
+.creature-card:focus-visible{outline:none;background:var(--signal);
+  filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--signal) 35%,transparent));}
+.creature-card .card-meta{padding:16px 16px 10px;}
+.creature-card .card-foot{padding:12px 16px 14px;border-top:1px solid var(--hairline);background:var(--panel);}
+
+/* ---------- HUD / stat panel ---------- */
+/* Near-black overlay used inside the light canvas for combat-stat contrast.
+   White-alpha microcopy on the dark HUD is intentional and passes contrast. */
+.hud-panel{background:color-mix(in oklab,var(--ink) 96%,var(--el,var(--signal)));color:var(--bg);padding:16px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.hud-panel .k{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:color-mix(in oklab,var(--bg) 55%,transparent);}
+.hud-panel .line{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:10px;}
+.hud-panel .v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+.hud-panel .meter{background:color-mix(in oklab,var(--bg) 16%,transparent);border-color:transparent;}
+
+/* ---------- HUD header / navigation ---------- */
+.hud-header{padding:24px clamp(16px,5vw,56px) 16px;border-bottom:1px solid var(--hairline);
+  display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+.hud-header h1{font-size:clamp(22px,3vw,30px);font-weight:600;letter-spacing:-.02em;}
+.hud-header .count{font-size:12px;font-weight:500;color:var(--muted);border:1px solid var(--hairline);padding:8px 14px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.hud-header .count b{color:var(--ink);}
+
+/* ============================================================
+   COMBAT (SMT/Persona-style) — extracted from game api/battle.ts.
+   Party = 3 command panels; enemies on screen; skill menu is a
+   scrollable EN-gated list; actions Fight/Skills/Analyse/Guard/Flee.
+   Palette-only: HP=battle, EN/ATB=signal, crit=gold, miss/resist=muted.
+   ============================================================ */
+
+/* --- Party command panel (one per party Digimon) --- */
+.cbt-party{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.cbt-unit{background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  display:flex;flex-direction:column;gap:8px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.cbt-unit.is-active{border-color:var(--ally);box-shadow:inset 0 0 0 1px var(--ally);}
+.cbt-unit.is-locked{opacity:.6;}          /* stun/freeze/sleep this turn */
+.cbt-unit .u-name{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+.cbt-unit .u-cap{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.cbt-unit .u-val{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink);}
+
+/* --- HP / EN / ATB gauges (reuse .meter shape) --- */
+.gauge{height:6px;background:var(--bg);border:1px solid var(--hairline);position:relative;overflow:hidden;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);}
+.gauge i{position:absolute;inset:0;right:auto;width:var(--pct,60%);}
+.gauge--hp  i{background:linear-gradient(90deg,var(--hp),color-mix(in oklab,var(--hp) 60%,#fff));}
+.gauge--en  i{background:linear-gradient(90deg,var(--energy),color-mix(in oklab,var(--energy) 60%,#fff));}
+.gauge--atb i{background:var(--atb);}      /* fills toward the next turn */
+
+/* --- Action bar (per-turn command menu) --- */
+.cbt-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.cbt-cmd{flex:1 1 auto;min-width:88px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:.03em;padding:12px 14px;
+  color:#fff;background:var(--signal);border:1px solid transparent;cursor:pointer;transition:filter .2s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.cbt-cmd svg{width:14px;height:14px;}
+.cbt-cmd:hover{filter:brightness(1.06);}
+.cbt-cmd:focus-visible{outline:none;filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--signal) 35%,transparent));}
+.cbt-cmd--guard{background:var(--bg);color:var(--ink);border-color:var(--hairline);}    /* defensive: outline */
+.cbt-cmd--analyse{background:var(--gold);color:var(--ink);}   /* egg-chance: tertiary/gold, ink text (AA) */
+.cbt-cmd--flee{background:var(--bg);color:var(--battle);border-color:color-mix(in oklab,var(--battle) 40%,var(--hairline));}
+.cbt-cmd[disabled]{background:var(--panel);color:var(--muted);border-color:var(--hairline);cursor:not-allowed;filter:none;}
+
+/* --- Skill menu (scrollable, EN-gated) --- */
+.skill-menu{max-height:232px;overflow-y:auto;border:1px solid var(--hairline);background:var(--panel);
+  display:flex;flex-direction:column;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.skill-group-cap{position:sticky;top:0;background:var(--panel);z-index:1;padding:8px 12px 4px;
+  font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--el,var(--muted));
+  border-bottom:1px solid var(--hairline);}   /* grouped by skill.element */
+.skill-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:11px 12px;background:transparent;border:0;border-bottom:1px solid var(--hairline);
+  font-family:var(--font);text-align:left;cursor:pointer;color:var(--ink);transition:background .15s;}
+.skill-row:hover{background:color-mix(in oklab,var(--signal) 8%,transparent);}
+.skill-row:focus-visible{outline:none;background:color-mix(in oklab,var(--signal) 12%,transparent);
+  box-shadow:inset 2px 0 0 var(--signal);}
+.skill-row .s-name{font-size:13px;font-weight:600;}
+.skill-row .s-cost{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--energy);}
+.skill-row[disabled]{cursor:not-allowed;color:var(--muted);}          /* unaffordable: shown, disabled */
+.skill-row[disabled] .s-cost{color:var(--muted);}
+
+/* --- Turn log + cues (crit/miss/resist, status events) --- */
+.turn-log{border:1px solid var(--hairline);background:var(--panel);padding:12px 14px;max-height:200px;overflow-y:auto;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.log-line{font-size:12px;color:var(--ink);padding:4px 0;border-bottom:1px solid color-mix(in oklab,var(--hairline) 60%,transparent);
+  font-variant-numeric:tabular-nums;}
+.log-line .rnd{color:var(--muted);font-size:10px;letter-spacing:.08em;}
+.cue{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.cue--crit  {color:var(--crit);}
+.cue--miss  {color:var(--miss);}
+.cue--resist{color:var(--resist);}
+
+/* --- Status ailment chip (statusLabel() text) --- */
+.ailment{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;color:var(--ink);
+  border:1px solid color-mix(in oklab,var(--st,var(--muted)) 45%,var(--hairline));
+  clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);}
+.ailment::before{content:"";width:6px;height:6px;background:var(--st,var(--muted));}
+.ailment--burn  {--st:var(--status-burn);}
+.ailment--poison{--st:var(--status-poison);}
+.ailment--weaken{--st:var(--status-weaken);}
+.ailment--freeze{--st:var(--status-freeze);}
+
+/* --- Enemy intent telegraph --- */
+.enemy-intent{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--enemy);
+  display:inline-flex;align-items:center;gap:6px;}
+.enemy-intent .warn{color:var(--battle);}    /* the "(×N!)" multi-action combo warning */
+
+/* ============================================================
+   ECONOMY & WORLD — extracted from api/farm.ts, market.ts, world.ts, daily.ts.
+   Resources {resource,amount}; DigiCredits (priceCredits); loot rarity;
+   biome danger/enemyScale; daily streak. Palette-only; notch on every surface.
+   ============================================================ */
+
+/* --- Resource chip (Meat / Bits / Data balance) --- */
+.res{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);border:1px solid var(--hairline);
+  background:var(--bg);padding:5px 9px;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);}
+.res::before{content:"";width:8px;height:8px;background:var(--rc,var(--muted));}
+.res .lbl{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.res--meat{--rc:var(--res-meat);}
+.res--bits{--rc:var(--res-bits);}
+.res--data{--rc:var(--res-data);}
+
+/* --- DigiCredits tag (market currency) --- */
+.credits{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);}
+.credits::before{content:"";width:9px;height:9px;background:var(--credits);
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);}   /* gold diamond mark */
+
+/* --- Loot rarity tag --- */
+.rarity{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;color:var(--ink);border:1px solid color-mix(in oklab,var(--rr,var(--muted)) 45%,var(--hairline));
+  clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);}
+.rarity::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;
+  background:var(--rr,var(--muted));vertical-align:middle;}
+.rarity--common{--rr:var(--rarity-common);}
+.rarity--uncommon{--rr:var(--rarity-uncommon);}
+.rarity--rare{--rr:var(--rarity-rare);}
+.rarity--epic{--rr:var(--rarity-epic);}
+.rarity--legendary{--rr:var(--rarity-legendary);}
+
+/* --- Biome danger meter (enemyScale telegraph) --- */
+.danger{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.danger .pips{display:inline-flex;gap:3px;}
+.danger .pip{width:7px;height:7px;background:var(--hairline);}
+.danger .pip.on{background:var(--danger);}
+
+/* --- Daily streak counter --- */
+.streak{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);border:1px solid color-mix(in oklab,var(--streak) 40%,var(--hairline));
+  background:var(--bg);padding:5px 10px;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.streak::before{content:"";width:8px;height:8px;background:var(--streak);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);} /* star */
+.streak .n{color:var(--streak);}
+
+/* --- Market listing row --- */
+.listing{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.listing .l-name{font-size:14px;font-weight:600;}
+.listing .l-seller{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.listing .l-buy{display:inline-flex;align-items:center;gap:8px;}
+.listing .l-buy .btn{padding:9px 14px;font-size:12px;}
+
+/* ============================================================
+   PROGRESSION & SOCIAL — extracted from api/daily.ts, shop.ts, social.ts.
+   Daily 7-day cycle (streakDay/nextDay), premium-time tag, shop item row,
+   friend row + online dot. Palette-only; notch on every surface.
+   ============================================================ */
+
+/* --- Daily 7-day reward cycle --- */
+.daily{display:flex;gap:8px;flex-wrap:wrap;}
+.daily-day{flex:1 1 0;min-width:64px;background:var(--panel);border:1px solid var(--hairline);
+  padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.daily-day .d-n{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.daily-day .d-amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);}
+.daily-day .d-res{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rc,var(--muted));}
+.daily-day .d-mark{width:8px;height:8px;background:var(--claim-todo);}
+.daily-day.is-done{opacity:.6;} .daily-day.is-done .d-mark{background:var(--claim-done);}
+.daily-day.is-next{border-color:var(--claim-next);box-shadow:inset 0 0 0 1px var(--claim-next);}
+.daily-day.is-next .d-mark{background:var(--claim-next);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--claim-next) 22%,transparent);}
+
+/* --- Premium-time tag ("Premium active until <date>") --- */
+.premium-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ink);
+  border:1px solid color-mix(in oklab,var(--premium) 45%,var(--hairline));background:var(--bg);padding:5px 10px;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.premium-tag::before{content:"";width:8px;height:8px;background:var(--premium);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);}
+.premium-tag.is-off{color:var(--muted);border-color:var(--hairline);}
+.premium-tag.is-off::before{background:var(--muted);}
+
+/* --- Shop item row (ShopItemView: itemId, name, priceCredits) --- */
+.shop-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.shop-item .si-name{font-size:14px;font-weight:600;}
+.shop-item .si-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+.shop-item .si-buy{display:inline-flex;align-items:center;gap:8px;}
+.shop-item .si-buy .btn{padding:9px 14px;font-size:12px;}
+
+/* --- Friend row (FriendView: displayName, online) --- */
+.friend{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:11px 14px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.friend .status-dot{width:9px;height:9px;background:var(--offline);}
+.friend.is-online .status-dot{background:var(--online);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--online) 22%,transparent);}
+.friend .f-name{font-size:14px;font-weight:600;}
+.friend .f-status{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--offline);}
+.friend.is-online .f-status{color:var(--online);}
+.friend .f-pending{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);}
+
+</style>
+<style>
+  /* combat.html — screen scaffolding only. All combat components
+     (.cbt-*, .gauge--*, .skill-menu, .turn-log, .cue--*, .ailment--*)
+     live in ui_kits/app/components.css; tokens in colors_and_type.css. */
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+    font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
+  .field{max-width:1120px;margin:0 auto;padding:clamp(16px,4vw,32px) clamp(16px,5vw,40px) 40px;
+    display:flex;flex-direction:column;gap:20px;}
+
+  /* top bar */
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    border-bottom:1px solid var(--hairline);padding-bottom:14px;flex-wrap:wrap;}
+  .bar .eyebrow{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--signal);}
+  .bar h1{font-size:clamp(20px,3vw,28px);font-weight:600;letter-spacing:-.02em;margin-top:4px;}
+  .round-pill{font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--hairline);padding:8px 14px;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+  .round-pill b{color:var(--ink);}
+
+  /* enemy row (SMT: foes on screen) */
+  .enemies{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .foe{background:var(--panel);border:1px solid var(--hairline);padding:14px 14px 12px;position:relative;
+    display:flex;flex-direction:column;gap:8px;text-align:center;transition:border-color .2s,box-shadow .2s,opacity .3s;
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+  .foe.is-target{border-color:var(--enemy);box-shadow:inset 0 0 0 1px var(--enemy);}
+  .foe.is-down{opacity:.4;filter:grayscale(1);pointer-events:none;}
+  .foe .art{height:96px;background:var(--bg);border:1px solid var(--hairline);display:grid;place-items:center;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+  .foe .art svg{width:44px;height:44px;color:var(--el,var(--enemy));}
+  .foe .f-name{font-size:14px;font-weight:600;}
+  .foe .f-sub{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+  .foe .f-hp{display:flex;align-items:center;gap:8px;}
+  .foe .f-hp .v{font-size:11px;font-weight:600;color:var(--ink);white-space:nowrap;}
+  .foe .ailments{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;min-height:16px;}
+  .foe .egg-flag{position:absolute;top:10px;right:0;background:var(--gold);color:var(--ink);
+    font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;
+    clip-path:polygon(5px 0,100% 0,100% 100%,0 100%);}
+  /* affinity tag on the foe card (fire>nature>water>fire; electric>water) */
+  .foe .aff{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;min-height:12px;}
+  .foe .aff.weak{color:var(--crit);}      /* takes extra dmg (gold, like a crit windfall) */
+  .foe .aff.resist{color:var(--muted);}   /* takes reduced dmg */
+
+  /* floating damage number over a target */
+  .float{position:absolute;left:50%;top:34px;transform:translateX(-50%);
+    font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink);
+    pointer-events:none;z-index:5;animation:floatUp .8s cubic-bezier(.16,1,.3,1) forwards;}
+  .float.crit{color:var(--crit);font-size:24px;}
+  .float.weak{color:var(--crit);}
+  .float.resist{color:var(--muted);font-size:16px;}
+  .float.miss{color:var(--muted);font-size:15px;letter-spacing:.06em;}
+  @keyframes floatUp{0%{opacity:0;transform:translateX(-50%) translateY(6px) scale(.8);}
+    18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}
+    100%{opacity:0;transform:translateX(-50%) translateY(-26px) scale(1);}}
+
+  /* enemy intent telegraph */
+  .telegraph{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+    border:1px solid var(--hairline);background:var(--panel);padding:10px 14px;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+  .telegraph svg{width:14px;height:14px;color:var(--enemy);flex:none;}
+
+  /* bottom: party command deck + side log */
+  .deck{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:stretch;}
+  .party-col{display:flex;flex-direction:column;gap:14px;}
+  .cbt-unit .rowline{display:grid;grid-template-columns:26px 1fr auto;align-items:center;gap:8px;}
+  .cbt-unit .u-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .cbt-unit .u-el{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--el,var(--muted));}
+  .cbt-unit.is-active{cursor:default;}
+  .cbt-unit .u-btn{width:100%;text-align:left;background:transparent;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;}
+  .cbt-unit .u-ailments{display:flex;gap:4px;flex-wrap:wrap;min-height:0;}
+
+  /* command panel (shown for the active unit) */
+  .command{border:1px solid var(--hairline);background:var(--panel);padding:14px;
+    display:flex;flex-direction:column;gap:12px;
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+  .command .who{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  .command .who b{color:var(--ink);}
+  .lock-banner{font-size:11px;font-weight:600;color:var(--ink);background:color-mix(in oklab,var(--lock) 16%,var(--bg));
+    border:1px solid color-mix(in oklab,var(--lock) 45%,var(--hairline));padding:8px 10px;
+    clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+  .skill-hint{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+  .target-hint{font-size:11px;color:var(--signal);font-weight:600;}
+
+  .log-col{display:flex;flex-direction:column;gap:10px;min-height:0;}
+  .log-col h2{font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  .turn-log{flex:1;min-height:0;overflow-y:auto;}
+  .banner{padding:16px;text-align:center;border:1px solid var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--bg));
+    clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+  .banner.win{border-color:var(--signal);}
+  .banner.lose{border-color:var(--battle);background:color-mix(in oklab,var(--battle) 8%,var(--bg));}
+  .banner .b-t{font-size:16px;font-weight:600;}
+  .banner .b-s{font-size:12px;color:var(--muted);margin-top:4px;}
+  .banner .btn{margin-top:12px;}
+
+  @media (max-width:820px){ .deck{grid-template-columns:1fr;align-items:start;} .turn-log{flex:none;max-height:220px;} }
+  @media (max-width:560px){ .enemies,.cbt-party{grid-template-columns:1fr;} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;} .float{animation:none!important;} }
+</style>
+</head>
+<body>
+<main class="field" data-od-id="combat-screen">
+
+  <header class="bar" data-od-id="combat-bar">
+    <div>
+      <div class="eyebrow">Wild Encounter</div>
+      <h1>Battle</h1>
+    </div>
+    <div class="round-pill" data-od-id="round-counter">Round <b id="round-n">1</b> · <span id="phase">Your turn</span></div>
+  </header>
+
+  <!-- Enemies on screen -->
+  <section class="enemies" id="enemies" aria-label="Enemy Digimon" data-od-id="enemy-row"></section>
+
+  <div class="telegraph" id="telegraph" role="status" aria-live="polite" data-od-id="enemy-intent">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+    <span id="telegraph-text">—</span>
+  </div>
+
+  <!-- Party command deck + turn log -->
+  <section class="deck" data-od-id="combat-deck">
+    <div class="party-col">
+      <div class="cbt-party" id="party" role="list" aria-label="Your party" data-od-id="party-row"></div>
+      <div class="command" id="command" aria-live="polite" data-od-id="command-panel"></div>
+    </div>
+
+    <aside class="log-col" data-od-id="log-col">
+      <h2>Turn log</h2>
+      <div class="turn-log" id="log" role="log" aria-label="Battle log" data-od-id="turn-log"></div>
+    </aside>
+  </section>
+</main>
+
+<script>
+/* ==========================================================================
+   Combat model — mirrors the game contract in /mnt/sdc/digimon api/battle.ts:
+   skill menu (energyCost/element/affordable), MAX_ENERGY, ATB gauge, HP clamp,
+   crit/miss/resist cues, status ailments, Fight/Guard/Flee. "Analyse → egg" is
+   a GAME-SPECIFIED EXTENSION (not in battle.ts) — labelled as such.
+   Combat tuning here is illustrative; the real game resolves fights server-side.
+   ========================================================================== */
+const MAX_ENERGY = 41;                 // from battle.ts
+const ATB_THRESHOLD = 100;             // from battle.ts
+
+const EL_GLYPH = {
+  fire:'M12 2c1 4 4 5 4 9a4 4 0 1 1-8 0c0-2 1-3 2-4-2 0-3 2-3 4a6 6 0 1 0 12 0c0-5-4-7-7-9Z',
+  water:'M12 3c4 5 6 8 6 11a6 6 0 1 1-12 0c0-3 2-6 6-11Z',
+  nature:'M12 21V9M12 9C12 5 9 3 5 3c0 4 3 6 7 6ZM12 11c0-3 3-5 7-5 0 4-3 5-7 5Z',
+  electric:'M13 2 4 14h6l-1 8 9-12h-6l1-8Z',
+};
+const EL_VAR = {fire:'var(--el-fire)',water:'var(--el-water)',nature:'var(--el-nature)',electric:'var(--el-electric)'};
+
+/* Element affinity — the SMT loop: hit a weakness for a bonus, hit a resist for
+   a cut. fire > nature > water > fire; electric > water. Display-only tuning. */
+const WEAK = { fire:'nature', nature:'water', water:'fire', electric:'water' };
+const RESIST = { fire:'water', water:'nature', nature:'fire', electric:'nature' };
+function affinity(skillEl, foeEl){
+  if(WEAK[skillEl]===foeEl) return 'weak';
+  if(RESIST[skillEl]===foeEl) return 'resist';
+  return null;
+}
+const AFF_MULT = { weak:1.5, resist:0.5 };
+
+/* Party of 3 — each carries a scrollable equipped-skill list (energyCost + element). */
+const party = [
+  { id:'p0', name:'Agnimon', el:'fire', hp:840, hpMax:900, en:34, enMax:MAX_ENERGY, atk:186, atb:60,
+    skills:[
+      {id:'s0',name:'Slash',el:'fire',cost:0,power:120},
+      {id:'s1',name:'Fire Breath',el:'fire',cost:12,power:210},
+      {id:'s2',name:'Meteor Fang',el:'fire',cost:22,power:320},
+      {id:'s3',name:'Salamander Break',el:'fire',cost:38,power:520},
+      {id:'s4',name:'Ember Guard',el:'nature',cost:8,power:60},
+    ], ailments:[] },
+  { id:'p1', name:'Ondina', el:'water', hp:520, hpMax:520, en:41, enMax:MAX_ENERGY, atk:96, atb:30,
+    skills:[
+      {id:'s0',name:'Slash',el:'water',cost:0,power:80},
+      {id:'s1',name:'Bubble Lance',el:'water',cost:10,power:170},
+      {id:'s2',name:'Tidal Crush',el:'water',cost:24,power:300},
+      {id:'s3',name:'Mist Veil',el:'nature',cost:14,power:0},
+    ], ailments:[] },
+  { id:'p2', name:'Voltaru', el:'electric', hp:760, hpMax:980, en:20, enMax:MAX_ENERGY, atk:224, atb:80,
+    skills:[
+      {id:'s0',name:'Slash',el:'electric',cost:0,power:130},
+      {id:'s1',name:'Spark Shot',el:'electric',cost:14,power:230},
+      {id:'s2',name:'Volt Cannon',el:'electric',cost:30,power:400},
+      {id:'s3',name:'Overload',el:'electric',cost:40,power:600},
+    ], ailments:[{kind:'weaken'}] },
+];
+
+/* Wild enemies — Analyse gives a chance at an egg of that Digimon. */
+const enemies = [
+  { id:'e0', name:'Numemon', el:'nature',   stage:'Rookie',   hp:360, hpMax:360, eggChance:0.45, ailments:[], down:false, egg:false },
+  { id:'e1', name:'Meramon', el:'fire',     stage:'Champion', hp:640, hpMax:640, eggChance:0.30, ailments:[{kind:'burn'}], down:false, egg:false },
+  { id:'e2', name:'Gesomon', el:'water',    stage:'Champion', hp:580, hpMax:580, eggChance:0.35, ailments:[], down:false, egg:false },
+];
+
+let round = 1, activeIdx = 0, target = 0, mode = 'menu', over = false;
+
+/* pristine snapshot for "New encounter" restart */
+const INIT = JSON.parse(JSON.stringify({party, enemies}));
+function resetState(){
+  party.length = 0; INIT.party.forEach((_,i)=>party.push(JSON.parse(JSON.stringify(INIT.party[i]))));
+  enemies.length = 0; INIT.enemies.forEach((_,i)=>enemies.push(JSON.parse(JSON.stringify(INIT.enemies[i]))));
+  round=1; activeIdx=0; mode='menu'; over=false; target=firstLiveEnemy();
+  logEl.innerHTML=''; $('#round-n').textContent='1'; $('#phase').textContent='Your turn';
+  updateTelegraph(); renderAll();
+}
+
+const $ = s => document.querySelector(s);
+const enemiesEl = $('#enemies'), partyEl = $('#party'), commandEl = $('#command'), logEl = $('#log');
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const firstLiveEnemy = ()=>enemies.findIndex(e=>!e.down);
+let pendingFloat = null;
+function flushFloat(){ if(pendingFloat){ const f=pendingFloat; pendingFloat=null; requestAnimationFrame(()=>floatOver(f.sel,f.text,f.cls)); } }
+
+function ailmentChips(list){
+  return list.map(a=>`<span class="ailment ailment--${a.kind}">${statusLabel(a.kind)}</span>`).join('');
+}
+/* statusLabel — mirrors battle.ts: split on '-', titleize, 'percent'→'%'. */
+function statusLabel(kind){
+  return kind.split('-').map(p=>p==='percent'?'%':p.charAt(0).toUpperCase()+p.slice(1)).join(' ');
+}
+
+function renderEnemies(){
+  const actEl = party[activeIdx] ? party[activeIdx].el : null;
+  enemiesEl.innerHTML = enemies.map((e,i)=>{
+    const pct = Math.round(e.hp/e.hpMax*100);
+    const aff = actEl ? affinity(actEl, e.el) : null;
+    const affTag = aff ? `<div class="aff ${aff}">${aff==='weak'?'Weak vs '+actEl:'Resists '+actEl}</div>` : `<div class="aff"></div>`;
+    return `<article class="foe ${i===target&&!e.down?'is-target':''} ${e.down?'is-down':''}"
+        data-enemy="${i}" style="--el:${EL_VAR[e.el]}" data-od-id="foe-${e.name.toLowerCase()}"
+        role="button" tabindex="${e.down?-1:0}" aria-label="Target ${e.name}, ${e.stage}, HP ${e.hp} of ${e.hpMax}${aff?', '+(aff==='weak'?'weak to your active Digimon':'resists your active Digimon'):''}">
+      ${e.egg?'<span class="egg-flag">Egg!</span>':''}
+      <div class="art"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${EL_GLYPH[e.el]}"/></svg></div>
+      <div class="f-name">${e.name}</div>
+      <div class="f-sub">${e.el} · ${e.stage}</div>
+      ${affTag}
+      <div class="f-hp">
+        <div class="gauge gauge--hp" role="progressbar" aria-label="${e.name} HP" aria-valuenow="${e.hp}" aria-valuemin="0" aria-valuemax="${e.hpMax}"><i style="--pct:${pct}%"></i></div>
+        <span class="v">${e.hp}/${e.hpMax}</span>
+      </div>
+      <div class="ailments">${ailmentChips(e.ailments)}</div>
+    </article>`;
+  }).join('');
+}
+
+function renderParty(){
+  partyEl.innerHTML = party.map((u,i)=>{
+    const hpPct = Math.round(u.hp/u.hpMax*100), enPct = Math.round(u.en/u.enMax*100), atbPct = Math.min(100, Math.round(u.atb/ATB_THRESHOLD*100));
+    const dead = u.hp<=0;
+    return `<div class="cbt-unit ${i===activeIdx&&!dead?'is-active':''} ${dead?'is-locked':''}" data-od-id="unit-${u.name.toLowerCase()}" style="--el:${EL_VAR[u.el]}">
+      <button class="u-btn" data-unit="${i}" ${dead?'disabled':''} aria-label="Select ${u.name}">
+        <div class="u-head"><span class="u-name">${u.name}</span><span class="u-el">${u.el}</span></div>
+      </button>
+      <div class="rowline"><span class="u-cap">HP</span>
+        <div class="gauge gauge--hp" role="progressbar" aria-label="HP" aria-valuenow="${clamp(u.hp,0,u.hpMax)}" aria-valuemin="0" aria-valuemax="${u.hpMax}"><i style="--pct:${clamp(hpPct,0,100)}%"></i></div>
+        <span class="u-val">${clamp(u.hp,0,u.hpMax)}/${u.hpMax}</span></div>
+      <div class="rowline"><span class="u-cap">EN</span>
+        <div class="gauge gauge--en" role="progressbar" aria-label="Energy" aria-valuenow="${u.en}" aria-valuemin="0" aria-valuemax="${u.enMax}"><i style="--pct:${enPct}%"></i></div>
+        <span class="u-val">${u.en}/${u.enMax}</span></div>
+      <div class="rowline"><span class="u-cap">ATB</span>
+        <div class="gauge gauge--atb" role="progressbar" aria-label="Turn gauge" aria-valuenow="${u.atb}" aria-valuemin="0" aria-valuemax="${ATB_THRESHOLD}"><i style="--pct:${atbPct}%"></i></div>
+        <span class="u-val">${atbPct}%</span></div>
+      <div class="u-ailments">${ailmentChips(u.ailments)}</div>
+    </div>`;
+  }).join('');
+}
+
+const ICON = {
+  fight:'<path d="M14.5 4 20 9.5 9.5 20 4 20 4 14.5 14.5 4ZM12.5 6 18 11.5"/>',
+  skills:'<path d="M4 6h16M4 12h16M4 18h10"/>',
+  analyse:'<path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4M11 8v6M8 11h6"/>',
+  guard:'<path d="M12 3 5 6v5c0 4 3 7 7 9 4-2 7-5 7-9V6l-7-3Z"/>',
+  flee:'<path d="M5 12h13M13 6l6 6-6 6"/>',
+};
+function cmd(k,label,cls){ return `<button class="cbt-cmd ${cls||''}" data-cmd="${k}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>${label}</button>`; }
+
+function renderCommand(){
+  const u = party[activeIdx];
+  if(over){ commandEl.innerHTML=''; return; }
+  if(u.hp<=0){ commandEl.innerHTML = `<div class="lock-banner">${u.name} is down — pick another party member.</div>`; return; }
+  const locked = u.ailments.some(a=>['freeze','stun','sleep'].includes(a.kind));
+  let inner = `<div class="who">Acting: <b>${u.name}</b> · target <b>${enemies[target]?enemies[target].name:'—'}</b></div>`;
+  if(locked){ inner += `<div class="lock-banner">${u.name} is ${u.ailments.find(a=>['freeze','stun','sleep'].includes(a.kind)).kind} — cannot act this turn.</div>`; }
+  else if(mode==='skills'){
+    inner += `<div class="skill-hint">Choose a skill — EN ${u.en}/${u.enMax}</div>`;
+    inner += renderSkillMenu(u);
+    inner += `<div class="cbt-actions"><button class="cbt-cmd cbt-cmd--guard" data-cmd="back">Back</button></div>`;
+  } else {
+    inner += `<div class="cbt-actions">
+      ${cmd('fight','Fight')}
+      ${cmd('skills','Skills')}
+      ${cmd('analyse','Analyse','cbt-cmd--analyse')}
+      ${cmd('guard','Guard','cbt-cmd--guard')}
+      ${cmd('flee','Flee','cbt-cmd--flee')}
+    </div>
+    <div class="target-hint">Tap an enemy to retarget · gold "Weak" = bonus damage · Analyse a weakened foe for an egg.</div>`;
+  }
+  commandEl.innerHTML = inner;
+}
+
+/* Scrollable, EN-gated skill menu grouped by element (mirrors BattleSkillOption). */
+function renderSkillMenu(u){
+  const foe = enemies[target];
+  const groups = {};
+  u.skills.forEach(s=>{ (groups[s.el]=groups[s.el]||[]).push(s); });
+  let html = `<div class="skill-menu" role="listbox" aria-label="Equipped skills">`;
+  Object.keys(groups).forEach(el=>{
+    html += `<div class="skill-group-cap" style="--el:${EL_VAR[el]}">${el}</div>`;
+    groups[el].forEach(s=>{
+      const afford = u.en >= s.cost;
+      const aff = (foe && s.power>0) ? affinity(s.el, foe.el) : null;
+      const affTag = aff ? ` <span class="aff ${aff}" style="font-size:8px">${aff==='weak'?'Weak!':'Resist'}</span>` : '';
+      html += `<button class="skill-row" data-skill="${s.id}" ${afford?'':'disabled'} role="option"
+        aria-label="${s.name}, costs ${s.cost} energy${afford?'':', not enough energy'}${aff?', '+(aff==='weak'?'hits a weakness':'is resisted'):''}">
+        <span class="s-name">${s.name}${s.power===0?' · Support':''}${affTag}</span>
+        <span class="s-cost">${s.cost} EN</span></button>`;
+    });
+  });
+  return html + `</div>`;
+}
+
+/* ---- floating damage number over a foe / party unit ---- */
+function floatOver(selector, text, cls){
+  const host = document.querySelector(selector);
+  if(!host) return;
+  const el = document.createElement('div');
+  el.className = 'float' + (cls?' '+cls:'');
+  el.textContent = text;
+  host.appendChild(el);
+  setTimeout(()=>el.remove(), 850);
+}
+
+/* ---- log ---- */
+function log(actor, text, cue){
+  const cueHtml = cue ? ` <span class="cue cue--${cue}">${cue==='crit'?'Critical hit!':cue==='miss'?'Missed!':'Resisted!'}</span>` : '';
+  const div = document.createElement('div');
+  div.className='log-line';
+  div.innerHTML = `<span class="rnd">R${round} · ${actor}</span> — ${text}${cueHtml}`;
+  logEl.prepend(div);
+}
+
+/* ---- turn resolution ---- */
+function playerAct(kind, skill){
+  const u = party[activeIdx];
+  const e = enemies[target];
+  if(!e || e.down){ return; }
+
+  if(kind==='guard'){ u.guarding=true; u.atb=0; log(u.name, `braces — Guard raised.`); return endPlayerTurn(); }
+  if(kind==='flee'){ finish('fled'); return; }
+
+  if(kind==='analyse'){
+    // GAME-SPECIFIED EXTENSION: analyse a foe → chance to secure its egg.
+    u.en = clamp(u.en-6,0,u.enMax); u.atb=0;
+    const weakened = e.hp/e.hpMax <= 0.5;
+    const chance = e.eggChance + (weakened?0.25:0);
+    const got = Math.random() < chance;
+    if(got){ e.egg=true; log(u.name, `analysed ${e.name} — <b>Egg secured!</b> (${Math.round(chance*100)}% chance)`); }
+    else { log(u.name, `analysed ${e.name} — no egg this time (${Math.round(chance*100)}% chance).`); }
+    return endPlayerTurn();
+  }
+
+  // Fight / Skill damage
+  const s = skill || {name:'Attack',cost:0,power:130,el:u.el};
+  if(u.en < s.cost){ return; }
+  u.en = clamp(u.en - s.cost, 0, u.enMax); u.atb=0;
+  const foeSel = `[data-od-id="foe-${e.name.toLowerCase()}"]`;
+  const miss = Math.random() < 0.08;
+  if(miss){ log(u.name, `used ${s.name} on ${e.name}`, 'miss'); pendingFloat={sel:foeSel,text:'Miss',cls:'miss'}; return endPlayerTurn(); }
+  const crit = Math.random() < 0.15;
+  const aff = s.power>0 ? affinity(s.el, e.el) : null;
+  const affMult = aff ? AFF_MULT[aff] : 1;
+  let dmg = Math.round((u.atk*0.4 + s.power) * (crit?1.6:1) * affMult * (0.9+Math.random()*0.2));
+  e.hp = clamp(e.hp - dmg, 0, e.hpMax);
+  const affWord = aff==='weak'?' · Weak!':aff==='resist'?' · Resisted':'';
+  log(u.name, `used ${s.name} — ${dmg} dmg to ${e.name} (${e.hp}/${e.hpMax})${affWord}`, crit?'crit':(aff==='resist'?'resist':null));
+  pendingFloat = {sel:foeSel, text:'-'+dmg, cls:(crit?'crit':aff||'')};
+  if(e.hp<=0){ e.down=true; log('battle', `${e.name} was defeated.`); }
+  endPlayerTurn();
+}
+
+function endPlayerTurn(){
+  mode='menu';
+  if(enemies.every(e=>e.down)){ renderEnemies(); flushFloat(); return setTimeout(()=>finish('win'), 500); }
+  // advance target if current fell
+  if(enemies[target].down){ const n=firstLiveEnemy(); if(n>=0) target=n; }
+  renderAll(); flushFloat();
+  enemyPhase();
+}
+
+/* Enemies strike back (server-authoritative in the real game; illustrative here). */
+function enemyPhase(){
+  $('#phase').textContent='Enemy turn';
+  setTimeout(()=>{
+    enemies.filter(e=>!e.down).forEach(e=>{
+      const live = party.filter(p=>p.hp>0);
+      if(!live.length) return;
+      const t = live[Math.floor(Math.random()*live.length)];
+      const miss = Math.random()<0.1;
+      if(miss){ log(e.name, `strikes ${t.name}`, 'miss'); return; }
+      let dmg = Math.round((60 + Math.random()*120) * (t.guarding?0.5:1));
+      t.hp = clamp(t.hp - dmg, 0, t.hpMax);
+      log(e.name, `hits ${t.name} — ${dmg} dmg (${t.hp}/${t.hpMax})`);
+    });
+    // Party recovers a little Energy each round so the loop stays playable.
+    party.forEach(p=>{ p.guarding=false; if(p.hp>0){ p.atb=Math.min(ATB_THRESHOLD, p.atb+45); p.en=clamp(p.en+6,0,p.enMax); } });
+    if(party.every(p=>p.hp<=0)){ renderAll(); return finish('loss'); }
+    round++;
+    if(party[activeIdx].hp<=0){ const n=party.findIndex(p=>p.hp>0); if(n>=0) activeIdx=n; }
+    $('#round-n').textContent=round; $('#phase').textContent='Your turn';
+    updateTelegraph();
+    renderAll();
+  }, 620);
+}
+
+function updateTelegraph(){
+  const live = enemies.filter(e=>!e.down);
+  if(!live.length){ $('#telegraph-text').textContent='All foes defeated.'; return; }
+  const nx = live.slice().sort((a,b)=>(b.hp/b.hpMax)-(a.hp/a.hpMax))[0]; // healthiest leads
+  const combo = Math.random()<0.3;
+  $('#telegraph-text').innerHTML = `Enemy intends: <b>${nx.name}</b> attacks`
+    + (combo?` <span style="color:var(--battle)">(×2!)</span>`:'')
+    + ` — exploit an element weakness to break the turn.`;
+}
+
+function finish(outcome){
+  over=true;
+  const eggs = enemies.filter(e=>e.egg).map(e=>e.name);
+  let t,s,cls;
+  if(outcome==='win'){ t='Victory!'; cls='win'; s = eggs.length?`Eggs secured: ${eggs.join(', ')}. +XP awarded.`:'+XP awarded.'; }
+  else if(outcome==='loss'){ t='Defeat'; cls='lose'; s='Your party fell. No reward.'; }
+  else { t='Fled'; cls='lose'; s='You disengaged. No reward.'; }
+  commandEl.innerHTML = `<div class="banner ${cls}"><div class="b-t">${t}</div><div class="b-s">${s}</div>
+    <button class="btn" data-restart aria-label="Start a new encounter">New encounter</button></div>`;
+  $('#phase').textContent = outcome==='win'?'Victory':outcome==='loss'?'Defeat':'Fled';
+  log('battle', `${t} ${eggs.length?'· eggs: '+eggs.join(', '):''}`);
+  renderEnemies(); renderParty();
+}
+
+function renderAll(){ renderEnemies(); renderParty(); renderCommand(); }
+
+/* ---- events (delegated) ---- */
+enemiesEl.addEventListener('click', e=>{ const f=e.target.closest('[data-enemy]'); if(!f)return; const i=+f.dataset.enemy; if(!enemies[i].down){ target=i; renderAll(); } });
+enemiesEl.addEventListener('keydown', e=>{ if(e.key!=='Enter'&&e.key!==' ')return; const f=e.target.closest('[data-enemy]'); if(!f)return; e.preventDefault(); const i=+f.dataset.enemy; if(!enemies[i].down){ target=i; renderAll(); } });
+
+partyEl.addEventListener('click', e=>{ const b=e.target.closest('[data-unit]'); if(!b||b.disabled)return; activeIdx=+b.dataset.unit; mode='menu'; renderAll(); });
+
+commandEl.addEventListener('click', e=>{
+  if(e.target.closest('[data-restart]')){ resetState(); return; }
+  if(over) return;
+  const c=e.target.closest('[data-cmd]'), sk=e.target.closest('[data-skill]');
+  if(sk && !sk.disabled){ const u=party[activeIdx]; const s=u.skills.find(x=>x.id===sk.dataset.skill); playerAct('skill',s); return; }
+  if(!c) return;
+  const k=c.dataset.cmd;
+  if(k==='skills'){ mode='skills'; renderCommand(); return; }
+  if(k==='back'){ mode='menu'; renderCommand(); return; }
+  if(k==='fight'){ playerAct('fight'); return; }
+  if(k==='analyse'){ playerAct('analyse'); return; }
+  if(k==='guard'){ playerAct('guard'); return; }
+  if(k==='flee'){ playerAct('flee'); return; }
+});
+
+/* boot */
+target = firstLiveEnemy();
+updateTelegraph();
+renderAll();
+</script>
+</body>
+</html>

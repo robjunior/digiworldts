@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog version="1" updatedAt="1784128620151">
+  <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="nature" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
+    <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Pretty Attack" element="nature" cost="0" power="100" description="Fires pink hearts which emanates from its adorable body at the enemy."></skill>
+      <skill id="s1" name="Black Matter" element="nature" cost="16" power="220" description="Unleashes an evil orb from the Digimon hiding within it."></skill>
+      <skill id="s2" name="Rampage" element="nature" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="nature" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-2" name="Lunamon" stage="Rookie" attribute="Data" element="water" wikimonSlug="Lunamon" sourceUrl="https://api.skullbot.fr/digimon/2">
+    <assets portrait="/assets/digimon/skb-2/portrait.webp" dot="/assets/digimon/skb-2/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Tear Shoot" element="water" cost="0" power="100" description="Concentrates power in its forehead antenna, then fires a beautiful water orb at the opponent."></skill>
+      <skill id="s1" name="Luna Claw" element="water" cost="16" power="220" description="Scratches with claws that are lovely at first glance, but are filled with the power of darkness."></skill>
+      <skill id="s2" name="Lop-ear Ripple" element="water" cost="26" power="300" description="Twirls its ears, swallowing up the opponent in the vortex of bubbles generated."></skill>
+      <skill id="s3" name="Pico Darts" element="water" cost="41" power="380" description="Attacks with syringes of darkness."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-3"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-3" name="Lekismon" stage="Champion" attribute="Data" element="water" wikimonSlug="Lekismon" sourceUrl="https://api.skullbot.fr/digimon/3">
+    <assets portrait="/assets/digimon/skb-3/portrait.webp" dot="/assets/digimon/skb-3/dot.gif"></assets>
+    <stats hp="750" en="41" atk="150" def="120" int="140" spd="150"></stats>
+    <skills>
+      <skill id="s0" name="Moon Night Kick" element="water" cost="0" power="100" description="Leaps high into the air and performs a diving kick."></skill>
+      <skill id="s1" name="Tear Arrow" element="water" cost="16" power="220" description="Pulls beautiful arrows of ice from the protrusions on its back and fires them."></skill>
+      <skill id="s2" name="Moon Night Bomb" element="water" cost="26" power="300" description="Creates hypnotic water bubbles from the Moon Glove and throws them to lull the enemy to sleep."></skill>
+      <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-4"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-4" name="Crescemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Crescemon" sourceUrl="https://api.skullbot.fr/digimon/4">
+    <assets portrait="/assets/digimon/skb-4/portrait.webp" dot="/assets/digimon/skb-4/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="200" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Lunatic Dance" element="water" cost="0" power="100" description="Entrances the enemy with its dance-like steps, after which it closes the distance and slashes with the Nova Luna , that it wields in both hands."></skill>
+      <skill id="s1" name="Ice Archery" element="water" cost="16" power="220" description="Combines its two Nova Luna into a bowgun and fires an arrow of ice."></skill>
+      <skill id="s2" name="Dark Archery" element="water" cost="26" power="300" description="Combines its two Nova Luna into a bowgun and fires an arrow made from dark energy."></skill>
+      <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-747" name="Minervamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Minervamon" sourceUrl="https://api.skullbot.fr/digimon/747">
+    <assets portrait="/assets/digimon/skb-747/portrait.webp" dot="/assets/digimon/skb-747/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="220" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Strike Roll" element="fire" cost="0" power="100" description="A forward rolling slash with Olympia that splits the ground."></skill>
+      <skill id="s1" name="Madness Merry-go-round" element="fire" cost="16" power="220" description="A spinning horizontal slash with Olympia . Can be used to create a whirlwind."></skill>
+      <skill id="s2" name="Dominion Blade" element="fire" cost="26" power="300" description="A vertical slash with Olympia that sends a blade of air at the enemy."></skill>
+      <skill id="s3" name="Olympia Slash" element="fire" cost="41" power="380" description="Slashes a foe with Olympia ."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-50" name="Agumon" stage="Rookie" attribute="Vaccine" element="nature" wikimonSlug="Agumon" sourceUrl="https://api.skullbot.fr/digimon/50">
+    <assets portrait="/assets/digimon/skb-50/portrait.webp" dot="/assets/digimon/skb-50/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Baby Flame" element="fire" cost="0" power="100" description="Spits a fiery breath from its mouth."></skill>
+      <skill id="s1" name="Spitfire" element="nature" cost="16" power="220" description="Spits out fireballs."></skill>
+      <skill id="s2" name="Cross Fight" element="nature" cost="26" power="300" description="Viciously bites the enemy."></skill>
+      <skill id="s3" name="Surudoi Tsume" element="nature" cost="41" power="380" description="Attacks with its claws."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-25"></evolve>
+      <evolve targetId="skb-54"></evolve>
+      <evolve targetId="skb-70"></evolve>
+      <evolve targetId="skb-326"></evolve>
+      <evolve targetId="skb-209"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-708" name="ToyAgumon" stage="Rookie" attribute="Vaccine" element="nature" wikimonSlug="ToyAgumon" sourceUrl="https://api.skullbot.fr/digimon/708">
+    <assets portrait="/assets/digimon/skb-708/portrait.webp" dot="/assets/digimon/skb-708/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Toy Flame" element="fire" cost="0" power="100" description="Fires a flame-shaped toy missile."></skill>
+      <skill id="s1" name="Block Punch" element="fire" cost="16" power="220" description="Punches the enemy, sometimes causing a pillar of fire."></skill>
+      <skill id="s2" name="Fancy Star" element="nature" cost="26" power="300" description="Surrounds its self with miniature stars before throwing a large star."></skill>
+      <skill id="s3" name="Baby Flame" element="fire" cost="41" power="380" description="Spits a fiery breath from its mouth to attack the opponent."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-463"></evolve>
+      <evolve targetId="skb-456"></evolve>
+      <evolve targetId="skb-590"></evolve>
+      <evolve targetId="skb-621"></evolve>
+      <evolve targetId="skb-710"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-10" name="Meramon" stage="Champion" attribute="Data" element="water" wikimonSlug="Meramon" sourceUrl="https://api.skullbot.fr/digimon/10">
+    <assets portrait="/assets/digimon/skb-10/portrait.webp" dot="/assets/digimon/skb-10/dot.gif"></assets>
+    <stats hp="750" en="41" atk="150" def="120" int="135" spd="150"></stats>
+    <skills>
+      <skill id="s0" name="Burning Fist" element="fire" cost="0" power="100" description="1 2 3 Flares up its arms and knocks away the opponent. Throws fireballs from its fists. Flares up its entire body to burn the opponent."></skill>
+      <skill id="s1" name="Guren no Honō" element="water" cost="16" power="220" description="Shoots fireballs at the opponent."></skill>
+      <skill id="s2" name="Magma Bomb" element="fire" cost="26" power="300" description="1 2 Emits magma rocks that rain upon its opponents. Throws one large, explosive magma rock."></skill>
+      <skill id="s3" name="Heat Wave" element="water" cost="41" power="380" description="Unleashes a wave of flames."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-28"></evolve>
+      <evolve targetId="skb-177"></evolve>
+      <evolve targetId="skb-406"></evolve>
+    </evolutions>
+  </digimon>
+</catalog>

@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>City — Farm &amp; Production</title>
+<style data-od-inline-asset="colors_and_type.css">
+/* ============================================================
+   Creature Card Grid — Design Tokens
+   Extracted verbatim from source: examples/roster-grid.html
+   Paste this into the first <style>/<link> of any artifact.
+   Palette is closed: use only these color literals.
+   ============================================================ */
+
+:root {
+  /* --- Core palette (Browser based game, about) --- */
+  --bg:        #ffffff;   /* canvas / page background, art tiles */
+  --panel:     #f7f8fa;   /* surface — card body, foot panels */
+  --ink:       #111111;   /* primary text; HUD overlay base */
+  --muted:     #6b7280;   /* secondary text, captions, meta */
+  --hairline:  #d9dee7;   /* 1px borders, dividers, meter tracks */
+
+  /* --- Signals (reserved, sparing — never large washes) --- */
+  --signal:    #1677ff;   /* Signal Blue — primary action, XP, Energy, In Party */
+  --battle:    #e0384a;   /* Battle Red — danger / Sell / HP */
+  --gold:      #c8a24a;   /* Nimrod Gold — tertiary / Ascend / Treinando */
+
+  /* --- Element sub-palette (creature typing) --- */
+  --el-fire:     #e0384a;
+  --el-water:    #1677ff;
+  --el-nature:   #2f9e57;
+  --el-electric: #c8a24a;
+
+  /* --- Shape --- */
+  --notch: 10px;          /* cyberpunk clip depth (cards/buttons) */
+  --notch-sm: 5px;        /* chips, pills, small badges */
+  --notch-xs: 3px;        /* meters / tracks */
+  --radius: 0;            /* NO rounded corners — softness lives in the notch */
+
+  /* --- Type --- */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+
+  /* --- Spacing (8px baseline) --- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-6: 24px;
+
+  /* --- Motion --- */
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  /* --- Semantic combat roles (extracted from game source: api/battle.ts) ---
+     All map onto the registered palette — no new hex. These name the JOB a
+     color does in combat so screens stay consistent with the roster HUD. */
+  --hp:      var(--battle);   /* HP bar + damage numbers (server clamps ≥0) */
+  --energy:  var(--signal);   /* Energy/EN gauge; skills gate on energyCost (MAX_ENERGY 41) */
+  --atb:     var(--signal);   /* ATB turn gauge fill (min 100%, ATB_THRESHOLD 100) */
+  --crit:    var(--gold);     /* "Critical hit!" log cue + bonus-action ×N combo */
+  --miss:    var(--muted);    /* "Missed!" / evaded log cue */
+  --resist:  var(--muted);    /* "Resisted!" cue + status that failed to land */
+  --enemy:   var(--battle);   /* enemy-side accent (intent telegraph, enemy HP) */
+  --ally:    var(--signal);   /* player-side accent (your party panels) */
+  --lock:    var(--gold);     /* control lock (stun/freeze/sleep) banner */
+  /* Status-ailment chips reuse the element ramp + signals; label via statusLabel() */
+  --status-burn:   var(--el-fire);      /* burn / fire-dot */
+  --status-poison: var(--el-nature);    /* poison-% */
+  --status-weaken: var(--muted);        /* weaken / def-down */
+  --status-freeze: var(--el-water);     /* freeze / stun / sleep control */
+
+  /* --- Economy & world roles (extracted from api/farm.ts, market.ts, world.ts,
+     daily.ts) — resources {resource,amount}, DigiCredits (priceCredits), loot
+     rarity, biome danger scale, daily streak. Palette-only, no new hex. */
+  --res-meat:   var(--el-fire);     /* Meat resource */
+  --res-bits:   var(--signal);      /* Bits resource */
+  --res-data:   var(--el-nature);   /* Data resource */
+  --credits:    var(--gold);        /* DigiCredits (market currency, priceCredits) */
+  --danger:     var(--battle);      /* biome danger / enemyScale telegraph */
+  --streak:     var(--gold);        /* daily-reward streak count */
+  /* Loot rarity ramp — reuse the palette; higher tiers reserve the signals */
+  --rarity-common:    var(--muted);     /* common */
+  --rarity-uncommon:  var(--el-nature); /* uncommon */
+  --rarity-rare:      var(--signal);    /* rare */
+  --rarity-epic:      var(--gold);      /* epic (reserved gold) */
+  --rarity-legendary: var(--battle);    /* legendary (reserved red) */
+
+  /* --- Progression & social roles (extracted from api/daily.ts, shop.ts,
+     social.ts) — daily 7-day cycle (streakDay/nextDay), premium-time flag,
+     friend online status. Palette-only, no new hex. */
+  --claim-done:  var(--el-nature);  /* daily day already claimed */
+  --claim-next:  var(--signal);     /* the next-claimable day (today) */
+  --claim-todo:  var(--hairline);   /* future/unclaimed day pip */
+  --premium:     var(--gold);       /* premium-time active tag */
+  --online:      var(--el-nature);  /* friend seen within the online window */
+  --offline:     var(--muted);      /* friend offline */
+}
+
+
+
+
+/* Base defaults an artifact can rely on */
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- Reusable notch utilities ---- */
+.notch    { clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+              calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)); }
+.notch-sm { clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+              calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm)); }
+.notch-xs { clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+              calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs)); }
+
+/* ---- Type helpers ---- */
+.eyebrow { font-size:11px; font-weight:600; letter-spacing:.14em;
+           text-transform:uppercase; color:var(--signal); }
+.caps    { font-size:9px; font-weight:600; letter-spacing:.12em;
+           text-transform:uppercase; color:var(--muted); }
+.num     { font-variant-numeric: tabular-nums; }
+
+</style>
+<style data-od-inline-asset="ui_kits/app/components.css">
+/* ============================================================
+   Creature Card Grid — Applied UI Kit components
+   Depends on ../../colors_and_type.css (tokens).
+   ============================================================ */
+@import url("../../colors_and_type.css");
+
+/* ---------- Buttons ---------- */
+.btn{
+  --_c:var(--signal);
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:.02em;
+  padding:10px 18px;border:1px solid transparent;cursor:pointer;color:#fff;
+  background:var(--_c);transition:filter .2s,background .2s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+}
+.btn:hover{filter:brightness(1.06);}
+.btn:focus-visible{outline:none;filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--_c) 35%,transparent));}
+.btn--secondary{background:var(--bg);color:var(--ink);border-color:var(--hairline);}
+.btn--secondary:hover{border-color:var(--signal);color:var(--signal);filter:none;}
+.btn--danger{--_c:var(--battle);}
+/* Ascend — Nimrod Gold is a light accent; white text on it fails WCAG AA
+   (2.41:1). Use ink text (7.84:1) so the tertiary action stays readable. */
+.btn--tertiary{--_c:var(--gold);color:var(--ink);}
+
+/* ---------- Chips ---------- */
+.pill,.kind,.status-chip{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--hairline);
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);
+}
+.pill{color:var(--el,var(--signal));border-color:color-mix(in oklab,var(--el,var(--signal)) 35%,var(--hairline));}
+.pill .dot{width:5px;height:5px;border-radius:50%;background:var(--el,var(--signal));}
+.kind{color:var(--ink);background:var(--bg);}
+.kind svg{width:11px;height:11px;color:var(--muted);}
+
+/* ---------- Meters ---------- */
+.meter{height:6px;background:var(--bg);border:1px solid var(--hairline);position:relative;overflow:hidden;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);}
+.meter i{position:absolute;inset:0;right:auto;width:var(--pct,60%);background:var(--signal);}
+.meter--hp i{background:linear-gradient(90deg,var(--battle),color-mix(in oklab,var(--battle) 60%,#fff));}
+.meter--en i{background:linear-gradient(90deg,var(--signal),color-mix(in oklab,var(--signal) 60%,#fff));}
+
+/* ---------- Form control ---------- */
+.field{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.input{font-family:var(--font);font-size:14px;font-weight:400;letter-spacing:normal;text-transform:none;
+  color:var(--ink);background:var(--bg);border:1px solid var(--hairline);padding:10px 12px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.input:focus{outline:none;border-color:var(--signal);
+  box-shadow:inset 0 0 0 1px var(--signal);}
+
+/* ---------- Status chip (semantic) ---------- */
+.status-chip{--st:var(--muted);color:var(--ink);background:var(--bg);}
+.status-chip .status-dot{width:8px;height:8px;background:var(--st);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--st) 22%,transparent);}
+.status-chip .note{margin-left:2px;color:var(--muted);font-size:10px;}
+.status--party{--st:var(--signal);} .status--training{--st:var(--gold);} .status--resting{--st:#2f9e57;}
+
+/* ---------- Farm / building card ---------- */
+.farm{background:var(--panel);border:1px solid var(--hairline);padding:1px;width:260px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.farm-in{background:var(--panel);
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.farm .art{background:var(--bg);height:120px;display:grid;place-items:center;border-bottom:1px solid var(--hairline);}
+.farm .art svg{width:40px;height:40px;color:var(--gold);}
+.farm .body{padding:14px 16px;}
+.farm .fname{font-size:16px;font-weight:600;}
+.farm .rate{font-size:12px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;}
+.farm .rate b{color:var(--signal);}
+.farm .store{display:flex;align-items:baseline;justify-content:space-between;margin:12px 0;
+  font-variant-numeric:tabular-nums;}
+.farm .store .k{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.farm .store .v{font-size:18px;font-weight:600;}
+.farm .actions{display:flex;gap:8px;}
+.farm .actions .btn{flex:1;justify-content:center;padding:9px 10px;font-size:12px;}
+
+/* ---------- Creature card shell ---------- */
+/* Notched card whose 1px border traces the notch (border color behind an
+   inset surface). See examples/roster-grid.html for the full three-zone card. */
+.creature-card{position:relative;background:var(--hairline);padding:1px;
+  clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,0 100%,0 var(--notch));}
+.creature-card-inner{background:var(--panel);height:100%;display:flex;flex-direction:column;overflow:hidden;
+  clip-path:polygon(var(--notch) 0,100% 0,100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%,0 100%,0 var(--notch));}
+.creature-card:focus-visible{outline:none;background:var(--signal);
+  filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--signal) 35%,transparent));}
+.creature-card .card-meta{padding:16px 16px 10px;}
+.creature-card .card-foot{padding:12px 16px 14px;border-top:1px solid var(--hairline);background:var(--panel);}
+
+/* ---------- HUD / stat panel ---------- */
+/* Near-black overlay used inside the light canvas for combat-stat contrast.
+   White-alpha microcopy on the dark HUD is intentional and passes contrast. */
+.hud-panel{background:color-mix(in oklab,var(--ink) 96%,var(--el,var(--signal)));color:var(--bg);padding:16px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.hud-panel .k{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+  color:color-mix(in oklab,var(--bg) 55%,transparent);}
+.hud-panel .line{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:10px;}
+.hud-panel .v{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;}
+.hud-panel .meter{background:color-mix(in oklab,var(--bg) 16%,transparent);border-color:transparent;}
+
+/* ---------- HUD header / navigation ---------- */
+.hud-header{padding:24px clamp(16px,5vw,56px) 16px;border-bottom:1px solid var(--hairline);
+  display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;}
+.hud-header h1{font-size:clamp(22px,3vw,30px);font-weight:600;letter-spacing:-.02em;}
+.hud-header .count{font-size:12px;font-weight:500;color:var(--muted);border:1px solid var(--hairline);padding:8px 14px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.hud-header .count b{color:var(--ink);}
+
+/* ============================================================
+   COMBAT (SMT/Persona-style) — extracted from game api/battle.ts.
+   Party = 3 command panels; enemies on screen; skill menu is a
+   scrollable EN-gated list; actions Fight/Skills/Analyse/Guard/Flee.
+   Palette-only: HP=battle, EN/ATB=signal, crit=gold, miss/resist=muted.
+   ============================================================ */
+
+/* --- Party command panel (one per party Digimon) --- */
+.cbt-party{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.cbt-unit{background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  display:flex;flex-direction:column;gap:8px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.cbt-unit.is-active{border-color:var(--ally);box-shadow:inset 0 0 0 1px var(--ally);}
+.cbt-unit.is-locked{opacity:.6;}          /* stun/freeze/sleep this turn */
+.cbt-unit .u-name{font-size:14px;font-weight:600;letter-spacing:-.01em;}
+.cbt-unit .u-cap{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.cbt-unit .u-val{font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink);}
+
+/* --- HP / EN / ATB gauges (reuse .meter shape) --- */
+.gauge{height:6px;background:var(--bg);border:1px solid var(--hairline);position:relative;overflow:hidden;
+  clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);}
+.gauge i{position:absolute;inset:0;right:auto;width:var(--pct,60%);}
+.gauge--hp  i{background:linear-gradient(90deg,var(--hp),color-mix(in oklab,var(--hp) 60%,#fff));}
+.gauge--en  i{background:linear-gradient(90deg,var(--energy),color-mix(in oklab,var(--energy) 60%,#fff));}
+.gauge--atb i{background:var(--atb);}      /* fills toward the next turn */
+
+/* --- Action bar (per-turn command menu) --- */
+.cbt-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.cbt-cmd{flex:1 1 auto;min-width:88px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-family:var(--font);font-size:13px;font-weight:600;letter-spacing:.03em;padding:12px 14px;
+  color:#fff;background:var(--signal);border:1px solid transparent;cursor:pointer;transition:filter .2s;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.cbt-cmd svg{width:14px;height:14px;}
+.cbt-cmd:hover{filter:brightness(1.06);}
+.cbt-cmd:focus-visible{outline:none;filter:drop-shadow(0 0 0 3px color-mix(in oklab,var(--signal) 35%,transparent));}
+.cbt-cmd--guard{background:var(--bg);color:var(--ink);border-color:var(--hairline);}    /* defensive: outline */
+.cbt-cmd--analyse{background:var(--gold);color:var(--ink);}   /* egg-chance: tertiary/gold, ink text (AA) */
+.cbt-cmd--flee{background:var(--bg);color:var(--battle);border-color:color-mix(in oklab,var(--battle) 40%,var(--hairline));}
+.cbt-cmd[disabled]{background:var(--panel);color:var(--muted);border-color:var(--hairline);cursor:not-allowed;filter:none;}
+
+/* --- Skill menu (scrollable, EN-gated) --- */
+.skill-menu{max-height:232px;overflow-y:auto;border:1px solid var(--hairline);background:var(--panel);
+  display:flex;flex-direction:column;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.skill-group-cap{position:sticky;top:0;background:var(--panel);z-index:1;padding:8px 12px 4px;
+  font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--el,var(--muted));
+  border-bottom:1px solid var(--hairline);}   /* grouped by skill.element */
+.skill-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:11px 12px;background:transparent;border:0;border-bottom:1px solid var(--hairline);
+  font-family:var(--font);text-align:left;cursor:pointer;color:var(--ink);transition:background .15s;}
+.skill-row:hover{background:color-mix(in oklab,var(--signal) 8%,transparent);}
+.skill-row:focus-visible{outline:none;background:color-mix(in oklab,var(--signal) 12%,transparent);
+  box-shadow:inset 2px 0 0 var(--signal);}
+.skill-row .s-name{font-size:13px;font-weight:600;}
+.skill-row .s-cost{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--energy);}
+.skill-row[disabled]{cursor:not-allowed;color:var(--muted);}          /* unaffordable: shown, disabled */
+.skill-row[disabled] .s-cost{color:var(--muted);}
+
+/* --- Turn log + cues (crit/miss/resist, status events) --- */
+.turn-log{border:1px solid var(--hairline);background:var(--panel);padding:12px 14px;max-height:200px;overflow-y:auto;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.log-line{font-size:12px;color:var(--ink);padding:4px 0;border-bottom:1px solid color-mix(in oklab,var(--hairline) 60%,transparent);
+  font-variant-numeric:tabular-nums;}
+.log-line .rnd{color:var(--muted);font-size:10px;letter-spacing:.08em;}
+.cue{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-left:6px;}
+.cue--crit  {color:var(--crit);}
+.cue--miss  {color:var(--miss);}
+.cue--resist{color:var(--resist);}
+
+/* --- Status ailment chip (statusLabel() text) --- */
+.ailment{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;color:var(--ink);
+  border:1px solid color-mix(in oklab,var(--st,var(--muted)) 45%,var(--hairline));
+  clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);}
+.ailment::before{content:"";width:6px;height:6px;background:var(--st,var(--muted));}
+.ailment--burn  {--st:var(--status-burn);}
+.ailment--poison{--st:var(--status-poison);}
+.ailment--weaken{--st:var(--status-weaken);}
+.ailment--freeze{--st:var(--status-freeze);}
+
+/* --- Enemy intent telegraph --- */
+.enemy-intent{font-size:11px;font-weight:600;letter-spacing:.03em;color:var(--enemy);
+  display:inline-flex;align-items:center;gap:6px;}
+.enemy-intent .warn{color:var(--battle);}    /* the "(×N!)" multi-action combo warning */
+
+/* ============================================================
+   ECONOMY & WORLD — extracted from api/farm.ts, market.ts, world.ts, daily.ts.
+   Resources {resource,amount}; DigiCredits (priceCredits); loot rarity;
+   biome danger/enemyScale; daily streak. Palette-only; notch on every surface.
+   ============================================================ */
+
+/* --- Resource chip (Meat / Bits / Data balance) --- */
+.res{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);border:1px solid var(--hairline);
+  background:var(--bg);padding:5px 9px;
+  clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px);}
+.res::before{content:"";width:8px;height:8px;background:var(--rc,var(--muted));}
+.res .lbl{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);}
+.res--meat{--rc:var(--res-meat);}
+.res--bits{--rc:var(--res-bits);}
+.res--data{--rc:var(--res-data);}
+
+/* --- DigiCredits tag (market currency) --- */
+.credits{display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);}
+.credits::before{content:"";width:9px;height:9px;background:var(--credits);
+  clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);}   /* gold diamond mark */
+
+/* --- Loot rarity tag --- */
+.rarity{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;color:var(--ink);border:1px solid color-mix(in oklab,var(--rr,var(--muted)) 45%,var(--hairline));
+  clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);}
+.rarity::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;
+  background:var(--rr,var(--muted));vertical-align:middle;}
+.rarity--common{--rr:var(--rarity-common);}
+.rarity--uncommon{--rr:var(--rarity-uncommon);}
+.rarity--rare{--rr:var(--rarity-rare);}
+.rarity--epic{--rr:var(--rarity-epic);}
+.rarity--legendary{--rr:var(--rarity-legendary);}
+
+/* --- Biome danger meter (enemyScale telegraph) --- */
+.danger{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);}
+.danger .pips{display:inline-flex;gap:3px;}
+.danger .pip{width:7px;height:7px;background:var(--hairline);}
+.danger .pip.on{background:var(--danger);}
+
+/* --- Daily streak counter --- */
+.streak{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;
+  font-variant-numeric:tabular-nums;color:var(--ink);border:1px solid color-mix(in oklab,var(--streak) 40%,var(--hairline));
+  background:var(--bg);padding:5px 10px;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.streak::before{content:"";width:8px;height:8px;background:var(--streak);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);} /* star */
+.streak .n{color:var(--streak);}
+
+/* --- Market listing row --- */
+.listing{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.listing .l-name{font-size:14px;font-weight:600;}
+.listing .l-seller{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.listing .l-buy{display:inline-flex;align-items:center;gap:8px;}
+.listing .l-buy .btn{padding:9px 14px;font-size:12px;}
+
+/* ============================================================
+   PROGRESSION & SOCIAL — extracted from api/daily.ts, shop.ts, social.ts.
+   Daily 7-day cycle (streakDay/nextDay), premium-time tag, shop item row,
+   friend row + online dot. Palette-only; notch on every surface.
+   ============================================================ */
+
+/* --- Daily 7-day reward cycle --- */
+.daily{display:flex;gap:8px;flex-wrap:wrap;}
+.daily-day{flex:1 1 0;min-width:64px;background:var(--panel);border:1px solid var(--hairline);
+  padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:6px;align-items:center;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.daily-day .d-n{font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+.daily-day .d-amt{font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);}
+.daily-day .d-res{font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--rc,var(--muted));}
+.daily-day .d-mark{width:8px;height:8px;background:var(--claim-todo);}
+.daily-day.is-done{opacity:.6;} .daily-day.is-done .d-mark{background:var(--claim-done);}
+.daily-day.is-next{border-color:var(--claim-next);box-shadow:inset 0 0 0 1px var(--claim-next);}
+.daily-day.is-next .d-mark{background:var(--claim-next);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--claim-next) 22%,transparent);}
+
+/* --- Premium-time tag ("Premium active until <date>") --- */
+.premium-tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ink);
+  border:1px solid color-mix(in oklab,var(--premium) 45%,var(--hairline));background:var(--bg);padding:5px 10px;
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+.premium-tag::before{content:"";width:8px;height:8px;background:var(--premium);
+  clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%);}
+.premium-tag.is-off{color:var(--muted);border-color:var(--hairline);}
+.premium-tag.is-off::before{background:var(--muted);}
+
+/* --- Shop item row (ShopItemView: itemId, name, priceCredits) --- */
+.shop-item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:12px 14px;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);}
+.shop-item .si-name{font-size:14px;font-weight:600;}
+.shop-item .si-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+.shop-item .si-buy{display:inline-flex;align-items:center;gap:8px;}
+.shop-item .si-buy .btn{padding:9px 14px;font-size:12px;}
+
+/* --- Friend row (FriendView: displayName, online) --- */
+.friend{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+  background:var(--panel);border:1px solid var(--hairline);padding:11px 14px;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);}
+.friend .status-dot{width:9px;height:9px;background:var(--offline);}
+.friend.is-online .status-dot{background:var(--online);
+  box-shadow:0 0 0 3px color-mix(in oklab,var(--online) 22%,transparent);}
+.friend .f-name{font-size:14px;font-weight:600;}
+.friend .f-status{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--offline);}
+.friend.is-online .f-status{color:var(--online);}
+.friend .f-pending{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--signal);}
+
+</style>
+<style>
+  /* farm.html — screen scaffolding only. Resource chips (.res--*), DigiCredits
+     (.credits), buttons (.btn), meters, HUD header live in the kit; tokens in
+     colors_and_type.css. Grounded in api/farm.ts:
+       BuildingView { id, kind, resource, ratePerHour, capacity, produced }
+       ResourceBalanceView { resource, amount }  ·  POST /farm/collect banks all. */
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);
+    font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 clamp(16px,5vw,40px) 64px;}
+
+  /* resource balance bar */
+  .balance{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:16px 0;border-bottom:1px solid var(--hairline);margin-bottom:28px;}
+  .balance .res{font-size:13px;padding:8px 12px;}
+  .balance .res .amt{font-weight:600;}
+  .balance .spacer{flex:1;}
+  .balance .credits{font-size:14px;border:1px solid color-mix(in oklab,var(--credits) 40%,var(--hairline));
+    padding:8px 13px;clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);}
+
+  /* section head + collect-all */
+  .sec-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+  .sec-head h2{font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  .collect-all{display:inline-flex;align-items:center;gap:10px;}
+  .collect-all .ready-note{font-size:11px;color:var(--muted);font-weight:600;}
+  .collect-all .ready-note b{color:var(--signal);}
+  .collect-all .btn{padding:10px 18px;}
+
+  /* building grid */
+  .city{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+  .bld{background:var(--panel);border:1px solid var(--hairline);display:flex;flex-direction:column;
+    clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);}
+  .bld.is-ready{border-color:color-mix(in oklab,var(--signal) 45%,var(--hairline));}
+  .bld .art{aspect-ratio:16/10;background:var(--bg);display:grid;place-items:center;border-bottom:1px solid var(--hairline);position:relative;}
+  .bld .art svg{width:52px;height:52px;color:var(--rc,var(--muted));}
+  .bld .lv{position:absolute;top:10px;left:0;background:var(--bg);border:1px solid var(--hairline);
+    font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);padding:3px 8px;
+    clip-path:polygon(4px 0,100% 0,100% 100%,0 100%);}
+  .bld .ready-dot{position:absolute;top:12px;right:12px;width:8px;height:8px;background:var(--signal);
+    box-shadow:0 0 0 3px color-mix(in oklab,var(--signal) 22%,transparent);}
+  .bld .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px;flex:1;}
+  .bld .top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+  .bld .bname{font-size:17px;font-weight:600;letter-spacing:-.01em;}
+  .bld .rate{font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;}
+  .bld .rate b{color:var(--rc,var(--signal));}
+  .bld .store{margin-top:2px;}
+  .bld .store-head{display:flex;align-items:baseline;justify-content:space-between;
+    font-size:9px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+  .bld .store-head .v{font-size:12px;color:var(--ink);letter-spacing:.02em;}
+  .bld .store-head .v b{color:var(--rc,var(--ink));}
+  .bld .fill{height:10px;background:var(--bg);border:1px solid var(--hairline);position:relative;overflow:hidden;
+    clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);}
+  .bld .fill i{position:absolute;inset:0;right:auto;width:var(--pct,0%);background:var(--rc,var(--signal));transition:width .5s var(--ease);}
+  .bld .foot{margin-top:auto;display:flex;gap:8px;}
+  .bld .foot .btn{flex:1;justify-content:center;padding:11px 12px;font-size:12px;}
+  .bld .upg-cost{display:inline-flex;align-items:center;gap:4px;}
+  .bld .upg-cost::before{content:"";width:8px;height:8px;background:var(--credits);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);}
+  .bld .locked{min-height:14px;font-size:10px;font-weight:600;letter-spacing:.02em;color:var(--battle);margin-top:2px;
+    display:flex;align-items:center;gap:5px;}
+  .bld .locked svg{width:11px;height:11px;flex:none;}
+
+  /* collect flash number */
+  .flash{position:absolute;left:50%;top:44px;transform:translateX(-50%);
+    font-size:18px;font-weight:700;color:var(--rc,var(--signal));pointer-events:none;z-index:5;
+    animation:flashUp .8s cubic-bezier(.16,1,.3,1) forwards;}
+  @keyframes flashUp{0%{opacity:0;transform:translateX(-50%) translateY(6px);}
+    18%{opacity:1;transform:translateX(-50%) translateY(0);}
+    100%{opacity:0;transform:translateX(-50%) translateY(-24px);}}
+
+  @media (max-width:860px){ .city{grid-template-columns:repeat(2,1fr);gap:14px;} }
+  @media (max-width:520px){ .city{grid-template-columns:1fr;} .bld .art{aspect-ratio:16/7;} }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important;} .flash{animation:none!important;} .bld .fill i{transition:none!important;} }
+</style>
+</head>
+<body>
+<header class="hud-header" data-od-id="city-header">
+  <div>
+    <div class="eyebrow" style="font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--signal);">City</div>
+    <h1>Farm &amp; Production</h1>
+    <p style="color:var(--muted);font-size:14px;margin:5px 0 0;max-width:52ch;">Your buildings generate resources per hour. Collect banks them into your balance; upgrade to raise the rate.</p>
+  </div>
+  <div class="count" data-od-id="building-count"><b id="bld-count">4</b> buildings</div>
+</header>
+
+<main class="wrap" data-od-id="city-screen">
+
+  <!-- Resource balance bar -->
+  <section class="balance" aria-label="Resource balances" role="status" aria-live="polite" data-od-id="balance-bar">
+    <span class="res res--meat" data-od-id="bal-meat"><span class="lbl">Meat</span> <span class="amt" id="bal-Meat">0</span></span>
+    <span class="res res--bits" data-od-id="bal-bits"><span class="lbl">Bits</span> <span class="amt" id="bal-Bits">0</span></span>
+    <span class="res res--data" data-od-id="bal-data"><span class="lbl">Data</span> <span class="amt" id="bal-Data">0</span></span>
+    <span class="spacer"></span>
+    <span class="credits" data-od-id="bal-credits"><b id="bal-credits-n">0</b> DigiCredits</span>
+  </section>
+
+  <div class="sec-head">
+    <h2>Production buildings</h2>
+    <div class="collect-all">
+      <span class="ready-note" id="ready-note" aria-live="polite">—</span>
+      <button class="btn" id="collect-all" data-od-id="collect-all">Collect all</button>
+    </div>
+  </div>
+
+  <section class="city" id="city" aria-label="Production buildings" data-od-id="building-grid"></section>
+</main>
+
+<script>
+/* ==========================================================================
+   Farm/City model — mirrors api/farm.ts:
+     BuildingView { id, kind, resource, ratePerHour, capacity, produced }
+     ResourceBalanceView { resource, amount }
+     GET /farm returns { buildings, balance }; POST /farm/collect banks each
+     building's accrued `produced` into the matching balance at once.
+   `produced` is computed-on-read server-side (a timestamp diff), capped at
+   `capacity`. Here we simulate accrual on a ticker for a live preview.
+   Upgrade spends DigiCredits (the market/shop currency) to raise ratePerHour —
+   labelled as the shop's job; the real farm.ts has no upgrade field.
+   Combat tuning / economy values are illustrative; the server is authoritative.
+   ========================================================================== */
+const RES_CLASS = { Meat:'res--meat', Bits:'res--bits', Data:'res--data' };
+const RES_VAR   = { Meat:'var(--res-meat)', Bits:'var(--res-bits)', Data:'var(--res-data)' };
+const KIND_GLYPH = {
+  'Meat Farm':'M15 4a4 4 0 0 0-4 4c0 1-1 2-3 2a5 5 0 0 0 0 10c4 0 6-2 8-5s3-6 3-9a2 2 0 0 0-2-2Z',
+  'Bit Foundry':'M5 8h14v10H5zM9 3v3M15 3v3M9 13h.01M15 13h.01M2 12h3M19 12h3',
+  'Data Spire':'M12 2 4 7v10l8 5 8-5V7ZM12 2v20M4 7l8 5 8-5',
+  'Bio Lab':'M9 3v6l-4 8a2 2 0 0 0 1.8 3h10.4a2 2 0 0 0 1.8-3l-4-8V3M8 3h8',
+};
+
+/* Player wallet: banked resources + DigiCredits (market currency). */
+const balances = { Meat: 1840, Bits: 620, Data: 210 };
+let credits = 900;
+
+/* Buildings — kind/resource/ratePerHour/capacity/produced (+ level for upgrade UI). */
+const buildings = [
+  { id:'b0', kind:'Meat Farm',   resource:'Meat', ratePerHour:120, capacity:960,  produced:742, level:7,  upgradeCost:900 },
+  { id:'b1', kind:'Bit Foundry', resource:'Bits', ratePerHour:80,  capacity:640,  produced:640, level:5,  upgradeCost:650 },
+  { id:'b2', kind:'Data Spire',  resource:'Data', ratePerHour:45,  capacity:540,  produced:120, level:3,  upgradeCost:1200 },
+  { id:'b3', kind:'Bio Lab',     resource:'Meat', ratePerHour:60,  capacity:480,  produced:305, level:4,  upgradeCost:520 },
+];
+
+const $ = s => document.querySelector(s);
+const cityEl = $('#city');
+const clamp = (v,min,max)=>Math.max(min,Math.min(max,v));
+const fmt = n => Math.round(n).toLocaleString();
+
+function paintBalances(){
+  ['Meat','Bits','Data'].forEach(r=>{ const el=$('#bal-'+r); if(el) el.textContent=fmt(balances[r]); });
+  $('#bal-credits-n').textContent = fmt(credits);
+  const readyN = buildings.filter(b=>b.produced>=1).length;
+  const total = buildings.reduce((s,b)=>s+b.produced,0);
+  $('#ready-note').innerHTML = readyN ? `<b>${fmt(total)}</b> ready across ${readyN} building${readyN>1?'s':''}` : 'Nothing to collect yet';
+  $('#collect-all').toggleAttribute('disabled', total < 1);
+}
+
+function buildingHtml(b,i){
+  const pct = Math.round(b.produced/b.capacity*100);
+  const full = b.produced>=b.capacity;
+  const ready = b.produced>=1;
+  const canUpgrade = credits >= b.upgradeCost;
+  return `<article class="bld ${ready?'is-ready':''}" data-i="${i}" style="--rc:${RES_VAR[b.resource]}" data-od-id="bld-${b.kind.toLowerCase().replace(/\s+/g,'-')}">
+    <div class="art">
+      <span class="lv">Lv ${b.level}</span>
+      ${ready?'<span class="ready-dot" aria-hidden="true"></span>':''}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${KIND_GLYPH[b.kind]||''}"/></svg>
+    </div>
+    <div class="body">
+      <div class="top"><span class="bname">${b.kind}</span><span class="rate">+<b>${b.ratePerHour}</b> ${b.resource}/hr</span></div>
+      <div class="store">
+        <div class="store-head"><span>Stored${full?' · Full':''}</span><span class="v"><b>${fmt(b.produced)}</b> / ${fmt(b.capacity)}</span></div>
+        <div class="fill" role="progressbar" aria-label="${b.kind} stored ${b.resource}" aria-valuenow="${Math.round(b.produced)}" aria-valuemin="0" aria-valuemax="${b.capacity}"><i style="--pct:${clamp(pct,0,100)}%"></i></div>
+      </div>
+      <div class="foot">
+        <button class="btn btn--secondary" data-collect="${i}" ${ready?'':'disabled'} aria-label="Collect ${fmt(b.produced)} ${b.resource} from ${b.kind}">Collect</button>
+        <button class="btn btn--tertiary" data-upgrade="${i}" ${canUpgrade?'':'disabled'} aria-label="Upgrade ${b.kind}, costs ${b.upgradeCost} DigiCredits">Upgrade <span class="upg-cost">${fmt(b.upgradeCost)}</span></button>
+      </div>
+      ${canUpgrade?`<div class="locked" aria-hidden="true"></div>`:`<div class="locked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>Need ${fmt(b.upgradeCost-credits)} more DigiCredits</div>`}
+    </div>
+  </article>`;
+}
+
+function render(){
+  cityEl.innerHTML = buildings.map(buildingHtml).join('');
+  $('#bld-count').textContent = buildings.length;
+  paintBalances();
+}
+
+/* flash a "+N" over a building tile (or a set) */
+function flash(i, text){
+  const tile = cityEl.querySelector(`.bld[data-i="${i}"] .art`);
+  if(!tile) return;
+  const el = document.createElement('div');
+  el.className='flash'; el.textContent=text;
+  el.style.setProperty('--rc', RES_VAR[buildings[i].resource]);
+  tile.appendChild(el); setTimeout(()=>el.remove(), 820);
+}
+
+/* Collect one building → bank its produced into the matching balance. */
+function collectOne(i){
+  const b = buildings[i];
+  const gain = Math.floor(b.produced);
+  if(gain < 1) return;
+  balances[b.resource] += gain; b.produced = 0;
+  flash(i, '+'+fmt(gain)+' '+b.resource);
+  render();
+}
+/* Collect all (POST /farm/collect) → bank every ready building at once. */
+function collectAll(){
+  let any=false;
+  buildings.forEach((b,i)=>{ if(b.produced>=1){ const g=Math.floor(b.produced); balances[b.resource]+=g; b.produced=0; flash(i,'+'+fmt(g)); any=true; } });
+  if(any) render();
+}
+/* Upgrade → spend DigiCredits, raise ratePerHour + capacity, bump level. */
+function upgrade(i){
+  const b = buildings[i];
+  if(credits < b.upgradeCost) return;
+  credits -= b.upgradeCost;
+  b.level += 1;
+  b.ratePerHour = Math.round(b.ratePerHour*1.25);
+  b.capacity = Math.round(b.capacity*1.2);
+  b.upgradeCost = Math.round(b.upgradeCost*1.6);
+  render();
+}
+
+/* Live accrual — buildings fill toward capacity (compressed clock for preview). */
+setInterval(()=>{
+  let changed=false;
+  buildings.forEach(b=>{ if(b.produced<b.capacity){ b.produced=clamp(b.produced + b.ratePerHour/30, 0, b.capacity); changed=true; } });
+  if(changed){
+    // light update: only refresh fills + balances, don't rebuild (keeps focus)
+    buildings.forEach((b,i)=>{
+      const t = cityEl.querySelector(`.bld[data-i="${i}"]`); if(!t) return;
+      const pct = Math.round(b.produced/b.capacity*100);
+      const fill = t.querySelector('.fill'); const bar = t.querySelector('.fill i');
+      if(bar) bar.style.setProperty('--pct', clamp(pct,0,100)+'%');
+      if(fill){ fill.setAttribute('aria-valuenow', Math.round(b.produced)); }
+      const v = t.querySelector('.store-head .v'); if(v) v.innerHTML = `<b>${fmt(b.produced)}</b> / ${fmt(b.capacity)}`;
+      const cbtn = t.querySelector('[data-collect]'); if(cbtn) cbtn.toggleAttribute('disabled', b.produced<1);
+      t.classList.toggle('is-ready', b.produced>=1);
+    });
+    paintBalances();
+  }
+}, 1000);
+
+/* events (delegated) */
+cityEl.addEventListener('click', e=>{
+  const c=e.target.closest('[data-collect]'), u=e.target.closest('[data-upgrade]');
+  if(c && !c.disabled){ collectOne(+c.dataset.collect); return; }
+  if(u && !u.disabled){ upgrade(+u.dataset.upgrade); return; }
+});
+$('#collect-all').addEventListener('click', ()=>{ if(!$('#collect-all').disabled) collectAll(); });
+
+render();
+</script>
+</body>
+</html>

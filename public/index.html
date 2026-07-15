@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Sign in</title>
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+</head>
+<body>
+  <main class="auth-shell">
+    <div class="auth-card">
+      <div class="auth-card-in">
+        <div>
+          <div class="eyebrow">DigiWorld</div>
+          <h1>Enter the arena</h1>
+          <p class="lede">3v3 real-time Digimon battles.</p>
+        </div>
+
+        <div class="auth-tabs" role="tablist">
+          <button type="button" class="is-active" data-tab="signin" role="tab">Sign in</button>
+          <button type="button" data-tab="register" role="tab">Register</button>
+        </div>
+
+        <div id="admin-hint" class="auth-hint hidden">
+          The <b>first account</b> you register will be the game admin — the only one who can seed the Digimon catalog. Choose wisely.
+        </div>
+        <div id="closed-hint" class="auth-hint hidden">
+          Registration is closed on this server. Ask the admin for an account.
+        </div>
+
+        <form id="form-signin" class="stack" novalidate>
+          <label class="field">Username
+            <input class="input" type="text" name="username" autocomplete="username" required minlength="3" maxlength="24" />
+          </label>
+          <label class="field">Password
+            <input class="input" type="password" name="password" autocomplete="current-password" required minlength="8" />
+          </label>
+          <div class="auth-error" id="err-signin" role="alert"></div>
+          <button class="btn btn--wide" type="submit">Sign in</button>
+        </form>
+
+        <form id="form-register" class="stack hidden" novalidate>
+          <label class="field">Username
+            <input class="input" type="text" name="username" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_.-]+" />
+          </label>
+          <label class="field">Display name (optional)
+            <input class="input" type="text" name="displayName" autocomplete="nickname" maxlength="32" />
+          </label>
+          <label class="field">Password
+            <input class="input" type="password" name="password" autocomplete="new-password" required minlength="8" />
+          </label>
+          <div class="auth-error" id="err-register" role="alert"></div>
+          <button class="btn btn--wide" type="submit">Create account</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { api, toast } from '/assets/js/api.js';
+
+    const $ = (s) => document.querySelector(s);
+    const tabSignin = $('[data-tab="signin"]');
+    const tabRegister = $('[data-tab="register"]');
+    const formSignin = $('#form-signin');
+    const formRegister = $('#form-register');
+    const errSignin = $('#err-signin');
+    const errRegister = $('#err-register');
+    const adminHint = $('#admin-hint');
+    const closedHint = $('#closed-hint');
+
+    function switchTab(which) {
+      const isSignin = which === 'signin';
+      tabSignin.classList.toggle('is-active', isSignin);
+      tabRegister.classList.toggle('is-active', !isSignin);
+      formSignin.classList.toggle('hidden', !isSignin);
+      formRegister.classList.toggle('hidden', isSignin);
+      errSignin.textContent = '';
+      errRegister.textContent = '';
+    }
+    tabSignin.addEventListener('click', () => switchTab('signin'));
+    tabRegister.addEventListener('click', () => switchTab('register'));
+
+    function nextTarget() {
+      const qs = new URLSearchParams(location.search);
+      const next = qs.get('next') || '/lobby.html';
+      return next.startsWith('/') && !next.startsWith('//') ? next : '/lobby.html';
+    }
+
+    async function refreshStatus() {
+      try {
+        const s = await api.get('/api/auth/status');
+        if (s.registrationOpen) {
+          if (s.userCount === 0) adminHint.classList.remove('hidden');
+          closedHint.classList.add('hidden');
+          tabRegister.classList.remove('hidden');
+        } else {
+          adminHint.classList.add('hidden');
+          closedHint.classList.remove('hidden');
+          tabRegister.classList.add('hidden');
+          switchTab('signin');
+        }
+      } catch (err) {
+        console.warn('status fetch failed', err);
+      }
+    }
+    refreshStatus();
+
+    // If already signed in, jump straight to lobby.
+    api.get('/api/auth/me').then((res) => {
+      if (res && res.user) location.replace(nextTarget());
+    }).catch(() => {});
+
+    formSignin.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errSignin.textContent = '';
+      const fd = new FormData(formSignin);
+      const body = { username: fd.get('username').trim(), password: fd.get('password') };
+      const btn = formSignin.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        await api.post('/api/auth/login', body);
+        toast('Welcome back');
+        location.replace(nextTarget());
+      } catch (err) {
+        errSignin.textContent = err.message || 'sign-in failed';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    formRegister.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      errRegister.textContent = '';
+      const fd = new FormData(formRegister);
+      const body = {
+        username: fd.get('username').trim(),
+        password: fd.get('password'),
+      };
+      const displayName = (fd.get('displayName') || '').trim();
+      if (displayName) body.displayName = displayName;
+      const btn = formRegister.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      try {
+        const res = await api.post('/api/auth/register', body);
+        toast(res.user.isAdmin ? 'Admin account created' : 'Welcome to DigiWorld');
+        location.replace(nextTarget());
+      } catch (err) {
+        errRegister.textContent = err.message || 'register failed';
+        if (err.status === 403) refreshStatus();
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

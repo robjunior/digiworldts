@@ -1,0 +1,29 @@
+# Keep the Docker build context lean — the image only needs source + prod deps.
+node_modules
+dist
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/.session-secret
+data/cache
+!data/catalog
+
+.git
+.github
+.gitignore
+.codegraph
+base
+
+*.log
+.env
+.env.*
+.vscode
+.idea
+.DS_Store
+
+# tests / dev-only
+tmp
+.tmp
+/tmp
+coverage
