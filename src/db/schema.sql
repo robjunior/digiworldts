@@ -369,6 +369,21 @@ CREATE INDEX IF NOT EXISTS idx_onboarding_teams_enabled_order
   ON onboarding_teams(enabled, sort_order);
 
 -- ----------------------------------------------------------------------------
+-- world_position: player's current tile in the procedural overworld. Deterministic
+-- from world_seed (per-user) via src/world/biomes.ts - no biome grid is persisted.
+-- Wild encounters roll on each move and scale to party rating.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS world_position (
+  user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  world_seed    INTEGER NOT NULL,
+  x             INTEGER NOT NULL DEFAULT 0,
+  y             INTEGER NOT NULL DEFAULT 0,
+  steps_taken   INTEGER NOT NULL DEFAULT 0,
+  last_move_at  INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL
+);
+
+-- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):
 --   journal_mode = WAL, synchronous = NORMAL, foreign_keys = ON, busy_timeout = 5000
 -- Applied by src/db/index.ts. Do NOT set them here — they are per-connection.

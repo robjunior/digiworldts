@@ -278,6 +278,16 @@ export type OnboardingTeamRow = {
   updated_at: number;
 };
 
+export type WorldPositionRow = {
+  user_id: string;
+  world_seed: number;
+  x: number;
+  y: number;
+  steps_taken: number;
+  last_move_at: number;
+  updated_at: number;
+};
+
 // ============================================================================
 // Lazy prepared-statement helper. Statements bind to the current db handle;
 // we prepare on first use to avoid open-before-ready hazards during tests.

@@ -36,6 +36,7 @@ import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot } from './lobby/ws.js';
 import { onboardingPlugin } from './onboarding/routes.js';
 import { seedDefaultOnboarding } from './onboarding/engine.js';
+import { worldPlugin } from './world/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
@@ -99,6 +100,7 @@ async function main(): Promise<void> {
   await app.register(dailyPlugin);
   await app.register(trainingPlugin);
   await app.register(onboardingPlugin);
+  await app.register(worldPlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
