@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DigiWorld — Admin</title>
+  <link rel="icon" type="image/gif" href="/assets/digimon/skb-50/dot.gif" />
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/components.css" />
   <style>
@@ -114,6 +115,7 @@
           <button class="admin-nav-item" data-tab="shop">Edit Shop</button>
           <button class="admin-nav-item" data-tab="player">Edit Player</button>
           <button class="admin-nav-item" data-tab="player-mons">Edit Player Digimon</button>
+          <button class="admin-nav-item" data-tab="onboarding">Onboarding</button>
         </div>
 
         <!-- MAIN CONTENT -->
@@ -385,6 +387,80 @@
             </section>
           </div>
 
+          <!-- TAB: Onboarding -->
+          <div id="tab-onboarding" class="tab-content">
+            <div class="hud-header" style="border:none; padding:0 0 16px;">
+              <div>
+                <div class="eyebrow">Admin</div>
+                <h1>Onboarding</h1>
+              </div>
+            </div>
+
+            <section class="admin-section" style="margin-bottom:20px;">
+              <h2 style="border-bottom:1px solid var(--hairline); padding-bottom:8px;">Intro Dialogue &amp; Background</h2>
+              <div style="margin-bottom:12px;">
+                <label class="field">Intro Dialogue <span style="color:var(--muted); font-weight:normal; font-size:11px;">(use blank line for paragraph break)</span>
+                  <textarea class="input" id="onb-intro" rows="6" style="font-family:inherit;"></textarea>
+                </label>
+              </div>
+              <div style="margin-bottom:12px;">
+                <label class="field">Background Image URL <span style="color:var(--muted); font-weight:normal; font-size:11px;">(empty = themed CSS gradient fallback)</span>
+                  <input class="input" id="onb-bg" type="text" maxlength="400" placeholder="/assets/onboarding-bg.jpg OR https://..." />
+                </label>
+              </div>
+              <div style="display:flex; justify-content:flex-end;">
+                <button class="btn btn--sm" id="btn-save-onb-config">Save Config</button>
+              </div>
+            </section>
+
+            <section class="admin-section" style="margin-bottom:20px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="margin:0; border:none;">Starter Teams (<span id="onb-teams-count">0</span>)</h2>
+                <button class="btn btn--sm" id="btn-create-onb-team">+ New Team</button>
+              </div>
+              <div id="onb-teams-list"></div>
+            </section>
+
+            <section class="admin-section" id="onb-team-editor" style="display:none;">
+              <h2 id="onb-team-editor-title" style="color:var(--signal); border-bottom:1px solid var(--hairline); padding-bottom:8px;">New Team</h2>
+              <div class="form-grid">
+                <label class="field">Slug <span style="color:var(--muted); font-weight:normal; font-size:11px;">(a-z, 0-9, _, -)</span>
+                  <input class="input" id="onb-team-slug" pattern="[a-z0-9_\-]{2,32}" maxlength="32" />
+                </label>
+                <label class="field">Name
+                  <input class="input" id="onb-team-name" maxlength="48" />
+                </label>
+                <label class="field">Sort Order
+                  <input class="input" id="onb-team-sort" type="number" min="0" max="999" value="0" />
+                </label>
+                <label class="field" style="display:flex; align-items:center; gap:8px;">
+                  <input type="checkbox" id="onb-team-enabled" checked style="margin:0;" />
+                  <span>Enabled (shown to new players)</span>
+                </label>
+              </div>
+              <div style="margin-top:12px;">
+                <label class="field">Description
+                  <textarea class="input" id="onb-team-desc" rows="2" style="font-family:inherit;"></textarea>
+                </label>
+              </div>
+              <div style="margin-top:16px;">
+                <label class="lbl" style="display:block; margin-bottom:6px;">Mons (choose 3)</label>
+                <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;">
+                  <select class="input" id="onb-team-mon1"></select>
+                  <select class="input" id="onb-team-mon2"></select>
+                  <select class="input" id="onb-team-mon3"></select>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:20px; border-top:1px solid var(--hairline); padding-top:16px;">
+                <button class="btn btn--sm btn--danger" id="btn-delete-onb-team" style="display:none;">Delete Team</button>
+                <div style="display:flex; gap:8px; margin-left:auto;">
+                  <button class="btn btn--sm btn--secondary" id="btn-cancel-onb-team">Cancel</button>
+                  <button class="btn btn--sm" id="btn-save-onb-team">Save Team</button>
+                </div>
+              </div>
+            </section>
+          </div>
+
         </div>
 
         <!-- RIGHT SIDEBAR: Stats -->
@@ -555,6 +631,7 @@
       wireRefresh();
       wireImpex();
       wireSkills();
+      wireOnboarding();
       
       // Hash routing
       if(location.hash) {
@@ -704,14 +781,10 @@
         if (payload.tags.length === 0) payload.tags = undefined;
 
         try {
-          const method = currentSkillId ? 'PUT' : 'POST';
           const url = currentSkillId ? '/api/admin/skills/' + currentSkillId : '/api/admin/skills';
-          
-          const res = await api(url, {
-            method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
+          const res = currentSkillId
+            ? await api.put(url, payload)
+            : await api.post(url, payload);
           
           toast(currentSkillId ? 'Skill updated' : 'Skill created');
           closeSkillEditor();
@@ -1370,6 +1443,190 @@
 
     function escape(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+    }
+
+    let onbState = { config: null, teams: [], catalog: [] };
+    let onbEditingTeamId = null;
+
+    async function loadOnboardingConfig() {
+      try {
+        const res = await api.get('/api/admin/onboarding/config');
+        onbState.config = res.config;
+        document.getElementById('onb-intro').value = res.config.introDialogue || '';
+        document.getElementById('onb-bg').value = res.config.bgImage || '';
+      } catch (err) {
+        toast('Failed to load onboarding config: ' + (err.message || 'unknown'), { error: true });
+      }
+    }
+
+    async function loadOnboardingTeams() {
+      try {
+        const res = await api.get('/api/admin/onboarding/teams');
+        onbState.teams = res.teams || [];
+        document.getElementById('onb-teams-count').textContent = String(onbState.teams.length);
+        renderOnboardingTeams();
+      } catch (err) {
+        toast('Failed to load onboarding teams: ' + (err.message || 'unknown'), { error: true });
+      }
+    }
+
+    function renderOnboardingTeams() {
+      const el = document.getElementById('onb-teams-list');
+      if (!onbState.teams.length) {
+        el.innerHTML = '<div style="padding:20px; text-align:center; color:var(--muted); border:1px dashed var(--hairline); background:var(--bg);">No teams yet. Click "+ New Team".</div>';
+        return;
+      }
+      el.innerHTML = onbState.teams.map((t) => {
+        const monBits = t.mons.map((m) => escape(m.name)).join(' &middot; ');
+        const missingWarn = t.missingCatalogIds.length > 0
+          ? ` <span style="color:var(--signal); font-weight:600;">&#9888; ${t.missingCatalogIds.length} missing catalog id${t.missingCatalogIds.length > 1 ? 's' : ''}</span>`
+          : '';
+        const disabledStyle = t.enabled ? '' : 'opacity:.5;';
+        return `<div style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid var(--hairline); background:var(--bg); margin-bottom:8px; ${disabledStyle}">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:600;">
+              ${escape(t.name)}
+              <span style="color:var(--muted); font-size:11px; margin-left:8px; font-weight:normal;">[${escape(t.slug)}]</span>
+              ${t.enabled ? '' : ' <span style="color:var(--muted); font-size:11px;">(disabled)</span>'}
+            </div>
+            ${t.description ? `<div style="font-size:12px; color:var(--muted); margin-top:4px;">${escape(t.description)}</div>` : ''}
+            <div style="font-size:11px; color:var(--muted); margin-top:6px;">${monBits}${missingWarn}</div>
+          </div>
+          <button class="btn btn--sm btn--secondary" data-onb-edit="${escape(t.id)}">Edit</button>
+        </div>`;
+      }).join('');
+      el.querySelectorAll('[data-onb-edit]').forEach((btn) => {
+        btn.addEventListener('click', () => window.editOnboardingTeam(btn.dataset.onbEdit));
+      });
+    }
+
+    async function loadOnboardingCatalog() {
+      if (onbState.catalog.length > 0) return;
+      try {
+        const cat = await api.get('/api/catalog');
+        onbState.catalog = cat.digimons || [];
+      } catch (err) {
+        toast('Failed to load catalog: ' + (err.message || 'unknown'), { error: true });
+      }
+    }
+
+    function populateMonSelects(selectedIds) {
+      const opts = onbState.catalog.map((m) =>
+        `<option value="${escape(m.id)}">${escape(m.name)} — ${escape(m.stage)} · ${escape(m.element)}</option>`
+      ).join('');
+      ['onb-team-mon1', 'onb-team-mon2', 'onb-team-mon3'].forEach((id, i) => {
+        const select = document.getElementById(id);
+        select.innerHTML = opts;
+        if (selectedIds[i]) select.value = selectedIds[i];
+      });
+    }
+
+    function showOnboardingTeamEditor(team) {
+      onbEditingTeamId = team ? team.id : null;
+      document.getElementById('onb-team-editor').style.display = 'block';
+      document.getElementById('onb-team-editor-title').textContent = team ? `Edit: ${team.name}` : 'New Team';
+      document.getElementById('onb-team-slug').value = team?.slug || '';
+      document.getElementById('onb-team-name').value = team?.name || '';
+      document.getElementById('onb-team-desc').value = team?.description || '';
+      document.getElementById('onb-team-sort').value = team ? team.sortOrder : onbState.teams.length;
+      document.getElementById('onb-team-enabled').checked = team ? team.enabled : true;
+      const selectedIds = team
+        ? [team.mons[0]?.catalogId || '', team.mons[1]?.catalogId || '', team.mons[2]?.catalogId || '']
+        : [onbState.catalog[0]?.id || '', onbState.catalog[0]?.id || '', onbState.catalog[0]?.id || ''];
+      populateMonSelects(selectedIds);
+      document.getElementById('btn-delete-onb-team').style.display = team ? 'inline-block' : 'none';
+      document.getElementById('onb-team-editor').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    window.editOnboardingTeam = async function (teamId) {
+      await loadOnboardingCatalog();
+      const team = onbState.teams.find((t) => t.id === teamId);
+      if (!team) {
+        toast('Team not found', { error: true });
+        return;
+      }
+      showOnboardingTeamEditor(team);
+    };
+
+    function wireOnboarding() {
+      document.querySelector('.admin-nav-item[data-tab="onboarding"]').addEventListener('click', () => {
+        loadOnboardingConfig();
+        loadOnboardingTeams();
+      });
+
+      document.getElementById('btn-save-onb-config').addEventListener('click', async () => {
+        try {
+          await api.put('/api/admin/onboarding/config', {
+            introDialogue: document.getElementById('onb-intro').value,
+            bgImage: document.getElementById('onb-bg').value.trim(),
+          });
+          toast('Onboarding config saved');
+        } catch (err) {
+          toast('Save failed: ' + (err.message || 'unknown'), { error: true });
+        }
+      });
+
+      document.getElementById('btn-create-onb-team').addEventListener('click', async () => {
+        await loadOnboardingCatalog();
+        if (onbState.catalog.length === 0) {
+          toast('Catalog is empty — add some Digimon to the catalog first.', { error: true });
+          return;
+        }
+        showOnboardingTeamEditor(null);
+      });
+
+      document.getElementById('btn-cancel-onb-team').addEventListener('click', () => {
+        document.getElementById('onb-team-editor').style.display = 'none';
+        onbEditingTeamId = null;
+      });
+
+      document.getElementById('btn-save-onb-team').addEventListener('click', async () => {
+        const slugRaw = document.getElementById('onb-team-slug').value.trim();
+        if (!/^[a-z0-9_-]{2,32}$/.test(slugRaw)) {
+          toast('Slug must be 2-32 chars, lowercase letters, digits, "_" or "-" only.', { error: true });
+          return;
+        }
+        const payload = {
+          slug: slugRaw,
+          name: document.getElementById('onb-team-name').value.trim(),
+          description: document.getElementById('onb-team-desc').value.trim(),
+          monCatalogIds: [
+            document.getElementById('onb-team-mon1').value,
+            document.getElementById('onb-team-mon2').value,
+            document.getElementById('onb-team-mon3').value,
+          ],
+          sortOrder: parseInt(document.getElementById('onb-team-sort').value, 10) || 0,
+          enabled: document.getElementById('onb-team-enabled').checked,
+        };
+        try {
+          if (onbEditingTeamId) {
+            await api.put('/api/admin/onboarding/teams/' + onbEditingTeamId, payload);
+            toast('Team updated');
+          } else {
+            await api.post('/api/admin/onboarding/teams', payload);
+            toast('Team created');
+          }
+          document.getElementById('onb-team-editor').style.display = 'none';
+          onbEditingTeamId = null;
+          await loadOnboardingTeams();
+        } catch (err) {
+          toast('Save failed: ' + (err.message || 'unknown'), { error: true });
+        }
+      });
+
+      document.getElementById('btn-delete-onb-team').addEventListener('click', async () => {
+        if (!onbEditingTeamId) return;
+        if (!confirm('Delete this team? This cannot be undone.')) return;
+        try {
+          await api.del('/api/admin/onboarding/teams/' + onbEditingTeamId);
+          toast('Team deleted');
+          document.getElementById('onb-team-editor').style.display = 'none';
+          onbEditingTeamId = null;
+          await loadOnboardingTeams();
+        } catch (err) {
+          toast('Delete failed: ' + (err.message || 'unknown'), { error: true });
+        }
+      });
     }
   </script>
 </body>

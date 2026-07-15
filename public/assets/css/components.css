@@ -87,12 +87,15 @@
                 color: color-mix(in oklab, var(--bg) 55%, transparent); }
 .hud-panel .v { font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; }
 
-.hud-header { padding:24px clamp(16px,5vw,56px) 16px; border-bottom:1px solid var(--hairline);
-  display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; }
-.hud-header h1 { font-size: clamp(22px, 3vw, 30px); font-weight:600; letter-spacing:-.02em; margin:0; }
-.hud-header .count { font-size:12px; font-weight:500; color:var(--muted); border:1px solid var(--hairline); padding:8px 14px;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
-.hud-header .count b { color:var(--ink); }
+.hud-header { padding:8px clamp(12px,3vw,32px);
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  background: linear-gradient(180deg, transparent 0, transparent calc(100% - 1px), color-mix(in oklab, var(--hairline) 55%, transparent) 100%); }
+.hud-header .eyebrow { font-size:10px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); line-height:1; margin-bottom:2px; }
+.hud-header h1 { font-size: clamp(16px, 1.9vw, 20px); font-weight:600; letter-spacing:-.02em; margin:0; line-height:1.15; }
+.hud-header .count { font-size:11px; font-weight:500; color:var(--muted); padding:4px 10px;
+  background: color-mix(in oklab, var(--signal, var(--ink)) 10%, transparent);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.hud-header .count b { color:var(--ink); font-weight:600; }
 
 /* ---------- Combat components ---------- */
 .cbt-party { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }

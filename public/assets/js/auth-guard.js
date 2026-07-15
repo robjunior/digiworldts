@@ -15,6 +15,19 @@ export async function requireLogin() {
     document.documentElement.dataset.userId = res.user.id;
     document.documentElement.dataset.displayName = res.user.displayName;
     document.documentElement.dataset.isAdmin = String(res.user.isAdmin);
+    document.documentElement.dataset.onboardingCompleted = String(res.user.onboardingCompleted);
+
+    const path = location.pathname;
+    const onOnboarding = path === '/onboarding.html';
+    if (!res.user.onboardingCompleted && !onOnboarding) {
+      location.replace('/onboarding.html');
+      throw { status: 0, code: 'needs-onboarding', message: 'onboarding required' };
+    }
+    if (res.user.onboardingCompleted && onOnboarding) {
+      location.replace('/roster.html');
+      throw { status: 0, code: 'already-onboarded', message: 'onboarding already completed' };
+    }
+
     return res.user;
   } catch (err) {
     if (err && err.status === 401) {

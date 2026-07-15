@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DigiWorld — Training</title>
+  <link rel="icon" type="image/gif" href="/assets/digimon/skb-50/dot.gif" />
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/components.css" />
   <style>
@@ -84,6 +85,7 @@
         </div>
         
         <div id="assign-mon-picker" class="picker-grid"></div>
+        <div id="assign-mon-picker-foot"></div>
 
         <h4 class="picker-title">Pick Stats</h4>
         <div id="assign-stat-picker" class="btn-group"></div>
@@ -115,6 +117,10 @@
     let pollTimer = null;
 
     let draft = { buildingId: null, monId: null, statKinds: [], durationMin: null, maxStats: 1 };
+
+    let pickerPage = 1;
+    const PICKER_PER_PAGE = 6;
+    window.setPickerPage = function(p) { pickerPage = p; renderMonPicker(); };
 
     (async () => {
       await requireLogin();
@@ -312,6 +318,60 @@
       });
     }
 
+    function renderMonPicker() {
+      const monPicker = document.getElementById('assign-mon-picker');
+      const pickerFoot = document.getElementById('assign-mon-picker-foot');
+      const eligible = state.eligibleMons || [];
+
+      if (eligible.length === 0 || eligible.every(m => m.inParty)) {
+        monPicker.innerHTML = `<div style="grid-column:1/-1; padding:20px; text-align:center; color:var(--muted); background:var(--bg); border:1px solid var(--hairline);">
+          No available Digimon.<br/>Remove a Digimon from your party first (via Roster).
+        </div>`;
+        if (pickerFoot) pickerFoot.innerHTML = '';
+        return;
+      }
+
+      const totalPages = Math.max(1, Math.ceil(eligible.length / PICKER_PER_PAGE));
+      if (pickerPage > totalPages) pickerPage = totalPages;
+      const startIdx = (pickerPage - 1) * PICKER_PER_PAGE;
+      const pageItems = eligible.slice(startIdx, startIdx + PICKER_PER_PAGE);
+
+      monPicker.innerHTML = pageItems.map(m => {
+        const selectedCls = draft.monId === m.monId ? 'is-selected' : '';
+        return `<div class="mon-pick-card ${m.inParty ? 'is-disabled' : ''} ${selectedCls}" data-mon="${escape(m.monId)}" ${m.inParty ? 'title="In party (remove first)"' : ''}>
+          <img src="${escape(m.portrait)}" onerror="this.style.opacity=0.15" />
+          <div class="info">
+            <div class="name">${escape(m.nickname)}</div>
+            <div class="sub">Lv ${m.level} ${escape(m.stage)}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (pickerFoot) {
+        if (eligible.length <= PICKER_PER_PAGE) {
+          pickerFoot.innerHTML = '';
+        } else {
+          let phtml = `<div class="pagination">
+            <div class="page-info">Showing ${startIdx + 1}-${Math.min(startIdx + PICKER_PER_PAGE, eligible.length)} of ${eligible.length}</div>
+            <button ${pickerPage === 1 ? 'disabled' : ''} onclick="window.setPickerPage(${pickerPage - 1})">← Prev</button>`;
+          for (let i = 1; i <= totalPages; i++) {
+            phtml += `<button class="${i === pickerPage ? 'active' : ''}" onclick="window.setPickerPage(${i})">${i}</button>`;
+          }
+          phtml += `<button ${pickerPage === totalPages ? 'disabled' : ''} onclick="window.setPickerPage(${pickerPage + 1})">Next →</button></div>`;
+          pickerFoot.innerHTML = phtml;
+        }
+      }
+
+      monPicker.querySelectorAll('.mon-pick-card:not(.is-disabled)').forEach(el => {
+        el.addEventListener('click', () => {
+          draft.monId = el.dataset.mon;
+          monPicker.querySelectorAll('.mon-pick-card').forEach(x => x.classList.remove('is-selected'));
+          el.classList.add('is-selected');
+          updateDraftPreview();
+        });
+      });
+    }
+
     function openAssignModal(buildingId) {
       const station = state.stations.find(s => s.buildingId === buildingId);
       if (!station) return;
@@ -321,22 +381,8 @@
       setText('assign-title', `Assign to ${station.kind}`);
       setText('assign-inst', `Choose a Digimon (must not be in party) and ${draft.maxStats} stat${draft.maxStats > 1 ? 's' : ''}.`);
       
-      const monPicker = document.getElementById('assign-mon-picker');
-      if (state.eligibleMons.length === 0 || state.eligibleMons.every(m => m.inParty)) {
-        monPicker.innerHTML = `<div style="grid-column:1/-1; padding:20px; text-align:center; color:var(--muted); background:var(--bg); border:1px solid var(--hairline);">
-          No available Digimon.<br/>Remove a Digimon from your party first (via Roster).
-        </div>`;
-      } else {
-        monPicker.innerHTML = state.eligibleMons.map(m => {
-          return `<div class="mon-pick-card ${m.inParty ? 'is-disabled' : ''}" data-mon="${escape(m.monId)}" ${m.inParty ? 'title="In party (remove first)"' : ''}>
-            <img src="${escape(m.portrait)}" onerror="this.style.opacity=0.15" />
-            <div class="info">
-              <div class="name">${escape(m.nickname)}</div>
-              <div class="sub">Lv ${m.level} ${escape(m.stage)}</div>
-            </div>
-          </div>`;
-        }).join('');
-      }
+      pickerPage = 1;
+      renderMonPicker();
 
       document.getElementById('assign-stat-picker').innerHTML = state.trainableStats.map(s => {
         return `<button class="btn btn--secondary stat-btn" data-stat="${s}">${s.toUpperCase()}</button>`;
@@ -349,15 +395,7 @@
 
       document.getElementById('training-assign-modal').classList.add('show');
       
-      // Attach events
-      monPicker.querySelectorAll('.mon-pick-card:not(.is-disabled)').forEach(el => {
-        el.addEventListener('click', () => {
-          draft.monId = el.dataset.mon;
-          monPicker.querySelectorAll('.mon-pick-card').forEach(x => x.classList.remove('is-selected'));
-          el.classList.add('is-selected');
-          updateDraftPreview();
-        });
-      });
+      // Stat + duration handlers (mon-picker handlers live inside renderMonPicker so they re-attach per page)
 
       document.querySelectorAll('.stat-btn').forEach(btn => {
         btn.addEventListener('click', () => {

@@ -34,6 +34,8 @@ import { seedShopItems, shopPlugin } from './social/shop.js';
 import { dailyPlugin } from './social/daily.js';
 import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot } from './lobby/ws.js';
+import { onboardingPlugin } from './onboarding/routes.js';
+import { seedDefaultOnboarding } from './onboarding/engine.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
@@ -69,6 +71,7 @@ async function main(): Promise<void> {
 
   await seedShopItems();
   await seedInitialBlueprints();
+  await seedDefaultOnboarding();
 
   const app = Fastify({
     logger: false,
@@ -95,6 +98,7 @@ async function main(): Promise<void> {
   await app.register(shopPlugin);
   await app.register(dailyPlugin);
   await app.register(trainingPlugin);
+  await app.register(onboardingPlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));

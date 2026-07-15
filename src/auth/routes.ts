@@ -27,7 +27,6 @@ import {
 } from './session.js';
 import { config } from '../config.js';
 import { seedFarmForUser } from '../farm/engine.js';
-import { seedStarterRoster } from '../roster/routes.js';
 import { seedTrainingStationForUser } from '../training/engine.js';
 
 // ============================================================================
@@ -81,6 +80,7 @@ export type PublicUser = {
   isAdmin: boolean;
   createdAt: number;
   lastLoginAt: number | null;
+  onboardingCompleted: boolean;
 };
 
 function toPublic(u: UserRow): PublicUser {
@@ -91,6 +91,7 @@ function toPublic(u: UserRow): PublicUser {
     isAdmin: u.is_admin === 1,
     createdAt: u.created_at,
     lastLoginAt: u.last_login_at,
+    onboardingCompleted: u.onboarding_completed_at != null,
   };
 }
 
@@ -176,11 +177,6 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
       await seedFarmForUser(user.id);
     } catch (err) {
       log.warn('auth.register.seed-farm.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
-    }
-    try {
-      await seedStarterRoster(user.id);
-    } catch (err) {
-      log.warn('auth.register.seed-roster.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
     }
     try {
       await seedTrainingStationForUser(user.id);

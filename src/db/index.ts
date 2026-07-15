@@ -72,6 +72,7 @@ export type UserRow = {
   updated_at: number;
   last_login_at: number | null;
   disabled: 0 | 1;
+  onboarding_completed_at: number | null;
 };
 
 export type SessionRow = {
@@ -254,6 +255,27 @@ export type MatchmakingQueueRow = {
   display_name: string;
   average_level: number;
   queued_at: number;
+};
+
+export type OnboardingConfigRow = {
+  id: 1;
+  intro_dialogue: string;
+  bg_image: string;
+  updated_at: number;
+};
+
+export type OnboardingTeamRow = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  mon_1_catalog_id: string;
+  mon_2_catalog_id: string;
+  mon_3_catalog_id: string;
+  sort_order: number;
+  enabled: 0 | 1;
+  created_at: number;
+  updated_at: number;
 };
 
 // ============================================================================

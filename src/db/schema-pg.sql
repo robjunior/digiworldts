@@ -12,15 +12,16 @@ CREATE EXTENSION IF NOT EXISTS citext;
 -- users
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id             TEXT PRIMARY KEY,
-  username       CITEXT NOT NULL UNIQUE,
-  display_name   TEXT NOT NULL,
-  password_hash  TEXT NOT NULL,
-  is_admin       INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
-  created_at     BIGINT NOT NULL,
-  updated_at     BIGINT NOT NULL,
-  last_login_at  BIGINT,
-  disabled       INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1))
+  id                       TEXT PRIMARY KEY,
+  username                 CITEXT NOT NULL UNIQUE,
+  display_name             TEXT NOT NULL,
+  password_hash            TEXT NOT NULL,
+  is_admin                 INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+  created_at               BIGINT NOT NULL,
+  updated_at               BIGINT NOT NULL,
+  last_login_at            BIGINT,
+  disabled                 INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1)),
+  onboarding_completed_at  BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
@@ -291,3 +292,33 @@ CREATE TABLE IF NOT EXISTS matchmaking_queue (
   queued_at      BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
+
+-- ----------------------------------------------------------------------------
+-- onboarding_config: singleton (id=1) admin-editable intro dialog + background.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS onboarding_config (
+  id              SMALLINT PRIMARY KEY CHECK (id = 1),
+  intro_dialogue  TEXT NOT NULL,
+  bg_image        TEXT NOT NULL,
+  updated_at      BIGINT NOT NULL
+);
+
+-- ----------------------------------------------------------------------------
+-- onboarding_teams: admin-editable starter team choices (3 mons per team).
+-- On player select, the engine spawns 3 player_roster rows from these ids.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS onboarding_teams (
+  id                TEXT PRIMARY KEY,
+  slug              TEXT NOT NULL UNIQUE,
+  name              TEXT NOT NULL,
+  description       TEXT NOT NULL,
+  mon_1_catalog_id  TEXT NOT NULL,
+  mon_2_catalog_id  TEXT NOT NULL,
+  mon_3_catalog_id  TEXT NOT NULL,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  enabled           INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at        BIGINT NOT NULL,
+  updated_at        BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_teams_enabled_order
+  ON onboarding_teams(enabled, sort_order);

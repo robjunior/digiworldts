@@ -11,15 +11,16 @@ PRAGMA foreign_keys = ON;
 -- (enforced in application code, see src/auth/routes.ts).
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  id             TEXT PRIMARY KEY,                       -- 'usr_...'
-  username       TEXT NOT NULL UNIQUE COLLATE NOCASE,    -- case-insensitive
-  display_name   TEXT NOT NULL,
-  password_hash  TEXT NOT NULL,                          -- argon2id encoded string
-  is_admin       INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
-  created_at     INTEGER NOT NULL,
-  updated_at     INTEGER NOT NULL,
-  last_login_at  INTEGER,
-  disabled       INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1))
+  id                       TEXT PRIMARY KEY,                       -- 'usr_...'
+  username                 TEXT NOT NULL UNIQUE COLLATE NOCASE,    -- case-insensitive
+  display_name             TEXT NOT NULL,
+  password_hash            TEXT NOT NULL,                          -- argon2id encoded string
+  is_admin                 INTEGER NOT NULL DEFAULT 0 CHECK (is_admin IN (0, 1)),
+  created_at               INTEGER NOT NULL,
+  updated_at               INTEGER NOT NULL,
+  last_login_at            INTEGER,
+  disabled                 INTEGER NOT NULL DEFAULT 0 CHECK (disabled IN (0, 1)),
+  onboarding_completed_at  INTEGER                                 -- NULL until user picks a starter team
 );
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
@@ -334,6 +335,38 @@ CREATE TABLE IF NOT EXISTS matchmaking_queue (
   queued_at       INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
+
+-- ----------------------------------------------------------------------------
+-- onboarding_config: singleton (id=1) admin-editable intro dialog + background.
+-- Rendered on the onboarding page when a new user has NULL onboarding_completed_at.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS onboarding_config (
+  id              INTEGER PRIMARY KEY CHECK (id = 1),
+  intro_dialogue  TEXT NOT NULL,
+  bg_image        TEXT NOT NULL,
+  updated_at      INTEGER NOT NULL
+);
+
+-- ----------------------------------------------------------------------------
+-- onboarding_teams: admin-editable starter team choices. Each team is exactly
+-- 3 mons (mon_1/2/3_catalog_id map to entries in the XML catalog). On player
+-- select, the engine spawns 3 player_roster rows from these catalog_ids.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS onboarding_teams (
+  id                TEXT PRIMARY KEY,
+  slug              TEXT NOT NULL UNIQUE,
+  name              TEXT NOT NULL,
+  description       TEXT NOT NULL,
+  mon_1_catalog_id  TEXT NOT NULL,
+  mon_2_catalog_id  TEXT NOT NULL,
+  mon_3_catalog_id  TEXT NOT NULL,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  enabled           INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_onboarding_teams_enabled_order
+  ON onboarding_teams(enabled, sort_order);
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

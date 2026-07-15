@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<catalog version="1" updatedAt="1784128620151">
-  <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="nature" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
+<catalog version="1" updatedAt="1784138371302">
+  <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
     <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Pretty Attack" element="nature" cost="0" power="100" description="Fires pink hearts which emanates from its adorable body at the enemy."></skill>
-      <skill id="s1" name="Black Matter" element="nature" cost="16" power="220" description="Unleashes an evil orb from the Digimon hiding within it."></skill>
-      <skill id="s2" name="Rampage" element="nature" cost="28" power="300"></skill>
-      <skill id="s3" name="Overdrive" element="nature" cost="38" power="380"></skill>
+      <skill id="s0" name="Pretty Attack" element="fire" cost="0" power="100" description="Fires pink hearts which emanates from its adorable body at the enemy."></skill>
+      <skill id="s1" name="Black Matter" element="fire" cost="16" power="220" description="Unleashes an evil orb from the Digimon hiding within it."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
   </digimon>
   <digimon id="skb-2" name="Lunamon" stage="Rookie" attribute="Data" element="water" wikimonSlug="Lunamon" sourceUrl="https://api.skullbot.fr/digimon/2">
@@ -56,14 +56,14 @@
       <skill id="s3" name="Olympia Slash" element="fire" cost="41" power="380" description="Slashes a foe with Olympia ."></skill>
     </skills>
   </digimon>
-  <digimon id="skb-50" name="Agumon" stage="Rookie" attribute="Vaccine" element="nature" wikimonSlug="Agumon" sourceUrl="https://api.skullbot.fr/digimon/50">
+  <digimon id="skb-50" name="Agumon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="Agumon" sourceUrl="https://api.skullbot.fr/digimon/50">
     <assets portrait="/assets/digimon/skb-50/portrait.webp" dot="/assets/digimon/skb-50/dot.gif"></assets>
     <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
     <skills>
       <skill id="s0" name="Baby Flame" element="fire" cost="0" power="100" description="Spits a fiery breath from its mouth."></skill>
-      <skill id="s1" name="Spitfire" element="nature" cost="16" power="220" description="Spits out fireballs."></skill>
-      <skill id="s2" name="Cross Fight" element="nature" cost="26" power="300" description="Viciously bites the enemy."></skill>
-      <skill id="s3" name="Surudoi Tsume" element="nature" cost="41" power="380" description="Attacks with its claws."></skill>
+      <skill id="s1" name="Spitfire" element="fire" cost="16" power="220" description="Spits out fireballs."></skill>
+      <skill id="s2" name="Cross Fight" element="fire" cost="26" power="300" description="Viciously bites the enemy."></skill>
+      <skill id="s3" name="Surudoi Tsume" element="fire" cost="41" power="380" description="Attacks with its claws."></skill>
     </skills>
     <evolutions>
       <evolve targetId="skb-25"></evolve>
@@ -73,13 +73,13 @@
       <evolve targetId="skb-209"></evolve>
     </evolutions>
   </digimon>
-  <digimon id="skb-708" name="ToyAgumon" stage="Rookie" attribute="Vaccine" element="nature" wikimonSlug="ToyAgumon" sourceUrl="https://api.skullbot.fr/digimon/708">
+  <digimon id="skb-708" name="ToyAgumon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="ToyAgumon" sourceUrl="https://api.skullbot.fr/digimon/708">
     <assets portrait="/assets/digimon/skb-708/portrait.webp" dot="/assets/digimon/skb-708/dot.gif"></assets>
     <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
     <skills>
       <skill id="s0" name="Toy Flame" element="fire" cost="0" power="100" description="Fires a flame-shaped toy missile."></skill>
       <skill id="s1" name="Block Punch" element="fire" cost="16" power="220" description="Punches the enemy, sometimes causing a pillar of fire."></skill>
-      <skill id="s2" name="Fancy Star" element="nature" cost="26" power="300" description="Surrounds its self with miniature stars before throwing a large star."></skill>
+      <skill id="s2" name="Fancy Star" element="fire" cost="26" power="300" description="Surrounds its self with miniature stars before throwing a large star."></skill>
       <skill id="s3" name="Baby Flame" element="fire" cost="41" power="380" description="Spits a fiery breath from its mouth to attack the opponent."></skill>
     </skills>
     <evolutions>
@@ -90,19 +90,123 @@
       <evolve targetId="skb-710"></evolve>
     </evolutions>
   </digimon>
-  <digimon id="skb-10" name="Meramon" stage="Champion" attribute="Data" element="water" wikimonSlug="Meramon" sourceUrl="https://api.skullbot.fr/digimon/10">
+  <digimon id="skb-10" name="Meramon" stage="Champion" attribute="Data" element="fire" wikimonSlug="Meramon" sourceUrl="https://api.skullbot.fr/digimon/10">
     <assets portrait="/assets/digimon/skb-10/portrait.webp" dot="/assets/digimon/skb-10/dot.gif"></assets>
     <stats hp="750" en="41" atk="150" def="120" int="135" spd="150"></stats>
     <skills>
       <skill id="s0" name="Burning Fist" element="fire" cost="0" power="100" description="1 2 3 Flares up its arms and knocks away the opponent. Throws fireballs from its fists. Flares up its entire body to burn the opponent."></skill>
-      <skill id="s1" name="Guren no Honō" element="water" cost="16" power="220" description="Shoots fireballs at the opponent."></skill>
+      <skill id="s1" name="Guren no Honō" element="fire" cost="16" power="220" description="Shoots fireballs at the opponent."></skill>
       <skill id="s2" name="Magma Bomb" element="fire" cost="26" power="300" description="1 2 Emits magma rocks that rain upon its opponents. Throws one large, explosive magma rock."></skill>
-      <skill id="s3" name="Heat Wave" element="water" cost="41" power="380" description="Unleashes a wave of flames."></skill>
+      <skill id="s3" name="Heat Wave" element="fire" cost="41" power="380" description="Unleashes a wave of flames."></skill>
     </skills>
     <evolutions>
       <evolve targetId="skb-28"></evolve>
       <evolve targetId="skb-177"></evolve>
       <evolve targetId="skb-406"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-90" name="Guilmon" stage="Rookie" attribute="Virus" element="fire" wikimonSlug="Guilmon" sourceUrl="https://api.skullbot.fr/digimon/90">
+    <assets portrait="/assets/digimon/skb-90/portrait.webp" dot="/assets/digimon/skb-90/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Rock Breaker" element="fire" cost="0" power="100" description="Destroys rocks with its sturdy foreclaws."></skill>
+      <skill id="s1" name="Fireball" element="fire" cost="16" power="220" description="Spews out a powerful flame shot."></skill>
+      <skill id="s2" name="Kūchū Fireball" element="fire" cost="26" power="300" description="Unleashes Fireball while airborne."></skill>
+      <skill id="s3" name="Fire Rock Breaker" element="fire" cost="41" power="380" description="A burning version of Rock Breaker ."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-54"></evolve>
+      <evolve targetId="skb-78"></evolve>
+      <evolve targetId="skb-365"></evolve>
+      <evolve targetId="skb-363"></evolve>
+      <evolve targetId="skb-712"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-136" name="Coronamon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="Coronamon" sourceUrl="https://api.skullbot.fr/digimon/136">
+    <assets portrait="/assets/digimon/skb-136/portrait.webp" dot="/assets/digimon/skb-136/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Corona Flame" element="fire" cost="0" power="100" description="A flaming shot which concentrates the power of flame in its brow while exhausting all of its body&apos;s stamina, then fires it at the opponent."></skill>
+      <skill id="s1" name="Corona-knuckle" element="fire" cost="16" power="220" description="Releases continuous punches with its fists heated by the power of flame."></skill>
+      <skill id="s2" name="Petit Prominence" element="fire" cost="26" power="300" description="Clads its body in flames, and either defends itself or rams the opponent."></skill>
+      <skill id="s3" name="Holy Shoot" element="fire" cost="41" power="380" description="Causes an explosion from a small ball of light."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-137"></evolve>
+      <evolve targetId="skb-10"></evolve>
+      <evolve targetId="skb-78"></evolve>
+      <evolve targetId="skb-115"></evolve>
+      <evolve targetId="skb-308"></evolve>
+      <evolve targetId="skb-676"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-343" name="Gomamon" stage="Rookie" attribute="Vaccine" element="water" wikimonSlug="Gomamon" sourceUrl="https://api.skullbot.fr/digimon/343">
+    <assets portrait="/assets/digimon/skb-343/portrait.webp" dot="/assets/digimon/skb-343/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Marching Fishes" element="water" cost="0" power="100" description="Summons a school of colorful flying fish."></skill>
+      <skill id="s1" name="Surudoi Tsume" element="water" cost="16" power="220" description="Attacks the foe with a slice of its claw."></skill>
+      <skill id="s2" name="Sharp Edge" element="water" cost="26" power="300" description="Jumps up and slices at the enemy repeatedly while in mid-air."></skill>
+      <skill id="s3" name="Surfer Dive" element="water" cost="41" power="380" description="Jumps into the air to body slam the enemy."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-371"></evolve>
+      <evolve targetId="skb-344"></evolve>
+      <evolve targetId="skb-370"></evolve>
+      <evolve targetId="skb-580"></evolve>
+      <evolve targetId="skb-730"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-348" name="Palmon" stage="Rookie" attribute="Data" element="nature" wikimonSlug="Palmon" sourceUrl="https://api.skullbot.fr/digimon/348">
+    <assets portrait="/assets/digimon/skb-348/portrait.webp" dot="/assets/digimon/skb-348/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Poison Ivy" element="nature" cost="0" power="100" description="Extends its fingers to entangle the opponent in ivy laced with a powerful toxin, paralyzing them."></skill>
+      <skill id="s1" name="Plant Shock" element="nature" cost="16" power="220" description="1 2 3 Throws leaves at its opponent. Slashes with its claws. Showers its enemy with poisonous pollen."></skill>
+      <skill id="s2" name="Kusai Nioi" element="nature" cost="26" power="300" description="Gives off a powerful stench that makes Digimon unwilling to fight it."></skill>
+      <skill id="s3" name="Root Stretch" element="nature" cost="41" power="380" description="Slashes a foe with its claws."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-371"></evolve>
+      <evolve targetId="skb-314"></evolve>
+      <evolve targetId="skb-349"></evolve>
+      <evolve targetId="skb-393"></evolve>
+      <evolve targetId="skb-630"></evolve>
+      <evolve targetId="skb-752"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-303" name="Tentomon" stage="Rookie" attribute="Vaccine" element="electric" wikimonSlug="Tentomon" sourceUrl="https://api.skullbot.fr/digimon/303">
+    <assets portrait="/assets/digimon/skb-303/portrait.webp" dot="/assets/digimon/skb-303/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Petit Thunder" element="electric" cost="0" power="100" description="Fires static electricity amplified by its wings."></skill>
+      <skill id="s1" name="Twice Arm" element="electric" cost="16" power="220" description="Slices the enemy with both claws. Sometimes follows up with an uppercut."></skill>
+      <skill id="s2" name="Rolling Guard" element="electric" cost="26" power="300" description="Spins along the ground and slams into the foe, or curs up in a ball to raise its defense."></skill>
+      <skill id="s3" name="Katai Tsume" element="electric" cost="41" power="380" description="Attacks the foe with a hard claw."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-304"></evolve>
+      <evolve targetId="skb-58"></evolve>
+      <evolve targetId="skb-367"></evolve>
+      <evolve targetId="skb-454"></evolve>
+      <evolve targetId="skb-597"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-701" name="Terriermon" stage="Rookie" attribute="Vaccine" element="nature" wikimonSlug="Terriermon" sourceUrl="https://api.skullbot.fr/digimon/701">
+    <assets portrait="/assets/digimon/skb-701/portrait.webp" dot="/assets/digimon/skb-701/dot.gif"></assets>
+    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
+    <skills>
+      <skill id="s0" name="Petit Twister" element="nature" cost="0" power="100" description="Generates a tiny tornado by spinning its ears like a propeller."></skill>
+      <skill id="s1" name="Blazing Fire" element="fire" cost="16" power="220" description="Spews out a shot of superheated air."></skill>
+      <skill id="s2" name="Double Typhoon" element="nature" cost="26" power="300" description="A powerful Unison Technique performed with Lopmon ."></skill>
+      <skill id="s3" name="Kūchū Petit Twister Shot" element="nature" cost="41" power="380" description="Spins in midair to sling a small twister."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-371"></evolve>
+      <evolve targetId="skb-3"></evolve>
+      <evolve targetId="skb-51"></evolve>
+      <evolve targetId="skb-710"></evolve>
+      <evolve targetId="skb-751"></evolve>
     </evolutions>
   </digimon>
 </catalog>

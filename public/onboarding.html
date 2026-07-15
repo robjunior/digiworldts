@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Onboarding</title>
+  <link rel="icon" type="image/gif" href="/assets/digimon/skb-50/dot.gif" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    body.onboarding {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      overflow: hidden;
+      margin: 0;
+      color: #fff;
+    }
+    body.onboarding.fallback-bg {
+      background: linear-gradient(135deg, #0d2836 0%, #08111b 50%, #000000 100%);
+    }
+    body.onboarding::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.85) 100%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    #dialogue-layer {
+      position: absolute;
+      z-index: 10;
+      width: 100%;
+      max-width: 640px;
+      padding: 0 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+    }
+    #dialogue-layer.is-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-20px);
+    }
+    
+    .dialog-panel {
+      background: rgba(20, 24, 30, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 32px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+    }
+    .dialog-panel p {
+      font-size: 16px;
+      line-height: 1.6;
+      margin: 0 0 16px 0;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+    }
+    .dialog-panel p:last-child { margin-bottom: 0; }
+    
+    .dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      opacity: 0;
+      animation: fadeIn 1s forwards;
+      animation-delay: 1s; /* will be dynamically updated based on p count */
+    }
+
+    @keyframes fadeIn { to { opacity: 1; } }
+
+    #teams-layer {
+      position: absolute;
+      z-index: 10;
+      width: 100%;
+      max-width: 1240px;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(20px);
+      transition: opacity 0.6s var(--ease), transform 0.6s var(--ease);
+    }
+    #teams-layer.is-active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateY(0);
+    }
+    @media (max-width: 800px) {
+      #teams-layer {
+        grid-template-columns: 1fr;
+        max-height: 100vh;
+        overflow-y: auto;
+      }
+    }
+
+    .team-card {
+      background: rgba(20, 24, 30, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 24px;
+      cursor: pointer;
+      transition: transform 0.4s var(--ease), border-color 0.4s var(--ease), box-shadow 0.4s var(--ease), opacity 0.5s var(--ease);
+      clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+      display: flex;
+      flex-direction: column;
+    }
+    .team-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--signal);
+      box-shadow: 0 8px 32px rgba(22, 119, 255, 0.2);
+    }
+    
+    .team-name {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 8px;
+    }
+    .team-desc {
+      font-size: 13px;
+      color: var(--hairline);
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    
+    .team-mons {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: auto;
+    }
+    .mon-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      background: rgba(0,0,0,0.3);
+      padding: 12px 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 6px;
+    }
+    .mon-portrait {
+      height: 96px;
+      width: 100%;
+      object-fit: contain;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4));
+    }
+    .mon-name {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .mon-pills {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+    }
+    
+    /* Pill overrides for dark bg */
+    .pill {
+      background: rgba(0,0,0,0.5);
+    }
+    
+    /* Selection states */
+    #teams-layer.is-locked {
+      pointer-events: none;
+    }
+    #teams-layer.is-locked .team-card:not(.is-selected) {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    .team-card.is-selected {
+      transform: scale(1.05) translateY(0);
+      border-color: var(--signal);
+      box-shadow: 0 0 60px rgba(22, 119, 255, 0.4);
+      z-index: 100;
+    }
+    .team-card.is-selected .team-mons {
+      /* visually mimicking roster */
+      gap: 16px;
+    }
+
+    #transition-overlay {
+      position: fixed;
+      inset: 0;
+      background: black;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.8s var(--ease);
+    }
+    #transition-overlay.is-active {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .fallback-msg {
+      position: absolute;
+      z-index: 20;
+      text-align: center;
+      max-width: 400px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 32px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body class="onboarding fallback-bg">
+
+  <!-- Dialogue Layer -->
+  <div id="dialogue-layer" class="hidden">
+    <div class="dialog-panel" id="dialogue-content">
+      <!-- Paragraphs injected here -->
+    </div>
+    <div class="dialog-actions" id="dialogue-actions">
+      <button class="btn btn--secondary" onclick="window.skipDialogue()">Skip Intro</button>
+    </div>
+  </div>
+
+  <!-- Teams Layer -->
+  <div id="teams-layer" class="hidden">
+    <!-- Teams injected here -->
+  </div>
+
+  <div id="fallback-msg" class="fallback-msg hidden">
+    <h3>Admin setup required</h3>
+    <p>Admin has not configured onboarding yet — try again later or contact the admin.</p>
+    <a href="/index.html" class="btn btn--wide" style="margin-top:16px;">Return to login</a>
+  </div>
+
+  <div id="transition-overlay"></div>
+
+  <script type="module">
+    import { api, toast } from '/assets/js/api.js';
+    import { requireLogin } from '/assets/js/auth-guard.js';
+
+    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    let gTeams = [];
+
+    async function init() {
+      try {
+        await requireLogin();
+      } catch (err) {
+        return; // Redirect handled by guard
+      }
+
+      try {
+        const res = await api.get('/api/onboarding');
+        if (res.completed) {
+          location.replace('/roster.html');
+          return;
+        }
+
+        const config = res.config || {};
+        gTeams = res.teams || [];
+
+        if (gTeams.length === 0) {
+          document.getElementById('fallback-msg').classList.remove('hidden');
+          return;
+        }
+
+        if (config.bgImage) {
+          document.body.style.backgroundImage = `url('${escape(config.bgImage)}')`;
+          document.body.classList.remove('fallback-bg');
+        }
+
+        const introDialogue = config.introDialogue || 'Welcome to DigiWorld.';
+        renderDialogue(introDialogue);
+        renderTeams();
+        
+        document.getElementById('dialogue-layer').classList.remove('hidden');
+      } catch (err) {
+        if (err.status === 409) {
+          location.replace('/roster.html');
+        } else if (err.status === 503 || err.code === 'no-teams-available') {
+          document.getElementById('fallback-msg').classList.remove('hidden');
+        } else {
+          toast(err.message || 'Failed to load onboarding', { error: true });
+        }
+      }
+    }
+
+    function renderDialogue(text) {
+      const paras = text.split('\n\n').filter(p => p.trim());
+      const content = document.getElementById('dialogue-content');
+      content.innerHTML = '';
+
+      paras.forEach((p, i) => {
+        const pEl = document.createElement('p');
+        pEl.innerHTML = escape(p).replace(/\n/g, '<br>');
+        pEl.style.animationDelay = `${i * 1.5}s`;
+        content.appendChild(pEl);
+      });
+
+      const actions = document.getElementById('dialogue-actions');
+      if (paras.length > 1) {
+        actions.style.animationDelay = `${paras.length * 1.5}s`;
+      } else {
+        actions.classList.add('hidden'); // No skip if short
+      }
+    }
+
+    window.skipDialogue = function() {
+      const dLayer = document.getElementById('dialogue-layer');
+      dLayer.classList.add('is-hidden');
+      
+      setTimeout(() => {
+        document.getElementById('teams-layer').classList.remove('hidden');
+        // trigger reflow
+        void document.getElementById('teams-layer').offsetWidth;
+        document.getElementById('teams-layer').classList.add('is-active');
+      }, 500);
+    };
+
+    function renderTeams() {
+      const container = document.getElementById('teams-layer');
+      container.innerHTML = gTeams.filter(t => t.enabled !== false).sort((a,b) => (a.sortOrder||0) - (b.sortOrder||0)).map(t => {
+        return `
+          <div class="team-card" id="team-${escape(t.id)}" onclick="window.selectTeam('${escape(t.id)}')">
+            <h3 class="team-name">${escape(t.name)}</h3>
+            <p class="team-desc">${escape(t.description)}</p>
+            <div class="team-mons">
+              ${(t.mons || []).map(m => `
+                <div class="mon-tile">
+                  <img src="${escape(m.portrait || m.dot || '/assets/digimon/default.png')}" alt="${escape(m.name)}" class="mon-portrait" />
+                  <div class="mon-name">${escape(m.name)}</div>
+                  <div class="mon-pills">
+                    <span class="pill" style="--el: var(--el-${escape(m.element || 'neutral')})">
+                      <span class="dot"></span>${escape(m.element || 'neutral')}
+                    </span>
+                    <span class="pill" style="--el: var(--muted)">
+                      ${escape(m.stage)}
+                    </span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.selectTeam = async function(teamId) {
+      const layer = document.getElementById('teams-layer');
+      if (layer.classList.contains('is-locked')) return;
+
+      const team = gTeams.find(t => String(t.id) === String(teamId));
+      if (!team) return;
+
+      // Lock UI and apply animations
+      layer.classList.add('is-locked');
+      const card = document.getElementById(`team-${teamId}`);
+      if (card) {
+        card.classList.add('is-selected');
+        card.setAttribute('aria-disabled', 'true');
+      }
+
+      try {
+        const res = await api.post('/api/onboarding/select', { teamId });
+        sessionStorage.setItem('digiworld:just-onboarded', team.slug || team.id);
+        
+        // Wait for visual selection animation
+        setTimeout(() => {
+          document.getElementById('transition-overlay').classList.add('is-active');
+          setTimeout(() => {
+            location.replace('/roster.html');
+          }, 800);
+        }, 600);
+      } catch (err) {
+        // Unlock on failure
+        layer.classList.remove('is-locked');
+        if (card) card.classList.remove('is-selected');
+        
+        if (err.status === 409) {
+          location.replace('/roster.html');
+        } else {
+          toast(err.message || 'Failed to select team', { error: true });
+        }
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

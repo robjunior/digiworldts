@@ -38,6 +38,31 @@ import {
   type SkillError,
 } from '../skills/catalog.js';
 import {
+  createShopItem,
+  deleteShopItem,
+  getShopItem,
+  listShopItems,
+  updateShopItem,
+  type ShopItemError,
+} from './shop.js';
+import {
+  deleteUser,
+  getUser,
+  listUsers,
+  resetUserPassword,
+  updateUserCredits,
+  updateUserFlags,
+  type UserError,
+} from './users.js';
+import {
+  deleteRoster,
+  getRoster,
+  listRosterForUser,
+  spawnRoster,
+  updateRoster,
+  type RosterError,
+} from './rosters.js';
+import {
   findTemplate,
   loadCatalog,
   removeTemplate,
@@ -541,6 +566,171 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const result = await deleteSkill(req.params.id);
     if (!result.ok) return reply.code(statusForSkillError(result.error)).send({ error: result.error });
     log.info('admin.skill.delete', { adminId: admin.id, id: req.params.id });
+    return reply.send(result);
+  });
+
+  // ==========================================================================
+  // SHOP ITEMS — admin CRUD
+  // ==========================================================================
+
+  function statusForShopItemError(err: ShopItemError): number {
+    if (err === 'not-found') return 404;
+    if (err === 'duplicate-name') return 409;
+    return 400;
+  }
+
+  app.get('/api/admin/shop', async (req, reply) => {
+    await requireAdmin(req, reply);
+    return reply.send({ items: await listShopItems() });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/shop/:id', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const item = await getShopItem(req.params.id);
+    if (!item) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ item });
+  });
+
+  app.post('/api/admin/shop', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await createShopItem(req.body as never);
+    if (!result.ok) return reply.code(statusForShopItemError(result.error)).send({ error: result.error });
+    log.info('admin.shop.create', { adminId: admin.id, id: result.item.id, name: result.item.name });
+    return reply.code(201).send(result);
+  });
+
+  app.put<{ Params: { id: string } }>('/api/admin/shop/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await updateShopItem(req.params.id, req.body as never);
+    if (!result.ok) return reply.code(statusForShopItemError(result.error)).send({ error: result.error });
+    log.info('admin.shop.update', { adminId: admin.id, id: result.item.id });
+    return reply.send(result);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/admin/shop/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await deleteShopItem(req.params.id);
+    if (!result.ok) return reply.code(statusForShopItemError(result.error)).send({ error: result.error });
+    log.info('admin.shop.delete', { adminId: admin.id, id: req.params.id });
+    return reply.send(result);
+  });
+
+  // ==========================================================================
+  // USERS — admin management
+  // ==========================================================================
+
+  function statusForUserError(err: UserError): number {
+    if (err === 'not-found') return 404;
+    return 400;
+  }
+
+  app.get<{ Querystring: { q?: string; limit?: string; offset?: string } }>('/api/admin/users', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const limit = req.query.limit ? Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 50)) : 50;
+    const offset = req.query.offset ? Math.max(0, parseInt(req.query.offset, 10) || 0) : 0;
+    const result = await listUsers(req.query.q, limit, offset);
+    return reply.send(result);
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/users/:id', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const user = await getUser(req.params.id);
+    if (!user) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ user });
+  });
+
+  app.patch<{ Params: { id: string }; Body: { isAdmin?: boolean; disabled?: boolean } }>('/api/admin/users/:id/flags', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    if (req.params.id === admin.id && (req.body.isAdmin === false || req.body.disabled === true)) {
+      return reply.code(400).send({ error: 'cannot-modify-self', message: 'You cannot demote or disable yourself.' });
+    }
+    const result = await updateUserFlags(req.params.id, req.body ?? {});
+    if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.user.flags', { adminId: admin.id, targetId: req.params.id, ...req.body });
+    return reply.send(result);
+  });
+
+  app.patch<{ Params: { id: string }; Body: { credits: number } }>('/api/admin/users/:id/credits', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await updateUserCredits(req.params.id, req.body?.credits);
+    if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.user.credits', { adminId: admin.id, targetId: req.params.id, credits: req.body.credits });
+    return reply.send(result);
+  });
+
+  app.post<{ Params: { id: string }; Body: { password: string } }>('/api/admin/users/:id/reset-password', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const password = req.body?.password;
+    if (typeof password !== 'string') return reply.code(400).send({ error: 'invalid-input' });
+    const result = await resetUserPassword(req.params.id, password);
+    if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.user.resetPassword', { adminId: admin.id, targetId: req.params.id });
+    return reply.send(result);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/admin/users/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    if (req.params.id === admin.id) {
+      return reply.code(400).send({ error: 'cannot-modify-self', message: 'You cannot delete yourself.' });
+    }
+    const result = await deleteUser(req.params.id);
+    if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error });
+    log.info('admin.user.delete', { adminId: admin.id, targetId: req.params.id });
+    return reply.send(result);
+  });
+
+  // ==========================================================================
+  // ROSTER — admin management of any player's mons
+  // ==========================================================================
+
+  function statusForRosterError(err: RosterError): number {
+    if (err === 'not-found' || err === 'user-not-found' || err === 'catalog-not-found') return 404;
+    return 400;
+  }
+
+  app.get<{ Params: { userId: string } }>('/api/admin/users/:userId/roster', async (req, reply) => {
+    await requireAdmin(req, reply);
+    return reply.send({ roster: await listRosterForUser(req.params.userId) });
+  });
+
+  app.get<{ Params: { monId: string } }>('/api/admin/roster/:monId', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const mon = await getRoster(req.params.monId);
+    if (!mon) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ mon });
+  });
+
+  app.patch<{ Params: { monId: string } }>('/api/admin/roster/:monId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await updateRoster(req.params.monId, req.body as never);
+    if (!result.ok) return reply.code(statusForRosterError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.roster.update', { adminId: admin.id, monId: req.params.monId });
+    return reply.send(result);
+  });
+
+  app.post<{ Params: { userId: string }; Body: { catalogId: string; nickname?: string; level?: number } }>('/api/admin/users/:userId/roster/spawn', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const body = req.body ?? {} as { catalogId?: string; nickname?: string; level?: number };
+    if (!body.catalogId) return reply.code(400).send({ error: 'invalid-input', message: 'catalogId required' });
+    const spawnPayload: {
+      userId: string;
+      catalogId: string;
+      nickname?: string;
+      level?: number;
+    } = { userId: req.params.userId, catalogId: body.catalogId };
+    if (body.nickname !== undefined) spawnPayload.nickname = body.nickname;
+    if (body.level !== undefined) spawnPayload.level = body.level;
+    const result = await spawnRoster(spawnPayload);
+    if (!result.ok) return reply.code(statusForRosterError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.roster.spawn', { adminId: admin.id, userId: req.params.userId, catalogId: body.catalogId });
+    return reply.code(201).send(result);
+  });
+
+  app.delete<{ Params: { monId: string } }>('/api/admin/roster/:monId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await deleteRoster(req.params.monId);
+    if (!result.ok) return reply.code(statusForRosterError(result.error)).send({ error: result.error });
+    log.info('admin.roster.delete', { adminId: admin.id, monId: req.params.monId });
     return reply.send(result);
   });
 };
