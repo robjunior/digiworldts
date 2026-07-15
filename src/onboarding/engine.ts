@@ -360,8 +360,8 @@ const DEFAULT_TEAMS: SeedTeam[] = [
   {
     slug: 'aggressive',
     name: 'Aggressive',
-    description: 'Overwhelming offense. Three fire-breathers who close the distance and end fights fast.',
-    monCatalogIds: ['skb-50', 'skb-708', 'skb-90'],
+    description: 'Overwhelming offense. A fire-breather, a wolf with a chilling bite, and a saurian brawler.',
+    monCatalogIds: ['skb-50', 'skb-151', 'skb-90'],
     sortOrder: 0,
   },
   {
