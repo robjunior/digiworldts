@@ -25,6 +25,7 @@ import { affinity, AFFINITY_MULT, scaleStatsForLevel } from '../digimon/element.
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
+  CHAIN_MULT,
   CRIT_CHANCE,
   CRIT_MULT,
   EN_REGEN_PER_TURN,
@@ -107,7 +108,28 @@ export function buildTurnQueue(units: BattleUnit[]): TurnEntry[] {
     name: u.name,
     initiative: computeInitiative(u),
   }));
-  return entries.sort((a, b) => b.initiative - a.initiative);
+  entries.sort((a, b) => b.initiative - a.initiative);
+  return entries;
+}
+
+/**
+ * Move a unit's upcoming turn within `battle.turnQueue`. `delta` is added to
+ * the entry's current queue index (positive = later, negative = sooner). The
+ * entry is only moved if it appears AFTER `battle.turnCursor` (already-acted
+ * or currently-acting units cannot be shifted this round).
+ *
+ * Skill DSL uses this via `{ kind: 'shift_initiative', target, delta }`.
+ */
+export function shiftInitiative(battle: Battle, unitId: UnitId, delta: number): boolean {
+  const startIdx = battle.turnCursor + 1;
+  const entryIdx = battle.turnQueue.findIndex((e, i) => i >= startIdx && e.unitId === unitId);
+  if (entryIdx === -1) return false;
+  const entry = battle.turnQueue[entryIdx]!;
+  const target = Math.max(startIdx, Math.min(battle.turnQueue.length - 1, entryIdx + delta));
+  if (target === entryIdx) return false;
+  battle.turnQueue.splice(entryIdx, 1);
+  battle.turnQueue.splice(target, 0, entry);
+  return true;
 }
 
 function currentEntry(battle: Battle): TurnEntry | null {
@@ -153,6 +175,7 @@ export function initBattle(input: { matchId?: string; loadoutA: Loadout; loadout
     winner: null,
     startedAt: now,
     endedAt: null,
+    lastAction: null,
   };
 }
 
@@ -263,6 +286,7 @@ export function applyAction(
       action,
       cue: null,
     });
+    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
@@ -301,17 +325,26 @@ export function applyAction(
       skillName: skill.name,
       cue: 'miss',
     });
+    battle.lastAction = { side: actingSide, element: skill.element, wasHit: false };
   } else {
     const critted = Math.random() < CRIT_CHANCE;
     const aff = affinity(skill.element, target.element);
     const affMult = aff ? AFFINITY_MULT[aff] : 1;
+    const prev = battle.lastAction;
+    const chained =
+      prev !== null &&
+      prev.wasHit &&
+      prev.side === actingSide &&
+      prev.element === skill.element &&
+      skill.element !== 'neutral';
+    const chainMult = chained ? CHAIN_MULT : 1;
     const baseDamage = actor.atk * 0.4 + skill.power;
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
     const dmg = Math.max(
       1,
-      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * affMult * defMitigation * guardMult * variance),
+      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * affMult * chainMult * defMitigation * guardMult * variance),
     );
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
     target.guarding = false;
@@ -322,7 +355,15 @@ export function applyAction(
       applied.push({ kind: skill.effect.kind, turnsLeft: skill.effect.turns || AILMENT_TURNS_DEFAULT });
     }
 
-    const cue: ActionCue = critted ? 'crit' : aff === 'resist' ? 'resist' : aff === 'weak' ? 'weak' : null;
+    const cue: ActionCue = chained
+      ? 'chain'
+      : critted
+        ? 'crit'
+        : aff === 'resist'
+          ? 'resist'
+          : aff === 'weak'
+            ? 'weak'
+            : null;
     const hitEvent: BattleEvent = {
       at: now,
       round: battle.round,
@@ -338,6 +379,7 @@ export function applyAction(
     };
     if (applied.length > 0) hitEvent.applied = applied;
     pushEvent(battle, hitEvent);
+    battle.lastAction = { side: actingSide, element: skill.element, wasHit: true };
     if (target.hp === 0) {
       pushEvent(battle, {
         at: now,

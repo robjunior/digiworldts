@@ -47,7 +47,7 @@ export type Action =
   | { type: 'guard'; unitId: UnitId }
   | { type: 'flee' };
 
-export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | null;
+export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'chain' | null;
 
 export type EventBase = { at: number; round: number };
 
@@ -102,6 +102,7 @@ export type Battle = {
   winner: BattleSide | null;
   startedAt: number;
   endedAt: number | null;
+  lastAction: { side: BattleSide; element: import('../digimon/types.js').Element; wasHit: boolean } | null;
 };
 
 // ----- Views (per-side redacted state) ---------------------------------------
@@ -143,6 +144,7 @@ export const MISS_CHANCE = 0.08;
 export const CRIT_CHANCE = 0.15;
 export const CRIT_MULT = 1.6;
 export const GUARD_MULT = 0.5;
+export const CHAIN_MULT = 2.0;
 export const AILMENT_TURNS_DEFAULT = 3;
 export const EN_REGEN_PER_TURN = 6;
 

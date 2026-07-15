@@ -82,6 +82,7 @@ export type Action =
   | { kind: 'modify_stat'; target: Target; stat: (typeof MODIFIABLE_STATS)[number]; delta: number; turns: number }
   | { kind: 'consume_en'; target: Target; amount: number }
   | { kind: 'restore_en'; target: Target; amount: number }
+  | { kind: 'shift_initiative'; target: Target; delta: number }
   | { kind: 'schedule'; delay: number; action: Action }
   | { kind: 'conditional'; if: Condition; then: Action[]; else?: Action[] | undefined };
 
@@ -122,6 +123,11 @@ export const ActionSchema: z.ZodType<Action> = z.lazy(() =>
       kind: z.literal('restore_en'),
       target: TargetSchema,
       amount: z.number().int().min(1).max(MAX_ENERGY),
+    }),
+    z.object({
+      kind: z.literal('shift_initiative'),
+      target: TargetSchema,
+      delta: z.number().int().min(-10).max(10).refine((v) => v !== 0, { message: 'delta must be non-zero' }),
     }),
     z.object({
       kind: z.literal('schedule'),
