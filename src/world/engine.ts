@@ -136,7 +136,7 @@ export async function generateWildMon(biome: Biome, rating: number, partyStage: 
   };
 }
 
-async function generateItemDrop(): Promise<ItemDrop | null> {
+export async function generateItemDrop(): Promise<ItemDrop | null> {
   const items = await q<ShopItemRow>(SQL_SELECT_ENABLED_ITEMS);
   if (items.length === 0) return null;
   const item = items[Math.floor(Math.random() * items.length)]!;
@@ -148,10 +148,6 @@ export async function rollEncounter(biome: Biome, rating: number, partyStage: St
   if (r < ENCOUNTER_RATE) {
     const mon = await generateWildMon(biome, rating, partyStage);
     if (mon) return { kind: 'wild-mon', mon };
-  }
-  if (r < ENCOUNTER_RATE + ITEM_DROP_RATE) {
-    const drop = await generateItemDrop();
-    if (drop) return { kind: 'item', item: drop };
   }
   return { kind: 'none' };
 }

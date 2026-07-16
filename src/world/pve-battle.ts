@@ -8,11 +8,24 @@ import {
 import type { Action, Battle, BattleView } from '../battle/types.js';
 import { one, q, run, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
+import type { BaseStats } from '../digimon/types.js';
+import { awardXp, xpReward, xpToReach, type MatchOutcome } from '../progression/xp.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
-import type { ItemDrop, WildMon } from './engine.js';
+import { generateItemDrop, type ItemDrop, type WildMon } from './engine.js';
 
 const MAX_WILD_ACTIONS_PER_TURN = 6;
+
+// PVE reward calibration.
+//   Target: 10 encounters at L1 vs same-level wild = ~1 level up.
+//   xpReward('win', 1, 1) = 45. 45 * PVE_XP_SCALE(0.8) = 36 XP/win.
+//   10 wins = 360 XP; xpToReach(2) = 352 XP -> exactly 1 level. Curve
+//   is L^1.55 so higher levels take proportionally more encounters.
+//   Losses subtract PVE_LOSS_XP_FACTOR(0.4) of what a win would grant,
+//   clamped so you can never DEMOTE below your current level's floor.
+const PVE_XP_SCALE = 0.8;
+const PVE_LOSS_XP_FACTOR = 0.4;
+const ITEM_DROP_ON_WIN_RATE = 0.20;
 
 const SQL_SELECT_PARTY = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index`;
 const SQL_INSERT_MON = `
@@ -29,6 +42,13 @@ const SQL_UPSERT_INVENTORY = `
        VALUES (?, ?, ?, ?)
     ON CONFLICT (user_id, item_id) DO UPDATE
        SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at
+`;
+const SQL_UPDATE_MON_XP = `
+  UPDATE player_roster
+     SET level = ?, xp = ?,
+         hp_bonus = ?, en_bonus = ?, atk_bonus = ?, def_bonus = ?, int_bonus = ?, spd_bonus = ?,
+         updated_at = ?
+   WHERE id = ?
 `;
 
 const activeByUser = new Map<string, Battle>();
@@ -124,14 +144,119 @@ export function abandonPveBattle(userId: string): boolean {
   return activeByUser.delete(userId);
 }
 
+export type XpAward = {
+  monId: string;
+  nickname: string;
+  delta: number;
+  newLevel: number;
+  gainedLevels: number;
+};
+
 export type ActResult =
   | {
       ok: true;
       view: BattleView;
       ended: boolean;
       capturedMonId?: string;
+      xpAwards?: XpAward[];
+      itemDrop?: ItemDrop;
     }
   | { ok: false; error: string; code?: string };
+
+async function awardPveBattleRewards(
+  userId: string,
+  battle: Battle,
+): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop }> {
+  const outcome = battle.outcome;
+  if (!outcome) return { xpAwards: [] };
+
+  let matchOutcome: MatchOutcome;
+  if (outcome === 'win_a' || outcome === 'captured_a') matchOutcome = 'win';
+  else if (outcome === 'win_b') matchOutcome = 'loss';
+  else if (outcome === 'fled_a') matchOutcome = 'fled';
+  else return { xpAwards: [] };
+
+  const wildUnit = battle.units.find((u) => u.side === 'b' && u.wildInfo);
+  const wildLevel = wildUnit?.level ?? 1;
+
+  const partyRows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
+  const catalog = loadCatalog();
+  const now = Date.now();
+  const xpAwards: XpAward[] = [];
+
+  for (const row of partyRows) {
+    const template = findTemplate(catalog, row.catalog_id);
+    if (!template) continue;
+
+    let delta: number;
+    if (matchOutcome === 'win') {
+      const win = xpReward('win', row.level, wildLevel);
+      delta = Math.round(win * PVE_XP_SCALE);
+    } else if (matchOutcome === 'loss') {
+      const wouldWin = xpReward('win', row.level, wildLevel);
+      delta = -Math.round(wouldWin * PVE_XP_SCALE * PVE_LOSS_XP_FACTOR);
+    } else {
+      delta = 0;
+    }
+    if (delta === 0) continue;
+
+    const currentBonus: BaseStats = {
+      hp: row.hp_bonus,
+      en: row.en_bonus,
+      atk: row.atk_bonus,
+      def: row.def_bonus,
+      int: row.int_bonus,
+      spd: row.spd_bonus,
+    };
+    const result = awardXp(row.level, row.xp, currentBonus, template.stage, delta);
+    const floor = xpToReach(row.level);
+    const clampedXp = Math.max(floor, result.xp);
+    const clampedLevel = Math.max(row.level, result.level);
+
+    await run(SQL_UPDATE_MON_XP, [
+      clampedLevel,
+      clampedXp,
+      result.bonus.hp,
+      result.bonus.en,
+      result.bonus.atk,
+      result.bonus.def,
+      result.bonus.int,
+      result.bonus.spd,
+      now,
+      row.id,
+    ]);
+
+    xpAwards.push({
+      monId: row.id,
+      nickname: row.nickname,
+      delta,
+      newLevel: clampedLevel,
+      gainedLevels: Math.max(0, clampedLevel - row.level),
+    });
+  }
+
+  let itemDrop: ItemDrop | undefined;
+  if (matchOutcome === 'win' && Math.random() < ITEM_DROP_ON_WIN_RATE) {
+    const drop = await generateItemDrop();
+    if (drop) {
+      await grantItemDrop(userId, drop);
+      itemDrop = drop;
+    }
+  }
+
+  if (xpAwards.length > 0 || itemDrop) {
+    log.info('world.pve.rewards', {
+      userId,
+      outcome,
+      wildLevel,
+      xpDeltas: xpAwards.map((a) => a.delta),
+      leveledUpMons: xpAwards.filter((a) => a.gainedLevels > 0).map((a) => a.nickname),
+      itemDrop: itemDrop?.itemId,
+    });
+  }
+
+  return itemDrop ? { xpAwards, itemDrop } : { xpAwards };
+}
 
 export async function actInPveBattle(userId: string, action: Action): Promise<ActResult> {
   const battle = activeByUser.get(userId);
@@ -145,6 +270,8 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
 
   let capturedMonId: string | undefined;
   const ended = battle.status === 'ended';
+  let xpAwards: XpAward[] = [];
+  let itemDrop: ItemDrop | undefined;
 
   if (ended) {
     if (battle.outcome === 'captured_a') {
@@ -170,15 +297,21 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
         });
       }
     }
+    const rewards = await awardPveBattleRewards(userId, battle);
+    xpAwards = rewards.xpAwards;
+    itemDrop = rewards.itemDrop;
     activeByUser.delete(userId);
   }
 
-  return {
+  const response: ActResult = {
     ok: true,
     view: serializeForSide(battle, 'a'),
     ended,
-    ...(capturedMonId ? { capturedMonId } : {}),
   };
+  if (capturedMonId) response.capturedMonId = capturedMonId;
+  if (xpAwards.length > 0) response.xpAwards = xpAwards;
+  if (itemDrop) response.itemDrop = itemDrop;
+  return response;
 }
 
 export async function grantItemDrop(userId: string, drop: ItemDrop): Promise<void> {

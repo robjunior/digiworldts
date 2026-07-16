@@ -17,7 +17,6 @@ import {
 import {
   actInPveBattle,
   getPveBattleView,
-  grantItemDrop,
   hasActivePveBattle,
   startPveBattleFromEncounter,
 } from './pve-battle.js';
@@ -107,9 +106,6 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
         battleStartError = started.error;
         log.warn('world.encounter.start-fail', { userId: user.id, error: started.error });
       }
-    } else if (encounter.kind === 'item') {
-      await grantItemDrop(user.id, encounter.item);
-      log.info('world.encounter', { userId: user.id, biome, kind: 'item', item: encounter.item.itemId });
     }
 
     return reply.send({
@@ -144,6 +140,8 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
       battle: result.view,
       ended: result.ended,
       ...(result.capturedMonId ? { capturedMonId: result.capturedMonId } : {}),
+      ...(result.xpAwards ? { xpAwards: result.xpAwards } : {}),
+      ...(result.itemDrop ? { itemDrop: result.itemDrop } : {}),
     });
   });
 };
