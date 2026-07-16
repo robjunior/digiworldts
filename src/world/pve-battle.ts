@@ -8,8 +8,8 @@ import {
 import type { Action, Battle, BattleView } from '../battle/types.js';
 import { one, q, run, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
-import type { BaseStats } from '../digimon/types.js';
-import { awardXp, xpReward, xpToReach, type MatchOutcome } from '../progression/xp.js';
+import type { BaseStats, Stage } from '../digimon/types.js';
+import { applyGrowth, awardXp, xpReward, xpToReach, type MatchOutcome } from '../progression/xp.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, type ItemDrop, type WildMon } from './engine.js';
@@ -113,6 +113,14 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
   for (const wildMon of wilds) {
     const tpl = findTemplate(catalog, wildMon.catalogId);
     if (!tpl) return { ok: false, error: 'catalog-missing' };
+    // Grant wild mons the same per-level stat growth an allied mon would
+    // accumulate leveling from 1 -> wildMon.level, so they're not stat-starved
+    // vs. player Digimon who benefit from applyGrowth on every level up.
+    const wildBonus = applyGrowth(
+      { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
+      tpl.stage as Stage,
+      Math.max(0, wildMon.level - 1),
+    );
     wildParty.push({
       member: {
         monId: newId('wild'),
@@ -120,7 +128,7 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
         template: tpl,
         level: wildMon.level,
         nickname: wildMon.name,
-        statBonus: { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
+        statBonus: wildBonus,
       },
       wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
     });
