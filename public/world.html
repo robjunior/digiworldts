@@ -368,9 +368,25 @@
       renderer.setSize(w, h, false);
       renderer.setClearColor(0x000000, 0);
 
+      // Match tile screen size to the character sprite (.ppm-leader = 72x72).
+      // Plane is `size` world units wide with one tile per world unit, so we
+      // want the camera to project 1 world unit → 72 screen pixels vertically.
+      const TILE_PX = 72;
+      const FOV_DEG = 50;
+      const TILT_RATIO = 22 / 14; // camY / camZ, ~58° from horizontal
+      const tanHalfFov = Math.tan((FOV_DEG / 2) * Math.PI / 180);
+
+      function cameraPos(canvasH) {
+        const visibleHeightWorld = canvasH / TILE_PX;
+        const focal = visibleHeightWorld / (2 * tanHalfFov);
+        const d = focal / Math.sqrt(TILT_RATIO * TILT_RATIO + 1);
+        return { camY: d * TILT_RATIO, camZ: d };
+      }
+
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 500);
-      camera.position.set(0, 22, 14);
+      const { camY, camZ } = cameraPos(h);
+      const camera = new THREE.PerspectiveCamera(FOV_DEG, w / h, 0.1, 500);
+      camera.position.set(0, camY, camZ);
       camera.lookAt(0, 0, 0);
 
       // Row-major RGBA texture matching server tile order.
@@ -443,6 +459,9 @@
         const nh = Math.max(canvas.clientHeight, 1);
         renderer.setSize(nw, nh, false);
         camera.aspect = nw / nh;
+        const { camY: y, camZ: z } = cameraPos(nh);
+        camera.position.set(0, y, z);
+        camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
         renderer.render(scene, camera);
       }
