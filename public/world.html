@@ -176,8 +176,11 @@
       position: fixed;
       inset: 0;
       z-index: 100;
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
+      background: linear-gradient(180deg,
+        rgba(0,0,0,0.15) 0%,
+        rgba(0,0,0,0.55) 50%,
+        rgba(0,0,0,0.85) 100%);
+      backdrop-filter: blur(6px) saturate(1.1);
       transform: translateY(100%);
       transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
       display: flex;
@@ -186,7 +189,16 @@
 
     #battle-overlay.active {
       transform: translateY(0);
+      animation: battle-enter 400ms cubic-bezier(0.16, 1, 0.3, 1) both;
     }
+
+    @keyframes battle-enter {
+      from { opacity: 0; backdrop-filter: blur(0px); }
+      to   { opacity: 1; backdrop-filter: blur(6px) saturate(1.1); }
+    }
+
+    @keyframes slide-down-in { from { transform: translateY(-30px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes slide-up-in   { from { transform: translateY(30px);  opacity: 0; } to { transform: none; opacity: 1; } }
 
     .battle-wild {
       flex: 0 0 auto;
@@ -203,6 +215,19 @@
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      animation: slide-down-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 100ms both;
+      transition: transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 300ms ease-out;
+    }
+
+    .wild-card.is-target {
+      transform: scale(1.05);
+      filter: drop-shadow(0 0 24px var(--battle)) drop-shadow(0 0 12px var(--gold));
+      animation: target-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes target-pulse {
+      0%, 100% { filter: drop-shadow(0 0 20px var(--battle)) drop-shadow(0 0 8px var(--gold)); }
+      50% { filter: drop-shadow(0 0 32px var(--battle)) drop-shadow(0 0 16px var(--gold)); }
     }
 
     .wild-portrait {
@@ -344,14 +369,74 @@
       border-radius: 8px;
       padding: 12px;
       position: relative;
-      transition: box-shadow 0.2s;
+      transition: transform 200ms ease-out;
+      overflow: visible;
+    }
+
+    .party-card:nth-child(1) { animation: slide-up-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 200ms both; }
+    .party-card:nth-child(2) { animation: slide-up-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 280ms both; }
+    .party-card:nth-child(3) { animation: slide-up-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 360ms both; }
+
+    .party-card .icon {
+      width: 48px;
+      height: 48px;
+      image-rendering: pixelated;
+      display: block;
+      margin: 0 auto 4px;
     }
 
     .party-card.is-turn {
-      box-shadow: 0 0 0 2px var(--signal), 0 0 24px var(--signal);
+      transform: translateY(-4px) scale(1.03);
+    }
+
+    .party-card.is-turn::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      padding: 3px;
+      background: conic-gradient(from 0deg,
+        var(--signal),
+        var(--gold),
+        var(--el-nature),
+        var(--el-fire),
+        var(--signal));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+              mask-composite: exclude;
+      animation: spin 2.5s linear infinite;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .party-card.is-turn::after {
+      content: 'YOUR TURN';
+      position: absolute;
+      top: -18px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--signal);
+      background: color-mix(in oklab, var(--bg) 90%, transparent);
+      padding: 2px 8px;
+      border: 1px solid var(--signal);
+      border-radius: 999px;
+      animation: pulse-label 1.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes pulse-label {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.08); opacity: 0.75; }
     }
 
     .party-card.is-down {
+      opacity: 0.3;
+      filter: grayscale(1);
+    }
+
+    .party-card.is-down .icon {
       opacity: 0.3;
       filter: grayscale(1);
     }
@@ -372,6 +457,7 @@
       padding: 16px;
       max-width: 600px;
       margin: 0 auto;
+      animation: slide-up-in 500ms cubic-bezier(0.16, 1, 0.3, 1) 440ms both;
     }
 
     .action-btn {
@@ -480,7 +566,7 @@
   <div class="world-scene">
     <div class="world-grid" id="world-grid"></div>
     <div class="player-layer">
-      <img id="player-sprite" src="/assets/digimon/default/dot.gif" alt="Player" />
+      <img id="player-sprite" src="/assets/digimon/skb-50/dot.gif" alt="Player" />
     </div>
   </div>
   
@@ -504,7 +590,7 @@
   <div id="battle-overlay">
     <div class="battle-wild">
       <div class="wild-card" id="wild-card" onclick="window.onWildClick()">
-        <img class="wild-portrait" id="wild-portrait" src="/assets/digimon/default/portrait.png" />
+        <img class="wild-portrait" id="wild-portrait" src="/assets/digimon/skb-50/portrait.webp" />
         <div class="wild-info">
           <div class="wild-name">
             <span id="wild-name-text"></span> 
@@ -571,8 +657,14 @@
         renderWorld();
 
         if (state.battleActive) {
-          location.href = '/combat.html?mode=pve';
-          return;
+          try {
+            const bRes = await api.get('/api/world/battle');
+            currentBattle = bRes.battle;
+            renderBattle();
+            document.getElementById('battle-overlay').classList.add('active');
+          } catch (e) {
+            console.warn('Could not load active battle', e);
+          }
         }
       } catch (err) {
         toast(err.message || 'Failed to load world', { error: true });
@@ -636,10 +728,11 @@
         el.innerText = `+${encounter.item.qty} ${encounter.item.name}`;
         el.classList.add('visible');
         setTimeout(() => el.classList.remove('visible'), 1500);
-      } else if (encounter.kind === 'wild-mon' && battle) {
+      } else if (encounter.kind === 'wild-mon') {
         state.battleActive = true;
-        const url = '/combat.html?mode=pve&matchId=' + encodeURIComponent(battle.id);
-        location.href = url;
+        currentBattle = battle;
+        renderBattle();
+        document.getElementById('battle-overlay').classList.add('active');
       }
     }
 
@@ -649,7 +742,7 @@
       const enemy = currentBattle.enemy[0];
       const wild = enemy.wild || {};
       
-      document.getElementById('wild-portrait').src = wild.portrait || `/assets/digimon/${wild.catalogId || 'default'}/portrait.png`;
+      document.getElementById('wild-portrait').src = wild.portrait || (wild.catalogId ? `/assets/digimon/${wild.catalogId}/portrait.webp` : '/assets/digimon/skb-50/portrait.webp');
       document.getElementById('wild-name-text').innerText = enemy.name;
       document.getElementById('wild-lvl').innerText = enemy.level;
       document.getElementById('wild-el').innerText = enemy.element;
@@ -676,9 +769,17 @@
         btn.disabled = !myTurn;
       });
 
+      const wildCardEl = document.getElementById('wild-card');
+      if (myTurn && !enemy.down) {
+        wildCardEl.classList.add('is-target');
+      } else {
+        wildCardEl.classList.remove('is-target');
+      }
+
       const partyRow = document.getElementById('party-row');
       partyRow.innerHTML = currentBattle.friendly.map(f => `
         <div class="party-card ${f.down ? 'is-down' : ''} ${f.id === currentBattle.currentTurnUnitId ? 'is-turn' : ''}">
+          <img class="icon" src="/assets/digimon/${f.templateId}/dot.gif" />
           <div class="party-name">${escapeHtml(f.name)}</div>
           <div class="bar-text"><span>HP</span><span>${f.hp}/${f.hpMax}</span></div>
           <div class="bar-container"><div class="bar-fill" style="width:${Math.max(0, (f.hp/f.hpMax)*100)}%"></div></div>
