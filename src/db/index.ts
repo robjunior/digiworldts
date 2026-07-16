@@ -67,6 +67,7 @@ function migratePlayerRosterColumns(handle: DatabaseHandle): void {
     ['revive_at', 'INTEGER'],
     ['pets_today', 'INTEGER NOT NULL DEFAULT 0'],
     ['pets_day', 'TEXT'],
+    ['listed_at', 'INTEGER'],
   ];
   for (const [name, def] of additions) {
     if (!existing.has(name)) {
@@ -141,8 +142,20 @@ export type RosterRow = {
   revive_at: number | null;
   pets_today: number;
   pets_day: string | null;
+  listed_at: number | null;
   created_at: number;
   updated_at: number;
+};
+
+export type MarketListingRow = {
+  id: string;
+  mon_id: string;
+  seller_id: string;
+  price_credits: number;
+  listed_at: number;
+  sold_at: number | null;
+  sold_to: string | null;
+  canceled_at: number | null;
 };
 
 export type ResourceRow = {

@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   revive_at     BIGINT,
   pets_today    INTEGER NOT NULL DEFAULT 0,
   pets_day      TEXT,
+  listed_at     BIGINT,
   created_at    BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL,
   CONSTRAINT roster_unique_slot UNIQUE (user_id, slot_index)
@@ -340,6 +341,26 @@ CREATE TABLE IF NOT EXISTS world_position (
   updated_at    BIGINT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS market_listings (
+  id             TEXT PRIMARY KEY,
+  mon_id         TEXT NOT NULL REFERENCES player_roster(id) ON DELETE CASCADE,
+  seller_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  price_credits  INTEGER NOT NULL CHECK (price_credits > 0),
+  listed_at      BIGINT NOT NULL,
+  sold_at        BIGINT,
+  sold_to        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  canceled_at    BIGINT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_active_mon
+  ON market_listings(mon_id)
+  WHERE sold_at IS NULL AND canceled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_market_seller
+  ON market_listings(seller_id, sold_at, canceled_at);
+CREATE INDEX IF NOT EXISTS idx_market_active_listed
+  ON market_listings(listed_at DESC)
+  WHERE sold_at IS NULL AND canceled_at IS NULL;
+
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_day TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS listed_at BIGINT;

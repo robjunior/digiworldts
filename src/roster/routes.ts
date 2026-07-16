@@ -64,6 +64,7 @@ export type RosterView = {
   status: 'resting' | 'training' | 'party';
   slot: number | null;
   reviveAt: number | null;
+  listedAt: number | null;
   template: TemplateDigimon | null;
 };
 
@@ -88,6 +89,7 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
     status: row.status,
     slot: row.slot_index,
     reviveAt: row.revive_at,
+    listedAt: row.listed_at,
     template,
   };
 }
@@ -247,6 +249,9 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const now = Date.now();
     if (target.revive_at !== null && target.revive_at > now) {
       return reply.code(409).send({ error: 'mon-downed', message: 'This Digimon is recovering. Wait or use a Digi-Revive item.', reviveAt: target.revive_at });
+    }
+    if (target.listed_at !== null) {
+      return reply.code(409).send({ error: 'mon-listed', message: 'This Digimon is on the market. Cancel the listing first.' });
     }
     await tx(async (t) => {
       await t.run(SQL_CLEAR_SLOT, [now, user.id, slot]);

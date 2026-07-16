@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DigiWorld — Market</title>
+  <link rel="icon" type="image/gif" href="/assets/digimon/skb-50/dot.gif" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <style>
+    .credits-pill {
+      display:inline-flex; align-items:center; gap:6px; padding:5px 12px;
+      background: color-mix(in oklab, var(--gold) 12%, transparent);
+      border:1px solid color-mix(in oklab, var(--gold) 40%, var(--hairline));
+      color: var(--gold);
+      font-weight:700; font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+      clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);
+    }
+    .credits-pill .dot { width:5px; height:5px; border-radius:50%; background: var(--gold); }
+
+    .tabs {
+      display:flex; gap:4px; margin: 16px 0 20px;
+      border-bottom:1px solid var(--hairline);
+      padding: 0 4px;
+    }
+    .tab {
+      background:transparent; border:none;
+      font-family:inherit; font-size:13px; font-weight:600;
+      letter-spacing:.06em; text-transform:uppercase;
+      color:var(--muted);
+      padding: 10px 16px; cursor:pointer;
+      border-bottom:2px solid transparent;
+      margin-bottom:-1px;
+      transition:color .15s, border-color .15s;
+    }
+    .tab:hover { color: var(--ink); }
+    .tab.is-active { color: var(--ink); border-bottom-color: var(--signal); }
+    .tab-panel.hidden { display:none; }
+
+    .filter-bar {
+      display:grid;
+      grid-template-columns: 2fr 1fr 1fr 90px 90px 110px 110px 1fr;
+      gap:8px;
+      margin-bottom:20px;
+    }
+    .filter-bar input, .filter-bar select {
+      background:var(--bg); border:1px solid var(--hairline); color:var(--ink);
+      font-family:inherit; font-size:12px; padding:8px 10px;
+      transition:border-color .15s;
+    }
+    .filter-bar input:focus, .filter-bar select:focus {
+      outline:none; border-color:var(--signal);
+    }
+    @media (max-width: 1100px) {
+      .filter-bar { grid-template-columns: 1fr 1fr 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .filter-bar { grid-template-columns: 1fr 1fr; }
+    }
+
+    .listing-grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap:14px;
+    }
+
+    .listing-card {
+      background: var(--bg);
+      border:1px solid var(--hairline);
+      display:flex; flex-direction:column;
+      position:relative;
+      transition: border-color .2s, transform .2s;
+      clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+    }
+    .listing-card:hover {
+      border-color: color-mix(in oklab, var(--el, var(--signal)) 60%, var(--hairline));
+      transform: translateY(-2px);
+    }
+    .listing-card.is-mine { border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline)); }
+    .listing-card.is-mine::before {
+      content: "MINE";
+      position: absolute; top: 6px; right: 6px; z-index: 3;
+      font-size: 9px; font-weight: 700; letter-spacing: .1em;
+      padding: 2px 6px;
+      background: var(--gold); color: #111;
+    }
+    .listing-card .rail {
+      height: 3px;
+      background: var(--el, var(--signal));
+    }
+    .listing-card .portrait {
+      position:relative;
+      aspect-ratio: 4/3;
+      display:grid; place-items:center;
+      background: color-mix(in oklab, var(--el, var(--signal)) 6%, var(--panel));
+      overflow:hidden;
+    }
+    .listing-card .portrait img {
+      width: 70%; height: 70%; object-fit: contain;
+    }
+    .listing-card .body {
+      padding: 12px;
+      display:flex; flex-direction:column; gap:6px;
+    }
+    .listing-card .name-row {
+      display:flex; justify-content:space-between; align-items:baseline; gap:6px;
+    }
+    .listing-card .name { font-weight:600; font-size:14px; letter-spacing:-.01em; }
+    .listing-card .lvl {
+      font-size:10px; padding:2px 6px; background:var(--panel); border:1px solid var(--hairline);
+      font-weight:600; letter-spacing:.04em;
+    }
+    .listing-card .sub {
+      font-size:10px; color: var(--muted); letter-spacing:.06em; text-transform:uppercase;
+      display:flex; justify-content:space-between;
+    }
+    .listing-card .sub .el-tag { color: var(--el, var(--signal)); font-weight:600; }
+    .listing-card .seller { font-size:10px; color: var(--muted); }
+    .listing-card .seller b { color: var(--ink); font-weight:600; }
+    .listing-card .price-row {
+      display:flex; justify-content:space-between; align-items:center;
+      padding-top:8px; border-top:1px solid var(--hairline);
+      margin-top:2px;
+    }
+    .listing-card .price {
+      font-size:15px; font-weight:700; color: var(--gold);
+      font-variant-numeric: tabular-nums;
+    }
+    .listing-card .price::before { content: "◆ "; font-size:11px; }
+    .listing-card .card-btn {
+      background: var(--signal); border:1px solid var(--signal); color:#fff;
+      font-family:inherit; font-size:11px; font-weight:700;
+      letter-spacing:.05em; text-transform:uppercase;
+      padding:6px 12px; cursor:pointer;
+      transition:filter .15s;
+      clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);
+    }
+    .listing-card .card-btn:hover:not(:disabled) { filter: brightness(1.12); }
+    .listing-card .card-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .listing-card .card-btn.danger { background: var(--battle); border-color: var(--battle); }
+    .listing-card .status-badge {
+      position:absolute; top:8px; left:8px; z-index:3;
+      font-size:9px; font-weight:700; letter-spacing:.1em;
+      padding:2px 6px; background: var(--muted); color:#fff;
+    }
+    .listing-card .status-badge.sold { background: var(--el-nature); }
+    .listing-card .status-badge.canceled { background: var(--muted); }
+
+    .pagination {
+      display:flex; justify-content:center; align-items:center;
+      gap:8px; margin: 20px 0 40px; flex-wrap:wrap;
+    }
+    .pagination .info { font-size:12px; color: var(--muted); margin-right:16px; }
+    .pagination button {
+      background:var(--bg); border:1px solid var(--hairline); color:var(--muted);
+      padding:6px 12px; cursor:pointer; font-size:12px; font-weight:600;
+      font-family:inherit; transition: all .2s;
+      clip-path: polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+    }
+    .pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+    .pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+    .pagination button:disabled { opacity: .4; cursor: not-allowed; }
+
+    .empty {
+      padding: 48px 24px; text-align:center; color:var(--muted); font-size:13px;
+      background: var(--panel); border:1px solid var(--hairline);
+    }
+
+    .modal-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.75);
+      display:none; place-items:center; z-index:100; padding:24px;
+    }
+    .modal-overlay.show { display:grid; }
+    .modal-card {
+      background:var(--bg); border:1px solid var(--hairline);
+      width:100%; max-width:420px; padding:20px 24px 24px;
+      clip-path: polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+    }
+    .modal-header {
+      display:flex; justify-content:space-between; align-items:center;
+      margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline);
+    }
+    .modal-header h3 { margin:0; font-size:16px; font-weight:600; }
+    .modal-close {
+      background:none; border:none; color:var(--muted);
+      font-size:24px; cursor:pointer; padding:0 4px; line-height:1;
+    }
+    .modal-close:hover { color: var(--ink); }
+    #sell-summary {
+      display:grid; grid-template-columns: 80px 1fr; gap:12px; align-items:center;
+      margin-bottom:16px; padding:12px; background:var(--panel);
+    }
+    #sell-summary img { width:80px; height:80px; object-fit:contain; }
+    #sell-summary .name { font-size:15px; font-weight:600; margin-bottom:4px; }
+    #sell-summary .meta { font-size:11px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+    #sell-price {
+      width:100%; background:var(--bg); border:1px solid var(--hairline);
+      padding:10px 12px; font-family:inherit; font-size:16px; font-weight:600;
+      font-variant-numeric: tabular-nums;
+    }
+    #sell-price:focus { outline:none; border-color: var(--signal); }
+    .price-label {
+      display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--muted); margin: 12px 0 4px;
+    }
+    .price-hint { font-size:10px; color:var(--muted); margin: 4px 0 16px; }
+  </style>
+</head>
+<body class="market">
+  <div class="app-shell">
+    <nav class="app-nav" id="app-nav"></nav>
+    <main class="app-main">
+      <div class="hud-header">
+        <div>
+          <div class="eyebrow">Market</div>
+          <h1>Player Trades</h1>
+        </div>
+        <div class="credits-pill"><span class="dot"></span>DIGICREDITS <b id="credits">0</b></div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab is-active" data-tab="browse">Browse</button>
+        <button class="tab" data-tab="mine">My Listings</button>
+        <button class="tab" data-tab="sell">Sell a Digimon</button>
+      </div>
+
+      <section id="tab-browse" class="tab-panel">
+        <div class="filter-bar">
+          <input class="input" id="f-search" placeholder="Search by name…" />
+          <select class="input" id="f-stage">
+            <option value="">Any stage</option>
+            <option>Baby</option>
+            <option>In-Training</option>
+            <option>Rookie</option>
+            <option>Champion</option>
+            <option>Ultimate</option>
+            <option>Mega</option>
+          </select>
+          <select class="input" id="f-element">
+            <option value="">Any element</option>
+            <option value="fire">Fire</option>
+            <option value="water">Water</option>
+            <option value="nature">Nature</option>
+            <option value="electric">Electric</option>
+            <option value="neutral">Neutral</option>
+          </select>
+          <input class="input" id="f-min-lvl" placeholder="Min lvl" type="number" min="1" max="99" />
+          <input class="input" id="f-max-lvl" placeholder="Max lvl" type="number" min="1" max="99" />
+          <input class="input" id="f-min-price" placeholder="Min price" type="number" min="0" />
+          <input class="input" id="f-max-price" placeholder="Max price" type="number" min="0" />
+          <select class="input" id="f-sort">
+            <option value="newest">Newest</option>
+            <option value="price_asc">Price ↑</option>
+            <option value="price_desc">Price ↓</option>
+            <option value="level_desc">Level ↓</option>
+          </select>
+        </div>
+        <div class="listing-grid" id="browse-grid"></div>
+        <div class="pagination" id="pagination"></div>
+      </section>
+
+      <section id="tab-mine" class="tab-panel hidden">
+        <div class="listing-grid" id="mine-grid"></div>
+      </section>
+
+      <section id="tab-sell" class="tab-panel hidden">
+        <p style="margin: 0 0 16px; font-size:12px; color:var(--muted);">
+          Pick a Digimon to list on the market. Party mons, training mons, downed mons, and already-listed mons are hidden.
+        </p>
+        <div class="listing-grid" id="sell-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="sell-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>List on Market</h3>
+        <button class="modal-close" id="sell-modal-close" aria-label="Close">×</button>
+      </div>
+      <div id="sell-summary"></div>
+      <label class="price-label" for="sell-price">Price (DigiCredits)</label>
+      <input id="sell-price" type="number" min="10" max="1000000" step="1" value="100" />
+      <div class="price-hint">Between 10 and 1,000,000 DigiCredits.</div>
+      <button class="btn btn--wide" id="sell-submit">List for Sale</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, toast, setText } from '/assets/js/api.js';
+    import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
+
+    const escape = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    let userId = null;
+    let currentPage = 1;
+    let currentPerPage = 12;
+    let currentTab = 'browse';
+    let pendingSellMon = null;
+
+    function debounce(fn, ms) {
+      let t = null;
+      return (...args) => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    function readFilters() {
+      const val = (id) => {
+        const el = document.getElementById(id);
+        const v = el?.value?.trim() ?? '';
+        return v === '' ? null : v;
+      };
+      return {
+        q: val('f-search'),
+        stage: val('f-stage'),
+        element: val('f-element'),
+        minLevel: val('f-min-lvl'),
+        maxLevel: val('f-max-lvl'),
+        minPrice: val('f-min-price'),
+        maxPrice: val('f-max-price'),
+        sort: val('f-sort') || 'newest',
+      };
+    }
+
+    function buildQuery(page) {
+      const f = readFilters();
+      const p = new URLSearchParams();
+      p.set('page', String(page));
+      p.set('perPage', String(currentPerPage));
+      if (f.q)         p.set('q', f.q);
+      if (f.stage)     p.set('stage', f.stage);
+      if (f.element)   p.set('element', f.element);
+      if (f.minLevel)  p.set('minLevel', f.minLevel);
+      if (f.maxLevel)  p.set('maxLevel', f.maxLevel);
+      if (f.minPrice)  p.set('minPrice', f.minPrice);
+      if (f.maxPrice)  p.set('maxPrice', f.maxPrice);
+      if (f.sort)      p.set('sort', f.sort);
+      return p.toString();
+    }
+
+    async function loadCredits() {
+      try {
+        const farm = await api.get('/api/farm');
+        setText('credits', String(farm.credits ?? 0));
+      } catch {}
+    }
+
+    async function loadBrowse() {
+      try {
+        const qs = buildQuery(currentPage);
+        const res = await api.get('/api/market?' + qs);
+        renderBrowse(res);
+      } catch (err) {
+        toast(err.message || 'load failed', { error: true });
+      }
+    }
+
+    function renderBrowse(res) {
+      const grid = document.getElementById('browse-grid');
+      const pag = document.getElementById('pagination');
+      if (!res.items || res.items.length === 0) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">No listings match your filters.</div>`;
+        pag.innerHTML = '';
+        return;
+      }
+      grid.innerHTML = res.items.map((it) => listingCardHTML(it)).join('');
+      grid.querySelectorAll('[data-buy]').forEach((btn) => {
+        btn.addEventListener('click', () => buy(btn.dataset.buy));
+      });
+      renderPagination(res.total, res.page, res.perPage, pag);
+    }
+
+    function listingCardHTML(it) {
+      const t = it.template;
+      const el = t?.element || 'neutral';
+      const stage = t?.stage || '—';
+      const portrait = t?.assets?.portrait || `/assets/digimon/${escape(it.catalogId)}/portrait.webp`;
+      return `
+        <div class="listing-card ${it.isMine ? 'is-mine' : ''}" style="--el:var(--el-${escape(el)})">
+          <div class="rail"></div>
+          <div class="portrait">
+            <img src="${escape(portrait)}" alt="${escape(it.nickname)}" onerror="this.style.opacity=0.2" />
+          </div>
+          <div class="body">
+            <div class="name-row">
+              <div class="name">${escape(it.nickname)}</div>
+              <span class="lvl">LV ${it.level}</span>
+            </div>
+            <div class="sub">
+              <span>${escape(stage)}</span>
+              <span class="el-tag">${escape(el).toUpperCase()}</span>
+            </div>
+            <div class="seller">Seller <b>${escape(it.seller.displayName)}</b></div>
+            <div class="price-row">
+              <span class="price">${it.price.toLocaleString()}</span>
+              <button class="card-btn" data-buy="${escape(it.listingId)}" ${it.isMine ? 'disabled title="You listed this"' : ''}>Buy</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function renderPagination(total, page, perPage, container) {
+      const totalPages = Math.max(1, Math.ceil(total / perPage));
+      if (totalPages <= 1 && total <= perPage) {
+        container.innerHTML = `<div class="info">${total} listing${total === 1 ? '' : 's'}</div>`;
+        return;
+      }
+      const start = (page - 1) * perPage + 1;
+      const end = Math.min(page * perPage, total);
+      let html = `<div class="info">Showing ${start}–${end} of ${total}</div>`;
+      html += `<button data-p="prev" ${page === 1 ? 'disabled' : ''}>← Prev</button>`;
+      const maxButtons = 7;
+      const from = Math.max(1, page - 3);
+      const to = Math.min(totalPages, from + maxButtons - 1);
+      for (let i = from; i <= to; i++) {
+        html += `<button data-p="${i}" class="${i === page ? 'active' : ''}">${i}</button>`;
+      }
+      html += `<button data-p="next" ${page === totalPages ? 'disabled' : ''}>Next →</button>`;
+      container.innerHTML = html;
+      container.querySelectorAll('button[data-p]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const p = btn.dataset.p;
+          if (p === 'prev' && currentPage > 1) currentPage -= 1;
+          else if (p === 'next' && currentPage < totalPages) currentPage += 1;
+          else if (/^\d+$/.test(p)) currentPage = Number(p);
+          loadBrowse();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+      });
+    }
+
+    async function buy(listingId) {
+      if (!confirm('Buy this Digimon?')) return;
+      try {
+        const res = await api.post(`/api/market/buy/${encodeURIComponent(listingId)}`);
+        toast('Purchased! Digimon added to your roster.');
+        await Promise.all([loadCredits(), loadBrowse()]);
+      } catch (err) {
+        toast(err.message || 'buy failed', { error: true });
+      }
+    }
+
+    async function loadMine() {
+      try {
+        const res = await api.get('/api/market/mine');
+        renderMine(res.listings || []);
+      } catch (err) {
+        toast(err.message || 'load failed', { error: true });
+      }
+    }
+
+    function renderMine(listings) {
+      const grid = document.getElementById('mine-grid');
+      if (listings.length === 0) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">You haven't listed anything yet. Head to the Sell tab.</div>`;
+        return;
+      }
+      grid.innerHTML = listings.map((it) => mineCardHTML(it)).join('');
+      grid.querySelectorAll('[data-cancel]').forEach((btn) => {
+        btn.addEventListener('click', () => cancelListing(btn.dataset.cancel));
+      });
+    }
+
+    function mineCardHTML(it) {
+      const t = it.template;
+      const el = t?.element || 'neutral';
+      const stage = t?.stage || '—';
+      const portrait = t?.assets?.portrait || `/assets/digimon/${escape(it.catalogId)}/portrait.webp`;
+      const statusBadge = it.status === 'sold'
+        ? '<span class="status-badge sold">SOLD</span>'
+        : it.status === 'canceled'
+          ? '<span class="status-badge canceled">CANCELED</span>'
+          : '';
+      const actionBtn = it.status === 'active'
+        ? `<button class="card-btn danger" data-cancel="${escape(it.listingId)}">Cancel</button>`
+        : `<span style="font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase;">${escape(it.status)}</span>`;
+      return `
+        <div class="listing-card ${it.status !== 'active' ? '' : 'is-mine'}" style="--el:var(--el-${escape(el)})">
+          <div class="rail"></div>
+          ${statusBadge}
+          <div class="portrait">
+            <img src="${escape(portrait)}" alt="${escape(it.nickname)}" onerror="this.style.opacity=0.2" />
+          </div>
+          <div class="body">
+            <div class="name-row">
+              <div class="name">${escape(it.nickname)}</div>
+              <span class="lvl">LV ${it.level}</span>
+            </div>
+            <div class="sub">
+              <span>${escape(stage)}</span>
+              <span class="el-tag">${escape(el).toUpperCase()}</span>
+            </div>
+            <div class="price-row">
+              <span class="price">${it.price.toLocaleString()}</span>
+              ${actionBtn}
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function cancelListing(listingId) {
+      if (!confirm('Cancel this listing? The Digimon returns to your roster.')) return;
+      try {
+        await api.post(`/api/market/cancel/${encodeURIComponent(listingId)}`);
+        toast('Listing canceled');
+        await loadMine();
+      } catch (err) {
+        toast(err.message || 'cancel failed', { error: true });
+      }
+    }
+
+    async function loadSell() {
+      try {
+        const r = await api.get('/api/roster');
+        const now = Date.now();
+        const eligible = (r.roster || []).filter((m) =>
+          m.listedAt == null
+          && m.status !== 'party'
+          && m.status !== 'training'
+          && !(m.reviveAt && m.reviveAt > now)
+        );
+        renderSell(eligible);
+      } catch (err) {
+        toast(err.message || 'load failed', { error: true });
+      }
+    }
+
+    function renderSell(mons) {
+      const grid = document.getElementById('sell-grid');
+      if (mons.length === 0) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1;">No Digimon are eligible to list. Try removing one from your party.</div>`;
+        return;
+      }
+      grid.innerHTML = mons.map((m) => sellCardHTML(m)).join('');
+      grid.querySelectorAll('[data-sell]').forEach((el) => {
+        el.addEventListener('click', () => openSellModal(mons.find((m) => m.id === el.dataset.sell)));
+      });
+    }
+
+    function sellCardHTML(m) {
+      const t = m.template;
+      const el = t?.element || 'neutral';
+      const stage = t?.stage || '—';
+      const portrait = t?.assets?.portrait || `/assets/digimon/${escape(m.catalogId)}/portrait.webp`;
+      return `
+        <div class="listing-card" data-sell="${escape(m.id)}" style="--el:var(--el-${escape(el)}); cursor:pointer;">
+          <div class="rail"></div>
+          <div class="portrait">
+            <img src="${escape(portrait)}" alt="${escape(m.nickname)}" onerror="this.style.opacity=0.2" />
+          </div>
+          <div class="body">
+            <div class="name-row">
+              <div class="name">${escape(m.nickname)}</div>
+              <span class="lvl">LV ${m.level}</span>
+            </div>
+            <div class="sub">
+              <span>${escape(stage)}</span>
+              <span class="el-tag">${escape(el).toUpperCase()}</span>
+            </div>
+            <div class="price-row">
+              <span style="font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase;">Click to list</span>
+              <button class="card-btn">List →</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function openSellModal(m) {
+      if (!m) return;
+      pendingSellMon = m;
+      const t = m.template;
+      const portrait = t?.assets?.portrait || `/assets/digimon/${escape(m.catalogId)}/portrait.webp`;
+      const stage = t?.stage || '—';
+      const el = t?.element || 'neutral';
+      document.getElementById('sell-summary').innerHTML = `
+        <img src="${escape(portrait)}" alt="" onerror="this.style.opacity=0.2" />
+        <div>
+          <div class="name">${escape(m.nickname)}</div>
+          <div class="meta">${escape(stage)} · ${escape(el)} · LV ${m.level}</div>
+        </div>`;
+      document.getElementById('sell-price').value = '100';
+      document.getElementById('sell-modal').classList.add('show');
+      setTimeout(() => document.getElementById('sell-price').focus(), 60);
+    }
+
+    function closeSellModal() {
+      document.getElementById('sell-modal').classList.remove('show');
+      pendingSellMon = null;
+    }
+
+    async function submitSell() {
+      if (!pendingSellMon) return;
+      const price = Number(document.getElementById('sell-price').value);
+      if (!Number.isInteger(price) || price < 10 || price > 1_000_000) {
+        toast('Price must be between 10 and 1,000,000', { error: true });
+        return;
+      }
+      try {
+        await api.post('/api/market/list', { monId: pendingSellMon.id, price });
+        toast(`Listed for ${price.toLocaleString()} DigiCredits`);
+        closeSellModal();
+        await loadSell();
+      } catch (err) {
+        toast(err.message || 'list failed', { error: true });
+      }
+    }
+
+    function switchTab(name) {
+      currentTab = name;
+      document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('is-active', b.dataset.tab === name));
+      document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('hidden', p.id !== `tab-${name}`));
+      if (name === 'browse') loadBrowse();
+      else if (name === 'mine') loadMine();
+      else if (name === 'sell') loadSell();
+    }
+
+    async function init() {
+      try { await requireLogin(); } catch { return; }
+      renderNav(document.getElementById('app-nav'), 'market');
+
+      const me = await api.get('/api/auth/me').catch(() => null);
+      userId = me?.user?.id ?? null;
+
+      document.querySelectorAll('.tab').forEach((btn) => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      const rerun = debounce(() => { currentPage = 1; loadBrowse(); }, 250);
+      ['f-search','f-stage','f-element','f-min-lvl','f-max-lvl','f-min-price','f-max-price','f-sort'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('input', rerun);
+        document.getElementById(id)?.addEventListener('change', rerun);
+      });
+
+      document.getElementById('sell-modal-close').addEventListener('click', closeSellModal);
+      document.getElementById('sell-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'sell-modal') closeSellModal();
+      });
+      document.getElementById('sell-submit').addEventListener('click', submitSell);
+      document.getElementById('sell-price').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitSell();
+      });
+
+      await loadCredits();
+      await loadBrowse();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   revive_at     INTEGER,                                 -- unix ms; when set and > now, mon is downed and unusable in PVE
   pets_today    INTEGER NOT NULL DEFAULT 0,              -- nursery: count of pets given today (resets when pets_day rolls)
   pets_day      TEXT,                                    -- 'YYYY-MM-DD' of last pet; when != today, pets_today is reset
+  listed_at     INTEGER,                                 -- unix ms; when NOT NULL the mon is on the player market and hidden from party/nursery/etc.
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   UNIQUE (user_id, slot_index) ON CONFLICT ABORT         -- no two party slots collide
@@ -385,6 +386,31 @@ CREATE TABLE IF NOT EXISTS world_position (
   last_move_at  INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL
 );
+
+-- ----------------------------------------------------------------------------
+-- market_listings: player-to-player marketplace for Digimon. One active listing
+-- per mon_id at a time (partial unique index below). On buy the mon_id is
+-- transferred to the buyer via UPDATE player_roster.user_id in the same
+-- transaction that credits the seller + debits the buyer's wallet.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS market_listings (
+  id             TEXT PRIMARY KEY,                       -- 'mkt_...'
+  mon_id         TEXT NOT NULL REFERENCES player_roster(id) ON DELETE CASCADE,
+  seller_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  price_credits  INTEGER NOT NULL CHECK (price_credits > 0),
+  listed_at      INTEGER NOT NULL,
+  sold_at        INTEGER,
+  sold_to        TEXT REFERENCES users(id) ON DELETE SET NULL,
+  canceled_at    INTEGER
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_market_active_mon
+  ON market_listings(mon_id)
+  WHERE sold_at IS NULL AND canceled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_market_seller
+  ON market_listings(seller_id, sold_at, canceled_at);
+CREATE INDEX IF NOT EXISTS idx_market_active_listed
+  ON market_listings(listed_at DESC)
+  WHERE sold_at IS NULL AND canceled_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

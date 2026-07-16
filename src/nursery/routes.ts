@@ -58,19 +58,21 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
 
     const rows = await q<RosterRow>(SQL_SELECT_ALL, user.id);
     const today = todayKeyUTC(Date.now());
-    const mons: NurseryMonView[] = rows.map((row) => {
-      const petsToday = petsTodayFor(row, today);
-      return {
-        id: row.id,
-        catalogId: row.catalog_id,
-        nickname: row.nickname,
-        level: row.level,
-        mood: row.mood,
-        petsToday,
-        canPet: petsToday < MAX_PETS_PER_MON_PER_DAY,
-        template: templateById.get(row.catalog_id) ?? null,
-      };
-    });
+    const mons: NurseryMonView[] = rows
+      .filter((row) => row.listed_at === null)
+      .map((row) => {
+        const petsToday = petsTodayFor(row, today);
+        return {
+          id: row.id,
+          catalogId: row.catalog_id,
+          nickname: row.nickname,
+          level: row.level,
+          mood: row.mood,
+          petsToday,
+          canPet: petsToday < MAX_PETS_PER_MON_PER_DAY,
+          template: templateById.get(row.catalog_id) ?? null,
+        };
+      });
     const meat = await readMeat(user.id);
     return reply.send({
       mons,
@@ -87,6 +89,7 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     const monId = req.params.monId;
     const target = await one<RosterRow>(SQL_SELECT_BY_ID, monId, user.id);
     if (!target) return reply.code(404).send({ error: 'mon-not-found' });
+    if (target.listed_at !== null) return reply.code(409).send({ error: 'mon-listed', message: 'This Digimon is on the market.' });
 
     const now = Date.now();
     const today = todayKeyUTC(now);
@@ -114,6 +117,7 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     const monId = req.params.monId;
     const target = await one<RosterRow>(SQL_SELECT_BY_ID, monId, user.id);
     if (!target) return reply.code(404).send({ error: 'mon-not-found' });
+    if (target.listed_at !== null) return reply.code(409).send({ error: 'mon-listed', message: 'This Digimon is on the market.' });
 
     const now = Date.now();
     let newMood = target.mood;

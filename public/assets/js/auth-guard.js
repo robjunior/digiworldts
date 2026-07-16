@@ -57,6 +57,7 @@ export function renderNav(container, current) {
     { href: '/world.html',    key: 'world',    label: 'World' },
     { href: '/nursery.html',  key: 'nursery',  label: 'Nursery' },
     { href: '/roster.html',   key: 'roster',   label: 'Roster' },
+    { href: '/market.html',   key: 'market',   label: 'Market' },
     { href: '/combat.html',   key: 'combat',   label: 'Battle' },
     { href: '/farm.html',     key: 'farm',     label: 'Farm' },
     { href: '/training.html', key: 'training', label: 'Training' },
