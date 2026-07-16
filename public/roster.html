@@ -183,6 +183,40 @@
     .card.is-dragging { opacity: 0.4; transform: scale(1.06); filter: drop-shadow(0 22px 34px rgba(17,17,17,.28)); z-index: 10; }
     .card.is-dragging { opacity: 0.4; transform: scale(1.06); filter: drop-shadow(0 22px 34px rgba(17,17,17,.28)); z-index: 10; }
     .card.ghost-back { transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); transform: scale(1) translate(0, 0) !important; }
+    .card.is-downed .card-inner > .art > .tile img,
+    .card.is-downed .card-inner > .meta > .name-row .mon-icon { filter: grayscale(1) brightness(0.55); }
+    .card.is-downed { cursor: not-allowed; }
+    .card.is-downed .rail { background: #d84 !important; }
+    .downed-overlay {
+      position: absolute; inset: 0; z-index: 30;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 10px; padding: 16px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.75));
+      pointer-events: auto;
+    }
+    .downed-overlay .down-icon {
+      width: 44px; height: 44px; color: #d84;
+    }
+    .downed-overlay .timer {
+      font-size: 20px; font-weight: 700; letter-spacing: 0.08em; color: #fff;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.6); font-variant-numeric: tabular-nums;
+    }
+    .downed-overlay .revive-btn {
+      background: #d84; border: 1px solid #d84; color: #111; font-weight: 700;
+      padding: 6px 14px; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+      cursor: pointer; font-family: inherit; transition: filter 0.15s;
+      clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+    }
+    .downed-overlay .revive-btn:hover { filter: brightness(1.15); }
+    .downed-overlay .revive-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .party-slot.is-downed { position: relative; }
+    .party-slot.is-downed > img { filter: grayscale(1) brightness(0.55); }
+    .party-slot.is-downed .name { color: #d84; }
+    .party-slot .down-badge {
+      position: absolute; top: 6px; right: 6px; padding: 2px 6px; font-size: 10px;
+      font-weight: 700; background: #d84; color: #111; letter-spacing: 0.04em;
+      font-variant-numeric: tabular-nums; z-index: 4;
+    }
     .party-slot { position: relative; transition: transform 0.2s, filter 0.2s; border: 2px solid transparent; }
     .party-slot.drag-over { transform: scale(1.05); filter: brightness(1.1); border-color: var(--signal, var(--ink)); }
     .party-slot.drag-active::before {
@@ -333,16 +367,25 @@
           </div>`;
         const portrait = m.template ? m.template.assets.portrait : '';
         const el2 = m.template ? m.template.element : 'neutral';
-        return `<div class="party-slot" style="--el:var(--el-${el2})" data-drop-slot="${slot}">
+        const downed = isDowned(m);
+        const downBadge = downed ? `<span class="down-badge" data-revive-at="${m.reviveAt}">${formatRemaining(m.reviveAt)}</span>` : '';
+        const reviveBtn = downed ? `<button class="btn btn--secondary" data-revive-mon="${escape(m.id)}">Revive</button>` : '';
+        return `<div class="party-slot ${downed ? 'is-downed' : ''}" style="--el:var(--el-${el2})" data-drop-slot="${slot}">
+            ${downBadge}
             <img src="${escape(portrait)}" alt="${escape(m.nickname)}" loading="lazy" onerror="this.style.opacity=0.15" />
             <div class="name">${escape(m.nickname)}</div>
             <div class="sub">Lv ${m.level} · ${m.template ? escape(m.template.stage) : '?'}</div>
             <div class="slot-actions">
+              ${reviveBtn}
               <button class="btn btn--secondary" data-remove="${slot}">Remove</button>
             </div>
           </div>`;
       }).join('');
       el.querySelectorAll('[data-remove]').forEach((btn) => btn.addEventListener('click', () => removeSlot(Number(btn.dataset.remove))));
+      el.querySelectorAll('[data-revive-mon]').forEach((btn) => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        reviveMon(btn.dataset.reviveMon);
+      }));
       
       el.querySelectorAll('[data-drop-slot]').forEach(slotEl => {
         slotEl.addEventListener('dragover', e => { e.preventDefault(); slotEl.classList.add('drag-over'); });
@@ -466,9 +509,18 @@
           activityPill = `<span class="activity-pill party" title="Active party slot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 6 6 1-4.5 4.5 1 6.5L12 17l-5.5 3 1-6.5L3 9l6-1z"/></svg>Slot ${m.slot + 1}</span>`;
         }
 
-        return `<article class="card ${isInParty ? 'is-selected' : ''}" role="button" tabindex="0" draggable="true" style="--el:var(--el-${el})" data-od-id="card-${escape(m.id)}" data-id="${escape(m.id)}">
+        const downed = isDowned(m);
+        const downedOverlay = downed ? `
+          <div class="downed-overlay">
+            <svg class="down-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 22v-4M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M2 12h6M22 12h-4M4.93 19.07l4.24-4.24M14.83 9.17l4.24-4.24"/></svg>
+            <div class="timer" data-revive-at="${m.reviveAt}">${formatRemaining(m.reviveAt)}</div>
+            <button class="revive-btn" data-revive-mon="${escape(m.id)}">Use Digi-Revive</button>
+          </div>` : '';
+
+        return `<article class="card ${isInParty ? 'is-selected' : ''} ${downed ? 'is-downed' : ''}" role="button" tabindex="0" draggable="${downed ? 'false' : 'true'}" style="--el:var(--el-${el})" data-od-id="card-${escape(m.id)}" data-id="${escape(m.id)}">
           <div class="card-inner">
             <span class="rail" aria-hidden="true"></span>
+            ${downedOverlay}
             <div class="meta">
               <div class="name-row">
                 <div class="name-group">
@@ -524,6 +576,10 @@
       }).join('');
       
       grid.querySelectorAll('[data-evolve]').forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); openEvolveModal(btn.dataset.evolve); }));
+      grid.querySelectorAll('[data-revive-mon]').forEach((btn) => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        reviveMon(btn.dataset.reviveMon);
+      }));
 
       const justOnboarded = sessionStorage.getItem('digiworld:just-onboarded');
       if (justOnboarded) {
@@ -540,6 +596,7 @@
       cards.forEach(card => {
         card.addEventListener('dragstart', (e) => {
           // dragstart, draggable, pointerdown to satisfy regex
+          if (card.classList.contains('is-downed')) { e.preventDefault(); return; }
           e.dataTransfer.setData('text/plain', card.dataset.id);
           e.dataTransfer.effectAllowed = 'move';
           setTimeout(() => {
@@ -553,6 +610,7 @@
         });
 
         function toggleOrAssign() {
+          if (card.classList.contains('is-downed')) return;
           if (!canHover) {
             window.__touchAssignMonId = card.dataset.id;
             document.getElementById('touch-assign-modal').classList.add('show');
@@ -565,13 +623,14 @@
         
         card.addEventListener('click', (e) => {
           if (e.target.closest('[data-evolve]')) return;
+          if (e.target.closest('[data-revive-mon]')) return;
           toggleOrAssign();
         });
         
         card.addEventListener('keydown', e => {
           if(e.key === 'Enter' || e.key === ' ') { 
-            e.preventDefault(); 
-            // Assign to first empty slot
+            e.preventDefault();
+            if (card.classList.contains('is-downed')) { toast('This Digimon is recovering.', { error: true }); return; }
             const partySlots = document.querySelectorAll('.party-slot');
             let found = -1;
             partySlots.forEach((el, idx) => { if(el.classList.contains('is-empty') && found === -1) found = idx; });
@@ -686,6 +745,43 @@ async function assign(monId, slot) {
     function escape(s) {
       return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
     }
+
+    function isDowned(m) {
+      return m && typeof m.reviveAt === 'number' && m.reviveAt > Date.now();
+    }
+
+    function formatRemaining(reviveAt) {
+      const ms = Math.max(0, (reviveAt ?? 0) - Date.now());
+      const s = Math.ceil(ms / 1000);
+      const mm = Math.floor(s / 60);
+      const ss = s % 60;
+      return `${mm}:${String(ss).padStart(2, '0')}`;
+    }
+
+    async function reviveMon(monId) {
+      try {
+        await api.post(`/api/roster/revive/${encodeURIComponent(monId)}`);
+        toast('Revived!');
+        await load();
+      } catch (err) {
+        toast(err.message || 'revive failed', { error: true });
+      }
+    }
+
+    setInterval(() => {
+      let expired = false;
+      document.querySelectorAll('[data-revive-at]').forEach((el) => {
+        const at = Number(el.dataset.reviveAt);
+        if (!at) return;
+        const remaining = at - Date.now();
+        if (remaining <= 0) {
+          expired = true;
+        } else {
+          el.textContent = formatRemaining(at);
+        }
+      });
+      if (expired) load();
+    }, 1000);
   </script>
 </body>
 </html>

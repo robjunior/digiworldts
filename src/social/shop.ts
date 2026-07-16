@@ -59,6 +59,14 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     payload: JSON.stringify({ heal_pct: 1.0 }),
   },
   {
+    id: 'itm-digi-revive',
+    name: 'Digi-Revive',
+    description: 'Instantly wake a fallen Digimon from its recovery timer. Use from the roster page.',
+    price_credits: 400,
+    kind: 'revive',
+    payload: JSON.stringify({ revive: true }),
+  },
+  {
     id: 'itm-energy-drink',
     name: 'Energy Drink',
     description: 'Refill EN to full on one Digimon before your next match.',

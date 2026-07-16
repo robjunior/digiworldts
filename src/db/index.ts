@@ -48,6 +48,20 @@ export function db(): DatabaseHandle {
 function applySchema(handle: DatabaseHandle): void {
   const sql = readFileSync(SCHEMA_PATH, 'utf8');
   handle.exec(sql);
+  migratePlayerRosterReviveAt(handle);
+}
+
+/**
+ * SQLite ADD COLUMN has no IF NOT EXISTS syntax before 3.35. Guard the ALTER
+ * with a table_info probe so re-running against a migrated DB is a no-op.
+ */
+function migratePlayerRosterReviveAt(handle: DatabaseHandle): void {
+  const cols = handle
+    .prepare<[], { name: string }>(`PRAGMA table_info(player_roster)`)
+    .all();
+  if (!cols.some((c) => c.name === 'revive_at')) {
+    handle.exec(`ALTER TABLE player_roster ADD COLUMN revive_at INTEGER`);
+  }
 }
 
 /** Close the connection (used in tests). */
@@ -113,6 +127,7 @@ export type RosterRow = {
   mood: number;
   status: 'resting' | 'training' | 'party';
   slot_index: number | null;
+  revive_at: number | null;
   created_at: number;
   updated_at: number;
 };

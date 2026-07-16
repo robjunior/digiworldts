@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   status        TEXT NOT NULL DEFAULT 'resting'          -- resting | training | party
                 CHECK (status IN ('resting', 'training', 'party')),
   slot_index    INTEGER,                                 -- 0..2 if in party, else NULL
+  revive_at     INTEGER,                                 -- unix ms; when set and > now, mon is downed and unusable in PVE
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   UNIQUE (user_id, slot_index) ON CONFLICT ABORT         -- no two party slots collide

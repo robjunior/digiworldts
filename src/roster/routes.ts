@@ -41,6 +41,11 @@ const SQL_UPDATE_STATUS_SLOT = `UPDATE player_roster SET status = ?, slot_index 
 const SQL_CLEAR_SLOT = `UPDATE player_roster SET status = 'resting', slot_index = NULL, updated_at = ? WHERE user_id = ? AND slot_index = ?`;
 const SQL_UPDATE_NICKNAME = `UPDATE player_roster SET nickname = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_COUNT = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ?`;
+const SQL_CLEAR_REVIVE_AT = `UPDATE player_roster SET revive_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
+const SQL_SELECT_INVENTORY_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
+const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
+
+const REVIVE_ITEM_ID = 'itm-digi-revive';
 
 // ============================================================================
 // Views
@@ -58,6 +63,7 @@ export type RosterView = {
   mood: number;
   status: 'resting' | 'training' | 'party';
   slot: number | null;
+  reviveAt: number | null;
   template: TemplateDigimon | null;
 };
 
@@ -81,6 +87,7 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
     mood: row.mood,
     status: row.status,
     slot: row.slot_index,
+    reviveAt: row.revive_at,
     template,
   };
 }
@@ -238,6 +245,9 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const target = await one<RosterRow>(SQL_SELECT_BY_ID, monId, user.id);
     if (!target) return reply.code(404).send({ error: 'mon not found' });
     const now = Date.now();
+    if (target.revive_at !== null && target.revive_at > now) {
+      return reply.code(409).send({ error: 'mon-downed', message: 'This Digimon is recovering. Wait or use a Digi-Revive item.', reviveAt: target.revive_at });
+    }
     await tx(async (t) => {
       await t.run(SQL_CLEAR_SLOT, [now, user.id, slot]);
       await t.run(SQL_UPDATE_STATUS_SLOT, ['party', slot, now, monId, user.id]);
@@ -260,6 +270,28 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const now = Date.now();
     const info = await run(SQL_UPDATE_NICKNAME, parsed.data.nickname, now, req.params.id, user.id);
     if (info.changes === 0) return reply.code(404).send({ error: 'mon not found' });
+    return reply.send({ ok: true });
+  });
+
+  app.post<{ Params: { monId: string } }>('/api/roster/revive/:monId', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const monId = req.params.monId;
+    const target = await one<RosterRow>(SQL_SELECT_BY_ID, monId, user.id);
+    if (!target) return reply.code(404).send({ error: 'mon not found' });
+    const now = Date.now();
+    if (target.revive_at === null || target.revive_at <= now) {
+      return reply.code(409).send({ error: 'not-downed', message: 'This Digimon is already ready.' });
+    }
+    const stock = await one<{ qty: number }>(SQL_SELECT_INVENTORY_QTY, user.id, REVIVE_ITEM_ID);
+    if (!stock || stock.qty < 1) {
+      return reply.code(409).send({ error: 'no-item', message: 'Buy a Digi-Revive from the shop.' });
+    }
+    await tx(async (t) => {
+      const dec = await t.run(SQL_DECREMENT_INVENTORY, [now, user.id, REVIVE_ITEM_ID]);
+      if (dec.changes === 0) throw new Error('inventory race');
+      await t.run(SQL_CLEAR_REVIVE_AT, [now, monId, user.id]);
+    });
+    log.info('roster.revive.ok', { userId: user.id, monId });
     return reply.send({ ok: true });
   });
 

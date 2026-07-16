@@ -50,6 +50,9 @@ const SQL_UPDATE_MON_XP = `
          updated_at = ?
    WHERE id = ?
 `;
+const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, updated_at = ? WHERE id = ?`;
+
+const REVIVE_COOLDOWN_MS = 5 * 60 * 1000;
 
 const activeByUser = new Map<string, Battle>();
 
@@ -71,6 +74,8 @@ function advanceWildAI(battle: Battle): void {
 async function buildPlayerLoadout(userId: string): Promise<Loadout | null> {
   const rows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
   if (rows.length !== 3) return null;
+  const now = Date.now();
+  if (rows.some((r) => r.revive_at !== null && r.revive_at > now)) return null;
   const catalog = loadCatalog();
   const members: LoadoutMember[] = [];
   for (const row of rows) {
@@ -259,7 +264,21 @@ async function awardPveBattleRewards(
     }
   }
 
-  if (xpAwards.length > 0 || itemDrop) {
+  // A KO'd ally goes on a revive cooldown regardless of match outcome — they
+  // are unavailable for the next PVE battle until the timer expires or a
+  // revive item is used from the roster page.
+  const reviveDeadline = now + REVIVE_COOLDOWN_MS;
+  const downedIds: string[] = [];
+  for (const row of partyRows) {
+    if (row.slot_index === null) continue;
+    const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
+    if (unit && unit.hp <= 0) {
+      await run(SQL_SET_REVIVE_AT, [reviveDeadline, now, row.id]);
+      downedIds.push(row.id);
+    }
+  }
+
+  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0) {
     log.info('world.pve.rewards', {
       userId,
       outcome,
@@ -267,6 +286,7 @@ async function awardPveBattleRewards(
       xpDeltas: xpAwards.map((a) => a.delta),
       leveledUpMons: xpAwards.filter((a) => a.gainedLevels > 0).map((a) => a.nickname),
       itemDrop: itemDrop?.itemId,
+      downedMonIds: downedIds,
     });
   }
 

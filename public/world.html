@@ -623,11 +623,13 @@
       box.className = 'banner ' + (draw ? '' : myWin ? 'win' : 'lose');
       const title = isCapture ? 'Captured!' : draw ? 'Match ended' : myWin ? 'Victory' : 'Defeat';
       const sub = describeOutcome(outcome, myWin, draw);
-      
+      const wiped = outcome === 'win_b';
+      const btnLabel = wiped ? 'Go to Roster' : 'Return to world';
+
       box.innerHTML = `
         <div class="b-t">${escapeHtml(title)}</div>
         <div class="b-s">${escapeHtml(sub)}</div>
-        <button class="btn" onclick="window.closeBattle()" style="margin-top:12px;">Return to world</button>`;
+        <button class="btn" onclick="window.closeBattle()" style="margin-top:12px;">${escapeHtml(btnLabel)}</button>`;
       post.classList.remove('hidden');
 
       if (xpAwards && xpAwards.length > 0) {
@@ -673,10 +675,15 @@
     }
 
     window.closeBattle = function() {
+      const wiped = currentBattle && currentBattle.outcome === 'win_b';
       document.getElementById('battle-overlay').classList.remove('active');
       state.battleActive = false;
       currentBattle = null;
       pveCapturedMonId = null;
+      if (wiped) {
+        window.location.href = '/roster.html';
+        return;
+      }
       renderWorld();
     };
 

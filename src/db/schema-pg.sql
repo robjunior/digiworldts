@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   status        TEXT NOT NULL DEFAULT 'resting'
                 CHECK (status IN ('resting', 'training', 'party')),
   slot_index    INTEGER,
+  revive_at     BIGINT,
   created_at    BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL,
   CONSTRAINT roster_unique_slot UNIQUE (user_id, slot_index)
@@ -336,3 +337,5 @@ CREATE TABLE IF NOT EXISTS world_position (
   last_move_at  BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL
 );
+
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
