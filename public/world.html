@@ -31,7 +31,6 @@
     
     :root {
       --tile-size: 160px;
-      --grid-side: calc(var(--tile-size) * 11);
     }
 
     #sky {
@@ -51,7 +50,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      transform-style: preserve-3d;
     }
 
     .world-grid {
@@ -59,11 +58,8 @@
       transform: rotateX(55deg) translateZ(0);
       transform-origin: center center;
       display: grid;
-      width: var(--grid-side);
-      height: var(--grid-side);
-      grid-template-columns: repeat(11, var(--tile-size));
-      grid-template-rows: repeat(11, var(--tile-size));
       will-change: transform;
+      transform-style: preserve-3d;
     }
 
     .tile {
@@ -72,6 +68,7 @@
       box-sizing: border-box;
       border: 1px solid rgba(0,0,0,0.18);
       background-color: var(--muted);
+      backface-visibility: hidden;
     }
 
     .player-layer {
@@ -431,7 +428,23 @@
       document.getElementById('party-rating').innerText = state.partyRating.rating;
 
       const gridEl = document.getElementById('world-grid');
-      gridEl.innerHTML = (p.tiles || []).map(t => `<div class="tile" style="background-color: ${escapeHtml(t.color)}"></div>`).join('');
+      const R = state.viewRadius ?? 5;
+      const SIZE = 2 * R + 1;
+      const TILE_PX = 160;
+      const CURVE_RADIUS = 30;
+      gridEl.style.width = `${SIZE * TILE_PX}px`;
+      gridEl.style.height = `${SIZE * TILE_PX}px`;
+      gridEl.style.gridTemplateColumns = `repeat(${SIZE}, var(--tile-size))`;
+      gridEl.style.gridTemplateRows = `repeat(${SIZE}, var(--tile-size))`;
+
+      gridEl.innerHTML = (p.tiles || []).map((t, i) => {
+        const col = i % SIZE;
+        const row = Math.floor(i / SIZE);
+        const dx = col - R;
+        const dy = row - R;
+        const drop = ((dx * dx + dy * dy) / CURVE_RADIUS) * TILE_PX;
+        return `<div class="tile" style="background-color: ${escapeHtml(t.color)}; transform: translateZ(${-drop.toFixed(1)}px);"></div>`;
+      }).join('');
     }
 
     async function attemptMove(dir) {

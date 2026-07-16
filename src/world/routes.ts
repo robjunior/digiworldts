@@ -21,7 +21,7 @@ import {
   startPveBattleFromEncounter,
 } from './pve-battle.js';
 
-const VIEW_RADIUS = 5;
+const VIEW_RADIUS = 12;
 
 function biomeMeta(b: Biome): { biome: Biome; label: string; element: string; color: string } {
   return { biome: b, label: BIOME_LABEL[b], element: BIOME_ELEMENT[b], color: BIOME_COLOR[b] };
