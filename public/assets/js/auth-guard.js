@@ -54,6 +54,7 @@ export function renderNav(container, current) {
   const displayName = document.documentElement.dataset.displayName || '';
   const links = [
     { href: '/lobby.html',    key: 'lobby',    label: 'Lobby' },
+    { href: '/world.html',    key: 'world',    label: 'World' },
     { href: '/roster.html',   key: 'roster',   label: 'Roster' },
     { href: '/combat.html',   key: 'combat',   label: 'Battle' },
     { href: '/farm.html',     key: 'farm',     label: 'Farm' },
