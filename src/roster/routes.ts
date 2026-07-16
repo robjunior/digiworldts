@@ -26,6 +26,7 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { PARTY_SIZE, type TemplateDigimon } from '../digimon/types.js';
+import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
 
@@ -51,6 +52,8 @@ export type RosterView = {
   nickname: string;
   level: number;
   xp: number;
+  xpFloor: number;
+  xpNext: number;
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
   mood: number;
   status: 'resting' | 'training' | 'party';
@@ -65,6 +68,8 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
     nickname: row.nickname,
     level: row.level,
     xp: row.xp,
+    xpFloor: xpToReach(row.level),
+    xpNext: xpToReach(row.level + 1),
     statBonus: {
       hp: row.hp_bonus,
       en: row.en_bonus,

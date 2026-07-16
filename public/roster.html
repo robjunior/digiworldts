@@ -89,6 +89,11 @@
 
     .meta { padding:16px 16px 10px; position:relative; z-index:2; background:var(--panel); }
     .name-row { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .name-group { display:flex; align-items:center; gap:8px; min-width:0; }
+    .mon-icon { width:28px; height:28px; image-rendering:pixelated; flex-shrink:0; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .xp-track { position:relative; height:4px; margin:6px 0 0; background:rgba(255,255,255,0.06); border:1px solid var(--hairline); overflow:hidden; }
+    .xp-fill  { height:100%; width:0; background:linear-gradient(90deg, var(--el-electric), var(--el-nature)); transition:width 500ms cubic-bezier(0.16, 1, 0.3, 1); }
+    .xp-fill.is-max { background: linear-gradient(90deg, var(--gold), var(--signal)); }
     .name { font-size:16px; font-weight:600; letter-spacing:-.01em; line-height:1.1; }
     .lvl {
       flex:none; font-size:11px; font-weight:600; color:var(--ink);
@@ -466,8 +471,14 @@
             <span class="rail" aria-hidden="true"></span>
             <div class="meta">
               <div class="name-row">
-                <div class="name">${escape(m.nickname)}</div>
+                <div class="name-group">
+                  <img class="mon-icon" src="/assets/digimon/${escape(m.catalogId)}/dot.gif" alt="" onerror="this.style.visibility='hidden'"/>
+                  <div class="name">${escape(m.nickname)}</div>
+                </div>
                 <span class="lvl"><span>LV</span> ${m.level}</span>
+              </div>
+              <div class="xp-track" title="XP ${Math.max(0, m.xp - m.xpFloor)} / ${Math.max(1, m.xpNext - m.xpFloor)}">
+                <div class="xp-fill ${m.xpNext <= m.xpFloor ? 'is-max' : ''}" style="width:${m.xpNext > m.xpFloor ? Math.min(100, Math.max(0, Math.round(((m.xp - m.xpFloor) / (m.xpNext - m.xpFloor)) * 100))) : 100}%"></div>
               </div>
             </div>
             <div class="art">
