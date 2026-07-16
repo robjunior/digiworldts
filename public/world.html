@@ -19,6 +19,11 @@
       user-select: none;
     }
     
+    :root {
+      --tile-size: 160px;
+      --grid-side: calc(var(--tile-size) * 11);
+    }
+
     #sky {
       position: absolute;
       inset: 0;
@@ -30,31 +35,32 @@
     .world-scene {
       position: absolute;
       inset: 0;
-      perspective: 800px;
-      perspective-origin: 50% 30%;
+      perspective: 500px;
+      perspective-origin: 50% 42%;
       z-index: 5;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
     }
 
     .world-grid {
       position: relative;
-      transform: rotateX(38deg) translateZ(-50px);
+      transform: rotateX(55deg) translateZ(0);
       transform-origin: center center;
       display: grid;
-      width: 792px;
-      height: 792px;
-      grid-template-columns: repeat(11, 72px);
-      grid-template-rows: repeat(11, 72px);
+      width: var(--grid-side);
+      height: var(--grid-side);
+      grid-template-columns: repeat(11, var(--tile-size));
+      grid-template-rows: repeat(11, var(--tile-size));
       will-change: transform;
     }
 
     .tile {
-      width: 72px;
-      height: 72px;
+      width: var(--tile-size);
+      height: var(--tile-size);
       box-sizing: border-box;
-      border: 1px solid rgba(0,0,0,0.15);
+      border: 1px solid rgba(0,0,0,0.18);
       background-color: var(--muted);
     }
 
@@ -64,13 +70,13 @@
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 10;
-      width: 48px;
-      height: 48px;
+      width: 72px;
+      height: 72px;
     }
 
     #player-sprite {
-      width: 48px;
-      height: 48px;
+      width: 72px;
+      height: 72px;
       image-rendering: pixelated;
       animation: bob 0.8s ease-in-out infinite;
     }
@@ -85,7 +91,12 @@
       inset: 0;
       z-index: 8;
       pointer-events: none;
-      background: radial-gradient(ellipse at 50% -20%, transparent 40%, rgba(0,0,0,0.6) 100%);
+      background:
+        radial-gradient(ellipse 95% 60% at 50% 45%,
+          transparent 0%,
+          transparent 32%,
+          rgba(0,0,0,0.45) 72%,
+          rgba(0,0,0,0.9) 100%);
     }
 
     #hud {
@@ -594,14 +605,14 @@
       
       const gridEl = document.getElementById('world-grid');
       const translations = {
-        'up': 'translateY(72px)',
-        'down': 'translateY(-72px)',
-        'left': 'translateX(72px)',
-        'right': 'translateX(-72px)'
+        'up': 'translateY(160px)',
+        'down': 'translateY(-160px)',
+        'left': 'translateX(160px)',
+        'right': 'translateX(-160px)'
       };
       
       gridEl.style.transition = 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
-      gridEl.style.transform = `rotateX(38deg) translateZ(-50px) ${translations[dir]}`;
+      gridEl.style.transform = `rotateX(55deg) translateZ(0) ${translations[dir]}`;
       
       try {
         const res = await api.post('/api/world/move', { dir });
@@ -609,13 +620,13 @@
         setTimeout(() => {
           state = Object.assign(state || {}, res);
           gridEl.style.transition = 'none';
-          gridEl.style.transform = `rotateX(38deg) translateZ(-50px)`;
+          gridEl.style.transform = `rotateX(55deg) translateZ(0)`;
           renderWorld();
           handleEncounter(res.encounter, res.battle);
           isMoving = false;
         }, 200);
       } catch (err) {
-        gridEl.style.transform = `rotateX(38deg) translateZ(-50px)`;
+        gridEl.style.transform = `rotateX(55deg) translateZ(0)`;
         isMoving = false;
         if (err.status !== 409) {
           toast(err.message, {error: true});
