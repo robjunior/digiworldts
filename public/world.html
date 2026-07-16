@@ -18,6 +18,16 @@
       flex-direction: column;
       user-select: none;
     }
+    body.world .app-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 25;
+      background: color-mix(in oklab, var(--bg) 82%, transparent);
+      backdrop-filter: blur(8px) saturate(1.05);
+      border-bottom: 1px solid var(--hairline);
+      pointer-events: auto;
+    }
+    body.world #hud { padding-top: 68px; }
     
     :root {
       --tile-size: 160px;
@@ -280,6 +290,8 @@
 </head>
 <body class="world">
 
+  <nav class="app-nav" id="app-nav"></nav>
+
   <div id="sky"></div>
 
   <div class="world-scene">
@@ -333,7 +345,7 @@
 
   <script type="module">
     import { api, toast } from '/assets/js/api.js';
-    import { requireLogin } from '/assets/js/auth-guard.js';
+    import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
 
     const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -353,6 +365,8 @@
       } catch (err) {
         return;
       }
+
+      renderNav(document.getElementById('app-nav'), 'world');
 
       try {
         const rosterRes = await api.get('/api/roster');
