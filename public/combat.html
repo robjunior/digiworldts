@@ -118,20 +118,35 @@
   </div>
 
   <script type="module">
-    import { toast } from '/assets/js/api.js';
+    import { api, toast } from '/assets/js/api.js';
     import { ws } from '/assets/js/ws.js';
     import { requireLogin, renderNav } from '/assets/js/auth-guard.js';
 
     const qs = new URLSearchParams(location.search);
+    const mode = qs.get('mode') === 'pve' ? 'pve' : 'pvp';
     let expectedMatchId = qs.get('matchId');
     let selectedTargetId = null;
     let selectedUnitId = null;
     let commandMode = 'menu';
     let latestView = null;
+    let pveCapturedMonId = null;
 
     (async () => {
       await requireLogin();
       renderNav(document.getElementById('app-nav'), 'combat');
+
+      if (mode === 'pve') {
+        setConnStatus('PVE', false);
+        try {
+          const r = await api.get('/api/world/battle');
+          if (r.battle) onView(r.battle);
+          else throw new Error('no-active-battle');
+        } catch (err) {
+          toast('No active wild battle — returning to world.', { error: true });
+          setTimeout(() => location.replace('/world.html'), 900);
+        }
+        return;
+      }
 
       ws.on('open',   () => { setConnStatus('live'); });
       ws.on('close',  () => { setConnStatus('reconnecting…', true); });
@@ -202,23 +217,30 @@
       document.getElementById('pre-arena').classList.add('hidden');
       const box = document.getElementById('result-banner');
       const post = document.getElementById('post-arena');
+      const isCapture = outcome === 'captured_a';
       const myWin =
+        isCapture ||
         (outcome === 'win_a' && (view && view.yourSide === 'a')) ||
         (outcome === 'win_b' && (view && view.yourSide === 'b')) ||
         (outcome === 'fled_a' && (view && view.yourSide === 'b')) ||
         (outcome === 'fled_b' && (view && view.yourSide === 'a'));
       const draw = outcome === 'draw' || outcome === 'abandoned';
       box.className = 'banner ' + (draw ? '' : myWin ? 'win' : 'lose');
-      const title = draw ? 'Match ended' : myWin ? 'Victory' : 'Defeat';
+      const title = isCapture ? 'Captured!' : draw ? 'Match ended' : myWin ? 'Victory' : 'Defeat';
       const sub = describeOutcome(outcome, myWin, draw);
+      const backHref = mode === 'pve' ? '/world.html' : '/lobby.html';
+      const backLabel = mode === 'pve' ? 'Return to world' : 'Back to lobby';
       box.innerHTML = `
         <div class="b-t">${escape(title)}</div>
         <div class="b-s">${escape(sub)}</div>
-        <a class="btn" href="/lobby.html">Back to lobby</a>`;
+        <a class="btn" href="${backHref}">${escape(backLabel)}</a>`;
       post.classList.remove('hidden');
     }
 
     function describeOutcome(outcome, myWin, draw) {
+      if (outcome === 'captured_a') return pveCapturedMonId
+        ? 'Wild Digimon added to your roster (resting).'
+        : 'Wild Digimon captured.';
       if (outcome === 'draw') return 'A draw — neither side stood.';
       if (outcome === 'fled_a' || outcome === 'fled_b') return myWin ? 'Opponent fled — win by forfeit.' : 'You fled.';
       if (outcome === 'abandoned') return 'Opponent disconnected.';
@@ -304,9 +326,14 @@
         inner += renderSkillMenu(actor);
         inner += `<div class="cbt-actions"><button class="cbt-cmd cbt-cmd--guard" data-cmd="back">Back</button></div>`;
       } else {
+        const pveActions = mode === 'pve'
+          ? `<button class="cbt-cmd" data-cmd="analyze">Analyze</button>
+             <button class="cbt-cmd" data-cmd="capture">Capture</button>`
+          : '';
         inner += `<div class="cbt-actions">
           <button class="cbt-cmd" data-cmd="fight">Fight</button>
           <button class="cbt-cmd" data-cmd="skills">Skills</button>
+          ${pveActions}
           <button class="cbt-cmd cbt-cmd--guard" data-cmd="guard">Guard</button>
           <button class="cbt-cmd cbt-cmd--flee" data-cmd="flee">Flee</button>
         </div>
@@ -366,24 +393,51 @@
       if (cmd === 'fight')  { submitFight(); return; }
       if (cmd === 'guard')  { submitGuard(); return; }
       if (cmd === 'flee')   { submitFlee();  return; }
+      if (cmd === 'analyze'){ submitAnalyze(); return; }
+      if (cmd === 'capture'){ submitCapture(); return; }
+    }
+
+    async function sendAction(action) {
+      if (mode === 'pve') {
+        try {
+          const r = await api.post('/api/world/battle/act', { action });
+          if (r.capturedMonId) pveCapturedMonId = r.capturedMonId;
+          if (r.battle) onView(r.battle);
+          if (r.ended && r.battle) {
+            setTimeout(() => onEnd(r.battle, r.battle.outcome), 60);
+          }
+        } catch (err) {
+          toast(err.message || err.code || 'action failed', { error: true });
+        }
+        return;
+      }
+      ws.send({ type: 'act', matchId: expectedMatchId, action });
     }
 
     function submitFight() {
       if (!selectedUnitId || !selectedTargetId) { toast('Pick a target', { error: true }); return; }
-      ws.send({ type: 'act', matchId: expectedMatchId, action: { type: 'fight', unitId: selectedUnitId, targetId: selectedTargetId } });
+      sendAction({ type: 'fight', unitId: selectedUnitId, targetId: selectedTargetId });
     }
     function submitSkill(skillId) {
       if (!selectedUnitId || !selectedTargetId) { toast('Pick a target', { error: true }); return; }
-      ws.send({ type: 'act', matchId: expectedMatchId, action: { type: 'skill', unitId: selectedUnitId, skillId, targetId: selectedTargetId } });
+      sendAction({ type: 'skill', unitId: selectedUnitId, skillId, targetId: selectedTargetId });
       commandMode = 'menu';
     }
     function submitGuard() {
       if (!selectedUnitId) return;
-      ws.send({ type: 'act', matchId: expectedMatchId, action: { type: 'guard', unitId: selectedUnitId } });
+      sendAction({ type: 'guard', unitId: selectedUnitId });
     }
     function submitFlee() {
       if (!confirm('Flee — you forfeit this match. Continue?')) return;
-      ws.send({ type: 'act', matchId: expectedMatchId, action: { type: 'flee' } });
+      sendAction({ type: 'flee' });
+    }
+    function submitAnalyze() {
+      if (!selectedUnitId || !selectedTargetId) { toast('Pick a target', { error: true }); return; }
+      sendAction({ type: 'analyze', unitId: selectedUnitId, targetId: selectedTargetId });
+    }
+    function submitCapture() {
+      if (!selectedUnitId || !selectedTargetId) { toast('Pick a target', { error: true }); return; }
+      sendAction({ type: 'capture', unitId: selectedUnitId, targetId: selectedTargetId });
     }
 
     function selectTarget(id) {
@@ -428,7 +482,17 @@
       }
       return round + escape(JSON.stringify(evt));
     }
-    function cueLabel(c) { return c === 'crit' ? 'Critical!' : c === 'miss' ? 'Missed!' : c === 'resist' ? 'Resisted' : c === 'weak' ? 'Weak!' : c; }
+    function cueLabel(c) {
+      if (c === 'crit') return 'Critical!';
+      if (c === 'miss') return 'Missed!';
+      if (c === 'resist') return 'Resisted';
+      if (c === 'weak') return 'Weak!';
+      if (c === 'chain') return 'Chain x2!';
+      if (c === 'analyzed') return 'Analyzed';
+      if (c === 'capture-hit') return 'Captured!';
+      if (c === 'capture-miss') return 'Escaped';
+      return c;
+    }
     function describeUnit(id) { return String(id).replace(':', '·'); }
 
     function ailmentChips(list) {

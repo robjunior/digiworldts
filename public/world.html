@@ -571,14 +571,8 @@
         renderWorld();
 
         if (state.battleActive) {
-          try {
-            const bRes = await api.get('/api/world/battle');
-            currentBattle = bRes.battle;
-            renderBattle();
-            document.getElementById('battle-overlay').classList.add('active');
-          } catch (e) {
-            console.warn('Could not load active battle', e);
-          }
+          location.href = '/combat.html?mode=pve';
+          return;
         }
       } catch (err) {
         toast(err.message || 'Failed to load world', { error: true });
@@ -642,11 +636,10 @@
         el.innerText = `+${encounter.item.qty} ${encounter.item.name}`;
         el.classList.add('visible');
         setTimeout(() => el.classList.remove('visible'), 1500);
-      } else if (encounter.kind === 'wild-mon') {
+      } else if (encounter.kind === 'wild-mon' && battle) {
         state.battleActive = true;
-        currentBattle = battle;
-        renderBattle();
-        document.getElementById('battle-overlay').classList.add('active');
+        const url = '/combat.html?mode=pve&matchId=' + encodeURIComponent(battle.id);
+        location.href = url;
       }
     }
 
