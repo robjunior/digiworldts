@@ -786,6 +786,7 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
       const view: EnemyUnitView = {
         id: u.id,
         slot: u.slot,
+        templateId: u.templateId,
         name: u.name,
         element: u.element,
         level: u.level,

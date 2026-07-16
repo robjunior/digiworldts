@@ -130,6 +130,7 @@ export type Battle = {
 export type EnemyUnitView = {
   id: UnitId;
   slot: SlotIndex;
+  templateId: string;
   name: string;
   element: Element;
   level: number;
