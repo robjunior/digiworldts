@@ -473,8 +473,8 @@
       } else {
         selectedUnitId = null;
       }
-      const firstFoe = view.enemy.find((u) => !u.down);
-      if (!selectedTargetId || !view.enemy.find((u) => u.id === selectedTargetId && !u.down)) {
+      const firstFoe = view.enemy.find((u) => !u.down && u.hpMax > 0);
+      if (!selectedTargetId || !view.enemy.find((u) => u.id === selectedTargetId && !u.down && u.hpMax > 0)) {
         selectedTargetId = firstFoe ? firstFoe.id : null;
       }
       commandMode = 'menu';
@@ -557,7 +557,8 @@
     function renderEnemies(view) {
       const el = document.getElementById('enemies');
       const currentEnemyId = !view.currentTurnBelongsToYou ? view.currentTurnUnitId : null;
-      el.innerHTML = view.enemy.map((u) => {
+      const enemies = (view.enemy || []).filter((u) => u.hpMax > 0);
+      el.innerHTML = enemies.map((u) => {
         const pct = Math.round((u.hp / u.hpMax) * 100);
         const isCurrent = u.id === currentEnemyId && !u.down;
         let badges = '';
@@ -573,10 +574,11 @@
           }
         }
 
+        const portraitId = (u.wild && u.wild.catalogId) || resolveTemplateId(view, u.id, false) || 'skb-50';
         return `<article class="foe ${u.id === selectedTargetId && !u.down ? 'is-target' : ''} ${isCurrent ? 'is-current' : ''} ${u.down ? 'is-down' : ''}"
               data-enemy="${u.id}" style="--el:var(--el-${u.element || 'neutral'})"
               role="button" tabindex="${u.down ? -1 : 0}" aria-label="Target ${escapeHtml(u.name)}, HP ${u.hp} of ${u.hpMax}">
-          <div class="art"><img src="/assets/digimon/${resolveTemplateId(view, u.id, false)}/portrait.webp" alt="" loading="lazy" onerror="this.src='/assets/digimon/skb-50/portrait.webp'" /></div>
+          <div class="art"><img src="/assets/digimon/${escapeHtml(portraitId)}/portrait.webp" alt="" loading="lazy" onerror="this.style.opacity='0.15'" /></div>
           <div class="f-name">${escapeHtml(u.name)}${badges}</div>
           <div class="f-sub">${u.element} · Lv ${u.level}</div>
           ${statsInfo}
