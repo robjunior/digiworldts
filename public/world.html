@@ -406,6 +406,9 @@
         uniforms: {
           tiles: { value: texture },
           radius: { value: 80.0 },
+          tileCount: { value: size },
+          borderWidth: { value: 0.04 },
+          borderDarken: { value: 0.45 },
         },
         vertexShader: /* glsl */ `
           varying vec2 vUv;
@@ -421,8 +424,20 @@
         fragmentShader: /* glsl */ `
           varying vec2 vUv;
           uniform sampler2D tiles;
+          uniform float tileCount;
+          uniform float borderWidth;
+          uniform float borderDarken;
           void main() {
-            gl_FragColor = texture2D(tiles, vUv);
+            vec4 c = texture2D(tiles, vUv);
+            if (c.a < 0.01) discard;
+            vec2 tileFrac = fract(vUv * tileCount);
+            float edgeDist = min(
+              min(tileFrac.x, 1.0 - tileFrac.x),
+              min(tileFrac.y, 1.0 - tileFrac.y)
+            );
+            float t = smoothstep(0.0, borderWidth, edgeDist);
+            vec3 rgb = mix(c.rgb * borderDarken, c.rgb, t);
+            gl_FragColor = vec4(rgb, c.a);
           }
         `,
       });
