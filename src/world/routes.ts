@@ -92,7 +92,7 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
     let battleStartError: string | null = null;
 
     if (encounter.kind === 'wild-mon') {
-      const started = await startPveBattleFromEncounter(user.id, encounter.mon);
+      const started = await startPveBattleFromEncounter(user.id, encounter.mons);
       if (started.ok) {
         battleView = started.view;
         log.info('world.encounter', {
@@ -100,7 +100,8 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
           biome,
           kind: 'wild-mon',
           rating: rating.rating,
-          rare: encounter.mon.rare,
+          wildCount: encounter.mons.length,
+          rareCount: encounter.mons.filter((m) => m.rare).length,
         });
       } else {
         battleStartError = started.error;

@@ -99,27 +99,33 @@ export type StartResult =
   | { ok: true; view: BattleView }
   | { ok: false; error: 'party-invalid' | 'catalog-missing' | 'battle-in-progress' };
 
-export async function startPveBattleFromEncounter(userId: string, wildMon: WildMon): Promise<StartResult> {
+export async function startPveBattleFromEncounter(userId: string, wilds: WildMon[]): Promise<StartResult> {
   if (activeByUser.has(userId)) {
     return { ok: false, error: 'battle-in-progress' };
+  }
+  if (!wilds || wilds.length === 0) {
+    return { ok: false, error: 'catalog-missing' };
   }
   const playerLoadout = await buildPlayerLoadout(userId);
   if (!playerLoadout) return { ok: false, error: 'party-invalid' };
   const catalog = loadCatalog();
-  const tpl = findTemplate(catalog, wildMon.catalogId);
-  if (!tpl) return { ok: false, error: 'catalog-missing' };
-  const wildMember: LoadoutMember = {
-    monId: newId('wild'),
-    templateId: wildMon.catalogId,
-    template: tpl,
-    level: wildMon.level,
-    nickname: wildMon.name,
-    statBonus: { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
-  };
-  const battle = initPveBattle({
-    playerLoadout,
-    wildParty: [{ member: wildMember, wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare } }],
-  });
+  const wildParty: Array<{ member: LoadoutMember; wildInfo: { catalogId: string; rare: boolean } }> = [];
+  for (const wildMon of wilds) {
+    const tpl = findTemplate(catalog, wildMon.catalogId);
+    if (!tpl) return { ok: false, error: 'catalog-missing' };
+    wildParty.push({
+      member: {
+        monId: newId('wild'),
+        templateId: wildMon.catalogId,
+        template: tpl,
+        level: wildMon.level,
+        nickname: wildMon.name,
+        statBonus: { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
+      },
+      wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
+    });
+  }
+  const battle = initPveBattle({ playerLoadout, wildParty });
   activeByUser.set(userId, battle);
   advanceWildAI(battle);
   if (battle.status === 'ended') {
@@ -128,9 +134,10 @@ export async function startPveBattleFromEncounter(userId: string, wildMon: WildM
   log.info('world.pve.start', {
     userId,
     matchId: battle.id,
-    catalogId: wildMon.catalogId,
-    level: wildMon.level,
-    rare: wildMon.rare,
+    wildCount: wilds.length,
+    catalogIds: wilds.map((w) => w.catalogId),
+    levels: wilds.map((w) => w.level),
+    rareCount: wilds.filter((w) => w.rare).length,
   });
   return { ok: true, view: serializeForSide(battle, 'a') };
 }

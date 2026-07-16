@@ -53,6 +53,7 @@ import {
   type TurnEntry,
   type UnitId,
   type WildInfo,
+  MAX_WILD_PARTY_SIZE,
 } from './types.js';
 
 // ----- Loadout / unit construction ------------------------------------------
@@ -68,7 +69,7 @@ export type LoadoutMember = {
 
 export type Loadout = {
   playerId: string;
-  members: [LoadoutMember, LoadoutMember, LoadoutMember];
+  members: LoadoutMember[];
 };
 
 function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
@@ -200,16 +201,17 @@ export function initBattle(input: {
 }
 
 /**
- * PVE variant. `wildParty` is 1-3 wild mons — remaining slot(s) get a "phantom"
- * dead-from-start unit so the 3v3 shape is preserved and dead units auto-skip.
+ * PVE variant. `wildParty` is 1-6 wild mons — remaining side-B slots up
+ * to MAX_WILD_PARTY_SIZE get a phantom dead-from-start unit so the fixed
+ * SlotIndex range works and dead units auto-skip in the queue.
  */
 export function initPveBattle(input: {
   matchId?: string;
   playerLoadout: Loadout;
   wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
 }): Battle {
-  if (input.wildParty.length < 1 || input.wildParty.length > 3) {
-    throw new Error(`initPveBattle: wildParty must be 1-3 mons, got ${input.wildParty.length}`);
+  if (input.wildParty.length < 1 || input.wildParty.length > MAX_WILD_PARTY_SIZE) {
+    throw new Error(`initPveBattle: wildParty must be 1-${MAX_WILD_PARTY_SIZE} mons, got ${input.wildParty.length}`);
   }
   const first = input.wildParty[0]!;
   const phantomTemplate = first.member.template;
@@ -223,7 +225,7 @@ export function initPveBattle(input: {
   };
   const wildMembers: LoadoutMember[] = [];
   const wildFlags: Array<WildInfo | undefined> = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < MAX_WILD_PARTY_SIZE; i++) {
     const w = input.wildParty[i];
     if (w) {
       wildMembers.push(w.member);
@@ -235,7 +237,7 @@ export function initPveBattle(input: {
   }
   const wildLoadout: Loadout = {
     playerId: 'wild',
-    members: [wildMembers[0]!, wildMembers[1]!, wildMembers[2]!],
+    members: wildMembers,
   };
   const battle = initBattle({
     ...(input.matchId ? { matchId: input.matchId } : {}),
@@ -244,7 +246,7 @@ export function initPveBattle(input: {
     mode: 'pve',
     wildFlags,
   });
-  for (let i = input.wildParty.length; i < 3; i++) {
+  for (let i = input.wildParty.length; i < MAX_WILD_PARTY_SIZE; i++) {
     const phantom = battle.units.find((u) => u.id === (`b:${i}` as UnitId));
     if (phantom) {
       phantom.hp = 0;

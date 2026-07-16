@@ -18,8 +18,11 @@
 import type { Ailment, Element, Skill } from '../digimon/types.js';
 
 export type BattleSide = 'a' | 'b';
-export type SlotIndex = 0 | 1 | 2;
+export type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export type UnitId = `${BattleSide}:${SlotIndex}`;
+
+export const MAX_PARTY_SIZE = 3;
+export const MAX_WILD_PARTY_SIZE = 6;
 
 export type BattleMode = 'pvp' | 'pve';
 

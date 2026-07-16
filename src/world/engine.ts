@@ -94,7 +94,7 @@ export type WildMon = {
 export type ItemDrop = { itemId: string; name: string; qty: number };
 
 export type Encounter =
-  | { kind: 'wild-mon'; mon: WildMon }
+  | { kind: 'wild-mon'; mons: WildMon[] }
   | { kind: 'item'; item: ItemDrop }
   | { kind: 'none' };
 
@@ -119,21 +119,38 @@ function levelForRating(rating: number, rare: boolean): number {
   return Math.max(1, Math.min(99, level));
 }
 
-export async function generateWildMon(biome: Biome, rating: number, partyStage: Stage): Promise<WildMon | null> {
+const WILD_PARTY_SIZE_WEIGHTS = [0, 0.60, 0.22, 0.10, 0.05, 0.02, 0.01] as const;
+
+function rollWildPartySize(): number {
+  const r = Math.random();
+  let acc = 0;
+  for (let n = 1; n <= 6; n++) {
+    acc += WILD_PARTY_SIZE_WEIGHTS[n]!;
+    if (r < acc) return n;
+  }
+  return 1;
+}
+
+export async function generateWildParty(biome: Biome, rating: number, partyStage: Stage): Promise<WildMon[]> {
   const catalog = loadCatalog();
   const preferred = BIOME_ELEMENT[biome];
-  const template = pickTemplateByBiomeAndStage(catalog.digimons, preferred, partyStage);
-  if (!template) return null;
-  const rare = Math.random() < RARE_MON_RATE;
-  return {
-    catalogId: template.id,
-    name: template.name,
-    element: template.element,
-    stage: template.stage,
-    level: levelForRating(rating, rare),
-    portrait: template.assets.portrait,
-    rare,
-  };
+  const size = rollWildPartySize();
+  const mons: WildMon[] = [];
+  for (let i = 0; i < size; i++) {
+    const template = pickTemplateByBiomeAndStage(catalog.digimons, preferred, partyStage);
+    if (!template) break;
+    const rare = Math.random() < RARE_MON_RATE;
+    mons.push({
+      catalogId: template.id,
+      name: template.name,
+      element: template.element,
+      stage: template.stage,
+      level: levelForRating(rating, rare),
+      portrait: template.assets.portrait,
+      rare,
+    });
+  }
+  return mons;
 }
 
 export async function generateItemDrop(): Promise<ItemDrop | null> {
@@ -146,8 +163,8 @@ export async function generateItemDrop(): Promise<ItemDrop | null> {
 export async function rollEncounter(biome: Biome, rating: number, partyStage: Stage): Promise<Encounter> {
   const r = Math.random();
   if (r < ENCOUNTER_RATE) {
-    const mon = await generateWildMon(biome, rating, partyStage);
-    if (mon) return { kind: 'wild-mon', mon };
+    const mons = await generateWildParty(biome, rating, partyStage);
+    if (mons.length > 0) return { kind: 'wild-mon', mons };
   }
   return { kind: 'none' };
 }

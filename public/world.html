@@ -226,6 +226,19 @@
     #battle-overlay .foe .f-name { font-size: 17px; }
     #battle-overlay .foe .f-sub { font-size: 10px; }
     #battle-overlay .foe .f-hp .v { font-size: 12px; }
+
+    #battle-overlay #enemies[data-count="1"] { grid-template-columns: minmax(240px, 340px); justify-content: center; max-width: 400px; }
+    #battle-overlay #enemies[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; }
+    #battle-overlay #enemies[data-count="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #battle-overlay #enemies[data-count="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; }
+    #battle-overlay #enemies[data-count="5"],
+    #battle-overlay #enemies[data-count="6"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #battle-overlay #enemies[data-count="4"] .foe .art,
+    #battle-overlay #enemies[data-count="5"] .foe .art,
+    #battle-overlay #enemies[data-count="6"] .foe .art { height: 128px; }
+    #battle-overlay #enemies[data-count="4"] .foe,
+    #battle-overlay #enemies[data-count="5"] .foe,
+    #battle-overlay #enemies[data-count="6"] .foe { padding: 14px 14px 12px; }
     .round-pill { font-size:12px; font-weight:600; color:var(--muted); border:1px solid var(--hairline); padding:8px 14px; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
     .round-pill b { color:var(--ink); }
     .deck { display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:stretch; }
@@ -267,6 +280,9 @@
     #enemies .foe:nth-child(1) { animation-delay: 80ms; }
     #enemies .foe:nth-child(2) { animation-delay: 160ms; }
     #enemies .foe:nth-child(3) { animation-delay: 240ms; }
+    #enemies .foe:nth-child(4) { animation-delay: 320ms; }
+    #enemies .foe:nth-child(5) { animation-delay: 400ms; }
+    #enemies .foe:nth-child(6) { animation-delay: 480ms; }
     #party .cbt-unit:nth-child(1) { animation-delay: 320ms; }
     #party .cbt-unit:nth-child(2) { animation-delay: 400ms; }
     #party .cbt-unit:nth-child(3) { animation-delay: 480ms; }
@@ -572,6 +588,7 @@
       const el = document.getElementById('enemies');
       const currentEnemyId = !view.currentTurnBelongsToYou ? view.currentTurnUnitId : null;
       const enemies = (view.enemy || []).filter((u) => u.hpMax > 0);
+      el.setAttribute('data-count', String(enemies.length));
       el.innerHTML = enemies.map((u) => {
         const pct = Math.round((u.hp / u.hpMax) * 100);
         const isCurrent = u.id === currentEnemyId && !u.down;
