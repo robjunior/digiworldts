@@ -97,6 +97,8 @@ CREATE TABLE IF NOT EXISTS player_roster (
                 CHECK (status IN ('resting', 'training', 'party')),
   slot_index    INTEGER,                                 -- 0..2 if in party, else NULL
   revive_at     INTEGER,                                 -- unix ms; when set and > now, mon is downed and unusable in PVE
+  pets_today    INTEGER NOT NULL DEFAULT 0,              -- nursery: count of pets given today (resets when pets_day rolls)
+  pets_day      TEXT,                                    -- 'YYYY-MM-DD' of last pet; when != today, pets_today is reset
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   UNIQUE (user_id, slot_index) ON CONFLICT ABORT         -- no two party slots collide

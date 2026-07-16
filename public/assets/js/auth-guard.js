@@ -55,6 +55,7 @@ export function renderNav(container, current) {
   const links = [
     { href: '/lobby.html',    key: 'lobby',    label: 'Lobby' },
     { href: '/world.html',    key: 'world',    label: 'World' },
+    { href: '/nursery.html',  key: 'nursery',  label: 'Nursery' },
     { href: '/roster.html',   key: 'roster',   label: 'Roster' },
     { href: '/combat.html',   key: 'combat',   label: 'Battle' },
     { href: '/farm.html',     key: 'farm',     label: 'Farm' },

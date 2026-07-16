@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS player_roster (
                 CHECK (status IN ('resting', 'training', 'party')),
   slot_index    INTEGER,
   revive_at     BIGINT,
+  pets_today    INTEGER NOT NULL DEFAULT 0,
+  pets_day      TEXT,
   created_at    BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL,
   CONSTRAINT roster_unique_slot UNIQUE (user_id, slot_index)
@@ -339,3 +341,5 @@ CREATE TABLE IF NOT EXISTS world_position (
 );
 
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_day TEXT;
