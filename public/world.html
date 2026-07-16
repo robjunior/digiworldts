@@ -70,16 +70,24 @@
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 10;
-      width: 72px;
-      height: 72px;
+      width: 148px;
+      height: 84px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      pointer-events: none;
+      transition: none;
     }
-
-    #player-sprite {
-      width: 72px;
-      height: 72px;
+    .player-layer.is-facing-right { transform: translate(-50%, -50%) scaleX(-1); }
+    .ppm {
       image-rendering: pixelated;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
       animation: bob 0.8s ease-in-out infinite;
     }
+    .ppm-leader     { width:72px; height:72px; z-index:3; }
+    .ppm-follower-l { width:44px; height:44px; opacity:0.85; margin: 0 -12px 6px 0; z-index:2; animation-delay: 0.15s; }
+    .ppm-follower-r { width:44px; height:44px; opacity:0.85; margin: 0 0 6px -12px; z-index:2; animation-delay: 0.30s; }
+    .ppm.is-empty   { display:none; }
 
     @keyframes bob {
       0%, 100% { transform: translateY(0); }
@@ -276,8 +284,10 @@
 
   <div class="world-scene">
     <div class="world-grid" id="world-grid"></div>
-    <div class="player-layer">
-      <img id="player-sprite" src="/assets/digimon/skb-50/dot.gif" alt="Player" />
+    <div class="player-layer" id="player-layer">
+      <img class="ppm ppm-follower-l" id="ppm-follower-l" src="/assets/digimon/skb-50/dot.gif" alt="" onerror="this.classList.add('is-empty')"/>
+      <img class="ppm ppm-leader" id="player-sprite" src="/assets/digimon/skb-50/dot.gif" alt="Player" onerror="this.classList.add('is-empty')"/>
+      <img class="ppm ppm-follower-r" id="ppm-follower-r" src="/assets/digimon/skb-50/dot.gif" alt="" onerror="this.classList.add('is-empty')"/>
     </div>
   </div>
   
@@ -346,11 +356,20 @@
 
       try {
         const rosterRes = await api.get('/api/roster');
-        const party = (rosterRes.roster || []).filter(m => m.status === 'party');
-        if (party.length > 0) {
-          const leader = party[0];
-          document.getElementById('player-sprite').src = `/assets/digimon/${leader.catalogId}/dot.gif`;
-        }
+        const party = (rosterRes.roster || []).filter(m => m.status === 'party').sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0));
+        const setSprite = (id, mon) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (mon) {
+            el.src = `/assets/digimon/${mon.catalogId}/dot.gif`;
+            el.classList.remove('is-empty');
+          } else {
+            el.classList.add('is-empty');
+          }
+        };
+        setSprite('player-sprite',   party[0]);
+        setSprite('ppm-follower-l',  party[1]);
+        setSprite('ppm-follower-r',  party[2]);
 
         const stateRes = await api.get('/api/world/state');
         state = stateRes;
@@ -388,6 +407,12 @@
     async function attemptMove(dir) {
       if (isMoving || state?.battleActive) return;
       isMoving = true;
+
+      if (dir === 'right') {
+        document.getElementById('player-layer')?.classList.add('is-facing-right');
+      } else if (dir === 'left') {
+        document.getElementById('player-layer')?.classList.remove('is-facing-right');
+      }
       
       const gridEl = document.getElementById('world-grid');
       const translations = {
