@@ -86,6 +86,10 @@
     .mon-sprite.is-jumping img {
       animation: hop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
+    .mon-sprite.is-petting img {
+      animation: pet-stretch 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-origin: center bottom;
+    }
     .mon-sprite .label {
       position: absolute;
       bottom: -14px;
@@ -126,6 +130,13 @@
       0%   { transform: translateY(0); }
       50%  { transform: translateY(-28px); }
       100% { transform: translateY(0); }
+    }
+    @keyframes pet-stretch {
+      0%   { transform: scale(1, 1); }
+      18%  { transform: scale(1.18, 0.82); }
+      45%  { transform: scale(0.82, 1.22); }
+      72%  { transform: scale(1.06, 0.94); }
+      100% { transform: scale(1, 1); }
     }
     @keyframes heart-pop {
       0%   { transform: translateX(-50%) scale(0.4) translateY(0); opacity: 0; }
@@ -505,6 +516,7 @@
       const h = yard.clientHeight;
       const SPEED = 40 / 1000;
       for (const state of sprites.values()) {
+        if (state.isPetting) continue;
         const dx = state.tx - state.x;
         const dy = state.ty - state.y;
         const dist = Math.hypot(dx, dy);
@@ -590,7 +602,15 @@
         const res = await api.post(`/api/nursery/pet/${encodeURIComponent(monId)}`);
         toast(`Pet! +${nurseryConfig.petMoodDelta} mood · ${res.petsToday}/${res.maxPetsPerDay}`);
         const state = sprites.get(monId);
-        if (state) spawnEmoji(state, 'pet');
+        if (state) {
+          spawnEmoji(state, 'pet');
+          state.isPetting = true;
+          state.el.classList.add('is-petting');
+          setTimeout(() => {
+            state.el.classList.remove('is-petting');
+            state.isPetting = false;
+          }, 560);
+        }
         await refresh();
       } catch (err) {
         toast(err.message || 'pet failed', { error: true });
