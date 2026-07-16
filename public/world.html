@@ -201,6 +201,13 @@
       transform: scale(1);
     }
     .bar { display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:1px solid var(--hairline); padding-bottom:14px; flex-wrap:wrap; }
+
+    #battle-overlay .enemies { gap: 20px; max-width: 960px; margin: 0 auto; }
+    #battle-overlay .foe { padding: 20px 20px 18px; }
+    #battle-overlay .foe .art { height: 168px; }
+    #battle-overlay .foe .f-name { font-size: 17px; }
+    #battle-overlay .foe .f-sub { font-size: 10px; }
+    #battle-overlay .foe .f-hp .v { font-size: 12px; }
     .round-pill { font-size:12px; font-weight:600; color:var(--muted); border:1px solid var(--hairline); padding:8px 14px; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
     .round-pill b { color:var(--ink); }
     .deck { display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:stretch; }
@@ -293,14 +300,6 @@
 
   <div id="battle-overlay">
     <section class="arena" id="arena">
-      <header class="bar">
-        <div>
-          <div class="eyebrow">Wild Encounter</div>
-          <h1 id="arena-title">Fight</h1>
-        </div>
-        <div class="round-pill">Round <b id="round-n">1</b> · <span id="phase">—</span></div>
-      </header>
-
       <section class="turn-queue" id="turn-queue" aria-label="Upcoming turns"></section>
 
       <section class="enemies" id="enemies" aria-label="Enemy Digimon"></section>
@@ -443,16 +442,6 @@
       
       document.getElementById('post-arena').classList.add('hidden');
       document.getElementById('arena').classList.remove('hidden');
-      document.getElementById('round-n').textContent = String(view.round);
-      
-      const phaseEl = document.getElementById('phase');
-      if (view.currentTurnBelongsToYou) {
-        const actor = view.friendly.find((u) => u.id === view.currentTurnUnitId);
-        phaseEl.textContent = actor ? `Your turn — ${actor.name}` : 'Your turn';
-      } else {
-        const foe = view.enemy.find((u) => u.id === view.currentTurnUnitId);
-        phaseEl.textContent = foe ? `Opponent — ${foe.name}` : 'Opponent turn';
-      }
 
       if (view.currentTurnBelongsToYou && view.currentTurnUnitId) {
         selectedUnitId = view.currentTurnUnitId;
