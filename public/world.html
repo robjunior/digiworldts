@@ -55,11 +55,12 @@
 
     .world-grid {
       position: relative;
-      transform: rotateX(55deg) translateZ(0);
+      transform: rotateX(58deg) translateZ(0);
       transform-origin: center center;
       display: grid;
       will-change: transform;
-      transform-style: preserve-3d;
+      -webkit-mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, #000 0%, #000 45%, rgba(0,0,0,0.5) 75%, transparent 100%);
+              mask-image: radial-gradient(ellipse 60% 55% at 50% 50%, #000 0%, #000 45%, rgba(0,0,0,0.5) 75%, transparent 100%);
     }
 
     .tile {
@@ -68,7 +69,6 @@
       box-sizing: border-box;
       border: 1px solid rgba(0,0,0,0.18);
       background-color: var(--muted);
-      backface-visibility: hidden;
     }
 
     .player-layer {
@@ -107,11 +107,11 @@
       z-index: 8;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 95% 60% at 50% 45%,
+        radial-gradient(ellipse 70% 55% at 50% 42%,
           transparent 0%,
-          transparent 32%,
-          rgba(0,0,0,0.45) 72%,
-          rgba(0,0,0,0.9) 100%);
+          transparent 40%,
+          rgba(0,0,0,0.55) 78%,
+          rgba(0,0,0,0.95) 100%);
     }
 
     #hud {
@@ -431,19 +431,13 @@
       const R = state.viewRadius ?? 5;
       const SIZE = 2 * R + 1;
       const TILE_PX = 160;
-      const CURVE_RADIUS = 30;
       gridEl.style.width = `${SIZE * TILE_PX}px`;
       gridEl.style.height = `${SIZE * TILE_PX}px`;
       gridEl.style.gridTemplateColumns = `repeat(${SIZE}, var(--tile-size))`;
       gridEl.style.gridTemplateRows = `repeat(${SIZE}, var(--tile-size))`;
 
-      gridEl.innerHTML = (p.tiles || []).map((t, i) => {
-        const col = i % SIZE;
-        const row = Math.floor(i / SIZE);
-        const dx = col - R;
-        const dy = row - R;
-        const drop = ((dx * dx + dy * dy) / CURVE_RADIUS) * TILE_PX;
-        return `<div class="tile" style="background-color: ${escapeHtml(t.color)}; transform: translateZ(${-drop.toFixed(1)}px);"></div>`;
+      gridEl.innerHTML = (p.tiles || []).map((t) => {
+        return `<div class="tile" style="background-color: ${escapeHtml(t.color)};"></div>`;
       }).join('');
     }
 
@@ -466,7 +460,7 @@
       };
       
       gridEl.style.transition = 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)';
-      gridEl.style.transform = `rotateX(55deg) translateZ(0) ${translations[dir]}`;
+      gridEl.style.transform = `rotateX(58deg) translateZ(0) ${translations[dir]}`;
       
       try {
         const res = await api.post('/api/world/move', { dir });
@@ -474,13 +468,13 @@
         setTimeout(() => {
           state = Object.assign(state || {}, res);
           gridEl.style.transition = 'none';
-          gridEl.style.transform = `rotateX(55deg) translateZ(0)`;
+          gridEl.style.transform = `rotateX(58deg) translateZ(0)`;
           renderWorld();
           handleEncounter(res.encounter, res.battle);
           isMoving = false;
         }, 200);
       } catch (err) {
-        gridEl.style.transform = `rotateX(55deg) translateZ(0)`;
+        gridEl.style.transform = `rotateX(58deg) translateZ(0)`;
         isMoving = false;
         if (err.status !== 409) {
           toast(err.message, {error: true});
