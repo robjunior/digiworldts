@@ -236,6 +236,67 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
 }
+.slot-column {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skill-editor-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: 16px;
+  align-items: start;
+}
+.skill-editor-col { min-width: 0; }
+.skill-editor-col--left { display: flex; flex-direction: column; gap: 10px; }
+.skill-editor-col--right { position: sticky; top: 12px; }
+
+.skill-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 0 2px;
+}
+.skill-filter-btn {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.skill-filter-btn:hover:not(.is-active) { color: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active {
+  color: var(--bg);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.skill-filter-btn.is-active .filter-count { background: color-mix(in oklab, var(--bg) 30%, transparent); color: var(--bg); }
+.skill-filter-btn[data-stage="rookie"].is-active   { background: var(--el-nature); border-color: var(--el-nature); }
+.skill-filter-btn[data-stage="champion"].is-active { background: var(--el-electric); border-color: var(--el-electric); }
+.skill-filter-btn[data-stage="ultimate"].is-active { background: var(--signal); border-color: var(--signal); }
+.skill-filter-btn[data-stage="mega"].is-active     { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+.filter-count {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
 .skill-slot {
   position: relative;
   min-height: 96px;
@@ -327,6 +388,12 @@
 }
 .chip-from { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: 0; }
 
+@media (max-width: 860px) {
+  .skill-editor-cols { grid-template-columns: 1fr; }
+  .skill-editor-col--right { position: static; }
+  .slot-column { flex-direction: row; flex-wrap: wrap; }
+  .slot-column .skill-slot { flex: 1 1 140px; min-width: 140px; }
+}
 @media (max-width: 640px) {
   .slot-row { grid-template-columns: repeat(2, 1fr); }
 }

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 
+import { STAGES } from '@digiworld/shared/digimon';
+
 import { ApiError } from '../../lib/api';
 import { getMonSkills, setMonSkills, type LearnedSkillEntry } from '../../lib/api-roster';
 
@@ -10,6 +12,7 @@ type SkillEditorProps = {
 
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const DND_MIME = 'application/x-digiworld-skill';
+type StageFilter = 'all' | (typeof STAGES)[number];
 
 function padSlots(equipped: readonly string[], max: number): (string | null)[] {
   const slots: (string | null)[] = new Array(max).fill(null);
@@ -33,6 +36,7 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const [message, setMessage] = useState<{ readonly tone: 'ok' | 'err'; readonly text: string } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [poolDragOver, setPoolDragOver] = useState(false);
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const draggingKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -62,11 +66,19 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const currentSlots = slots ?? padSlots(data.equipped, data.maxEquipped);
   const chosenKeys = new Set(currentSlots.filter((k): k is string => k !== null));
   const skillByKey = new Map(data.learnedSkills.map((e) => [e.key, e] as const));
-  const fromCurrent = data.groupings.fromCurrent.map((k) => skillByKey.get(k)).filter((e): e is LearnedSkillEntry => Boolean(e));
-  const fromHistory = data.groupings.fromHistory.map((k) => skillByKey.get(k)).filter((e): e is LearnedSkillEntry => Boolean(e));
   const equippedFromLoad = padSlots(data.equipped, data.maxEquipped);
   const dirty = !slotsEqual(currentSlots, equippedFromLoad);
   const canSave = dirty && chosenKeys.size > 0 && chosenKeys.size <= data.maxEquipped;
+
+  const countByStage = new Map<string, number>();
+  for (const entry of data.learnedSkills) {
+    countByStage.set(entry.sourceStage, (countByStage.get(entry.sourceStage) ?? 0) + 1);
+  }
+  const availableStages = STAGES.filter((s) => countByStage.has(s));
+  const activeStageFilter: StageFilter = stageFilter !== 'all' && !countByStage.has(stageFilter) ? 'all' : stageFilter;
+  const visibleEntries = activeStageFilter === 'all'
+    ? data.learnedSkills
+    : data.learnedSkills.filter((e) => e.sourceStage === activeStageFilter);
 
   const equipToFirstFree = (key: string): void => {
     setMessage(null);
@@ -183,35 +195,93 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
       </div>
       {message !== null ? <div className={`skill-editor-msg is-${message.tone}`}>{message.text}</div> : null}
 
-      <div className="slot-row" aria-label="Equipped skill slots">
-        {currentSlots.map((key, index) => (
-          <SlotBox
-            key={index}
-            index={index}
-            entry={key !== null ? skillByKey.get(key) ?? null : null}
-            isDragOver={dragOverIndex === index}
-            onDragOver={handleSlotDragOver(index)}
-            onDragLeave={() => setDragOverIndex((prev) => (prev === index ? null : prev))}
-            onDrop={handleSlotDrop(index)}
-            onDragStart={key !== null ? handleDragStart(key) : undefined}
-            onDragEnd={handleDragEnd}
-            onClear={() => clearSlot(index)}
-          />
-        ))}
-      </div>
+      <div className="skill-editor-cols">
+        <div className="skill-editor-col skill-editor-col--left">
+          <div className="skill-filter" role="tablist" aria-label="Filter skills by stage">
+            <button
+              type="button"
+              role="tab"
+              className={`skill-filter-btn ${activeStageFilter === 'all' ? 'is-active' : ''}`}
+              aria-selected={activeStageFilter === 'all'}
+              onClick={() => setStageFilter('all')}
+            >
+              All <span className="filter-count">{data.learnedSkills.length}</span>
+            </button>
+            {availableStages.map((stage) => (
+              <button
+                key={stage}
+                type="button"
+                role="tab"
+                className={`skill-filter-btn ${activeStageFilter === stage ? 'is-active' : ''}`}
+                aria-selected={activeStageFilter === stage}
+                data-stage={stage.toLowerCase()}
+                onClick={() => setStageFilter(stage)}
+              >
+                {stage} <span className="filter-count">{countByStage.get(stage) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+          <div
+            className={`skill-pool ${poolDragOver ? 'is-dropzone' : ''}`}
+            onDragOver={handlePoolDragOver}
+            onDragLeave={() => setPoolDragOver(false)}
+            onDrop={handlePoolDrop}
+          >
+            {visibleEntries.length === 0 ? (
+              <div className="skill-group-empty">No {activeStageFilter === 'all' ? 'learned skills' : `${activeStageFilter} skills`} yet.</div>
+            ) : (
+              <div className="skill-grid">
+                {visibleEntries.map((entry) => {
+                  const equipped = chosenKeys.has(entry.key);
+                  return (
+                    <button
+                      key={entry.key}
+                      type="button"
+                      className={`skill-chip ${equipped ? 'is-equipped' : ''}`}
+                      draggable
+                      onDragStart={handleDragStart(entry.key)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => equipToFirstFree(entry.key)}
+                      data-element={entry.skill.element}
+                      title={entry.skill.description ?? entry.skill.name}
+                    >
+                      {equipped ? <span className="chip-equipped-badge">Equipped</span> : null}
+                      <span className="chip-head">
+                        <span className="chip-name">{entry.skill.name}</span>
+                        <span className="chip-power">PWR {entry.skill.power}</span>
+                      </span>
+                      <span className="chip-meta">
+                        <span className="chip-el" style={{ color: `var(--el-${entry.skill.element})` }}>{entry.skill.element}</span>
+                        <span className="chip-en">EN {entry.skill.energyCost}</span>
+                        <span className="chip-from">{entry.sourceStage}{entry.source === 'history' ? ` · ${entry.sourceTemplateName}` : ''}</span>
+                      </span>
+                      {entry.skill.description ? <span className="chip-desc">{entry.skill.description}</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
 
-      <div
-        className={`skill-pool ${poolDragOver ? 'is-dropzone' : ''}`}
-        onDragOver={handlePoolDragOver}
-        onDragLeave={() => setPoolDragOver(false)}
-        onDrop={handlePoolDrop}
-      >
-        <SkillGroup title="Current form" subtitle={data.currentName} entries={fromCurrent} chosenKeys={chosenKeys} onEquip={equipToFirstFree} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
-        {fromHistory.length > 0 ? (
-          <SkillGroup title="From prior evolutions" subtitle={`${data.history.length} form${data.history.length === 1 ? '' : 's'} in history`} entries={fromHistory} chosenKeys={chosenKeys} onEquip={equipToFirstFree} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
-        ) : (
-          <div className="skill-group-empty">No prior-evolution skills yet. Digivolve this Digimon to unlock more skills.</div>
-        )}
+        <div className="skill-editor-col skill-editor-col--right">
+          <div className="slot-column" aria-label="Equipped skill slots">
+            {currentSlots.map((key, index) => (
+              <SlotBox
+                key={index}
+                index={index}
+                entry={key !== null ? skillByKey.get(key) ?? null : null}
+                isDragOver={dragOverIndex === index}
+                onDragOver={handleSlotDragOver(index)}
+                onDragLeave={() => setDragOverIndex((prev) => (prev === index ? null : prev))}
+                onDrop={handleSlotDrop(index)}
+                onDragStart={key !== null ? handleDragStart(key) : undefined}
+                onDragEnd={handleDragEnd}
+                onClear={() => clearSlot(index)}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -260,57 +330,6 @@ function SlotBox({ index, entry, isDragOver, onDragOver, onDragLeave, onDrop, on
       ) : (
         <div className="slot-empty-hint">Drop skill here</div>
       )}
-    </div>
-  );
-}
-
-type SkillGroupProps = {
-  readonly title: string;
-  readonly subtitle: string;
-  readonly entries: readonly LearnedSkillEntry[];
-  readonly chosenKeys: ReadonlySet<string>;
-  readonly onEquip: (key: string) => void;
-  readonly onDragStart: (key: string) => (event: DragEvent<HTMLElement>) => void;
-  readonly onDragEnd: () => void;
-};
-
-function SkillGroup({ title, subtitle, entries, chosenKeys, onEquip, onDragStart, onDragEnd }: SkillGroupProps): JSX.Element {
-  return (
-    <div className="skill-group">
-      <div className="skill-group-head">
-        <span className="skill-group-title">{title}</span>
-        <span className="skill-group-sub">{subtitle}</span>
-      </div>
-      <div className="skill-grid">
-        {entries.map((entry) => {
-          const equipped = chosenKeys.has(entry.key);
-          return (
-            <button
-              key={entry.key}
-              type="button"
-              className={`skill-chip ${equipped ? 'is-equipped' : ''}`}
-              draggable
-              onDragStart={onDragStart(entry.key)}
-              onDragEnd={onDragEnd}
-              onClick={() => onEquip(entry.key)}
-              data-element={entry.skill.element}
-              title={entry.skill.description ?? entry.skill.name}
-            >
-              {equipped ? <span className="chip-equipped-badge">Equipped</span> : null}
-              <span className="chip-head">
-                <span className="chip-name">{entry.skill.name}</span>
-                <span className="chip-power">PWR {entry.skill.power}</span>
-              </span>
-              <span className="chip-meta">
-                <span className="chip-el" style={{ color: `var(--el-${entry.skill.element})` }}>{entry.skill.element}</span>
-                <span className="chip-en">EN {entry.skill.energyCost}</span>
-                {entry.source === 'history' ? <span className="chip-from">from {entry.sourceTemplateName}</span> : null}
-              </span>
-              {entry.skill.description ? <span className="chip-desc">{entry.skill.description}</span> : null}
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 }
