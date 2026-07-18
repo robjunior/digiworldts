@@ -22,6 +22,61 @@
 
 .foe .meter i { transition: width .4s var(--ease); }
 
+.foe .foe-hp-bar {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 22px;
+  background: color-mix(in oklab, var(--enemy) 14%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--enemy) 55%, var(--hairline));
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  overflow: hidden;
+  isolation: isolate;
+  font-variant-numeric: tabular-nums;
+}
+.foe .foe-hp-bar-fill {
+  position: absolute;
+  inset: 0;
+  right: auto;
+  z-index: 1;
+  background: linear-gradient(90deg, var(--enemy), color-mix(in oklab, var(--enemy) 55%, #fff));
+  transition: width .4s var(--ease);
+}
+.foe .foe-hp-bar-value {
+  position: relative;
+  z-index: 2;
+  display: block;
+  height: 22px;
+  line-height: 22px;
+  text-align: center;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.foe.is-target .foe-hp-bar {
+  border-color: var(--enemy);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--enemy) 50%, transparent);
+}
+.foe.is-current .foe-hp-bar {
+  border-color: var(--gold);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 50%, transparent);
+}
+.foe.is-down .foe-hp-bar-fill { filter: grayscale(1); opacity: .5; }
+.foe .foe-hp-bar[data-critical="true"] .foe-hp-bar-fill {
+  animation: foeHpCritical 1.1s var(--ease) infinite;
+}
+@keyframes foeHpCritical {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foe .foe-hp-bar-fill { transition: none; animation: none; }
+}
+
 .cbt-unit--v2.is-hit, .foe.is-hit { animation: cbtShake .35s var(--ease); }
 @keyframes cbtShake {
   0%   { transform: translate(0, 0); }

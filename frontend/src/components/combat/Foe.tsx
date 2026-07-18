@@ -37,11 +37,20 @@ export function Foe({ foe, selected, current, selectable, hitUnitId, onSelect }:
         </span>
         <span className="f-name">{foe.name}</span>
         <span className="f-sub">{foe.element} · Lv {foe.level}{foe.analyzed ? ' · analysed' : ''}</span>
-        <span className="f-hp">
-          <span className="meter meter--hp" role="progressbar" aria-valuenow={foe.hp} aria-valuemin={0} aria-valuemax={foe.hpMax} data-role="hp">
-            <i style={{ width: `${hpPct}%` }} />
+        <span
+          className="foe-hp-bar"
+          role="progressbar"
+          aria-valuenow={foe.hp}
+          aria-valuemin={0}
+          aria-valuemax={foe.hpMax}
+          aria-label={`HP ${foe.hp} of ${foe.hpMax}`}
+          data-role="hp"
+          data-critical={hpPct <= 25 ? 'true' : 'false'}
+        >
+          <span className="foe-hp-bar-fill" style={{ width: `${hpPct}%` }} />
+          <span className="foe-hp-bar-value" data-role="hp-num">
+            {formatNum(foe.hp)} / {formatNum(foe.hpMax)}
           </span>
-          <span className="v" data-role="hp-num">{formatNum(foe.hp)}/{formatNum(foe.hpMax)}</span>
         </span>
         <Ailments ailments={foe.ailments} />
       </button>
