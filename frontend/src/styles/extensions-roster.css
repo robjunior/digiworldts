@@ -205,10 +205,10 @@
 .rl-lvl-k { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; color: var(--muted); }
 .rl-level b { font-size: 18px; font-weight: 700; color: var(--el, var(--ink)); min-width: 28px; text-align: right; }
 
-.rl-xp { display: flex; flex-direction: column; gap: 3px; }
-.rl-xp-track { display: block; height: 6px; background: var(--hairline); border-radius: 2px; overflow: hidden; }
+.rl-xp { display: flex; align-items: center; gap: 8px; }
+.rl-xp-track { flex: 1; height: 6px; background: var(--hairline); border-radius: 2px; overflow: hidden; }
 .rl-xp-track i { display: block; height: 100%; background: linear-gradient(90deg, var(--el-nature), var(--el, var(--signal))); transition: width 0.4s var(--ease); }
-.rl-xp-num { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rl-xp-num { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 36px; text-align: right; }
 
 .rl-pills { display: inline-flex; gap: 12px; align-items: center; }
 .rl-pill {
