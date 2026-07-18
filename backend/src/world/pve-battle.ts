@@ -6,7 +6,7 @@ import {
   type LoadoutMember,
 } from '../battle/engine.js';
 import type { Action, Battle, BattleView } from '../battle/types.js';
-import { one, q, run, tx, type RosterRow } from '../db/index.js';
+import { q, run, tx, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';

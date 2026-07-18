@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
-import { one, q, run, tx, type ResourceRow, type RosterRow } from '../db/index.js';
+import { one, q, run, tx, type RosterRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { log } from '../util/log.js';
 import type { TemplateDigimon } from '../digimon/types.js';

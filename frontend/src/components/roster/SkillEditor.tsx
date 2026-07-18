@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { STAGES } from '@digiworld/shared/digimon';
 
 import { ApiError } from '../../lib/api';
-import { getMonSkills, setMonSkills, type LearnedSkillEntry } from '../../lib/api-roster';
+import { getMonSkills, setMonSkills } from '../../lib/api-roster';
+import { SkillSlotBox } from './SkillSlotBox';
 
 type SkillEditorProps = {
   readonly monId: string;
@@ -267,7 +268,7 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
         <div className="skill-editor-col skill-editor-col--right">
           <div className="slot-column" aria-label="Equipped skill slots">
             {currentSlots.map((key, index) => (
-              <SlotBox
+              <SkillSlotBox
                 key={index}
                 index={index}
                 entry={key !== null ? skillByKey.get(key) ?? null : null}
@@ -283,53 +284,6 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-type SlotBoxProps = {
-  readonly index: number;
-  readonly entry: LearnedSkillEntry | null;
-  readonly isDragOver: boolean;
-  readonly onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  readonly onDragLeave: () => void;
-  readonly onDrop: (event: DragEvent<HTMLDivElement>) => void;
-  readonly onDragStart: ((event: DragEvent<HTMLElement>) => void) | undefined;
-  readonly onDragEnd: () => void;
-  readonly onClear: () => void;
-};
-
-function SlotBox({ index, entry, isDragOver, onDragOver, onDragLeave, onDrop, onDragStart, onDragEnd, onClear }: SlotBoxProps): JSX.Element {
-  const filled = entry !== null;
-  const classes = ['skill-slot', filled ? 'is-filled' : 'is-empty', isDragOver ? 'is-dragover' : '']
-    .filter(Boolean)
-    .join(' ');
-  return (
-    <div
-      className={classes}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-      draggable={filled}
-      onDragStart={filled && onDragStart ? onDragStart : undefined}
-      onDragEnd={onDragEnd}
-      data-element={entry?.skill.element ?? 'neutral'}
-    >
-      <div className="slot-label">Slot {index + 1}</div>
-      {filled && entry !== null ? (
-        <>
-          <div className="slot-name">{entry.skill.name}</div>
-          <div className="slot-meta">
-            <span className="slot-el" style={{ color: `var(--el-${entry.skill.element})` }}>{entry.skill.element}</span>
-            <span className="slot-power">PWR {entry.skill.power}</span>
-            <span className="slot-en">EN {entry.skill.energyCost}</span>
-          </div>
-          {entry.source === 'history' ? <span className="slot-source">from {entry.sourceTemplateName}</span> : null}
-          <button type="button" className="slot-clear" aria-label={`Unequip ${entry.skill.name}`} onClick={onClear}>×</button>
-        </>
-      ) : (
-        <div className="slot-empty-hint">Drop skill here</div>
-      )}
     </div>
   );
 }

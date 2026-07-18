@@ -231,11 +231,6 @@
 .skill-editor-msg.is-ok { color: var(--el-nature); border-color: color-mix(in oklab, var(--el-nature) 40%, var(--hairline)); }
 .skill-editor-msg.is-err { color: var(--battle); border-color: color-mix(in oklab, var(--battle) 40%, var(--hairline)); }
 
-.slot-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
 .slot-column {
   display: flex;
   flex-direction: column;
@@ -394,14 +389,7 @@
   .slot-column { flex-direction: row; flex-wrap: wrap; }
   .slot-column .skill-slot { flex: 1 1 140px; min-width: 140px; }
 }
-@media (max-width: 640px) {
-  .slot-row { grid-template-columns: repeat(2, 1fr); }
-}
 
-.skill-group { display: flex; flex-direction: column; gap: 8px; }
-.skill-group-head { display: flex; align-items: baseline; gap: 8px; }
-.skill-group-title { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-.skill-group-sub { font-size: 10px; color: var(--muted); font-style: italic; }
 .skill-group-empty { padding: 12px 16px; font-size: 12px; color: var(--muted); font-style: italic; text-align: center; background: color-mix(in oklab, var(--hairline) 30%, var(--bg)); border: 1px dashed var(--hairline); }
 
 .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }

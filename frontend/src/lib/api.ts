@@ -6,7 +6,7 @@ import type {
   LoginBody,
   RegisterBody,
 } from '@digiworld/shared/auth';
-import type { Action, BattleView } from '@digiworld/shared/battle';
+import type { BattleView } from '@digiworld/shared/battle';
 import type { BattleOutcome } from '@digiworld/shared/battle';
 import type { BaseStats, TemplateDigimon } from '@digiworld/shared/digimon';
 
@@ -160,15 +160,7 @@ type WorldMoveResponse = {
   readonly battleStartError?: string | null;
 };
 
-type WorldBattleActResponse = {
-  readonly battle: BattleView;
-  readonly ended: boolean;
-  readonly capturedMonId?: string;
-  readonly xpAwards?: readonly import('./api-world').XpAward[];
-  readonly itemDrop?: import('./api-world').ItemDrop;
-  readonly creditsGained?: number;
-  readonly bitsGained?: number;
-};
+export { actInWorldBattle } from './api-world';
 
 export async function getBattleView(): Promise<BattleView> {
   const response = await apiFetch<WorldBattleResponse>('/api/world/battle');
@@ -184,10 +176,6 @@ export async function startWildEncounter(): Promise<BattleView> {
     }
   }
   return getBattleView();
-}
-
-export async function actInWorldBattle(action: Action): Promise<WorldBattleActResponse> {
-  return apiFetch<WorldBattleActResponse>('/api/world/battle/act', { method: 'POST', body: { action } });
 }
 
 export function getRoster(): Promise<RosterResponse> {

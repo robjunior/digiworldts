@@ -13,7 +13,7 @@
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
  */
-import { one, q, run, tx, type FarmBuildingRow, type ResourceRow, type WalletRow } from '../db/index.js';
+import { one, q, tx, type FarmBuildingRow, type ResourceRow, type WalletRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
@@ -47,7 +47,6 @@ const SQL_INSERT_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, reso
 const SQL_UPDATE_CHECKPOINT = `UPDATE farm_buildings SET produced = ?, last_touch = ? WHERE id = ?`;
 const SQL_UPDATE_UPGRADE = `UPDATE farm_buildings SET level = ?, rate_per_hour = ?, capacity = ?, upgrade_cost = ?, produced = ?, last_touch = ? WHERE id = ?`;
 const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
-const SQL_UPDATE_WALLET_CREDITS = `UPDATE player_wallet SET credits = ?, updated_at = ? WHERE user_id = ?`;
 const SQL_SELECT_RESOURCES = `SELECT * FROM resources WHERE user_id = ?`;
 const SQL_SELECT_BITS = `SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'`;
 const SQL_DEDUCT_BITS = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = 'Bits' AND amount >= ?`;
