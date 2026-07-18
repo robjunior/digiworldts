@@ -139,6 +139,10 @@ function stageMinLevel(stage: Stage): number {
   return Math.max(1, EVOLUTION_LEVELS[stage] ?? 0);
 }
 
+function stageMaxLevel(stage: Stage): number {
+  return stage === 'Rookie' ? 20 : MAX_LEVEL;
+}
+
 function pickTemplateForBudget(
   catalog: readonly TemplateDigimon[],
   preferredElement: Element,
@@ -176,9 +180,10 @@ function pickTemplateForBudget(
 export function levelForBudget(template: TemplateDigimon, budget: number, minLevel: number): number {
   const stage = template.stage as Stage;
   const stageFloor = Math.max(minLevel, stageMinLevel(stage));
+  const stageCeiling = stageMaxLevel(stage);
   const floorDr = digirating(template, stageFloor, applyGrowth(ZERO_BONUS, stage, stageFloor - 1));
   let lo = floorDr <= budget ? stageFloor : Math.max(1, stageFloor);
-  let hi = MAX_LEVEL;
+  let hi = stageCeiling;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
     const growth = applyGrowth(ZERO_BONUS, stage, mid - 1);
@@ -188,7 +193,7 @@ export function levelForBudget(template: TemplateDigimon, budget: number, minLev
       hi = mid - 1;
     }
   }
-  return Math.max(lo, stageFloor);
+  return Math.min(Math.max(lo, stageFloor), stageCeiling);
 }
 
 const WILD_PARTY_SIZE_WEIGHTS = [0, 0.35, 0.35, 0.30] as const;
