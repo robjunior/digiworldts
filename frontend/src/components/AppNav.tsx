@@ -6,7 +6,6 @@ import { useAuth } from '../hooks/useAuth';
 type NavItem = { readonly to: string; readonly label: string };
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', label: 'Home' },
   { to: '/lobby', label: 'Lobby' },
   { to: '/world', label: 'World' },
   { to: '/roster', label: 'Roster' },
