@@ -56,6 +56,8 @@ const SQL_SELECT_PARTY = `SELECT id, catalog_id, level, xp, slot_index, hp_bonus
 const SQL_UPDATE_MON = `UPDATE player_roster SET level = ?, xp = ?, hp_bonus = ?, en_bonus = ?, atk_bonus = ?, def_bonus = ?, int_bonus = ?, spd_bonus = ?, updated_at = ? WHERE id = ?`;
 const SQL_ADD_CREDITS = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
      ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
+const SQL_ADD_BITS = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, 'Bits', ?, ?)
+     ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 const SQL_GET_USER_BATTLE_HEADER = `SELECT id, display_name, mmr FROM users WHERE id = ?`;
 const SQL_UPDATE_USER_MMR = `UPDATE users SET mmr = ?, updated_at = ? WHERE id = ?`;
 
@@ -324,6 +326,9 @@ export async function hydrateActiveMatches(): Promise<number> {
 const CREDITS_PER_WIN = 60;
 const CREDITS_PER_LOSS = 15;
 const CREDITS_PER_DRAW = 25;
+const BITS_PER_WIN = 30;
+const BITS_PER_LOSS = 5;
+const BITS_PER_DRAW = 15;
 
 function outcomeToSummary(outcome: BattleOutcome): {
   winnerId: 'a' | 'b' | null;
@@ -379,12 +384,17 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
     ]);
     await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
     await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
-    if (summary.aResult === 'win') await t.run(SQL_ADD_CREDITS, [battle.playerA, CREDITS_PER_WIN, battle.endedAt!]);
-    else if (summary.aResult === 'loss') await t.run(SQL_ADD_CREDITS, [battle.playerA, CREDITS_PER_LOSS, battle.endedAt!]);
-    else if (summary.aResult === 'draw') await t.run(SQL_ADD_CREDITS, [battle.playerA, CREDITS_PER_DRAW, battle.endedAt!]);
-    if (summary.bResult === 'win') await t.run(SQL_ADD_CREDITS, [battle.playerB, CREDITS_PER_WIN, battle.endedAt!]);
-    else if (summary.bResult === 'loss') await t.run(SQL_ADD_CREDITS, [battle.playerB, CREDITS_PER_LOSS, battle.endedAt!]);
-    else if (summary.bResult === 'draw') await t.run(SQL_ADD_CREDITS, [battle.playerB, CREDITS_PER_DRAW, battle.endedAt!]);
+    const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<void> => {
+      const [credits, bits] =
+        result === 'win' ? [CREDITS_PER_WIN, BITS_PER_WIN] :
+        result === 'loss' ? [CREDITS_PER_LOSS, BITS_PER_LOSS] :
+        result === 'draw' ? [CREDITS_PER_DRAW, BITS_PER_DRAW] :
+        [0, 0];
+      if (credits > 0) await t.run(SQL_ADD_CREDITS, [userId, credits, battle.endedAt!]);
+      if (bits > 0) await t.run(SQL_ADD_BITS, [userId, bits, battle.endedAt!]);
+    };
+    await grantWallet(battle.playerA, summary.aResult);
+    await grantWallet(battle.playerB, summary.bResult);
     if (pvpMmr) {
       await t.run(SQL_UPDATE_USER_MMR, [pvpMmr.a.after, battle.endedAt!, battle.playerA]);
       await t.run(SQL_UPDATE_USER_MMR, [pvpMmr.b.after, battle.endedAt!, battle.playerB]);

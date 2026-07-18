@@ -69,7 +69,7 @@ export function Farm(): JSX.Element {
         <div className="farm-alert" role="status" aria-live="polite">{notice}</div>
         <section className="city" aria-label="Production buildings">
           {farm.buildings.map((building) => (
-            <FarmBuildingCard key={building.id} building={building} credits={farm.credits} pendingBuildingId={pendingBuildingId} onCollect={(buildingId) => collectOneMutation.mutate(buildingId)} onUpgrade={(buildingId) => upgradeMutation.mutate(buildingId)} />
+            <FarmBuildingCard key={building.id} building={building} bits={farm.balances.Bits} pendingBuildingId={pendingBuildingId} onCollect={(buildingId) => collectOneMutation.mutate(buildingId)} onUpgrade={(buildingId) => upgradeMutation.mutate(buildingId)} />
           ))}
         </section>
       </main>

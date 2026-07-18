@@ -7,6 +7,7 @@ type PveResults = {
   readonly xpAwards: readonly XpAward[];
   readonly itemDrop?: ItemDrop;
   readonly creditsGained?: number;
+  readonly bitsGained?: number;
 };
 
 type EndCardProps = {
@@ -49,6 +50,9 @@ export function EndCard({ battle, onNewEncounter, pveResults }: EndCardProps): J
         ) : null}
         {isPve && pveResults?.creditsGained !== undefined && pveResults.creditsGained > 0 ? (
           <div className="r" data-od-id="end-card-pve-credits"><span className="k">Credits</span><span>+{pveResults.creditsGained}</span></div>
+        ) : null}
+        {isPve && pveResults?.bitsGained !== undefined && pveResults.bitsGained > 0 ? (
+          <div className="r" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span>+{pveResults.bitsGained}</span></div>
         ) : null}
         {isPve ? <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div> : null}
       </div>

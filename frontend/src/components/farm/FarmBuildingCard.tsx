@@ -17,16 +17,16 @@ const KIND_GLYPH: Record<string, string> = {
 
 type FarmBuildingActions = {
   readonly building: FarmBuildingView;
-  readonly credits: number;
+  readonly bits: number;
   readonly pendingBuildingId: string | null;
   readonly onCollect: (buildingId: string) => void;
   readonly onUpgrade: (buildingId: string) => void;
 };
 
 export function FarmBuildingCard(props: FarmBuildingActions): JSX.Element {
-  const { building, credits, pendingBuildingId, onCollect, onUpgrade } = props;
+  const { building, bits, pendingBuildingId, onCollect, onUpgrade } = props;
   const ready = building.produced >= 1;
-  const canUpgrade = credits >= building.upgradeCost;
+  const canUpgrade = bits >= building.upgradeCost;
   const fillStyle: CSSProperties & Record<'--pct', string> = { '--pct': `${clamp(Math.round((building.produced / building.capacity) * 100), 0, 100)}%` };
   const pending = pendingBuildingId === building.id;
 
@@ -55,8 +55,8 @@ export function FarmBuildingCard(props: FarmBuildingActions): JSX.Element {
         </div>
         <div className="foot">
           <button className="btn btn--secondary" type="button" disabled={!ready || pending} aria-label={`Collect ${formatAmount(building.produced)} ${building.resource}`} onClick={() => onCollect(building.id)}>Collect</button>
-          <button className="btn btn--tertiary" type="button" disabled={!canUpgrade || pending} aria-label={`Upgrade ${building.kind}, costs ${building.upgradeCost} DigiCredits`} onClick={() => onUpgrade(building.id)}>
-            Upgrade <span className="credits">{formatAmount(building.upgradeCost)}</span>
+          <button className="btn btn--tertiary" type="button" disabled={!canUpgrade || pending} aria-label={`Upgrade ${building.kind}, costs ${building.upgradeCost} Bits`} onClick={() => onUpgrade(building.id)}>
+            Upgrade <span className="bits">{formatAmount(building.upgradeCost)}</span>
           </button>
         </div>
       </div>

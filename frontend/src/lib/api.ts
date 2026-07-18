@@ -167,6 +167,7 @@ type WorldBattleActResponse = {
   readonly xpAwards?: readonly import('./api-world').XpAward[];
   readonly itemDrop?: import('./api-world').ItemDrop;
   readonly creditsGained?: number;
+  readonly bitsGained?: number;
 };
 
 export async function getBattleView(): Promise<BattleView> {

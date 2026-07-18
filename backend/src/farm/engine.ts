@@ -49,6 +49,8 @@ const SQL_UPDATE_UPGRADE = `UPDATE farm_buildings SET level = ?, rate_per_hour =
 const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
 const SQL_UPDATE_WALLET_CREDITS = `UPDATE player_wallet SET credits = ?, updated_at = ? WHERE user_id = ?`;
 const SQL_SELECT_RESOURCES = `SELECT * FROM resources WHERE user_id = ?`;
+const SQL_SELECT_BITS = `SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'`;
+const SQL_DEDUCT_BITS = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = 'Bits' AND amount >= ?`;
 const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 
@@ -158,7 +160,7 @@ export async function collectAllBuildings(userId: string): Promise<CollectResult
   };
 }
 
-export type UpgradeError = 'not-found' | 'insufficient-credits';
+export type UpgradeError = 'not-found' | 'insufficient-bits';
 
 /**
  * Upgrade a building: +25% rate, +20% capacity, +60% next upgrade cost.
@@ -171,19 +173,24 @@ export async function upgradeBuilding(
 ): Promise<{ view: FarmView } | { error: UpgradeError; needed?: number }> {
   const row = await one<FarmBuildingRow>(SQL_SELECT_BUILDING, buildingId, userId);
   if (!row) return { error: 'not-found' };
-  const wallet = await one<WalletRow>(SQL_SELECT_WALLET, userId);
-  const credits = wallet?.credits ?? 0;
-  if (credits < row.upgrade_cost) {
-    return { error: 'insufficient-credits', needed: row.upgrade_cost - credits };
-  }
   const now = Date.now();
   const produced = computeProduced(row, now);
   const newRate = Math.round(row.rate_per_hour * 1.25);
   const newCap = Math.round(row.capacity * 1.2);
   const newCost = Math.round(row.upgrade_cost * 1.6);
+  let insufficient = false;
   await tx(async (t) => {
-    await t.run(SQL_UPDATE_WALLET_CREDITS, [credits - row.upgrade_cost, now, userId]);
+    const deductRes = await t.run(SQL_DEDUCT_BITS, [row.upgrade_cost, now, userId, row.upgrade_cost]);
+    if (deductRes.changes === 0) {
+      insufficient = true;
+      return;
+    }
     await t.run(SQL_UPDATE_UPGRADE, [row.level + 1, newRate, newCap, newCost, produced, now, buildingId]);
   });
+  if (insufficient) {
+    const balance = await one<{ amount: number }>(SQL_SELECT_BITS, userId);
+    const have = balance?.amount ?? 0;
+    return { error: 'insufficient-bits', needed: row.upgrade_cost - have };
+  }
   return { view: await readFarm(userId) };
 }
