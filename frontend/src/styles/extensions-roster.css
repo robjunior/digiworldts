@@ -420,3 +420,53 @@
 .rl-action-btn--rename:hover:not(:disabled) { color: var(--ink); }
 .rl-action-btn--revive { color: var(--battle); border-color: color-mix(in oklab, var(--battle) 45%, var(--hairline)); }
 .rl-action-btn--revive:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 8%, var(--panel)); border-color: var(--battle); }
+
+.evo-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--el, var(--panel)) 3%, var(--panel));
+}
+.evo-chain::-webkit-scrollbar { height: 4px; }
+.evo-chain::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--el, var(--muted)) 40%, transparent); }
+.evo-node {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px 4px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  min-width: 52px;
+  opacity: 0.55;
+  transition: opacity 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.15s var(--ease);
+  flex-shrink: 0;
+}
+.evo-node:hover { opacity: 1; }
+.evo-node img { width: 32px; height: 32px; image-rendering: pixelated; display: block; }
+.evo-node-label { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.evo-node.is-current {
+  opacity: 1;
+  border-color: var(--el, var(--gold));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--el, var(--gold)) 40%, transparent);
+  transform: scale(1.06);
+}
+.evo-node.is-current .evo-node-label { color: var(--el, var(--gold)); }
+.evo-node[data-stage="mega"] { border-top: 2px solid color-mix(in oklab, var(--gold) 55%, var(--hairline)); }
+.evo-node[data-stage="ultimate"] { border-top: 2px solid color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.evo-node[data-stage="champion"] { border-top: 2px solid color-mix(in oklab, var(--el-electric) 55%, var(--hairline)); }
+.evo-sep {
+  flex-shrink: 0;
+  width: 24px;
+  height: 2px;
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--el, var(--muted)) 55%, transparent) 50%, transparent 50%);
+  background-size: 6px 2px;
+  background-repeat: repeat-x;
+}
+@media (prefers-reduced-motion: reduce) {
+  .evo-node { transition: none; }
+}

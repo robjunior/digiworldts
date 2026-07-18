@@ -1,7 +1,10 @@
 import { useState } from 'react';
 
+import type { TemplateDigimon } from '@digiworld/shared/digimon';
+
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
 import { formatRemaining, isDowned, totalStats, xpPct } from './types';
+import { EvolutionChain } from './EvolutionChain';
 import { SkillEditor } from './SkillEditor';
 
 type RosterListProps = {
@@ -9,9 +12,11 @@ type RosterListProps = {
   readonly now: number;
   readonly activityByMon: ActivityByMon;
   readonly actions: RosterActions;
+  readonly templateById: ReadonlyMap<string, TemplateDigimon>;
+  readonly reverseGraph: ReadonlyMap<string, readonly string[]>;
 };
 
-export function RosterList({ roster, now, activityByMon, actions }: RosterListProps): JSX.Element {
+export function RosterList({ roster, now, activityByMon, actions, templateById, reverseGraph }: RosterListProps): JSX.Element {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (roster.length === 0) return <div className="roster-list-empty">No Digimon to list.</div>;
@@ -25,6 +30,8 @@ export function RosterList({ roster, now, activityByMon, actions }: RosterListPr
           now={now}
           activity={activityByMon.get(mon.id) ?? null}
           actions={actions}
+          templateById={templateById}
+          reverseGraph={reverseGraph}
           isOpen={openId === mon.id}
           onToggle={() => setOpenId(openId === mon.id ? null : mon.id)}
         />
@@ -38,11 +45,13 @@ type RosterListRowProps = {
   readonly now: number;
   readonly activity: { readonly readyToCollect: boolean; readonly statKinds: readonly string[] } | null;
   readonly actions: RosterActions;
+  readonly templateById: ReadonlyMap<string, TemplateDigimon>;
+  readonly reverseGraph: ReadonlyMap<string, readonly string[]>;
   readonly isOpen: boolean;
   readonly onToggle: () => void;
 };
 
-function RosterListRow({ mon, now, activity, actions, isOpen, onToggle }: RosterListRowProps): JSX.Element {
+function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph, isOpen, onToggle }: RosterListRowProps): JSX.Element {
   const stats = totalStats(mon);
   const downed = isDowned(mon, now);
   const xp = Math.round(xpPct(mon));
@@ -105,6 +114,7 @@ function RosterListRow({ mon, now, activity, actions, isOpen, onToggle }: Roster
               </button>
             ) : null}
           </div>
+          <EvolutionChain catalogId={mon.catalogId} templateById={templateById} reverseGraph={reverseGraph} />
           {isOpen ? <SkillEditor monId={mon.id} /> : null}
         </div>
       </div>

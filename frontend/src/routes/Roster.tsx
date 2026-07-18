@@ -12,12 +12,15 @@ import { RosterList } from '../components/roster/RosterList';
 import type { ActivityByMon, RosterActions, RosterMon } from '../components/roster/types';
 import { useAuth } from '../hooks/useAuth';
 import { getRoster } from '../lib/api';
+import { getCatalog } from '../lib/api-admin';
 import { evolveRosterMon, getEvolutionGate, getTrainingStatus, removeFromParty, renameRosterMon, reviveRosterMon, seedStarterRoster, setPartySlot } from '../lib/api-roster';
 import type { EvolutionGate } from '../lib/api-roster';
+import type { TemplateDigimon } from '@digiworld/shared/digimon';
 import '../styles/extensions-roster.css';
 
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const TRAINING_QUERY_KEY = ['training'] as const;
+const CATALOG_QUERY_KEY = ['catalog'] as const;
 const PER_PAGE = 12;
 
 export function Roster(): JSX.Element {
@@ -25,6 +28,7 @@ export function Roster(): JSX.Element {
   const queryClient = useQueryClient();
   const rosterQuery = useQuery({ queryKey: ROSTER_QUERY_KEY, queryFn: getRoster });
   const trainingQuery = useQuery({ queryKey: TRAINING_QUERY_KEY, queryFn: getTrainingStatus, retry: false });
+  const catalogQuery = useQuery({ queryKey: CATALOG_QUERY_KEY, queryFn: getCatalog, staleTime: 5 * 60 * 1000 });
   const roster = rosterQuery.data?.roster ?? [];
   const partyFilled = roster.filter((mon) => typeof mon.slot === 'number').length;
   const [page, setPage] = useState(1);
@@ -49,6 +53,24 @@ export function Roster(): JSX.Element {
     const entries = trainingQuery.data?.stations.flatMap((station) => station.active ? [[station.active.monId, station.active] as const] : []) ?? [];
     return new Map(entries);
   }, [trainingQuery.data]);
+
+  const templateById = useMemo<ReadonlyMap<string, TemplateDigimon>>(() => {
+    const m = new Map<string, TemplateDigimon>();
+    for (const t of catalogQuery.data?.digimons ?? []) m.set(t.id, t);
+    return m;
+  }, [catalogQuery.data]);
+
+  const reverseGraph = useMemo<ReadonlyMap<string, readonly string[]>>(() => {
+    const g = new Map<string, string[]>();
+    for (const t of catalogQuery.data?.digimons ?? []) {
+      for (const target of t.evolvesInto ?? []) {
+        const list = g.get(target) ?? [];
+        list.push(t.id);
+        g.set(target, list);
+      }
+    }
+    return g;
+  }, [catalogQuery.data]);
 
   const invalidateRoster = (): void => {
     void queryClient.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
@@ -98,7 +120,7 @@ export function Roster(): JSX.Element {
           <div className="row spread owned-header">
             <h2 className="caps roster-section-title owned-title">Owned</h2>
           </div>
-          <RosterList roster={paginated} now={now} activityByMon={activityByMon} actions={actions} />
+          <RosterList roster={paginated} now={now} activityByMon={activityByMon} actions={actions} templateById={templateById} reverseGraph={reverseGraph} />
           <Pagination total={roster.length} page={page} perPage={PER_PAGE} onPage={setPage} />
         </section>
       </main>
