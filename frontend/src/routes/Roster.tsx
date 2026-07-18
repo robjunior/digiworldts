@@ -4,13 +4,11 @@ import { AppNav, NavStat } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { PageStrip } from '../components/common/PageStrip';
-import { CreatureCard } from '../components/roster/CreatureCard';
 import { EvolveDialog } from '../components/roster/EvolveDialog';
 import { Pagination } from '../components/roster/Pagination';
 import { PartyPicker } from '../components/roster/PartyPicker';
 import { RenameDialog } from '../components/roster/RenameDialog';
 import { RosterList } from '../components/roster/RosterList';
-import { TouchAssignDialog } from '../components/roster/TouchAssignDialog';
 import type { ActivityByMon, RosterActions, RosterMon } from '../components/roster/types';
 import { useAuth } from '../hooks/useAuth';
 import { getRoster } from '../lib/api';
@@ -20,16 +18,7 @@ import '../styles/extensions-roster.css';
 
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const TRAINING_QUERY_KEY = ['training'] as const;
-const PER_PAGE = 9;
-const VIEW_STORAGE_KEY = 'digiworld:roster-view';
-
-type OwnedView = 'cards' | 'list';
-
-function initialView(): OwnedView {
-  if (typeof window === 'undefined') return 'cards';
-  const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
-  return stored === 'list' ? 'list' : 'cards';
-}
+const PER_PAGE = 12;
 
 export function Roster(): JSX.Element {
   const { user, logout } = useAuth();
@@ -42,14 +31,8 @@ export function Roster(): JSX.Element {
   const [now, setNow] = useState(Date.now());
   const [message, setMessage] = useState<string | null>(null);
   const [renameMon, setRenameMon] = useState<RosterMon | null>(null);
-  const [touchAssignMonId, setTouchAssignMonId] = useState<string | null>(null);
   const [evolveMonId, setEvolveMonId] = useState<string | null>(null);
   const [evolutionGate, setEvolutionGate] = useState<EvolutionGate | null>(null);
-  const [ownedView, setOwnedView] = useState<OwnedView>(() => initialView());
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') window.localStorage.setItem(VIEW_STORAGE_KEY, ownedView);
-  }, [ownedView]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -114,22 +97,11 @@ export function Roster(): JSX.Element {
         <section>
           <div className="row spread owned-header">
             <h2 className="caps roster-section-title owned-title">Owned</h2>
-            <div className="view-toggle" role="tablist" aria-label="Roster view">
-              <button type="button" role="tab" aria-selected={ownedView === 'cards'} className={`view-toggle-btn ${ownedView === 'cards' ? 'is-active' : ''}`} onClick={() => setOwnedView('cards')}>Cards</button>
-              <button type="button" role="tab" aria-selected={ownedView === 'list'} className={`view-toggle-btn ${ownedView === 'list' ? 'is-active' : ''}`} onClick={() => setOwnedView('list')}>List</button>
-            </div>
           </div>
-          {ownedView === 'cards' ? (
-            <>
-              <div className="roster-grid">{paginated.map((mon) => <CreatureCard key={mon.id} mon={mon} now={now} activityByMon={activityByMon} actions={actions} onTouchAssign={setTouchAssignMonId} />)}</div>
-              <Pagination total={roster.length} page={page} perPage={PER_PAGE} onPage={setPage} />
-            </>
-          ) : (
-            <RosterList roster={roster} now={now} />
-          )}
+          <RosterList roster={paginated} now={now} activityByMon={activityByMon} actions={actions} />
+          <Pagination total={roster.length} page={page} perPage={PER_PAGE} onPage={setPage} />
         </section>
       </main>
-      <TouchAssignDialog monId={touchAssignMonId} onClose={() => setTouchAssignMonId(null)} onAssign={(slot) => { if (touchAssignMonId) actions.onAssign(touchAssignMonId, slot); setTouchAssignMonId(null); }} />
       <EvolveDialog gate={evolutionGate} monName={evolveMon?.nickname ?? null} busy={evolveMutation.isPending} onClose={() => setEvolveMonId(null)} onEvolve={(targetCatalogId) => { if (evolveMonId) evolveMutation.mutate({ monId: evolveMonId, targetCatalogId }); }} />
       <RenameDialog mon={renameMon} busy={renameMutation.isPending} onClose={() => setRenameMon(null)} onSave={(nickname) => { if (renameMon) renameMutation.mutate({ monId: renameMon.id, nickname }); }} />
     </div>

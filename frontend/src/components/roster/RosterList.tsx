@@ -1,15 +1,17 @@
 import { useState } from 'react';
 
-import type { RosterMon } from './types';
-import { isDowned, totalStats, xpPct } from './types';
+import type { ActivityByMon, RosterActions, RosterMon } from './types';
+import { formatRemaining, isDowned, totalStats, xpPct } from './types';
 import { SkillEditor } from './SkillEditor';
 
 type RosterListProps = {
   readonly roster: readonly RosterMon[];
   readonly now: number;
+  readonly activityByMon: ActivityByMon;
+  readonly actions: RosterActions;
 };
 
-export function RosterList({ roster, now }: RosterListProps): JSX.Element {
+export function RosterList({ roster, now, activityByMon, actions }: RosterListProps): JSX.Element {
   const [openId, setOpenId] = useState<string | null>(null);
 
   if (roster.length === 0) return <div className="roster-list-empty">No Digimon to list.</div>;
@@ -21,6 +23,8 @@ export function RosterList({ roster, now }: RosterListProps): JSX.Element {
           key={mon.id}
           mon={mon}
           now={now}
+          activity={activityByMon.get(mon.id) ?? null}
+          actions={actions}
           isOpen={openId === mon.id}
           onToggle={() => setOpenId(openId === mon.id ? null : mon.id)}
         />
@@ -32,18 +36,21 @@ export function RosterList({ roster, now }: RosterListProps): JSX.Element {
 type RosterListRowProps = {
   readonly mon: RosterMon;
   readonly now: number;
+  readonly activity: { readonly readyToCollect: boolean; readonly statKinds: readonly string[] } | null;
+  readonly actions: RosterActions;
   readonly isOpen: boolean;
   readonly onToggle: () => void;
 };
 
-function RosterListRow({ mon, now, isOpen, onToggle }: RosterListRowProps): JSX.Element {
+function RosterListRow({ mon, now, activity, actions, isOpen, onToggle }: RosterListRowProps): JSX.Element {
   const stats = totalStats(mon);
   const downed = isDowned(mon, now);
   const xp = Math.round(xpPct(mon));
   const stage = mon.template?.stage ?? '?';
   const attribute = mon.template?.attribute ?? '?';
   const element = mon.template?.element ?? 'neutral';
-  const rowClass = ['roster-list-row', isOpen ? 'is-open' : '', downed ? 'is-downed' : '', typeof mon.slot === 'number' ? 'is-party' : '']
+  const training = activity !== null;
+  const rowClass = ['roster-list-row', isOpen ? 'is-open' : '', downed ? 'is-downed' : '', typeof mon.slot === 'number' ? 'is-party' : '', training ? 'is-training' : '']
     .filter(Boolean)
     .join(' ');
 
@@ -75,6 +82,8 @@ function RosterListRow({ mon, now, isOpen, onToggle }: RosterListRowProps): JSX.
           <span className="rl-pill rl-pill--stage">{stage}</span>
           <span className="rl-pill rl-pill--attr">{attribute}</span>
           <span className="rl-pill rl-pill--el"><span className="rl-el-dot" />{element}</span>
+          {training ? <span className="rl-pill rl-pill--training">{activity.readyToCollect ? 'Ready' : 'Training'}</span> : null}
+          {typeof mon.slot === 'number' ? <span className="rl-pill rl-pill--party">Slot {mon.slot + 1}</span> : null}
         </span>
         <span className="rl-stats" aria-label="Stats">
           <StatCell label="HP" value={stats.hp} />
@@ -87,6 +96,15 @@ function RosterListRow({ mon, now, isOpen, onToggle }: RosterListRowProps): JSX.
       </button>
       <div className="roster-list-body" id={`row-body-${mon.id}`} role="region" aria-hidden={!isOpen}>
         <div className="rl-body-inner">
+          <div className="rl-actions">
+            <button className="rl-action-btn rl-action-btn--evolve" type="button" disabled={downed} onClick={(event) => { event.stopPropagation(); actions.onEvolve(mon.id); }}>Digivolve</button>
+            <button className="rl-action-btn rl-action-btn--rename" type="button" onClick={(event) => { event.stopPropagation(); actions.onRename(mon); }}>Rename</button>
+            {downed ? (
+              <button className="rl-action-btn rl-action-btn--revive" type="button" onClick={(event) => { event.stopPropagation(); actions.onRevive(mon.id); }}>
+                Revive · {formatRemaining(mon.reviveAt, now)}
+              </button>
+            ) : null}
+          </div>
           {isOpen ? <SkillEditor monId={mon.id} /> : null}
         </div>
       </div>
