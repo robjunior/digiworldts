@@ -66,13 +66,15 @@ async function buildPlayerLoadout(userId: string): Promise<Loadout | null> {
   const rows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
   if (rows.length !== 3) return null;
   const now = Date.now();
-  if (rows.some((r) => r.revive_at !== null && r.revive_at > now)) return null;
+  const anyAlive = rows.some((r) => r.revive_at === null || r.revive_at <= now);
+  if (!anyAlive) return null;
   const catalog = loadCatalog();
   const members: LoadoutMember[] = [];
   for (const row of rows) {
     const tpl = findTemplate(catalog, row.catalog_id);
     if (!tpl) return null;
-    members.push({
+    const isDown = row.revive_at !== null && row.revive_at > now;
+    const member: LoadoutMember = {
       monId: row.id,
       templateId: row.catalog_id,
       template: tpl,
@@ -86,7 +88,9 @@ async function buildPlayerLoadout(userId: string): Promise<Loadout | null> {
         int: row.int_bonus,
         spd: row.spd_bonus,
       },
-    });
+    };
+    if (isDown) member.downedAtStart = true;
+    members.push(member);
   }
   return { playerId: userId, members: [members[0]!, members[1]!, members[2]!] };
 }

@@ -66,6 +66,7 @@ export type LoadoutMember = {
   nickname: string;
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
   equippedSkills?: Skill[];
+  downedAtStart?: boolean;
 };
 
 export type Loadout = {
@@ -86,7 +87,7 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wi
     name: m.nickname || m.template.name,
     element: m.template.element,
     level: m.level,
-    hp: scaled.hp,
+    hp: m.downedAtStart ? 0 : scaled.hp,
     hpMax: scaled.hp,
     en: scaled.en,
     enMax: scaled.en,

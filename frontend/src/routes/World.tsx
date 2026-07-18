@@ -53,7 +53,11 @@ export function World(): JSX.Element {
   const battleOverlayVisible = activeBattle !== null && activeBattle.mode === 'pve' && activeBattle.status !== 'ended';
   const partyMons = useMemo(() => {
     const roster: readonly RosterView[] = rosterQuery.data?.roster ?? [];
-    return [0, 1, 2].map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot) ?? null);
+    const now = Date.now();
+    const alive = [0, 1, 2]
+      .map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot))
+      .filter((mon): mon is RosterView => mon !== undefined && !(mon.reviveAt !== null && mon.reviveAt > now));
+    return [alive[0] ?? null, alive[1] ?? null, alive[2] ?? null];
   }, [rosterQuery.data]);
 
   useEffect(() => {

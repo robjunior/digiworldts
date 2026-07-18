@@ -22,18 +22,19 @@
 .world-player.is-facing-right { transform: translate(-50%, -50%) scaleX(-1); }
 .world-player__mon {
   image-rendering: pixelated; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
-  animation: world-bob 0.8s ease-in-out infinite;
+  animation: world-idle 5s ease-in-out infinite;
+  transform-origin: 50% 100%;
 }
 .world-player__mon--leader { z-index: 4; width: 64px; height: 64px; }
 .world-player__mon--mid {
   z-index: 3; width: 48px; height: 48px;
   margin-bottom: 6px; margin-right: -14px;
-  opacity: 0.9; animation-delay: 0.12s;
+  opacity: 0.9; animation-delay: 1.6s;
 }
 .world-player__mon--tail {
   z-index: 2; width: 42px; height: 42px;
   margin-bottom: 12px; margin-right: -16px;
-  opacity: 0.75; animation-delay: 0.24s;
+  opacity: 0.75; animation-delay: 3.2s;
 }
 .world-vignette {
   position: absolute; inset: 0; z-index: 8; pointer-events: none;
@@ -137,9 +138,22 @@
 }
 .world-encounter__mon img { width: 74px; height: 74px; object-fit: contain; image-rendering: pixelated; }
 .world-encounter__mon span { color: var(--muted); font-size: 11px; font-weight: 700; }
-@keyframes world-bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+@keyframes world-idle {
+  0%    { transform: translateY(0)    scaleY(1)    scaleX(1);    }
+  8%    { transform: translateY(-3px) scaleY(1)    scaleX(1);    }
+  16%   { transform: translateY(0)    scaleY(1)    scaleX(1);    }
+  24%   { transform: translateY(-3px) scaleY(1)    scaleX(1);    }
+  32%   { transform: translateY(0)    scaleY(1)    scaleX(1);    }
+  40%   { transform: translateY(-14px) scaleY(1.05) scaleX(0.95); }
+  46%   { transform: translateY(-18px) scaleY(1)    scaleX(1);    }
+  52%   { transform: translateY(0)    scaleY(0.82) scaleX(1.1);  }
+  58%   { transform: translateY(0)    scaleY(1)    scaleX(1);    }
+  70%   { transform: translateY(-3px) scaleY(1)    scaleX(1);    }
+  78%   { transform: translateY(0)    scaleY(1)    scaleX(1);    }
+  84%   { transform: translateY(2px)  scaleY(0.75) scaleX(1.2);  }
+  88%   { transform: translateY(2px)  scaleY(0.85) scaleX(1.15); }
+  93%   { transform: translateY(0)    scaleY(1.05) scaleX(0.95); }
+  100%  { transform: translateY(0)    scaleY(1)    scaleX(1);    }
 }
 @media (max-width: 720px) {
   .world-hud__top, .world-hud__bottom { flex-wrap: wrap; }
