@@ -1,6 +1,7 @@
 import { loadCatalog } from '../digimon/xml.js';
 import { one, q, run, type RosterRow, type ShopItemRow, type WorldPositionRow } from '../db/index.js';
 import type { BaseStats, Element, Stage, TemplateDigimon } from '../digimon/types.js';
+import { EVOLUTION_LEVELS } from '../digimon/types.js';
 import { MAX_LEVEL, scaleStatsForLevel, STAGE_MULTIPLIER } from '../digimon/element.js';
 import { applyGrowth } from '../progression/xp.js';
 import { findTemplate } from '../digimon/xml.js';
@@ -132,34 +133,51 @@ export type Encounter =
   | { kind: 'item'; item: ItemDrop }
   | { kind: 'none' };
 
+const STAGE_CASCADE: readonly Stage[] = ['Mega', 'Ultimate', 'Champion', 'Rookie', 'In-Training', 'Baby'];
+
+function stageMinLevel(stage: Stage): number {
+  return Math.max(1, EVOLUTION_LEVELS[stage] ?? 0);
+}
+
 function pickTemplateForBudget(
   catalog: readonly TemplateDigimon[],
   preferredElement: Element,
   preferredStage: Stage,
   budget: number,
   levelFloor: number,
-): TemplateDigimon | null {
+): { template: TemplateDigimon; effectiveStage: Stage } | null {
   if (catalog.length === 0) return null;
-  const stageMatches = catalog.filter((t) => t.stage === preferredStage);
-  const stagePool = stageMatches.length > 0 ? stageMatches : [...catalog];
-  const affordable = stagePool.filter((t) => {
-    const stage = t.stage as Stage;
-    const growth = applyGrowth(ZERO_BONUS, stage, Math.max(0, levelFloor - 1));
-    return digirating(t, levelFloor, growth) <= budget;
-  });
-  if (affordable.length === 0) {
-    return [...stagePool].sort((a, b) => sumStats(a.baseStats) - sumStats(b.baseStats))[0] ?? null;
+  const startIdx = STAGE_CASCADE.indexOf(preferredStage);
+  const chain = startIdx >= 0 ? STAGE_CASCADE.slice(startIdx) : [preferredStage];
+  let fallbackStagePool: TemplateDigimon[] | null = null;
+  for (const stage of chain) {
+    const stageMatches = catalog.filter((t) => t.stage === stage);
+    if (stageMatches.length === 0) continue;
+    if (fallbackStagePool === null) fallbackStagePool = stageMatches;
+    const stageFloor = Math.max(levelFloor, stageMinLevel(stage));
+    const affordable = stageMatches.filter((t) => {
+      const growth = applyGrowth(ZERO_BONUS, stage, Math.max(0, stageFloor - 1));
+      return digirating(t, stageFloor, growth) <= budget;
+    });
+    if (affordable.length === 0) continue;
+    const elementMatches = affordable.filter((t) => t.element === preferredElement);
+    const finalPool = elementMatches.length > 0 && Math.random() < BIOME_ELEMENT_PREFERENCE ? elementMatches : affordable;
+    const idx = Math.floor(Math.random() * finalPool.length);
+    const template = finalPool[idx];
+    if (template) return { template, effectiveStage: stage };
   }
-  const elementMatches = affordable.filter((t) => t.element === preferredElement);
-  const finalPool = elementMatches.length > 0 && Math.random() < BIOME_ELEMENT_PREFERENCE ? elementMatches : affordable;
-  const idx = Math.floor(Math.random() * finalPool.length);
-  return finalPool[idx] ?? null;
+  if (fallbackStagePool !== null) {
+    const template = [...fallbackStagePool].sort((a, b) => sumStats(a.baseStats) - sumStats(b.baseStats))[0];
+    if (template) return { template, effectiveStage: template.stage as Stage };
+  }
+  return null;
 }
 
 export function levelForBudget(template: TemplateDigimon, budget: number, minLevel: number): number {
   const stage = template.stage as Stage;
-  const floorDr = digirating(template, minLevel, applyGrowth(ZERO_BONUS, stage, minLevel - 1));
-  let lo = floorDr <= budget ? Math.max(1, minLevel) : 1;
+  const stageFloor = Math.max(minLevel, stageMinLevel(stage));
+  const floorDr = digirating(template, stageFloor, applyGrowth(ZERO_BONUS, stage, stageFloor - 1));
+  let lo = floorDr <= budget ? stageFloor : Math.max(1, stageFloor);
   let hi = MAX_LEVEL;
   while (lo < hi) {
     const mid = Math.ceil((lo + hi) / 2);
@@ -170,7 +188,7 @@ export function levelForBudget(template: TemplateDigimon, budget: number, minLev
       hi = mid - 1;
     }
   }
-  return lo;
+  return Math.max(lo, stageFloor);
 }
 
 const WILD_PARTY_SIZE_WEIGHTS = [0, 0.35, 0.35, 0.30] as const;
@@ -191,26 +209,27 @@ export async function generateWildParty(biome: Biome, rating: PartyRating): Prom
   const size = rollWildPartySize();
   const stagePool = catalog.digimons.filter((t) => t.stage === rating.maxStage);
   const pool = stagePool.length > 0 ? stagePool : [...catalog.digimons];
-  const minStageDr = pool.reduce(
-    (min, t) => Math.min(min, digirating(t, 1, ZERO_BONUS)),
-    Number.MAX_SAFE_INTEGER,
-  );
+  const stageFloor = stageMinLevel(rating.maxStage);
+  const minStageDr = pool.reduce((min, t) => {
+    const growth = applyGrowth(ZERO_BONUS, rating.maxStage, Math.max(0, stageFloor - 1));
+    return Math.min(min, digirating(t, stageFloor, growth));
+  }, Number.MAX_SAFE_INTEGER);
   const perMonBudget = Math.max(rating.digiratingAvg, minStageDr);
   const levelFloor = Math.max(1, rating.meanLevel - LEVEL_FLOOR_OFFSET);
   const mons: WildMon[] = [];
   for (let i = 0; i < size; i++) {
     const rare = Math.random() < RARE_MON_RATE;
     const budget = perMonBudget * (rare ? RARE_BUDGET_BOOST : 1);
-    const template = pickTemplateForBudget(catalog.digimons, preferred, rating.maxStage, budget, levelFloor);
-    if (!template) break;
-    const level = levelForBudget(template, budget, levelFloor);
+    const pick = pickTemplateForBudget(catalog.digimons, preferred, rating.maxStage, budget, levelFloor);
+    if (!pick) break;
+    const level = levelForBudget(pick.template, budget, levelFloor);
     mons.push({
-      catalogId: template.id,
-      name: template.name,
-      element: template.element,
-      stage: template.stage,
+      catalogId: pick.template.id,
+      name: pick.template.name,
+      element: pick.template.element,
+      stage: pick.template.stage,
       level,
-      portrait: template.assets.portrait,
+      portrait: pick.template.assets.portrait,
       rare,
     });
   }
