@@ -18,20 +18,19 @@ RUN corepack enable
 WORKDIR /app
 
 # Install deps first for layer caching. pnpm-workspace.yaml holds the
-# `allowBuilds` list for native modules.
-COPY package.json pnpm-workspace.yaml ./
+# `allowBuilds` list for native modules + the packages list.
+COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
 COPY pnpm-lock.yaml* ./
+COPY backend/package.json ./backend/
 RUN pnpm install --prod=false --prefer-offline || pnpm install
 
-# Copy the rest of the source (paths kept aligned with tsconfig).
-COPY tsconfig.json ./
-COPY src ./src
-COPY public ./public
-COPY data ./data
+# Copy the backend workspace (paths kept aligned with backend/tsconfig.json).
+COPY backend ./backend/
 
+WORKDIR /app/backend
 EXPOSE 3000
 
 # tsx runs TS directly — no separate build step needed. For a smaller
 # production image, `pnpm build && node dist/server.js` would work once the
 # `dist/` artifact is compiled.
-CMD ["./node_modules/.bin/tsx", "src/server.ts"]
+CMD ["pnpm", "exec", "tsx", "src/server.ts"]

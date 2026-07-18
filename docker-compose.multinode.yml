@@ -72,8 +72,8 @@ services:
       ADMIN_BOOTSTRAP: open
     volumes:
       - gamedata:/data
-      - ./public/assets/digimon:/app/public/assets/digimon
-      - ./data/catalog:/app/data/catalog
+      - ./backend/public/assets/digimon:/app/backend/public/assets/digimon
+      - ./backend/data/catalog:/app/backend/data/catalog
 
   game-node2:
     <<: *game

@@ -1,0 +1,192 @@
+.world-page {
+  position: fixed; inset: 0; overflow: hidden; color: var(--ink);
+  transition: background 1s ease; user-select: none;
+}
+.world-page::before {
+  position: absolute; inset: 0; z-index: 0; content: '';
+  background-image: repeating-radial-gradient(circle at top, rgba(0, 0, 0, 0.03) 0, rgba(0, 0, 0, 0.03) 2px, transparent 2px, transparent 4px);
+}
+.world-nav {
+  position: fixed; top: 0; right: 0; left: 0; z-index: 25;
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  backdrop-filter: blur(8px) saturate(1.05); border-bottom: 1px solid var(--hairline);
+}
+.world-scene-wrap { position: absolute; inset: 0; z-index: 5; }
+.world-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.world-player {
+  position: absolute; top: 50%; left: 50%; z-index: 10;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  width: 132px; height: 68px;
+  pointer-events: none; transform: translate(-50%, -50%);
+}
+.world-player.is-facing-right { transform: translate(-50%, -50%) scaleX(-1); }
+.world-player__mon {
+  image-rendering: pixelated; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+  animation: world-bob 0.8s ease-in-out infinite;
+}
+.world-player__mon--leader { z-index: 4; width: 64px; height: 64px; }
+.world-player__mon--mid {
+  z-index: 3; width: 48px; height: 48px;
+  margin-bottom: 6px; margin-right: -14px;
+  opacity: 0.9; animation-delay: 0.12s;
+}
+.world-player__mon--tail {
+  z-index: 2; width: 42px; height: 42px;
+  margin-bottom: 12px; margin-right: -16px;
+  opacity: 0.75; animation-delay: 0.24s;
+}
+.world-vignette {
+  position: absolute; inset: 0; z-index: 8; pointer-events: none;
+  background: radial-gradient(ellipse 70% 55% at 50% 42%, transparent 0%, transparent 40%, rgba(0, 0, 0, 0.55) 78%, rgba(0, 0, 0, 0.95) 100%);
+}
+.world-hud {
+  position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column;
+  justify-content: space-between; padding: 84px 16px 16px; pointer-events: none;
+}
+.world-hud__top {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.world-hud__bottom {
+  align-self: center; display: flex; align-items: center; gap: 14px; margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.78); font-size: 12px; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  pointer-events: auto;
+}
+.world-pill {
+  display: flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--panel);
+  border: 1px solid var(--hairline); border-radius: 999px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 13px; font-weight: 700; pointer-events: auto;
+}
+.world-pill__dot { width: 8px; height: 8px; border-radius: 50%; }
+.world-text-button {
+  color: inherit; background: transparent; border: 0; font: inherit;
+  letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+}
+.world-tile-panel {
+  position: fixed; right: 16px; bottom: 86px; z-index: 21; min-width: 180px; padding: 12px;
+  background: color-mix(in oklab, var(--panel) 88%, transparent); border: 1px solid var(--hairline);
+  backdrop-filter: blur(8px); clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+}
+.world-tile-panel__cap {
+  color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.world-tile-panel__coords { margin-top: 4px; font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.world-tile-panel__meta {
+  display: flex; justify-content: space-between; gap: 8px; color: var(--muted);
+  font-size: 12px; font-weight: 700; text-transform: capitalize;
+}
+.world-object-hint {
+  position: fixed; bottom: 28px; left: 50%; z-index: 23; display: grid; gap: 8px;
+  width: min(320px, calc(100% - 32px)); padding: 14px 16px 16px;
+  color: rgba(255, 255, 255, 0.94); text-align: center;
+  background: color-mix(in oklab, var(--panel) 78%, rgba(8, 12, 18, 0.72));
+  border: 1px solid color-mix(in oklab, var(--signal) 58%, var(--hairline));
+  backdrop-filter: blur(12px) saturate(1.18);
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 10px), calc(50% + 12px) calc(100% - 10px), 50% 100%, calc(50% - 12px) calc(100% - 10px), 0 calc(100% - 10px), 0 16px);
+  transform: translateX(-50%);
+}
+.world-object-hint__eyebrow {
+  color: var(--signal); font-size: 10px; font-weight: 900; letter-spacing: 0.18em; text-transform: uppercase;
+}
+.world-object-hint__title { font-size: 20px; font-weight: 900; letter-spacing: 0.03em; text-transform: capitalize; }
+.world-object-hint__button {
+  justify-self: center; min-width: 148px; padding: 9px 18px; color: #15110a;
+  background: linear-gradient(135deg, #ffe08a, #f0a83b 58%, #cb7c23);
+  border: 0; border-radius: 999px; box-shadow: 0 8px 22px rgba(240, 168, 59, 0.34);
+  cursor: pointer; font-size: 12px; font-weight: 1000; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.world-dpad {
+  position: fixed; bottom: 22px; left: 22px; z-index: 24; display: grid;
+  grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 6px;
+}
+.world-dpad button {
+  color: var(--ink); background: color-mix(in oklab, var(--panel) 90%, transparent);
+  border: 1px solid var(--hairline); border-radius: 12px; backdrop-filter: blur(8px);
+  cursor: pointer; font-size: 20px; font-weight: 900;
+}
+.world-dpad button:first-child { grid-column: 2; }
+.world-dpad button:nth-child(2) { grid-column: 1; grid-row: 2; }
+.world-dpad button:nth-child(3) { grid-column: 2; grid-row: 2; }
+.world-dpad button:nth-child(4) { grid-column: 3; grid-row: 2; }
+.world-toast {
+  position: fixed; bottom: 60px; left: 50%; z-index: 30; display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; color: var(--ink); background: color-mix(in oklab, var(--panel) 90%, transparent);
+  border: 1px solid var(--signal); border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 14px; font-weight: 700; transform: translateX(-50%);
+}
+.world-toast button { color: var(--muted); background: transparent; border: 0; cursor: pointer; font-size: 18px; }
+.world-encounter {
+  position: fixed; inset: 0; z-index: 40; display: grid; place-items: center;
+  padding: 16px; pointer-events: none;
+}
+.world-encounter__card {
+  width: min(520px, 100%); padding: 20px; background: color-mix(in oklab, var(--panel) 94%, transparent);
+  border: 1px solid var(--battle); backdrop-filter: blur(12px) saturate(1.05);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+.world-encounter__eyebrow {
+  color: var(--battle); font-size: 10px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.world-encounter__card h2 { margin: 4px 0 14px; }
+.world-encounter__mons { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; }
+.world-encounter__mon {
+  display: grid; gap: 6px; justify-items: center; padding: 12px; background: var(--bg);
+  border: 1px solid var(--hairline); text-align: center;
+}
+.world-encounter__mon img { width: 74px; height: 74px; object-fit: contain; image-rendering: pixelated; }
+.world-encounter__mon span { color: var(--muted); font-size: 11px; font-weight: 700; }
+@keyframes world-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+@media (max-width: 720px) {
+  .world-hud__top, .world-hud__bottom { flex-wrap: wrap; }
+  .world-tile-panel { right: 12px; bottom: 144px; }
+  .world-object-hint { bottom: 82px; }
+}
+
+.world-pve-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: world-pve-fade 240ms ease-out;
+}
+.world-pve-vignette {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% 45%, transparent 0%, transparent 32%, rgba(0, 0, 0, 0.55) 66%, rgba(0, 0, 0, 0.92) 100%),
+    radial-gradient(circle at 50% 45%, rgba(22, 119, 255, 0.06) 0%, transparent 40%);
+  backdrop-filter: blur(3px) saturate(0.75);
+  -webkit-backdrop-filter: blur(3px) saturate(0.75);
+}
+.world-pve-frame {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 1240px; max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--signal) 45%, var(--hairline));
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px color-mix(in oklab, var(--signal) 25%, transparent);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  padding: 20px 22px 22px;
+}
+.world-pve-frame .arena { padding-top: 4px; }
+.world-pve-frame .page-strip { margin: -20px -22px 12px; border-radius: 0; }
+
+@keyframes world-pve-fade {
+  from { opacity: 0; transform: scale(0.98); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.world-page:has(.world-pve-overlay) .world-scene-wrap,
+.world-page:has(.world-pve-overlay) .world-player,
+.world-page:has(.world-pve-overlay) .world-hud,
+.world-page:has(.world-pve-overlay) .world-tile-panel,
+.world-page:has(.world-pve-overlay) .world-dpad,
+.world-page:has(.world-pve-overlay) .world-object-hint {
+  filter: brightness(0.55) saturate(0.7);
+  pointer-events: none;
+}

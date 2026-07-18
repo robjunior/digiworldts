@@ -1,0 +1,43 @@
+{
+  "name": "@digiworld/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./digimon": {
+      "types": "./dist/digimon.d.ts",
+      "import": "./dist/digimon.js"
+    },
+    "./battle": {
+      "types": "./dist/battle.d.ts",
+      "import": "./dist/battle.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js"
+    },
+    "./ws": {
+      "types": "./dist/ws.d.ts",
+      "import": "./dist/ws.js"
+    },
+    "./quest": {
+      "types": "./dist/quest.d.ts",
+      "import": "./dist/quest.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

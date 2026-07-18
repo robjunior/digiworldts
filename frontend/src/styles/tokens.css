@@ -1,0 +1,138 @@
+/* ============================================================
+   DigiWorld — Design tokens
+   Extracted from base/{combat,farm,examples-roster-grid}.html.
+   Palette is closed: use ONLY these color literals across the app.
+   ============================================================ */
+
+:root {
+  /* Core palette */
+  --bg:        #ffffff;
+  --panel:     #f7f8fa;
+  --ink:       #111111;
+  --muted:     #6b7280;
+  --hairline:  #d9dee7;
+
+  /* Signals (reserved, sparing) */
+  --signal:    #1677ff;
+  --battle:    #e0384a;
+  --gold:      #c8a24a;
+  --goldenrod: #daa520;
+
+  /* Element sub-palette (creature typing) */
+  --el-fire:     #e0384a;
+  --el-water:    #1677ff;
+  --el-nature:   #2f9e57;
+  --el-electric: #c8a24a;
+  --el-neutral:  #6b7280;
+
+  /* Shape */
+  --notch: 10px;
+  --notch-sm: 5px;
+  --notch-xs: 3px;
+  --radius: 0;
+
+  /* Type */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+
+  /* Spacing (8px baseline) */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+
+  /* Motion */
+  --ease: cubic-bezier(.16, 1, .3, 1);
+
+  /* Semantic combat roles */
+  --hp:      var(--battle);
+  --energy:  var(--signal);
+  --atb:     var(--signal);
+  --crit:    var(--gold);
+  --miss:    var(--muted);
+  --resist:  var(--muted);
+  --enemy:   var(--battle);
+  --ally:    var(--signal);
+  --lock:    var(--gold);
+
+  /* Status ailments */
+  --status-burn:   var(--el-fire);
+  --status-poison: var(--el-nature);
+  --status-weaken: var(--muted);
+  --status-freeze: var(--el-water);
+
+  /* Economy roles */
+  --res-meat:   var(--el-fire);
+  --res-bits:   var(--signal);
+  --res-data:   var(--el-nature);
+  --credits:    var(--gold);
+  --danger:     var(--battle);
+  --streak:     var(--gold);
+
+  /* Loot rarity */
+  --rarity-common:    var(--muted);
+  --rarity-uncommon:  var(--el-nature);
+  --rarity-rare:      var(--signal);
+  --rarity-epic:      var(--gold);
+  --rarity-legendary: var(--battle);
+
+  /* Social */
+  --online:  var(--el-nature);
+  --offline: var(--muted);
+  --premium: var(--gold);
+  --claim-done:  var(--el-nature);
+  --claim-next:  var(--signal);
+  --claim-todo:  var(--hairline);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+a:hover { color: var(--signal); }
+
+/* Notch utilities */
+.notch    { clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+              calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)); }
+.notch-sm { clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+              calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm)); }
+.notch-xs { clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+              calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs)); }
+
+/* Type helpers */
+.eyebrow { font-size:11px; font-weight:600; letter-spacing:.14em;
+           text-transform:uppercase; color:var(--signal); }
+.caps    { font-size:9px; font-weight:600; letter-spacing:.12em;
+           text-transform:uppercase; color:var(--muted); }
+.num     { font-variant-numeric: tabular-nums; }
+.tabular { font-variant-numeric: tabular-nums; }
+.mono    { font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; }
+
+/* App shell */
+.app-shell { min-height:100vh; display:flex; flex-direction:column; }
+.app-nav   { display:flex; align-items:center; gap:16px; padding:14px clamp(16px,4vw,32px);
+             border-bottom:1px solid var(--hairline); background:var(--bg); position:sticky; top:0; z-index:10; }
+.app-nav .brand { font-size:15px; font-weight:600; letter-spacing:-.01em; margin-right:8px; }
+.app-nav .brand b { color:var(--signal); }
+.app-nav .nav-link { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:6px 10px;
+                     clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px); }
+.app-nav .nav-link.is-active { color:var(--ink); background:var(--panel); }
+.app-nav .nav-link:hover { color:var(--ink); }
+.app-nav .nav-right { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
+.app-nav .who b { color:var(--ink); }
+.app-main { padding: clamp(16px,4vw,32px) clamp(16px,5vw,40px) 40px; flex:1; max-width:1240px; width:100%; margin:0 auto; }
+.app-toast { position:fixed; bottom:16px; right:16px; padding:10px 16px; background:var(--ink); color:var(--bg); font-size:13px;
+             clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); z-index:1000; opacity:0; transition:opacity .18s var(--ease); }
+.app-toast.is-open { opacity:1; }
+.app-toast.is-err  { background:var(--battle); }
+
+.hidden { display:none !important; }
+.stack  { display:flex; flex-direction:column; gap:var(--sp-3); }
+.row    { display:flex; align-items:center; gap:var(--sp-3); }
+.spread { justify-content:space-between; }
+.grow   { flex:1; }

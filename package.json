@@ -2,42 +2,19 @@
   "name": "digiworld",
   "version": "0.1.0",
   "private": true,
-  "description": "Digimon-style 3v3 MMO — Fastify + ws + better-sqlite3 + TypeScript",
+  "description": "Digimon-style 3v3 MMO — monorepo root (backend/frontend/shared)",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node --enable-source-maps dist/server.js",
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "scrape": "tsx src/scraper/cli.ts",
-    "db:init": "tsx src/db/init.ts",
-    "test:pg-portability": "tsx test/postgres-portability.mts",
-    "rebuild:native": "pnpm rebuild better-sqlite3 argon2"
-  },
-  "dependencies": {
-    "@fastify/cookie": "^11.1.1",
-    "@fastify/static": "^10.1.0",
-    "@fastify/websocket": "^11.3.0",
-    "argon2": "^0.44.0",
-    "better-sqlite3": "^12.11.1",
-    "dotenv": "^17.4.2",
-    "fast-xml-parser": "^5.10.0",
-    "fastify": "^5.10.0",
-    "ioredis": "^5.11.1",
-    "pg": "^8.22.0",
-    "ws": "^8.21.1",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@electric-sql/pglite": "0.5.4",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^24.10.1",
-    "@types/pg": "^8.20.0",
-    "@types/ws": "^8.18.1",
-    "tsx": "^4.23.1",
-    "typescript": "^5.7.2"
+    "shared:build": "pnpm --filter @digiworld/shared build",
+    "dev": "pnpm shared:build && pnpm --filter @digiworld/backend dev",
+    "dev:backend": "pnpm --filter @digiworld/backend dev",
+    "dev:frontend": "pnpm --filter @digiworld/frontend dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm shared:build && pnpm -r typecheck",
+    "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "pnpm": ">=10"
   }
 }

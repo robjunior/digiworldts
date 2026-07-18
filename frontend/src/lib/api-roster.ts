@@ -1,0 +1,142 @@
+import type { Skill, Stage } from '@digiworld/shared/digimon';
+
+import { apiFetch } from './api';
+
+export type OkResponse = {
+  readonly ok: true;
+};
+
+export type SeedStarterResponse = {
+  readonly seeded: number;
+  readonly reason?: string;
+};
+
+export type EvolutionReason = 'no-paths' | 'level-too-low' | 'no-chip' | 'stage-cap' | 'no-mood';
+
+export type EvolutionOption = {
+  readonly catalogId: string;
+  readonly name: string;
+  readonly stage: Stage;
+  readonly portrait: string;
+};
+
+export type EvolutionGate = {
+  readonly eligible: boolean;
+  readonly reason?: EvolutionReason;
+  readonly currentStage: Stage;
+  readonly currentLevel: number;
+  readonly currentMood: number;
+  readonly nextStage: Stage | null;
+  readonly requiredLevel: number;
+  readonly requiredMood: number;
+  readonly requiredItemId: string | null;
+  readonly hasRequiredItem: boolean;
+  readonly options: readonly EvolutionOption[];
+};
+
+export type EvolveResponse = {
+  readonly ok: true;
+  readonly monId: string;
+  readonly fromCatalogId: string;
+  readonly toCatalogId: string;
+  readonly nickname: string;
+  readonly level: number;
+  readonly stage: Stage;
+};
+
+export type TrainingActiveView = {
+  readonly sessionId: string;
+  readonly monId: string;
+  readonly monNickname: string;
+  readonly monLevel: number;
+  readonly monStage: Stage;
+  readonly statKinds: readonly string[];
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly finishesAt: number;
+  readonly progressPct: number;
+  readonly readyToCollect: boolean;
+  readonly previewGainPerStat: number;
+  readonly previewMoodDelta: number;
+};
+
+export type TrainingSlotView = {
+  readonly buildingId: string;
+  readonly kind: string;
+  readonly buildingType: 'training' | 'training_premium';
+  readonly supportedStatCount: number;
+  readonly active: TrainingActiveView | null;
+};
+
+export type TrainingResponse = {
+  readonly stations: readonly TrainingSlotView[];
+};
+
+export function seedStarterRoster(): Promise<SeedStarterResponse> {
+  return apiFetch<SeedStarterResponse>('/api/roster/seed', { method: 'POST' });
+}
+
+export function setPartySlot(monId: string, slot: number): Promise<OkResponse> {
+  return apiFetch<OkResponse>('/api/roster/party', { method: 'POST', body: { monId, slot } });
+}
+
+export function removeFromParty(slot: number): Promise<OkResponse> {
+  return apiFetch<OkResponse>('/api/roster/party/remove', { method: 'POST', body: { slot } });
+}
+
+export function renameRosterMon(monId: string, nickname: string): Promise<OkResponse> {
+  return apiFetch<OkResponse>(`/api/roster/rename/${encodeURIComponent(monId)}`, { method: 'POST', body: { nickname } });
+}
+
+export function getEvolutionGate(monId: string): Promise<EvolutionGate> {
+  return apiFetch<EvolutionGate>(`/api/roster/${encodeURIComponent(monId)}/evolutions`);
+}
+
+export function evolveRosterMon(monId: string, targetCatalogId: string): Promise<EvolveResponse> {
+  return apiFetch<EvolveResponse>(`/api/roster/${encodeURIComponent(monId)}/evolve`, { method: 'POST', body: { targetCatalogId } });
+}
+
+export function reviveRosterMon(monId: string): Promise<OkResponse> {
+  return apiFetch<OkResponse>(`/api/roster/revive/${encodeURIComponent(monId)}`, { method: 'POST' });
+}
+
+export function getTrainingStatus(): Promise<TrainingResponse> {
+  return apiFetch<TrainingResponse>('/api/training');
+}
+
+export type LearnedSkillEntry = {
+  readonly key: string;
+  readonly skill: Skill;
+  readonly sourceTemplateId: string;
+  readonly sourceTemplateName: string;
+  readonly sourceStage: string;
+  readonly source: 'current' | 'history';
+};
+
+export type MonSkillsResponse = {
+  readonly monId: string;
+  readonly currentCatalogId: string;
+  readonly currentStage: Stage;
+  readonly currentName: string;
+  readonly history: readonly string[];
+  readonly learnedSkills: readonly LearnedSkillEntry[];
+  readonly equipped: readonly string[];
+  readonly groupings: {
+    readonly fromCurrent: readonly string[];
+    readonly fromHistory: readonly string[];
+  };
+  readonly maxEquipped: number;
+};
+
+export type SetMonSkillsResponse = {
+  readonly ok: true;
+  readonly equipped: readonly string[];
+};
+
+export function getMonSkills(monId: string): Promise<MonSkillsResponse> {
+  return apiFetch<MonSkillsResponse>(`/api/roster/${encodeURIComponent(monId)}/skills`);
+}
+
+export function setMonSkills(monId: string, skillKeys: readonly string[]): Promise<SetMonSkillsResponse> {
+  return apiFetch<SetMonSkillsResponse>(`/api/roster/${encodeURIComponent(monId)}/skills`, { method: 'PUT', body: { skillIds: skillKeys } });
+}

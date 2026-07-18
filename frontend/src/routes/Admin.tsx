@@ -1,0 +1,77 @@
+import { useState } from 'react';
+
+import { AppNav } from '../components/AppNav';
+
+import { AdminGuard } from '../components/admin/AdminGuard';
+import { CatalogTable } from '../components/admin/CatalogTable';
+import { OverviewTab } from '../components/admin/OverviewTab';
+import { ScrapedTable } from '../components/admin/ScrapedTable';
+import { ShopAdmin } from '../components/admin/ShopAdmin';
+import { UserTable } from '../components/admin/UserTable';
+import { PageStrip } from '../components/common/PageStrip';
+import { useAuth } from '../hooks/useAuth';
+import '../styles/extensions-admin.css';
+
+const ADMIN_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'users', label: 'Users' },
+  { id: 'scraped', label: 'Scraped' },
+  { id: 'catalog', label: 'Catalog' },
+  { id: 'shop', label: 'Shop Admin' },
+] as const;
+
+type AdminTab = (typeof ADMIN_TABS)[number]['id'];
+
+export function Admin(): JSX.Element {
+  const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  return (
+    <AdminGuard>
+      <div className="app-shell admin-shell">
+        <AppNav />
+        <main className="app-main admin-main">
+          <PageStrip
+            name="Admin"
+            tone="action"
+            metrics={[
+              { label: <>catalog, users, scraped data &amp; shop ops</>, className: 'muted' },
+              { label: <><b>{activeTab}</b> tab</> },
+            ]}
+          />
+          <div className="admin-layout">
+            <aside className="admin-sidebar-left" aria-label="Admin sections">
+              {ADMIN_TABS.map((tab) => (
+                <button key={tab.id} className={`admin-nav-item${activeTab === tab.id ? ' is-active' : ''}`} type="button" onClick={() => setActiveTab(tab.id)}>{tab.label}</button>
+              ))}
+            </aside>
+            <section className="admin-content" aria-live="polite">
+              <AdminTabPanel tab={activeTab} />
+            </section>
+          </div>
+        </main>
+      </div>
+    </AdminGuard>
+  );
+}
+
+function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
+  switch (tab) {
+    case 'overview':
+      return <OverviewTab />;
+    case 'users':
+      return <UserTable />;
+    case 'scraped':
+      return <ScrapedTable />;
+    case 'catalog':
+      return <CatalogTable />;
+    case 'shop':
+      return <ShopAdmin />;
+    default:
+      return assertNever(tab);
+  }
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled admin tab: ${value}`);
+}

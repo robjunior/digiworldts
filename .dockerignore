@@ -1,19 +1,24 @@
 # Keep the Docker build context lean — the image only needs source + prod deps.
 node_modules
+backend/node_modules
+frontend/node_modules
+shared/node_modules
 dist
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
-data/.session-secret
-data/cache
-!data/catalog
+backend/dist
+backend/data/*.db
+backend/data/*.db-journal
+backend/data/*.db-wal
+backend/data/*.db-shm
+backend/data/.session-secret
+backend/data/cache
+!backend/data/catalog
 
 .git
 .github
 .gitignore
 .codegraph
 base
+_archive
 
 *.log
 .env

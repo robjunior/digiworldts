@@ -1,0 +1,148 @@
+export const STAGES = ['Baby', 'In-Training', 'Rookie', 'Champion', 'Ultimate', 'Mega'] as const;
+export type Stage = (typeof STAGES)[number];
+
+export const ATTRIBUTES = ['Data', 'Vaccine', 'Virus', 'Free', 'Unknown'] as const;
+export type Attribute = (typeof ATTRIBUTES)[number];
+
+export const ELEMENTS = ['fire', 'water', 'nature', 'electric', 'neutral'] as const;
+export type Element = (typeof ELEMENTS)[number];
+
+export const AILMENTS = ['burn', 'poison', 'weaken', 'freeze', 'stun', 'sleep'] as const;
+export type Ailment = (typeof AILMENTS)[number];
+
+export type BaseStats = {
+  hp: number;
+  en: number;
+  atk: number;
+  def: number;
+  int: number;
+  spd: number;
+};
+
+export type SkillEffect = {
+  kind: Ailment;
+  chance: number;
+  turns: number;
+};
+
+export type Skill = {
+  id: string;
+  name: string;
+  element: Element;
+  energyCost: number;
+  power: number;
+  effect?: SkillEffect;
+  description?: string;
+};
+
+export type Assets = {
+  portrait: string;
+  dot: string;
+};
+
+export type TemplateDigimon = {
+  id: string;
+  name: string;
+  stage: Stage;
+  attribute: Attribute;
+  element: Element;
+  baseStats: BaseStats;
+  skillPool: Skill[];
+  assets: Assets;
+  sourceUrl?: string;
+  wikimonSlug?: string;
+  evolvesInto?: string[];
+};
+
+export type RosterDigimon = {
+  id: string;
+  userId: string;
+  catalogId: string;
+  nickname: string;
+  level: number;
+  xp: number;
+  statBonus: BaseStats;
+  status: 'resting' | 'training' | 'party';
+  slotIndex: number | null;
+};
+
+export type Catalog = {
+  version: string;
+  updatedAt: number;
+  digimons: TemplateDigimon[];
+};
+
+export const MAX_ENERGY = 41;
+export const ATB_THRESHOLD = 100;
+export const PARTY_SIZE = 3;
+export const SKILLS_PER_DIGIMON = 4;
+
+export const EVOLUTION_LEVELS: Record<Stage, number> = {
+  Baby: 0,
+  'In-Training': 0,
+  Rookie: 0,
+  Champion: 20,
+  Ultimate: 40,
+  Mega: 60,
+};
+
+export const CHIP_ITEM_IDS: Partial<Record<Stage, string>> = {
+  Champion: 'itm-digi-chip-champion',
+  Ultimate: 'itm-digi-chip-ultimate',
+  Mega: 'itm-digi-chip-mega',
+};
+
+export function nextStageAfter(stage: Stage): Stage | null {
+  const idx = STAGES.indexOf(stage);
+  if (idx === -1 || idx === STAGES.length - 1) return null;
+  return STAGES[idx + 1] ?? null;
+}
+
+export const TRAINING_STATS = ['hp', 'en', 'atk', 'def', 'int', 'spd'] as const;
+export type TrainingStat = (typeof TRAINING_STATS)[number];
+
+export const STAGE_REWARD_MULT: Record<Stage, number> = {
+  Baby: 0.5,
+  'In-Training': 0.7,
+  Rookie: 1.0,
+  Champion: 1.5,
+  Ultimate: 2.0,
+  Mega: 3.0,
+};
+
+export const GROWTH_RATES = ['fast', 'mediumFast', 'mediumSlow', 'slow'] as const;
+export type GrowthRate = (typeof GROWTH_RATES)[number];
+
+export const STAGE_GROWTH_RATE: Record<Stage, GrowthRate> = {
+  Baby: 'fast',
+  'In-Training': 'fast',
+  Rookie: 'mediumFast',
+  Champion: 'mediumSlow',
+  Ultimate: 'slow',
+  Mega: 'slow',
+};
+
+export const STAGE_BASE_EXP: Record<Stage, number> = {
+  Baby: 30,
+  'In-Training': 45,
+  Rookie: 65,
+  Champion: 120,
+  Ultimate: 175,
+  Mega: 220,
+};
+
+export const MOOD_MIN_FOR_STAGE: Partial<Record<Stage, number>> = {
+  Champion: 40,
+  Ultimate: 60,
+  Mega: 80,
+};
+
+export type MoodState = 'miserable' | 'sad' | 'neutral' | 'content' | 'happy';
+
+export function moodState(mood: number): MoodState {
+  if (mood >= 80) return 'happy';
+  if (mood >= 60) return 'content';
+  if (mood >= 40) return 'neutral';
+  if (mood >= 20) return 'sad';
+  return 'miserable';
+}

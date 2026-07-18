@@ -1,0 +1,75 @@
+.tabs { display:flex; gap:4px; margin: 16px 0 20px; border-bottom:1px solid var(--hairline); padding: 0 4px; }
+.tab { background:transparent; border:none; font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding: 10px 16px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s, border-color .15s; }
+.tab:hover { color: var(--ink); }
+.tab.is-active { color: var(--ink); border-bottom-color: var(--signal); }
+.tab-panel.hidden { display:none; }
+
+.filter-bar { display:grid; grid-template-columns: 2fr 1fr 1fr 90px 90px 110px 110px 1fr; gap:8px; margin-bottom:20px; }
+.filter-bar input, .filter-bar select { background:var(--bg); border:1px solid var(--hairline); color:var(--ink); font-family:inherit; font-size:12px; padding:8px 10px; transition:border-color .15s; }
+.filter-bar input:focus, .filter-bar select:focus { outline:none; border-color:var(--signal); }
+@media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr 1fr 1fr; } }
+@media (max-width: 640px) { .filter-bar { grid-template-columns: 1fr 1fr; } }
+
+.listing-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:14px; }
+.listing-card { background: var(--bg); border:1px solid var(--hairline); display:flex; flex-direction:column; position:relative; transition: border-color .2s, transform .2s; clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); }
+.listing-card[data-element="fire"] { --el: var(--el-fire); }
+.listing-card[data-element="water"] { --el: var(--el-water); }
+.listing-card[data-element="nature"] { --el: var(--el-nature); }
+.listing-card[data-element="electric"] { --el: var(--el-electric); }
+.listing-card[data-element="neutral"] { --el: var(--el-neutral); }
+.listing-card:hover { border-color: color-mix(in oklab, var(--el, var(--signal)) 60%, var(--hairline)); transform: translateY(-2px); }
+.listing-card.is-mine { border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline)); }
+.listing-card.is-mine::before { content: "MINE"; position: absolute; top: 6px; right: 6px; z-index: 3; font-size: 9px; font-weight: 700; letter-spacing: .1em; padding: 2px 6px; background: var(--gold); color: #111; }
+.listing-card .rail { height: 3px; background: var(--el, var(--signal)); }
+.listing-card .portrait { position:relative; aspect-ratio: 4/3; display:grid; place-items:center; background: color-mix(in oklab, var(--el, var(--signal)) 6%, var(--panel)); overflow:hidden; }
+.listing-card .portrait img { width: 70%; height: 70%; object-fit: contain; }
+.listing-card .body { padding: 12px; display:flex; flex-direction:column; gap:6px; }
+.listing-card .name-row { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
+.listing-card .name { font-weight:600; font-size:14px; letter-spacing:-.01em; }
+.listing-card .lvl { font-size:10px; padding:2px 6px; background:var(--panel); border:1px solid var(--hairline); font-weight:600; letter-spacing:.04em; }
+.listing-card .sub { font-size:10px; color: var(--muted); letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; }
+.listing-card .sub .el-tag { color: var(--el, var(--signal)); font-weight:600; }
+.listing-card .seller { font-size:10px; color: var(--muted); }
+.listing-card .seller b { color: var(--ink); font-weight:600; }
+.listing-card .price-row { display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid var(--hairline); margin-top:2px; }
+.listing-card .price { font-size:15px; font-weight:700; color: var(--gold); font-variant-numeric: tabular-nums; }
+.listing-card .price::before { content: "◆ "; font-size:11px; }
+.listing-card .card-btn { background: var(--signal); border:1px solid var(--signal); color:#fff; font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:6px 12px; cursor:pointer; transition:filter .15s; clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); }
+.listing-card .card-btn:hover:not(:disabled) { filter: brightness(1.12); }
+.listing-card .card-btn:disabled { opacity: .5; cursor: not-allowed; }
+.listing-card .card-btn.danger { background: var(--battle); border-color: var(--battle); }
+.listing-card .status-badge { position:absolute; top:8px; left:8px; z-index:3; font-size:9px; font-weight:700; letter-spacing:.1em; padding:2px 6px; background: var(--muted); color:#fff; }
+.listing-card .status-badge.sold { background: var(--el-nature); }
+.listing-card .status-badge.canceled { background: var(--muted); }
+
+.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin: 20px 0 40px; flex-wrap:wrap; }
+.pagination .info { font-size:12px; color: var(--muted); margin-right:16px; }
+.pagination button { background:var(--bg); border:1px solid var(--hairline); color:var(--muted); padding:6px 12px; cursor:pointer; font-size:12px; font-weight:600; font-family:inherit; transition: all .2s; clip-path: polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); }
+.pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.pagination button:disabled { opacity: .4; cursor: not-allowed; }
+
+.empty { padding: 48px 24px; text-align:center; color:var(--muted); font-size:13px; background: var(--panel); border:1px solid var(--hairline); }
+.market-grid-empty { grid-column:1/-1; }
+.market-sell-copy { margin: 0 0 16px; font-size:12px; color:var(--muted); }
+.market-card-note { font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }
+.market-status { margin: 0 4px 16px; padding: 10px 12px; background: color-mix(in oklab, var(--signal) 8%, var(--bg)); border: 1px solid color-mix(in oklab, var(--signal) 32%, var(--hairline)); color: var(--ink); font-size: 12px; }
+.market-status.is-error { background: color-mix(in oklab, var(--battle) 8%, var(--bg)); border-color: color-mix(in oklab, var(--battle) 32%, var(--hairline)); color: var(--battle); }
+
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; place-items:center; z-index:100; padding:24px; }
+.modal-overlay.show { display:grid; }
+.modal-card { background:var(--bg); border:1px solid var(--hairline); width:100%; max-width:420px; padding:20px 24px 24px; clip-path: polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
+.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
+.modal-header h3 { margin:0; font-size:16px; font-weight:600; }
+.modal-close { background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
+.modal-close:hover { color: var(--ink); }
+#sell-summary { display:grid; grid-template-columns: 80px 1fr; gap:12px; align-items:center; margin-bottom:16px; padding:12px; background:var(--panel); }
+#sell-summary img { width:80px; height:80px; object-fit:contain; }
+#sell-summary .name { font-size:15px; font-weight:600; margin-bottom:4px; }
+#sell-summary .meta { font-size:11px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+#sell-price { width:100%; background:var(--bg); border:1px solid var(--hairline); padding:10px 12px; font-family:inherit; font-size:16px; font-weight:600; font-variant-numeric: tabular-nums; }
+#sell-price:focus { outline:none; border-color: var(--signal); }
+.price-label { display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin: 12px 0 4px; }
+.price-hint { font-size:10px; color:var(--muted); margin: 4px 0 16px; }
+.market-dialog-copy { margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.5; }
+.market-dialog-actions { display:flex; justify-content:flex-end; gap:10px; }
