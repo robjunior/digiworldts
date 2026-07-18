@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import type { PendingHatchEntry, SpeciesDataEntry } from '../../lib/api-nursery';
 
 type DigitamaPoolProps = {
@@ -14,31 +12,16 @@ type DigitamaPoolProps = {
 };
 
 export function DigitamaPool({ entries, pending, loading, totalWeight, busyCatalogId, mixBusy, onHatch, onMix }: DigitamaPoolProps): JSX.Element {
-  const [expanded, setExpanded] = useState(true);
   const pendingByCatalog = new Map(pending.map((p) => [p.targetCatalogId, p] as const));
-  const readyCount = entries.filter((e) => e.percent >= 100).length;
   const totalKills = entries.reduce((s, e) => s + e.kills, 0);
   const mixEligible = totalWeight > 0;
 
   return (
     <section className="digitama-pool">
-      <header className="digitama-pool-header" onClick={() => setExpanded((v) => !v)}>
-        <div>
-          <div className="eyebrow">Digitama Pool</div>
-          <h2>Species Data</h2>
-        </div>
-        <div className="digitama-pool-summary">
-          <span className="digitama-count" title="Species collected">{entries.length}</span>
-          {readyCount > 0 ? <span className="digitama-ready" title="Species ready to hatch">{readyCount} ready</span> : null}
-          <button type="button" className="digitama-collapse" aria-label={expanded ? 'Collapse' : 'Expand'}>{expanded ? '▾' : '▸'}</button>
-        </div>
-      </header>
-      {expanded ? (
-        <div className="digitama-body">
-          <DigitamaMixRow eligible={mixEligible} totalWeight={totalWeight} totalKills={totalKills} mixBusy={mixBusy} onMix={onMix} />
-          <DigitamaList entries={entries} loading={loading} pendingByCatalog={pendingByCatalog} busyCatalogId={busyCatalogId} onHatch={onHatch} />
-        </div>
-      ) : null}
+      <div className="digitama-body">
+        <DigitamaMixRow eligible={mixEligible} totalWeight={totalWeight} totalKills={totalKills} mixBusy={mixBusy} onMix={onMix} />
+        <DigitamaList entries={entries} loading={loading} pendingByCatalog={pendingByCatalog} busyCatalogId={busyCatalogId} onHatch={onHatch} />
+      </div>
     </section>
   );
 }

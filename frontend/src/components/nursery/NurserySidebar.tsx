@@ -1,7 +1,6 @@
-import type { NurseryMon, NurseryView, PendingHatchEntry, SpeciesDataEntry } from '../../lib/api-nursery';
-import { DigitamaPool } from './DigitamaPool';
+import type { NurseryMon, NurseryView } from '../../lib/api-nursery';
 
-type CareSectionProps = {
+type SidebarProps = {
   readonly view: NurseryView | null;
   readonly loading: boolean;
   readonly busyMonId: string | null;
@@ -9,22 +8,11 @@ type CareSectionProps = {
   readonly onFeed: (mon: NurseryMon) => void;
 };
 
-type SidebarProps = CareSectionProps & {
-  readonly dataEntries: readonly SpeciesDataEntry[];
-  readonly pending: readonly PendingHatchEntry[];
-  readonly dataLoading: boolean;
-  readonly totalWeight: number;
-  readonly busyCatalogId: string | null;
-  readonly mixBusy: boolean;
-  readonly onHatch: (entry: SpeciesDataEntry) => void;
-  readonly onMix: () => void;
-};
-
-export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed, dataEntries, pending, dataLoading, totalWeight, busyCatalogId, mixBusy, onHatch, onMix }: SidebarProps): JSX.Element {
+export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed }: SidebarProps): JSX.Element {
   const meat = view?.meat ?? 0;
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar sidebar-right">
       <div className="sidebar-header">
         <div>
           <div className="eyebrow">Nursery</div>
@@ -35,21 +23,11 @@ export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed, dataEn
       <div className="mon-list" id="mon-list">
         <SidebarContent view={view} loading={loading} busyMonId={busyMonId} onPet={onPet} onFeed={onFeed} />
       </div>
-      <DigitamaPool
-        entries={dataEntries}
-        pending={pending}
-        loading={dataLoading}
-        totalWeight={totalWeight}
-        busyCatalogId={busyCatalogId}
-        mixBusy={mixBusy}
-        onHatch={onHatch}
-        onMix={onMix}
-      />
     </aside>
   );
 }
 
-function SidebarContent(props: CareSectionProps): JSX.Element {
+function SidebarContent(props: SidebarProps): JSX.Element {
   if (props.loading) {
     return <div className="empty-nursery">Loading…</div>;
   }

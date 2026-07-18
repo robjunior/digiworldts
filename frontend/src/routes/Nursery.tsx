@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
+import { NurseryDigitamaSidebar } from '../components/nursery/NurseryDigitamaSidebar';
 import { NurserySidebar } from '../components/nursery/NurserySidebar';
 import { NurseryYard, type NurseryFeedback } from '../components/nursery/NurseryYard';
 import { ApiError } from '../lib/api';
@@ -99,6 +100,16 @@ export function Nursery(): JSX.Element {
 
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
+      <NurseryDigitamaSidebar
+        entries={dataEntries}
+        pending={pending}
+        loading={dataQuery.isPending}
+        totalWeight={totalWeight}
+        busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
+        mixBusy={mixMutation.isPending}
+        onHatch={(entry) => hatchMutation.mutate(entry)}
+        onMix={() => mixMutation.mutate()}
+      />
       <NurseryYard
         mons={view?.mons ?? []}
         feedback={feedback}
@@ -112,14 +123,6 @@ export function Nursery(): JSX.Element {
         busyMonId={careMutation.variables?.mon.id ?? null}
         onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
         onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
-        dataEntries={dataEntries}
-        pending={pending}
-        dataLoading={dataQuery.isPending}
-        totalWeight={totalWeight}
-        busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
-        mixBusy={mixMutation.isPending}
-        onHatch={(entry) => hatchMutation.mutate(entry)}
-        onMix={() => mixMutation.mutate()}
       />
       <NurseryStatus message={error ?? notice} error={error !== null} />
     </NurseryChrome>
