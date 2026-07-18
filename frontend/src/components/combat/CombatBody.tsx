@@ -11,6 +11,7 @@ import { PageStrip } from './PageStrip';
 import { TurnLogV2 } from './TurnLogV2';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { actInWorldBattle, ApiError, getBattleView, startWildEncounter } from '../../lib/api';
+import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 
 const FLOATER_TTL_MS = 800;
@@ -84,6 +85,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hitUnitId, setHitUnitId] = useState<UnitId | null>(null);
   const [, setLoadError] = useState<string | null>(null);
+  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop } | null>(null);
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
 
@@ -125,6 +127,8 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
         }
         if (response.ended) {
           handleServerMessage({ type: 'end', matchId: response.battle.id, view: response.battle, outcome: response.battle.outcome ?? 'abandoned' });
+          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop } = { xpAwards: response.xpAwards ?? [] };
+          setPveResults(response.itemDrop ? { ...rewards, itemDrop: response.itemDrop } : rewards);
         } else {
           handleServerMessage({ type: 'battle', matchId: response.battle.id, view: response.battle });
         }
@@ -143,6 +147,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   }, [activeBattle, handleServerMessage, send]);
 
   const startEncounter = useCallback((): void => {
+    setPveResults(null);
     void startWildEncounter().then((battle) => {
       setLoadError(null);
       handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
@@ -164,7 +169,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   return (
     <>
       {showPageStrip ? <PageStrip battle={activeBattle} readyState={readyState} /> : null}
-      {activeBattle.status === 'ended' ? <EndCard battle={activeBattle} onNewEncounter={startEncounter} /> : null}
+      {activeBattle.status === 'ended' ? <EndCard battle={activeBattle} pveResults={pveResults} onNewEncounter={startEncounter} /> : null}
       <section className={activeBattle.status === 'ended' ? 'arena hidden' : 'arena'} ref={arenaRef} data-od-id="arena">
         <FloaterLayer floaters={floaters} />
         <TurnQueue turns={activeBattle.upcomingTurns} />

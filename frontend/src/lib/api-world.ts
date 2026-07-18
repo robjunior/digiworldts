@@ -105,8 +105,14 @@ export type XpAward = {
   readonly monId: string;
   readonly nickname: string;
   readonly delta: number;
+  readonly previousLevel: number;
   readonly newLevel: number;
   readonly gainedLevels: number;
+  readonly xpBefore: number;
+  readonly xpAfter: number;
+  readonly xpFloor: number;
+  readonly xpNext: number;
+  readonly defeated: boolean;
 };
 
 export type WorldBattleActResponse = {

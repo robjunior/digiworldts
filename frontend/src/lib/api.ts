@@ -163,6 +163,9 @@ type WorldMoveResponse = {
 type WorldBattleActResponse = {
   readonly battle: BattleView;
   readonly ended: boolean;
+  readonly capturedMonId?: string;
+  readonly xpAwards?: readonly import('./api-world').XpAward[];
+  readonly itemDrop?: import('./api-world').ItemDrop;
 };
 
 export async function getBattleView(): Promise<BattleView> {

@@ -163,8 +163,14 @@ export type XpAward = {
   monId: string;
   nickname: string;
   delta: number;
+  previousLevel: number;
   newLevel: number;
   gainedLevels: number;
+  xpBefore: number;
+  xpAfter: number;
+  xpFloor: number;
+  xpNext: number;
+  defeated: boolean;
 };
 
 export type ActResult =
@@ -213,8 +219,11 @@ async function awardPveBattleRewards(
     if (row.slot_index === null || !participantSlots.has(row.slot_index)) continue;
     const template = findTemplate(catalog, row.catalog_id);
     if (!template) continue;
-    if (xpPerParticipant <= 0) continue;
 
+    const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
+    const isDefeated = unit ? unit.hp <= 0 : false;
+    const previousLevel = row.level;
+    const previousXp = row.xp;
     const currentBonus: BaseStats = {
       hp: row.hp_bonus,
       en: row.en_bonus,
@@ -223,29 +232,60 @@ async function awardPveBattleRewards(
       int: row.int_bonus,
       spd: row.spd_bonus,
     };
-    const result = awardXp(row.level, row.xp, currentBonus, template.stage, xpPerParticipant);
-    const floor = xpToReach(row.level, template.stage);
-    const clampedXp = Math.max(floor, result.xp);
 
-    await run(SQL_UPDATE_MON_XP, [
-      result.level,
-      clampedXp,
-      result.bonus.hp,
-      result.bonus.en,
-      result.bonus.atk,
-      result.bonus.def,
-      result.bonus.int,
-      result.bonus.spd,
-      now,
-      row.id,
-    ]);
+    let delta = 0;
+    let nextLevel = previousLevel;
+    let nextXp = previousXp;
+    let nextBonus = currentBonus;
+    let gainedLevels = 0;
+    let didChange = false;
+
+    if (isDefeated) {
+      const penalty = Math.round(previousXp * 0.1);
+      if (penalty > 0) {
+        const currentLevelFloor = xpToReach(previousLevel, template.stage);
+        nextXp = Math.max(currentLevelFloor, previousXp - penalty);
+        delta = nextXp - previousXp;
+        didChange = delta !== 0;
+      }
+    } else if (matchOutcome === 'win' && xpPerParticipant > 0) {
+      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant);
+      const grownFloor = xpToReach(result.level, template.stage);
+      nextXp = Math.max(grownFloor, result.xp);
+      nextLevel = result.level;
+      nextBonus = result.bonus;
+      gainedLevels = result.gainedLevels;
+      delta = xpPerParticipant;
+      didChange = true;
+    }
+
+    if (didChange) {
+      await run(SQL_UPDATE_MON_XP, [
+        nextLevel,
+        nextXp,
+        nextBonus.hp,
+        nextBonus.en,
+        nextBonus.atk,
+        nextBonus.def,
+        nextBonus.int,
+        nextBonus.spd,
+        now,
+        row.id,
+      ]);
+    }
 
     xpAwards.push({
       monId: row.id,
       nickname: row.nickname,
-      delta: xpPerParticipant,
-      newLevel: result.level,
-      gainedLevels: result.gainedLevels,
+      delta,
+      previousLevel,
+      newLevel: nextLevel,
+      gainedLevels,
+      xpBefore: previousXp,
+      xpAfter: nextXp,
+      xpFloor: xpToReach(nextLevel, template.stage),
+      xpNext: xpToReach(nextLevel + 1, template.stage),
+      defeated: isDefeated,
     });
   }
 

@@ -266,3 +266,72 @@
   font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
 }
 .end-card .cta-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+.pve-results {
+  display: flex; flex-direction: column; gap: 14px;
+  width: 100%; max-width: 560px;
+  padding: 12px 14px;
+  background: color-mix(in oklab, var(--hairline) 30%, var(--bg));
+  border: 1px solid var(--hairline);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.pve-block { display: flex; flex-direction: column; gap: 8px; }
+.pve-block-k { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+
+.pve-loot-item {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--ink);
+}
+.pve-loot-dot { width: 8px; height: 8px; background: var(--el-nature); border-radius: 50%; box-shadow: 0 0 0 3px color-mix(in oklab, var(--el-nature) 22%, transparent); }
+.pve-loot-qty { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.pve-xp-list { display: flex; flex-direction: column; gap: 6px; }
+.pve-xp-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) 1fr 100px;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--ink);
+  padding: 4px 0;
+}
+.pve-xp-row.is-defeated { opacity: 0.6; }
+.pve-xp-row.is-levelup { color: var(--signal); }
+
+.pve-xp-mon { display: inline-flex; flex-direction: column; min-width: 0; }
+.pve-xp-nick { font-weight: 700; color: var(--ink); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+.pve-xp-lvl { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pve-xp-lvl .prev { text-decoration: line-through; opacity: 0.6; }
+.pve-xp-lvl .arrow { color: var(--signal); font-weight: 700; margin: 0 2px; }
+.pve-xp-lvl b { color: var(--ink); }
+.pve-xp-row.is-levelup .pve-xp-lvl b { color: var(--signal); }
+
+.pve-xp-bar {
+  position: relative;
+  display: block;
+  height: 8px;
+  background: var(--hairline);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pve-xp-fill { position: absolute; top: 0; bottom: 0; left: 0; transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.pve-xp-fill--before { background: color-mix(in oklab, var(--muted) 60%, var(--hairline)); z-index: 1; }
+.pve-xp-fill--after  { background: linear-gradient(90deg, var(--el-nature), var(--signal)); z-index: 2; }
+.pve-xp-row.is-defeated .pve-xp-fill--after { background: var(--battle); }
+
+.pve-xp-delta {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.pve-xp-win   { color: var(--el-nature); }
+.pve-xp-loss  { color: var(--battle); }
+.pve-xp-muted { color: var(--muted); }
+
+@media (max-width: 640px) {
+  .pve-xp-row { grid-template-columns: 1fr 60px; grid-template-rows: auto auto; }
+  .pve-xp-mon { grid-column: 1 / -1; }
+  .pve-xp-bar { grid-column: 1; }
+  .pve-xp-delta { grid-column: 2; }
+}
