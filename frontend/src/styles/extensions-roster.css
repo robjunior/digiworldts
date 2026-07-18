@@ -170,7 +170,7 @@
 
 .roster-list-head {
   display: grid;
-  grid-template-columns: 44px minmax(140px, 1fr) 56px minmax(120px, 160px) auto minmax(220px, 1fr) 16px;
+  grid-template-columns: 44px minmax(160px, 1fr) 64px 140px 240px 260px 16px;
   align-items: center;
   gap: 14px;
   width: 100%;
@@ -210,19 +210,15 @@
 .rl-xp-track i { display: block; height: 100%; background: linear-gradient(90deg, var(--el-nature), var(--el, var(--signal))); transition: width 0.4s var(--ease); }
 .rl-xp-num { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
-.rl-pills { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.rl-pills { display: inline-flex; gap: 12px; align-items: center; }
 .rl-pill {
   display: inline-flex; align-items: center; gap: 4px;
   font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  padding: 3px 8px;
-  background: color-mix(in oklab, var(--el, var(--hairline)) 8%, var(--bg));
-  border: 1px solid var(--hairline);
-  color: var(--ink);
-  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  color: var(--muted);
 }
-.rl-pill--stage { color: var(--el, var(--ink)); border-color: color-mix(in oklab, var(--el, var(--hairline)) 40%, var(--hairline)); }
+.rl-pill--stage { color: var(--el, var(--ink)); }
 .rl-pill--attr { color: var(--muted); }
-.rl-pill--el { text-transform: capitalize; }
+.rl-pill--el { text-transform: capitalize; color: var(--ink); }
 .rl-el-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--el, var(--muted)); }
 
 .rl-stats { display: inline-flex; gap: 10px; justify-content: flex-end; }
@@ -402,11 +398,11 @@
 .chip-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 @media (max-width: 1024px) {
-  .roster-list-head { grid-template-columns: 44px minmax(120px, 1fr) 48px auto auto 16px; }
+  .roster-list-head { grid-template-columns: 44px minmax(120px, 1fr) 64px 140px 16px; }
   .rl-pills, .rl-stats { display: none; }
 }
 @media (max-width: 640px) {
-  .roster-list-head { grid-template-columns: 40px 1fr auto 16px; padding: 10px 12px; }
+  .roster-list-head { grid-template-columns: 40px 1fr 56px 16px; padding: 10px 12px; }
   .rl-xp, .rl-pills, .rl-stats { display: none; }
   .skill-grid { grid-template-columns: 1fr; }
 }
