@@ -85,7 +85,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hitUnitId, setHitUnitId] = useState<UnitId | null>(null);
   const [, setLoadError] = useState<string | null>(null);
-  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop } | null>(null);
+  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop; readonly creditsGained?: number } | null>(null);
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
 
@@ -127,8 +127,12 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
         }
         if (response.ended) {
           handleServerMessage({ type: 'end', matchId: response.battle.id, view: response.battle, outcome: response.battle.outcome ?? 'abandoned' });
-          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop } = { xpAwards: response.xpAwards ?? [] };
-          setPveResults(response.itemDrop ? { ...rewards, itemDrop: response.itemDrop } : rewards);
+          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop; readonly creditsGained?: number } = {
+            xpAwards: response.xpAwards ?? [],
+            ...(response.itemDrop ? { itemDrop: response.itemDrop } : {}),
+            ...(response.creditsGained !== undefined && response.creditsGained > 0 ? { creditsGained: response.creditsGained } : {}),
+          };
+          setPveResults(rewards);
         } else {
           handleServerMessage({ type: 'battle', matchId: response.battle.id, view: response.battle });
         }

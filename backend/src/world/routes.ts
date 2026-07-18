@@ -152,6 +152,8 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
       ...(result.capturedMonId ? { capturedMonId: result.capturedMonId } : {}),
       ...(result.xpAwards ? { xpAwards: result.xpAwards } : {}),
       ...(result.itemDrop ? { itemDrop: result.itemDrop } : {}),
+      ...(result.speciesAwards ? { speciesAwards: result.speciesAwards } : {}),
+      ...(result.creditsGained !== undefined ? { creditsGained: result.creditsGained } : {}),
     });
   });
 };

@@ -43,8 +43,20 @@ const SQL_UPDATE_MON_XP = `
    WHERE id = ?
 `;
 const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, updated_at = ? WHERE id = ?`;
+const SQL_ADD_CREDITS = `
+  INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
+       ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at
+`;
 
 const REVIVE_COOLDOWN_MS = 5 * 60 * 1000;
+const CREDITS_PER_WILD_LEVEL = 1;
+const CREDITS_MIN_WIN = 5;
+
+function creditsForWin(defeated: readonly { level: number }[]): number {
+  if (defeated.length === 0) return 0;
+  const raw = defeated.reduce((sum, w) => sum + w.level, 0) * CREDITS_PER_WILD_LEVEL;
+  return Math.max(CREDITS_MIN_WIN, raw);
+}
 
 const activeByUser = new Map<string, Battle>();
 
@@ -183,13 +195,14 @@ export type ActResult =
       xpAwards?: XpAward[];
       itemDrop?: ItemDrop;
       speciesAwards?: SpeciesAward[];
+      creditsGained?: number;
     }
   | { ok: false; error: string; code?: string };
 
 async function awardPveBattleRewards(
   userId: string,
   battle: Battle,
-): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[] }> {
+): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[]; creditsGained?: number }> {
   const outcome = battle.outcome;
   if (!outcome) return { xpAwards: [] };
 
@@ -222,6 +235,10 @@ async function awardPveBattleRewards(
     : [];
   const xpPerParticipant = xpFromDefeats(defeatedForXp, myUnits.length, false);
   const speciesAwards = defeatedForData.length > 0 ? await awardSpeciesData(userId, defeatedForData) : [];
+  const creditsGained = matchOutcome === 'win' ? creditsForWin(defeatedForXp) : 0;
+  if (creditsGained > 0) {
+    await run(SQL_ADD_CREDITS, [userId, creditsGained, Date.now()]);
+  }
 
   const partyRows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
   const now = Date.now();
@@ -324,7 +341,7 @@ async function awardPveBattleRewards(
     }
   }
 
-  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0 || speciesAwards.length > 0) {
+  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0 || speciesAwards.length > 0 || creditsGained > 0) {
     log.info('world.pve.rewards', {
       userId,
       outcome,
@@ -334,12 +351,14 @@ async function awardPveBattleRewards(
       itemDrop: itemDrop?.itemId,
       downedMonIds: downedIds,
       speciesAwards: speciesAwards.map((a) => ({ id: a.catalogId, tier: a.tier, pct: a.percent })),
+      creditsGained,
     });
   }
 
-  const result: { xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[] } = { xpAwards };
+  const result: { xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[]; creditsGained?: number } = { xpAwards };
   if (itemDrop) result.itemDrop = itemDrop;
   if (speciesAwards.length > 0) result.speciesAwards = speciesAwards;
+  if (creditsGained > 0) result.creditsGained = creditsGained;
   return result;
 }
 
@@ -358,6 +377,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   let xpAwards: XpAward[] = [];
   let itemDrop: ItemDrop | undefined;
   let speciesAwards: SpeciesAward[] | undefined;
+  let creditsGained: number | undefined;
 
   if (ended) {
     if (battle.outcome === 'captured_a') {
@@ -387,6 +407,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
     xpAwards = rewards.xpAwards;
     itemDrop = rewards.itemDrop;
     speciesAwards = rewards.speciesAwards;
+    creditsGained = rewards.creditsGained;
     activeByUser.delete(userId);
   }
 
@@ -399,6 +420,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   if (xpAwards.length > 0) response.xpAwards = xpAwards;
   if (itemDrop) response.itemDrop = itemDrop;
   if (speciesAwards && speciesAwards.length > 0) response.speciesAwards = speciesAwards;
+  if (creditsGained !== undefined && creditsGained > 0) response.creditsGained = creditsGained;
   return response;
 }
 

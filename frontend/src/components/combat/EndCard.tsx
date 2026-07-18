@@ -6,6 +6,7 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
   readonly itemDrop?: ItemDrop;
+  readonly creditsGained?: number;
 };
 
 type EndCardProps = {
@@ -45,6 +46,9 @@ export function EndCard({ battle, onNewEncounter, pveResults }: EndCardProps): J
               <span className={`mmr-delta mmr-${tone}`}> ({mmr.delta >= 0 ? '+' : ''}{mmr.delta})</span>
             </span>
           </div>
+        ) : null}
+        {isPve && pveResults?.creditsGained !== undefined && pveResults.creditsGained > 0 ? (
+          <div className="r" data-od-id="end-card-pve-credits"><span className="k">Credits</span><span>+{pveResults.creditsGained}</span></div>
         ) : null}
         {isPve ? <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div> : null}
       </div>

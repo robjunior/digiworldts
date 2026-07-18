@@ -121,6 +121,7 @@ export type WorldBattleActResponse = {
   readonly capturedMonId?: string;
   readonly xpAwards?: readonly XpAward[];
   readonly itemDrop?: ItemDrop;
+  readonly creditsGained?: number;
 };
 
 export function getWorldState(): Promise<WorldState> {
