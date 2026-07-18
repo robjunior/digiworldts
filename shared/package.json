@@ -29,6 +29,10 @@
     "./quest": {
       "types": "./dist/quest.d.ts",
       "import": "./dist/quest.js"
+    },
+    "./nursery": {
+      "types": "./dist/nursery.d.ts",
+      "import": "./dist/nursery.js"
     }
   },
   "files": ["dist"],

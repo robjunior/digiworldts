@@ -5,17 +5,36 @@ import { NurseryChrome } from '../components/nursery/NurseryChrome';
 import { NurserySidebar } from '../components/nursery/NurserySidebar';
 import { NurseryYard, type NurseryFeedback } from '../components/nursery/NurseryYard';
 import { ApiError } from '../lib/api';
-import { feedNurseryMon, getNursery, petNurseryMon, type NurseryMon, type NurseryView } from '../lib/api-nursery';
+import {
+  collectPendingHatch,
+  feedNurseryMon,
+  getNursery,
+  getPendingHatches,
+  getSpeciesData,
+  petNurseryMon,
+  startDirectHatch,
+  startMixHatch,
+  type NurseryMon,
+  type NurseryView,
+  type PendingHatchEntry,
+  type SpeciesDataEntry,
+} from '../lib/api-nursery';
 import '../styles/extensions-nursery.css';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
+const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
+const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
+const PENDING_POLL_MS = 5_000;
 
 export function Nursery(): JSX.Element {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<NurseryFeedback | null>(null);
   const nurseryQuery = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
-  const mutation = useMutation({
+  const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
+  const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
+
+  const careMutation = useMutation({
     mutationFn: runCareAction,
     onSuccess: async (result) => {
       setNotice(result.message);
@@ -23,13 +42,85 @@ export function Nursery(): JSX.Element {
       await queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY });
     },
   });
+
+  const hatchMutation = useMutation({
+    mutationFn: async (entry: SpeciesDataEntry) => {
+      const result = await startDirectHatch(entry.catalogId);
+      if (!result.ok) throw new ApiError(hatchErrorMessage(result.error), 409);
+      return { pending: result.pending, targetName: entry.name };
+    },
+    onSuccess: async (result) => {
+      setNotice(`Egg placed — ${result.targetName} lineage. Ready in 3:00.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
+      ]);
+    },
+  });
+
+  const mixMutation = useMutation({
+    mutationFn: async () => {
+      const result = await startMixHatch();
+      if (!result.ok) throw new ApiError(mixErrorMessage(result.error), 409);
+      return { pending: result.pending, rolledCatalogId: result.rolledCatalogId, totalWeight: result.totalWeight };
+    },
+    onSuccess: async (result) => {
+      const entries = dataQuery.data?.entries ?? [];
+      const rolled = entries.find((e) => e.catalogId === result.rolledCatalogId)?.name ?? result.rolledCatalogId;
+      setNotice(`Mix hatched → ${rolled} (weight ${result.totalWeight}). Ready in 3:00.`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
+      ]);
+    },
+  });
+
+  const collectMutation = useMutation({
+    mutationFn: async (entry: PendingHatchEntry) => {
+      const result = await collectPendingHatch(entry.id);
+      if (!result.ok) throw new ApiError(collectErrorMessage(result.error), 409);
+      return { nickname: result.nickname, chipItemIds: result.chipItemIds };
+    },
+    onSuccess: async (result) => {
+      const chipNote = result.chipItemIds.length > 0 ? ` + ${result.chipItemIds.length} chip${result.chipItemIds.length > 1 ? 's' : ''}` : '';
+      setNotice(`${result.nickname} hatched into your roster${chipNote}!`);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY }),
+      ]);
+    },
+  });
+
   const view = nurseryQuery.data ?? null;
-  const error = queryError(nurseryQuery.error, mutation.error);
+  const dataEntries = dataQuery.data?.entries ?? [];
+  const pending = pendingQuery.data?.pending ?? [];
+  const totalWeight = dataQuery.data?.totalWeight ?? 0;
+  const error = queryError(nurseryQuery.error, careMutation.error, hatchMutation.error, mixMutation.error, collectMutation.error, dataQuery.error, pendingQuery.error);
 
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
-      <NurseryYard mons={view?.mons ?? []} feedback={feedback} />
-      <NurserySidebar view={view} loading={nurseryQuery.isPending} busyMonId={mutation.variables?.mon.id ?? null} onPet={(mon) => { if (view !== null) mutation.mutate({ kind: 'pet', mon, view }); }} onFeed={(mon) => { if (view !== null) mutation.mutate({ kind: 'feed', mon, view }); }} />
+      <NurseryYard
+        mons={view?.mons ?? []}
+        feedback={feedback}
+        pending={pending}
+        busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
+        onCollect={(entry) => collectMutation.mutate(entry)}
+      />
+      <NurserySidebar
+        view={view}
+        loading={nurseryQuery.isPending}
+        busyMonId={careMutation.variables?.mon.id ?? null}
+        onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
+        onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
+        dataEntries={dataEntries}
+        pending={pending}
+        dataLoading={dataQuery.isPending}
+        totalWeight={totalWeight}
+        busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
+        mixBusy={mixMutation.isPending}
+        onHatch={(entry) => hatchMutation.mutate(entry)}
+        onMix={() => mixMutation.mutate()}
+      />
       <NurseryStatus message={error ?? notice} error={error !== null} />
     </NurseryChrome>
   );
@@ -55,6 +146,27 @@ async function runCareAction(action: CareAction): Promise<CareResult> {
       const result = await feedNurseryMon(action.mon.id);
       return { monId: action.mon.id, kind: 'feed', message: `Fed! +${action.view.feedMoodDelta} mood · Meat ${result.meat}` };
     }
+  }
+}
+
+function hatchErrorMessage(code: 'not-enough-data' | 'template-missing' | 'no-path' | 'unknown'): string {
+  switch (code) {
+    case 'not-enough-data': return 'Species data must be 100% to hatch.';
+    case 'no-path': return 'No Rookie predecessor found for this species.';
+    case 'template-missing': return 'That Digimon is not in the catalog.';
+    case 'unknown': return 'Hatch failed. Try again.';
+  }
+}
+
+function mixErrorMessage(code: 'no-data' | 'no-path'): string {
+  return code === 'no-data' ? 'No species data collected yet.' : 'No Rookie predecessor found for the rolled species.';
+}
+
+function collectErrorMessage(code: 'not-found' | 'not-ready' | 'template-missing'): string {
+  switch (code) {
+    case 'not-found': return 'That egg is gone.';
+    case 'not-ready': return 'Egg is still incubating.';
+    case 'template-missing': return 'Rookie template is missing from the catalog.';
   }
 }
 

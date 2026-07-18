@@ -1,4 +1,13 @@
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
+import type {
+  CollectHatchResponse,
+  HatchStartResponse,
+  MixHatchResponse,
+  NurseryDataResponse,
+  NurseryPendingResponse,
+  PendingHatchEntry,
+  SpeciesDataEntry,
+} from '@digiworld/shared/nursery';
 
 import { apiFetch } from './api';
 
@@ -45,4 +54,26 @@ export function petNurseryMon(monId: string): Promise<PetResponse> {
 
 export function feedNurseryMon(monId: string): Promise<FeedResponse> {
   return apiFetch<FeedResponse>(`/api/nursery/feed/${encodeURIComponent(monId)}`, { method: 'POST' });
+}
+
+export type { SpeciesDataEntry, PendingHatchEntry };
+
+export function getSpeciesData(): Promise<NurseryDataResponse> {
+  return apiFetch<NurseryDataResponse>('/api/nursery/data');
+}
+
+export function getPendingHatches(): Promise<NurseryPendingResponse> {
+  return apiFetch<NurseryPendingResponse>('/api/nursery/pending');
+}
+
+export function startDirectHatch(catalogId: string): Promise<HatchStartResponse> {
+  return apiFetch<HatchStartResponse>(`/api/nursery/hatch/${encodeURIComponent(catalogId)}`, { method: 'POST' });
+}
+
+export function startMixHatch(): Promise<MixHatchResponse> {
+  return apiFetch<MixHatchResponse>('/api/nursery/hatch/mix', { method: 'POST' });
+}
+
+export function collectPendingHatch(hatchId: string): Promise<CollectHatchResponse> {
+  return apiFetch<CollectHatchResponse>(`/api/nursery/pending/${encodeURIComponent(hatchId)}/collect`, { method: 'POST' });
 }

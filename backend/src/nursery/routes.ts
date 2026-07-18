@@ -4,6 +4,18 @@ import { one, q, run, tx, type ResourceRow, type RosterRow } from '../db/index.j
 import { loadCatalog } from '../digimon/xml.js';
 import { log } from '../util/log.js';
 import type { TemplateDigimon } from '../digimon/types.js';
+import {
+  collectHatch,
+  listPendingHatches,
+  listSpeciesData,
+  startDirectHatch,
+  startMixHatch,
+} from './data.js';
+import type {
+  NurseryDataResponse,
+  NurseryPendingResponse,
+  SpeciesDataEntry,
+} from '@digiworld/shared/nursery';
 
 const MAX_PETS_PER_MON_PER_DAY = 3;
 const PET_MOOD_DELTA = 5;
@@ -142,5 +154,80 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     }
     log.info('nursery.feed.ok', { userId: user.id, monId, mood: newMood, meat: remainingMeat });
     return reply.send({ ok: true, mood: newMood, meat: remainingMeat });
+  });
+
+  app.get('/api/nursery/data', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const rows = await listSpeciesData(user.id);
+    const catalog = loadCatalog();
+    const templateById = new Map<string, TemplateDigimon>();
+    for (const t of catalog.digimons) templateById.set(t.id, t);
+    const entries: SpeciesDataEntry[] = rows.map((row) => {
+      const tpl = templateById.get(row.catalog_id);
+      return {
+        catalogId: row.catalog_id,
+        name: tpl?.name ?? row.catalog_id,
+        stage: tpl?.stage ?? '?',
+        dot: tpl?.assets.dot ?? `/assets/digimon/${row.catalog_id}/dot.gif`,
+        percent: row.percent,
+        kills: row.kills,
+        updatedAt: row.updated_at,
+      };
+    });
+    const totalWeight = entries.reduce((s, e) => s + e.percent, 0);
+    const response: NurseryDataResponse = { entries, totalWeight };
+    return reply.send(response);
+  });
+
+  app.post<{ Params: { catalogId: string } }>('/api/nursery/hatch/:catalogId', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await startDirectHatch(user.id, req.params.catalogId);
+    if (!result.ok) {
+      const code = result.error === 'not-enough-data' ? 409
+                 : result.error === 'no-path' || result.error === 'template-missing' ? 404
+                 : 500;
+      return reply.code(code).send({ error: result.error });
+    }
+    return reply.send({ ok: true, pending: result.pending });
+  });
+
+  app.post('/api/nursery/hatch/mix', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await startMixHatch(user.id);
+    if (!result.ok) {
+      const code = result.error === 'no-data' ? 409 : 500;
+      return reply.code(code).send({ error: result.error });
+    }
+    return reply.send({
+      ok: true,
+      pending: result.pending,
+      rolledCatalogId: result.rolledCatalogId,
+      totalWeight: result.totalWeight,
+    });
+  });
+
+  app.get('/api/nursery/pending', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const pending = await listPendingHatches(user.id);
+    const response: NurseryPendingResponse = { pending };
+    return reply.send(response);
+  });
+
+  app.post<{ Params: { hatchId: string } }>('/api/nursery/pending/:hatchId/collect', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await collectHatch(user.id, req.params.hatchId);
+    if (!result.ok) {
+      const code = result.error === 'not-found' ? 404
+                 : result.error === 'not-ready' ? 409
+                 : 500;
+      return reply.code(code).send({ error: result.error });
+    }
+    return reply.send({
+      ok: true,
+      monId: result.monId,
+      rookieCatalogId: result.rookieCatalogId,
+      nickname: result.nickname,
+      chipItemIds: result.chipItemIds,
+    });
   });
 };

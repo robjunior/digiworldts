@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { NurseryMon } from '../../lib/api-nursery';
+import type { NurseryMon, PendingHatchEntry } from '../../lib/api-nursery';
 import { createWorldScene, type BendedTile } from '../../lib/world-scene';
+import { PendingEgg } from './PendingEgg';
 
 const YARD_TILES = 25;
 const YARD_VIEW_RADIUS = 12;
@@ -28,10 +29,11 @@ type SpriteState = {
   readonly facingRight: boolean;
 };
 
-export function NurseryYard({ mons, feedback }: { readonly mons: readonly NurseryMon[]; readonly feedback: NurseryFeedback | null }): JSX.Element {
+export function NurseryYard({ mons, feedback, pending, busyHatchId, onCollect }: { readonly mons: readonly NurseryMon[]; readonly feedback: NurseryFeedback | null; readonly pending: readonly PendingHatchEntry[]; readonly busyHatchId: string | null; readonly onCollect: (entry: PendingHatchEntry) => void }): JSX.Element {
   const yardRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sprites, setSprites] = useState<readonly SpriteState[]>([]);
+  const [yardSize, setYardSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const tiles = useMemo(() => generateYardTiles(0x9e3779b1), []);
   const signature = useMemo(() => mons.map((mon) => mon.id).sort().join(','), [mons]);
 
@@ -105,11 +107,37 @@ export function NurseryYard({ mons, feedback }: { readonly mons: readonly Nurser
     return () => window.cancelAnimationFrame(frame);
   }, []);
 
+  useEffect(() => {
+    const yard = yardRef.current;
+    if (yard === null) return;
+    const update = (): void => setYardSize({ width: yard.clientWidth, height: yard.clientHeight });
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(yard);
+    return () => observer.disconnect();
+  }, []);
+
+  const eggPositions = useMemo(() => positionEggs(pending, yardSize.width, yardSize.height), [pending, yardSize.width, yardSize.height]);
+
   return (
     <div className="yard" id="yard" ref={yardRef}>
       <canvas id="yard-canvas" ref={canvasRef} />
       <div className="yard-header">Nursery</div>
       {sprites.map((sprite) => <NurserySprite key={sprite.mon.id} sprite={sprite} feedback={feedback} />)}
+      {pending.map((entry) => {
+        const pos = eggPositions.get(entry.id);
+        if (pos === undefined) return null;
+        return (
+          <PendingEgg
+            key={entry.id}
+            entry={entry}
+            x={pos.x}
+            y={pos.y}
+            busy={busyHatchId === entry.id}
+            onCollect={onCollect}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -190,4 +218,37 @@ function generateYardTiles(seed: number): readonly string[] {
 function seededFraction(seed: number): number {
   const x = Math.sin(seed * 999) * 10000;
   return x - Math.floor(x);
+}
+
+function positionEggs(pending: readonly PendingHatchEntry[], width: number, height: number): Map<string, { readonly x: number; readonly y: number }> {
+  const positions = new Map<string, { readonly x: number; readonly y: number }>();
+  if (pending.length === 0 || width <= 0 || height <= 0) return positions;
+  const marginX = width * 0.14;
+  const marginY = height * 0.20;
+  const usableW = Math.max(1, width - 2 * marginX);
+  const bandTop = marginY;
+  const bandBottom = marginY + Math.min(height * 0.30, 120);
+  const columns = Math.max(1, Math.min(pending.length, Math.floor(usableW / 96)));
+  pending.forEach((entry, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    const step = usableW / Math.max(1, columns);
+    const jitterSeed = hashString(entry.id);
+    const jitterX = (seededFraction(jitterSeed + 3) - 0.5) * step * 0.4;
+    const jitterY = (seededFraction(jitterSeed + 7) - 0.5) * 12;
+    const x = marginX + step * col + step / 2 + jitterX;
+    const yBase = bandTop + row * 72;
+    const y = Math.min(bandBottom + row * 72, yBase + jitterY);
+    positions.set(entry.id, { x, y });
+  });
+  return positions;
+}
+
+function hashString(input: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }

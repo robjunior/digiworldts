@@ -10,6 +10,7 @@ import { one, q, run, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';
+import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, type ItemDrop, type WildMon } from './engine.js';
@@ -181,13 +182,14 @@ export type ActResult =
       capturedMonId?: string;
       xpAwards?: XpAward[];
       itemDrop?: ItemDrop;
+      speciesAwards?: SpeciesAward[];
     }
   | { ok: false; error: string; code?: string };
 
 async function awardPveBattleRewards(
   userId: string,
   battle: Battle,
-): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop }> {
+): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[] }> {
   const outcome = battle.outcome;
   if (!outcome) return { xpAwards: [] };
 
@@ -200,7 +202,7 @@ async function awardPveBattleRewards(
   const catalog = loadCatalog();
   const myUnits = battle.units.filter((u) => u.side === 'a');
   const participantSlots = new Set<number>(myUnits.map((u) => u.slot));
-  const defeated: DefeatedFoe[] = matchOutcome === 'win'
+  const defeatedForXp: DefeatedFoe[] = matchOutcome === 'win'
     ? battle.units
         .filter((u) => u.side === 'b')
         .map((u) => {
@@ -209,7 +211,17 @@ async function awardPveBattleRewards(
           return { stage, level: u.level };
         })
     : [];
-  const xpPerParticipant = xpFromDefeats(defeated, myUnits.length, false);
+  const defeatedForData: Array<{ catalogId: string; stage: Stage; rare: boolean }> = matchOutcome === 'win'
+    ? battle.units
+        .filter((u) => u.side === 'b' && u.wildInfo)
+        .map((u) => {
+          const wi = u.wildInfo!;
+          const stage = findTemplate(catalog, wi.catalogId)?.stage ?? 'Rookie';
+          return { catalogId: wi.catalogId, stage, rare: wi.rare };
+        })
+    : [];
+  const xpPerParticipant = xpFromDefeats(defeatedForXp, myUnits.length, false);
+  const speciesAwards = defeatedForData.length > 0 ? await awardSpeciesData(userId, defeatedForData) : [];
 
   const partyRows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
   const now = Date.now();
@@ -312,7 +324,7 @@ async function awardPveBattleRewards(
     }
   }
 
-  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0) {
+  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0 || speciesAwards.length > 0) {
     log.info('world.pve.rewards', {
       userId,
       outcome,
@@ -321,10 +333,14 @@ async function awardPveBattleRewards(
       leveledUpMons: xpAwards.filter((a) => a.gainedLevels > 0).map((a) => a.nickname),
       itemDrop: itemDrop?.itemId,
       downedMonIds: downedIds,
+      speciesAwards: speciesAwards.map((a) => ({ id: a.catalogId, tier: a.tier, pct: a.percent })),
     });
   }
 
-  return itemDrop ? { xpAwards, itemDrop } : { xpAwards };
+  const result: { xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[] } = { xpAwards };
+  if (itemDrop) result.itemDrop = itemDrop;
+  if (speciesAwards.length > 0) result.speciesAwards = speciesAwards;
+  return result;
 }
 
 export async function actInPveBattle(userId: string, action: Action): Promise<ActResult> {
@@ -341,6 +357,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   const ended = battle.status === 'ended';
   let xpAwards: XpAward[] = [];
   let itemDrop: ItemDrop | undefined;
+  let speciesAwards: SpeciesAward[] | undefined;
 
   if (ended) {
     if (battle.outcome === 'captured_a') {
@@ -369,6 +386,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
     const rewards = await awardPveBattleRewards(userId, battle);
     xpAwards = rewards.xpAwards;
     itemDrop = rewards.itemDrop;
+    speciesAwards = rewards.speciesAwards;
     activeByUser.delete(userId);
   }
 
@@ -380,6 +398,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   if (capturedMonId) response.capturedMonId = capturedMonId;
   if (xpAwards.length > 0) response.xpAwards = xpAwards;
   if (itemDrop) response.itemDrop = itemDrop;
+  if (speciesAwards && speciesAwards.length > 0) response.speciesAwards = speciesAwards;
   return response;
 }
 

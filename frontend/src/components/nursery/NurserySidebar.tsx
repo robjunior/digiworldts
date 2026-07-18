@@ -1,6 +1,7 @@
-import type { NurseryMon, NurseryView } from '../../lib/api-nursery';
+import type { NurseryMon, NurseryView, PendingHatchEntry, SpeciesDataEntry } from '../../lib/api-nursery';
+import { DigitamaPool } from './DigitamaPool';
 
-type SidebarProps = {
+type CareSectionProps = {
   readonly view: NurseryView | null;
   readonly loading: boolean;
   readonly busyMonId: string | null;
@@ -8,7 +9,18 @@ type SidebarProps = {
   readonly onFeed: (mon: NurseryMon) => void;
 };
 
-export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed }: SidebarProps): JSX.Element {
+type SidebarProps = CareSectionProps & {
+  readonly dataEntries: readonly SpeciesDataEntry[];
+  readonly pending: readonly PendingHatchEntry[];
+  readonly dataLoading: boolean;
+  readonly totalWeight: number;
+  readonly busyCatalogId: string | null;
+  readonly mixBusy: boolean;
+  readonly onHatch: (entry: SpeciesDataEntry) => void;
+  readonly onMix: () => void;
+};
+
+export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed, dataEntries, pending, dataLoading, totalWeight, busyCatalogId, mixBusy, onHatch, onMix }: SidebarProps): JSX.Element {
   const meat = view?.meat ?? 0;
 
   return (
@@ -23,11 +35,21 @@ export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed }: Side
       <div className="mon-list" id="mon-list">
         <SidebarContent view={view} loading={loading} busyMonId={busyMonId} onPet={onPet} onFeed={onFeed} />
       </div>
+      <DigitamaPool
+        entries={dataEntries}
+        pending={pending}
+        loading={dataLoading}
+        totalWeight={totalWeight}
+        busyCatalogId={busyCatalogId}
+        mixBusy={mixBusy}
+        onHatch={onHatch}
+        onMix={onMix}
+      />
     </aside>
   );
 }
 
-function SidebarContent(props: SidebarProps): JSX.Element {
+function SidebarContent(props: CareSectionProps): JSX.Element {
   if (props.loading) {
     return <div className="empty-nursery">Loading…</div>;
   }

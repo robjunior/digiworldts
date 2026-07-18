@@ -352,6 +352,24 @@ export type WorldPositionRow = {
   updated_at: number;
 };
 
+export type SpeciesDataRow = {
+  user_id: string;
+  catalog_id: string;
+  percent: number;
+  kills: number;
+  updated_at: number;
+};
+
+export type PendingHatchRow = {
+  id: string;
+  user_id: string;
+  target_catalog: string;
+  rookie_catalog: string;
+  chip_items: string | null;
+  hatch_at: number;
+  created_at: number;
+};
+
 // ============================================================================
 // Lazy prepared-statement helper. Statements bind to the current db handle;
 // we prepare on first use to avoid open-before-ready hazards during tests.

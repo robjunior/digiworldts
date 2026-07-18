@@ -110,6 +110,27 @@ CREATE TABLE IF NOT EXISTS player_roster (
 CREATE INDEX IF NOT EXISTS idx_roster_user ON player_roster(user_id);
 CREATE INDEX IF NOT EXISTS idx_roster_status ON player_roster(user_id, status);
 
+CREATE TABLE IF NOT EXISTS player_species_data (
+  user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  catalog_id  TEXT NOT NULL,
+  percent     INTEGER NOT NULL DEFAULT 0 CHECK (percent BETWEEN 0 AND 100),
+  kills       INTEGER NOT NULL DEFAULT 0,
+  updated_at  INTEGER NOT NULL,
+  PRIMARY KEY (user_id, catalog_id)
+);
+CREATE INDEX IF NOT EXISTS idx_species_data_user ON player_species_data(user_id);
+
+CREATE TABLE IF NOT EXISTS player_pending_hatches (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  target_catalog TEXT NOT NULL,
+  rookie_catalog TEXT NOT NULL,
+  chip_items     TEXT,
+  hatch_at       INTEGER NOT NULL,
+  created_at     INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pending_hatches_user ON player_pending_hatches(user_id);
+
 -- ----------------------------------------------------------------------------
 -- resources: banked wallet balances per player. One row per (user, resource).
 -- Resources: Meat, Bits, Data. Currency: DigiCredits (separate column on users
