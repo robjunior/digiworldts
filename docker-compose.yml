@@ -1,0 +1,63 @@
+name: digiworld
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: digiworld
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - copy .env.example to .env and edit}
+      POSTGRES_DB: digiworld
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U digiworld -d digiworld']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATABASE: postgres
+      DATABASE_URL: postgres://digiworld:${POSTGRES_PASSWORD}@db:5432/digiworld
+      CLUSTER: memory
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
+      ADMIN_BOOTSTRAP: ${ADMIN_BOOTSTRAP:-open}
+      MAX_LOBBY_CONNECTIONS: ${MAX_LOBBY_CONNECTIONS:-1200}
+      MAX_CONCURRENT_MATCHES: ${MAX_CONCURRENT_MATCHES:-200}
+    volumes:
+      - assetdata:/app/backend/public/assets/digimon
+      - scrapecache:/app/backend/data/cache
+    healthcheck:
+      test: ['CMD-SHELL', 'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - '${HOST_PORT:-8080}:8080'
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  assetdata:
+  scrapecache:

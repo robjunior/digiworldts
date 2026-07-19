@@ -1,14 +1,16 @@
-# Keep the Docker build context lean — the image only needs source + prod deps.
 node_modules
 backend/node_modules
 frontend/node_modules
 shared/node_modules
 dist
 backend/dist
+frontend/dist
+shared/dist
 backend/data/*.db
 backend/data/*.db-journal
 backend/data/*.db-wal
 backend/data/*.db-shm
+backend/data/*.bak
 backend/data/.session-secret
 backend/data/cache
 !backend/data/catalog
@@ -17,18 +19,27 @@ backend/data/cache
 .github
 .gitignore
 .codegraph
+.omo
+.playwright-mcp
 base
 _archive
 
 *.log
 .env
 .env.*
+!.env.example
 .vscode
 .idea
 .DS_Store
 
-# tests / dev-only
 tmp
 .tmp
 /tmp
 coverage
+cookie.txt
+tmp_js.js
+tmp_tab.html
+patch_admin.sh
+roster-baseline.md
+flow-*.md
+flow-*.png
