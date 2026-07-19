@@ -12,6 +12,9 @@ dist/
 .env
 .env.local
 .env.*.local
+backend/data/.session-secret
+cookie.txt
+cookies.txt
 
 # session / dev-tool state
 .omo/run-continuation/
@@ -20,6 +23,15 @@ _archive/
 
 # ad-hoc screenshots at repo root
 /*.png
+
+# ad-hoc scratch files at repo root
+/tmp_*.js
+/tmp_*.html
+/tmp_*.mjs
+/tmp_*.ts
+/patch_*.sh
+/scratch_*
+/scratch/
 
 # data (SQLite + cached scraper artifacts)
 backend/data/*.db
