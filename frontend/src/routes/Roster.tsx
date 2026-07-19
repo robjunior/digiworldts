@@ -9,7 +9,9 @@ import { Pagination } from '../components/roster/Pagination';
 import { PartyPicker } from '../components/roster/PartyPicker';
 import { RenameDialog } from '../components/roster/RenameDialog';
 import { RosterList } from '../components/roster/RosterList';
+import { SubstitutionDialog } from '../components/roster/SubstitutionDialog';
 import type { ActivityByMon, RosterActions, RosterMon } from '../components/roster/types';
+import { isDowned } from '../components/roster/types';
 import { useAuth } from '../hooks/useAuth';
 import { getRoster } from '../lib/api';
 import { getCatalog } from '../lib/api-admin';
@@ -37,6 +39,7 @@ export function Roster(): JSX.Element {
   const [renameMon, setRenameMon] = useState<RosterMon | null>(null);
   const [evolveMonId, setEvolveMonId] = useState<string | null>(null);
   const [evolutionGate, setEvolutionGate] = useState<EvolutionGate | null>(null);
+  const [substituteFor, setSubstituteFor] = useState<RosterMon | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -86,9 +89,26 @@ export function Roster(): JSX.Element {
 
   const paginated = roster.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const evolveMon = roster.find((mon) => mon.id === evolveMonId) ?? null;
+  const partyBySlot = useMemo<readonly (RosterMon | null)[]>(() => {
+    const slots: (RosterMon | null)[] = [null, null, null];
+    for (const mon of roster) {
+      if (typeof mon.slot === 'number' && mon.slot >= 0 && mon.slot < 3) {
+        slots[mon.slot] = mon;
+      }
+    }
+    return slots;
+  }, [roster]);
   const actions: RosterActions = {
     onAssign: (monId, slot) => { if (monId.length > 0) assignMutation.mutate({ monId, slot }); },
     onRemoveSlot: (slot) => removeMutation.mutate(slot),
+    onAddToParty: (mon) => {
+      if (typeof mon.slot === 'number') return;
+      if (isDowned(mon, now)) { setMessage('This Digimon is recovering. Revive it first.'); return; }
+      if (mon.listedAt !== null) { setMessage('This Digimon is on the market. Cancel the listing first.'); return; }
+      const emptySlot = partyBySlot.findIndex((slot) => slot === null);
+      if (emptySlot >= 0) { assignMutation.mutate({ monId: mon.id, slot: emptySlot }); return; }
+      setSubstituteFor(mon);
+    },
     onEvolve: (monId) => {
       setEvolveMonId(monId);
       setEvolutionGate(null);
@@ -126,6 +146,17 @@ export function Roster(): JSX.Element {
       </main>
       <EvolveDialog gate={evolutionGate} monName={evolveMon?.nickname ?? null} busy={evolveMutation.isPending} onClose={() => setEvolveMonId(null)} onEvolve={(targetCatalogId) => { if (evolveMonId) evolveMutation.mutate({ monId: evolveMonId, targetCatalogId }); }} />
       <RenameDialog mon={renameMon} busy={renameMutation.isPending} onClose={() => setRenameMon(null)} onSave={(nickname) => { if (renameMon) renameMutation.mutate({ monId: renameMon.id, nickname }); }} />
+      <SubstitutionDialog
+        incoming={substituteFor}
+        party={partyBySlot}
+        now={now}
+        busy={assignMutation.isPending}
+        onClose={() => setSubstituteFor(null)}
+        onPick={(slot) => {
+          if (substituteFor === null) return;
+          assignMutation.mutate({ monId: substituteFor.id, slot }, { onSuccess: () => setSubstituteFor(null) });
+        }}
+      />
     </div>
   );
 }

@@ -525,3 +525,126 @@
 @media (prefers-reduced-motion: reduce) {
   .evo-node { transition: none; }
 }
+
+.rl-party-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.1s var(--ease);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+.rl-party-btn.is-add {
+  color: var(--el-nature);
+  border-color: color-mix(in oklab, var(--el-nature) 45%, var(--hairline));
+}
+.rl-party-btn.is-add:hover {
+  background: color-mix(in oklab, var(--el-nature) 10%, var(--panel));
+  border-color: var(--el-nature);
+  color: var(--ink);
+}
+.rl-party-btn.is-add:active { transform: scale(0.96); }
+.rl-party-plus { font-size: 14px; font-weight: 700; line-height: 1; color: var(--el-nature); }
+.rl-party-btn.is-add:hover .rl-party-plus { color: var(--ink); }
+
+.rl-party-btn.is-in-party {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--el-nature) 18%, var(--panel));
+  border-color: var(--el-nature);
+}
+.rl-party-btn.is-in-party:hover {
+  background: color-mix(in oklab, var(--battle) 15%, var(--panel));
+  border-color: var(--battle);
+  color: var(--battle);
+}
+.rl-party-btn.is-in-party:active { transform: scale(0.96); }
+.rl-party-dot { display: inline-block; width: 6px; height: 6px; background: var(--el-nature); border-radius: 50%; }
+.rl-party-btn.is-in-party:hover .rl-party-dot { background: var(--battle); }
+.rl-party-x { font-size: 10px; opacity: 0.55; margin-left: 2px; }
+.rl-party-btn.is-in-party:hover .rl-party-x { opacity: 1; }
+
+.rl-party-btn.is-locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+  color: var(--muted);
+}
+
+.subst-card { max-width: 640px; }
+.subst-hint { font-size: 12px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+.subst-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.subst-option {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 14px 12px 12px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--el, var(--muted));
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease), transform 0.15s var(--ease);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  position: relative;
+}
+.subst-option:hover:not(:disabled) {
+  border-color: var(--el, var(--signal));
+  border-top-color: var(--el, var(--signal));
+  background: color-mix(in oklab, var(--el, var(--signal)) 6%, var(--panel));
+  transform: translateY(-2px);
+}
+.subst-option:active:not(:disabled) { transform: translateY(0); }
+.subst-option:disabled { opacity: 0.5; cursor: not-allowed; }
+.subst-option img {
+  width: 72px; height: 72px; object-fit: contain; image-rendering: pixelated;
+  margin: 4px 0 6px;
+}
+.subst-slot {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.subst-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.subst-sub { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.subst-swap {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted);
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.15s var(--ease), color 0.15s var(--ease);
+}
+.subst-option:hover:not(:disabled) .subst-swap {
+  opacity: 1;
+  color: var(--el, var(--signal));
+}
+.subst-option.is-empty {
+  border-top-color: var(--el-nature);
+  background: color-mix(in oklab, var(--el-nature) 5%, var(--panel));
+}
+.subst-option.is-empty:hover {
+  border-color: var(--el-nature);
+  background: color-mix(in oklab, var(--el-nature) 12%, var(--panel));
+}
+.subst-empty-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 72px; height: 72px;
+  font-size: 32px; font-weight: 700; color: var(--muted);
+  margin: 4px 0 6px;
+}
+.subst-option.is-downed img { filter: grayscale(1) brightness(0.6); }
+.subst-option.is-downed { border-top-color: var(--gold); }
+
+@media (max-width: 640px) {
+  .subst-grid { grid-template-columns: 1fr; }
+  .subst-card { max-width: 90vw; }
+}

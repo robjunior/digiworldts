@@ -65,12 +65,19 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
 
   return (
     <li className={rowClass} data-mon={mon.id} style={{ ['--el' as string]: `var(--el-${element})` }}>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className="roster-list-head"
         aria-expanded={isOpen}
         aria-controls={`row-body-${mon.id}`}
         onClick={onToggle}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onToggle();
+          }
+        }}
       >
         <span className="rl-icon">
           <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
@@ -92,7 +99,7 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
           <span className="rl-pill rl-pill--attr">{attribute}</span>
           <span className="rl-pill rl-pill--el"><span className="rl-el-dot" />{element}</span>
           {training ? <span className="rl-pill rl-pill--training">{activity.readyToCollect ? 'Ready' : 'Training'}</span> : null}
-          {typeof mon.slot === 'number' ? <span className="rl-pill rl-pill--party">Slot {mon.slot + 1}</span> : null}
+          <PartyToggle mon={mon} downed={downed} actions={actions} />
         </span>
         <span className="rl-stats" aria-label="Stats">
           <StatCell label="HP" value={stats.hp} />
@@ -102,7 +109,7 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
           <StatCell label="SPD" value={stats.spd} />
         </span>
         <span className="rl-chev" aria-hidden="true">▾</span>
-      </button>
+      </div>
       <div className="roster-list-body" id={`row-body-${mon.id}`} role="region" aria-hidden={!isOpen}>
         <div className="rl-body-inner">
           <div className="rl-actions">
@@ -128,5 +135,41 @@ function StatCell({ label, value }: { readonly label: string; readonly value: nu
       <span className="rl-stat-k">{label}</span>
       <b className="rl-stat-v">{value}</b>
     </span>
+  );
+}
+
+function PartyToggle({ mon, downed, actions }: { readonly mon: RosterMon; readonly downed: boolean; readonly actions: RosterActions }): JSX.Element {
+  const inParty = typeof mon.slot === 'number';
+  const listed = mon.listedAt !== null;
+  if (listed) {
+    return <span className="rl-party-btn is-locked" aria-label="Listed on market">Listed</span>;
+  }
+  if (inParty) {
+    return (
+      <button
+        type="button"
+        className="rl-party-btn is-in-party"
+        aria-label={`In party slot ${(mon.slot ?? 0) + 1} — click to remove`}
+        onClick={(event) => { event.stopPropagation(); actions.onRemoveSlot(mon.slot ?? 0); }}
+      >
+        <span className="rl-party-dot" aria-hidden="true" />
+        Slot {(mon.slot ?? 0) + 1}
+        <span className="rl-party-x" aria-hidden="true">✕</span>
+      </button>
+    );
+  }
+  if (downed) {
+    return <span className="rl-party-btn is-locked" aria-label="Downed — cannot enter party">Downed</span>;
+  }
+  return (
+    <button
+      type="button"
+      className="rl-party-btn is-add"
+      aria-label={`Add ${mon.nickname} to party`}
+      onClick={(event) => { event.stopPropagation(); actions.onAddToParty(mon); }}
+    >
+      <span className="rl-party-plus" aria-hidden="true">+</span>
+      Party
+    </button>
   );
 }
