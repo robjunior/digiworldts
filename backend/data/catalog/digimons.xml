@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<catalog version="1" updatedAt="1784215944666">
+<catalog version="1" updatedAt="1784433587174">
   <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
     <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
@@ -2512,5 +2512,15 @@
     <evolutions>
       <evolve targetId="skb-461"></evolve>
     </evolutions>
+  </digimon>
+  <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="nature" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24">
+    <assets portrait="/assets/digimon/skb-24/portrait.webp" dot="/assets/digimon/skb-24/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Ocean Love" element="water" cost="0" power="100" description="Releases heart-shaped bubbles that can damage enemies, heal allies and remove their negative status conditions or cause them to lose their fighting spirit. The bubbles can also be used to protect those inside them."></skill>
+      <skill id="s1" name="Nikkori Egao" element="nature" cost="16" power="220" description="1 2 3 Charms the enemy with its smile, sometimes following up with strikes from its limbs. Heals its allies. Sings, damaging its enemy."></skill>
+      <skill id="s2" name="Marine Squadron" element="nature" cost="26" power="300" description="Summons sea creatures to attack the enemy."></skill>
+      <skill id="s3" name="Extra Smile" element="nature" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
+    </skills>
   </digimon>
 </catalog>
