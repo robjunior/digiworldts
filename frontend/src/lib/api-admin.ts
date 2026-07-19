@@ -224,6 +224,51 @@ export function deleteRosterMon(monId: string): Promise<{ readonly ok: true; rea
   return apiFetch<{ readonly ok: true; readonly mon: { readonly id: string } }>(`/api/admin/roster/${encodeURIComponent(monId)}`, { method: 'DELETE' });
 }
 
+export type SkillElement = 'fire' | 'water' | 'nature' | 'electric' | 'neutral';
+
+export type SkillView = {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly element: SkillElement;
+  readonly energyCost: number;
+  readonly cooldown?: number;
+  readonly actions: readonly Record<string, unknown>[];
+  readonly tags?: readonly string[];
+  readonly animation?: string;
+  readonly enabled?: boolean;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type SkillInput = {
+  readonly name: string;
+  readonly description?: string;
+  readonly element: SkillElement;
+  readonly energyCost: number;
+  readonly cooldown?: number;
+  readonly actions: readonly Record<string, unknown>[];
+  readonly tags?: readonly string[];
+  readonly animation?: string;
+  readonly enabled?: boolean;
+};
+
+export function getSkills(): Promise<{ readonly skills: readonly SkillView[] }> {
+  return apiFetch<{ readonly skills: readonly SkillView[] }>('/api/admin/skills');
+}
+
+export function createSkill(input: SkillInput): Promise<{ readonly ok: true; readonly skill: SkillView }> {
+  return apiFetch<{ readonly ok: true; readonly skill: SkillView }>('/api/admin/skills', { method: 'POST', body: input });
+}
+
+export function updateSkill(id: string, input: SkillInput): Promise<{ readonly ok: true; readonly skill: SkillView }> {
+  return apiFetch<{ readonly ok: true; readonly skill: SkillView }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'PUT', body: input });
+}
+
+export function deleteSkill(id: string): Promise<{ readonly ok: true; readonly id: string }> {
+  return apiFetch<{ readonly ok: true; readonly id: string }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 function toQueryString(query: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {

@@ -7,6 +7,7 @@ import { CatalogTable } from '../components/admin/CatalogTable';
 import { OverviewTab } from '../components/admin/OverviewTab';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
+import { SkillsAdmin } from '../components/admin/SkillsAdmin';
 import { UserTable } from '../components/admin/UserTable';
 import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
@@ -17,6 +18,7 @@ const ADMIN_TABS = [
   { id: 'users', label: 'Users' },
   { id: 'scraped', label: 'Scraped' },
   { id: 'catalog', label: 'Catalog' },
+  { id: 'skills', label: 'Skills' },
   { id: 'shop', label: 'Shop Admin' },
 ] as const;
 
@@ -65,6 +67,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <ScrapedTable />;
     case 'catalog':
       return <CatalogTable />;
+    case 'skills':
+      return <SkillsAdmin />;
     case 'shop':
       return <ShopAdmin />;
     default:
