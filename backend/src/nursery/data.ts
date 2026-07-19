@@ -31,7 +31,7 @@ const SQL_UPSERT_DATA = `
   INSERT INTO player_species_data (user_id, catalog_id, percent, kills, updated_at)
        VALUES (?, ?, ?, 1, ?)
     ON CONFLICT(user_id, catalog_id) DO UPDATE
-       SET percent = MIN(100, player_species_data.percent + excluded.percent),
+       SET percent = LEAST(100, player_species_data.percent + excluded.percent),
            kills = player_species_data.kills + 1,
            updated_at = excluded.updated_at
 `;
