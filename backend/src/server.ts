@@ -60,7 +60,15 @@ async function main(): Promise<void> {
     log.info('boot.hydrate', { activeMatches: matchesHydrated, queueEntries: queueHydrated });
   }
 
-  const catalog = loadCatalog();
+  let catalog = { version: '1', updatedAt: 0, digimons: [] as Awaited<ReturnType<typeof loadCatalog>>['digimons'] };
+  try {
+    catalog = loadCatalog();
+  } catch (err) {
+    log.error('boot.catalog.load.fail', {
+      hint: 'digimons.xml failed validation or exceeded size cap — starting with empty catalog. Fix the XML and restart.',
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
   if (catalog.digimons.length > 0) {
     log.info('boot.catalog', { count: catalog.digimons.length });
     try {
@@ -84,7 +92,12 @@ async function main(): Promise<void> {
   const app = Fastify({
     logger: false,
     bodyLimit: 2 * 1024 * 1024,
-    trustProxy: true,
+    // Trust exactly 1 proxy hop (the frontend nginx in docker-compose). This
+    // makes `req.ip` = the rightmost XFF value that nginx appended (the real
+    // client), NOT the leftmost value the client may have injected. Set to a
+    // higher integer if there are more real proxies in front; do not use
+    // `true` which trusts every hop and re-opens the XFF-spoof throttle bypass.
+    trustProxy: 1,
   });
 
   await app.register(fastifyCookie, { secret: config.SESSION_SECRET });

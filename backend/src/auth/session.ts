@@ -136,10 +136,10 @@ export async function pruneExpired(): Promise<number> {
 // Cookie helpers (still sync — no I/O)
 // ============================================================================
 
-const IS_PROD = config.NODE_ENV === 'production';
+const IS_DEV = config.NODE_ENV === 'development';
 
-function cookieOpts(): { path: string; httpOnly: boolean; sameSite: 'lax'; secure: boolean; maxAge: number } {
-  return { path: '/', httpOnly: true, sameSite: 'lax', secure: IS_PROD, maxAge: TTL_SEC };
+function cookieOpts(): { path: string; httpOnly: boolean; sameSite: 'lax'; secure: boolean; maxAge: number; signed: boolean } {
+  return { path: '/', httpOnly: true, sameSite: 'lax', secure: !IS_DEV, maxAge: TTL_SEC, signed: true };
 }
 
 export function setSessionCookie(reply: FastifyReply, token: string): void {
@@ -153,7 +153,9 @@ export function clearSessionCookie(reply: FastifyReply): void {
 export function readSessionCookie(req: FastifyRequest): string | null {
   const raw = req.cookies?.[SESSION_COOKIE_NAME];
   if (!raw) return null;
-  return typeof raw === 'string' ? raw : String(raw);
+  const rawString = typeof raw === 'string' ? raw : String(raw);
+  const unsigned = req.unsignCookie(rawString);
+  return unsigned.valid ? unsigned.value : null;
 }
 
 // ============================================================================

@@ -20,7 +20,7 @@ const SQL_MARK_LISTING_CANCELED = `UPDATE market_listings SET canceled_at = ? WH
 const SQL_MARK_LISTING_SOLD = `UPDATE market_listings SET sold_at = ?, sold_to = ? WHERE id = ? AND sold_at IS NULL AND canceled_at IS NULL`;
 const SQL_SET_MON_LISTED = `UPDATE player_roster SET listed_at = ?, status = 'resting', slot_index = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_UNLIST_MON = `UPDATE player_roster SET listed_at = NULL, updated_at = ? WHERE id = ?`;
-const SQL_TRANSFER_MON = `UPDATE player_roster SET user_id = ?, listed_at = NULL, status = 'resting', slot_index = NULL, updated_at = ? WHERE id = ?`;
+const SQL_TRANSFER_MON = `UPDATE player_roster SET user_id = ?, listed_at = NULL, status = 'resting', slot_index = NULL, equipped_skill_ids = NULL, evolution_history = NULL, updated_at = ? WHERE id = ?`;
 const SQL_SELECT_WALLET = `SELECT credits FROM player_wallet WHERE user_id = ?`;
 const SQL_UPSERT_WALLET_CREDIT = `INSERT INTO player_wallet (user_id, credits, streak_day, last_claim_at, premium_until, updated_at) VALUES (?, ?, 0, NULL, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
 const SQL_DEDUCT_WALLET = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;

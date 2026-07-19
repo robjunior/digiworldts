@@ -92,10 +92,21 @@ export const friendsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const me = await requireAuth(req, reply);
     const parsed = RequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
-    const target = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, parsed.data.username);
-    if (!target) return reply.code(404).send({ error: 'user not found' });
-    if (target.id === me.id) return reply.code(400).send({ error: 'cannot befriend yourself' });
     const now = Date.now();
+    const target = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, parsed.data.username);
+    // Return the SAME `{status:'pending'}` shape for nonexistent-user and
+    // blocked-relationship cases so this endpoint isn't a username-existence
+    // oracle. Self-request keeps its 400 for legit UX.
+    if (!target) return reply.send({ status: 'pending' });
+    if (target.id === me.id) return reply.code(400).send({ error: 'cannot befriend yourself' });
+    const blocked = await one<FriendshipRow>(
+      `SELECT * FROM friendships WHERE ((requester_id = ? AND addressee_id = ?) OR (requester_id = ? AND addressee_id = ?)) AND status = 'blocked'`,
+      me.id, target.id, target.id, me.id,
+    );
+    if (blocked) {
+      log.info('friends.request.blocked', { from: me.id, to: target.id });
+      return reply.send({ status: 'pending' });
+    }
     // If the target already sent us a pending request, accepting it upgrades to mutual.
     const existing = await one<FriendshipRow>(
       `SELECT * FROM friendships WHERE requester_id = ? AND addressee_id = ?`,
@@ -109,7 +120,7 @@ export const friendsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     try {
       await run(SQL_INSERT_FRIENDSHIP, me.id, target.id, 'pending', now, now);
     } catch {
-      return reply.code(409).send({ error: 'request already exists' });
+      return reply.send({ status: 'pending' });
     }
     return reply.send({ status: 'pending' });
   });

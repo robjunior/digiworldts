@@ -97,11 +97,11 @@ function toPublic(u: UserRow): PublicUser {
   };
 }
 
-/** Utility: pull the client IP respecting reverse proxies (X-Forwarded-For). */
+/** Resolve the client IP via Fastify's `req.ip`, which respects `trustProxy`
+ *  (set to `1` in server.ts so only the last hop — our nginx — is trusted).
+ *  Reading `X-Forwarded-For[0]` directly is UNSAFE: the first hop is
+ *  attacker-controlled and defeated the per-IP login throttle. */
 function clientIp(req: FastifyRequest): string | undefined {
-  const fwd = req.headers['x-forwarded-for'];
-  if (typeof fwd === 'string') return fwd.split(',')[0]?.trim();
-  if (Array.isArray(fwd) && fwd.length > 0) return fwd[0]?.split(',')[0]?.trim();
   return req.ip;
 }
 
@@ -157,15 +157,32 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     const now = Date.now();
     const id = newId('usr');
     const hash = await hashPassword(password);
-    const isAdmin = existingCount === 0 ? 1 : 0;
+    let isAdmin: 0 | 1 = existingCount === 0 ? 1 : 0;
 
-    await tx(async (t) => {
-      await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now]);
-      await t.run(SQL_INIT_WALLET, [id, now]);
-      for (const res of ['Meat', 'Bits', 'Data'] as const) {
-        await t.run(SQL_INIT_RESOURCE, [id, res, now]);
+    // First-user-is-admin race: `existingCount` is a stale read taken outside
+    // the tx below. On a race, the partial unique index
+    // `idx_users_only_one_admin` (schema.sql / schema-pg.sql) rejects the
+    // losing insert; retry once as a regular user so registration still
+    // succeeds instead of 500-ing.
+    let attempts = 0;
+    while (true) {
+      try {
+        await tx(async (t) => {
+          await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now]);
+          await t.run(SQL_INIT_WALLET, [id, now]);
+          for (const res of ['Meat', 'Bits', 'Data'] as const) {
+            await t.run(SQL_INIT_RESOURCE, [id, res, now]);
+          }
+        });
+        break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isAdminIndexClash = isAdmin === 1 && attempts === 0 && /idx_users_only_one_admin|only_one_admin/i.test(msg);
+        if (!isAdminIndexClash) throw err;
+        isAdmin = 0;
+        attempts += 1;
       }
-    });
+    }
 
     const user = await one<UserRow>(SQL_SELECT_BY_USERNAME, username);
     if (!user) return reply.code(500).send({ error: 'failed to load newly created user' });

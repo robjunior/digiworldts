@@ -8,6 +8,14 @@ import { CatalogEditDialog } from './CatalogEditDialog';
 
 export const CATALOG_QUERY_KEY = ['admin', 'catalog'] as const;
 
+/** Defense-in-depth: only render `<a href>` for http(s) URLs. Backend also
+ *  validates on write, but the frontend must not trust catalog rows loaded
+ *  from any pre-fix XML (or if an admin's UI copies javascript: URIs). */
+function isSafeHttpUrl(raw: string | undefined | null): raw is string {
+  if (typeof raw !== 'string') return false;
+  return /^https?:\/\//i.test(raw.trim());
+}
+
 export function CatalogTable(): JSX.Element {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -70,7 +78,7 @@ function CatalogRow({ template, expanded, busy, onToggle, onDelete, onDownload }
             {template.skillPool.map((skill) => <span key={skill.id}>{skill.name} · {skill.power} power · {skill.energyCost} EN</span>)}
           </div>
           <div className="catalog-links">
-            {template.sourceUrl ? <a href={template.sourceUrl} target="_blank" rel="noreferrer">Source</a> : null}
+            {isSafeHttpUrl(template.sourceUrl) ? <a href={template.sourceUrl} target="_blank" rel="noreferrer noopener">Source</a> : null}
             {template.wikimonSlug ? <span>{template.wikimonSlug}</span> : null}
           </div>
           <div className="actions">

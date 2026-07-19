@@ -18,6 +18,7 @@ import { one, q, run, type ScrapedRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { loadCatalog, saveCatalog } from '../digimon/xml.js';
 import type { Catalog, TemplateDigimon } from '../digimon/types.js';
+import { AILMENTS, ATTRIBUTES, ELEMENTS, MAX_ENERGY, SKILLS_PER_DIGIMON, STAGES } from '../digimon/types.js';
 
 export type ImpexScope = 'all' | 'items' | 'blueprints' | 'catalog' | 'scraped';
 
@@ -75,14 +76,96 @@ const ScrapedManifestSchema = z.object({
 type ScrapedManifest = z.infer<typeof ScrapedManifestSchema>;
 
 // ---------------------------------------------------------------------------
-// Catalog manifest — pass-through of loadCatalog(). Zod validation happens
-// during the XML load itself, so we accept the shape at face value here.
+// Catalog manifest.
+//
+// SECURITY: previously used `z.array(z.record(z.string(), z.unknown()))` here
+// and deferred validation to the next boot's `loadCatalog()`. That let a
+// hostile admin persist a Zod-invalid or path-traversal payload (id "../x"
+// / sourceUrl "javascript:…" / assets URLs pointing at internal hosts) into
+// `digimons.xml`; on next restart `loadCatalog` threw and the process died,
+// or the verifier fetched attacker URLs. Every entry is now validated with
+// the SAME strict schema the /custom + PUT admin routes use, so the import
+// path can't smuggle unvalidated shapes to disk.
 // ---------------------------------------------------------------------------
+const ManifestSkillSchema = z.object({
+  id: z.string().min(1).max(24),
+  name: z.string().trim().min(1).max(48),
+  element: z.enum(ELEMENTS),
+  energyCost: z.number().int().min(0).max(MAX_ENERGY),
+  power: z.number().int().min(0).max(9_999),
+  description: z.string().max(400).optional(),
+  effect: z
+    .object({
+      kind: z.enum(AILMENTS),
+      chance: z.number().min(0).max(1),
+      turns: z.number().int().min(1).max(9),
+    })
+    .optional(),
+});
+
+const ManifestStatsSchema = z.object({
+  hp: z.number().int().min(1).max(99_999),
+  en: z.number().int().min(1).max(MAX_ENERGY),
+  atk: z.number().int().min(1).max(9_999),
+  def: z.number().int().min(1).max(9_999),
+  int: z.number().int().min(1).max(9_999),
+  spd: z.number().int().min(1).max(9_999),
+});
+
+const ManifestAssetsSchema = z.object({
+  portrait: z.string().min(1).max(400),
+  dot: z.string().min(1).max(400),
+});
+
+const ManifestTemplateSchema = z.object({
+  id: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'id must be alphanumeric with -_'),
+  name: z.string().trim().min(1).max(48),
+  stage: z.enum(STAGES),
+  attribute: z.enum(ATTRIBUTES),
+  element: z.enum(ELEMENTS),
+  baseStats: ManifestStatsSchema,
+  skillPool: z.array(ManifestSkillSchema).min(1).max(SKILLS_PER_DIGIMON),
+  assets: ManifestAssetsSchema,
+  sourceUrl: z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
+  wikimonSlug: z.string().max(64).optional(),
+  evolvesInto: z.array(z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i)).max(24).optional(),
+});
+type ManifestTemplate = z.infer<typeof ManifestTemplateSchema>;
+
 const CatalogManifestSchema = z.object({
   version: z.string(),
   updatedAt: z.number().int(),
-  digimons: z.array(z.record(z.string(), z.unknown())),
+  digimons: z.array(ManifestTemplateSchema),
 });
+
+function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
+  const skillPool = raw.skillPool.map((skill) => {
+    const out: TemplateDigimon['skillPool'][number] = {
+      id: skill.id,
+      name: skill.name,
+      element: skill.element,
+      energyCost: skill.energyCost,
+      power: skill.power,
+    };
+    if (skill.description !== undefined) out.description = skill.description;
+    if (skill.effect !== undefined) out.effect = skill.effect;
+    return out;
+  });
+  const tpl: TemplateDigimon = {
+    id: raw.id,
+    name: raw.name,
+    stage: raw.stage,
+    attribute: raw.attribute,
+    element: raw.element,
+    baseStats: raw.baseStats,
+    skillPool,
+    assets: raw.assets,
+  };
+  if (raw.sourceUrl !== undefined) tpl.sourceUrl = raw.sourceUrl;
+  if (raw.wikimonSlug !== undefined) tpl.wikimonSlug = raw.wikimonSlug;
+  if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) tpl.evolvesInto = raw.evolvesInto;
+  return tpl;
+}
 
 // ---------------------------------------------------------------------------
 // Top-level manifest
@@ -121,7 +204,7 @@ export async function buildManifest(scope: ImpexScope): Promise<Manifest> {
     entities.catalog = {
       version: cat.version,
       updatedAt: cat.updatedAt,
-      digimons: cat.digimons as unknown as Array<Record<string, unknown>>,
+      digimons: cat.digimons as unknown as ManifestTemplate[],
     };
   }
 
@@ -238,10 +321,16 @@ export async function applyManifest(raw: unknown): Promise<{ ok: true; summary: 
     let created = 0;
     let updated = 0;
     let unchanged = 0;
+    const catalogErrors: string[] = [];
     const newDigimons: TemplateDigimon[] = [...current.digimons];
-    for (const raw of manifest.entities.catalog.digimons) {
-      const t = raw as unknown as TemplateDigimon;
-      if (!t.id) continue;
+    for (const rawEntry of manifest.entities.catalog.digimons) {
+      const validated = ManifestTemplateSchema.safeParse(rawEntry);
+      if (!validated.success) {
+        const label = typeof (rawEntry as { id?: unknown }).id === 'string' ? String((rawEntry as { id: string }).id) : '<no-id>';
+        catalogErrors.push(`digimon ${label}: ${validated.error.issues[0]?.message ?? 'invalid shape'}`);
+        continue;
+      }
+      const t = toStrictManifestTemplate(validated.data);
       const idx = newDigimons.findIndex((d) => d.id === t.id);
       if (idx === -1) {
         newDigimons.push(t);
@@ -253,6 +342,9 @@ export async function applyManifest(raw: unknown): Promise<{ ok: true; summary: 
         if (before === after) unchanged += 1; else updated += 1;
       }
       existingIds.delete(t.id);
+    }
+    if (catalogErrors.length > 0) {
+      return { ok: false, error: 'invalid-catalog-entries', details: catalogErrors };
     }
     const nextCatalog: Catalog = { version: current.version, updatedAt: now, digimons: newDigimons };
     saveCatalog(nextCatalog);

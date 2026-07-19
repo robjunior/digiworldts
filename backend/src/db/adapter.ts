@@ -73,32 +73,83 @@ export async function closeDbAdapter(): Promise<void> {
 
 /**
  * Translate SQLite-style `?` placeholders into Postgres-style `$1, $2, …`.
- * Skips `?` characters that appear inside quoted string literals.
+ * Correctly skips `?` inside:
+ *   - single-quoted string literals: `'foo'` — including `''` escaped quotes
+ *   - double-quoted identifiers:    `"col"`
+ *   - dollar-quoted strings:        `$$...$$` and `$tag$...$tag$` (PG-only)
+ *   - line comments:                `-- until end-of-line`
+ *   - block comments:               `/* nested ok *​/` (nesting supported per PG SQL)
  */
 export function toPgPlaceholders(sql: string): string {
   let out = '';
   let i = 0;
   let paramIdx = 0;
-  let inSingle = false;
-  let inDouble = false;
-  while (i < sql.length) {
+  const len = sql.length;
+  while (i < len) {
     const c = sql[i]!;
     const next = sql[i + 1];
-    if (!inDouble && c === "'" && !inSingle) { inSingle = true; out += c; i++; continue; }
-    if (inSingle && c === "'") {
-      if (next === "'") { out += "''"; i += 2; continue; }
-      inSingle = false; out += c; i++; continue;
+    if (c === '-' && next === '-') {
+      const nl = sql.indexOf('\n', i);
+      if (nl === -1) { out += sql.slice(i); return out; }
+      out += sql.slice(i, nl + 1);
+      i = nl + 1;
+      continue;
     }
-    if (!inSingle && c === '"' && !inDouble) { inDouble = true; out += c; i++; continue; }
-    if (inDouble && c === '"') { inDouble = false; out += c; i++; continue; }
-    if (!inSingle && !inDouble && c === '?') {
+    if (c === '/' && next === '*') {
+      let depth = 1;
+      out += '/*';
+      i += 2;
+      while (i < len && depth > 0) {
+        if (sql[i] === '/' && sql[i + 1] === '*') { depth += 1; out += '/*'; i += 2; continue; }
+        if (sql[i] === '*' && sql[i + 1] === '/') { depth -= 1; out += '*/'; i += 2; continue; }
+        out += sql[i]!;
+        i += 1;
+      }
+      continue;
+    }
+    if (c === "'") {
+      out += "'";
+      i += 1;
+      while (i < len) {
+        if (sql[i] === "'" && sql[i + 1] === "'") { out += "''"; i += 2; continue; }
+        if (sql[i] === "'") { out += "'"; i += 1; break; }
+        out += sql[i]!;
+        i += 1;
+      }
+      continue;
+    }
+    if (c === '"') {
+      out += '"';
+      i += 1;
+      while (i < len) {
+        if (sql[i] === '"' && sql[i + 1] === '"') { out += '""'; i += 2; continue; }
+        if (sql[i] === '"') { out += '"'; i += 1; break; }
+        out += sql[i]!;
+        i += 1;
+      }
+      continue;
+    }
+    if (c === '$') {
+      const tagMatch = /^\$([A-Za-z_][A-Za-z_0-9]*)?\$/.exec(sql.slice(i));
+      if (tagMatch) {
+        const tag = tagMatch[0];
+        out += tag;
+        i += tag.length;
+        const end = sql.indexOf(tag, i);
+        if (end === -1) { out += sql.slice(i); return out; }
+        out += sql.slice(i, end + tag.length);
+        i = end + tag.length;
+        continue;
+      }
+    }
+    if (c === '?') {
       paramIdx += 1;
       out += `$${paramIdx}`;
-      i++;
+      i += 1;
       continue;
     }
     out += c;
-    i++;
+    i += 1;
   }
   return out;
 }

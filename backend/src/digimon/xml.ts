@@ -23,7 +23,7 @@
  *     </digimon>
  *   </catalog>
  */
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import { z } from 'zod';
@@ -85,13 +85,21 @@ const EvolutionsZ = z.union([
 ]);
 
 const DigimonZ = z.object({
-  '@_id': z.string().min(1),
+  // Path-safe id: catalog ids feed `resolve(assetsDir, catalogId)` at boot; a
+  // `../` id escapes the assets root and enables arbitrary directory writes.
+  // Restrict to lowercase-alnum + `_` + `-` (matches admin/routes.ts custom
+  // route regex) so no XML entry can carry a traversal payload.
+  '@_id': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i, 'id must contain only letters, numbers, underscore, hyphen'),
   '@_name': z.string().min(1),
   '@_stage': z.enum(STAGES),
   '@_attribute': z.enum(ATTRIBUTES),
   '@_element': z.enum(ELEMENTS),
   '@_wikimonSlug': z.string().optional(),
-  '@_sourceUrl': z.string().optional(),
+  // sourceUrl is rendered as `<a href={template.sourceUrl}>` in the admin
+  // catalog table — a `javascript:` URI would fire on admin click. Force
+  // http(s) scheme so import/XML paths can't smuggle a JS URI past the
+  // custom-route regex.
+  '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   assets: AssetsZ,
   stats: StatsZ,
   skills: SkillsZ.optional(),
@@ -228,6 +236,8 @@ function fromTemplate(t: TemplateDigimon): unknown {
   return out;
 }
 
+const MAX_CATALOG_BYTES = 10 * 1024 * 1024;
+
 /**
  * Load the catalog from disk. Returns an EMPTY catalog if the file does not
  * exist yet (fresh install) rather than throwing — the admin seeds it later.
@@ -238,6 +248,10 @@ export function loadCatalog(): Catalog {
   if (!existsSync(path)) {
     log.info('catalog.load.missing', { path });
     return { version: '1', updatedAt: 0, digimons: [] };
+  }
+  const st = statSync(path);
+  if (st.size > MAX_CATALOG_BYTES) {
+    throw new Error(`catalog XML too large at ${path}: ${st.size} bytes (max ${MAX_CATALOG_BYTES}) — refusing to parse to prevent boot OOM`);
   }
   const raw = readFileSync(path, 'utf8');
   let parsed: unknown;

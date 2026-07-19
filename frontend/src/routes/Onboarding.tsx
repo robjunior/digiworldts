@@ -34,16 +34,17 @@ export function Onboarding(): JSX.Element {
 
   useEffect(() => {
     document.body.classList.add('onboarding');
-    if (config?.bgImage) {
+    const safeBg = toSafeBgUrl(config?.bgImage);
+    if (safeBg !== null) {
       document.body.classList.remove('fallback-bg');
-      document.body.style.backgroundImage = `url("${config.bgImage}")`;
+      document.body.style.setProperty('background-image', `url(${JSON.stringify(safeBg)})`);
     } else {
       document.body.classList.add('fallback-bg');
-      document.body.style.backgroundImage = '';
+      document.body.style.setProperty('background-image', '');
     }
     return () => {
       document.body.classList.remove('onboarding', 'fallback-bg');
-      document.body.style.backgroundImage = '';
+      document.body.style.setProperty('background-image', '');
     };
   }, [config?.bgImage]);
 
@@ -102,6 +103,22 @@ export function Onboarding(): JSX.Element {
 function splitDialogue(text: string): readonly string[] {
   const paragraphs = text.split('\n\n').map((paragraph) => paragraph.trim()).filter((paragraph) => paragraph.length > 0);
   return paragraphs.length > 0 ? paragraphs : [INTRO_FALLBACK];
+}
+
+/**
+ * Sanitize an admin-supplied background image URL before feeding it into
+ * `background-image: url(...)`. Rejects anything that could break out of
+ * the CSS `url()` (quotes, whitespace, angle brackets, backslashes) and
+ * requires an http(s) / same-origin / data:image scheme. Returns null on
+ * reject so the caller falls back to the CSS class default.
+ */
+function toSafeBgUrl(raw: string | undefined | null): string | null {
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  if (trimmed.length === 0 || trimmed.length > 400) return null;
+  if (/["'\\<>\s]/.test(trimmed)) return null;
+  if (!/^(https?:\/\/|\/|data:image\/)/i.test(trimmed)) return null;
+  return trimmed;
 }
 
 function shouldShowFallback(error: Error | null, data: ReturnType<typeof getOnboardingState> extends Promise<infer T> ? T | undefined : undefined, teams: readonly OnboardingTeamView[]): boolean {

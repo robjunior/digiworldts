@@ -81,9 +81,25 @@ type PresenceEntry = {
   socket: WebSocket;
   connectedAt: number;
   chatLog: number[];
+  // Token bucket: refills at MSG_REFILL_PER_SEC, capped at MSG_BURST. Every
+  // inbound message consumes one token. Runs on top of the per-chat window
+  // so all verbs (ping/queue/act/chat) are rate-limited, not just chat.
+  msgTokens: number;
+  msgTokensTs: number;
 };
 
+const MSG_BURST = 40;
+const MSG_REFILL_PER_SEC = 20;
+
 const connections = new Map<string, PresenceEntry>();
+
+function refillTokens(entry: PresenceEntry, nowMs: number): void {
+  const dt = nowMs - entry.msgTokensTs;
+  if (dt <= 0) return;
+  const gained = (dt / 1000) * MSG_REFILL_PER_SEC;
+  entry.msgTokens = Math.min(MSG_BURST, entry.msgTokens + gained);
+  entry.msgTokensTs = nowMs;
+}
 
 function ensureUnique(userId: string, socket: WebSocket, displayName: string): PresenceEntry {
   const existing = connections.get(userId);
@@ -91,7 +107,8 @@ function ensureUnique(userId: string, socket: WebSocket, displayName: string): P
     safeSend(existing.socket, { type: 'error', code: 'displaced', message: 'signed in from another tab' });
     try { existing.socket.close(4409, 'displaced'); } catch {}
   }
-  const entry: PresenceEntry = { userId, displayName, socket, connectedAt: Date.now(), chatLog: [] };
+  const now = Date.now();
+  const entry: PresenceEntry = { userId, displayName, socket, connectedAt: now, chatLog: [], msgTokens: MSG_BURST, msgTokensTs: now };
   connections.set(userId, entry);
   return entry;
 }
@@ -417,6 +434,12 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
         safeSend(socket, { type: 'error', code: 'payload-too-large', message: 'message too big' });
         return;
       }
+      refillTokens(entry, Date.now());
+      if (entry.msgTokens < 1) {
+        safeSend(socket, { type: 'error', code: 'rate-limit', message: 'too many messages — slow down' });
+        return;
+      }
+      entry.msgTokens -= 1;
       let parsed: unknown;
       try { parsed = JSON.parse(text); }
       catch {

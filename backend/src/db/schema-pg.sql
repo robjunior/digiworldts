@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mmr INTEGER NOT NULL DEFAULT 1000;
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_only_one_admin ON users(is_admin) WHERE is_admin = 1;
 
 -- ----------------------------------------------------------------------------
 -- sessions (kept for parity; Redis is authoritative when CLUSTER=redis)
