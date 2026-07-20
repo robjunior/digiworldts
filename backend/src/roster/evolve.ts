@@ -4,8 +4,14 @@ import {
   CHIP_ITEM_IDS,
   EVOLUTION_LEVELS,
   MOOD_MIN_FOR_STAGE,
+  STAGES,
+  STAGE_COMBAT_POOL,
+  STAGE_HPEN_POOL,
+  defaultMaxedPools,
   nextStageAfter,
   type Stage,
+  type StageAlloc,
+  type StagePools,
   type TemplateDigimon,
 } from '../digimon/types.js';
 import { log } from '../util/log.js';
@@ -14,7 +20,27 @@ const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?
 const SQL_SELECT_INV_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
 const SQL_DECREMENT_CHIP = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
 const SQL_DELETE_EMPTY_INV = `DELETE FROM player_inventory WHERE user_id = ? AND item_id = ? AND qty <= 0`;
-const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
+const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = NULL, stage_pools = ?, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
+
+function freezeCurrentStagePool(row: RosterRow, currentStage: Stage): StagePools {
+  const priorPools = row.stage_pools
+    ? JSON.parse(row.stage_pools) as StagePools
+    : defaultMaxedPools(currentStage);
+  let priorCombat = 0;
+  let priorHpen = 0;
+  for (const s of STAGES) {
+    if (s === currentStage) break;
+    priorCombat += priorPools[s]?.combat ?? 0;
+    priorHpen += priorPools[s]?.hpen ?? 0;
+  }
+  const bonusCombat = row.atk_bonus + row.def_bonus + row.int_bonus + row.spd_bonus;
+  const bonusHpen = row.hp_bonus + row.en_bonus;
+  const currentAlloc: StageAlloc = {
+    combat: Math.max(0, Math.min(STAGE_COMBAT_POOL[currentStage], bonusCombat - priorCombat)),
+    hpen: Math.max(0, Math.min(STAGE_HPEN_POOL[currentStage], bonusHpen - priorHpen)),
+  };
+  return { ...priorPools, [currentStage]: currentAlloc };
+}
 
 function parseHistory(raw: string | null): string[] {
   if (raw === null || raw === '') return [];
@@ -131,7 +157,9 @@ export async function evolveRoster(
       const priorHistory = parseHistory(row.evolution_history);
       const nextHistory = priorHistory.includes(current.id) ? priorHistory : [...priorHistory, current.id];
       const historyJson = JSON.stringify(nextHistory);
-      const swap = await t.run(SQL_SWAP_CATALOG, [target.id, newNickname, historyJson, now, monId, userId, current.id]);
+      const frozenPools = freezeCurrentStagePool(row, current.stage);
+      const stagePoolsJson = JSON.stringify(frozenPools);
+      const swap = await t.run(SQL_SWAP_CATALOG, [target.id, newNickname, historyJson, stagePoolsJson, now, monId, userId, current.id]);
       if (swap.changes === 0) throw new Error('race-conflict');
     });
   } catch (e) {

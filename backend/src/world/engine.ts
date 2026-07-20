@@ -19,6 +19,7 @@ const SQL_UPSERT_POSITION = `
            updated_at = excluded.updated_at
 `;
 const SQL_SELECT_PARTY = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index`;
+const SQL_COUNT_ALIVE_PARTY = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ? AND status = 'party' AND (revive_at IS NULL OR revive_at <= ?)`;
 const SQL_SELECT_ENABLED_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1`;
 
 const ENCOUNTER_RATE = 0.18;
@@ -42,6 +43,11 @@ export async function loadOrInitPosition(userId: string): Promise<Position> {
 export async function savePosition(userId: string, pos: Position, stepsTaken: number): Promise<void> {
   const now = Date.now();
   await run(SQL_UPSERT_POSITION, [userId, pos.seed, pos.x, pos.y, stepsTaken, now, now]);
+}
+
+export async function hasAliveParty(userId: string): Promise<boolean> {
+  const row = await one<{ n: number }>(SQL_COUNT_ALIVE_PARTY, userId, Date.now());
+  return (row?.n ?? 0) > 0;
 }
 
 export async function getStepsTaken(userId: string): Promise<number> {

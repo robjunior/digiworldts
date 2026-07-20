@@ -210,3 +210,69 @@ export function moodState(mood: number): MoodState {
   if (mood >= 20) return 'sad';
   return 'miserable';
 }
+
+export const ATTRIBUTE_TO_ELEMENT: Record<Attribute, Element> = {
+  Data: 'water',
+  Vaccine: 'plant',
+  Virus: 'fire',
+  Free: 'electricity',
+  Variable: 'wind',
+  Unknown: 'null',
+  NoData: 'null',
+};
+
+export const WEAK_MAP: Record<Element, Element | undefined> = {
+  fire: 'plant',
+  water: 'fire',
+  plant: 'water',
+  ice: 'wind',
+  electricity: 'water',
+  earth: 'electricity',
+  steel: 'ice',
+  wind: 'earth',
+  light: 'dark',
+  dark: 'light',
+  null: undefined,
+};
+
+export const RESIST_MAP: Record<Element, Element | undefined> = {
+  fire: 'water',
+  water: 'electricity',
+  plant: 'fire',
+  ice: 'fire',
+  electricity: 'earth',
+  earth: 'plant',
+  steel: 'electricity',
+  wind: 'ice',
+  light: undefined,
+  dark: undefined,
+  null: undefined,
+};
+
+export const ATTR_STRONG: Record<Attribute, Attribute | undefined> = {
+  Vaccine: 'Virus',
+  Virus: 'Data',
+  Data: 'Vaccine',
+  Free: undefined,
+  Variable: undefined,
+  Unknown: undefined,
+  NoData: undefined,
+};
+
+export function resolveResistance(
+  attackerEl: Element,
+  defenderEl: Element,
+  defenderResistances: ResistanceMap | undefined,
+): ResistanceMult {
+  const override = defenderResistances?.[attackerEl];
+  if (override !== undefined) return override;
+  if (WEAK_MAP[attackerEl] === defenderEl) return 1.5;
+  if (RESIST_MAP[attackerEl] === defenderEl) return 0.5;
+  return 1;
+}
+
+export function attrMultiplier(attackerAttr: Attribute, defenderAttr: Attribute): 2 | 0.5 | 1 {
+  if (ATTR_STRONG[attackerAttr] === defenderAttr) return 2;
+  if (ATTR_STRONG[defenderAttr] === attackerAttr) return 0.5;
+  return 1;
+}

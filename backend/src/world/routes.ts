@@ -6,6 +6,7 @@ import { biomeAt, BIOME_COLOR, BIOME_ELEMENT, BIOME_LABEL, tilesAround, type Bio
 import {
   currentBiome,
   getStepsTaken,
+  hasAliveParty,
   loadOrInitPosition,
   nextPosition,
   partyRating,
@@ -73,6 +74,9 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
     }
     if (hasActivePveBattle(user.id)) {
       return reply.code(409).send({ error: 'battle-in-progress', message: 'Resolve your active battle first.' });
+    }
+    if (!(await hasAliveParty(user.id))) {
+      return reply.code(409).send({ error: 'no-alive-party', message: 'Assign at least one alive Digimon to your party before exploring.' });
     }
     const dir = req.body?.dir;
     if (dir !== 'up' && dir !== 'down' && dir !== 'left' && dir !== 'right') {

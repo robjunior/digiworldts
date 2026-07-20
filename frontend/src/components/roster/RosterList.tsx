@@ -6,6 +6,7 @@ import type { ActivityByMon, RosterActions, RosterMon } from './types';
 import { formatRemaining, isDowned, totalStats, xpPct } from './types';
 import { EvolutionChain } from './EvolutionChain';
 import { SkillEditor } from './SkillEditor';
+import { ResistanceChart } from './ResistanceChart';
 
 type RosterListProps = {
   readonly roster: readonly RosterMon[];
@@ -122,6 +123,7 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
             ) : null}
           </div>
           <EvolutionChain catalogId={mon.catalogId} templateById={templateById} reverseGraph={reverseGraph} />
+          {isOpen && templateById.get(mon.catalogId) ? <ResistanceChart template={templateById.get(mon.catalogId)!} /> : null}
           {isOpen ? <SkillEditor monId={mon.id} /> : null}
         </div>
       </div>

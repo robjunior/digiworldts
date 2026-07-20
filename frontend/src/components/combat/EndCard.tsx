@@ -14,15 +14,11 @@ type PveResults = {
 
 type EndCardProps = {
   readonly battle: BattleView;
-  readonly onNewEncounter: () => void;
   readonly pveResults?: PveResults | null;
-  // Passing onClose renders EndCard inside a modal overlay (backdrop + Esc /
-  // click-outside close). Omitting keeps the legacy inline-card layout so
-  // any older call site still works.
   readonly onClose?: () => void;
 };
 
-export function EndCard({ battle, onNewEncounter, pveResults, onClose }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Element | null {
   useEffect(() => {
     if (!onClose) return;
     const handler = (event: KeyboardEvent): void => {
@@ -78,7 +74,6 @@ export function EndCard({ battle, onNewEncounter, pveResults, onClose }: EndCard
       </div>
       {isPve && pveResults ? <PveRewards results={pveResults} /> : null}
       <div className="cta-row">
-        <button className="btn" type="button" onClick={onNewEncounter} data-od-id="btn-new-encounter">New Encounter</button>
         <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
       </div>
     </section>

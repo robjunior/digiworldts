@@ -80,6 +80,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const activeBattle = useWsStore((state) => state.activeBattle);
   const battleEvents = useWsStore((state) => state.battleEvents);
   const handleServerMessage = useWsStore((state) => state.handleServerMessage);
+  const clearActiveBattle = useWsStore((state) => state.clearActiveBattle);
   const [commandMode, setCommandMode] = useState<CommandMode>('menu');
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
@@ -162,20 +163,6 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
     setCommandMode('menu');
   }, [activeBattle, handleServerMessage, send]);
 
-  const startEncounter = useCallback((): void => {
-    setPveResults(null);
-    void startWildEncounter().then((battle) => {
-      setLoadError(null);
-      handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
-    }).catch((error: unknown) => {
-      if (error instanceof Error) {
-        setLoadError(error.message);
-        return;
-      }
-      throw error;
-    });
-  }, [handleServerMessage]);
-
   if (activeBattle === null) {
     return null;
   }
@@ -185,7 +172,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   return (
     <>
       {showPageStrip ? <PageStrip battle={activeBattle} readyState={readyState} /> : null}
-      {activeBattle.status === 'ended' && endModalOpen ? <EndCard battle={activeBattle} pveResults={pveResults} onNewEncounter={startEncounter} onClose={() => setEndModalOpen(false)} /> : null}
+      {activeBattle.status === 'ended' && endModalOpen ? <EndCard battle={activeBattle} pveResults={pveResults} onClose={() => { setEndModalOpen(false); clearActiveBattle(); }} /> : null}
       <section className={activeBattle.status === 'ended' ? 'arena hidden' : 'arena'} ref={arenaRef} data-od-id="arena">
         <FloaterLayer floaters={floaters} />
         <TurnQueue turns={activeBattle.upcomingTurns} />

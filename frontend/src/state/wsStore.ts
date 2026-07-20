@@ -32,6 +32,7 @@ type WsState = {
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
+  readonly clearActiveBattle: () => void;
   readonly reset: () => void;
 };
 
@@ -47,7 +48,7 @@ const initialState = {
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
-} satisfies Omit<WsState, 'handleServerMessage' | 'reset'>;
+} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle'>;
 
 export const useWsStore = create<WsState>((set) => ({
   ...initialState,
@@ -104,5 +105,8 @@ export const useWsStore = create<WsState>((set) => ({
   },
   reset: () => {
     set(initialState);
+  },
+  clearActiveBattle: () => {
+    set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null });
   },
 }));

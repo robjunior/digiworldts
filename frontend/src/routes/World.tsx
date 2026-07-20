@@ -50,7 +50,7 @@ export function World(): JSX.Element {
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
   const worldObjectsQuery = useQuery({ queryKey: ['world-objects'] as const, queryFn: getWorldObjects, staleTime: 30_000 });
   const worldObjects = worldObjectsQuery.data?.objects ?? [];
-  const battleOverlayVisible = activeBattle !== null && activeBattle.mode === 'pve' && activeBattle.status !== 'ended';
+  const battleOverlayVisible = activeBattle !== null && activeBattle.mode === 'pve';
   const partyMons = useMemo(() => {
     const roster: readonly RosterView[] = rosterQuery.data?.roster ?? [];
     const now = Date.now();
@@ -175,6 +175,9 @@ export function World(): JSX.Element {
       }
     }).catch((error: unknown) => {
       if (error instanceof ApiError && error.status === 409) {
+        if (error.code === 'no-alive-party') {
+          setNotice(error.message || 'Assign at least one alive Digimon to your party before exploring.');
+        }
         return;
       }
       if (error instanceof Error) {
