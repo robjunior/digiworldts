@@ -12,7 +12,7 @@
  */
 import { fetchListedDigimons, persistScraped, fetchDigimonDetail } from './skullbot.js';
 import { fetchWikimonPage, attackElement, type WikimonPage } from './wikimon.js';
-import { scrapeResistances } from './grindosaur.js';
+import { scrapeResistances, scrapeMonInfo } from './grindosaur.js';
 import { downloadAssetBatch, hasLocalAssets, type AssetJob } from './assets.js';
 import { one, q, run, closeDbAdapter, type ScrapedRow } from '../db/index.js';
 import { loadCatalog, saveCatalog, upsertTemplate, findTemplate } from '../digimon/xml.js';
@@ -20,7 +20,7 @@ import { attributeToElement, defaultStatsForStage } from '../digimon/element.js'
 import { log } from '../util/log.js';
 import { SKILLS_PER_DIGIMON, MAX_ENERGY, type Skill, type TemplateDigimon } from '../digimon/types.js';
 
-type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'help';
+type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'refresh' | 'help';
 
 function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: number } {
   let mode: Mode = 'help';
@@ -33,6 +33,7 @@ function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: numb
     else if (a === '--assets') mode = 'assets';
     else if (a === '--all') mode = 'all';
     else if (a === '--resistances') mode = 'resistances';
+    else if (a === '--refresh') mode = 'refresh';
     else if (a === '--detail') {
       mode = 'detail';
       const next = argv[i + 1];
@@ -62,6 +63,7 @@ function printHelp(): void {
       'pnpm scrape --assets [--limit N]       download portrait+dot for XML catalog entries',
       'pnpm scrape --all                      list + enrich + assets',
       'pnpm scrape --resistances [--limit N]  scrape per-mon Element resistance tables from wikimon (default all)',
+      'pnpm scrape --refresh [--limit N]      pull authoritative attribute + resistances from grindosaur and update the catalog XML in place',
       'pnpm scrape --detail <skullbotId>      fetch + print one detail page',
       '',
     ].join('\n'),
@@ -256,6 +258,64 @@ async function runResistances(limit: number): Promise<void> {
   log.info('scrape.resistances.done', { updated: count, attempted: bounded.length });
 }
 
+function resistancesEqual(a: TemplateDigimon['resistances'], b: TemplateDigimon['resistances']): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  if (aKeys.length !== bKeys.length) return false;
+  for (let i = 0; i < aKeys.length; i++) {
+    if (aKeys[i] !== bKeys[i]) return false;
+    const k = aKeys[i] as keyof NonNullable<TemplateDigimon['resistances']>;
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+async function runRefresh(limit: number): Promise<void> {
+  const catalog = loadCatalog();
+  const bounded = catalog.digimons.slice(0, Number.isFinite(limit) && limit > 0 ? limit : catalog.digimons.length);
+  log.info('scrape.refresh.begin', { candidates: bounded.length });
+  let updated = catalog;
+  let attrChanges = 0;
+  let resChanges = 0;
+  let missing = 0;
+  for (const tpl of bounded) {
+    const info = await scrapeMonInfo(tpl.name, tpl.wikimonSlug);
+    if (info === null) {
+      missing += 1;
+      await new Promise((r) => setTimeout(r, 250));
+      continue;
+    }
+    const next: TemplateDigimon = { ...tpl };
+    let touched = false;
+    if (info.attribute && info.attribute !== tpl.attribute) {
+      log.info('scrape.refresh.attribute-change', { id: tpl.id, name: tpl.name, from: tpl.attribute, to: info.attribute });
+      next.attribute = info.attribute;
+      attrChanges += 1;
+      touched = true;
+    }
+    if (info.resistances !== null && !resistancesEqual(tpl.resistances, info.resistances)) {
+      next.resistances = info.resistances;
+      resChanges += 1;
+      touched = true;
+    }
+    if (touched) {
+      updated = upsertTemplate(updated, next);
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  if (attrChanges > 0 || resChanges > 0) {
+    saveCatalog(updated);
+  }
+  log.info('scrape.refresh.done', {
+    attempted: bounded.length,
+    missing,
+    attributeChanges: attrChanges,
+    resistanceChanges: resChanges,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // dispatch
 // ---------------------------------------------------------------------------
@@ -271,6 +331,7 @@ async function main(): Promise<void> {
     else if (args.mode === 'enrich') await runEnrich(args.limit);
     else if (args.mode === 'assets') await runAssets(args.limit);
     else if (args.mode === 'resistances') await runResistances(args.limit);
+    else if (args.mode === 'refresh') await runRefresh(args.limit);
     else if (args.mode === 'detail') {
       if (args.detailId == null) {
         process.stderr.write('--detail requires an id\n');

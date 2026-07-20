@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<catalog version="1" updatedAt="1784565679369">
+<catalog version="1" updatedAt="1784568621462">
   <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
     <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
@@ -1120,7 +1120,7 @@
       <r element="earth" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-676" name="Agunimon" stage="Rookie" attribute="Unknown" element="fire" wikimonSlug="Agunimon" sourceUrl="https://api.skullbot.fr/digimon/676">
+  <digimon id="skb-676" name="Agunimon" stage="Rookie" attribute="Variable" element="fire" wikimonSlug="Agunimon" sourceUrl="https://api.skullbot.fr/digimon/676">
     <assets portrait="/assets/digimon/skb-676/portrait.webp" dot="/assets/digimon/skb-676/dot.gif"></assets>
     <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
     <skills>
@@ -3368,7 +3368,7 @@
       <r element="electricity" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-677" name="EmperorGreymon" stage="Rookie" attribute="Unknown" element="null" wikimonSlug="EmperorGreymon" sourceUrl="https://api.skullbot.fr/digimon/677">
+  <digimon id="skb-677" name="EmperorGreymon" stage="Rookie" attribute="Variable" element="null" wikimonSlug="EmperorGreymon" sourceUrl="https://api.skullbot.fr/digimon/677">
     <assets portrait="/assets/digimon/skb-677/portrait.webp" dot="/assets/digimon/skb-677/dot.gif"></assets>
     <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
     <skills>
