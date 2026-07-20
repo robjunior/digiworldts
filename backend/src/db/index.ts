@@ -166,6 +166,7 @@ export type RosterRow = {
   listed_at: number | null;
   evolution_history: string | null;
   equipped_skill_ids: string | null;
+  stage_pools: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -243,7 +244,7 @@ export type SkillCatalogRow = {
   id: string;
   name: string;
   description: string;
-  element: 'fire' | 'water' | 'nature' | 'electric' | 'neutral';
+  element: 'fire' | 'water' | 'plant' | 'ice' | 'electricity' | 'earth' | 'steel' | 'wind' | 'light' | 'dark' | 'null';
   energy_cost: number;
   cooldown: number;
   actions_json: string;

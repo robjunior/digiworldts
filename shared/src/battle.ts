@@ -1,4 +1,4 @@
-import type { Ailment, Element, Skill } from './digimon.js';
+import type { Ailment, Attribute, Element, ResistanceMap, Skill } from './digimon.js';
 
 export type BattleSide = 'a' | 'b';
 export type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
@@ -23,6 +23,8 @@ export type BattleUnit = {
   templateId: string;
   name: string;
   element: Element;
+  attribute: Attribute;
+  resistances?: ResistanceMap;
   level: number;
   hp: number;
   hpMax: number;
@@ -46,7 +48,7 @@ export type Action =
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
   | { type: 'flee' };
 
-export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'chain' | 'analyzed' | 'capture-hit' | 'capture-miss' | null;
+export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'analyzed' | 'capture-hit' | 'capture-miss' | null;
 
 export type EventBase = { at: number; round: number };
 
@@ -106,7 +108,7 @@ export type Battle = {
   winner: BattleSide | null;
   startedAt: number;
   endedAt: number | null;
-  lastAction: { side: BattleSide; element: Element; wasHit: boolean } | null;
+  lastAction: { side: BattleSide; element: Element; attribute: Attribute; wasHit: boolean } | null;
   displayNames?: { a?: string; b?: string };
 };
 

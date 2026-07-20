@@ -103,12 +103,14 @@ CREATE TABLE IF NOT EXISTS player_roster (
   listed_at     BIGINT,
   evolution_history TEXT,
   equipped_skill_ids TEXT,
+  stage_pools   TEXT,
   created_at    BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL,
   CONSTRAINT roster_unique_slot UNIQUE (user_id, slot_index)
 );
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS evolution_history TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS equipped_skill_ids TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS stage_pools TEXT;
 CREATE INDEX IF NOT EXISTS idx_roster_user ON player_roster(user_id);
 CREATE INDEX IF NOT EXISTS idx_roster_status ON player_roster(user_id, status);
 

@@ -3,7 +3,7 @@ import type { BaseStats, TemplateDigimon } from '@digiworld/shared/digimon';
 import { apiFetch, type RosterResponse } from './api';
 
 export const MARKET_STAGES = ['Baby', 'In-Training', 'Rookie', 'Champion', 'Ultimate', 'Mega'] as const;
-export const MARKET_ELEMENTS = ['fire', 'water', 'nature', 'electric', 'neutral'] as const;
+export const MARKET_ELEMENTS = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
 export const MARKET_SORTS = ['newest', 'price_asc', 'price_desc', 'level_desc'] as const;
 
 export type MarketStage = (typeof MARKET_STAGES)[number];

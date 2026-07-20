@@ -32,10 +32,14 @@ function floaterText(floater: Floater): string {
   switch (floater.cue) {
     case 'miss':
       return 'Miss';
+    case 'immune':
+      return 'Immune';
     case 'crit':
     case 'weak':
+    case 'attr-advantage':
       return `${floater.amount} !`;
     case 'resist':
+    case 'attr-disadvantage':
     case 'chain':
     case 'analyzed':
     case 'capture-hit':

@@ -26,8 +26,8 @@ export type RosterActions = {
 
 export type ActivityByMon = ReadonlyMap<string, TrainingActiveView>;
 
-export function elementStyle(element: Element | 'neutral' | undefined): ElementStyle {
-  return { '--el': `var(--el-${element ?? 'neutral'})` };
+export function elementStyle(element: Element | 'null' | undefined): ElementStyle {
+  return { '--el': `var(--el-${element ?? 'null'})` };
 }
 
 export function percentStyle(value: number): PercentStyle {

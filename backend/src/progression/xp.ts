@@ -15,8 +15,8 @@
  *   a = 1 for wild, 1.5 for trainer.
  */
 import { MAX_LEVEL } from '../digimon/element.js';
-import type { BaseStats, GrowthRate, Stage } from '../digimon/types.js';
-import { STAGE_BASE_EXP, STAGE_GROWTH_RATE } from '../digimon/types.js';
+import type { BaseStats, GrowthRate, Stage, StagePools } from '../digimon/types.js';
+import { combatCapFor, combatSum, defaultMaxedPools, hpenCapFor, hpenSum, STAGE_BASE_EXP, STAGE_GROWTH_RATE } from '../digimon/types.js';
 
 const STAGE_GROWTH: Record<Stage, BaseStats> = {
   Baby: { hp: 4, en: 0, atk: 1, def: 1, int: 1, spd: 1 },
@@ -107,6 +107,31 @@ export function applyGrowth(currentBonus: BaseStats, stage: Stage, levelsGained:
   };
 }
 
+export function clampBonusToCap(
+  bonus: BaseStats,
+  baseStats: BaseStats,
+  stage: Stage,
+  stagePools: StagePools | undefined,
+): BaseStats {
+  const pools = stagePools ?? defaultMaxedPools(stage);
+  const combatCap = combatCapFor(stage, pools);
+  const hpenCap = hpenCapFor(stage, pools);
+  const combatRoom = Math.max(0, combatCap - combatSum(baseStats));
+  const hpenRoom = Math.max(0, hpenCap - hpenSum(baseStats));
+  const bonusCombat = bonus.atk + bonus.def + bonus.int + bonus.spd;
+  const bonusHpEn = bonus.hp + bonus.en;
+  const combatScale = bonusCombat === 0 || bonusCombat <= combatRoom ? 1 : combatRoom / bonusCombat;
+  const hpenScale = bonusHpEn === 0 || bonusHpEn <= hpenRoom ? 1 : hpenRoom / bonusHpEn;
+  return {
+    hp: Math.max(0, Math.floor(bonus.hp * hpenScale)),
+    en: Math.max(0, Math.floor(bonus.en * hpenScale)),
+    atk: Math.max(0, Math.floor(bonus.atk * combatScale)),
+    def: Math.max(0, Math.floor(bonus.def * combatScale)),
+    int: Math.max(0, Math.floor(bonus.int * combatScale)),
+    spd: Math.max(0, Math.floor(bonus.spd * combatScale)),
+  };
+}
+
 export type AwardResult = {
   level: number;
   xp: number;
@@ -114,22 +139,20 @@ export type AwardResult = {
   gainedLevels: number;
 };
 
-/**
- * Add `deltaXp` to a mon's xp/level under its stage's growth curve. Level never
- * decreases: pre-migration mons whose stored xp trails the new (steeper) curve
- * keep their stored level as a floor.
- */
 export function awardXp(
   currentLevel: number,
   currentXp: number,
   currentBonus: BaseStats,
   stage: Stage,
   deltaXp: number,
+  baseStats?: BaseStats,
+  stagePools?: StagePools,
 ): AwardResult {
   const newXp = Math.max(0, currentXp + deltaXp);
   const derivedLevel = levelFromXp(newXp, stage);
   const newLevel = Math.max(currentLevel, derivedLevel);
   const gained = Math.max(0, newLevel - currentLevel);
-  const newBonus = applyGrowth(currentBonus, stage, gained);
-  return { level: newLevel, xp: newXp, bonus: newBonus, gainedLevels: gained };
+  const grown = applyGrowth(currentBonus, stage, gained);
+  const capped = baseStats ? clampBonusToCap(grown, baseStats, stage, stagePools) : grown;
+  return { level: newLevel, xp: newXp, bonus: capped, gainedLevels: gained };
 }

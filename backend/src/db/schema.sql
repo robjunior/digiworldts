@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   listed_at     INTEGER,                                 -- unix ms; when NOT NULL the mon is on the player market and hidden from party/nursery/etc.
   evolution_history TEXT,                                -- JSON string[]: prior catalog_ids in evolution order (null = no history)
   equipped_skill_ids TEXT,                               -- JSON string[4]: chosen skill IDs from the learned pool; null = fallback to current template's top 4
+  stage_pools   TEXT,                                    -- JSON Partial<Record<Stage,{combat,hpen}>>: per-stage bonus spent, locks on evolution
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   UNIQUE (user_id, slot_index) ON CONFLICT ABORT         -- no two party slots collide

@@ -78,11 +78,18 @@ function ElementGlyph({ element }: { readonly element: Element }): JSX.Element {
       return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M34 6c8 12-5 16 8 27 4-8 9-9 11-18 8 11 7 25-1 34-10 12-31 11-40-2C3 34 11 21 24 12c-2 10 2 14 10 18 5-8-1-13 0-24Z" /></svg>;
     case 'water':
       return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M32 6c12 15 20 26 20 38 0 10-8 16-20 16s-20-6-20-16C12 32 20 21 32 6Z" /><path d="M21 43c3 5 7 7 13 7" /></svg>;
-    case 'nature':
+    case 'plant':
       return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M52 10C31 10 16 22 14 43c20 1 35-11 38-33Z" /><path d="M14 52c7-18 17-27 32-36" /></svg>;
-    case 'electric':
+    case 'electricity':
       return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M37 4 13 36h18l-4 24 24-34H34L37 4Z" /></svg>;
-    case 'neutral':
+    case 'null':
+      return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M32 8 54 21v22L32 56 10 43V21L32 8Z" /><path d="M32 8v48M10 21l22 13 22-13" /></svg>;
+    case 'ice':
+    case 'earth':
+    case 'steel':
+    case 'wind':
+    case 'light':
+    case 'dark':
       return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3"><path d="M32 8 54 21v22L32 56 10 43V21L32 8Z" /><path d="M32 8v48M10 21l22 13 22-13" /></svg>;
     default:
       element satisfies never;

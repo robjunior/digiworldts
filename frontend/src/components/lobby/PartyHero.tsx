@@ -117,19 +117,30 @@ function ElementGlyph({ element }: { readonly element: Element }): JSX.Element {
           <svg viewBox="0 0 64 64" fill="none"><path d="M32 6C20 20 14 31 14 42c0 10 8 17 18 17s18-7 18-17C50 31 44 20 32 6Z" stroke="currentColor" strokeWidth="4" /></svg>
         </span>
       );
-    case 'nature':
+    case 'plant':
       return (
         <span className="glyph" aria-hidden="true">
           <svg viewBox="0 0 64 64" fill="none"><path d="M11 38C12 18 27 8 53 9c0 25-11 41-32 43 7-18 17-26 32-43" stroke="currentColor" strokeWidth="4" /></svg>
         </span>
       );
-    case 'electric':
+    case 'electricity':
       return (
         <span className="glyph" aria-hidden="true">
           <svg viewBox="0 0 64 64" fill="none"><path d="M38 4 15 35h17l-6 25 23-33H32l6-23Z" stroke="currentColor" strokeWidth="4" strokeLinejoin="round" /></svg>
         </span>
       );
-    case 'neutral':
+    case 'null':
+      return (
+        <span className="glyph" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none"><path d="M32 8 54 20v24L32 56 10 44V20L32 8Z" stroke="currentColor" strokeWidth="4" /><path d="M10 20 32 32l22-12M32 32v24" stroke="currentColor" strokeWidth="4" /></svg>
+        </span>
+      );
+    case 'ice':
+    case 'earth':
+    case 'steel':
+    case 'wind':
+    case 'light':
+    case 'dark':
       return (
         <span className="glyph" aria-hidden="true">
           <svg viewBox="0 0 64 64" fill="none"><path d="M32 8 54 20v24L32 56 10 44V20L32 8Z" stroke="currentColor" strokeWidth="4" /><path d="M10 20 32 32l22-12M32 32v24" stroke="currentColor" strokeWidth="4" /></svg>
@@ -159,11 +170,18 @@ function elementToken(element: Element): string {
       return 'var(--el-fire)';
     case 'water':
       return 'var(--el-water)';
-    case 'nature':
+    case 'plant':
       return 'var(--el-nature)';
-    case 'electric':
+    case 'electricity':
       return 'var(--el-electric)';
-    case 'neutral':
+    case 'null':
+      return 'var(--el-neutral)';
+    case 'ice':
+    case 'earth':
+    case 'steel':
+    case 'wind':
+    case 'light':
+    case 'dark':
       return 'var(--el-neutral)';
     default:
       element satisfies never;

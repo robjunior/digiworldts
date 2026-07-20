@@ -31,7 +31,7 @@ function SkillRow({ skill, unit, target, onSkill }: {
   readonly onSkill: (skillId: string, targetId: UnitId) => void;
 }): JSX.Element {
   const disabled = target === null || skill.energyCost > unit.en;
-  const affinityCue = target ? affinity(skill.element, target.element) : 'neutral';
+   const affinityCue = target ? affinity(skill.element, target.element) : 'none';
 
   return (
     <button className="skill-row" type="button" role="menuitem" disabled={disabled} onClick={() => target && onSkill(skill.id, target.id)} data-od-id={`skill-${skill.id}`}>
@@ -52,7 +52,7 @@ function AffinityCue({ cue }: { readonly cue: Affinity }): JSX.Element | null {
       return <span className="cue cue--weak">Weak!</span>;
     case 'resist':
       return <span className="cue cue--resist">Resist</span>;
-    case 'neutral':
+    case 'none':
       return null;
     default:
       cue satisfies never;
@@ -60,14 +60,42 @@ function AffinityCue({ cue }: { readonly cue: Affinity }): JSX.Element | null {
   }
 }
 
-type Affinity = 'weak' | 'resist' | 'neutral';
+type Affinity = 'weak' | 'resist' | 'none';
+
+const WEAK_AFFINITY = {
+  fire: 'plant',
+  water: 'fire',
+  plant: 'water',
+  ice: 'wind',
+  electricity: 'water',
+  earth: 'electricity',
+  steel: 'ice',
+  wind: 'earth',
+  light: 'dark',
+  dark: 'light',
+  null: null,
+} as const satisfies Record<Element, Element | null>;
+
+const RESIST_AFFINITY = {
+  fire: 'water',
+  water: 'electricity',
+  plant: 'fire',
+  ice: 'fire',
+  electricity: 'earth',
+  earth: 'plant',
+  steel: 'electricity',
+  wind: 'ice',
+  light: null,
+  dark: null,
+  null: null,
+} as const satisfies Record<Element, Element | null>;
 
 function affinity(attacker: Element, defender: Element): Affinity {
-  if ((attacker === 'fire' && defender === 'nature') || (attacker === 'nature' && defender === 'water') || (attacker === 'water' && defender === 'fire') || (attacker === 'electric' && defender === 'water')) {
+  if (WEAK_AFFINITY[attacker] === defender) {
     return 'weak';
   }
-  if ((attacker === 'nature' && defender === 'fire') || (attacker === 'water' && defender === 'nature') || (attacker === 'fire' && defender === 'water') || (attacker === 'water' && defender === 'electric')) {
+  if (RESIST_AFFINITY[attacker] === defender) {
     return 'resist';
   }
-  return 'neutral';
+  return 'none';
 }

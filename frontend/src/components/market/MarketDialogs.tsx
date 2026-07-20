@@ -53,7 +53,7 @@ function SellDialog({ state, busy, onClose, onSellPrice, onSell }: { readonly st
   const template = state.mon.template;
   const portrait = template?.assets.portrait ?? `/assets/digimon/${state.mon.catalogId}/portrait.webp`;
   const stage = template?.stage ?? '—';
-  const element = template?.element ?? 'neutral';
+  const element = template?.element ?? 'null';
   const price = Number(state.price);
   const valid = Number.isInteger(price) && price >= 10 && price <= 1_000_000;
 

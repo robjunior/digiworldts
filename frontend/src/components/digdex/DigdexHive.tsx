@@ -27,7 +27,7 @@ export function DigdexHive({ entries, onSelect }: DigdexHiveProps): JSX.Element 
 
 function DigdexHexCell({ entry, onSelect }: { readonly entry: DigdexEntry; readonly onSelect: (entry: DigdexEntry) => void }): JSX.Element {
   const { met, template } = entry;
-  const element = met && template ? template.element : 'neutral';
+  const element = met && template ? template.element : 'null';
   const clickable = met;
   const label = met && template
     ? `${template.name} — ${template.stage}, ${template.element}`

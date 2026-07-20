@@ -20,9 +20,11 @@ import {
   moodState,
   type MoodState,
   type Stage,
+  type StagePools,
   type TrainingStat,
 } from '../digimon/types.js';
 import { loadCatalog } from '../digimon/xml.js';
+import { clampBonusToCap } from '../progression/xp.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
@@ -300,14 +302,29 @@ export async function collectTraining(userId: string, buildingId: string): Promi
   const newMood = Math.max(0, Math.min(100, mon.mood + moodDelta));
   const gained: Partial<Record<TrainingStat, number>> = {};
   for (const k of statKinds) gained[k] = gainPer;
-  const delta = {
-    hp: gained.hp ?? 0,
-    en: gained.en ?? 0,
-    atk: gained.atk ?? 0,
-    def: gained.def ?? 0,
-    int: gained.int ?? 0,
-    spd: gained.spd ?? 0,
+  const rawBonus = {
+    hp: mon.hp_bonus + (gained.hp ?? 0),
+    en: mon.en_bonus + (gained.en ?? 0),
+    atk: mon.atk_bonus + (gained.atk ?? 0),
+    def: mon.def_bonus + (gained.def ?? 0),
+    int: mon.int_bonus + (gained.int ?? 0),
+    spd: mon.spd_bonus + (gained.spd ?? 0),
   };
+  const stagePools = mon.stage_pools ? JSON.parse(mon.stage_pools) as StagePools : undefined;
+  const cappedBonus = tpl ? clampBonusToCap(rawBonus, tpl.baseStats, stage, stagePools) : rawBonus;
+  const delta = {
+    hp: cappedBonus.hp - mon.hp_bonus,
+    en: cappedBonus.en - mon.en_bonus,
+    atk: cappedBonus.atk - mon.atk_bonus,
+    def: cappedBonus.def - mon.def_bonus,
+    int: cappedBonus.int - mon.int_bonus,
+    spd: cappedBonus.spd - mon.spd_bonus,
+  };
+  const appliedGains: Partial<Record<TrainingStat, number>> = {};
+  for (const k of statKinds) {
+    const applied = delta[k as keyof typeof delta];
+    if (applied > 0) appliedGains[k] = applied;
+  }
   await tx(async (t) => {
     await t.run(SQL_UPDATE_MON_TRAINING, [
       delta.hp, delta.en, delta.atk, delta.def, delta.int, delta.spd,
@@ -316,8 +333,8 @@ export async function collectTraining(userId: string, buildingId: string): Promi
     ]);
     await t.run(SQL_MARK_COLLECTED, [now, session.id]);
   });
-  log.info('training.collect', { userId, buildingId, monId: mon.id, statKinds, gained, moodDelta, newMood });
-  return { ok: true, view: await readTraining(userId), gained, moodDelta, newMood };
+  log.info('training.collect', { userId, buildingId, monId: mon.id, statKinds, gained: appliedGains, moodDelta, newMood });
+  return { ok: true, view: await readTraining(userId), gained: appliedGains, moodDelta, newMood };
 }
 
 export type CancelOutcome =

@@ -39,7 +39,7 @@ export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }
         </div>
         <div className="card-foot">
           <div className="subline">
-            <span className="pill"><span className="dot" />{mon.template?.element ?? 'neutral'}</span>
+            <span className="pill"><span className="dot" />{mon.template?.element ?? 'null'}</span>
             <span className={`pill mood-${mood.state}`}><span className="dot" />{mood.label}</span>
             <ActivityPill slot={mon.slot} activity={activity} />
             <span className="stage-inline">{mon.template?.attribute ?? '?'}</span>

@@ -449,13 +449,15 @@ async function grantRewardsInTx(
   const now = Date.now();
   for (const r of rows) {
     if (!participantSlots.has(r.slot_index)) continue;
-    const stage: Stage = templates.get(r.catalog_id)?.stage ?? 'Rookie';
+    const template = templates.get(r.catalog_id);
+    const stage: Stage = template?.stage ?? 'Rookie';
     const grown = awardXp(
       r.level,
       r.xp,
       { hp: r.hp_bonus, en: r.en_bonus, atk: r.atk_bonus, def: r.def_bonus, int: r.int_bonus, spd: r.spd_bonus },
       stage,
       xp,
+      template?.baseStats,
     );
     await txAdapter.run(SQL_UPDATE_MON, [
       grown.level,

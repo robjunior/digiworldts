@@ -35,6 +35,9 @@ import {
   ELEMENTS,
   STAGES,
   type Catalog,
+  type Element,
+  type ResistanceMap,
+  type ResistanceMult,
   type Skill,
   type SkillEffect,
   type TemplateDigimon,
@@ -84,6 +87,20 @@ const EvolutionsZ = z.union([
   z.object({}).strict(),
 ]);
 
+const RESISTANCE_MULTS = [0, 0.5, 1, 1.5, 2] as const;
+
+const ResistanceEntryZ = z.object({
+  '@_element': z.enum(ELEMENTS),
+  '@_mult': z.coerce.number().refine((v): v is ResistanceMult => (RESISTANCE_MULTS as readonly number[]).includes(v), {
+    message: `mult must be one of ${RESISTANCE_MULTS.join(', ')}`,
+  }),
+});
+
+const ResistancesZ = z.union([
+  z.object({ r: z.union([ResistanceEntryZ, z.array(ResistanceEntryZ)]) }),
+  z.object({}).strict(),
+]);
+
 const DigimonZ = z.object({
   // Path-safe id: catalog ids feed `resolve(assetsDir, catalogId)` at boot; a
   // `../` id escapes the assets root and enables arbitrary directory writes.
@@ -102,6 +119,7 @@ const DigimonZ = z.object({
   '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   assets: AssetsZ,
   stats: StatsZ,
+  resistances: ResistancesZ.optional(),
   skills: SkillsZ.optional(),
   evolutions: EvolutionsZ.optional(),
 });
@@ -125,7 +143,7 @@ const parser = new XMLParser({
   trimValues: true,
   isArray: (_tagName, jPath) => {
     const p = String(jPath);
-    return p === 'catalog.digimon' || p.endsWith('.skills.skill') || p.endsWith('.evolutions.evolve');
+    return p === 'catalog.digimon' || p.endsWith('.skills.skill') || p.endsWith('.evolutions.evolve') || p.endsWith('.resistances.r');
   },
 });
 
@@ -188,6 +206,16 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
     const ids = list.map((e) => e['@_targetId']);
     if (ids.length > 0) tpl.evolvesInto = ids;
   }
+  if (raw.resistances && 'r' in raw.resistances) {
+    const list = Array.isArray(raw.resistances.r) ? raw.resistances.r : [raw.resistances.r];
+    if (list.length > 0) {
+      const map: ResistanceMap = {};
+      for (const r of list) {
+        map[r['@_element'] as Element] = r['@_mult'] as ResistanceMult;
+      }
+      tpl.resistances = map;
+    }
+  }
   return tpl;
 }
 
@@ -232,6 +260,12 @@ function fromTemplate(t: TemplateDigimon): unknown {
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
     out.evolutions = { evolve: t.evolvesInto.map((targetId) => ({ '@_targetId': targetId })) };
+  }
+  if (t.resistances) {
+    const entries = Object.entries(t.resistances);
+    if (entries.length > 0) {
+      out.resistances = { r: entries.map(([element, mult]) => ({ '@_element': element, '@_mult': mult })) };
+    }
   }
   return out;
 }

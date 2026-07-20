@@ -9,7 +9,7 @@ type CardMode =
 export function MarketListingCard(props: CardMode): JSX.Element {
   const listing = props.listing;
   const template = listing.template;
-  const element = template?.element ?? 'neutral';
+  const element = template?.element ?? 'null';
   const stage = template?.stage ?? '—';
   const portrait = template?.assets.portrait ?? `/assets/digimon/${listing.catalogId}/portrait.webp`;
   const status = props.kind === 'mine' ? props.listing.status : null;

@@ -11,7 +11,7 @@
  * All modes are safe to re-run — they use upserts and skip already-cached files.
  */
 import { fetchListedDigimons, persistScraped, fetchDigimonDetail } from './skullbot.js';
-import { fetchWikimonPage, attackElement, type WikimonPage } from './wikimon.js';
+import { fetchWikimonPage, scrapeResistances, attackElement, type WikimonPage } from './wikimon.js';
 import { downloadAssetBatch, hasLocalAssets, type AssetJob } from './assets.js';
 import { one, q, run, closeDbAdapter, type ScrapedRow } from '../db/index.js';
 import { loadCatalog, saveCatalog, upsertTemplate, findTemplate } from '../digimon/xml.js';
@@ -19,7 +19,7 @@ import { attributeToElement, defaultStatsForStage } from '../digimon/element.js'
 import { log } from '../util/log.js';
 import { SKILLS_PER_DIGIMON, MAX_ENERGY, type Skill, type TemplateDigimon } from '../digimon/types.js';
 
-type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'help';
+type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'help';
 
 function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: number } {
   let mode: Mode = 'help';
@@ -31,6 +31,7 @@ function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: numb
     else if (a === '--enrich') mode = 'enrich';
     else if (a === '--assets') mode = 'assets';
     else if (a === '--all') mode = 'all';
+    else if (a === '--resistances') mode = 'resistances';
     else if (a === '--detail') {
       mode = 'detail';
       const next = argv[i + 1];
@@ -59,6 +60,7 @@ function printHelp(): void {
       'pnpm scrape --enrich [--limit N]       enrich N entries via wikimon (default 20)',
       'pnpm scrape --assets [--limit N]       download portrait+dot for XML catalog entries',
       'pnpm scrape --all                      list + enrich + assets',
+      'pnpm scrape --resistances [--limit N]  scrape per-mon Element resistance tables from wikimon (default all)',
       'pnpm scrape --detail <skullbotId>      fetch + print one detail page',
       '',
     ].join('\n'),
@@ -232,6 +234,29 @@ async function runDetail(id: number): Promise<void> {
   process.stdout.write(JSON.stringify(d, null, 2) + '\n');
 }
 
+async function runResistances(limit: number): Promise<void> {
+  const catalog = loadCatalog();
+  const targets = catalog.digimons.filter((t) => t.wikimonSlug !== undefined && !t.resistances);
+  const bounded = targets.slice(0, Number.isFinite(limit) && limit > 0 ? limit : targets.length);
+  log.info('scrape.resistances.begin', { candidates: targets.length, running: bounded.length });
+  let updated = catalog;
+  let count = 0;
+  for (const tpl of bounded) {
+    const slug = tpl.wikimonSlug;
+    if (!slug) continue;
+    const map = await scrapeResistances(slug);
+    if (map) {
+      updated = upsertTemplate(updated, { ...tpl, resistances: map });
+      count += 1;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  if (count > 0) {
+    saveCatalog(updated);
+  }
+  log.info('scrape.resistances.done', { updated: count });
+}
+
 // ---------------------------------------------------------------------------
 // dispatch
 // ---------------------------------------------------------------------------
@@ -246,6 +271,7 @@ async function main(): Promise<void> {
     if (args.mode === 'list') await runList();
     else if (args.mode === 'enrich') await runEnrich(args.limit);
     else if (args.mode === 'assets') await runAssets(args.limit);
+    else if (args.mode === 'resistances') await runResistances(args.limit);
     else if (args.mode === 'detail') {
       if (args.detailId == null) {
         process.stderr.write('--detail requires an id\n');

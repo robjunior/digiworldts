@@ -5,9 +5,9 @@ export type Biome = (typeof BIOMES)[number];
 
 export const BIOME_ELEMENT: Record<Biome, Element> = {
   desert: 'fire',
-  forest: 'nature',
+  forest: 'plant',
   lake: 'water',
-  storm: 'electric',
+  storm: 'electricity',
 };
 
 export const BIOME_LABEL: Record<Biome, string> = {

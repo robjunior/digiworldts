@@ -224,7 +224,7 @@ export function deleteRosterMon(monId: string): Promise<{ readonly ok: true; rea
   return apiFetch<{ readonly ok: true; readonly mon: { readonly id: string } }>(`/api/admin/roster/${encodeURIComponent(monId)}`, { method: 'DELETE' });
 }
 
-export type SkillElement = 'fire' | 'water' | 'nature' | 'electric' | 'neutral';
+export type SkillElement = 'fire' | 'water' | 'plant' | 'ice' | 'electricity' | 'earth' | 'steel' | 'wind' | 'light' | 'dark' | 'null';
 
 export type SkillView = {
   readonly id: string;

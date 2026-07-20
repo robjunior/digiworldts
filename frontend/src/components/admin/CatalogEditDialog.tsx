@@ -8,7 +8,7 @@ import { Field } from './AdminShared';
 
 const DEFAULT_STAGE: Stage = 'Rookie';
 const DEFAULT_ATTRIBUTE: Attribute = 'Vaccine';
-const DEFAULT_ELEMENT: Element = 'neutral';
+const DEFAULT_ELEMENT: Element = 'null';
 
 export function CatalogEditDialog({ open, onClose, onSubmit }: { readonly open: boolean; readonly onClose: () => void; readonly onSubmit: (draft: TemplateDraft) => Promise<void> }): JSX.Element | null {
   const [error, setError] = useState<string | null>(null);

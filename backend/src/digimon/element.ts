@@ -1,30 +1,13 @@
-/**
- * Element and stat helpers.
- *
- *   attributeToElement — map Digimon attribute (Data/Vaccine/Virus/Free)
- *     onto the base/ design's 4-element combat palette. Choice rationale:
- *       Data    → water     (cool / analytical)
- *       Vaccine → nature    (healing / protection)
- *       Virus   → fire      (aggressive / corrupting)
- *       Free    → electric  (unpredictable)
- *       Unknown → neutral   (fallback)
- *
- *   affinity — mirrors base/combat.html: WEAK cycle
- *     fire  → nature → water → fire   and   electric → water
- *
- *   stageMultiplier — scales Rookie baseline (1.0) up to Mega (3.0).
- *
- *   scaleForLevel — level 1 = 100%, +6% additive per level, capped at level 99.
- *     Rounded down. Same formula in engine.ts so stats stay predictable.
- */
-import type { Attribute, BaseStats, Element, Stage } from './types.js';
+import type { Attribute, BaseStats, Element, ResistanceMap, ResistanceMult, Stage } from './types.js';
 
 export const ATTRIBUTE_TO_ELEMENT: Record<Attribute, Element> = {
   Data: 'water',
-  Vaccine: 'nature',
+  Vaccine: 'plant',
   Virus: 'fire',
-  Free: 'electric',
-  Unknown: 'neutral',
+  Free: 'electricity',
+  Variable: 'wind',
+  Unknown: 'null',
+  NoData: 'null',
 };
 
 export function attributeToElement(attribute: Attribute): Element {
@@ -32,19 +15,31 @@ export function attributeToElement(attribute: Attribute): Element {
 }
 
 const WEAK: Record<Element, Element | undefined> = {
-  fire: 'nature',
-  nature: 'water',
+  fire: 'plant',
   water: 'fire',
-  electric: 'water',
-  neutral: undefined,
+  plant: 'water',
+  ice: 'wind',
+  electricity: 'water',
+  earth: 'electricity',
+  steel: 'ice',
+  wind: 'earth',
+  light: 'dark',
+  dark: 'light',
+  null: undefined,
 };
 
 const RESIST: Record<Element, Element | undefined> = {
   fire: 'water',
-  water: 'nature',
-  nature: 'fire',
-  electric: 'nature',
-  neutral: undefined,
+  water: 'electricity',
+  plant: 'fire',
+  ice: 'fire',
+  electricity: 'earth',
+  earth: 'plant',
+  steel: 'electricity',
+  wind: 'ice',
+  light: undefined,
+  dark: undefined,
+  null: undefined,
 };
 
 export type AffinityKind = 'weak' | 'resist' | null;
@@ -59,6 +54,44 @@ export const AFFINITY_MULT: Record<Exclude<AffinityKind, null>, number> = {
   weak: 1.5,
   resist: 0.5,
 };
+
+const ATTR_STRONG: Record<Attribute, Attribute | undefined> = {
+  Vaccine: 'Virus',
+  Virus: 'Data',
+  Data: 'Vaccine',
+  Free: undefined,
+  Variable: undefined,
+  Unknown: undefined,
+  NoData: undefined,
+};
+
+export const ATTRS_TRIANGLE_ELIGIBLE: ReadonlySet<Attribute> = new Set<Attribute>(['Vaccine', 'Virus', 'Data']);
+
+export type AttrAffinityKind = 'advantage' | 'disadvantage' | null;
+
+export function attrAffinity(attackerAttr: Attribute, defenderAttr: Attribute): AttrAffinityKind {
+  if (ATTR_STRONG[attackerAttr] === defenderAttr) return 'advantage';
+  if (ATTR_STRONG[defenderAttr] === attackerAttr) return 'disadvantage';
+  return null;
+}
+
+export const ATTR_MULT: Record<Exclude<AttrAffinityKind, null>, number> = {
+  advantage: 2.0,
+  disadvantage: 0.5,
+};
+
+export function resolveResistance(
+  attackerEl: Element,
+  defenderEl: Element,
+  defenderResistances: ResistanceMap | undefined,
+): ResistanceMult {
+  const override = defenderResistances?.[attackerEl];
+  if (override !== undefined) return override;
+  const kind = affinity(attackerEl, defenderEl);
+  if (kind === 'weak') return 1.5;
+  if (kind === 'resist') return 0.5;
+  return 1;
+}
 
 export const STAGE_MULTIPLIER: Record<Stage, number> = {
   Baby: 0.4,

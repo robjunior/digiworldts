@@ -6,7 +6,7 @@ import { createSkill, deleteSkill, getSkills, updateSkill, type SkillElement, ty
 import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
 
 const SKILLS_QUERY_KEY = ['admin', 'skills'] as const;
-const SKILL_ELEMENTS: readonly SkillElement[] = ['fire', 'water', 'nature', 'electric', 'neutral'] as const;
+const SKILL_ELEMENTS: readonly SkillElement[] = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
 
 const ACTIONS_TEMPLATE = JSON.stringify(
   [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 120, scale: 'atk', factor: 1.2 } }],
@@ -107,7 +107,7 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
         <Field label="Name (2-48 chars)"><input className="input" name="name" defaultValue={skill?.name ?? ''} maxLength={48} required /></Field>
         <Field label="Description (optional)"><textarea className="input" name="description" defaultValue={skill?.description ?? ''} rows={2} maxLength={400} /></Field>
         <div className="row">
-          <Field label="Element"><select className="input" name="element" defaultValue={skill?.element ?? 'neutral'}>{SKILL_ELEMENTS.map((element) => <option key={element} value={element}>{element}</option>)}</select></Field>
+          <Field label="Element"><select className="input" name="element" defaultValue={skill?.element ?? 'null'}>{SKILL_ELEMENTS.map((element) => <option key={element} value={element}>{element}</option>)}</select></Field>
           <Field label="Energy cost"><input className="input" name="energyCost" type="number" min="0" max="200" defaultValue={skill?.energyCost ?? 12} required /></Field>
           <Field label="Cooldown"><input className="input" name="cooldown" type="number" min="0" max="10" defaultValue={skill?.cooldown ?? 0} /></Field>
         </div>

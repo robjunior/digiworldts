@@ -296,7 +296,7 @@ async function awardPveBattleRewards(
         didChange = delta !== 0;
       }
     } else if (matchOutcome === 'win' && xpPerParticipant > 0) {
-      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant);
+      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant, template.baseStats);
       const grownFloor = xpToReach(result.level, template.stage);
       nextXp = Math.max(grownFloor, result.xp);
       nextLevel = result.level;

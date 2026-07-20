@@ -57,7 +57,7 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
   const xp = Math.round(xpPct(mon));
   const stage = mon.template?.stage ?? '?';
   const attribute = mon.template?.attribute ?? '?';
-  const element = mon.template?.element ?? 'neutral';
+  const element = mon.template?.element ?? 'null';
   const training = activity !== null;
   const rowClass = ['roster-list-row', isOpen ? 'is-open' : '', downed ? 'is-downed' : '', typeof mon.slot === 'number' ? 'is-party' : '', training ? 'is-training' : '']
     .filter(Boolean)

@@ -1,11 +1,17 @@
 export const STAGES = ['Baby', 'In-Training', 'Rookie', 'Champion', 'Ultimate', 'Mega'] as const;
 export type Stage = (typeof STAGES)[number];
 
-export const ATTRIBUTES = ['Data', 'Vaccine', 'Virus', 'Free', 'Unknown'] as const;
+export const ATTRIBUTES = ['Data', 'Vaccine', 'Virus', 'Free', 'Variable', 'Unknown', 'NoData'] as const;
 export type Attribute = (typeof ATTRIBUTES)[number];
 
-export const ELEMENTS = ['fire', 'water', 'nature', 'electric', 'neutral'] as const;
+export const ELEMENTS = [
+  'fire', 'water', 'plant', 'ice', 'electricity',
+  'earth', 'steel', 'wind', 'light', 'dark', 'null',
+] as const;
 export type Element = (typeof ELEMENTS)[number];
+
+export type ResistanceMult = 0 | 0.5 | 1 | 1.5 | 2;
+export type ResistanceMap = Partial<Record<Element, ResistanceMult>>;
 
 export const AILMENTS = ['burn', 'poison', 'weaken', 'freeze', 'stun', 'sleep'] as const;
 export type Ailment = (typeof AILMENTS)[number];
@@ -52,6 +58,7 @@ export type TemplateDigimon = {
   sourceUrl?: string;
   wikimonSlug?: string;
   evolvesInto?: string[];
+  resistances?: ResistanceMap;
 };
 
 export type RosterDigimon = {
@@ -64,6 +71,7 @@ export type RosterDigimon = {
   statBonus: BaseStats;
   status: 'resting' | 'training' | 'party';
   slotIndex: number | null;
+  stagePools?: StagePools;
 };
 
 export type Catalog = {
@@ -136,6 +144,62 @@ export const MOOD_MIN_FOR_STAGE: Partial<Record<Stage, number>> = {
   Ultimate: 60,
   Mega: 80,
 };
+
+export const STAGE_COMBAT_POOL: Record<Stage, number> = {
+  Baby: 500,
+  'In-Training': 500,
+  Rookie: 500,
+  Champion: 500,
+  Ultimate: 500,
+  Mega: 500,
+};
+
+export const STAGE_HPEN_POOL: Record<Stage, number> = {
+  Baby: 1500,
+  'In-Training': 1500,
+  Rookie: 1500,
+  Champion: 1500,
+  Ultimate: 1500,
+  Mega: 1500,
+};
+
+export type StageAlloc = { combat: number; hpen: number };
+export type StagePools = Partial<Record<Stage, StageAlloc>>;
+
+export function defaultMaxedPools(currentStage: Stage): StagePools {
+  const pools: StagePools = {};
+  for (const s of STAGES) {
+    if (s === currentStage) break;
+    pools[s] = { combat: STAGE_COMBAT_POOL[s], hpen: STAGE_HPEN_POOL[s] };
+  }
+  return pools;
+}
+
+export function combatCapFor(stage: Stage, priorPools: StagePools): number {
+  let locked = 0;
+  for (const s of STAGES) {
+    if (s === stage) break;
+    locked += priorPools[s]?.combat ?? 0;
+  }
+  return locked + STAGE_COMBAT_POOL[stage];
+}
+
+export function hpenCapFor(stage: Stage, priorPools: StagePools): number {
+  let locked = 0;
+  for (const s of STAGES) {
+    if (s === stage) break;
+    locked += priorPools[s]?.hpen ?? 0;
+  }
+  return locked + STAGE_HPEN_POOL[stage];
+}
+
+export function combatSum(stats: BaseStats): number {
+  return stats.atk + stats.def + stats.int + stats.spd;
+}
+
+export function hpenSum(stats: BaseStats): number {
+  return stats.hp + stats.en;
+}
 
 export type MoodState = 'miserable' | 'sad' | 'neutral' | 'content' | 'happy';
 

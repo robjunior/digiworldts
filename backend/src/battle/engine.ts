@@ -21,7 +21,7 @@
  * timers, no clients. Transport + persistence live in battle/routes.ts.
  */
 import { newId } from '../util/ids.js';
-import { affinity, AFFINITY_MULT, scaleStatsForLevel } from '../digimon/element.js';
+import { affinity, AFFINITY_MULT, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleStatsForLevel } from '../digimon/element.js';
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -86,6 +86,7 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wi
     templateId: m.template.id,
     name: m.nickname || m.template.name,
     element: m.template.element,
+    attribute: m.template.attribute,
     level: m.level,
     hp: m.downedAtStart ? 0 : scaled.hp,
     hpMax: scaled.hp,
@@ -99,6 +100,7 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wi
     guarding: false,
     analyzed: false,
   };
+  if (m.template.resistances) unit.resistances = m.template.resistances;
   if (wildInfo) unit.wildInfo = wildInfo;
   return unit;
 }
@@ -375,7 +377,7 @@ export function applyAction(
       action,
       cue: null,
     });
-    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
+    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
@@ -414,7 +416,7 @@ export function applyAction(
         ...(target.wildInfo ? { wild: target.wildInfo } : {}),
       },
     });
-    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
+    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
@@ -475,7 +477,7 @@ export function applyAction(
       cue: 'capture-miss',
       captureChance: chance,
     });
-    battle.lastAction = { side: actingSide, element: 'neutral', wasHit: false };
+    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
@@ -509,26 +511,28 @@ export function applyAction(
       skillName: skill.name,
       cue: 'miss',
     });
-    battle.lastAction = { side: actingSide, element: skill.element, wasHit: false };
+    battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: false };
   } else {
     const critted = Math.random() < CRIT_CHANCE;
+    const resMult = resolveResistance(skill.element, target.element, target.resistances);
     const aff = affinity(skill.element, target.element);
-    const affMult = aff ? AFFINITY_MULT[aff] : 1;
+    const attrKind = attrAffinity(actor.attribute, target.attribute);
+    const attrMult = attrKind ? ATTR_MULT[attrKind] : 1;
     const prev = battle.lastAction;
     const chained =
       prev !== null &&
       prev.wasHit &&
       prev.side === actingSide &&
-      prev.element === skill.element &&
-      skill.element !== 'neutral';
+      ((prev.element === skill.element && skill.element !== 'null') ||
+        (prev.attribute === actor.attribute && ATTRS_TRIANGLE_ELIGIBLE.has(actor.attribute)));
     const chainMult = chained ? CHAIN_MULT : 1;
     const baseDamage = actor.atk * 0.4 + skill.power;
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
-    const dmg = Math.max(
+    const dmg = resMult === 0 ? 0 : Math.max(
       1,
-      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * affMult * chainMult * defMitigation * guardMult * variance),
+      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance),
     );
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
     target.guarding = false;
@@ -539,15 +543,21 @@ export function applyAction(
       applied.push({ kind: skill.effect.kind, turnsLeft: skill.effect.turns || AILMENT_TURNS_DEFAULT });
     }
 
-    const cue: ActionCue = chained
-      ? 'chain'
-      : critted
-        ? 'crit'
-        : aff === 'resist'
-          ? 'resist'
-          : aff === 'weak'
-            ? 'weak'
-            : null;
+    const cue: ActionCue = resMult === 0
+      ? 'immune'
+      : chained
+        ? 'chain'
+        : critted
+          ? 'crit'
+          : attrKind === 'advantage'
+            ? 'attr-advantage'
+            : attrKind === 'disadvantage'
+              ? 'attr-disadvantage'
+              : resMult >= 1.5 || aff === 'weak'
+                ? 'weak'
+                : resMult <= 0.5 || aff === 'resist'
+                  ? 'resist'
+                  : null;
     const hitEvent: BattleEvent = {
       at: now,
       round: battle.round,
@@ -563,7 +573,7 @@ export function applyAction(
     };
     if (applied.length > 0) hitEvent.applied = applied;
     pushEvent(battle, hitEvent);
-    battle.lastAction = { side: actingSide, element: skill.element, wasHit: true };
+    battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: true };
     if (target.hp === 0) {
       pushEvent(battle, {
         at: now,

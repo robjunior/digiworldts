@@ -28,7 +28,7 @@ export function SkillSlotBox({ index, entry, isDragOver, onDragOver, onDragLeave
       draggable={filled}
       onDragStart={filled && onDragStart ? onDragStart : undefined}
       onDragEnd={onDragEnd}
-      data-element={entry?.skill.element ?? 'neutral'}
+      data-element={entry?.skill.element ?? 'null'}
     >
       <div className="slot-label">Slot {index + 1}</div>
       {filled && entry !== null ? (

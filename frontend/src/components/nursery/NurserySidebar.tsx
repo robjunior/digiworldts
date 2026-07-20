@@ -39,7 +39,7 @@ function SidebarContent(props: SidebarProps): JSX.Element {
 }
 
 function NurseryMonRow({ mon, view, busy, onPet, onFeed }: { readonly mon: NurseryMon; readonly view: NurseryView; readonly busy: boolean; readonly onPet: (mon: NurseryMon) => void; readonly onFeed: (mon: NurseryMon) => void }): JSX.Element {
-  const element = mon.template?.element ?? 'neutral';
+  const element = mon.template?.element ?? 'null';
   const canFeed = view.meat >= view.feedMeatCost;
   const petTitle = `+${view.petMoodDelta} mood · ${Math.max(0, view.maxPetsPerDay - mon.petsToday)} left today`;
   const feedTitle = `Costs ${view.feedMeatCost} Meat · +${view.feedMoodDelta} mood`;
