@@ -9,6 +9,7 @@ import type { Action, Battle, BattleView } from '../battle/types.js';
 import { q, run, tx, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
+import { scaleStatsForLevel } from '../digimon/element.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { newId } from '../util/ids.js';
@@ -186,6 +187,7 @@ export function abandonPveBattle(userId: string): boolean {
 
 export type XpAward = {
   monId: string;
+  catalogId: string;
   nickname: string;
   delta: number;
   previousLevel: number;
@@ -195,7 +197,11 @@ export type XpAward = {
   xpAfter: number;
   xpFloor: number;
   xpNext: number;
+  xpFloorBefore: number;
+  xpNextBefore: number;
   defeated: boolean;
+  statsBefore: BaseStats;
+  statsAfter: BaseStats;
 };
 
 export type ActResult =
@@ -323,6 +329,7 @@ async function awardPveBattleRewards(
 
     xpAwards.push({
       monId: row.id,
+      catalogId: row.catalog_id,
       nickname: row.nickname,
       delta,
       previousLevel,
@@ -332,7 +339,11 @@ async function awardPveBattleRewards(
       xpAfter: nextXp,
       xpFloor: xpToReach(nextLevel, template.stage),
       xpNext: xpToReach(nextLevel + 1, template.stage),
+      xpFloorBefore: xpToReach(previousLevel, template.stage),
+      xpNextBefore: xpToReach(previousLevel + 1, template.stage),
       defeated: isDefeated,
+      statsBefore: scaleStatsForLevel(template.baseStats, previousLevel, currentBonus),
+      statsAfter: scaleStatsForLevel(template.baseStats, nextLevel, nextBonus),
     });
   }
 

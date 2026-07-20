@@ -101,8 +101,18 @@ export type WorldBattleResponse = {
   readonly battle: BattleView;
 };
 
+export type StatSnapshot = {
+  readonly hp: number;
+  readonly en: number;
+  readonly atk: number;
+  readonly def: number;
+  readonly int: number;
+  readonly spd: number;
+};
+
 export type XpAward = {
   readonly monId: string;
+  readonly catalogId: string;
   readonly nickname: string;
   readonly delta: number;
   readonly previousLevel: number;
@@ -112,7 +122,11 @@ export type XpAward = {
   readonly xpAfter: number;
   readonly xpFloor: number;
   readonly xpNext: number;
+  readonly xpFloorBefore: number;
+  readonly xpNextBefore: number;
   readonly defeated: boolean;
+  readonly statsBefore: StatSnapshot;
+  readonly statsAfter: StatSnapshot;
 };
 
 export type WorldBattleActResponse = {

@@ -1,9 +1,9 @@
 import type { BattleOutcome, BattleView } from '@digiworld/shared/battle';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
-import type { ItemDrop, XpAward } from '../../lib/api-world';
+import type { ItemDrop, StatSnapshot, XpAward } from '../../lib/api-world';
 
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
@@ -101,6 +101,7 @@ function PveRewards({ results }: { readonly results: PveResults }): JSX.Element 
   const drops: readonly ItemDrop[] = results.itemDrops ?? [];
   const hasLoot = drops.length > 0;
   const hasXp = results.xpAwards.length > 0;
+  const [activeIdx, setActiveIdx] = useState(0);
   if (!hasLoot && !hasXp) return null;
   return (
     <div className="pve-results" data-od-id="pve-results">
@@ -122,7 +123,14 @@ function PveRewards({ results }: { readonly results: PveResults }): JSX.Element 
         <div className="pve-block">
           <span className="pve-block-k">Party XP</span>
           <div className="pve-xp-list">
-            {results.xpAwards.map((award) => <PveXpRow key={award.monId} award={award} />)}
+            {results.xpAwards.map((award, i) => (
+              <PveXpRow
+                key={award.monId}
+                award={award}
+                active={i === activeIdx}
+                onDone={() => setActiveIdx((prev) => Math.max(prev, i + 1))}
+              />
+            ))}
           </div>
         </div>
       ) : null}
@@ -130,33 +138,117 @@ function PveRewards({ results }: { readonly results: PveResults }): JSX.Element 
   );
 }
 
-function PveXpRow({ award }: { readonly award: XpAward }): JSX.Element {
-  const bracket = Math.max(1, award.xpNext - award.xpFloor);
-  const pctAfter = Math.max(0, Math.min(100, ((award.xpAfter - award.xpFloor) / bracket) * 100));
-  const pctBefore = Math.max(0, Math.min(100, ((award.xpBefore - award.xpFloor) / bracket) * 100));
+const STAT_KEYS = ['hp', 'en', 'atk', 'def', 'int', 'spd'] as const;
+type StatKey = (typeof STAT_KEYS)[number];
+
+function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly active: boolean; readonly onDone: () => void }): JSX.Element {
   const leveledUp = award.gainedLevels > 0;
-  const deltaTone = award.defeated ? 'loss' : award.delta > 0 ? 'win' : 'muted';
+  const beforeBracket = Math.max(1, award.xpNextBefore - award.xpFloorBefore);
+  const afterBracket = Math.max(1, award.xpNext - award.xpFloor);
+  const pctBefore = leveledUp
+    ? Math.max(0, Math.min(100, ((award.xpBefore - award.xpFloorBefore) / beforeBracket) * 100))
+    : Math.max(0, Math.min(100, ((award.xpBefore - award.xpFloor) / afterBracket) * 100));
+  const pctAfter = Math.max(0, Math.min(100, ((award.xpAfter - award.xpFloor) / afterBracket) * 100));
   const deltaLabel = award.defeated
     ? `Defeated · ${award.delta} xp`
     : award.delta > 0 ? `+${award.delta} xp` : award.delta < 0 ? `${award.delta} xp` : 'no xp';
-  const rowClass = ['pve-xp-row', award.defeated ? 'is-defeated' : '', leveledUp ? 'is-levelup' : ''].filter(Boolean).join(' ');
+  const [currentPct, setCurrentPct] = useState<number>(pctBefore);
+  const [done, setDone] = useState(false);
+  const startedRef = useRef(false);
+  const onDoneRef = useRef(onDone);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+
+  useEffect(() => {
+    if (!active || startedRef.current) return;
+    startedRef.current = true;
+    let cancelled = false;
+    const animate = (from: number, to: number, ms: number): Promise<void> =>
+      new Promise((resolve) => {
+        const start = performance.now();
+        const tick = (now: number): void => {
+          if (cancelled) { resolve(); return; }
+          const t = Math.min(1, (now - start) / ms);
+          const eased = 1 - (1 - t) * (1 - t);
+          setCurrentPct(from + (to - from) * eased);
+          if (t < 1) requestAnimationFrame(tick);
+          else resolve();
+        };
+        requestAnimationFrame(tick);
+      });
+    const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+    (async () => {
+      if (award.defeated) {
+        await animate(pctBefore, pctAfter, 600);
+      } else if (leveledUp) {
+        await animate(pctBefore, 100, 900);
+        if (cancelled) return;
+        for (let i = 1; i < award.gainedLevels; i++) {
+          setCurrentPct(0);
+          await delay(120);
+          if (cancelled) return;
+          await animate(0, 100, 550);
+          if (cancelled) return;
+        }
+        setCurrentPct(0);
+        await delay(150);
+        if (cancelled) return;
+        await animate(0, pctAfter, 700);
+      } else {
+        await animate(pctBefore, pctAfter, 800);
+      }
+      if (cancelled) return;
+      await delay(leveledUp ? 260 : 180);
+      if (cancelled) return;
+      setDone(true);
+      onDoneRef.current();
+    })().catch(() => {});
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  const tremble = Math.max(0, Math.min(1, (currentPct - 55) / 45));
+  const showLevelUp = done && leveledUp;
+  const displayLevel = showLevelUp ? award.newLevel : award.previousLevel;
+  const portraitUrl = `/assets/digimon/${award.catalogId}/dot.gif`;
+  const rowClass = ['pve-xp-row', award.defeated ? 'is-defeated' : '', leveledUp ? 'is-levelup' : '', showLevelUp ? 'is-lvlup-open' : ''].filter(Boolean).join(' ');
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>
-      <span className="pve-xp-mon">
-        <b className="pve-xp-nick">{award.nickname}</b>
-        <span className="pve-xp-lvl">
-          {leveledUp ? (
-            <>Lv <span className="prev">{award.previousLevel}</span> <span className="arrow">→</span> <b>{award.newLevel}</b></>
-          ) : (
-            <>Lv <b>{award.newLevel}</b></>
-          )}
-        </span>
-      </span>
-      <span className="pve-xp-bar" title={`${award.xpBefore} → ${award.xpAfter} / ${award.xpNext - award.xpFloor + award.xpFloor}`}>
-        <span className="pve-xp-fill pve-xp-fill--before" style={{ width: `${pctBefore}%` }} />
-        <span className="pve-xp-fill pve-xp-fill--after" style={{ width: `${pctAfter}%` }} />
-      </span>
-      <span className={`pve-xp-delta pve-xp-${deltaTone}`}>{deltaLabel}</span>
+      <div className="pve-xp-actor">
+        <img className="pve-xp-portrait" src={portraitUrl} alt="" aria-hidden="true" />
+        <div className="pve-xp-info">
+          <b className="pve-xp-nick">{award.nickname}</b>
+          <span className="pve-xp-lvl">Lv <b>{displayLevel}</b></span>
+        </div>
+      </div>
+      {showLevelUp ? (
+        <div className="pve-xp-lvlup" role="status">
+          <span className="pve-lvlup-badge">LVLUP+</span>
+          <div className="pve-lvlup-stats">
+            {STAT_KEYS.map((k) => {
+              const before = award.statsBefore[k as StatKey];
+              const after = award.statsAfter[k as StatKey];
+              const gain = after - before;
+              return (
+                <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : ''}`}>
+                  <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
+                  <span className="pve-lvlup-stat-old">{before}</span>
+                  <span className="pve-lvlup-stat-arrow">→</span>
+                  <b className="pve-lvlup-stat-new">{after}</b>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="pve-xp-progress" style={{ ['--tremble' as string]: tremble }}>
+          <div className="pve-xp-bar" title={`${award.xpBefore} → ${award.xpAfter} / ${award.xpNext}`}>
+            <div className="pve-xp-fill" style={{ width: `${currentPct}%` }} />
+          </div>
+          <span className={`pve-xp-delta ${award.defeated ? 'pve-xp-loss' : award.delta > 0 ? 'pve-xp-win' : 'pve-xp-muted'}`}>{deltaLabel}</span>
+        </div>
+      )}
     </div>
   );
 }
