@@ -370,6 +370,16 @@ export type PendingHatchRow = {
   created_at: number;
 };
 
+export type CatalogLootRow = {
+  id: string;
+  catalog_id: string;
+  item_id: string;
+  drop_pct: number;
+  qty_min: number;
+  qty_max: number;
+  updated_at: number;
+};
+
 // ============================================================================
 // Lazy prepared-statement helper. Statements bind to the current db handle;
 // we prepare on first use to avoid open-before-ready hazards during tests.

@@ -13,7 +13,7 @@ import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type 
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
-import { generateItemDrop, type ItemDrop, type WildMon } from './engine.js';
+import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemDrop, type WildMon } from './engine.js';
 
 const MAX_WILD_ACTIONS_PER_TURN = 6;
 
@@ -205,7 +205,7 @@ export type ActResult =
       ended: boolean;
       capturedMonId?: string;
       xpAwards?: XpAward[];
-      itemDrop?: ItemDrop;
+      itemDrops?: ItemDrop[];
       speciesAwards?: SpeciesAward[];
       creditsGained?: number;
       bitsGained?: number;
@@ -215,7 +215,7 @@ export type ActResult =
 async function awardPveBattleRewards(
   userId: string,
   battle: Battle,
-): Promise<{ xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number }> {
+): Promise<{ xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number }> {
   const outcome = battle.outcome;
   if (!outcome) return { xpAwards: [] };
 
@@ -336,12 +336,23 @@ async function awardPveBattleRewards(
     });
   }
 
-  let itemDrop: ItemDrop | undefined;
-  if (matchOutcome === 'win' && Math.random() < ITEM_DROP_ON_WIN_RATE) {
-    const drop = await generateItemDrop();
-    if (drop) {
+  const itemDrops: ItemDrop[] = [];
+  if (matchOutcome === 'win') {
+    const defeatedCatalogIds = defeatedForData.map((d) => d.catalogId);
+    const perMonDrops = await rollLootForCatalogIds(defeatedCatalogIds);
+    itemDrops.push(...perMonDrops);
+    // Legacy global fallback: if the defeated mons have NO configured loot
+    // rules at all, roll the historic 20% random-item drop so early-game
+    // players (no loot tables authored yet) still get item rewards.
+    if (itemDrops.length === 0) {
+      const anyRules = await hasAnyLootRulesFor(defeatedCatalogIds);
+      if (!anyRules && Math.random() < ITEM_DROP_ON_WIN_RATE) {
+        const drop = await generateItemDrop();
+        if (drop) itemDrops.push(drop);
+      }
+    }
+    for (const drop of itemDrops) {
       await grantItemDrop(userId, drop);
-      itemDrop = drop;
     }
   }
 
@@ -359,14 +370,14 @@ async function awardPveBattleRewards(
     }
   }
 
-  if (xpAwards.length > 0 || itemDrop || downedIds.length > 0 || speciesAwards.length > 0 || creditsGained > 0 || bitsGained > 0) {
+  if (xpAwards.length > 0 || itemDrops.length > 0 || downedIds.length > 0 || speciesAwards.length > 0 || creditsGained > 0 || bitsGained > 0) {
     log.info('world.pve.rewards', {
       userId,
       outcome,
       wildLevels: battle.units.filter((u) => u.side === 'b').map((u) => u.level),
       xpDeltas: xpAwards.map((a) => a.delta),
       leveledUpMons: xpAwards.filter((a) => a.gainedLevels > 0).map((a) => a.nickname),
-      itemDrop: itemDrop?.itemId,
+      itemDrops: itemDrops.map((d) => ({ id: d.itemId, qty: d.qty })),
       downedMonIds: downedIds,
       speciesAwards: speciesAwards.map((a) => ({ id: a.catalogId, tier: a.tier, pct: a.percent })),
       creditsGained,
@@ -374,8 +385,8 @@ async function awardPveBattleRewards(
     });
   }
 
-  const result: { xpAwards: XpAward[]; itemDrop?: ItemDrop; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number } = { xpAwards };
-  if (itemDrop) result.itemDrop = itemDrop;
+  const result: { xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number } = { xpAwards };
+  if (itemDrops.length > 0) result.itemDrops = itemDrops;
   if (speciesAwards.length > 0) result.speciesAwards = speciesAwards;
   if (creditsGained > 0) result.creditsGained = creditsGained;
   if (bitsGained > 0) result.bitsGained = bitsGained;
@@ -395,7 +406,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   let capturedMonId: string | undefined;
   const ended = battle.status === 'ended';
   let xpAwards: XpAward[] = [];
-  let itemDrop: ItemDrop | undefined;
+  let itemDrops: ItemDrop[] | undefined;
   let speciesAwards: SpeciesAward[] | undefined;
   let creditsGained: number | undefined;
   let bitsGained: number | undefined;
@@ -426,7 +437,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
     }
     const rewards = await awardPveBattleRewards(userId, battle);
     xpAwards = rewards.xpAwards;
-    itemDrop = rewards.itemDrop;
+    itemDrops = rewards.itemDrops;
     speciesAwards = rewards.speciesAwards;
     creditsGained = rewards.creditsGained;
     bitsGained = rewards.bitsGained;
@@ -440,7 +451,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   };
   if (capturedMonId) response.capturedMonId = capturedMonId;
   if (xpAwards.length > 0) response.xpAwards = xpAwards;
-  if (itemDrop) response.itemDrop = itemDrop;
+  if (itemDrops && itemDrops.length > 0) response.itemDrops = itemDrops;
   if (speciesAwards && speciesAwards.length > 0) response.speciesAwards = speciesAwards;
   if (creditsGained !== undefined && creditsGained > 0) response.creditsGained = creditsGained;
   if (bitsGained !== undefined && bitsGained > 0) response.bitsGained = bitsGained;

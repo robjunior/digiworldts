@@ -18,8 +18,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
-import { one, q, run, type ScrapedRow } from '../db/index.js';
+import { one, q, run, tx, type CatalogLootRow, type ScrapedRow } from '../db/index.js';
 import { log } from '../util/log.js';
+import { newId } from '../util/ids.js';
 import {
   createBlueprint,
   deleteBlueprint,
@@ -732,5 +733,61 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!result.ok) return reply.code(statusForRosterError(result.error)).send({ error: result.error });
     log.info('admin.roster.delete', { adminId: admin.id, monId: req.params.monId });
     return reply.send(result);
+  });
+
+  // ==========================================================================
+  // CATALOG LOOT — per-mon drop table
+  //   GET  /api/admin/catalog-loot/:catalogId → { catalogId, entries }
+  //   PUT  /api/admin/catalog-loot/:catalogId → replace all entries for that mon
+  // ==========================================================================
+
+  const SQL_LIST_LOOT = `SELECT * FROM catalog_loot_entries WHERE catalog_id = ? ORDER BY drop_pct DESC, item_id`;
+  const SQL_DELETE_LOOT_FOR_MON = `DELETE FROM catalog_loot_entries WHERE catalog_id = ?`;
+  const SQL_INSERT_LOOT_ENTRY = `INSERT INTO catalog_loot_entries (id, catalog_id, item_id, drop_pct, qty_min, qty_max, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+  const LootEntryInputSchema = z.object({
+    itemId: z.string().min(1).max(64),
+    dropPct: z.number().int().min(0).max(100),
+    qtyMin: z.number().int().min(1).max(999).default(1),
+    qtyMax: z.number().int().min(1).max(999).default(1),
+  }).refine((entry) => entry.qtyMax >= entry.qtyMin, { message: 'qtyMax must be >= qtyMin', path: ['qtyMax'] });
+
+  const LootTableInputSchema = z.object({
+    entries: z.array(LootEntryInputSchema).max(20),
+  });
+
+  const lootRowToView = (row: CatalogLootRow): { id: string; itemId: string; dropPct: number; qtyMin: number; qtyMax: number; updatedAt: number } => ({
+    id: row.id,
+    itemId: row.item_id,
+    dropPct: row.drop_pct,
+    qtyMin: row.qty_min,
+    qtyMax: row.qty_max,
+    updatedAt: row.updated_at,
+  });
+
+  app.get<{ Params: { catalogId: string } }>('/api/admin/catalog-loot/:catalogId', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const rows = await q<CatalogLootRow>(SQL_LIST_LOOT, req.params.catalogId);
+    return reply.send({ catalogId: req.params.catalogId, entries: rows.map(lootRowToView) });
+  });
+
+  app.put<{ Params: { catalogId: string } }>('/api/admin/catalog-loot/:catalogId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = LootTableInputSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    }
+    const catalogId = req.params.catalogId;
+    const now = Date.now();
+    await tx(async (t) => {
+      await t.run(SQL_DELETE_LOOT_FOR_MON, [catalogId]);
+      for (const entry of parsed.data.entries) {
+        const id = newId('loot');
+        await t.run(SQL_INSERT_LOOT_ENTRY, [id, catalogId, entry.itemId, entry.dropPct, entry.qtyMin, entry.qtyMax, now]);
+      }
+    });
+    log.info('admin.loot.update', { adminId: admin.id, catalogId, entries: parsed.data.entries.length });
+    const rows = await q<CatalogLootRow>(SQL_LIST_LOOT, catalogId);
+    return reply.send({ ok: true, catalogId, entries: rows.map(lootRowToView) });
   });
 };

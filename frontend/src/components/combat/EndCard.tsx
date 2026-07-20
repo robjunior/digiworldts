@@ -1,11 +1,12 @@
 import type { BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import { useEffect } from 'react';
 import { Link } from 'react-router';
 
 import type { ItemDrop, XpAward } from '../../lib/api-world';
 
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
-  readonly itemDrop?: ItemDrop;
+  readonly itemDrops?: readonly ItemDrop[];
   readonly creditsGained?: number;
   readonly bitsGained?: number;
 };
@@ -14,9 +15,22 @@ type EndCardProps = {
   readonly battle: BattleView;
   readonly onNewEncounter: () => void;
   readonly pveResults?: PveResults | null;
+  // Passing onClose renders EndCard inside a modal overlay (backdrop + Esc /
+  // click-outside close). Omitting keeps the legacy inline-card layout so
+  // any older call site still works.
+  readonly onClose?: () => void;
 };
 
-export function EndCard({ battle, onNewEncounter, pveResults }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, onNewEncounter, pveResults, onClose }: EndCardProps): JSX.Element | null {
+  useEffect(() => {
+    if (!onClose) return;
+    const handler = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [onClose]);
+
   if (battle.status !== 'ended' && battle.outcome === null) {
     return null;
   }
@@ -25,8 +39,13 @@ export function EndCard({ battle, onNewEncounter, pveResults }: EndCardProps): J
   const mmr = extractPvpMmr(battle);
   const hpLeftPct = averageHpLeftPct(battle);
   const isPve = battle.mode === 'pve';
-  return (
+  const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
+
+  const card = (
     <section className={`end-card ${tone}`} data-od-id="end-card">
+      {onClose ? (
+        <button className="end-card-close" type="button" onClick={onClose} aria-label="Close">×</button>
+      ) : null}
       <span className="outcome-pill">{outcomeLabel(outcome, battle.yourSide)}</span>
       <h2 className="headline">{headline(outcome, battle.yourSide, battle)}</h2>
       <div className="rewards">
@@ -63,10 +82,21 @@ export function EndCard({ battle, onNewEncounter, pveResults }: EndCardProps): J
       </div>
     </section>
   );
+
+  if (!onClose) return card;
+
+  return (
+    <div className="end-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Battle results">
+      <div className="end-modal-content" onClick={stopPropagation}>
+        {card}
+      </div>
+    </div>
+  );
 }
 
 function PveRewards({ results }: { readonly results: PveResults }): JSX.Element | null {
-  const hasLoot = results.itemDrop !== undefined;
+  const drops: readonly ItemDrop[] = results.itemDrops ?? [];
+  const hasLoot = drops.length > 0;
   const hasXp = results.xpAwards.length > 0;
   if (!hasLoot && !hasXp) return null;
   return (
@@ -74,11 +104,15 @@ function PveRewards({ results }: { readonly results: PveResults }): JSX.Element 
       {hasLoot ? (
         <div className="pve-block">
           <span className="pve-block-k">Looted</span>
-          <span className="pve-loot-item">
-            <span className="pve-loot-dot" aria-hidden="true" />
-            <b>{results.itemDrop!.name}</b>
-            <span className="pve-loot-qty">× {results.itemDrop!.qty}</span>
-          </span>
+          <div className="pve-loot-list">
+            {drops.map((drop, index) => (
+              <span key={`${drop.itemId}-${index}`} className="pve-loot-item">
+                <span className="pve-loot-dot" aria-hidden="true" />
+                <b>{drop.name}</b>
+                <span className="pve-loot-qty">× {drop.qty}</span>
+              </span>
+            ))}
+          </div>
         </div>
       ) : null}
       {hasXp ? (

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { createCustomTemplate, deleteTemplate, downloadTemplateAssets, getCatalog, type TemplateDraft } from '../../lib/api-admin';
 import { AdminMessage, AdminSection, ErrorText } from './AdminShared';
 import { CatalogEditDialog } from './CatalogEditDialog';
+import { LootEditorDialog } from './LootEditorDialog';
 
 export const CATALOG_QUERY_KEY = ['admin', 'catalog'] as const;
 
@@ -20,6 +21,7 @@ export function CatalogTable(): JSX.Element {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [lootTarget, setLootTarget] = useState<TemplateDigimon | null>(null);
   const catalogQuery = useQuery({ queryKey: CATALOG_QUERY_KEY, queryFn: getCatalog });
   const createMutation = useMutation({ mutationFn: createCustomTemplate, onSuccess: () => queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }) });
   const deleteMutation = useMutation({ mutationFn: deleteTemplate, onSuccess: () => queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }) });
@@ -50,15 +52,23 @@ export function CatalogTable(): JSX.Element {
             onToggle={() => setExpandedId(expandedId === template.id ? null : template.id)}
             onDelete={() => void deleteMutation.mutate(template.id)}
             onDownload={() => void assetMutation.mutate(template.id)}
+            onEditLoot={() => setLootTarget(template)}
           />
         ))}
       </div>
       <CatalogEditDialog open={dialogOpen} onClose={() => setDialogOpen(false)} onSubmit={create} />
+      {lootTarget ? (
+        <LootEditorDialog
+          catalogId={lootTarget.id}
+          catalogName={lootTarget.name}
+          onClose={() => setLootTarget(null)}
+        />
+      ) : null}
     </AdminSection>
   );
 }
 
-function CatalogRow({ template, expanded, busy, onToggle, onDelete, onDownload }: { readonly template: TemplateDigimon; readonly expanded: boolean; readonly busy: boolean; readonly onToggle: () => void; readonly onDelete: () => void; readonly onDownload: () => void }): JSX.Element {
+function CatalogRow({ template, expanded, busy, onToggle, onDelete, onDownload, onEditLoot }: { readonly template: TemplateDigimon; readonly expanded: boolean; readonly busy: boolean; readonly onToggle: () => void; readonly onDelete: () => void; readonly onDownload: () => void; readonly onEditLoot: () => void }): JSX.Element {
   return (
     <article className={`catalog-row${expanded ? ' is-expanded' : ''}`}>
       <button className="catalog-row-header" type="button" onClick={onToggle} aria-expanded={expanded}>
@@ -82,6 +92,7 @@ function CatalogRow({ template, expanded, busy, onToggle, onDelete, onDownload }
             {template.wikimonSlug ? <span>{template.wikimonSlug}</span> : null}
           </div>
           <div className="actions">
+            <button className="btn btn--secondary btn--sm" type="button" onClick={onEditLoot}>Edit loot</button>
             <button className="btn btn--secondary btn--sm" type="button" disabled={busy} onClick={onDownload}>Re-download assets</button>
             <button className="btn btn--danger btn--sm" type="button" disabled={busy} onClick={onDelete}>Delete</button>
           </div>

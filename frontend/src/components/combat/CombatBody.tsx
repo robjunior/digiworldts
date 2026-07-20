@@ -85,7 +85,8 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
   const [hitUnitId, setHitUnitId] = useState<UnitId | null>(null);
   const [, setLoadError] = useState<string | null>(null);
-  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
+  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
+  const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
 
@@ -102,6 +103,15 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
       setSelectedTargetId(first?.id ?? null);
     }
   }, [activeBattle, selectedTargetId]);
+
+  // Open the end-of-battle modal whenever the battle transitions to 'ended'.
+  // Covers BOTH PVE (rewards already set via the /world/battle/act response)
+  // AND PVP (rewards flow through the WS `end` event's pvpMmr in the log).
+  useEffect(() => {
+    if (activeBattle?.status === 'ended') {
+      setEndModalOpen(true);
+    }
+  }, [activeBattle?.status]);
 
   useEffect(() => {
     const nextEvents = battleEvents.slice(seenEventCountRef.current);
@@ -127,9 +137,9 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
         }
         if (response.ended) {
           handleServerMessage({ type: 'end', matchId: response.battle.id, view: response.battle, outcome: response.battle.outcome ?? 'abandoned' });
-          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrop?: ItemDrop; readonly creditsGained?: number; readonly bitsGained?: number } = {
+          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } = {
             xpAwards: response.xpAwards ?? [],
-            ...(response.itemDrop ? { itemDrop: response.itemDrop } : {}),
+            ...(response.itemDrops && response.itemDrops.length > 0 ? { itemDrops: response.itemDrops } : {}),
             ...(response.creditsGained !== undefined && response.creditsGained > 0 ? { creditsGained: response.creditsGained } : {}),
             ...(response.bitsGained !== undefined && response.bitsGained > 0 ? { bitsGained: response.bitsGained } : {}),
           };
@@ -174,7 +184,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   return (
     <>
       {showPageStrip ? <PageStrip battle={activeBattle} readyState={readyState} /> : null}
-      {activeBattle.status === 'ended' ? <EndCard battle={activeBattle} pveResults={pveResults} onNewEncounter={startEncounter} /> : null}
+      {activeBattle.status === 'ended' && endModalOpen ? <EndCard battle={activeBattle} pveResults={pveResults} onNewEncounter={startEncounter} onClose={() => setEndModalOpen(false)} /> : null}
       <section className={activeBattle.status === 'ended' ? 'arena hidden' : 'arena'} ref={arenaRef} data-od-id="arena">
         <FloaterLayer floaters={floaters} />
         <TurnQueue turns={activeBattle.upcomingTurns} />

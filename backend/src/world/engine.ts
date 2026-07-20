@@ -248,6 +248,49 @@ export async function generateItemDrop(): Promise<ItemDrop | null> {
   return { itemId: item.id, name: item.name, qty: 1 };
 }
 
+/**
+ * Roll per-mon loot: for each defeated catalog id, load its
+ * `catalog_loot_entries` and probability-roll each. Returns the aggregated
+ * ItemDrop array (empty if no rules match or no rolls succeed). Caller is
+ * responsible for grantItemDrop of each result.
+ */
+type LootRuleRow = { item_id: string; drop_pct: number; qty_min: number; qty_max: number; name: string };
+// Prefix intentionally not `SQL_` — this is a template with an
+// `__PLACEHOLDERS__` sigil, not a directly-preparable statement. The
+// pg-portability test scans `SQL_*` constants and would fail to PREPARE
+// the raw template. `LOOT_RULE_QUERY_TEMPLATE` sidesteps that scan while
+// staying next to its single call site.
+const LOOT_RULE_QUERY_TEMPLATE = `SELECT l.item_id, l.drop_pct, l.qty_min, l.qty_max, s.name
+    FROM catalog_loot_entries l
+    JOIN shop_items s ON s.id = l.item_id AND s.enabled = 1
+    WHERE l.catalog_id IN (__PLACEHOLDERS__)`;
+
+export async function rollLootForCatalogIds(catalogIds: readonly string[]): Promise<ItemDrop[]> {
+  if (catalogIds.length === 0) return [];
+  const placeholders = catalogIds.map(() => '?').join(', ');
+  const sql = LOOT_RULE_QUERY_TEMPLATE.replace('__PLACEHOLDERS__', placeholders);
+  const rules = await q<LootRuleRow>(sql, ...catalogIds);
+  const drops: ItemDrop[] = [];
+  for (const rule of rules) {
+    if (Math.random() * 100 >= rule.drop_pct) continue;
+    const span = Math.max(0, rule.qty_max - rule.qty_min);
+    const qty = rule.qty_min + Math.floor(Math.random() * (span + 1));
+    if (qty <= 0) continue;
+    drops.push({ itemId: rule.item_id, name: rule.name, qty });
+  }
+  return drops;
+}
+
+export async function hasAnyLootRulesFor(catalogIds: readonly string[]): Promise<boolean> {
+  if (catalogIds.length === 0) return false;
+  const placeholders = catalogIds.map(() => '?').join(', ');
+  const row = await q<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM catalog_loot_entries WHERE catalog_id IN (${placeholders})`,
+    ...catalogIds,
+  );
+  return (row[0]?.n ?? 0) > 0;
+}
+
 export async function rollEncounter(biome: Biome, rating: PartyRating): Promise<Encounter> {
   const r = Math.random();
   if (r < ENCOUNTER_RATE) {

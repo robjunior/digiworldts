@@ -120,7 +120,7 @@ export type WorldBattleActResponse = {
   readonly ended: boolean;
   readonly capturedMonId?: string;
   readonly xpAwards?: readonly XpAward[];
-  readonly itemDrop?: ItemDrop;
+  readonly itemDrops?: readonly ItemDrop[];
   readonly creditsGained?: number;
   readonly bitsGained?: number;
 };

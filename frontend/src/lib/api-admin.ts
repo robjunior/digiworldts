@@ -269,6 +269,38 @@ export function deleteSkill(id: string): Promise<{ readonly ok: true; readonly i
   return apiFetch<{ readonly ok: true; readonly id: string }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export type LootEntryView = {
+  readonly id: string;
+  readonly itemId: string;
+  readonly dropPct: number;
+  readonly qtyMin: number;
+  readonly qtyMax: number;
+  readonly updatedAt: number;
+};
+
+export type LootEntryInput = {
+  readonly itemId: string;
+  readonly dropPct: number;
+  readonly qtyMin?: number;
+  readonly qtyMax?: number;
+};
+
+export type LootTableResponse = {
+  readonly catalogId: string;
+  readonly entries: readonly LootEntryView[];
+};
+
+export function getCatalogLoot(catalogId: string): Promise<LootTableResponse> {
+  return apiFetch<LootTableResponse>(`/api/admin/catalog-loot/${encodeURIComponent(catalogId)}`);
+}
+
+export function putCatalogLoot(catalogId: string, entries: readonly LootEntryInput[]): Promise<{ readonly ok: true } & LootTableResponse> {
+  return apiFetch<{ readonly ok: true } & LootTableResponse>(`/api/admin/catalog-loot/${encodeURIComponent(catalogId)}`, {
+    method: 'PUT',
+    body: { entries },
+  });
+}
+
 function toQueryString(query: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
