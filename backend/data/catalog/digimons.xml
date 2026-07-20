@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<catalog version="1" updatedAt="1784433587174">
+<catalog version="1" updatedAt="1784565679369">
   <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1">
     <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
@@ -9,6 +9,12 @@
       <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-2" name="Lunamon" stage="Rookie" attribute="Data" element="water" wikimonSlug="Lunamon" sourceUrl="https://api.skullbot.fr/digimon/2">
     <assets portrait="/assets/digimon/skb-2/portrait.webp" dot="/assets/digimon/skb-2/dot.gif"></assets>
@@ -22,6 +28,13 @@
     <evolutions>
       <evolve targetId="skb-3"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-3" name="Lekismon" stage="Champion" attribute="Data" element="water" wikimonSlug="Lekismon" sourceUrl="https://api.skullbot.fr/digimon/3">
     <assets portrait="/assets/digimon/skb-3/portrait.webp" dot="/assets/digimon/skb-3/dot.gif"></assets>
@@ -35,6 +48,12 @@
     <evolutions>
       <evolve targetId="skb-4"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-4" name="Crescemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Crescemon" sourceUrl="https://api.skullbot.fr/digimon/4">
     <assets portrait="/assets/digimon/skb-4/portrait.webp" dot="/assets/digimon/skb-4/dot.gif"></assets>
@@ -45,6 +64,13 @@
       <skill id="s2" name="Dark Archery" element="water" cost="26" power="300" description="Combines its two Nova Luna into a bowgun and fires an arrow made from dark energy."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-747" name="Minervamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Minervamon" sourceUrl="https://api.skullbot.fr/digimon/747">
     <assets portrait="/assets/digimon/skb-747/portrait.webp" dot="/assets/digimon/skb-747/dot.gif"></assets>
@@ -55,6 +81,12 @@
       <skill id="s2" name="Dominion Blade" element="fire" cost="26" power="300" description="A vertical slash with Olympia that sends a blade of air at the enemy."></skill>
       <skill id="s3" name="Olympia Slash" element="fire" cost="41" power="380" description="Slashes a foe with Olympia ."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-50" name="Agumon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="Agumon" sourceUrl="https://api.skullbot.fr/digimon/50">
     <assets portrait="/assets/digimon/skb-50/portrait.webp" dot="/assets/digimon/skb-50/dot.gif"></assets>
@@ -72,6 +104,12 @@
       <evolve targetId="skb-326"></evolve>
       <evolve targetId="skb-209"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-708" name="ToyAgumon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="ToyAgumon" sourceUrl="https://api.skullbot.fr/digimon/708">
     <assets portrait="/assets/digimon/skb-708/portrait.webp" dot="/assets/digimon/skb-708/dot.gif"></assets>
@@ -89,6 +127,12 @@
       <evolve targetId="skb-621"></evolve>
       <evolve targetId="skb-710"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-10" name="Meramon" stage="Champion" attribute="Data" element="fire" wikimonSlug="Meramon" sourceUrl="https://api.skullbot.fr/digimon/10">
     <assets portrait="/assets/digimon/skb-10/portrait.webp" dot="/assets/digimon/skb-10/dot.gif"></assets>
@@ -104,6 +148,12 @@
       <evolve targetId="skb-177"></evolve>
       <evolve targetId="skb-406"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="2"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-90" name="Guilmon" stage="Rookie" attribute="Virus" element="fire" wikimonSlug="Guilmon" sourceUrl="https://api.skullbot.fr/digimon/90">
     <assets portrait="/assets/digimon/skb-90/portrait.webp" dot="/assets/digimon/skb-90/dot.gif"></assets>
@@ -121,6 +171,12 @@
       <evolve targetId="skb-363"></evolve>
       <evolve targetId="skb-712"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-136" name="Coronamon" stage="Rookie" attribute="Vaccine" element="fire" wikimonSlug="Coronamon" sourceUrl="https://api.skullbot.fr/digimon/136">
     <assets portrait="/assets/digimon/skb-136/portrait.webp" dot="/assets/digimon/skb-136/dot.gif"></assets>
@@ -139,6 +195,12 @@
       <evolve targetId="skb-308"></evolve>
       <evolve targetId="skb-676"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-343" name="Gomamon" stage="Rookie" attribute="Vaccine" element="water" wikimonSlug="Gomamon" sourceUrl="https://api.skullbot.fr/digimon/343">
     <assets portrait="/assets/digimon/skb-343/portrait.webp" dot="/assets/digimon/skb-343/dot.gif"></assets>
@@ -156,6 +218,12 @@
       <evolve targetId="skb-580"></evolve>
       <evolve targetId="skb-730"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-348" name="Palmon" stage="Rookie" attribute="Data" element="plant" wikimonSlug="Palmon" sourceUrl="https://api.skullbot.fr/digimon/348">
     <assets portrait="/assets/digimon/skb-348/portrait.webp" dot="/assets/digimon/skb-348/dot.gif"></assets>
@@ -174,6 +242,12 @@
       <evolve targetId="skb-630"></evolve>
       <evolve targetId="skb-752"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-303" name="Tentomon" stage="Rookie" attribute="Vaccine" element="electricity" wikimonSlug="Tentomon" sourceUrl="https://api.skullbot.fr/digimon/303">
     <assets portrait="/assets/digimon/skb-303/portrait.webp" dot="/assets/digimon/skb-303/dot.gif"></assets>
@@ -191,6 +265,12 @@
       <evolve targetId="skb-454"></evolve>
       <evolve targetId="skb-597"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-701" name="Terriermon" stage="Rookie" attribute="Vaccine" element="plant" wikimonSlug="Terriermon" sourceUrl="https://api.skullbot.fr/digimon/701">
     <assets portrait="/assets/digimon/skb-701/portrait.webp" dot="/assets/digimon/skb-701/dot.gif"></assets>
@@ -208,6 +288,12 @@
       <evolve targetId="skb-710"></evolve>
       <evolve targetId="skb-751"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-151" name="Gabumon" stage="Rookie" attribute="Data" element="water" wikimonSlug="Gabumon" sourceUrl="https://api.skullbot.fr/digimon/151">
     <assets portrait="/assets/digimon/skb-151/portrait.webp" dot="/assets/digimon/skb-151/dot.gif"></assets>
@@ -225,6 +311,12 @@
       <evolve targetId="skb-395"></evolve>
       <evolve targetId="skb-729"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-115" name="BaoHuckmon" stage="Champion" attribute="Data" element="fire" wikimonSlug="BaoHuckmon" sourceUrl="https://api.skullbot.fr/digimon/115">
     <assets portrait="/assets/digimon/skb-115/portrait.webp" dot="/assets/digimon/skb-115/dot.gif"></assets>
@@ -240,6 +332,12 @@
       <evolve targetId="skb-116"></evolve>
       <evolve targetId="skb-479"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-308" name="Birdramon" stage="Champion" attribute="Vaccine" element="fire" wikimonSlug="Birdramon" sourceUrl="https://api.skullbot.fr/digimon/308">
     <assets portrait="/assets/digimon/skb-308/portrait.webp" dot="/assets/digimon/skb-308/dot.gif"></assets>
@@ -256,6 +354,12 @@
       <evolve targetId="skb-406"></evolve>
       <evolve targetId="skb-414"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-463" name="Blimpmon" stage="Champion" attribute="Data" element="water" wikimonSlug="Blimpmon" sourceUrl="https://api.skullbot.fr/digimon/463">
     <assets portrait="/assets/digimon/skb-463/portrait.webp" dot="/assets/digimon/skb-463/dot.gif"></assets>
@@ -271,6 +375,12 @@
       <evolve targetId="skb-413"></evolve>
       <evolve targetId="skb-465"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-209" name="Coredramon (Green)" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Coredramon_(Green)" sourceUrl="https://api.skullbot.fr/digimon/209">
     <assets portrait="/assets/digimon/skb-209/portrait.webp" dot="/assets/digimon/skb-209/dot.gif"></assets>
@@ -286,6 +396,12 @@
       <evolve targetId="skb-211"></evolve>
       <evolve targetId="skb-404"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-456" name="Deputymon" stage="Champion" attribute="Vaccine" element="plant" wikimonSlug="Deputymon" sourceUrl="https://api.skullbot.fr/digimon/456">
     <assets portrait="/assets/digimon/skb-456/portrait.webp" dot="/assets/digimon/skb-456/dot.gif"></assets>
@@ -301,6 +417,12 @@
       <evolve targetId="skb-79"></evolve>
       <evolve targetId="skb-726"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-373" name="Drimogemon" stage="Champion" attribute="Data" element="fire" wikimonSlug="Drimogemon" sourceUrl="https://api.skullbot.fr/digimon/373">
     <assets portrait="/assets/digimon/skb-373/portrait.webp" dot="/assets/digimon/skb-373/dot.gif"></assets>
@@ -316,6 +438,12 @@
       <evolve targetId="skb-479"></evolve>
       <evolve targetId="skb-724"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-365" name="ExVeemon" stage="Champion" attribute="Free" element="electricity" wikimonSlug="ExVeemon" sourceUrl="https://api.skullbot.fr/digimon/365">
     <assets portrait="/assets/digimon/skb-365/portrait.webp" dot="/assets/digimon/skb-365/dot.gif"></assets>
@@ -331,6 +459,16 @@
       <evolve targetId="skb-71"></evolve>
       <evolve targetId="skb-408"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-137" name="Firamon" stage="Champion" attribute="Vaccine" element="fire" wikimonSlug="Firamon" sourceUrl="https://api.skullbot.fr/digimon/137">
     <assets portrait="/assets/digimon/skb-137/portrait.webp" dot="/assets/digimon/skb-137/dot.gif"></assets>
@@ -346,6 +484,12 @@
       <evolve targetId="skb-116"></evolve>
       <evolve targetId="skb-602"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-370" name="Frigimon" stage="Champion" attribute="Vaccine" element="water" wikimonSlug="Frigimon" sourceUrl="https://api.skullbot.fr/digimon/370">
     <assets portrait="/assets/digimon/skb-370/portrait.webp" dot="/assets/digimon/skb-370/dot.gif"></assets>
@@ -363,6 +507,12 @@
       <evolve targetId="skb-756"></evolve>
       <evolve targetId="skb-588"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="2"></r>
+      <r element="ice" mult="0"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-710" name="Gargomon" stage="Champion" attribute="Vaccine" element="plant" wikimonSlug="Gargomon" sourceUrl="https://api.skullbot.fr/digimon/710">
     <assets portrait="/assets/digimon/skb-710/portrait.webp" dot="/assets/digimon/skb-710/dot.gif"></assets>
@@ -378,6 +528,12 @@
       <evolve targetId="skb-74"></evolve>
       <evolve targetId="skb-722"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-12" name="Garurumon" stage="Champion" attribute="Vaccine" element="water" wikimonSlug="Garurumon" sourceUrl="https://api.skullbot.fr/digimon/12">
     <assets portrait="/assets/digimon/skb-12/portrait.webp" dot="/assets/digimon/skb-12/dot.gif"></assets>
@@ -394,6 +550,12 @@
       <evolve targetId="skb-405"></evolve>
       <evolve targetId="skb-229"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-51" name="Gawappamon" stage="Champion" attribute="Data" element="water" wikimonSlug="Gawappamon" sourceUrl="https://api.skullbot.fr/digimon/51">
     <assets portrait="/assets/digimon/skb-51/portrait.webp" dot="/assets/digimon/skb-51/dot.gif"></assets>
@@ -409,6 +571,12 @@
       <evolve targetId="skb-606"></evolve>
       <evolve targetId="skb-376"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-54" name="GeoGreymon" stage="Champion" attribute="Vaccine" element="fire" wikimonSlug="GeoGreymon" sourceUrl="https://api.skullbot.fr/digimon/54">
     <assets portrait="/assets/digimon/skb-54/portrait.webp" dot="/assets/digimon/skb-54/dot.gif"></assets>
@@ -424,6 +592,13 @@
       <evolve targetId="skb-364"></evolve>
       <evolve targetId="skb-719"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-729" name="Geremon" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Geremon" sourceUrl="https://api.skullbot.fr/digimon/729">
     <assets portrait="/assets/digimon/skb-729/portrait.webp" dot="/assets/digimon/skb-729/dot.gif"></assets>
@@ -439,6 +614,12 @@
       <evolve targetId="skb-79"></evolve>
       <evolve targetId="skb-61"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-326" name="Greymon" stage="Champion" attribute="Vaccine" element="fire" wikimonSlug="Greymon" sourceUrl="https://api.skullbot.fr/digimon/326">
     <assets portrait="/assets/digimon/skb-326/portrait.webp" dot="/assets/digimon/skb-326/dot.gif"></assets>
@@ -455,6 +636,12 @@
       <evolve targetId="skb-404"></evolve>
       <evolve targetId="skb-229"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-712" name="Greymon (Blue)" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Greymon_(Blue)" sourceUrl="https://api.skullbot.fr/digimon/712">
     <assets portrait="/assets/digimon/skb-712/portrait.webp" dot="/assets/digimon/skb-712/dot.gif"></assets>
@@ -470,6 +657,12 @@
       <evolve targetId="skb-239"></evolve>
       <evolve targetId="skb-327"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-78" name="Growlmon" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Growlmon" sourceUrl="https://api.skullbot.fr/digimon/78">
     <assets portrait="/assets/digimon/skb-78/portrait.webp" dot="/assets/digimon/skb-78/dot.gif"></assets>
@@ -485,6 +678,12 @@
       <evolve targetId="skb-211"></evolve>
       <evolve targetId="skb-407"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-580" name="Hyogamon" stage="Champion" attribute="Virus" element="water" wikimonSlug="Hyogamon" sourceUrl="https://api.skullbot.fr/digimon/580">
     <assets portrait="/assets/digimon/skb-580/portrait.webp" dot="/assets/digimon/skb-580/dot.gif"></assets>
@@ -500,6 +699,12 @@
       <evolve targetId="skb-584"></evolve>
       <evolve targetId="skb-409"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-730" name="IceDevimon" stage="Champion" attribute="Virus" element="water" wikimonSlug="IceDevimon" sourceUrl="https://api.skullbot.fr/digimon/730">
     <assets portrait="/assets/digimon/skb-730/portrait.webp" dot="/assets/digimon/skb-730/dot.gif"></assets>
@@ -516,6 +721,12 @@
       <evolve targetId="skb-409"></evolve>
       <evolve targetId="skb-920"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="2"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-344" name="Ikkakumon" stage="Champion" attribute="Vaccine" element="water" wikimonSlug="Ikkakumon" sourceUrl="https://api.skullbot.fr/digimon/344">
     <assets portrait="/assets/digimon/skb-344/portrait.webp" dot="/assets/digimon/skb-344/dot.gif"></assets>
@@ -532,6 +743,12 @@
       <evolve targetId="skb-345"></evolve>
       <evolve targetId="skb-908"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-304" name="Kabuterimon" stage="Champion" attribute="Vaccine" element="electricity" wikimonSlug="Kabuterimon" sourceUrl="https://api.skullbot.fr/digimon/304">
     <assets portrait="/assets/digimon/skb-304/portrait.webp" dot="/assets/digimon/skb-304/dot.gif"></assets>
@@ -548,6 +765,12 @@
       <evolve targetId="skb-727"></evolve>
       <evolve targetId="skb-229"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-630" name="Kurisarimon" stage="Champion" attribute="Unknown" element="null" wikimonSlug="Kurisarimon" sourceUrl="https://api.skullbot.fr/digimon/630">
     <assets portrait="/assets/digimon/skb-630/portrait.webp" dot="/assets/digimon/skb-630/dot.gif"></assets>
@@ -564,6 +787,14 @@
       <evolve targetId="skb-199"></evolve>
       <evolve targetId="skb-627"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-367" name="Kuwagamon" stage="Champion" attribute="Virus" element="electricity" wikimonSlug="Kuwagamon" sourceUrl="https://api.skullbot.fr/digimon/367">
     <assets portrait="/assets/digimon/skb-367/portrait.webp" dot="/assets/digimon/skb-367/dot.gif"></assets>
@@ -580,6 +811,12 @@
       <evolve targetId="skb-605"></evolve>
       <evolve targetId="skb-229"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-395" name="Kyubimon" stage="Champion" attribute="Data" element="fire" wikimonSlug="Kyubimon" sourceUrl="https://api.skullbot.fr/digimon/395">
     <assets portrait="/assets/digimon/skb-395/portrait.webp" dot="/assets/digimon/skb-395/dot.gif"></assets>
@@ -596,6 +833,12 @@
       <evolve targetId="skb-405"></evolve>
       <evolve targetId="skb-920"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-371" name="Mojyamon" stage="Champion" attribute="Vaccine" element="plant" wikimonSlug="Mojyamon" sourceUrl="https://api.skullbot.fr/digimon/371">
     <assets portrait="/assets/digimon/skb-371/portrait.webp" dot="/assets/digimon/skb-371/dot.gif"></assets>
@@ -612,6 +855,12 @@
       <evolve targetId="skb-602"></evolve>
       <evolve targetId="skb-588"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-70" name="Numemon" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Numemon" sourceUrl="https://api.skullbot.fr/digimon/70">
     <assets portrait="/assets/digimon/skb-70/portrait.webp" dot="/assets/digimon/skb-70/dot.gif"></assets>
@@ -627,6 +876,12 @@
       <evolve targetId="skb-217"></evolve>
       <evolve targetId="skb-311"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-752" name="PlatinumSukamon" stage="Champion" attribute="Virus" element="fire" wikimonSlug="PlatinumSukamon" sourceUrl="https://api.skullbot.fr/digimon/752">
     <assets portrait="/assets/digimon/skb-752/portrait.webp" dot="/assets/digimon/skb-752/dot.gif"></assets>
@@ -642,6 +897,11 @@
       <evolve targetId="skb-412"></evolve>
       <evolve targetId="skb-413"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-25" name="Raptordramon" stage="Champion" attribute="Vaccine" element="fire" wikimonSlug="Raptordramon" sourceUrl="https://api.skullbot.fr/digimon/25">
     <assets portrait="/assets/digimon/skb-25/portrait.webp" dot="/assets/digimon/skb-25/dot.gif"></assets>
@@ -657,6 +917,12 @@
       <evolve targetId="skb-402"></evolve>
       <evolve targetId="skb-770"></evolve>
     </evolutions>
+    <resistances>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-590" name="Raremon" stage="Champion" attribute="Virus" element="fire" wikimonSlug="Raremon" sourceUrl="https://api.skullbot.fr/digimon/590">
     <assets portrait="/assets/digimon/skb-590/portrait.webp" dot="/assets/digimon/skb-590/dot.gif"></assets>
@@ -674,6 +940,12 @@
       <evolve targetId="skb-1"></evolve>
       <evolve targetId="skb-239"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-597" name="Snimon" stage="Champion" attribute="Vaccine" element="electricity" wikimonSlug="Snimon" sourceUrl="https://api.skullbot.fr/digimon/597">
     <assets portrait="/assets/digimon/skb-597/portrait.webp" dot="/assets/digimon/skb-597/dot.gif"></assets>
@@ -690,6 +962,12 @@
       <evolve targetId="skb-199"></evolve>
       <evolve targetId="skb-484"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-58" name="Sunflowmon" stage="Champion" attribute="Data" element="plant" wikimonSlug="Sunflowmon" sourceUrl="https://api.skullbot.fr/digimon/58">
     <assets portrait="/assets/digimon/skb-58/portrait.webp" dot="/assets/digimon/skb-58/dot.gif"></assets>
@@ -706,6 +984,12 @@
       <evolve targetId="skb-378"></evolve>
       <evolve targetId="skb-596"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-621" name="Tankmon" stage="Champion" attribute="Data" element="water" wikimonSlug="Tankmon" sourceUrl="https://api.skullbot.fr/digimon/621">
     <assets portrait="/assets/digimon/skb-621/portrait.webp" dot="/assets/digimon/skb-621/dot.gif"></assets>
@@ -721,6 +1005,12 @@
       <evolve targetId="skb-198"></evolve>
       <evolve targetId="skb-770"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-349" name="Togemon" stage="Champion" attribute="Data" element="plant" wikimonSlug="Togemon" sourceUrl="https://api.skullbot.fr/digimon/349">
     <assets portrait="/assets/digimon/skb-349/portrait.webp" dot="/assets/digimon/skb-349/dot.gif"></assets>
@@ -736,6 +1026,12 @@
       <evolve targetId="skb-379"></evolve>
       <evolve targetId="skb-596"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-363" name="Tyrannomon" stage="Champion" attribute="Data" element="fire" wikimonSlug="Tyrannomon" sourceUrl="https://api.skullbot.fr/digimon/363">
     <assets portrait="/assets/digimon/skb-363/portrait.webp" dot="/assets/digimon/skb-363/dot.gif"></assets>
@@ -752,6 +1048,12 @@
       <evolve targetId="skb-302"></evolve>
       <evolve targetId="skb-364"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-314" name="Vegiemon" stage="Champion" attribute="Virus" element="plant" wikimonSlug="Vegiemon" sourceUrl="https://api.skullbot.fr/digimon/314">
     <assets portrait="/assets/digimon/skb-314/portrait.webp" dot="/assets/digimon/skb-314/dot.gif"></assets>
@@ -767,6 +1069,12 @@
       <evolve targetId="skb-380"></evolve>
       <evolve targetId="skb-411"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-454" name="Waspmon" stage="Champion" attribute="Virus" element="electricity" wikimonSlug="Waspmon" sourceUrl="https://api.skullbot.fr/digimon/454">
     <assets portrait="/assets/digimon/skb-454/portrait.webp" dot="/assets/digimon/skb-454/dot.gif"></assets>
@@ -782,6 +1090,14 @@
       <evolve targetId="skb-727"></evolve>
       <evolve targetId="skb-770"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-393" name="Woodmon" stage="Champion" attribute="Virus" element="plant" wikimonSlug="Woodmon" sourceUrl="https://api.skullbot.fr/digimon/393">
     <assets portrait="/assets/digimon/skb-393/portrait.webp" dot="/assets/digimon/skb-393/dot.gif"></assets>
@@ -797,6 +1113,12 @@
       <evolve targetId="skb-405"></evolve>
       <evolve targetId="skb-596"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-676" name="Agunimon" stage="Rookie" attribute="Unknown" element="fire" wikimonSlug="Agunimon" sourceUrl="https://api.skullbot.fr/digimon/676">
     <assets portrait="/assets/digimon/skb-676/portrait.webp" dot="/assets/digimon/skb-676/dot.gif"></assets>
@@ -810,6 +1132,12 @@
     <evolutions>
       <evolve targetId="skb-669"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="2"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-751" name="Rapidmon (Armor)" stage="Rookie" attribute="Vaccine" element="plant" wikimonSlug="Rapidmon_(Armor)" sourceUrl="https://api.skullbot.fr/digimon/751">
     <assets portrait="/assets/digimon/skb-751/portrait.webp" dot="/assets/digimon/skb-751/dot.gif"></assets>
@@ -820,6 +1148,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-28" name="BigMamemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="BigMamemon" sourceUrl="https://api.skullbot.fr/digimon/28">
     <assets portrait="/assets/digimon/skb-28/portrait.webp" dot="/assets/digimon/skb-28/dot.gif"></assets>
@@ -835,6 +1169,13 @@
       <evolve targetId="skb-429"></evolve>
       <evolve targetId="skb-704"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-704" name="GroundLocomon" stage="Mega" attribute="Data" element="water" wikimonSlug="GroundLocomon" sourceUrl="https://api.skullbot.fr/digimon/704">
     <assets portrait="/assets/digimon/skb-704/portrait.webp" dot="/assets/digimon/skb-704/dot.gif"></assets>
@@ -845,6 +1186,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-69" name="PlatinumNumemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="PlatinumNumemon" sourceUrl="https://api.skullbot.fr/digimon/69">
     <assets portrait="/assets/digimon/skb-69/portrait.webp" dot="/assets/digimon/skb-69/dot.gif"></assets>
@@ -855,6 +1202,12 @@
       <skill id="s2" name="Sugoku Iya de Dekkai Shita" element="fire" cost="26" power="300" description="Licks the enemy in a disgusting way."></skill>
       <skill id="s3" name="Platinum Burp" element="fire" cost="41" power="380" description="Lets out an extreme stench as it burps, making the enemy lose its will to fight."></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="0"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-429" name="PrinceMamemon" stage="Mega" attribute="Data" element="water" wikimonSlug="PrinceMamemon" sourceUrl="https://api.skullbot.fr/digimon/429">
     <assets portrait="/assets/digimon/skb-429/portrait.webp" dot="/assets/digimon/skb-429/dot.gif"></assets>
@@ -865,6 +1218,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-148" name="Angewomon" stage="Ultimate" attribute="Vaccine" element="null" wikimonSlug="Angewomon" sourceUrl="https://api.skullbot.fr/digimon/148">
     <assets portrait="/assets/digimon/skb-148/portrait.webp" dot="/assets/digimon/skb-148/dot.gif"></assets>
@@ -881,6 +1240,12 @@
       <evolve targetId="skb-453"></evolve>
       <evolve targetId="skb-748"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-199" name="Arukenimon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Arukenimon" sourceUrl="https://api.skullbot.fr/digimon/199">
     <assets portrait="/assets/digimon/skb-199/portrait.webp" dot="/assets/digimon/skb-199/dot.gif"></assets>
@@ -896,6 +1261,12 @@
       <evolve targetId="skb-128"></evolve>
       <evolve targetId="skb-742"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-753" name="BlackKingNumemon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="BlackKingNumemon" sourceUrl="https://api.skullbot.fr/digimon/753">
     <assets portrait="/assets/digimon/skb-753/portrait.webp" dot="/assets/digimon/skb-753/dot.gif"></assets>
@@ -910,6 +1281,12 @@
       <evolve targetId="skb-69"></evolve>
       <evolve targetId="skb-312"></evolve>
     </evolutions>
+    <resistances>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-177" name="BlueMeramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="BlueMeramon" sourceUrl="https://api.skullbot.fr/digimon/177">
     <assets portrait="/assets/digimon/skb-177/portrait.webp" dot="/assets/digimon/skb-177/dot.gif"></assets>
@@ -924,6 +1301,12 @@
       <evolve targetId="skb-174"></evolve>
       <evolve targetId="skb-227"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-724" name="Brachiomon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Brachiomon" sourceUrl="https://api.skullbot.fr/digimon/724">
     <assets portrait="/assets/digimon/skb-724/portrait.webp" dot="/assets/digimon/skb-724/dot.gif"></assets>
@@ -939,6 +1322,12 @@
       <evolve targetId="skb-383"></evolve>
       <evolve targetId="skb-725"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-727" name="CannonBeemon" stage="Ultimate" attribute="Virus" element="electricity" wikimonSlug="CannonBeemon" sourceUrl="https://api.skullbot.fr/digimon/727">
     <assets portrait="/assets/digimon/skb-727/portrait.webp" dot="/assets/digimon/skb-727/dot.gif"></assets>
@@ -953,6 +1342,12 @@
       <evolve targetId="skb-741"></evolve>
       <evolve targetId="skb-745"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-44" name="CatchMamemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="CatchMamemon" sourceUrl="https://api.skullbot.fr/digimon/44">
     <assets portrait="/assets/digimon/skb-44/portrait.webp" dot="/assets/digimon/skb-44/dot.gif"></assets>
@@ -968,6 +1363,12 @@
       <evolve targetId="skb-429"></evolve>
       <evolve targetId="skb-182"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-223" name="Cerberusmon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Cerberusmon" sourceUrl="https://api.skullbot.fr/digimon/223">
     <assets portrait="/assets/digimon/skb-223/portrait.webp" dot="/assets/digimon/skb-223/dot.gif"></assets>
@@ -983,6 +1384,13 @@
       <evolve targetId="skb-424"></evolve>
       <evolve targetId="skb-182"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-379" name="Cherrymon" stage="Ultimate" attribute="Virus" element="plant" wikimonSlug="Cherrymon" sourceUrl="https://api.skullbot.fr/digimon/379">
     <assets portrait="/assets/digimon/skb-379/portrait.webp" dot="/assets/digimon/skb-379/dot.gif"></assets>
@@ -998,6 +1406,12 @@
       <evolve targetId="skb-57"></evolve>
       <evolve targetId="skb-423"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-719" name="Cyberdramon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Cyberdramon" sourceUrl="https://api.skullbot.fr/digimon/719">
     <assets portrait="/assets/digimon/skb-719/portrait.webp" dot="/assets/digimon/skb-719/dot.gif"></assets>
@@ -1012,6 +1426,12 @@
       <evolve targetId="skb-417"></evolve>
       <evolve targetId="skb-737"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-217" name="DarkSuperStarmon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="DarkSuperStarmon" sourceUrl="https://api.skullbot.fr/digimon/217">
     <assets portrait="/assets/digimon/skb-217/portrait.webp" dot="/assets/digimon/skb-217/dot.gif"></assets>
@@ -1027,6 +1447,12 @@
       <evolve targetId="skb-440"></evolve>
       <evolve targetId="skb-740"></evolve>
     </evolutions>
+    <resistances>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-378" name="Deramon" stage="Ultimate" attribute="Data" element="plant" wikimonSlug="Deramon" sourceUrl="https://api.skullbot.fr/digimon/378">
     <assets portrait="/assets/digimon/skb-378/portrait.webp" dot="/assets/digimon/skb-378/dot.gif"></assets>
@@ -1042,6 +1468,12 @@
       <evolve targetId="skb-176"></evolve>
       <evolve targetId="skb-69"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-23" name="Dinobeemon" stage="Ultimate" attribute="Free" element="electricity" wikimonSlug="Dinobeemon" sourceUrl="https://api.skullbot.fr/digimon/23">
     <assets portrait="/assets/digimon/skb-23/portrait.webp" dot="/assets/digimon/skb-23/dot.gif"></assets>
@@ -1056,6 +1488,16 @@
       <evolve targetId="skb-423"></evolve>
       <evolve targetId="skb-745"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-606" name="Divermon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Divermon" sourceUrl="https://api.skullbot.fr/digimon/606">
     <assets portrait="/assets/digimon/skb-606/portrait.webp" dot="/assets/digimon/skb-606/dot.gif"></assets>
@@ -1070,6 +1512,12 @@
       <evolve targetId="skb-75"></evolve>
       <evolve targetId="skb-450"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-407" name="DoruGreymon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="DoruGreymon" sourceUrl="https://api.skullbot.fr/digimon/407">
     <assets portrait="/assets/digimon/skb-407/portrait.webp" dot="/assets/digimon/skb-407/dot.gif"></assets>
@@ -1084,6 +1532,12 @@
       <evolve targetId="skb-19"></evolve>
       <evolve targetId="skb-416"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-129" name="Dragomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Dragomon" sourceUrl="https://api.skullbot.fr/digimon/129">
     <assets portrait="/assets/digimon/skb-129/portrait.webp" dot="/assets/digimon/skb-129/dot.gif"></assets>
@@ -1098,6 +1552,12 @@
       <evolve targetId="skb-178"></evolve>
       <evolve targetId="skb-451"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-920" name="Enbarrmon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Enbarrmon" sourceUrl="https://api.skullbot.fr/digimon/920">
     <assets portrait="/assets/digimon/skb-920/portrait.webp" dot="/assets/digimon/skb-920/dot.gif"></assets>
@@ -1112,6 +1572,13 @@
       <evolve targetId="skb-86"></evolve>
       <evolve targetId="skb-461"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-311" name="Etemon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Etemon" sourceUrl="https://api.skullbot.fr/digimon/311">
     <assets portrait="/assets/digimon/skb-311/portrait.webp" dot="/assets/digimon/skb-311/dot.gif"></assets>
@@ -1127,6 +1594,12 @@
       <evolve targetId="skb-127"></evolve>
       <evolve targetId="skb-312"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-138" name="Flaremon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="Flaremon" sourceUrl="https://api.skullbot.fr/digimon/138">
     <assets portrait="/assets/digimon/skb-138/portrait.webp" dot="/assets/digimon/skb-138/dot.gif"></assets>
@@ -1142,6 +1615,12 @@
       <evolve targetId="skb-315"></evolve>
       <evolve targetId="skb-175"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-380" name="Garbagemon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Garbagemon" sourceUrl="https://api.skullbot.fr/digimon/380">
     <assets portrait="/assets/digimon/skb-380/portrait.webp" dot="/assets/digimon/skb-380/dot.gif"></assets>
@@ -1156,6 +1635,12 @@
       <evolve targetId="skb-98"></evolve>
       <evolve targetId="skb-312"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-309" name="Garudamon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="Garudamon" sourceUrl="https://api.skullbot.fr/digimon/309">
     <assets portrait="/assets/digimon/skb-309/portrait.webp" dot="/assets/digimon/skb-309/dot.gif"></assets>
@@ -1171,6 +1656,12 @@
       <evolve targetId="skb-310"></evolve>
       <evolve targetId="skb-749"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-402" name="Gigadramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Gigadramon" sourceUrl="https://api.skullbot.fr/digimon/402">
     <assets portrait="/assets/digimon/skb-402/portrait.webp" dot="/assets/digimon/skb-402/dot.gif"></assets>
@@ -1185,6 +1676,12 @@
       <evolve targetId="skb-194"></evolve>
       <evolve targetId="skb-422"></evolve>
     </evolutions>
+    <resistances>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-26" name="Grademon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Grademon" sourceUrl="https://api.skullbot.fr/digimon/26">
     <assets portrait="/assets/digimon/skb-26/portrait.webp" dot="/assets/digimon/skb-26/dot.gif"></assets>
@@ -1200,6 +1697,12 @@
       <evolve targetId="skb-700"></evolve>
       <evolve targetId="skb-738"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-211" name="Groundramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Groundramon" sourceUrl="https://api.skullbot.fr/digimon/211">
     <assets portrait="/assets/digimon/skb-211/portrait.webp" dot="/assets/digimon/skb-211/dot.gif"></assets>
@@ -1214,6 +1717,12 @@
       <evolve targetId="skb-47"></evolve>
       <evolve targetId="skb-214"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-409" name="IceLeomon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="IceLeomon" sourceUrl="https://api.skullbot.fr/digimon/409">
     <assets portrait="/assets/digimon/skb-409/portrait.webp" dot="/assets/digimon/skb-409/dot.gif"></assets>
@@ -1228,6 +1737,12 @@
       <evolve targetId="skb-95"></evolve>
       <evolve targetId="skb-424"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-627" name="Infermon" stage="Ultimate" attribute="Unknown" element="null" wikimonSlug="Infermon" sourceUrl="https://api.skullbot.fr/digimon/627">
     <assets portrait="/assets/digimon/skb-627/portrait.webp" dot="/assets/digimon/skb-627/dot.gif"></assets>
@@ -1243,6 +1758,14 @@
       <evolve targetId="skb-632"></evolve>
       <evolve targetId="skb-774"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-484" name="JewelBeemon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="JewelBeemon" sourceUrl="https://api.skullbot.fr/digimon/484">
     <assets portrait="/assets/digimon/skb-484/portrait.webp" dot="/assets/digimon/skb-484/dot.gif"></assets>
@@ -1257,6 +1780,12 @@
       <evolve targetId="skb-306"></evolve>
       <evolve targetId="skb-745"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-229" name="Kimeramon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Kimeramon" sourceUrl="https://api.skullbot.fr/digimon/229">
     <assets portrait="/assets/digimon/skb-229/portrait.webp" dot="/assets/digimon/skb-229/dot.gif"></assets>
@@ -1272,6 +1801,16 @@
       <evolve targetId="skb-230"></evolve>
       <evolve targetId="skb-385"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-107" name="LadyDevimon" stage="Ultimate" attribute="Virus" element="null" wikimonSlug="LadyDevimon" sourceUrl="https://api.skullbot.fr/digimon/107">
     <assets portrait="/assets/digimon/skb-107/portrait.webp" dot="/assets/digimon/skb-107/dot.gif"></assets>
@@ -1287,6 +1826,12 @@
       <evolve targetId="skb-195"></evolve>
       <evolve targetId="skb-748"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-73" name="Lilamon" stage="Ultimate" attribute="Data" element="plant" wikimonSlug="Lilamon" sourceUrl="https://api.skullbot.fr/digimon/73">
     <assets portrait="/assets/digimon/skb-73/portrait.webp" dot="/assets/digimon/skb-73/dot.gif"></assets>
@@ -1302,6 +1847,12 @@
       <evolve targetId="skb-57"></evolve>
       <evolve targetId="skb-428"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-359" name="Lillymon" stage="Ultimate" attribute="Data" element="plant" wikimonSlug="Lillymon" sourceUrl="https://api.skullbot.fr/digimon/359">
     <assets portrait="/assets/digimon/skb-359/portrait.webp" dot="/assets/digimon/skb-359/dot.gif"></assets>
@@ -1316,6 +1867,12 @@
       <evolve targetId="skb-57"></evolve>
       <evolve targetId="skb-176"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-479" name="LoaderLeomon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="LoaderLeomon" sourceUrl="https://api.skullbot.fr/digimon/479">
     <assets portrait="/assets/digimon/skb-479/portrait.webp" dot="/assets/digimon/skb-479/dot.gif"></assets>
@@ -1331,6 +1888,12 @@
       <evolve targetId="skb-135"></evolve>
       <evolve targetId="skb-422"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-198" name="Locomon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Locomon" sourceUrl="https://api.skullbot.fr/digimon/198">
     <assets portrait="/assets/digimon/skb-198/portrait.webp" dot="/assets/digimon/skb-198/dot.gif"></assets>
@@ -1345,6 +1908,12 @@
       <evolve targetId="skb-704"></evolve>
       <evolve targetId="skb-426"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-74" name="MachGaogamon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="MachGaogamon" sourceUrl="https://api.skullbot.fr/digimon/74">
     <assets portrait="/assets/digimon/skb-74/portrait.webp" dot="/assets/digimon/skb-74/dot.gif"></assets>
@@ -1359,6 +1928,12 @@
       <evolve targetId="skb-95"></evolve>
       <evolve targetId="skb-741"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-412" name="Mamemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Mamemon" sourceUrl="https://api.skullbot.fr/digimon/412">
     <assets portrait="/assets/digimon/skb-412/portrait.webp" dot="/assets/digimon/skb-412/dot.gif"></assets>
@@ -1373,6 +1948,12 @@
       <evolve targetId="skb-196"></evolve>
       <evolve targetId="skb-429"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-588" name="Mammothmon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Mammothmon" sourceUrl="https://api.skullbot.fr/digimon/588">
     <assets portrait="/assets/digimon/skb-588/portrait.webp" dot="/assets/digimon/skb-588/dot.gif"></assets>
@@ -1387,6 +1968,12 @@
       <evolve targetId="skb-346"></evolve>
       <evolve targetId="skb-461"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-465" name="MasterBlimpmon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="MasterBlimpmon" sourceUrl="https://api.skullbot.fr/digimon/465">
     <assets portrait="/assets/digimon/skb-465/portrait.webp" dot="/assets/digimon/skb-465/dot.gif"></assets>
@@ -1401,6 +1988,12 @@
       <evolve targetId="skb-704"></evolve>
       <evolve targetId="skb-194"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-305" name="MegaKabuterimon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="MegaKabuterimon" sourceUrl="https://api.skullbot.fr/digimon/305">
     <assets portrait="/assets/digimon/skb-305/portrait.webp" dot="/assets/digimon/skb-305/dot.gif"></assets>
@@ -1415,6 +2008,12 @@
       <evolve targetId="skb-128"></evolve>
       <evolve targetId="skb-306"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-132" name="MegaSeadramon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="MegaSeadramon" sourceUrl="https://api.skullbot.fr/digimon/132">
     <assets portrait="/assets/digimon/skb-132/portrait.webp" dot="/assets/digimon/skb-132/dot.gif"></assets>
@@ -1430,6 +2029,12 @@
       <evolve targetId="skb-193"></evolve>
       <evolve targetId="skb-434"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-301" name="Megadramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Megadramon" sourceUrl="https://api.skullbot.fr/digimon/301">
     <assets portrait="/assets/digimon/skb-301/portrait.webp" dot="/assets/digimon/skb-301/dot.gif"></assets>
@@ -1444,6 +2049,12 @@
       <evolve targetId="skb-47"></evolve>
       <evolve targetId="skb-385"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-302" name="MetalGreymon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="MetalGreymon" sourceUrl="https://api.skullbot.fr/digimon/302">
     <assets portrait="/assets/digimon/skb-302/portrait.webp" dot="/assets/digimon/skb-302/dot.gif"></assets>
@@ -1458,6 +2069,13 @@
       <evolve targetId="skb-27"></evolve>
       <evolve targetId="skb-744"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-327" name="MetalGreymon (Blue)" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="MetalGreymon_(Blue)" sourceUrl="https://api.skullbot.fr/digimon/327">
     <assets portrait="/assets/digimon/skb-327/portrait.webp" dot="/assets/digimon/skb-327/dot.gif"></assets>
@@ -1473,6 +2091,12 @@
       <evolve targetId="skb-771"></evolve>
       <evolve targetId="skb-774"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-413" name="MetalMamemon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="MetalMamemon" sourceUrl="https://api.skullbot.fr/digimon/413">
     <assets portrait="/assets/digimon/skb-413/portrait.webp" dot="/assets/digimon/skb-413/dot.gif"></assets>
@@ -1487,6 +2111,13 @@
       <evolve targetId="skb-135"></evolve>
       <evolve targetId="skb-616"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-364" name="MetalTyrannomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="MetalTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/364">
     <assets portrait="/assets/digimon/skb-364/portrait.webp" dot="/assets/digimon/skb-364/dot.gif"></assets>
@@ -1502,6 +2133,13 @@
       <evolve targetId="skb-385"></evolve>
       <evolve targetId="skb-725"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-756" name="Meteormon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Meteormon" sourceUrl="https://api.skullbot.fr/digimon/756">
     <assets portrait="/assets/digimon/skb-756/portrait.webp" dot="/assets/digimon/skb-756/dot.gif"></assets>
@@ -1516,6 +2154,12 @@
       <evolve targetId="skb-312"></evolve>
       <evolve targetId="skb-431"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-602" name="Mistymon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Mistymon" sourceUrl="https://api.skullbot.fr/digimon/602">
     <assets portrait="/assets/digimon/skb-602/portrait.webp" dot="/assets/digimon/skb-602/dot.gif"></assets>
@@ -1532,6 +2176,12 @@
       <evolve targetId="skb-603"></evolve>
       <evolve targetId="skb-738"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-416" name="Alphamon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Alphamon" sourceUrl="https://api.skullbot.fr/digimon/416">
     <assets portrait="/assets/digimon/skb-416/portrait.webp" dot="/assets/digimon/skb-416/dot.gif"></assets>
@@ -1542,6 +2192,13 @@
       <skill id="s2" name="Alpha inForce" element="plant" cost="26" power="300"></skill>
       <skill id="s3" name="Kyūkyoku Senjin Ouryūken" element="plant" cost="41" power="380" description="Attacks with the Ouryuken ."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-173" name="Apollomon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Apollomon" sourceUrl="https://api.skullbot.fr/digimon/173">
     <assets portrait="/assets/digimon/skb-173/portrait.webp" dot="/assets/digimon/skb-173/dot.gif"></assets>
@@ -1552,6 +2209,13 @@
       <skill id="s2" name="Arrow of Apollo" element="plant" cost="26" power="300" description="Continuously fires red hot arrows from the shining jewels on its hands."></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="2"></r>
+      <r element="light" mult="0"></r>
+      <r element="dark" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-49" name="BanchoLeomon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="BanchoLeomon" sourceUrl="https://api.skullbot.fr/digimon/49">
     <assets portrait="/assets/digimon/skb-49/portrait.webp" dot="/assets/digimon/skb-49/dot.gif"></assets>
@@ -1562,6 +2226,12 @@
       <skill id="s2" name="Otokogi" element="plant" cost="26" power="300" description="Punches the ground, striking its opponent with the punch&apos;s shockwave."></skill>
       <skill id="s3" name="Otokodama" element="plant" cost="41" power="380" description="Man&apos;s Soul"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-195" name="BeelStarmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="BeelStarmon" sourceUrl="https://api.skullbot.fr/digimon/195">
     <assets portrait="/assets/digimon/skb-195/portrait.webp" dot="/assets/digimon/skb-195/dot.gif"></assets>
@@ -1572,6 +2242,12 @@
       <skill id="s2" name="Hurricane Vis Shot" element="fire" cost="26" power="300" description="Wildly fires the guns hidden in the heels of its boots with a keen Senpukyaku."></skill>
       <skill id="s3" name="Rizoma de Loto" element="plant" cost="41" power="380" description="Esp: &quot; Lotus Root &quot;"></skill>
     </skills>
+    <resistances>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-175" name="BlackWarGreymon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="BlackWarGreymon" sourceUrl="https://api.skullbot.fr/digimon/175">
     <assets portrait="/assets/digimon/skb-175/portrait.webp" dot="/assets/digimon/skb-175/dot.gif"></assets>
@@ -1582,6 +2258,12 @@
       <skill id="s2" name="Dramon Killer" element="fire" cost="26" power="300" description="1 2 Attacks the enemy with its Dramon Killer gauntlets. Slashes upwards with a Dramon Killer , sending a wall of fire at the opponent."></skill>
       <skill id="s3" name="Great Tornado" element="fire" cost="41" power="380" description="Summons a tornado."></skill>
     </skills>
+    <resistances>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-431" name="Boltmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Boltmon" sourceUrl="https://api.skullbot.fr/digimon/431">
     <assets portrait="/assets/digimon/skb-431/portrait.webp" dot="/assets/digimon/skb-431/dot.gif"></assets>
@@ -1592,6 +2274,12 @@
       <skill id="s2" name="Battle Tomahawk" element="water" cost="26" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-214" name="Breakdramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Breakdramon" sourceUrl="https://api.skullbot.fr/digimon/214">
     <assets portrait="/assets/digimon/skb-214/portrait.webp" dot="/assets/digimon/skb-214/dot.gif"></assets>
@@ -1602,6 +2290,12 @@
       <skill id="s2" name="Gravity Press" element="fire" cost="26" power="300" description="Raises its entire mass and then flattens its target, allowing it to crush anything, or creates a zone of intense gravity."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-176" name="Ceresmon" stage="Mega" attribute="Data" element="null" wikimonSlug="Ceresmon" sourceUrl="https://api.skullbot.fr/digimon/176">
     <assets portrait="/assets/digimon/skb-176/portrait.webp" dot="/assets/digimon/skb-176/dot.gif"></assets>
@@ -1612,6 +2306,12 @@
       <skill id="s2" name="Fruits Flechette" element="null" cost="26" power="300" description="Scatters the highly poisonous, unripe fruit from the &quot; Karpos Hulē &quot; over a wide range, transforming its surroundings into a land of death with poison upon impact."></skill>
       <skill id="s3" name="Famis" element="null" cost="41" power="380" description="Freely manipulates plants to absorb all of the opponent&apos;s energy."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-150" name="ChaosGallantmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="ChaosGallantmon" sourceUrl="https://api.skullbot.fr/digimon/150">
     <assets portrait="/assets/digimon/skb-150/portrait.webp" dot="/assets/digimon/skb-150/dot.gif"></assets>
@@ -1622,6 +2322,12 @@
       <skill id="s2" name="Waking Dead" element="fire" cost="26" power="300" description="Casts a huge sphere of energy around itself using Gorgon ."></skill>
       <skill id="s3" name="Spiral Wailer" element="electricity" cost="41" power="380" description="Attacks with its lance Balmung as lightning spirals about the blade."></skill>
     </skills>
+    <resistances>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-422" name="Chaosdramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Chaosdramon" sourceUrl="https://api.skullbot.fr/digimon/422">
     <assets portrait="/assets/digimon/skb-422/portrait.webp" dot="/assets/digimon/skb-422/dot.gif"></assets>
@@ -1632,6 +2338,12 @@
       <skill id="s2" name="Destroyed Haken" element="fire" cost="26" power="300" description="Shoots an organic missile from its right hand, which injects a lethal virus on its victim."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-774" name="Cherubimon (Black)" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Cherubimon_(Black)" sourceUrl="https://api.skullbot.fr/digimon/774">
     <assets portrait="/assets/digimon/skb-774/portrait.webp" dot="/assets/digimon/skb-774/dot.gif"></assets>
@@ -1642,6 +2354,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="electricity" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-771" name="Darkdramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Darkdramon" sourceUrl="https://api.skullbot.fr/digimon/771">
     <assets portrait="/assets/digimon/skb-771/portrait.webp" dot="/assets/digimon/skb-771/dot.gif"></assets>
@@ -1652,6 +2370,12 @@
       <skill id="s2" name="Demon Stab" element="fire" cost="26" power="300" description="Strikes a powerful blow using the Gigastick Lance ."></skill>
       <skill id="s3" name="Terrible Gaze" element="fire" cost="41" power="380" description="Shoots a strange beam from the eyes on its right gauntlet to numb the enemy."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-632" name="Diaboromon" stage="Mega" attribute="Unknown" element="null" wikimonSlug="Diaboromon" sourceUrl="https://api.skullbot.fr/digimon/632">
     <assets portrait="/assets/digimon/skb-632/portrait.webp" dot="/assets/digimon/skb-632/dot.gif"></assets>
@@ -1662,6 +2386,14 @@
       <skill id="s2" name="System Fail" element="null" cost="26" power="300" description="Encases itself with a gigantic green sphere, blasting nearby opponents and causing them to devolve."></skill>
       <skill id="s3" name="Tentacle Bug" element="null" cost="41" power="380" description="Extends its arms to claw the target."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-19" name="Dorugoramon" stage="Mega" attribute="Data" element="water" wikimonSlug="Dorugoramon" sourceUrl="https://api.skullbot.fr/digimon/19">
     <assets portrait="/assets/digimon/skb-19/portrait.webp" dot="/assets/digimon/skb-19/dot.gif"></assets>
@@ -1672,6 +2404,13 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-700" name="Durandamon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Durandamon" sourceUrl="https://api.skullbot.fr/digimon/700">
     <assets portrait="/assets/digimon/skb-700/portrait.webp" dot="/assets/digimon/skb-700/dot.gif"></assets>
@@ -1682,6 +2421,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="0"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-738" name="Dynasmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Dynasmon" sourceUrl="https://api.skullbot.fr/digimon/738">
     <assets portrait="/assets/digimon/skb-738/portrait.webp" dot="/assets/digimon/skb-738/dot.gif"></assets>
@@ -1692,6 +2437,12 @@
       <skill id="s2" name="Dragon Collider" element="water" cost="26" power="300" description="Releases all its energy in the form of phantom dragons that converge on the target in a vortex that reaches the temperature of a star&apos;s core in an instant, causing a huge explosion."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-451" name="Ebemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Ebemon" sourceUrl="https://api.skullbot.fr/digimon/451">
     <assets portrait="/assets/digimon/skb-451/portrait.webp" dot="/assets/digimon/skb-451/dot.gif"></assets>
@@ -1702,6 +2453,12 @@
       <skill id="s2" name="Planet Destroyer" element="fire" cost="26" power="300" description="Unlocks all of its accumulated power from the gun in its right hand, and is said to be able to destroy a single planet in an instant."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-744" name="Gaiomon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Gaiomon" sourceUrl="https://api.skullbot.fr/digimon/744">
     <assets portrait="/assets/digimon/skb-744/portrait.webp" dot="/assets/digimon/skb-744/dot.gif"></assets>
@@ -1712,6 +2469,12 @@
       <skill id="s2" name="Rinkageki" element="fire" cost="26" power="300" description="Converges the light from its Kikurin swords into a point and fuses its swords together to fire the light at an enemy."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-32" name="GranDracmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="GranDracmon" sourceUrl="https://api.skullbot.fr/digimon/32">
     <assets portrait="/assets/digimon/skb-32/portrait.webp" dot="/assets/digimon/skb-32/dot.gif"></assets>
@@ -1722,6 +2485,12 @@
       <skill id="s2" name="Death Scream" element="fire" cost="26" power="300"></skill>
       <skill id="s3" name="Dead Scream" element="fire" cost="41" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-423" name="GranKuwagamon" stage="Mega" attribute="Free" element="electricity" wikimonSlug="GranKuwagamon" sourceUrl="https://api.skullbot.fr/digimon/423">
     <assets portrait="/assets/digimon/skb-423/portrait.webp" dot="/assets/digimon/skb-423/dot.gif"></assets>
@@ -1732,6 +2501,12 @@
       <skill id="s2" name="Zone Black Hole" element="electricity" cost="26" power="300" description="Creates a gigantic orb of darkness and strikes the opponent with it."></skill>
       <skill id="s3" name="Kuáng Zhǎn Zhìcái" element="electricity" cost="41" power="380" description="Slashing Sanctions"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-83" name="Gryphonmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Gryphonmon" sourceUrl="https://api.skullbot.fr/digimon/83">
     <assets portrait="/assets/digimon/skb-83/portrait.webp" dot="/assets/digimon/skb-83/dot.gif"></assets>
@@ -1742,6 +2517,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-194" name="Gundramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Gundramon" sourceUrl="https://api.skullbot.fr/digimon/194">
     <assets portrait="/assets/digimon/skb-194/portrait.webp" dot="/assets/digimon/skb-194/dot.gif"></assets>
@@ -1752,6 +2533,12 @@
       <skill id="s2" name="Der Blitz" element="fire" cost="26" power="300" description="Picks off the enemy&apos;s vitals with the six-chambered revolvers on both of its hands."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-306" name="HerculesKabuterimon" stage="Mega" attribute="Vaccine" element="electricity" wikimonSlug="HerculesKabuterimon" sourceUrl="https://api.skullbot.fr/digimon/306">
     <assets portrait="/assets/digimon/skb-306/portrait.webp" dot="/assets/digimon/skb-306/dot.gif"></assets>
@@ -1762,6 +2549,12 @@
       <skill id="s2" name="Horn Buster Kai" element="electricity" cost="26" power="300" description="Rams the enemy with its electrified horn."></skill>
       <skill id="s3" name="Kyodai Hasami" element="electricity" cost="41" power="380" description="Attacks with the giant pincers on its head."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-426" name="HiAndromon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="HiAndromon" sourceUrl="https://api.skullbot.fr/digimon/426">
     <assets portrait="/assets/digimon/skb-426/portrait.webp" dot="/assets/digimon/skb-426/dot.gif"></assets>
@@ -1772,6 +2565,12 @@
       <skill id="s2" name="Copy Paste" element="plant" cost="26" power="300" description="Attacks with the batons it carries on its back."></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-749" name="Jesmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Jesmon" sourceUrl="https://api.skullbot.fr/digimon/749">
     <assets portrait="/assets/digimon/skb-749/portrait.webp" dot="/assets/digimon/skb-749/dot.gif"></assets>
@@ -1782,6 +2581,12 @@
       <skill id="s2" name="Aus Generics" element="plant" cost="26" power="300" description="1 2 3 Temporarily rewrites its own data to perform actions that transcend the laws of nature. Zigzags in the air, leaving behind afterimages, then slashes the enemy in the shape of an X with blades its arm blades. Teleports directly next to its target."></skill>
       <skill id="s3" name="Un Pour Tous" element="water" cost="41" power="380" description="Fires a beam of energy from a triangular shield formed by &quot; Atho &quot;, &quot; René &quot;, and &quot; Por &quot;."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-98" name="JumboGamemon" stage="Mega" attribute="Data" element="water" wikimonSlug="JumboGamemon" sourceUrl="https://api.skullbot.fr/digimon/98">
     <assets portrait="/assets/digimon/skb-98/portrait.webp" dot="/assets/digimon/skb-98/dot.gif"></assets>
@@ -1792,6 +2597,12 @@
       <skill id="s2" name="Jumbo Jetter" element="water" cost="26" power="300" description="Retracts its legs and fires the beams from its arms backwards to perform a spinning charge on the enemy."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-170" name="Junomon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Junomon" sourceUrl="https://api.skullbot.fr/digimon/170">
     <assets portrait="/assets/digimon/skb-170/portrait.webp" dot="/assets/digimon/skb-170/dot.gif"></assets>
@@ -1802,6 +2613,12 @@
       <skill id="s2" name="Grace Lance" element="fire" cost="26" power="300" description="Auto-attacks surrounding enemies with its sentient lances."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="light" mult="0"></r>
+      <r element="dark" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-737" name="Justimon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Justimon" sourceUrl="https://api.skullbot.fr/digimon/737">
     <assets portrait="/assets/digimon/skb-737/portrait.webp" dot="/assets/digimon/skb-737/dot.gif"></assets>
@@ -1812,6 +2629,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-86" name="Kentaurosmon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Kentaurosmon" sourceUrl="https://api.skullbot.fr/digimon/86">
     <assets portrait="/assets/digimon/skb-86/portrait.webp" dot="/assets/digimon/skb-86/dot.gif"></assets>
@@ -1822,6 +2645,12 @@
       <skill id="s2" name="Tactics-smear" element="plant" cost="26" power="300" description="Jumps high into the air and kicks the opponent with its hooves."></skill>
       <skill id="s3" name="Múspellsheimr" element="plant" cost="41" power="380" description="Muspelheimr"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-127" name="KingEtemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="KingEtemon" sourceUrl="https://api.skullbot.fr/digimon/127">
     <assets portrait="/assets/digimon/skb-127/portrait.webp" dot="/assets/digimon/skb-127/dot.gif"></assets>
@@ -1832,6 +2661,12 @@
       <skill id="s2" name="Dark Spirits Super Deluxe" element="fire" cost="26" power="300"></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-34" name="Lilithmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Lilithmon" sourceUrl="https://api.skullbot.fr/digimon/34">
     <assets portrait="/assets/digimon/skb-34/portrait.webp" dot="/assets/digimon/skb-34/dot.gif"></assets>
@@ -1842,6 +2677,12 @@
       <skill id="s2" name="Evil Sigh" element="fire" cost="26" power="300" description="Blows an evil breath upon the enemy."></skill>
       <skill id="s3" name="Darkness Love" element="fire" cost="41" power="380" description="Released a lustful heart-shaped aura to disrupt the enemy&apos;s mind."></skill>
     </skills>
+    <resistances>
+      <r element="steel" mult="1.5"></r>
+      <r element="light" mult="2"></r>
+      <r element="dark" mult="0"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-742" name="Lotosmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Lotosmon" sourceUrl="https://api.skullbot.fr/digimon/742">
     <assets portrait="/assets/digimon/skb-742/portrait.webp" dot="/assets/digimon/skb-742/dot.gif"></assets>
@@ -1852,6 +2693,12 @@
       <skill id="s2" name="Seven&apos;s Fantasia" element="water" cost="26" power="300" description="Fires a rainbow-colored aura from the seven-colored flowered staff it carries in its right hand, luring its opponents into a world of euphoric fantasies and causing them to completely lose their fighting spirit."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-385" name="Machinedramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Machinedramon" sourceUrl="https://api.skullbot.fr/digimon/385">
     <assets portrait="/assets/digimon/skb-385/portrait.webp" dot="/assets/digimon/skb-385/dot.gif"></assets>
@@ -1865,6 +2712,12 @@
     <evolutions>
       <evolve targetId="skb-230"></evolve>
     </evolutions>
+    <resistances>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-616" name="MagnaKidmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="MagnaKidmon" sourceUrl="https://api.skullbot.fr/digimon/616">
     <assets portrait="/assets/digimon/skb-616/portrait.webp" dot="/assets/digimon/skb-616/dot.gif"></assets>
@@ -1875,6 +2728,12 @@
       <skill id="s2" name="Happy Bullet Showering" element="fire" cost="26" power="300" description="Soars into the air and showers the opponent with live ammunition and plasma shots from the guns of its legs and fingers."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-453" name="Magnadramon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Magnadramon" sourceUrl="https://api.skullbot.fr/digimon/453">
     <assets portrait="/assets/digimon/skb-453/portrait.webp" dot="/assets/digimon/skb-453/dot.gif"></assets>
@@ -1885,6 +2744,12 @@
       <skill id="s2" name="Hermit Fog" element="plant" cost="26" power="300" description="Sprays forth a cold mist that corrodes anything it touches."></skill>
       <skill id="s3" name="Seongseuleoun Bich: Apocalypse" element="plant" cost="41" power="380" description="A more powerful version of Apocalypse ."></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="light" mult="0"></r>
+      <r element="dark" mult="2"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-233" name="MaloMyotismon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="MaloMyotismon" sourceUrl="https://api.skullbot.fr/digimon/233">
     <assets portrait="/assets/digimon/skb-233/portrait.webp" dot="/assets/digimon/skb-233/dot.gif"></assets>
@@ -1895,6 +2760,12 @@
       <skill id="s2" name="Mind Illusion" element="fire" cost="26" power="300" description="Locks its enemy into a dream of their perfect world."></skill>
       <skill id="s3" name="Howling Blood" element="fire" cost="41" power="380" description="1 2 Fires large spheres of black energy from Sodom and Gomorrah . Produces two spheres of black energy in its hands and thrusts upwards with them."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-174" name="Marsmon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Marsmon" sourceUrl="https://api.skullbot.fr/digimon/174">
     <assets portrait="/assets/digimon/skb-174/portrait.webp" dot="/assets/digimon/skb-174/dot.gif"></assets>
@@ -1905,6 +2776,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="null" mult="0"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-748" name="Mastemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Mastemon" sourceUrl="https://api.skullbot.fr/digimon/748">
     <assets portrait="/assets/digimon/skb-748/portrait.webp" dot="/assets/digimon/skb-748/dot.gif"></assets>
@@ -1915,6 +2792,12 @@
       <skill id="s2" name="Chaos Degrade" element="plant" cost="26" power="300" description="Fuses the energy of light and darkness from its arms to produce a gate to another dimension, consigning the enemy to oblivion."></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="steel" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-603" name="MedievalGallantmon" stage="Mega" attribute="Data" element="water" wikimonSlug="MedievalGallantmon" sourceUrl="https://api.skullbot.fr/digimon/603">
     <assets portrait="/assets/digimon/skb-603/portrait.webp" dot="/assets/digimon/skb-603/dot.gif"></assets>
@@ -1925,6 +2808,12 @@
       <skill id="s2" name="Dynas" element="water" cost="26" power="300" description="Attacks the enemy by swinging &quot;Dynas&quot;, the strongest magical lance that contains the power of the wyvern."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-741" name="MegaGargomon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="MegaGargomon" sourceUrl="https://api.skullbot.fr/digimon/741">
     <assets portrait="/assets/digimon/skb-741/portrait.webp" dot="/assets/digimon/skb-741/dot.gif"></assets>
@@ -1935,6 +2824,12 @@
       <skill id="s2" name="Saint Foot" element="plant" cost="26" power="300" description="Butt-bounces the enemy while in midair."></skill>
       <skill id="s3" name="Saint Upper" element="plant" cost="41" power="380" description="Activates its thrusters in midair to do an uppercut."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-47" name="Megidramon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Megidramon" sourceUrl="https://api.skullbot.fr/digimon/47">
     <assets portrait="/assets/digimon/skb-47/portrait.webp" dot="/assets/digimon/skb-47/dot.gif"></assets>
@@ -1945,6 +2840,12 @@
       <skill id="s2" name="Megido Bite" element="fire" cost="26" power="300" description="Bites its opponents with its jaws ruthlessly."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-312" name="MetalEtemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="MetalEtemon" sourceUrl="https://api.skullbot.fr/digimon/312">
     <assets portrait="/assets/digimon/skb-312/portrait.webp" dot="/assets/digimon/skb-312/dot.gif"></assets>
@@ -1955,6 +2856,13 @@
       <skill id="s2" name="Mega Punch" element="fire" cost="26" power="300" description="A powerful punch."></skill>
       <skill id="s3" name="Hekoki Attack" element="fire" cost="41" power="380" description="Emits flatulent gas."></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-135" name="MetalGarurumon" stage="Mega" attribute="Data" element="water" wikimonSlug="MetalGarurumon" sourceUrl="https://api.skullbot.fr/digimon/135">
     <assets portrait="/assets/digimon/skb-135/portrait.webp" dot="/assets/digimon/skb-135/dot.gif"></assets>
@@ -1965,6 +2873,12 @@
       <skill id="s2" name="Grace Cross Freezer" element="water" cost="26" power="300" description="1 2 Fires its weapons all at once, freezing the opponent. Freezes the opponent with a beam of blue light from its eyes."></skill>
       <skill id="s3" name="Freeze Bomber" element="water" cost="41" power="380" description="Launches a missile out of its chest plate that freezes the target."></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-182" name="MetalGarurumon (Black)" stage="Mega" attribute="Virus" element="fire" wikimonSlug="MetalGarurumon_(Black)" sourceUrl="https://api.skullbot.fr/digimon/182">
     <assets portrait="/assets/digimon/skb-182/portrait.webp" dot="/assets/digimon/skb-182/dot.gif"></assets>
@@ -1975,6 +2889,12 @@
       <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-434" name="MetalSeadramon" stage="Mega" attribute="Data" element="water" wikimonSlug="MetalSeadramon" sourceUrl="https://api.skullbot.fr/digimon/434">
     <assets portrait="/assets/digimon/skb-434/portrait.webp" dot="/assets/digimon/skb-434/dot.gif"></assets>
@@ -1985,6 +2905,13 @@
       <skill id="s2" name="Poseidon Divide" element="water" cost="26" power="300" description="Summons a massive wave of water to wash away the enemy."></skill>
       <skill id="s3" name="Ultimate Storm" element="electricity" cost="41" power="380" description="Fires a blast of energy from the cannon on its snout."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="2"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-230" name="Millenniummon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Millenniummon" sourceUrl="https://api.skullbot.fr/digimon/230">
     <assets portrait="/assets/digimon/skb-230/portrait.webp" dot="/assets/digimon/skb-230/dot.gif"></assets>
@@ -1995,6 +2922,12 @@
       <skill id="s2" name="Mugen Cannon" element="fire" cost="26" power="300" description="Fires energy blasts or beams from its cannons."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="electricity" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-95" name="MirageGaogamon" stage="Mega" attribute="Data" element="water" wikimonSlug="MirageGaogamon" sourceUrl="https://api.skullbot.fr/digimon/95">
     <assets portrait="/assets/digimon/skb-95/portrait.webp" dot="/assets/digimon/skb-95/dot.gif"></assets>
@@ -2005,6 +2938,12 @@
       <skill id="s2" name="Gale Claw" element="water" cost="26" power="300" description="Runs through like a hurricane, instantly cutting the opponent to pieces."></skill>
       <skill id="s3" name="Howling Cannon" element="water" cost="41" power="380" description="Unleashes an ultrasonic wave attack with its howl."></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-75" name="Neptunemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Neptunemon" sourceUrl="https://api.skullbot.fr/digimon/75">
     <assets portrait="/assets/digimon/skb-75/portrait.webp" dot="/assets/digimon/skb-75/dot.gif"></assets>
@@ -2015,6 +2954,12 @@
       <skill id="s2" name="Gate of Atlantis" element="water" cost="26" power="300" description="1 2 Causes a huge pillar of water to erupt beneath the enemy. Fires a stream of water from King&apos;s Bite ."></skill>
       <skill id="s3" name="Terrible Bite" element="plant" cost="41" power="380" description="Bites a foe with King&apos;s Bite ."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-421" name="Ophanimon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Ophanimon" sourceUrl="https://api.skullbot.fr/digimon/421">
     <assets portrait="/assets/digimon/skb-421/portrait.webp" dot="/assets/digimon/skb-421/dot.gif"></assets>
@@ -2025,6 +2970,12 @@
       <skill id="s2" name="Air Sefirot Crystal" element="fire" cost="26" power="300" description="1 2 While in midair, it twirls its lance to summon a giant crystal to fire at the enemy. Causes crystals to rain down upon the enemy."></skill>
       <skill id="s3" name="Eden&apos;s Needle" element="plant" cost="41" power="380" description="1 2 Dashes forward to stab the enemy with its spear. Its javelin glows and launches a barrage of holy needles at the enemy."></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-193" name="Ouryumon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Ouryumon" sourceUrl="https://api.skullbot.fr/digimon/193">
     <assets portrait="/assets/digimon/skb-193/portrait.webp" dot="/assets/digimon/skb-193/dot.gif"></assets>
@@ -2035,6 +2986,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-227" name="Pharaohmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Pharaohmon" sourceUrl="https://api.skullbot.fr/digimon/227">
     <assets portrait="/assets/digimon/skb-227/portrait.webp" dot="/assets/digimon/skb-227/dot.gif"></assets>
@@ -2045,6 +3002,12 @@
       <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-310" name="Phoenixmon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Phoenixmon" sourceUrl="https://api.skullbot.fr/digimon/310">
     <assets portrait="/assets/digimon/skb-310/portrait.webp" dot="/assets/digimon/skb-310/dot.gif"></assets>
@@ -2055,6 +3018,12 @@
       <skill id="s2" name="Flaming Wing" element="plant" cost="26" power="300" description="Tackles the enemy from the sky with burning wings."></skill>
       <skill id="s3" name="Mach Wing" element="plant" cost="41" power="380" description="A more powerful version of Kyoushū ."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-60" name="PileVolcanomon" stage="Mega" attribute="Data" element="water" wikimonSlug="PileVolcanomon" sourceUrl="https://api.skullbot.fr/digimon/60">
     <assets portrait="/assets/digimon/skb-60/portrait.webp" dot="/assets/digimon/skb-60/dot.gif"></assets>
@@ -2065,6 +3034,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-450" name="Plesiomon" stage="Mega" attribute="Data" element="water" wikimonSlug="Plesiomon" sourceUrl="https://api.skullbot.fr/digimon/450">
     <assets portrait="/assets/digimon/skb-450/portrait.webp" dot="/assets/digimon/skb-450/dot.gif"></assets>
@@ -2075,6 +3050,12 @@
       <skill id="s2" name="Fin Attack" element="water" cost="26" power="300" description="Slaps the enemy with its fins."></skill>
       <skill id="s3" name="Plesiomon Tail" element="water" cost="41" power="380" description="Attacks by spinning in place."></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="0"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-180" name="Plutomon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Plutomon" sourceUrl="https://api.skullbot.fr/digimon/180">
     <assets portrait="/assets/digimon/skb-180/portrait.webp" dot="/assets/digimon/skb-180/dot.gif"></assets>
@@ -2088,6 +3069,12 @@
     <evolutions>
       <evolve targetId="skb-912"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="light" mult="2"></r>
+      <r element="dark" mult="0"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-196" name="Pukumon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Pukumon" sourceUrl="https://api.skullbot.fr/digimon/196">
     <assets portrait="/assets/digimon/skb-196/portrait.webp" dot="/assets/digimon/skb-196/dot.gif"></assets>
@@ -2098,6 +3085,12 @@
       <skill id="s2" name="Jiāncì Tiějiǎ" element="water" cost="26" power="300" description="Creates a spherical shield of water around itself."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-428" name="Puppetmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Puppetmon" sourceUrl="https://api.skullbot.fr/digimon/428">
     <assets portrait="/assets/digimon/skb-428/portrait.webp" dot="/assets/digimon/skb-428/dot.gif"></assets>
@@ -2108,6 +3101,12 @@
       <skill id="s2" name="Flying Cross Cutter" element="plant" cost="26" power="300" description="Throws its Wood Cross like a boomerang."></skill>
       <skill id="s3" name="Wood Cross" element="plant" cost="41" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-740" name="Ravemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Ravemon" sourceUrl="https://api.skullbot.fr/digimon/740">
     <assets portrait="/assets/digimon/skb-740/portrait.webp" dot="/assets/digimon/skb-740/dot.gif"></assets>
@@ -2118,6 +3117,12 @@
       <skill id="s2" name="Chouou-maru" element="plant" cost="26" power="300" description="Strikes with &quot; Chouou-maru &quot; using nimble movements."></skill>
       <skill id="s3" name="Ame-no-Ohabari" element="electricity" cost="41" power="380" description="Plants its Chouou-maru into the ground, releasing a blade of dark lightning."></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-57" name="Rosemon" stage="Mega" attribute="Data" element="water" wikimonSlug="Rosemon" sourceUrl="https://api.skullbot.fr/digimon/57">
     <assets portrait="/assets/digimon/skb-57/portrait.webp" dot="/assets/digimon/skb-57/dot.gif"></assets>
@@ -2128,6 +3133,12 @@
       <skill id="s2" name="Forbidden Temptation" element="water" cost="26" power="300" description="The shine from its Tiferet jewel overtaking its body, unleashes multiple roses with pollen that destroys the opponent&apos;s data or releases a powerful energy wave."></skill>
       <skill id="s3" name="Fascination" element="water" cost="41" power="380" description="Enthralls an opponent and absorb its life-force with a pink gas."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-383" name="RustTyrannomon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="RustTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/383">
     <assets portrait="/assets/digimon/skb-383/portrait.webp" dot="/assets/digimon/skb-383/dot.gif"></assets>
@@ -2138,6 +3149,12 @@
       <skill id="s2" name="Rust Claw" element="fire" cost="26" power="300" description="Attacks enemies with its sharp nails."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-424" name="SaberLeomon" stage="Mega" attribute="Data" element="water" wikimonSlug="SaberLeomon" sourceUrl="https://api.skullbot.fr/digimon/424">
     <assets portrait="/assets/digimon/skb-424/portrait.webp" dot="/assets/digimon/skb-424/dot.gif"></assets>
@@ -2148,6 +3165,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="electricity" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-315" name="Seraphimon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Seraphimon" sourceUrl="https://api.skullbot.fr/digimon/315">
     <assets portrait="/assets/digimon/skb-315/portrait.webp" dot="/assets/digimon/skb-315/dot.gif"></assets>
@@ -2158,6 +3181,12 @@
       <skill id="s2" name="Kūchū Seven Heavens" element="plant" cost="26" power="300" description="Fires Seven Heavens in midair."></skill>
       <skill id="s3" name="Ascension Hallow" element="electricity" cost="41" power="380" description="Calls down powerful bolts of lightning."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-461" name="SkullMammothmon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="SkullMammothmon" sourceUrl="https://api.skullbot.fr/digimon/461">
     <assets portrait="/assets/digimon/skb-461/portrait.webp" dot="/assets/digimon/skb-461/dot.gif"></assets>
@@ -2168,6 +3197,12 @@
       <skill id="s2" name="Grand Charge" element="plant" cost="26" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-745" name="TigerVespamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="TigerVespamon" sourceUrl="https://api.skullbot.fr/digimon/745">
     <assets portrait="/assets/digimon/skb-745/portrait.webp" dot="/assets/digimon/skb-745/dot.gif"></assets>
@@ -2178,6 +3213,12 @@
       <skill id="s2" name="Royal Meister" element="fire" cost="26" power="300" description="Slices the opponent with the covert honey arms, Royal Meister ."></skill>
       <skill id="s3" name="Yīnsù Cì Guàn" element="fire" cost="41" power="380" description="Spikes the enemy at supersonic speed with its Royal Meister ."></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-440" name="Titamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Titamon" sourceUrl="https://api.skullbot.fr/digimon/440">
     <assets portrait="/assets/digimon/skb-440/portrait.webp" dot="/assets/digimon/skb-440/dot.gif"></assets>
@@ -2188,6 +3229,12 @@
       <skill id="s2" name="Koou Meigun" element="fire" cost="26" power="300" description="Summons shades from the skulls on its arms, which overrunn the enemy as an undead legion."></skill>
       <skill id="s3" name="Jì Miè Zhǎn Jī" element="fire" cost="41" power="380" description="Releases a blade wave from its Zanjintou , cleaving everything in its path."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-128" name="TyrantKabuterimon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="TyrantKabuterimon" sourceUrl="https://api.skullbot.fr/digimon/128">
     <assets portrait="/assets/digimon/skb-128/portrait.webp" dot="/assets/digimon/skb-128/dot.gif"></assets>
@@ -2198,6 +3245,12 @@
       <skill id="s2" name="Insect Cannon" element="fire" cost="26" power="300" description="Fires flying insects that home in on the enemy."></skill>
       <skill id="s3" name="King Spiral" element="fire" cost="41" power="380" description="Releases subordinate insects that swarm the enemy."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-417" name="UlforceVeedramon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="UlforceVeedramon" sourceUrl="https://api.skullbot.fr/digimon/417">
     <assets portrait="/assets/digimon/skb-417/portrait.webp" dot="/assets/digimon/skb-417/dot.gif"></assets>
@@ -2208,6 +3261,12 @@
       <skill id="s2" name="Dragon Impulse X" element="plant" cost="26" power="300" description="Surrounds itself in an aura of energy shaped like a dragon, then rams against its target, unleashing both Ulforce Sabers, then slashes its target in an X-shaped pattern."></skill>
       <skill id="s3" name="Tense-great Shield" element="plant" cost="41" power="380" description="Generates an energy shield from the V Bracelet on its left wrist. This shield is powered up by the &quot; Ulforce &quot;, allowing it to rewrite its data faster than direct deletion attacks can keep up with."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-725" name="UltimateBrachiomon" stage="Mega" attribute="Data" element="water" wikimonSlug="UltimateBrachiomon" sourceUrl="https://api.skullbot.fr/digimon/725">
     <assets portrait="/assets/digimon/skb-725/portrait.webp" dot="/assets/digimon/skb-725/dot.gif"></assets>
@@ -2218,6 +3277,12 @@
       <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-117" name="Varodurumon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Varodurumon" sourceUrl="https://api.skullbot.fr/digimon/117">
     <assets portrait="/assets/digimon/skb-117/portrait.webp" dot="/assets/digimon/skb-117/dot.gif"></assets>
@@ -2228,6 +3293,12 @@
       <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="plant" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-346" name="Vikemon" stage="Mega" attribute="Free" element="electricity" wikimonSlug="Vikemon" sourceUrl="https://api.skullbot.fr/digimon/346">
     <assets portrait="/assets/digimon/skb-346/portrait.webp" dot="/assets/digimon/skb-346/dot.gif"></assets>
@@ -2238,6 +3309,16 @@
       <skill id="s2" name="Viking Axe" element="electricity" cost="26" power="300" description="1 2 Fires its morning stars on long chains. Slams a glowing fist down on the enemy."></skill>
       <skill id="s3" name="Viking Flail" element="electricity" cost="41" power="380" description="Uses the morning star on its back to unleash a powerful blow."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-178" name="Vulcanusmon" stage="Mega" attribute="Data" element="water" wikimonSlug="Vulcanusmon" sourceUrl="https://api.skullbot.fr/digimon/178">
     <assets portrait="/assets/digimon/skb-178/portrait.webp" dot="/assets/digimon/skb-178/dot.gif"></assets>
@@ -2248,6 +3329,12 @@
       <skill id="s2" name="Appropriate Works" element="water" cost="26" power="300" description="Manufactures weapons by performing Pinpoint Weapon Works one after another, then equips them to each of its arms in order to fully unleash all of its power."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-27" name="WarGreymon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="WarGreymon" sourceUrl="https://api.skullbot.fr/digimon/27">
     <assets portrait="/assets/digimon/skb-27/portrait.webp" dot="/assets/digimon/skb-27/dot.gif"></assets>
@@ -2258,6 +3345,12 @@
       <skill id="s2" name="Dramon Killer" element="plant" cost="26" power="300" description="1 2 Slashes with its Dramon Killer gauntlets. Sends a fiery shockwave along the ground from its Dramon Killer gauntlets."></skill>
       <skill id="s3" name="Brave Shield" element="plant" cost="41" power="380" description="Uses the Brave Shield equipped on its back to defend itself by uniting both halves."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0.5"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-225" name="Zanbamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Zanbamon" sourceUrl="https://api.skullbot.fr/digimon/225">
     <assets portrait="/assets/digimon/skb-225/portrait.webp" dot="/assets/digimon/skb-225/dot.gif"></assets>
@@ -2268,6 +3361,12 @@
       <skill id="s2" name="Fires the miniature katana on its equine" element="fire" cost="26" power="300"></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-677" name="EmperorGreymon" stage="Rookie" attribute="Unknown" element="null" wikimonSlug="EmperorGreymon" sourceUrl="https://api.skullbot.fr/digimon/677">
     <assets portrait="/assets/digimon/skb-677/portrait.webp" dot="/assets/digimon/skb-677/dot.gif"></assets>
@@ -2278,6 +3377,12 @@
       <skill id="s2" name="Hikuzuryuujin" element="null" cost="26" power="300" description="Roars into the sky engulfed in flames, following up with a sword slash."></skill>
       <skill id="s3" name="Enjin" element="null" cost="41" power="380" description="Slashes the enemy with the Ryūgonken ."></skill>
     </skills>
+    <resistances>
+      <r element="fire" mult="0"></r>
+      <r element="water" mult="1.5"></r>
+      <r element="ice" mult="2"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-61" name="Monzaemon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Monzaemon" sourceUrl="https://api.skullbot.fr/digimon/61">
     <assets portrait="/assets/digimon/skb-61/portrait.webp" dot="/assets/digimon/skb-61/dot.gif"></assets>
@@ -2292,6 +3397,12 @@
       <evolve targetId="skb-127"></evolve>
       <evolve targetId="skb-492"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-401" name="Okuwamon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Okuwamon" sourceUrl="https://api.skullbot.fr/digimon/401">
     <assets portrait="/assets/digimon/skb-401/portrait.webp" dot="/assets/digimon/skb-401/dot.gif"></assets>
@@ -2307,6 +3418,12 @@
       <evolve targetId="skb-306"></evolve>
       <evolve targetId="skb-423"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-149" name="Orochimon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Orochimon" sourceUrl="https://api.skullbot.fr/digimon/149">
     <assets portrait="/assets/digimon/skb-149/portrait.webp" dot="/assets/digimon/skb-149/dot.gif"></assets>
@@ -2322,6 +3439,12 @@
       <evolve targetId="skb-194"></evolve>
       <evolve targetId="skb-747"></evolve>
     </evolutions>
+    <resistances>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-408" name="Paildramon" stage="Ultimate" attribute="Free" element="electricity" wikimonSlug="Paildramon" sourceUrl="https://api.skullbot.fr/digimon/408">
     <assets portrait="/assets/digimon/skb-408/portrait.webp" dot="/assets/digimon/skb-408/dot.gif"></assets>
@@ -2337,6 +3460,16 @@
       <evolve targetId="skb-732"></evolve>
       <evolve targetId="skb-771"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="0.5"></r>
+      <r element="null" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-41" name="Pandamon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Pandamon" sourceUrl="https://api.skullbot.fr/digimon/41">
     <assets portrait="/assets/digimon/skb-41/portrait.webp" dot="/assets/digimon/skb-41/dot.gif"></assets>
@@ -2352,6 +3485,12 @@
       <evolve targetId="skb-95"></evolve>
       <evolve targetId="skb-737"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-414" name="Parrotmon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Parrotmon" sourceUrl="https://api.skullbot.fr/digimon/414">
     <assets portrait="/assets/digimon/skb-414/portrait.webp" dot="/assets/digimon/skb-414/dot.gif"></assets>
@@ -2366,6 +3505,12 @@
       <evolve targetId="skb-197"></evolve>
       <evolve targetId="skb-310"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="electricity" mult="0"></r>
+      <r element="earth" mult="1.5"></r>
+      <r element="wind" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-584" name="Phantomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Phantomon" sourceUrl="https://api.skullbot.fr/digimon/584">
     <assets portrait="/assets/digimon/skb-584/portrait.webp" dot="/assets/digimon/skb-584/dot.gif"></assets>
@@ -2382,6 +3527,12 @@
       <evolve targetId="skb-439"></evolve>
       <evolve targetId="skb-740"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="ice" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-410" name="Piximon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Piximon" sourceUrl="https://api.skullbot.fr/digimon/410">
     <assets portrait="/assets/digimon/skb-410/portrait.webp" dot="/assets/digimon/skb-410/dot.gif"></assets>
@@ -2397,6 +3548,12 @@
       <evolve targetId="skb-421"></evolve>
       <evolve targetId="skb-613"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-596" name="Pumpkinmon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Pumpkinmon" sourceUrl="https://api.skullbot.fr/digimon/596">
     <assets portrait="/assets/digimon/skb-596/portrait.webp" dot="/assets/digimon/skb-596/dot.gif"></assets>
@@ -2411,6 +3568,12 @@
       <evolve targetId="skb-57"></evolve>
       <evolve targetId="skb-742"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="steel" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-722" name="Rapidmon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Rapidmon" sourceUrl="https://api.skullbot.fr/digimon/722">
     <assets portrait="/assets/digimon/skb-722/portrait.webp" dot="/assets/digimon/skb-722/dot.gif"></assets>
@@ -2425,6 +3588,12 @@
       <evolve targetId="skb-741"></evolve>
       <evolve targetId="skb-426"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-71" name="RizeGreymon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="RizeGreymon" sourceUrl="https://api.skullbot.fr/digimon/71">
     <assets portrait="/assets/digimon/skb-71/portrait.webp" dot="/assets/digimon/skb-71/dot.gif"></assets>
@@ -2440,6 +3609,12 @@
       <evolve targetId="skb-94"></evolve>
       <evolve targetId="skb-616"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="null" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-116" name="SaviorHuckmon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="SaviorHuckmon" sourceUrl="https://api.skullbot.fr/digimon/116">
     <assets portrait="/assets/digimon/skb-116/portrait.webp" dot="/assets/digimon/skb-116/dot.gif"></assets>
@@ -2455,6 +3630,12 @@
       <evolve targetId="skb-745"></evolve>
       <evolve targetId="skb-749"></evolve>
     </evolutions>
+    <resistances>
+      <r element="ice" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-605" name="Scorpiomon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Scorpiomon" sourceUrl="https://api.skullbot.fr/digimon/605">
     <assets portrait="/assets/digimon/skb-605/portrait.webp" dot="/assets/digimon/skb-605/dot.gif"></assets>
@@ -2469,6 +3650,12 @@
       <evolve targetId="skb-178"></evolve>
       <evolve targetId="skb-196"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="water" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-76" name="Shaujinmon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Shaujinmon" sourceUrl="https://api.skullbot.fr/digimon/76">
     <assets portrait="/assets/digimon/skb-76/portrait.webp" dot="/assets/digimon/skb-76/dot.gif"></assets>
@@ -2484,6 +3671,12 @@
       <evolve targetId="skb-98"></evolve>
       <evolve targetId="skb-428"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="earth" mult="0.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-376" name="ShogunGekomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="ShogunGekomon" sourceUrl="https://api.skullbot.fr/digimon/376">
     <assets portrait="/assets/digimon/skb-376/portrait.webp" dot="/assets/digimon/skb-376/dot.gif"></assets>
@@ -2499,6 +3692,12 @@
       <evolve targetId="skb-179"></evolve>
       <evolve targetId="skb-196"></evolve>
     </evolutions>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="0.5"></r>
+      <r element="electricity" mult="1.5"></r>
+      <r element="wind" mult="1.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-239" name="SkullBaluchimon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="SkullBaluchimon" sourceUrl="https://api.skullbot.fr/digimon/239">
     <assets portrait="/assets/digimon/skb-239/portrait.webp" dot="/assets/digimon/skb-239/dot.gif"></assets>
@@ -2512,6 +3711,12 @@
     <evolutions>
       <evolve targetId="skb-461"></evolve>
     </evolutions>
+    <resistances>
+      <r element="fire" mult="1.5"></r>
+      <r element="steel" mult="0.5"></r>
+      <r element="light" mult="1.5"></r>
+      <r element="dark" mult="0.5"></r>
+    </resistances>
   </digimon>
   <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24">
     <assets portrait="/assets/digimon/skb-24/portrait.webp" dot="/assets/digimon/skb-24/dot.gif"></assets>
@@ -2522,5 +3727,11 @@
       <skill id="s2" name="Marine Squadron" element="plant" cost="26" power="300" description="Summons sea creatures to attack the enemy."></skill>
       <skill id="s3" name="Extra Smile" element="plant" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
     </skills>
+    <resistances>
+      <r element="water" mult="0.5"></r>
+      <r element="plant" mult="1.5"></r>
+      <r element="light" mult="0.5"></r>
+      <r element="dark" mult="1.5"></r>
+    </resistances>
   </digimon>
 </catalog>

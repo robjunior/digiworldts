@@ -11,7 +11,8 @@
  * All modes are safe to re-run — they use upserts and skip already-cached files.
  */
 import { fetchListedDigimons, persistScraped, fetchDigimonDetail } from './skullbot.js';
-import { fetchWikimonPage, scrapeResistances, attackElement, type WikimonPage } from './wikimon.js';
+import { fetchWikimonPage, attackElement, type WikimonPage } from './wikimon.js';
+import { scrapeResistances } from './grindosaur.js';
 import { downloadAssetBatch, hasLocalAssets, type AssetJob } from './assets.js';
 import { one, q, run, closeDbAdapter, type ScrapedRow } from '../db/index.js';
 import { loadCatalog, saveCatalog, upsertTemplate, findTemplate } from '../digimon/xml.js';
@@ -236,16 +237,14 @@ async function runDetail(id: number): Promise<void> {
 
 async function runResistances(limit: number): Promise<void> {
   const catalog = loadCatalog();
-  const targets = catalog.digimons.filter((t) => t.wikimonSlug !== undefined && !t.resistances);
+  const targets = catalog.digimons.filter((t) => !t.resistances);
   const bounded = targets.slice(0, Number.isFinite(limit) && limit > 0 ? limit : targets.length);
   log.info('scrape.resistances.begin', { candidates: targets.length, running: bounded.length });
   let updated = catalog;
   let count = 0;
   for (const tpl of bounded) {
-    const slug = tpl.wikimonSlug;
-    if (!slug) continue;
-    const map = await scrapeResistances(slug);
-    if (map) {
+    const map = await scrapeResistances(tpl.name, tpl.wikimonSlug);
+    if (map !== null) {
       updated = upsertTemplate(updated, { ...tpl, resistances: map });
       count += 1;
     }
@@ -254,7 +253,7 @@ async function runResistances(limit: number): Promise<void> {
   if (count > 0) {
     saveCatalog(updated);
   }
-  log.info('scrape.resistances.done', { updated: count });
+  log.info('scrape.resistances.done', { updated: count, attempted: bounded.length });
 }
 
 // ---------------------------------------------------------------------------
