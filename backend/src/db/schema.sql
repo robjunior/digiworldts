@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS users (
 );
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_only_one_admin ON users(is_admin) WHERE is_admin = 1;
+-- Legacy over-strict index from H2 race fix: blocked admin promotion.
+-- Replaced by tx-scoped SELECT COUNT (SQLite BEGIN IMMEDIATE serializes) in auth/routes.ts.
+DROP INDEX IF EXISTS idx_users_only_one_admin;
 
 -- ----------------------------------------------------------------------------
 -- sessions: server-issued opaque tokens. Cookie-based auth. Prunable by expiry.
@@ -472,6 +474,25 @@ CREATE INDEX IF NOT EXISTS idx_market_seller
 CREATE INDEX IF NOT EXISTS idx_market_active_listed
   ON market_listings(listed_at DESC)
   WHERE sold_at IS NULL AND canceled_at IS NULL;
+
+-- ----------------------------------------------------------------------------
+-- Per-catalog loot table. Admin sets which shop items a given catalog mon
+-- (identified by XML id, no FK because catalog is file-driven) may drop when
+-- defeated, with drop_pct chance and qty_min..qty_max stack size. If a mon
+-- has zero rows here the pve engine falls back to the global 20% random-item
+-- drop for backward compatibility.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS catalog_loot_entries (
+  id           TEXT PRIMARY KEY,
+  catalog_id   TEXT NOT NULL,
+  item_id      TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  drop_pct     INTEGER NOT NULL DEFAULT 100 CHECK (drop_pct >= 0 AND drop_pct <= 100),
+  qty_min      INTEGER NOT NULL DEFAULT 1 CHECK (qty_min >= 1),
+  qty_max      INTEGER NOT NULL DEFAULT 1 CHECK (qty_max >= qty_min),
+  updated_at   INTEGER NOT NULL,
+  UNIQUE (catalog_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_loot_catalog ON catalog_loot_entries(catalog_id);
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

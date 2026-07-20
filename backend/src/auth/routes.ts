@@ -140,8 +140,6 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     if (config.ADMIN_BOOTSTRAP === 'closed') {
       return reply.code(403).send({ error: 'registration is closed on this server' });
     }
-    const existingCountRow = await one<{ n: number }>(SQL_COUNT_USERS);
-    const existingCount = existingCountRow?.n ?? 0;
 
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -157,32 +155,27 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     const now = Date.now();
     const id = newId('usr');
     const hash = await hashPassword(password);
-    let isAdmin: 0 | 1 = existingCount === 0 ? 1 : 0;
 
-    // First-user-is-admin race: `existingCount` is a stale read taken outside
-    // the tx below. On a race, the partial unique index
-    // `idx_users_only_one_admin` (schema.sql / schema-pg.sql) rejects the
-    // losing insert; retry once as a regular user so registration still
-    // succeeds instead of 500-ing.
-    let attempts = 0;
-    while (true) {
-      try {
-        await tx(async (t) => {
-          await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now]);
-          await t.run(SQL_INIT_WALLET, [id, now]);
-          for (const res of ['Meat', 'Bits', 'Data'] as const) {
-            await t.run(SQL_INIT_RESOURCE, [id, res, now]);
-          }
-        });
-        break;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        const isAdminIndexClash = isAdmin === 1 && attempts === 0 && /idx_users_only_one_admin|only_one_admin/i.test(msg);
-        if (!isAdminIndexClash) throw err;
-        isAdmin = 0;
-        attempts += 1;
+    // First-user-is-admin race defense (H2). Count MUST be read inside the
+    // tx that inserts, and the check MUST be serialized across concurrent
+    // register requests. SQLite: BEGIN IMMEDIATE (used by SqliteAdapter)
+    // already serializes writers. Postgres: default READ COMMITTED lets
+    // two concurrent txs both see count=0; take a session-wide advisory
+    // lock (bound to the tx) to serialize on the specific bootstrap key.
+    // No unique index needed — admin promotion via /api/admin/users/:id/flags
+    // stays legal because the constraint doesn't exist post-bootstrap.
+    await tx(async (t) => {
+      if (t.kind === 'postgres') {
+        await t.run('SELECT pg_advisory_xact_lock(?)', [424242]);
       }
-    }
+      const cnt = await t.one<{ n: number }>(SQL_COUNT_USERS);
+      const isAdmin: 0 | 1 = (cnt?.n ?? 0) === 0 ? 1 : 0;
+      await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now]);
+      await t.run(SQL_INIT_WALLET, [id, now]);
+      for (const res of ['Meat', 'Bits', 'Data'] as const) {
+        await t.run(SQL_INIT_RESOURCE, [id, res, now]);
+      }
+    });
 
     const user = await one<UserRow>(SQL_SELECT_BY_USERNAME, username);
     if (!user) return reply.code(500).send({ error: 'failed to load newly created user' });

@@ -27,7 +27,9 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS mmr INTEGER NOT NULL DEFAULT 1000;
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_only_one_admin ON users(is_admin) WHERE is_admin = 1;
+-- Legacy over-strict index from H2 race fix: blocked admin promotion.
+-- Replaced by tx-scoped SELECT COUNT + pg_advisory_xact_lock in auth/routes.ts.
+DROP INDEX IF EXISTS idx_users_only_one_admin;
 
 -- ----------------------------------------------------------------------------
 -- sessions (kept for parity; Redis is authoritative when CLUSTER=redis)
@@ -423,6 +425,21 @@ CREATE INDEX IF NOT EXISTS idx_market_seller
 CREATE INDEX IF NOT EXISTS idx_market_active_listed
   ON market_listings(listed_at DESC)
   WHERE sold_at IS NULL AND canceled_at IS NULL;
+
+-- Per-catalog loot table. See schema.sql for design rationale (no FK on
+-- catalog_id because the catalog is XML-driven, item_id references shop_items,
+-- empty rows for a mon = engine falls back to global random drop).
+CREATE TABLE IF NOT EXISTS catalog_loot_entries (
+  id           TEXT PRIMARY KEY,
+  catalog_id   TEXT NOT NULL,
+  item_id      TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  drop_pct     INTEGER NOT NULL DEFAULT 100 CHECK (drop_pct >= 0 AND drop_pct <= 100),
+  qty_min      INTEGER NOT NULL DEFAULT 1 CHECK (qty_min >= 1),
+  qty_max      INTEGER NOT NULL DEFAULT 1 CHECK (qty_max >= qty_min),
+  updated_at   BIGINT NOT NULL,
+  UNIQUE (catalog_id, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_catalog_loot_catalog ON catalog_loot_entries(catalog_id);
 
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;
