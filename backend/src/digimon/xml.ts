@@ -111,6 +111,7 @@ const DigimonZ = z.object({
   '@_stage': z.enum(STAGES),
   '@_attribute': z.enum(ATTRIBUTES),
   '@_element': z.enum(ELEMENTS),
+  '@_type': z.string().min(1).max(64).optional(),
   '@_wikimonSlug': z.string().optional(),
   // sourceUrl is rendered as `<a href={template.sourceUrl}>` in the admin
   // catalog table — a `javascript:` URI would fire on admin click. Force
@@ -201,6 +202,7 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
   };
   if (raw['@_wikimonSlug']) tpl.wikimonSlug = raw['@_wikimonSlug'];
   if (raw['@_sourceUrl']) tpl.sourceUrl = raw['@_sourceUrl'];
+  if (raw['@_type']) tpl.type = raw['@_type'];
   if (raw.evolutions && 'evolve' in raw.evolutions) {
     const list = Array.isArray(raw.evolutions.evolve) ? raw.evolutions.evolve : [raw.evolutions.evolve];
     const ids = list.map((e) => e['@_targetId']);
@@ -258,6 +260,7 @@ function fromTemplate(t: TemplateDigimon): unknown {
   };
   if (t.wikimonSlug) out['@_wikimonSlug'] = t.wikimonSlug;
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
+  if (t.type) out['@_type'] = t.type;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
     out.evolutions = { evolve: t.evolvesInto.map((targetId) => ({ '@_targetId': targetId })) };
   }

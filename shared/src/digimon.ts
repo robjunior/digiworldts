@@ -59,6 +59,7 @@ export type TemplateDigimon = {
   wikimonSlug?: string;
   evolvesInto?: string[];
   resistances?: ResistanceMap;
+  type?: string;
 };
 
 export type RosterDigimon = {

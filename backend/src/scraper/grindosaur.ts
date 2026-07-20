@@ -40,6 +40,7 @@ const ATTRIBUTE_ALIAS: Record<string, Attribute> = {
 
 export type GrindosaurMonInfo = {
   readonly attribute: Attribute | null;
+  readonly type: string | null;
   readonly resistances: ResistanceMap | null;
 };
 
@@ -73,6 +74,14 @@ function extractAttributeFromInfo(html: string): Attribute | null {
   if (!match) return null;
   const raw = match[1]!.trim().toLowerCase();
   return ATTRIBUTE_ALIAS[raw] ?? null;
+}
+
+function extractTypeFromInfo(html: string): string | null {
+  const match = html.match(/<th[^>]*>\s*Type\s*<\/th>\s*<td[^>]*>\s*([^<]+?)\s*<\/td>/i);
+  if (!match) return null;
+  const raw = match[1]!.trim();
+  if (raw.length === 0 || raw.length > 64) return null;
+  return raw;
 }
 
 function parseResistanceTable(html: string): ResistanceMap | null {
@@ -120,17 +129,19 @@ export async function scrapeMonInfo(name: string, wikimonSlug?: string): Promise
   const page = await fetchGrindosaurPage(name, wikimonSlug);
   if (!page) return null;
   const attribute = extractAttributeFromInfo(page.html);
+  const type = extractTypeFromInfo(page.html);
   const resistances = parseResistanceTable(page.html);
-  if (!attribute && !resistances) {
+  if (!attribute && !type && !resistances) {
     log.info('grindosaur.info.empty', { slug: page.slug });
     return null;
   }
   log.info('grindosaur.info.ok', {
     slug: page.slug,
     attribute,
+    type,
     resistanceEntries: resistances ? Object.keys(resistances).length : 0,
   });
-  return { attribute: attribute ?? null, resistances: resistances ?? null };
+  return { attribute: attribute ?? null, type: type ?? null, resistances: resistances ?? null };
 }
 
 export function isKnownAttribute(v: string): v is Attribute {

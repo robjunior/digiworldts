@@ -279,6 +279,7 @@ async function runRefresh(limit: number): Promise<void> {
   let updated = catalog;
   let attrChanges = 0;
   let resChanges = 0;
+  let typeChanges = 0;
   let missing = 0;
   for (const tpl of bounded) {
     const info = await scrapeMonInfo(tpl.name, tpl.wikimonSlug);
@@ -295,6 +296,12 @@ async function runRefresh(limit: number): Promise<void> {
       attrChanges += 1;
       touched = true;
     }
+    if (info.type && info.type !== tpl.type) {
+      log.info('scrape.refresh.type-change', { id: tpl.id, name: tpl.name, from: tpl.type ?? null, to: info.type });
+      next.type = info.type;
+      typeChanges += 1;
+      touched = true;
+    }
     if (info.resistances !== null && !resistancesEqual(tpl.resistances, info.resistances)) {
       next.resistances = info.resistances;
       resChanges += 1;
@@ -305,13 +312,14 @@ async function runRefresh(limit: number): Promise<void> {
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  if (attrChanges > 0 || resChanges > 0) {
+  if (attrChanges > 0 || resChanges > 0 || typeChanges > 0) {
     saveCatalog(updated);
   }
   log.info('scrape.refresh.done', {
     attempted: bounded.length,
     missing,
     attributeChanges: attrChanges,
+    typeChanges,
     resistanceChanges: resChanges,
   });
 }
