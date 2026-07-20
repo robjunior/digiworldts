@@ -11,7 +11,7 @@ export type LightningEffect = {
   readonly height: number;
 };
 
-const LIGHTNING_DURATION_MS = 700;
+const LIGHTNING_DURATION_MS = 1200;
 const FLICKER_INTERVAL_MS = 85;
 const CORE_COLOR = 0xffffff;
 const GLOW_COLOR = 0x7ec8ff;

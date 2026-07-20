@@ -17,7 +17,8 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 
 const FLOATER_TTL_MS = 800;
-const LIGHTNING_TTL_MS = 700;
+const LIGHTNING_TTL_MS = 1200;
+const LIGHTNING_PROPAGATION_MS = 1200;
 const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 
 function readAutobattlePref(): boolean {
@@ -116,6 +117,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
   const autobattleKeyRef = useRef<string | null>(null);
+  const dispatchPendingRef = useRef<boolean>(false);
 
   useEffect(() => {
     writeAutobattlePref(autobattle);
@@ -152,16 +154,17 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
       if (event.type === 'action' && event.damage !== undefined && event.targetId) {
         spawnFloater(event, arenaRef.current, yourSide, setFloaters, setHitUnitId);
         if (event.skillElement === 'electricity' && event.damage > 0) {
-          spawnLightning(event.targetId, arenaRef.current, yourSide, setLightnings);
+          const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
+          if (!actorIsFriendly) {
+            spawnLightning(event.targetId, arenaRef.current, yourSide, setLightnings);
+          }
         }
       }
     }
   }, [battleEvents, activeBattle?.yourSide]);
 
-  const dispatchAction = useCallback((action: Action): void => {
-    if (!activeBattle) {
-      return;
-    }
+  const runServerDispatch = useCallback((action: Action): void => {
+    if (!activeBattle) return;
     if (activeBattle.mode === 'pve') {
       void actInWorldBattle(action).then((response) => {
         const previousLogLength = activeBattle.log.length;
@@ -196,8 +199,24 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
       const msg = { type: 'act', matchId: activeBattle.id, action } satisfies WSClientMessage;
       send(msg);
     }
-    setCommandMode('menu');
   }, [activeBattle, handleServerMessage, queryClient, send]);
+
+  const dispatchAction = useCallback((action: Action): void => {
+    if (!activeBattle || dispatchPendingRef.current) return;
+    const electricTargetId = actorElectricSkillTarget(actor, action);
+    if (electricTargetId !== null) {
+      dispatchPendingRef.current = true;
+      spawnLightning(electricTargetId, arenaRef.current, activeBattle.yourSide, setLightnings);
+      setCommandMode('menu');
+      window.setTimeout(() => {
+        runServerDispatch(action);
+        dispatchPendingRef.current = false;
+      }, LIGHTNING_PROPAGATION_MS);
+      return;
+    }
+    runServerDispatch(action);
+    setCommandMode('menu');
+  }, [activeBattle, actor, runServerDispatch]);
 
   useEffect(() => {
     if (activeBattle?.status !== 'active') {
@@ -305,6 +324,19 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
     return { type: 'skill', unitId: actor.id, skillId: best.id, targetId: target.id };
   }
   return { type: 'fight', unitId: actor.id, targetId: target.id };
+}
+
+function actorElectricSkillTarget(actor: FriendlyUnitView | null, action: Action): UnitId | null {
+  if (actor === null) return null;
+  if (action.type === 'skill') {
+    const skill = actor.skills.find((s) => s.id === action.skillId);
+    if (skill?.element === 'electricity') return action.targetId;
+    return null;
+  }
+  if (action.type === 'fight' && actor.element === 'electricity') {
+    return action.targetId;
+  }
+  return null;
 }
 
 function TurnQueue({ turns }: { readonly turns: readonly TurnEntry[] }): JSX.Element {
