@@ -156,7 +156,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
         if (isAnimatedElement(event.skillElement) && event.damage > 0) {
           const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
           if (!actorIsFriendly) {
-            spawnAttackEffect(event.targetId, event.skillElement, arenaRef.current, yourSide, setAttackEffects);
+            spawnAttackEffect(event.actor, event.targetId, event.skillElement, arenaRef.current, yourSide, setAttackEffects);
           }
         }
       }
@@ -206,7 +206,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
     const vfx = actorAnimatedSkillTarget(actor, action);
     if (vfx !== null) {
       dispatchPendingRef.current = true;
-      spawnAttackEffect(vfx.targetId, vfx.element, arenaRef.current, activeBattle.yourSide, setAttackEffects);
+      spawnAttackEffect(vfx.sourceId, vfx.targetId, vfx.element, arenaRef.current, activeBattle.yourSide, setAttackEffects);
       setCommandMode('menu');
       window.setTimeout(() => {
         runServerDispatch(action);
@@ -326,15 +326,15 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
   return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
-function actorAnimatedSkillTarget(actor: FriendlyUnitView | null, action: Action): { readonly targetId: UnitId; readonly element: AnimatedElement } | null {
+function actorAnimatedSkillTarget(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
   if (actor === null) return null;
   if (action.type === 'skill') {
     const skill = actor.skills.find((s) => s.id === action.skillId);
-    if (skill && isAnimatedElement(skill.element)) return { targetId: action.targetId, element: skill.element };
+    if (skill && isAnimatedElement(skill.element)) return { sourceId: actor.id, targetId: action.targetId, element: skill.element };
     return null;
   }
   if (action.type === 'fight' && isAnimatedElement(actor.element)) {
-    return { targetId: action.targetId, element: actor.element };
+    return { sourceId: actor.id, targetId: action.targetId, element: actor.element };
   }
   return null;
 }
@@ -376,20 +376,46 @@ function spawnFloater(event: Extract<BattleEvent, { type: 'action' }>, arena: HT
   window.setTimeout(() => setHitUnitId(null), 400);
 }
 
-function spawnAttackEffect(targetId: UnitId, element: AnimatedElement, arena: HTMLElement | null, yourSide: BattleSide, setEffects: Dispatch<SetStateAction<readonly AttackEffect[]>>): void {
+function spawnAttackEffect(sourceId: UnitId | null, targetId: UnitId, element: AnimatedElement, arena: HTMLElement | null, yourSide: BattleSide, setEffects: Dispatch<SetStateAction<readonly AttackEffect[]>>): void {
   if (arena === null) return;
-  const isFriendly = targetId.startsWith(`${yourSide}:`);
-  const prefix = isFriendly ? 'cbt' : 'foe';
-  const target = arena.querySelector(`[data-od-id="${prefix}-${targetId}"]`);
-  if (!(target instanceof HTMLElement)) return;
-  const targetRect = target.getBoundingClientRect();
+  const targetEl = findUnitElement(arena, targetId, yourSide);
+  if (targetEl === null) return;
+  const sourceEl = sourceId === null ? null : findUnitElement(arena, sourceId, yourSide);
   const arenaRect = arena.getBoundingClientRect();
+  const targetRectRaw = targetEl.getBoundingClientRect();
   const padding = 24;
-  const width = targetRect.width + padding * 2;
-  const height = targetRect.height + padding * 2;
-  const x = targetRect.left - arenaRect.left - padding;
-  const y = targetRect.top - arenaRect.top - padding;
+  const targetRect = {
+    x: targetRectRaw.left - arenaRect.left - padding,
+    y: targetRectRaw.top - arenaRect.top - padding,
+    width: targetRectRaw.width + padding * 2,
+    height: targetRectRaw.height + padding * 2,
+  };
+  const target = {
+    x: targetRectRaw.left - arenaRect.left + targetRectRaw.width / 2,
+    y: targetRectRaw.top - arenaRect.top + targetRectRaw.height / 2,
+  };
+  const source = sourceEl === null
+    ? { x: target.x, y: 0 }
+    : {
+        x: sourceEl.getBoundingClientRect().left - arenaRect.left + sourceEl.getBoundingClientRect().width / 2,
+        y: sourceEl.getBoundingClientRect().top - arenaRect.top + sourceEl.getBoundingClientRect().height / 2,
+      };
   const id = `fx-${element}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${targetId}`;
-  setEffects((items) => [...items, { id, targetId, element, x, y, width, height }]);
+  setEffects((items) => [...items, {
+    id,
+    element,
+    arenaWidth: arenaRect.width,
+    arenaHeight: arenaRect.height,
+    source,
+    target,
+    targetRect,
+  }]);
   window.setTimeout(() => setEffects((items) => items.filter((item) => item.id !== id)), ATTACK_EFFECT_TTL_MS);
+}
+
+function findUnitElement(arena: HTMLElement, unitId: UnitId, yourSide: BattleSide): HTMLElement | null {
+  const isFriendly = unitId.startsWith(`${yourSide}:`);
+  const prefix = isFriendly ? 'cbt' : 'foe';
+  const node = arena.querySelector(`[data-od-id="${prefix}-${unitId}"]`);
+  return node instanceof HTMLElement ? node : null;
 }
