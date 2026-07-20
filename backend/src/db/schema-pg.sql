@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS skills_catalog (
   id             TEXT PRIMARY KEY,
   name           TEXT NOT NULL UNIQUE,
   description    TEXT NOT NULL DEFAULT '',
-  element        TEXT NOT NULL CHECK (element IN ('fire', 'water', 'nature', 'electric', 'neutral')),
+  element        TEXT NOT NULL CHECK (element IN ('fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null')),
   energy_cost    INTEGER NOT NULL DEFAULT 0 CHECK (energy_cost >= 0),
   cooldown       INTEGER NOT NULL DEFAULT 0 CHECK (cooldown >= 0),
   actions_json   TEXT NOT NULL,
@@ -212,6 +212,20 @@ CREATE TABLE IF NOT EXISTS skills_catalog (
   created_at     BIGINT NOT NULL,
   updated_at     BIGINT NOT NULL
 );
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    WHERE t.relname = 'skills_catalog'
+      AND c.conname = 'skills_catalog_element_check'
+      AND pg_get_constraintdef(c.oid) LIKE '%nature%'
+  ) THEN
+    ALTER TABLE skills_catalog DROP CONSTRAINT skills_catalog_element_check;
+    ALTER TABLE skills_catalog ADD CONSTRAINT skills_catalog_element_check
+      CHECK (element IN ('fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'));
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_skills_enabled ON skills_catalog(enabled);
 CREATE INDEX IF NOT EXISTS idx_skills_element ON skills_catalog(element);
 

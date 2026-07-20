@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS skills_catalog (
   id             TEXT PRIMARY KEY,                       -- 'sk_...'
   name           TEXT NOT NULL UNIQUE,
   description    TEXT NOT NULL DEFAULT '',
-  element        TEXT NOT NULL CHECK (element IN ('fire', 'water', 'nature', 'electric', 'neutral')),
+  element        TEXT NOT NULL CHECK (element IN ('fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null')),
   energy_cost    INTEGER NOT NULL DEFAULT 0 CHECK (energy_cost >= 0),
   cooldown       INTEGER NOT NULL DEFAULT 0 CHECK (cooldown >= 0),
   actions_json   TEXT NOT NULL,                          -- JSON array of Action DSL
