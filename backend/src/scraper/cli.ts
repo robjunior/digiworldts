@@ -272,6 +272,40 @@ function resistancesEqual(a: TemplateDigimon['resistances'], b: TemplateDigimon[
   return true;
 }
 
+function skillsEqual(a: Skill, b: Skill): boolean {
+  return a.name === b.name && a.element === b.element && a.energyCost === b.energyCost && a.power === b.power && (a.description ?? '') === (b.description ?? '');
+}
+
+function mergeSkillsFromGrindosaur(existing: readonly Skill[], scraped: readonly import('./grindosaur.js').GrindosaurSkill[]): { skills: Skill[]; changed: boolean } {
+  if (scraped.length === 0) return { skills: [...existing], changed: false };
+  const ordered = [
+    ...scraped.filter((s) => s.source === 'special'),
+    ...scraped.filter((s) => s.source === 'attachment'),
+  ].slice(0, SKILLS_PER_DIGIMON);
+  const skills: Skill[] = [];
+  let changed = false;
+  for (let i = 0; i < SKILLS_PER_DIGIMON; i++) {
+    const g = ordered[i];
+    const prev = existing[i];
+    if (g) {
+      const next: Skill = {
+        id: prev?.id ?? `s${i}`,
+        name: g.name,
+        element: g.element,
+        energyCost: Math.min(g.energyCost, MAX_ENERGY),
+        power: g.power,
+      };
+      if (g.description) next.description = g.description;
+      if (!prev || !skillsEqual(prev, next)) changed = true;
+      skills.push(next);
+    } else if (prev) {
+      skills.push(prev);
+    }
+  }
+  if (skills.length !== existing.length) changed = true;
+  return { skills, changed };
+}
+
 async function runRefresh(limit: number): Promise<void> {
   const catalog = loadCatalog();
   const bounded = catalog.digimons.slice(0, Number.isFinite(limit) && limit > 0 ? limit : catalog.digimons.length);
@@ -281,6 +315,7 @@ async function runRefresh(limit: number): Promise<void> {
   let resChanges = 0;
   let typeChanges = 0;
   let elementChanges = 0;
+  let skillChanges = 0;
   let missing = 0;
   for (const tpl of bounded) {
     const info = await scrapeMonInfo(tpl.name, tpl.wikimonSlug);
@@ -314,12 +349,24 @@ async function runRefresh(limit: number): Promise<void> {
       resChanges += 1;
       touched = true;
     }
+    const merged = mergeSkillsFromGrindosaur(tpl.skillPool, info.skills);
+    if (merged.changed) {
+      log.info('scrape.refresh.skills-change', {
+        id: tpl.id,
+        name: tpl.name,
+        scraped: info.skills.length,
+        replacedSlots: Math.min(info.skills.length, SKILLS_PER_DIGIMON),
+      });
+      next.skillPool = merged.skills;
+      skillChanges += 1;
+      touched = true;
+    }
     if (touched) {
       updated = upsertTemplate(updated, next);
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  if (attrChanges > 0 || resChanges > 0 || typeChanges > 0 || elementChanges > 0) {
+  if (attrChanges > 0 || resChanges > 0 || typeChanges > 0 || elementChanges > 0 || skillChanges > 0) {
     saveCatalog(updated);
   }
   log.info('scrape.refresh.done', {
@@ -328,6 +375,7 @@ async function runRefresh(limit: number): Promise<void> {
     attributeChanges: attrChanges,
     typeChanges,
     elementChanges,
+    skillChanges,
     resistanceChanges: resChanges,
   });
 }

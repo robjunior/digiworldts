@@ -38,11 +38,21 @@ const ATTRIBUTE_ALIAS: Record<string, Attribute> = {
   'no-data': 'NoData',
 };
 
+export type GrindosaurSkill = {
+  readonly name: string;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly power: number;
+  readonly description: string;
+  readonly source: 'special' | 'attachment';
+};
+
 export type GrindosaurMonInfo = {
   readonly attribute: Attribute | null;
   readonly type: string | null;
   readonly element: Element | null;
   readonly resistances: ResistanceMap | null;
+  readonly skills: readonly GrindosaurSkill[];
 };
 
 export function nameToGrindosaurSlug(name: string): string {
@@ -93,6 +103,60 @@ function extractSpecialSkillElement(html: string): Element | null {
   return element ?? null;
 }
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseSkillsTable(
+  html: string,
+  captionPattern: string,
+  hasLevelColumn: boolean,
+  source: GrindosaurSkill['source'],
+): GrindosaurSkill[] {
+  const anchor = new RegExp(`${captionPattern}[\\s\\S]*?<tbody>([\\s\\S]*?)<\\/tbody>`, 'i');
+  const bodyMatch = html.match(anchor);
+  if (!bodyMatch) return [];
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  const spIdx = hasLevelColumn ? 4 : 3;
+  const powerIdx = hasLevelColumn ? 7 : 6;
+  const skills: GrindosaurSkill[] = [];
+  let row: RegExpExecArray | null;
+  while ((row = rowRe.exec(bodyMatch[1]!)) !== null) {
+    const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+    const cells: string[] = [];
+    let cell: RegExpExecArray | null;
+    while ((cell = cellRe.exec(row[1]!)) !== null) cells.push(cell[1]!);
+    if (cells.length <= powerIdx) continue;
+    const elMatch = cells[0]!.match(/<img[^>]*title="([^"]+)"/i);
+    if (!elMatch) continue;
+    const element = HEADER_TO_ELEMENT[elMatch[1]!.trim().toLowerCase()];
+    if (!element) continue;
+    const nameMatch = cells[1]!.match(/<a[^>]*>([^<]+)<\/a>/i) ?? cells[1]!.match(/>([^<]+)</);
+    const name = nameMatch ? nameMatch[1]!.trim() : stripHtml(cells[1]!);
+    if (!name || name.length > 64) continue;
+    const energyCost = Number(stripHtml(cells[spIdx]!));
+    const power = Number(stripHtml(cells[powerIdx]!));
+    if (!Number.isFinite(energyCost) || energyCost < 0 || !Number.isFinite(power) || power < 0) continue;
+    const description = stripHtml(cells[2]!);
+    skills.push({ name, element, energyCost, power, description, source });
+  }
+  return skills;
+}
+
+function extractSkills(html: string): GrindosaurSkill[] {
+  const special = parseSkillsTable(html, 'can learn the following Special Skills\\.<\\/caption>', false, 'special');
+  const attachment = parseSkillsTable(html, 'can learn the following Attachment Skills\\.<\\/caption>', true, 'attachment');
+  return [...special, ...attachment];
+}
+
 function parseResistanceTable(html: string): ResistanceMap | null {
   const table = extractResistanceTable(html, 'Elemental Resistances');
   if (!table || table.headers.length === 0 || table.headers.length !== table.values.length) return null;
@@ -141,7 +205,8 @@ export async function scrapeMonInfo(name: string, wikimonSlug?: string): Promise
   const type = extractTypeFromInfo(page.html);
   const element = extractSpecialSkillElement(page.html);
   const resistances = parseResistanceTable(page.html);
-  if (!attribute && !type && !element && !resistances) {
+  const skills = extractSkills(page.html);
+  if (!attribute && !type && !element && !resistances && skills.length === 0) {
     log.info('grindosaur.info.empty', { slug: page.slug });
     return null;
   }
@@ -150,9 +215,16 @@ export async function scrapeMonInfo(name: string, wikimonSlug?: string): Promise
     attribute,
     type,
     element,
+    skillCount: skills.length,
     resistanceEntries: resistances ? Object.keys(resistances).length : 0,
   });
-  return { attribute: attribute ?? null, type: type ?? null, element: element ?? null, resistances: resistances ?? null };
+  return {
+    attribute: attribute ?? null,
+    type: type ?? null,
+    element: element ?? null,
+    resistances: resistances ?? null,
+    skills,
+  };
 }
 
 export function isKnownAttribute(v: string): v is Attribute {
