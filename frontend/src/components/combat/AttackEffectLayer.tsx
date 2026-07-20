@@ -178,62 +178,144 @@ function buildLightningRunner(scene: THREE.Scene, effect: AttackEffect): Runner 
   };
 }
 
-type FireParticle = {
+type FireImpactParticle = {
   x: number;
   y: number;
   vx: number;
   vy: number;
-  size: number;
-  lifetime: number;
+  life: number;
   age: number;
 };
 
+const FIRE_VERTEX_SHADER = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const FIRE_FRAGMENT_SHADER = `
+  precision highp float;
+  uniform float uTime;
+  uniform float uOpacity;
+  uniform vec3 uColorCore;
+  uniform vec3 uColorMid;
+  uniform vec3 uColorEdge;
+  uniform float uThicknessMul;
+  varying vec2 vUv;
+
+  float hash21(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+
+  float valueNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
+      mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 5; i++) {
+      v += amp * valueNoise(p);
+      p *= 2.03;
+      amp *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    vec2 uv = vUv;
+    float turb = fbm(vec2(uv.x * 4.0 - uTime * 3.0, uv.y * 4.0));
+    float wobble = (turb - 0.5) * 0.28;
+    float distortedAcross = 1.0 - abs(uv.y - 0.5 + wobble) * 2.0;
+    distortedAcross = smoothstep(0.0, 0.6, distortedAcross);
+    float along = smoothstep(0.02, 0.18, uv.x) * smoothstep(0.02, 0.30, 1.0 - uv.x);
+    float flicker = fbm(vec2(uv.x * 8.0 - uTime * 5.5, uv.y * 8.0 + uTime * 2.2)) * 0.65 + 0.4;
+    float intensity = distortedAcross * along * flicker * uThicknessMul;
+    vec3 color = mix(uColorEdge, uColorMid, smoothstep(0.15, 0.5, intensity));
+    color = mix(color, uColorCore, smoothstep(0.55, 1.0, intensity));
+    gl_FragColor = vec4(color, intensity * uOpacity);
+  }
+`;
+
+const FIRE_LAYERS = [
+  { colorCore: 0xfff5dd, colorMid: 0xffb060, colorEdge: 0xc92910, widthMul: 0.55, thicknessMul: 1.6 },
+  { colorCore: 0xffdd88, colorMid: 0xff8833, colorEdge: 0x8b1a0a, widthMul: 0.90, thicknessMul: 1.2 },
+  { colorCore: 0xff8833, colorMid: 0xc93010, colorEdge: 0x3a0a05, widthMul: 1.40, thicknessMul: 0.85 },
+];
+
 function buildFireRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
-  const { targetRect } = effect;
-  const bandCount = 3;
-  const bandSpecs = [
-    { color: 0xffee88, size: 26, particleCount: 46, riseSpeed: 90 },
-    { color: 0xff8833, size: 38, particleCount: 62, riseSpeed: 68 },
-    { color: 0xcc3311, size: 54, particleCount: 40, riseSpeed: 46 },
-  ];
+  const { source, target, targetRect } = effect;
+  const dx = target.x - source.x;
+  const dy = target.y - source.y;
+  const beamLength = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+  const angle = Math.atan2(dy, dx);
+  const midX = source.x + dx / 2;
+  const midY = source.y + dy / 2;
+  const baseWidth = Math.max(48, Math.min(targetRect.width, targetRect.height) * 0.7);
 
-  const bands: Array<{
-    particles: FireParticle[];
-    positions: Float32Array;
-    geometry: THREE.BufferGeometry;
-    material: THREE.PointsMaterial;
-    points: THREE.Points;
-    speed: number;
-  }> = [];
+  const meshes: THREE.Mesh[] = [];
+  const materials: THREE.ShaderMaterial[] = [];
+  const geometries: THREE.PlaneGeometry[] = [];
 
-  for (let b = 0; b < bandCount; b++) {
-    const spec = bandSpecs[b]!;
-    const particles: FireParticle[] = [];
-    for (let i = 0; i < spec.particleCount; i++) {
-      particles.push(spawnFireParticle(targetRect, spec.riseSpeed, true));
-    }
-    const positions = new Float32Array(spec.particleCount * 3);
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i]!;
-      positions[i * 3] = p.x;
-      positions[i * 3 + 1] = p.y;
-      positions[i * 3 + 2] = 0;
-    }
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    const material = new THREE.PointsMaterial({
-      color: spec.color,
-      size: spec.size,
+  for (const layer of FIRE_LAYERS) {
+    const geometry = new THREE.PlaneGeometry(1, 1);
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 },
+        uOpacity: { value: 1 },
+        uColorCore: { value: new THREE.Color(layer.colorCore) },
+        uColorMid: { value: new THREE.Color(layer.colorMid) },
+        uColorEdge: { value: new THREE.Color(layer.colorEdge) },
+        uThicknessMul: { value: layer.thicknessMul },
+      },
+      vertexShader: FIRE_VERTEX_SHADER,
+      fragmentShader: FIRE_FRAGMENT_SHADER,
       transparent: true,
-      opacity: 0.9,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      sizeAttenuation: false,
     });
-    const points = new THREE.Points(geometry, material);
-    scene.add(points);
-    bands.push({ particles, positions, geometry, material, points, speed: spec.riseSpeed });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(midX, midY, 0);
+    mesh.rotation.z = angle;
+    mesh.scale.set(beamLength, baseWidth * layer.widthMul, 1);
+    scene.add(mesh);
+    meshes.push(mesh);
+    materials.push(material);
+    geometries.push(geometry);
   }
+
+  const impactCount = 48;
+  const impactPositions = new Float32Array(impactCount * 3);
+  const impactParticles: FireImpactParticle[] = [];
+  for (let i = 0; i < impactCount; i++) {
+    const seeded = seedImpactParticle(target.x, target.y);
+    impactParticles.push(seeded);
+    impactPositions[i * 3] = seeded.x;
+    impactPositions[i * 3 + 1] = seeded.y;
+    impactPositions[i * 3 + 2] = 0;
+  }
+  const impactGeometry = new THREE.BufferGeometry();
+  impactGeometry.setAttribute('position', new THREE.BufferAttribute(impactPositions, 3));
+  const impactMaterial = new THREE.PointsMaterial({
+    color: 0xffdd88,
+    size: 18,
+    transparent: true,
+    opacity: 1,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    sizeAttenuation: false,
+  });
+  const impactPoints = new THREE.Points(impactGeometry, impactMaterial);
+  scene.add(impactPoints);
 
   let lastTickMs = 0;
 
@@ -242,47 +324,54 @@ function buildFireRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
       const dt = Math.min(0.05, (elapsedMs - lastTickMs) / 1000);
       lastTickMs = elapsedMs;
       const fade = 1 - Math.pow(progress, 1.5);
-      for (const band of bands) {
-        for (let i = 0; i < band.particles.length; i++) {
-          const p = band.particles[i]!;
-          p.age += dt;
+      const seconds = elapsedMs / 1000;
+      for (const material of materials) {
+        material.uniforms.uTime!.value = seconds;
+        material.uniforms.uOpacity!.value = fade;
+      }
+      for (let i = 0; i < impactCount; i++) {
+        const p = impactParticles[i]!;
+        p.age += dt;
+        if (p.age >= p.life) {
+          const seeded = seedImpactParticle(target.x, target.y);
+          p.x = seeded.x;
+          p.y = seeded.y;
+          p.vx = seeded.vx;
+          p.vy = seeded.vy;
+          p.age = seeded.age;
+          p.life = seeded.life;
+        } else {
           p.x += p.vx * dt;
           p.y += p.vy * dt;
-          if (p.age >= p.lifetime || p.y < targetRect.y - targetRect.height * 0.2) {
-            const respawn = spawnFireParticle(targetRect, band.speed, false);
-            p.x = respawn.x;
-            p.y = respawn.y;
-            p.vx = respawn.vx;
-            p.vy = respawn.vy;
-            p.size = respawn.size;
-            p.lifetime = respawn.lifetime;
-            p.age = respawn.age;
-          }
-          band.positions[i * 3] = p.x;
-          band.positions[i * 3 + 1] = p.y;
         }
-        band.geometry.attributes.position!.needsUpdate = true;
-        band.material.opacity = 0.9 * fade;
+        impactPositions[i * 3] = p.x;
+        impactPositions[i * 3 + 1] = p.y;
       }
+      impactGeometry.attributes.position!.needsUpdate = true;
+      impactMaterial.opacity = fade;
     },
     dispose() {
-      for (const band of bands) {
-        scene.remove(band.points);
-        band.geometry.dispose();
-        band.material.dispose();
-      }
+      for (const mesh of meshes) scene.remove(mesh);
+      for (const geometry of geometries) geometry.dispose();
+      for (const material of materials) material.dispose();
+      scene.remove(impactPoints);
+      impactGeometry.dispose();
+      impactMaterial.dispose();
     },
   };
 }
 
-function spawnFireParticle(rect: Rect, baseSpeed: number, prewarm: boolean): FireParticle {
-  const x = rect.x + Math.random() * rect.width;
-  const bottomBand = rect.y + rect.height + (Math.random() - 0.5) * rect.height * 0.15;
-  const y = prewarm ? rect.y + rect.height - Math.random() * rect.height * 1.1 : bottomBand;
-  const vx = (Math.random() - 0.5) * 30;
-  const vy = -(baseSpeed + (Math.random() - 0.5) * baseSpeed * 0.4);
-  const lifetime = 0.55 + Math.random() * 0.5;
-  return { x, y, vx, vy, size: 0, lifetime, age: prewarm ? Math.random() * lifetime : 0 };
+function seedImpactParticle(cx: number, cy: number): FireImpactParticle {
+  const angle = Math.random() * Math.PI * 2;
+  const speed = 40 + Math.random() * 90;
+  return {
+    x: cx + (Math.random() - 0.5) * 10,
+    y: cy + (Math.random() - 0.5) * 10,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed - 25,
+    life: 0.35 + Math.random() * 0.45,
+    age: Math.random() * 0.2,
+  };
 }
 
 function buildPlantRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
