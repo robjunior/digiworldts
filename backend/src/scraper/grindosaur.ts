@@ -41,6 +41,7 @@ const ATTRIBUTE_ALIAS: Record<string, Attribute> = {
 export type GrindosaurMonInfo = {
   readonly attribute: Attribute | null;
   readonly type: string | null;
+  readonly element: Element | null;
   readonly resistances: ResistanceMap | null;
 };
 
@@ -82,6 +83,14 @@ function extractTypeFromInfo(html: string): string | null {
   const raw = match[1]!.trim();
   if (raw.length === 0 || raw.length > 64) return null;
   return raw;
+}
+
+function extractSpecialSkillElement(html: string): Element | null {
+  const match = html.match(/can learn the following Special Skills\.<\/caption>[\s\S]*?<tbody>[\s\S]*?<img[^>]*title="([^"]+)"/i);
+  if (!match) return null;
+  const label = match[1]!.trim().toLowerCase();
+  const element = HEADER_TO_ELEMENT[label];
+  return element ?? null;
 }
 
 function parseResistanceTable(html: string): ResistanceMap | null {
@@ -130,8 +139,9 @@ export async function scrapeMonInfo(name: string, wikimonSlug?: string): Promise
   if (!page) return null;
   const attribute = extractAttributeFromInfo(page.html);
   const type = extractTypeFromInfo(page.html);
+  const element = extractSpecialSkillElement(page.html);
   const resistances = parseResistanceTable(page.html);
-  if (!attribute && !type && !resistances) {
+  if (!attribute && !type && !element && !resistances) {
     log.info('grindosaur.info.empty', { slug: page.slug });
     return null;
   }
@@ -139,9 +149,10 @@ export async function scrapeMonInfo(name: string, wikimonSlug?: string): Promise
     slug: page.slug,
     attribute,
     type,
+    element,
     resistanceEntries: resistances ? Object.keys(resistances).length : 0,
   });
-  return { attribute: attribute ?? null, type: type ?? null, resistances: resistances ?? null };
+  return { attribute: attribute ?? null, type: type ?? null, element: element ?? null, resistances: resistances ?? null };
 }
 
 export function isKnownAttribute(v: string): v is Attribute {
