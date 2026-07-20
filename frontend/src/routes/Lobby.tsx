@@ -63,7 +63,7 @@ export function Lobby(): JSX.Element {
               </div>
               <PartyHero roster={roster} />
             </section>
-            <section className="lobby-section battle-strip" data-od-id="queue-section">
+            <section className="lobby-section matchmaking-strip" data-od-id="queue-section">
               <BattleStrip status={queue.status} since={queue.since} size={queue.size} partyReady={partyReady} send={send} />
             </section>
             <section className="lobby-section" data-od-id="last-match-section">

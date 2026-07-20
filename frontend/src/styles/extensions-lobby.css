@@ -49,6 +49,21 @@ body.has-chat-drawer { padding-bottom: 44px; }
   clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); }
 .bracket-line b { color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:.02em; }
 
+/* Matchmaking strip owns its own layout — was accidentally inheriting the
+ * combat screen's .battle-strip grid (1fr auto 1fr) which shredded the
+ * vertical stack. Keep it a plain block so the h2, bracket, button and hint
+ * flow top-to-bottom. */
+.matchmaking-strip { display: block; }
+
+/* Reserved-hint: micro-caps status line under the queue button. Used to say
+ * "Assign 3 Digimon to queue" when the party isn't ready. Was orphaned when
+ * lobby.css was split — element existed but no rule matched, so it rendered
+ * as unstyled default browser text spilling below the section card. */
+.reserved-hint { min-height:16px; font-size:10px; font-weight:600; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); text-align:center; padding-top:6px; margin-top:4px; }
+.reserved-hint.is-warn { color: var(--battle); }
+.bracket-line b { color:var(--ink); font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+
 .party-hero { grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .party-hero .party-slot {
   padding: 0; gap: 0;
