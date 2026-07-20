@@ -284,10 +284,23 @@ CREATE TABLE IF NOT EXISTS shop_items (
   description   TEXT NOT NULL,
   price_credits INTEGER NOT NULL CHECK (price_credits >= 0),
   kind          TEXT NOT NULL,
+  class         TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item')),
   payload       TEXT NOT NULL DEFAULT '{}',
   enabled       INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   created_at    BIGINT NOT NULL
 );
+ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS class TEXT NOT NULL DEFAULT 'product';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
+    WHERE t.relname = 'shop_items' AND c.conname = 'shop_items_class_check'
+  ) THEN
+    ALTER TABLE shop_items ADD CONSTRAINT shop_items_class_check
+      CHECK (class IN ('product', 'item'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_shop_items_class ON shop_items(class, enabled);
 
 -- ----------------------------------------------------------------------------
 -- player_inventory

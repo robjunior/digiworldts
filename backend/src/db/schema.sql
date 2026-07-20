@@ -294,15 +294,17 @@ CREATE INDEX IF NOT EXISTS idx_friendship_addressee ON friendships(addressee_id,
 -- shop_items: catalog of purchasable items (seeded from src/social/shop.ts).
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS shop_items (
-  id              TEXT PRIMARY KEY,                     -- 'itm_...'
-  name            TEXT NOT NULL,
-  description     TEXT NOT NULL,
-  price_credits   INTEGER NOT NULL CHECK (price_credits >= 0),
-  kind            TEXT NOT NULL,                        -- 'consumable' | 'cosmetic' | 'ticket'
-  payload         TEXT NOT NULL DEFAULT '{}',           -- JSON: item-specific effects
-  enabled         INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-  created_at      INTEGER NOT NULL
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  description   TEXT NOT NULL,
+  price_credits INTEGER NOT NULL CHECK (price_credits >= 0),
+  kind          TEXT NOT NULL,
+  class         TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item')),
+  payload       TEXT NOT NULL DEFAULT '{}',
+  enabled       INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at    INTEGER NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_shop_items_class ON shop_items(class, enabled);
 
 -- ----------------------------------------------------------------------------
 -- player_inventory: purchased/received items.

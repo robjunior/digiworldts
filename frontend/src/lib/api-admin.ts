@@ -45,7 +45,9 @@ export type AdminStats = {
   readonly totalPlayerMons: number;
 };
 
-export type ShopItemKind = 'consumable' | 'cosmetic' | 'evolve' | 'building_placement' | 'ticket';
+export type ShopItemKind = 'consumable' | 'cosmetic' | 'evolve' | 'building_placement' | 'ticket' | 'revive';
+
+export type ShopItemClass = 'product' | 'item';
 
 export type ShopItemView = {
   readonly id: string;
@@ -53,6 +55,7 @@ export type ShopItemView = {
   readonly description: string;
   readonly priceCredits: number;
   readonly kind: ShopItemKind;
+  readonly class: ShopItemClass;
   readonly payload: Record<string, unknown>;
   readonly enabled: boolean;
   readonly createdAt: number;
@@ -63,6 +66,7 @@ export type ShopItemInput = {
   readonly description?: string;
   readonly priceCredits: number;
   readonly kind: ShopItemKind;
+  readonly class: ShopItemClass;
   readonly payload?: Record<string, unknown>;
   readonly enabled?: boolean;
 };

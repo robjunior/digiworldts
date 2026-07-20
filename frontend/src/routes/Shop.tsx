@@ -31,7 +31,7 @@ export function Shop(): JSX.Element {
   const [message, setMessage] = useState<string | null>(null);
   const [applyingItem, setApplyingItem] = useState<InventoryItemView | null>(null);
 
-  const items = shopQuery.data?.items ?? [];
+  const items = shopQuery.data?.products ?? [];
   const inventory = shopQuery.data?.inventory ?? [];
   const credits = shopQuery.data?.credits ?? 0;
   const filtered = useMemo(() => items.filter((item) => filter === 'all' || (filter === 'consumable' ? item.kind === 'consumable' || item.kind === 'xp_mult' || item.kind === 'revive' : item.kind === filter)), [filter, items]);

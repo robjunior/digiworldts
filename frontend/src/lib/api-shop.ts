@@ -3,12 +3,15 @@ import type { OkResponse } from './api-roster';
 
 export type ShopItemKind = 'consumable' | 'evolve' | 'building_placement' | 'cosmetic' | 'xp_mult' | 'revive' | string;
 
+export type ShopItemClass = 'product' | 'item';
+
 export type ShopItemView = {
   readonly id: string;
   readonly name: string;
   readonly description: string;
   readonly priceCredits: number;
   readonly kind: ShopItemKind;
+  readonly class: ShopItemClass;
 };
 
 export type InventoryItemView = {
@@ -19,9 +22,13 @@ export type InventoryItemView = {
 };
 
 export type ShopResponse = {
-  readonly items: readonly ShopItemView[];
+  readonly products: readonly ShopItemView[];
   readonly inventory: readonly InventoryItemView[];
   readonly credits: number;
+};
+
+export type ItemsResponse = {
+  readonly items: readonly InventoryItemView[];
 };
 
 export type BuyResponse = {
@@ -46,6 +53,10 @@ export function getShop(): Promise<ShopResponse> {
 
 export function getInventory(): Promise<Pick<ShopResponse, 'inventory' | 'credits'>> {
   return apiFetch<ShopResponse>('/api/shop');
+}
+
+export function getItems(): Promise<ItemsResponse> {
+  return apiFetch<ItemsResponse>('/api/items');
 }
 
 export function buyShopItem(itemId: string, qty: number): Promise<BuyResponse> {

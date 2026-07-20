@@ -281,6 +281,7 @@ export type ShopItemRow = {
   description: string;
   price_credits: number;
   kind: string;
+  class: 'product' | 'item';
   payload: string;
   enabled: 0 | 1;
   created_at: number;

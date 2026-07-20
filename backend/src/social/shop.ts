@@ -23,12 +23,16 @@ import { addPendingBuff, type BuffKind } from './buffs.js';
 // SQL
 // ============================================================================
 const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY price_credits ASC`;
+const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY price_credits ASC`;
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, kind, payload, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT(id) DO NOTHING`;
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, kind, class, payload, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
+const SQL_SELECT_INVENTORY_ITEMS = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.class
+     FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
+     WHERE i.user_id = ? AND s.class = 'item' ORDER BY s.name`;
 const SQL_SELECT_INVENTORY_ITEM = `SELECT * FROM player_inventory WHERE user_id = ? AND item_id = ?`;
 const SQL_UPSERT_INVENTORY = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
@@ -45,17 +49,19 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
   {
     id: 'itm-heal-small',
     name: 'Small Med-Kit',
-    description: 'Restore 40% HP to one Digimon before your next match.',
+    description: 'Restore 40% HP to one Digimon in combat (PVE only).',
     price_credits: 80,
     kind: 'consumable',
+    class: 'item',
     payload: JSON.stringify({ heal_pct: 0.4 }),
   },
   {
     id: 'itm-heal-large',
     name: 'Large Med-Kit',
-    description: 'Restore all HP to one Digimon before your next match.',
+    description: 'Restore all HP to one Digimon in combat (PVE only).',
     price_credits: 220,
     kind: 'consumable',
+    class: 'item',
     payload: JSON.stringify({ heal_pct: 1.0 }),
   },
   {
@@ -64,14 +70,16 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Instantly wake a fallen Digimon from its recovery timer. Use from the roster page.',
     price_credits: 400,
     kind: 'revive',
+    class: 'item',
     payload: JSON.stringify({ revive: true }),
   },
   {
     id: 'itm-energy-drink',
     name: 'Energy Drink',
-    description: 'Refill EN to full on one Digimon before your next match.',
+    description: 'Refill EN to full on one Digimon in combat (PVE only).',
     price_credits: 120,
     kind: 'consumable',
+    class: 'item',
     payload: JSON.stringify({ en_pct: 1.0 }),
   },
   {
@@ -80,6 +88,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Doubles XP from your next match win.',
     price_credits: 340,
     kind: 'consumable',
+    class: 'product',
     payload: JSON.stringify({ xp_mult: 2.0, matches: 1 }),
   },
   {
@@ -88,6 +97,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'A shiny gold badge that appears next to your name in the lobby.',
     price_credits: 900,
     kind: 'cosmetic',
+    class: 'product',
     payload: JSON.stringify({ badge: 'gold' }),
   },
   {
@@ -96,6 +106,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Digivolve a Rookie into a Champion. Requires level 20.',
     price_credits: 500,
     kind: 'evolve',
+    class: 'product',
     payload: JSON.stringify({ stage: 'Champion' }),
   },
   {
@@ -104,6 +115,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Digivolve a Champion into an Ultimate. Requires level 40.',
     price_credits: 1500,
     kind: 'evolve',
+    class: 'product',
     payload: JSON.stringify({ stage: 'Ultimate' }),
   },
   {
@@ -112,6 +124,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Digivolve an Ultimate into a Mega. Requires level 60.',
     price_credits: 4000,
     kind: 'evolve',
+    class: 'product',
     payload: JSON.stringify({ stage: 'Mega' }),
   },
   {
@@ -120,6 +133,7 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'A single-slot facility. Trains one stat at a time. Auto-placed on purchase.',
     price_credits: 500,
     kind: 'building_placement',
+    class: 'product',
     payload: JSON.stringify({ buildingType: 'training', kind: 'Training Station' }),
   },
   {
@@ -128,7 +142,35 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     description: 'Trains two stats simultaneously. Auto-placed on purchase.',
     price_credits: 2000,
     kind: 'building_placement',
+    class: 'product',
     payload: JSON.stringify({ buildingType: 'training_premium', kind: 'Premium Training Station' }),
+  },
+  {
+    id: 'itm-status-cure',
+    name: 'Status Cure',
+    description: 'Removes all ailments (burn/poison/weaken/freeze/stun/sleep) from one Digimon in combat (PVE only).',
+    price_credits: 160,
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ clear_ailments: true }),
+  },
+  {
+    id: 'itm-atk-buff',
+    name: 'Power Chip',
+    description: '+15 ATK for one Digimon for the rest of the current match (PVE only).',
+    price_credits: 200,
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ atk_bonus: 15 }),
+  },
+  {
+    id: 'itm-def-buff',
+    name: 'Guard Chip',
+    description: '+15 DEF for one Digimon for the rest of the current match (PVE only).',
+    price_credits: 200,
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ def_bonus: 15 }),
   },
 ];
 
@@ -137,7 +179,7 @@ export async function seedShopItems(): Promise<void> {
   const now = Date.now();
   await tx(async (t) => {
     for (const item of SEED_ITEMS) {
-      await t.run(SQL_INSERT_ITEM, [item.id, item.name, item.description, item.price_credits, item.kind, item.payload, now]);
+      await t.run(SQL_INSERT_ITEM, [item.id, item.name, item.description, item.price_credits, item.kind, item.class, item.payload, now]);
     }
   });
   log.info('shop.seed.ok', { items: SEED_ITEMS.length });
@@ -149,6 +191,7 @@ export async function insertCustomItem(input: {
   description: string;
   priceCredits: number;
   kind: string;
+  class: 'product' | 'item';
   payload: object;
 }): Promise<string> {
   const id = newId('itm');
@@ -159,6 +202,7 @@ export async function insertCustomItem(input: {
     input.description,
     input.priceCredits,
     input.kind,
+    input.class,
     JSON.stringify(input.payload),
     Date.now(),
   );
@@ -205,19 +249,28 @@ type InventoryJoinRow = InventoryRow & { name: string; description: string };
 export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/shop', async (req, reply) => {
     const me = await requireAuth(req, reply);
-    const items = await q<ShopItemRow>(SQL_SELECT_ITEMS);
+    const products = await q<ShopItemRow>(SQL_SELECT_PRODUCTS);
     const inv = await q<InventoryJoinRow>(SQL_SELECT_INVENTORY, me.id);
     const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
     return reply.send({
-      items: items.map((i) => ({
+      products: products.map((i) => ({
         id: i.id,
         name: i.name,
         description: i.description,
         priceCredits: i.price_credits,
         kind: i.kind,
+        class: i.class,
       })),
       inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
       credits: wallet?.credits ?? 0,
+    });
+  });
+
+  app.get('/api/items', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const items = await q<InventoryJoinRow & { class?: string }>(SQL_SELECT_INVENTORY_ITEMS, me.id);
+    return reply.send({
+      items: items.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
     });
   });
 
@@ -227,6 +280,9 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
     const item = await one<ShopItemRow>(SQL_SELECT_ITEM, parsed.data.itemId);
     if (!item) return reply.code(404).send({ error: 'item not found' });
+    if (item.class !== 'product') {
+      return reply.code(403).send({ error: 'not-a-product', message: 'Items are earned from PVE drops or farm crafting, not purchased.' });
+    }
     const total = item.price_credits * parsed.data.qty;
     const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
     const credits = wallet?.credits ?? 0;

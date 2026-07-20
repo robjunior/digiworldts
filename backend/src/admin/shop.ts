@@ -22,13 +22,16 @@ import { log } from '../util/log.js';
 const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
-const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, kind, payload, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, kind = ?, payload = ?, enabled = ? WHERE id = ?`;
+const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, kind, class, payload, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, kind = ?, class = ?, payload = ?, enabled = ? WHERE id = ?`;
 const SQL_DELETE = `DELETE FROM shop_items WHERE id = ?`;
 
-const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket'] as const;
+const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
 type ShopKind = (typeof VALID_KINDS)[number];
+
+const VALID_CLASSES = ['product', 'item'] as const;
+type ShopClass = (typeof VALID_CLASSES)[number];
 
 export type ShopItemView = {
   id: string;
@@ -36,6 +39,7 @@ export type ShopItemView = {
   description: string;
   priceCredits: number;
   kind: ShopKind;
+  class: ShopClass;
   payload: Record<string, unknown>;
   enabled: boolean;
   createdAt: number;
@@ -46,6 +50,7 @@ export type ShopItemInput = {
   description?: string | undefined;
   priceCredits: number;
   kind: ShopKind;
+  class: ShopClass;
   payload?: Record<string, unknown> | undefined;
   enabled?: boolean | undefined;
 };
@@ -69,6 +74,7 @@ function rowToView(row: ShopItemRow): ShopItemView {
     description: row.description,
     priceCredits: row.price_credits,
     kind: row.kind as ShopKind,
+    class: row.class as ShopClass,
     payload: parsePayload(row.payload),
     enabled: row.enabled === 1,
     createdAt: row.created_at,
@@ -90,6 +96,7 @@ export type ShopItemError =
   | 'invalid-description'
   | 'invalid-price'
   | 'invalid-kind'
+  | 'invalid-class'
   | 'invalid-payload'
   | 'duplicate-name'
   | 'not-found';
@@ -107,6 +114,7 @@ function validateInput(input: ShopItemInput): ShopItemError | null {
     return 'invalid-price';
   }
   if (!VALID_KINDS.includes(input.kind)) return 'invalid-kind';
+  if (!VALID_CLASSES.includes(input.class)) return 'invalid-class';
   if (input.payload != null && (typeof input.payload !== 'object' || Array.isArray(input.payload))) {
     return 'invalid-payload';
   }
@@ -126,14 +134,15 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
     description: input.description?.trim() ?? '',
     price_credits: Math.max(0, Math.floor(input.priceCredits)),
     kind: input.kind,
+    class: input.class,
     payload: JSON.stringify(input.payload ?? {}),
     enabled: input.enabled === false ? 0 : 1,
     created_at: now,
   };
   await run(SQL_INSERT, [
-    row.id, row.name, row.description, row.price_credits, row.kind, row.payload, row.enabled, row.created_at,
+    row.id, row.name, row.description, row.price_credits, row.kind, row.class, row.payload, row.enabled, row.created_at,
   ]);
-  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind });
+  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class });
   return { ok: true, item: rowToView(row) };
 }
 
@@ -150,13 +159,14 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
     description: input.description?.trim() ?? existing.description,
     price_credits: Math.max(0, Math.floor(input.priceCredits)),
     kind: input.kind,
+    class: input.class,
     payload: JSON.stringify(input.payload ?? parsePayload(existing.payload)),
     enabled: input.enabled === true ? 1 : input.enabled === false ? 0 : existing.enabled,
   };
   await run(SQL_UPDATE, [
-    merged.name, merged.description, merged.price_credits, merged.kind, merged.payload, merged.enabled, id,
+    merged.name, merged.description, merged.price_credits, merged.kind, merged.class, merged.payload, merged.enabled, id,
   ]);
-  log.info('shop.item.update', { id, name: merged.name });
+  log.info('shop.item.update', { id, name: merged.name, class: merged.class });
   return { ok: true, item: rowToView(merged) };
 }
 
