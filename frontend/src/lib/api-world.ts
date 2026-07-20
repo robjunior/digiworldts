@@ -6,7 +6,20 @@ import { ApiError, apiFetch } from './api';
 export const WORLD_DIRECTIONS = ['up', 'down', 'left', 'right'] as const;
 export type WorldDirection = (typeof WORLD_DIRECTIONS)[number];
 
-export type WorldBiome = 'desert' | 'forest' | 'lake' | 'storm';
+export const WORLD_BIOMES = [
+  'desert',
+  'forest',
+  'lake',
+  'storm',
+  'tundra',
+  'mountain',
+  'foundry',
+  'plateau',
+  'prairie',
+  'swamp',
+  'void',
+] as const;
+export type WorldBiome = (typeof WORLD_BIOMES)[number];
 
 export type BiomeMeta = {
   readonly biome: WorldBiome;
@@ -168,5 +181,5 @@ export function actInWorldBattle(action: Action): Promise<WorldBattleActResponse
 }
 
 export function getBiomes(): readonly WorldBiome[] {
-  return ['desert', 'forest', 'lake', 'storm'] as const;
+  return WORLD_BIOMES;
 }

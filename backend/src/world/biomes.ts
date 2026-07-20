@@ -1,6 +1,18 @@
 import type { Element } from '../digimon/types.js';
 
-export const BIOMES = ['desert', 'forest', 'lake', 'storm'] as const;
+export const BIOMES = [
+  'desert',
+  'forest',
+  'lake',
+  'storm',
+  'tundra',
+  'mountain',
+  'foundry',
+  'plateau',
+  'prairie',
+  'swamp',
+  'void',
+] as const;
 export type Biome = (typeof BIOMES)[number];
 
 export const BIOME_ELEMENT: Record<Biome, Element> = {
@@ -8,6 +20,13 @@ export const BIOME_ELEMENT: Record<Biome, Element> = {
   forest: 'plant',
   lake: 'water',
   storm: 'electricity',
+  tundra: 'ice',
+  mountain: 'earth',
+  foundry: 'steel',
+  plateau: 'wind',
+  prairie: 'light',
+  swamp: 'dark',
+  void: 'null',
 };
 
 export const BIOME_LABEL: Record<Biome, string> = {
@@ -15,6 +34,13 @@ export const BIOME_LABEL: Record<Biome, string> = {
   forest: 'Verdant Reach',
   lake: 'Mirror Basin',
   storm: 'Voltcloud',
+  tundra: 'Frostspire',
+  mountain: 'Stoneridge',
+  foundry: 'Rustworks',
+  plateau: 'Skyshear',
+  prairie: 'Solaris Fields',
+  swamp: 'Nightveil',
+  void: 'The Static',
 };
 
 export const BIOME_COLOR: Record<Biome, string> = {
@@ -22,6 +48,13 @@ export const BIOME_COLOR: Record<Biome, string> = {
   forest: '#4a8f4c',
   lake: '#3a7cb8',
   storm: '#8a6ec4',
+  tundra: '#a8dceb',
+  mountain: '#8b6f47',
+  foundry: '#7c8b96',
+  plateau: '#b8ceb0',
+  prairie: '#f2e8b0',
+  swamp: '#3a2e48',
+  void: '#2a2a2f',
 };
 
 const BLOCK_SIZE = 8;
