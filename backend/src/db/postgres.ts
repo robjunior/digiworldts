@@ -23,6 +23,14 @@ import { toPgPlaceholders, type DbAdapter, type RunResult } from './adapter.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema-pg.sql');
 
+// Coerce Postgres BIGINT / INT8 to JS number. Our BIGINT columns hold ms
+// timestamps and small counts; both fit inside Number.MAX_SAFE_INTEGER for
+// the foreseeable future. Without this, `SELECT COUNT(*)` returns "0" as a
+// string and every `count === 0` / arithmetic comparison in the codebase
+// silently misbehaves (register race check, xp math, etc.).
+const PG_INT8_OID = 20;
+pg.types.setTypeParser(PG_INT8_OID, (v: string) => (v === null ? null : Number(v)));
+
 type ClientLike = pg.PoolClient | pg.Pool;
 
 export class PgAdapter implements DbAdapter {

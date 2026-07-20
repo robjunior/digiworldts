@@ -49,7 +49,10 @@ import { getCluster, closeCluster } from './cluster/index.js';
 
 async function main(): Promise<void> {
   ensureDirs();
-  db();
+  // Eager sqlite open: runs mkdir + PRAGMAs + applySchema + column migrations.
+  // Postgres has its own async adapter path (schema baked in via schema-pg.sql,
+  // no ADD COLUMN migrations needed) that opens lazily on first q()/one()/run().
+  if (config.DATABASE === 'sqlite') db();
 
   const cluster = await getCluster();
   log.info('boot.cluster', { kind: cluster.kind, nodeId: config.NODE_ID });

@@ -400,12 +400,22 @@ export function prep<TRow = unknown>(sql: string): Statement<unknown[], TRow> {
 
 import { getDb, closeDbAdapter, type DbAdapter, type RunResult } from './adapter.js';
 
+/** Both `helper(sql, a, b, c)` and `helper(sql, [a, b, c])` are used across
+ *  the codebase. better-sqlite3's spread/array duality tolerates either but
+ *  pg's driver strictly needs a flat array — one caller wrapping the array
+ *  a second time silently landed as 1 param on Postgres. Normalize here so
+ *  every legacy call site keeps working on both backends. */
+function normalizeParams(params: unknown[]): unknown[] {
+  if (params.length === 1 && Array.isArray(params[0])) return params[0];
+  return params;
+}
+
 /** Multi-row read. `params` are positional `?` bindings. */
 export async function q<TRow = Record<string, unknown>>(
   sql: string,
   ...params: unknown[]
 ): Promise<TRow[]> {
-  return (await getDb()).query<TRow>(sql, params);
+  return (await getDb()).query<TRow>(sql, normalizeParams(params));
 }
 
 /** Single-row read; `null` when nothing matched. */
@@ -413,12 +423,12 @@ export async function one<TRow = Record<string, unknown>>(
   sql: string,
   ...params: unknown[]
 ): Promise<TRow | null> {
-  return (await getDb()).one<TRow>(sql, params);
+  return (await getDb()).one<TRow>(sql, normalizeParams(params));
 }
 
 /** INSERT/UPDATE/DELETE. Returns `{ changes, lastInsertId }`. */
 export async function run(sql: string, ...params: unknown[]): Promise<RunResult> {
-  return (await getDb()).run(sql, params);
+  return (await getDb()).run(sql, normalizeParams(params));
 }
 
 /** DDL / multi-statement — no params. */
