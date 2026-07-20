@@ -394,18 +394,24 @@
 /* Post-battle EndCard modal wrapper. When EndCard is rendered with an
  * `onClose` prop, CombatBody frames it as a modal — backdrop + centered
  * container + close button. Without onClose the card renders inline
- * (legacy path preserved for any older callsite). */
+ * (legacy path preserved for any older callsite).
+ *
+ * Firefox notes: `backdrop-filter: blur()` was intentionally removed —
+ * on Firefox, combining backdrop-filter with a keyframe-animated child
+ * can leave the whole parent invisible (Bugzilla 1560664 pattern).
+ * Both animations use `animation-fill-mode: forwards` so if Firefox
+ * skips the final compositor frame the element still stays at its
+ * end-state (opacity 1) instead of reverting to `from` (opacity 0). */
 .end-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.72);
   z-index: 300;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  animation: end-modal-fade 180ms ease;
+  animation: end-modal-fade 180ms ease forwards;
 }
 
 @keyframes end-modal-fade {
@@ -424,7 +430,7 @@
 .end-modal-content .end-card {
   margin: 0;
   position: relative;
-  animation: end-modal-lift 220ms cubic-bezier(0.2, 0.9, 0.3, 1.05);
+  animation: end-modal-lift 220ms cubic-bezier(0.2, 0.9, 0.3, 1.05) forwards;
 }
 
 @keyframes end-modal-lift {

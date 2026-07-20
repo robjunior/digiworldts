@@ -144,6 +144,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
             ...(response.bitsGained !== undefined && response.bitsGained > 0 ? { bitsGained: response.bitsGained } : {}),
           };
           setPveResults(rewards);
+          setEndModalOpen(true);
         } else {
           handleServerMessage({ type: 'battle', matchId: response.battle.id, view: response.battle });
         }

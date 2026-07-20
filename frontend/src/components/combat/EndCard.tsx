@@ -1,5 +1,6 @@
 import type { BattleOutcome, BattleView } from '@digiworld/shared/battle';
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import type { ItemDrop, XpAward } from '../../lib/api-world';
@@ -85,12 +86,19 @@ export function EndCard({ battle, onNewEncounter, pveResults, onClose }: EndCard
 
   if (!onClose) return card;
 
-  return (
+  // Portal to document.body — bulletproofs `position: fixed` against any
+  // ancestor with `transform`, `filter`, `perspective`, `will-change`, or
+  // `contain: layout/paint` (all of which create a new containing block
+  // for fixed elements per the CSS spec and would relocate/clip the modal).
+  // Chromium is more forgiving here; Firefox enforces the spec strictly,
+  // so escaping the subtree makes the modal render identically on both.
+  return createPortal(
     <div className="end-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Battle results">
       <div className="end-modal-content" onClick={stopPropagation}>
         {card}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
