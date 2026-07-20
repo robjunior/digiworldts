@@ -234,79 +234,121 @@
 }
 
 .digdex-clusters {
-  display: flex;
-  flex-direction: column;
-  gap: 32px;
-  padding: 8px 0 24px;
+  display: none;
 }
 
-.digdex-cluster {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.digdex-hive {
+  padding: 24px 0 120px;
+  perspective: 1200px;
+}
+
+.digdex-hex {
   opacity: 0;
-  transform: translateY(8px);
-  animation: digdex-cluster-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1.05) forwards;
-  border-radius: 12px;
-  padding: 14px 12px 18px;
-  background: color-mix(in oklab, currentColor 3%, transparent);
-  border: 1px solid color-mix(in oklab, currentColor 10%, transparent);
+  transform: translateY(6px) scale(0.9);
+  animation: digdex-hex-in 380ms cubic-bezier(0.2, 0.9, 0.3, 1.05) forwards;
 }
 
-@keyframes digdex-cluster-in {
-  to { opacity: 1; transform: translateY(0); }
+@keyframes digdex-hex-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.digdex-cluster-fire        { color: #ef4444; }
-.digdex-cluster-water       { color: #3b82f6; }
-.digdex-cluster-plant       { color: #22c55e; }
-.digdex-cluster-ice         { color: #7dd3fc; }
-.digdex-cluster-electricity { color: #eab308; }
-.digdex-cluster-earth       { color: #a3653d; }
-.digdex-cluster-steel       { color: #94a3b8; }
-.digdex-cluster-wind        { color: #a7f3d0; }
-.digdex-cluster-light       { color: #fef3c7; }
-.digdex-cluster-dark        { color: #7c3aed; }
-.digdex-cluster-null        { color: #64748b; }
-.digdex-cluster-unknown     { color: #4b5563; }
+.digdex-search {
+  min-width: 240px;
+  max-width: 340px;
+  margin-left: auto;
+}
 
-.digdex-cluster-head {
+.digdex-island {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 40;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 4px;
+  gap: 4px;
+  padding: 6px 8px;
+  background: color-mix(in oklab, #0b0d13 78%, transparent);
+  backdrop-filter: blur(14px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  box-shadow:
+    0 20px 40px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.03),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  max-width: calc(100vw - 48px);
 }
 
-.digdex-cluster-orb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 10px currentColor;
-  flex: 0 0 auto;
+.digdex-island-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
-.digdex-cluster-title {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink, #eef2f7);
+.digdex-island-scroll {
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 60vw;
+  padding: 0 2px;
 }
 
-.digdex-cluster-count {
-  margin-left: auto;
+.digdex-island-scroll::-webkit-scrollbar { display: none; }
+
+.digdex-island-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.digdex-pill {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
   font-size: 12px;
   font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted, #8892a0);
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+  font-family: inherit;
 }
 
-.digdex-cluster-count-sep {
-  opacity: 0.5;
-  margin: 0 2px;
+.digdex-pill:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
 }
+
+.digdex-pill.is-active {
+  background: #fff;
+  color: #0b0d13;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -2px rgba(0, 0, 0, 0.4);
+}
+
+.digdex-pill-element {
+  min-width: 42px;
+  text-align: center;
+}
+
+.digdex-pill-fire.is-active        { background: #ef4444; color: #fff; }
+.digdex-pill-water.is-active       { background: #3b82f6; color: #fff; }
+.digdex-pill-plant.is-active       { background: #22c55e; color: #0b0d13; }
+.digdex-pill-ice.is-active         { background: #7dd3fc; color: #0b0d13; }
+.digdex-pill-electricity.is-active { background: #eab308; color: #0b0d13; }
+.digdex-pill-earth.is-active       { background: #a3653d; color: #fff; }
+.digdex-pill-steel.is-active       { background: #94a3b8; color: #0b0d13; }
+.digdex-pill-wind.is-active        { background: #a7f3d0; color: #0b0d13; }
+.digdex-pill-light.is-active       { background: #fef3c7; color: #0b0d13; }
+.digdex-pill-dark.is-active        { background: #7c3aed; color: #fff; }
+.digdex-pill-null.is-active        { background: #64748b; color: #fff; }
 
 /* Detail modal */
 .digdex-modal-backdrop {
