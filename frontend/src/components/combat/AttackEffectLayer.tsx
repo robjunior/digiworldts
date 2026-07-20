@@ -199,6 +199,7 @@ const FIRE_FRAGMENT_SHADER = `
   precision highp float;
   uniform float uTime;
   uniform float uOpacity;
+  uniform float uReach;
   uniform vec3 uColorCore;
   uniform vec3 uColorMid;
   uniform vec3 uColorEdge;
@@ -233,15 +234,32 @@ const FIRE_FRAGMENT_SHADER = `
 
   void main() {
     vec2 uv = vUv;
+
+    // Propagation tip — kills all pixels past the current reach front with a soft leading edge.
+    float reachMask = smoothstep(uReach + 0.04, uReach - 0.04, uv.x);
+    if (reachMask <= 0.0) discard;
+
+    // Cone shaping — nozzle at source is thin, plume at impact is full width.
+    float coneWidth = mix(0.28, 1.0, smoothstep(0.0, 1.0, uv.x));
+    float ry = (uv.y - 0.5) / max(coneWidth, 0.05);
+
+    // Turbulent scroll and wobble
     float turb = fbm(vec2(uv.x * 4.0 - uTime * 3.0, uv.y * 4.0));
     float wobble = (turb - 0.5) * 0.28;
-    float distortedAcross = 1.0 - abs(uv.y - 0.5 + wobble) * 2.0;
+    float wobbledY = ry + wobble;
+    float distortedAcross = 1.0 - abs(wobbledY) * 2.0;
     distortedAcross = smoothstep(0.0, 0.6, distortedAcross);
-    float along = smoothstep(0.02, 0.18, uv.x) * smoothstep(0.02, 0.30, 1.0 - uv.x);
+
+    // Along-beam envelope — bright at source, fades toward the traveling tip.
+    float baseAlong = smoothstep(0.02, 0.18, uv.x) * smoothstep(0.02, 0.30, uReach - uv.x + 0.05);
+    float along = baseAlong * reachMask;
+
     float flicker = fbm(vec2(uv.x * 8.0 - uTime * 5.5, uv.y * 8.0 + uTime * 2.2)) * 0.65 + 0.4;
     float intensity = distortedAcross * along * flicker * uThicknessMul;
+
     vec3 color = mix(uColorEdge, uColorMid, smoothstep(0.15, 0.5, intensity));
     color = mix(color, uColorCore, smoothstep(0.55, 1.0, intensity));
+
     gl_FragColor = vec4(color, intensity * uOpacity);
   }
 `;
@@ -272,6 +290,7 @@ function buildFireRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
       uniforms: {
         uTime: { value: 0 },
         uOpacity: { value: 1 },
+        uReach: { value: 0 },
         uColorCore: { value: new THREE.Color(layer.colorCore) },
         uColorMid: { value: new THREE.Color(layer.colorMid) },
         uColorEdge: { value: new THREE.Color(layer.colorEdge) },
@@ -325,30 +344,38 @@ function buildFireRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
       lastTickMs = elapsedMs;
       const fade = 1 - Math.pow(progress, 1.5);
       const seconds = elapsedMs / 1000;
+      const reachTime = Math.min(600, 260 + beamLength * 0.55);
+      const reach = Math.min(1, elapsedMs / reachTime);
+      const impactGate = Math.max(0, Math.min(1, (reach - 0.9) / 0.1));
       for (const material of materials) {
         material.uniforms.uTime!.value = seconds;
         material.uniforms.uOpacity!.value = fade;
+        material.uniforms.uReach!.value = reach;
       }
-      for (let i = 0; i < impactCount; i++) {
-        const p = impactParticles[i]!;
-        p.age += dt;
-        if (p.age >= p.life) {
-          const seeded = seedImpactParticle(target.x, target.y);
-          p.x = seeded.x;
-          p.y = seeded.y;
-          p.vx = seeded.vx;
-          p.vy = seeded.vy;
-          p.age = seeded.age;
-          p.life = seeded.life;
-        } else {
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
+      if (reach < 0.9) {
+        impactMaterial.opacity = 0;
+      } else {
+        for (let i = 0; i < impactCount; i++) {
+          const p = impactParticles[i]!;
+          p.age += dt;
+          if (p.age >= p.life) {
+            const seeded = seedImpactParticle(target.x, target.y);
+            p.x = seeded.x;
+            p.y = seeded.y;
+            p.vx = seeded.vx;
+            p.vy = seeded.vy;
+            p.age = seeded.age;
+            p.life = seeded.life;
+          } else {
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+          }
+          impactPositions[i * 3] = p.x;
+          impactPositions[i * 3 + 1] = p.y;
         }
-        impactPositions[i * 3] = p.x;
-        impactPositions[i * 3 + 1] = p.y;
+        impactGeometry.attributes.position!.needsUpdate = true;
+        impactMaterial.opacity = fade * impactGate;
       }
-      impactGeometry.attributes.position!.needsUpdate = true;
-      impactMaterial.opacity = fade;
     },
     dispose() {
       for (const mesh of meshes) scene.remove(mesh);
