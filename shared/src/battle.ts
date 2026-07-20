@@ -40,15 +40,30 @@ export type BattleUnit = {
   analyzed: boolean;
 };
 
+/**
+ * Server-resolved item effect. The wire-type `use_item` action carries only
+ * `itemId`; the server looks up the shop_item, decodes payload, and passes
+ * the resolved `ItemEffect` to `applyAction` via `ApplyContext.itemEffect`.
+ * Clients NEVER supply the effect — trust boundary lives in world/pve-battle.
+ */
+export type ItemEffect =
+  | { kind: 'heal_pct'; pct: number }
+  | { kind: 'en_pct'; pct: number }
+  | { kind: 'clear_ailments' }
+  | { kind: 'atk_bonus'; amount: number }
+  | { kind: 'def_bonus'; amount: number }
+  | { kind: 'revive' };
+
 export type Action =
   | { type: 'fight'; unitId: UnitId; targetId: UnitId }
   | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId }
   | { type: 'guard'; unitId: UnitId }
   | { type: 'analyze'; unitId: UnitId; targetId: UnitId }
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
+  | { type: 'use_item'; unitId: UnitId; targetId: UnitId; itemId: string }
   | { type: 'flee' };
 
-export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'analyzed' | 'capture-hit' | 'capture-miss' | null;
+export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'analyzed' | 'capture-hit' | 'capture-miss' | 'item-heal' | 'item-en' | 'item-cure' | 'item-buff' | 'item-revive' | null;
 
 export type EventBase = { at: number; round: number };
 

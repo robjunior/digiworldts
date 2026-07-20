@@ -20,7 +20,7 @@ const SQL_UPSERT_POSITION = `
 `;
 const SQL_SELECT_PARTY = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index`;
 const SQL_COUNT_ALIVE_PARTY = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ? AND status = 'party' AND (revive_at IS NULL OR revive_at <= ?)`;
-const SQL_SELECT_ENABLED_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1`;
+const SQL_SELECT_ENABLED_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'item'`;
 
 const ENCOUNTER_RATE = 0.18;
 const ITEM_DROP_RATE = 0.08;
@@ -268,7 +268,7 @@ type LootRuleRow = { item_id: string; drop_pct: number; qty_min: number; qty_max
 // staying next to its single call site.
 const LOOT_RULE_QUERY_TEMPLATE = `SELECT l.item_id, l.drop_pct, l.qty_min, l.qty_max, s.name
     FROM catalog_loot_entries l
-    JOIN shop_items s ON s.id = l.item_id AND s.enabled = 1
+    JOIN shop_items s ON s.id = l.item_id AND s.enabled = 1 AND s.class = 'item'
     WHERE l.catalog_id IN (__PLACEHOLDERS__)`;
 
 export async function rollLootForCatalogIds(catalogIds: readonly string[]): Promise<ItemDrop[]> {

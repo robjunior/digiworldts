@@ -49,6 +49,7 @@ import {
   type BattleView,
   type EnemyUnitView,
   type FriendlyUnitView,
+  type ItemEffect,
   type SlotIndex,
   type TurnEntry,
   type UnitId,
@@ -300,11 +301,16 @@ export type ApplyErrorCode =
   | 'target-invalid'
   | 'skill-invalid'
   | 'no-energy'
-  | 'battle-over';
+  | 'battle-over'
+  | 'item-invalid';
 
 export type ApplyResult =
   | { ok: true; battle: Battle; events: BattleEvent[] }
   | { ok: false; error: string; code: ApplyErrorCode };
+
+export type ApplyContext = {
+  readonly itemEffect?: ItemEffect;
+};
 
 /**
  * Apply one action from the CURRENT turn's actor. Validates:
@@ -321,6 +327,7 @@ export function applyAction(
   battle: Battle,
   actingSide: BattleSide,
   action: Action,
+  ctx?: ApplyContext,
 ): ApplyResult {
   if (battle.status !== 'active') return { ok: false, error: 'battle already ended', code: 'battle-over' };
 
@@ -376,6 +383,43 @@ export function applyAction(
       actorName: actor.name,
       action,
       cue: null,
+    });
+    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
+    tickActorAilments(battle, actor);
+    advanceTurnQueue(battle);
+    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
+  }
+
+  if (action.type === 'use_item') {
+    if (battle.mode !== 'pve') {
+      return { ok: false, error: 'items are PVE-only', code: 'item-invalid' };
+    }
+    const effect = ctx?.itemEffect;
+    if (!effect) {
+      return { ok: false, error: 'item effect not resolved server-side', code: 'item-invalid' };
+    }
+    const itemTarget = unitBy(battle, action.targetId);
+    if (!itemTarget || itemTarget.side !== actingSide) {
+      return { ok: false, error: 'item target must be your own Digimon', code: 'target-invalid' };
+    }
+    if (effect.kind !== 'revive' && itemTarget.hp <= 0) {
+      return { ok: false, error: 'target is defeated (need a revive)', code: 'target-invalid' };
+    }
+    if (effect.kind === 'revive' && itemTarget.hp > 0) {
+      return { ok: false, error: 'target is not defeated', code: 'target-invalid' };
+    }
+    const cue: ActionCue = applyItemEffect(itemTarget, effect);
+    const now = Date.now();
+    pushEvent(battle, {
+      at: now,
+      round: battle.round,
+      type: 'action',
+      actor: actor.id,
+      actorName: actor.name,
+      action,
+      targetId: itemTarget.id,
+      targetName: itemTarget.name,
+      cue,
     });
     battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
     tickActorAilments(battle, actor);
@@ -596,6 +640,38 @@ function applyAilment(unit: BattleUnit, kind: Ailment, turns: number): void {
     existing.turnsLeft = Math.max(existing.turnsLeft, turns);
   } else {
     unit.ailments.push({ kind, turnsLeft: turns });
+  }
+}
+
+function applyItemEffect(target: BattleUnit, effect: ItemEffect): ActionCue {
+  switch (effect.kind) {
+    case 'heal_pct': {
+      const restored = Math.round(target.hpMax * effect.pct);
+      target.hp = clamp(target.hp + restored, 0, target.hpMax);
+      return 'item-heal';
+    }
+    case 'en_pct': {
+      const restored = Math.round(target.enMax * effect.pct);
+      target.en = clamp(target.en + restored, 0, target.enMax);
+      return 'item-en';
+    }
+    case 'clear_ailments': {
+      target.ailments = [];
+      return 'item-cure';
+    }
+    case 'atk_bonus': {
+      target.atk += effect.amount;
+      return 'item-buff';
+    }
+    case 'def_bonus': {
+      target.def += effect.amount;
+      return 'item-buff';
+    }
+    case 'revive': {
+      target.hp = target.hpMax;
+      target.ailments = [];
+      return 'item-revive';
+    }
   }
 }
 

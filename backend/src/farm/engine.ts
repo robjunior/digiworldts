@@ -13,7 +13,7 @@
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
  */
-import { one, q, tx, type FarmBuildingRow, type ResourceRow, type WalletRow } from '../db/index.js';
+import { one, q, tx, type FarmBuildingRow, type FarmRecipeRow, type ResourceRow, type ShopItemRow, type WalletRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
@@ -52,6 +52,17 @@ const SQL_SELECT_BITS = `SELECT amount FROM resources WHERE user_id = ? AND reso
 const SQL_DEDUCT_BITS = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = 'Bits' AND amount >= ?`;
 const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
+const SQL_SELECT_RECIPES = `SELECT r.*, s.name AS item_name, s.description AS item_description
+     FROM farm_recipes r JOIN shop_items s ON s.id = r.item_id
+     WHERE r.enabled = 1 AND s.enabled = 1 AND s.class = 'item'
+     ORDER BY r.meat_cost + r.bits_cost + r.data_cost ASC`;
+const SQL_SELECT_RECIPE = `SELECT * FROM farm_recipes WHERE id = ? AND enabled = 1`;
+const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_DEDUCT_RESOURCE = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = ? AND amount >= ?`;
+const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
+const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
 
 function computeProduced(row: FarmBuildingRow, now: number): number {
   const elapsed = Math.max(0, now - row.last_touch);
@@ -160,6 +171,107 @@ export async function collectAllBuildings(userId: string): Promise<CollectResult
 }
 
 export type UpgradeError = 'not-found' | 'insufficient-bits';
+
+const SEED_RECIPES: ReadonlyArray<{ id: string; item_id: string; meat: number; bits: number; data: number }> = [
+  { id: 'rcp-heal-small', item_id: 'itm-heal-small', meat: 5, bits: 10, data: 0 },
+  { id: 'rcp-energy-drink', item_id: 'itm-energy-drink', meat: 0, bits: 15, data: 5 },
+  { id: 'rcp-status-cure', item_id: 'itm-status-cure', meat: 10, bits: 10, data: 5 },
+  { id: 'rcp-atk-buff', item_id: 'itm-atk-buff', meat: 20, bits: 20, data: 0 },
+  { id: 'rcp-def-buff', item_id: 'itm-def-buff', meat: 20, bits: 20, data: 0 },
+  { id: 'rcp-heal-large', item_id: 'itm-heal-large', meat: 20, bits: 40, data: 10 },
+  { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30 },
+];
+
+export async function seedFarmRecipes(): Promise<void> {
+  const now = Date.now();
+  await tx(async (t) => {
+    for (const recipe of SEED_RECIPES) {
+      await t.run(SQL_INSERT_RECIPE, [recipe.id, recipe.item_id, recipe.meat, recipe.bits, recipe.data, now]);
+    }
+  });
+  log.info('farm.recipes.seed.ok', { count: SEED_RECIPES.length });
+}
+
+export type RecipeView = {
+  readonly id: string;
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly itemDescription: string;
+  readonly meatCost: number;
+  readonly bitsCost: number;
+  readonly dataCost: number;
+  readonly canCraft: boolean;
+};
+
+export async function readRecipes(userId: string): Promise<{ recipes: RecipeView[]; balances: Record<ResourceKind, number> }> {
+  const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+  for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
+  type RecipeJoinRow = FarmRecipeRow & { item_name: string; item_description: string };
+  const rows = await q<RecipeJoinRow>(SQL_SELECT_RECIPES);
+  const recipes: RecipeView[] = rows.map((row) => ({
+    id: row.id,
+    itemId: row.item_id,
+    itemName: row.item_name,
+    itemDescription: row.item_description,
+    meatCost: row.meat_cost,
+    bitsCost: row.bits_cost,
+    dataCost: row.data_cost,
+    canCraft: balances.Meat >= row.meat_cost && balances.Bits >= row.bits_cost && balances.Data >= row.data_cost,
+  }));
+  return { recipes, balances };
+}
+
+export type CraftError = 'not-found' | 'item-missing' | 'insufficient-resources';
+
+export async function craftItem(userId: string, recipeId: string): Promise<
+  | { ok: true; itemId: string; itemName: string; balances: Record<ResourceKind, number> }
+  | { ok: false; error: CraftError; missing?: Partial<Record<ResourceKind, number>> }
+> {
+  const recipe = await one<FarmRecipeRow>(SQL_SELECT_RECIPE, recipeId);
+  if (!recipe) return { ok: false, error: 'not-found' };
+  const item = await one<ShopItemRow>(SQL_SELECT_SHOP_ITEM, recipe.item_id);
+  if (!item) return { ok: false, error: 'item-missing' };
+
+  const now = Date.now();
+  let deficit: Partial<Record<ResourceKind, number>> | null = null;
+
+  await tx(async (t) => {
+    const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+    for (const r of await t.query<ResourceRow>(SQL_SELECT_RESOURCES, [userId])) balances[r.resource] = r.amount;
+    const missing: Partial<Record<ResourceKind, number>> = {};
+    if (balances.Meat < recipe.meat_cost) missing.Meat = recipe.meat_cost - balances.Meat;
+    if (balances.Bits < recipe.bits_cost) missing.Bits = recipe.bits_cost - balances.Bits;
+    if (balances.Data < recipe.data_cost) missing.Data = recipe.data_cost - balances.Data;
+    if (Object.keys(missing).length > 0) {
+      deficit = missing;
+      return;
+    }
+    const costs: Array<[ResourceKind, number]> = [
+      ['Meat', recipe.meat_cost],
+      ['Bits', recipe.bits_cost],
+      ['Data', recipe.data_cost],
+    ];
+    for (const [res, cost] of costs) {
+      if (cost <= 0) continue;
+      const info = await t.run(SQL_DEDUCT_RESOURCE, [cost, now, userId, res, cost]);
+      if (info.changes === 0) {
+        deficit = { [res]: cost };
+        throw new Error('craft-race');
+      }
+    }
+    await t.run(SQL_UPSERT_INVENTORY_ITEM, [userId, recipe.item_id, now]);
+  }).catch((err: unknown) => {
+    if (err instanceof Error && err.message === 'craft-race') return;
+    throw err;
+  });
+
+  if (deficit) return { ok: false, error: 'insufficient-resources', missing: deficit };
+
+  const balancesAfter: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+  for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
+  log.info('farm.craft.ok', { userId, recipeId, itemId: recipe.item_id });
+  return { ok: true, itemId: recipe.item_id, itemName: item.name, balances: balancesAfter };
+}
 
 /**
  * Upgrade a building: +25% rate, +20% capacity, +60% next upgrade cost.

@@ -1,5 +1,6 @@
 import type { Action, BattleEvent, BattleSide, BattleView, EnemyUnitView, FriendlyUnitView, TurnEntry, UnitId } from '@digiworld/shared/battle';
 import type { WSClientMessage } from '@digiworld/shared/ws';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { CbtParty } from './CbtParty';
@@ -77,6 +78,7 @@ export function useCombatBattle(fetchOnMount: boolean): { readonly loadError: st
 
 export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Element | null {
   const { send, readyState } = useWebSocket();
+  const queryClient = useQueryClient();
   const activeBattle = useWsStore((state) => state.activeBattle);
   const battleEvents = useWsStore((state) => state.battleEvents);
   const handleServerMessage = useWsStore((state) => state.handleServerMessage);
@@ -136,6 +138,9 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
         if (newEvents.length > 0) {
           handleServerMessage({ type: 'event', matchId: response.battle.id, events: newEvents });
         }
+        if (action.type === 'use_item') {
+          void queryClient.invalidateQueries({ queryKey: ['items'] });
+        }
         if (response.ended) {
           handleServerMessage({ type: 'end', matchId: response.battle.id, view: response.battle, outcome: response.battle.outcome ?? 'abandoned' });
           const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } = {
@@ -161,7 +166,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
       send(msg);
     }
     setCommandMode('menu');
-  }, [activeBattle, handleServerMessage, send]);
+  }, [activeBattle, handleServerMessage, queryClient, send]);
 
   if (activeBattle === null) {
     return null;
@@ -184,12 +189,15 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
               mode={commandMode}
               actor={actor}
               target={selectedTarget}
+              friendly={activeBattle.friendly}
               yourTurn={canAct}
+              pveMode={activeBattle.mode === 'pve'}
               onMode={setCommandMode}
               onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
               onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
               onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
               onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
+              onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
               onFlee={() => dispatchAction({ type: 'flee' })}
             />
           </div>

@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import type { Action } from '../battle/types.js';
 import { log } from '../util/log.js';
@@ -22,6 +23,17 @@ import {
   startPveBattleFromEncounter,
 } from './pve-battle.js';
 import { adjacentQuestAt, blockingWorldObjectAt } from '../quests/repo.js';
+
+const UnitIdSchema = z.string().regex(/^[ab]:[0-5]$/);
+const ActionSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('fight'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
+  z.object({ type: z.literal('skill'), unitId: UnitIdSchema, skillId: z.string().min(1), targetId: UnitIdSchema }),
+  z.object({ type: z.literal('guard'), unitId: UnitIdSchema }),
+  z.object({ type: z.literal('analyze'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
+  z.object({ type: z.literal('capture'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
+  z.object({ type: z.literal('use_item'), unitId: UnitIdSchema, targetId: UnitIdSchema, itemId: z.string().min(1) }),
+  z.object({ type: z.literal('flee') }),
+]);
 
 const VIEW_RADIUS = 18;
 
@@ -141,11 +153,11 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
 
   app.post<{ Body: { action?: Action } }>('/api/world/battle/act', async (req, reply) => {
     const user = await requireAuth(req, reply);
-    const action = req.body?.action;
-    if (!action || typeof action !== 'object' || typeof action.type !== 'string') {
-      return reply.code(400).send({ error: 'invalid-input', message: 'action required' });
+    const parsed = ActionSchema.safeParse(req.body?.action);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid-input', message: parsed.error.issues[0]?.message ?? 'action required' });
     }
-    const result = await actInPveBattle(user.id, action);
+    const result = await actInPveBattle(user.id, parsed.data as Action);
     if (!result.ok) {
       const status = result.code === 'no-battle' ? 404 : 400;
       return reply.code(status).send({ error: result.error, ...(result.code ? { code: result.code } : {}) });

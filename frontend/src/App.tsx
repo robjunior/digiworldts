@@ -10,6 +10,7 @@ import { Combat } from './routes/Combat';
 import { Digdex } from './routes/Digdex';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
+import { Items } from './routes/Items';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
@@ -65,6 +66,7 @@ export function App(): JSX.Element {
           <Route path="/farm" element={<Farm />} />
           <Route path="/training" element={<Training />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/items" element={<Items />} />
           <Route path="/market" element={<Market />} />
           <Route path="/nursery" element={<Nursery />} />
           <Route path="/world" element={<World />} />

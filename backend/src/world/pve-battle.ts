@@ -5,8 +5,8 @@ import {
   type Loadout,
   type LoadoutMember,
 } from '../battle/engine.js';
-import type { Action, Battle, BattleView } from '../battle/types.js';
-import { q, run, tx, type RosterRow } from '../db/index.js';
+import type { Action, Battle, BattleView, ItemEffect } from '../battle/types.js';
+import { one, q, run, tx, type RosterRow, type ShopItemRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
@@ -21,6 +21,10 @@ const MAX_WILD_ACTIONS_PER_TURN = 6;
 const ITEM_DROP_ON_WIN_RATE = 0.20;
 
 const SQL_SELECT_PARTY = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index`;
+const SQL_SELECT_SHOP_ITEM_FOR_USE = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
+const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
+const SQL_REFUND_INVENTORY = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
 const SQL_INSERT_MON = `
   INSERT INTO player_roster
       (id, user_id, catalog_id, nickname,
@@ -72,6 +76,34 @@ function bitsForWin(defeated: readonly { level: number }[]): number {
 }
 
 const activeByUser = new Map<string, Battle>();
+
+function decodeItemEffect(payloadJson: string): ItemEffect | null {
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(payloadJson) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  if (typeof payload.heal_pct === 'number' && payload.heal_pct > 0) {
+    return { kind: 'heal_pct', pct: payload.heal_pct };
+  }
+  if (typeof payload.en_pct === 'number' && payload.en_pct > 0) {
+    return { kind: 'en_pct', pct: payload.en_pct };
+  }
+  if (payload.clear_ailments === true) {
+    return { kind: 'clear_ailments' };
+  }
+  if (typeof payload.atk_bonus === 'number' && payload.atk_bonus > 0) {
+    return { kind: 'atk_bonus', amount: payload.atk_bonus };
+  }
+  if (typeof payload.def_bonus === 'number' && payload.def_bonus > 0) {
+    return { kind: 'def_bonus', amount: payload.def_bonus };
+  }
+  if (payload.revive === true) {
+    return { kind: 'revive' };
+  }
+  return null;
+}
 
 function advanceWildAI(battle: Battle): void {
   let safetyCount = 0;
@@ -407,8 +439,31 @@ async function awardPveBattleRewards(
 export async function actInPveBattle(userId: string, action: Action): Promise<ActResult> {
   const battle = activeByUser.get(userId);
   if (!battle) return { ok: false, error: 'no active PVE battle', code: 'no-battle' };
-  const result = applyAction(battle, 'a', action);
-  if (!result.ok) return { ok: false, error: result.error, ...(result.code ? { code: result.code } : {}) };
+
+  let itemContext: { readonly itemEffect: ItemEffect; readonly itemId: string } | null = null;
+  if (action.type === 'use_item') {
+    const item = await one<ShopItemRow>(SQL_SELECT_SHOP_ITEM_FOR_USE, action.itemId);
+    if (!item) return { ok: false, error: 'item not found or not a combat item', code: 'item-invalid' };
+    const effect = decodeItemEffect(item.payload);
+    if (!effect) return { ok: false, error: 'item has no in-combat effect', code: 'item-invalid' };
+    const decrementInfo = await run(SQL_DECREMENT_INVENTORY, Date.now(), userId, action.itemId);
+    if (decrementInfo.changes === 0) {
+      return { ok: false, error: 'you do not own that item', code: 'item-invalid' };
+    }
+    itemContext = { itemEffect: effect, itemId: action.itemId };
+  }
+
+  const result = applyAction(battle, 'a', action, itemContext ? { itemEffect: itemContext.itemEffect } : undefined);
+  if (!result.ok) {
+    if (itemContext) {
+      await run(SQL_REFUND_INVENTORY, userId, itemContext.itemId, Date.now());
+    }
+    return { ok: false, error: result.error, ...(result.code ? { code: result.code } : {}) };
+  }
+
+  if (itemContext) {
+    log.info('world.pve.item-use', { userId, itemId: itemContext.itemId, effect: itemContext.itemEffect.kind });
+  }
 
   if (battle.status === 'active') {
     advanceWildAI(battle);

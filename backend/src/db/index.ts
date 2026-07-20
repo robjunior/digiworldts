@@ -382,6 +382,16 @@ export type CatalogLootRow = {
   updated_at: number;
 };
 
+export type FarmRecipeRow = {
+  id: string;
+  item_id: string;
+  meat_cost: number;
+  bits_cost: number;
+  data_cost: number;
+  enabled: 0 | 1;
+  created_at: number;
+};
+
 // ============================================================================
 // Lazy prepared-statement helper. Statements bind to the current db handle;
 // we prepare on first use to avoid open-before-ready hazards during tests.

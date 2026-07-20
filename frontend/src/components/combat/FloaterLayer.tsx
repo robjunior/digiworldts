@@ -38,6 +38,15 @@ function floaterText(floater: Floater): string {
     case 'weak':
     case 'attr-advantage':
       return `${floater.amount} !`;
+    case 'item-heal':
+    case 'item-revive':
+      return `+${floater.amount} HP`;
+    case 'item-en':
+      return `+${floater.amount} EN`;
+    case 'item-cure':
+      return 'Cured';
+    case 'item-buff':
+      return `+${floater.amount}`;
     case 'resist':
     case 'attr-disadvantage':
     case 'chain':

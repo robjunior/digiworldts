@@ -13,6 +13,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/farm', label: 'Farm' },
   { to: '/training', label: 'Training' },
   { to: '/shop', label: 'Shop' },
+  { to: '/items', label: 'Items' },
   { to: '/market', label: 'Market' },
   { to: '/nursery', label: 'Nursery' },
 ];

@@ -79,6 +79,8 @@ function eventIcon(event: BattleEvent): LogIcon {
           return 'guard';
         case 'analyze':
           return 'analyse';
+        case 'use_item':
+          return 'status';
         case 'flee':
           return 'flee';
         default:
@@ -140,6 +142,8 @@ function actionText(event: Extract<BattleEvent, { type: 'action' }>): string {
       return event.analyzedInfo ? `Analysed ${event.analyzedInfo.name} · HP ${event.analyzedInfo.hp}/${event.analyzedInfo.hpMax} · ${event.analyzedInfo.element}.` : `${actor} analysed ${target}.`;
     case 'capture':
       return `${actor} attempted capture on ${target}.`;
+    case 'use_item':
+      return `${actor} used an item on ${target}.`;
     case 'flee':
       return `${actor} fled the battle.`;
     default:
