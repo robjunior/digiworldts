@@ -404,7 +404,7 @@ CREATE INDEX IF NOT EXISTS idx_onboarding_teams_enabled_order
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS world_position (
   user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  world_seed    INTEGER NOT NULL,
+  world_seed    BIGINT NOT NULL,
   x             INTEGER NOT NULL DEFAULT 0,
   y             INTEGER NOT NULL DEFAULT 0,
   steps_taken   INTEGER NOT NULL DEFAULT 0,
