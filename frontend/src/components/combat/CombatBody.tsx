@@ -16,6 +16,25 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 
 const FLOATER_TTL_MS = 800;
+const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
+
+function readAutobattlePref(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(AUTOBATTLE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeAutobattlePref(on: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AUTOBATTLE_STORAGE_KEY, on ? '1' : '0');
+  } catch {
+    return;
+  }
+}
 
 export type CombatBodyProps = {
   readonly fetchOnMount?: boolean;
@@ -90,10 +109,14 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [, setLoadError] = useState<string | null>(null);
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
   const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
-  const [autobattle, setAutobattle] = useState<boolean>(false);
+  const [autobattle, setAutobattle] = useState<boolean>(() => readAutobattlePref());
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
   const autobattleKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    writeAutobattlePref(autobattle);
+  }, [autobattle]);
 
   const actor = useMemo(() => activeBattle ? activeFriendly(activeBattle) : null, [activeBattle]);
   const selectedTarget = useMemo(() => activeBattle ? selectedEnemy(activeBattle, selectedTargetId) : null, [activeBattle, selectedTargetId]);
