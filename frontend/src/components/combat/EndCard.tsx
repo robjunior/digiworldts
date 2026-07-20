@@ -230,12 +230,16 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
               const before = award.statsBefore[k as StatKey];
               const after = award.statsAfter[k as StatKey];
               const gain = after - before;
+              const changed = gain !== 0;
               return (
-                <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : ''}`}>
+                <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : gain < 0 ? 'is-down' : ''}`}>
                   <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
-                  <span className="pve-lvlup-stat-old">{before}</span>
-                  <span className="pve-lvlup-stat-arrow">→</span>
                   <b className="pve-lvlup-stat-new">{after}</b>
+                  {changed ? (
+                    <span className="pve-lvlup-stat-old" title="previous value">{before}</span>
+                  ) : (
+                    <span className="pve-lvlup-stat-old pve-lvlup-stat-old--same" aria-hidden="true">—</span>
+                  )}
                 </div>
               );
             })}

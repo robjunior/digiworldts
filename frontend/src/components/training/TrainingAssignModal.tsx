@@ -2,7 +2,7 @@ import type { TrainingStat } from '@digiworld/shared/digimon';
 import { useMemo, useState } from 'react';
 
 import type { TrainingRosterEntry, TrainingStationView, TrainingView } from '../../lib/api-training';
-import { formatDuration, formatStat, moodDeltaForMinutes, previewGain } from './training-utils';
+import { computeGainsPreview, formatDuration, formatStat, moodDeltaForMinutes, previewGainsText } from './training-utils';
 
 const PICKER_PER_PAGE = 6;
 
@@ -58,7 +58,7 @@ export function TrainingAssignModal(props: TrainingAssignModalProps): JSX.Elemen
           <div id="assign-dur-picker" className="btn-group">
             {(view?.durationPresetsMin ?? []).map((duration) => <PickButton key={duration} label={formatDuration(duration)} active={durationMin === duration} onClick={() => setDurationMin(duration)} />)}
           </div>
-          <div id="training-assign-preview" className="training-assign-preview">{previewText(selectedMon, durationMin, statKinds.length, maxStats)}</div>
+          <div id="training-assign-preview" className="training-assign-preview">{previewText(selectedMon, durationMin, statKinds, maxStats)}</div>
           <div className="training-modal-actions">
             <button className="btn btn--secondary" type="button" onClick={onClose}>Cancel</button>
             <button className="btn" type="button" disabled={!ready || pending || station === null || durationMin === null || monId === null} onClick={() => station && durationMin && monId && onConfirm({ buildingId: station.buildingId, monId, statKinds, durationMin })}>Confirm</button>
@@ -95,13 +95,18 @@ function Pagination({ page, totalPages, totalItems, onPage }: { readonly page: n
 }
 
 function toggleStat(stats: readonly TrainingStat[], stat: TrainingStat, maxStats: number): readonly TrainingStat[] {
+  if (maxStats === 1) {
+    if (stats[0] === stat) return [];
+    return [stat];
+  }
   if (stats.includes(stat)) return stats.filter((item) => item !== stat);
   if (stats.length >= maxStats) return stats;
   return [...stats, stat];
 }
 
-function previewText(mon: TrainingRosterEntry | null, durationMin: number | null, statCount: number, maxStats: number): string {
-  if (mon === null || durationMin === null || statCount !== maxStats) return 'Select a Digimon, stats, and duration to see preview.';
+function previewText(mon: TrainingRosterEntry | null, durationMin: number | null, statKinds: readonly TrainingStat[], maxStats: number): string {
+  if (mon === null || durationMin === null || statKinds.length !== maxStats) return 'Select a Digimon, stats, and duration to see preview.';
   const moodDelta = moodDeltaForMinutes(durationMin);
-  return `This will grant approximately +${previewGain(mon.stage, durationMin, statCount)} per stat, mood ${moodDelta > 0 ? '+' : ''}${moodDelta}.`;
+  const gains = computeGainsPreview(durationMin, statKinds);
+  return `This will grant ${previewGainsText(gains, statKinds)}. Mood ${moodDelta > 0 ? '+' : ''}${moodDelta}.`;
 }

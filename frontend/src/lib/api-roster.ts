@@ -56,7 +56,7 @@ export type TrainingActiveView = {
   readonly finishesAt: number;
   readonly progressPct: number;
   readonly readyToCollect: boolean;
-  readonly previewGainPerStat: number;
+  readonly previewGains: Partial<Record<string, number>>;
   readonly previewMoodDelta: number;
 };
 

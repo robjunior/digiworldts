@@ -15,6 +15,7 @@
  */
 import Fastify, { type FastifyError } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
+import fastifyCors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -105,6 +106,18 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyCookie, { secret: config.SESSION_SECRET });
+  const corsOrigins = config.CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+  if (corsOrigins.length > 0) {
+    await app.register(fastifyCors, {
+      origin: corsOrigins.includes('*') ? true : corsOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      exposedHeaders: ['Set-Cookie'],
+      maxAge: 86400,
+    });
+    log.info('boot.cors', { origins: corsOrigins });
+  }
   await app.register(fastifyWebsocket, {
     options: { maxPayload: 32 * 1024 },
   });

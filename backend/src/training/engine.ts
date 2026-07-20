@@ -7,15 +7,15 @@
  *   player_roster.{hp,en,atk,def,int,spd}_bonus   ← stat writes on collect
  *   player_roster.mood            ← 0-100, decays on long sessions
  *
- * Reward per stat = BASE_STAT_PER_HOUR × duration_hours × STAGE_REWARD_MULT[stage] / statCount
- *   basic station trains 1 stat, premium trains 2 (split evenly).
+ * Gain per stat = MAX_STAT_GAIN_8H[stat] × (durationHours / 8) / statKinds.length
+ *   HP=200, EN=100, combat=50 at 8h. Training two stats halves each gain.
+ *   Basic station trains 1 stat; premium trains 2.
  * Mood delta: <30min +3 / 30-120min 0 / 120-240min -5 / 240min+ -15.
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
  */
 import { one, q, run, tx, type FarmBuildingRow, type RosterRow, type TrainingSessionRow } from '../db/index.js';
 import {
-  STAGE_REWARD_MULT,
   TRAINING_STATS,
   moodState,
   type MoodState,
@@ -29,11 +29,19 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
 
-const BASE_STAT_PER_HOUR = 4;
 const MS_PER_HOUR = 3_600_000;
 const MIN_DURATION_MS = 5 * 60 * 1000;
 const MAX_DURATION_MS = 8 * 60 * 60 * 1000;
 const DURATION_PRESETS_MIN = [5, 30, 120, 480] as const;
+
+const MAX_STAT_GAIN_8H: Record<TrainingStat, number> = {
+  hp: 200,
+  en: 100,
+  atk: 50,
+  def: 50,
+  int: 50,
+  spd: 50,
+};
 
 const SQL_SELECT_TRAINING_BUILDINGS = `SELECT * FROM farm_buildings WHERE user_id = ? AND building_type IN ('training', 'training_premium') ORDER BY created_at`;
 const SQL_SELECT_BUILDING = `SELECT * FROM farm_buildings WHERE id = ? AND user_id = ?`;
@@ -62,7 +70,7 @@ export type TrainingActiveView = {
   finishesAt: number;
   progressPct: number;
   readyToCollect: boolean;
-  previewGainPerStat: number;
+  previewGains: Partial<Record<TrainingStat, number>>;
   previewMoodDelta: number;
 };
 
@@ -108,10 +116,16 @@ function moodDeltaFor(durationMs: number): number {
   return -15;
 }
 
-function computeStatGain(stage: Stage, durationMs: number, statCount: number): number {
-  const hours = durationMs / MS_PER_HOUR;
-  const raw = BASE_STAT_PER_HOUR * hours * STAGE_REWARD_MULT[stage];
-  return Math.max(1, Math.round(raw / statCount));
+function computeGains(durationMs: number, statKinds: readonly TrainingStat[]): Partial<Record<TrainingStat, number>> {
+  const hours = Math.min(8, Math.max(0, durationMs / MS_PER_HOUR));
+  const durationScale = hours / 8;
+  const statCount = Math.max(1, statKinds.length);
+  const result: Partial<Record<TrainingStat, number>> = {};
+  for (const stat of statKinds) {
+    const max = MAX_STAT_GAIN_8H[stat];
+    result[stat] = Math.max(1, Math.round((max * durationScale) / statCount));
+  }
+  return result;
 }
 
 export async function readTraining(userId: string): Promise<TrainingView> {
@@ -148,7 +162,7 @@ export async function readTraining(userId: string): Promise<TrainingView> {
             finishesAt: session.started_at + session.duration_ms,
             progressPct: progressPct(session.started_at, session.duration_ms, now),
             readyToCollect: now >= session.started_at + session.duration_ms,
-            previewGainPerStat: computeStatGain(tpl.stage, session.duration_ms, statKinds.length),
+            previewGains: computeGains(session.duration_ms, statKinds),
             previewMoodDelta: moodDeltaFor(session.duration_ms),
           };
         }
@@ -297,11 +311,9 @@ export async function collectTraining(userId: string, buildingId: string): Promi
   const tpl = catalog.digimons.find((t) => t.id === mon.catalog_id);
   const stage: Stage = tpl?.stage ?? 'Rookie';
   const statKinds = JSON.parse(session.stat_kinds) as TrainingStat[];
-  const gainPer = computeStatGain(stage, session.duration_ms, statKinds.length);
+  const gained = computeGains(session.duration_ms, statKinds);
   const moodDelta = moodDeltaFor(session.duration_ms);
   const newMood = Math.max(0, Math.min(100, mon.mood + moodDelta));
-  const gained: Partial<Record<TrainingStat, number>> = {};
-  for (const k of statKinds) gained[k] = gainPer;
   const rawBonus = {
     hp: mon.hp_bonus + (gained.hp ?? 0),
     en: mon.en_bonus + (gained.en ?? 0),

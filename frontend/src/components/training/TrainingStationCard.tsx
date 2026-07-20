@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 
 import type { RosterView } from '../../lib/api';
 import type { TrainingStationView } from '../../lib/api-training';
-import { clamp, formatCountdown, formatStat, moodColor } from './training-utils';
+import { clamp, formatCountdown, formatStat, moodColor, previewGainsText } from './training-utils';
 
 type TrainingStationCardProps = {
   readonly station: TrainingStationView;
@@ -60,7 +60,7 @@ export function TrainingStationCard(props: TrainingStationCardProps): JSX.Elemen
             <i style={fillStyle} />
           </div>
         </div>
-        <div className="training-preview-line">Will gain <b>+{active.previewGainPerStat}</b> per stat. Mood {active.previewMoodDelta >= 0 ? '+' : ''}{active.previewMoodDelta}.</div>
+        <div className="training-preview-line">Will gain {previewGainsText(active.previewGains, active.statKinds)}. Mood {active.previewMoodDelta >= 0 ? '+' : ''}{active.previewMoodDelta}.</div>
         <div className="foot">
           <button className="btn btn--secondary" type="button" disabled={pending} onClick={() => onCancel(station.buildingId)}>Cancel</button>
           <button className="btn btn-collect" type="button" disabled={!ready || pending} onClick={() => onCollect(station.buildingId)}>Collect</button>

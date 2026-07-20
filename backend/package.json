@@ -17,6 +17,7 @@
   "dependencies": {
     "@digiworld/shared": "workspace:*",
     "@fastify/cookie": "^11.1.1",
+    "@fastify/cors": "^11.3.0",
     "@fastify/static": "^10.1.0",
     "@fastify/websocket": "^11.3.0",
     "argon2": "^0.44.0",
