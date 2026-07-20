@@ -90,8 +90,10 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [, setLoadError] = useState<string | null>(null);
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
   const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
+  const [autobattle, setAutobattle] = useState<boolean>(false);
   const arenaRef = useRef<HTMLElement | null>(null);
   const seenEventCountRef = useRef(0);
+  const autobattleKeyRef = useRef<string | null>(null);
 
   const actor = useMemo(() => activeBattle ? activeFriendly(activeBattle) : null, [activeBattle]);
   const selectedTarget = useMemo(() => activeBattle ? selectedEnemy(activeBattle, selectedTargetId) : null, [activeBattle, selectedTargetId]);
@@ -168,17 +170,50 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
     setCommandMode('menu');
   }, [activeBattle, handleServerMessage, queryClient, send]);
 
+  useEffect(() => {
+    if (activeBattle?.status !== 'active') {
+      autobattleKeyRef.current = null;
+    }
+  }, [activeBattle?.status, activeBattle?.id]);
+
+  useEffect(() => {
+    if (!autobattle) return;
+    if (!activeBattle || activeBattle.mode !== 'pve' || activeBattle.status !== 'active') return;
+    if (!activeBattle.yourTurn || actor === null || actor.down) return;
+    const turnKey = `${activeBattle.id}:${activeBattle.round}:${activeBattle.log.length}:${actor.id}`;
+    if (autobattleKeyRef.current === turnKey) return;
+    const action = pickAutoAction(actor, activeBattle.enemy);
+    if (action === null) return;
+    autobattleKeyRef.current = turnKey;
+    const timerId = window.setTimeout(() => dispatchAction(action), 400);
+    return () => window.clearTimeout(timerId);
+  }, [autobattle, activeBattle, actor, dispatchAction]);
+
   if (activeBattle === null) {
     return null;
   }
 
   const canAct = activeBattle.yourTurn && actor !== null && !actor.down && activeBattle.status === 'active';
+  const pveMode = activeBattle.mode === 'pve';
+  const showAutobattle = pveMode && activeBattle.status === 'active';
 
   return (
     <>
       {showPageStrip ? <PageStrip battle={activeBattle} readyState={readyState} /> : null}
       {activeBattle.status === 'ended' && endModalOpen ? <EndCard battle={activeBattle} pveResults={pveResults} onClose={() => { setEndModalOpen(false); clearActiveBattle(); }} /> : null}
       <section className={activeBattle.status === 'ended' ? 'arena hidden' : 'arena'} ref={arenaRef} data-od-id="arena">
+        {showAutobattle ? (
+          <button
+            type="button"
+            className={`autobattle-toggle${autobattle ? ' is-on' : ''}`}
+            aria-pressed={autobattle}
+            onClick={() => setAutobattle((v) => !v)}
+            data-od-id="autobattle-toggle"
+          >
+            <span className="autobattle-dot" aria-hidden="true" />
+            Auto: {autobattle ? 'ON' : 'OFF'}
+          </button>
+        ) : null}
         <FloaterLayer floaters={floaters} />
         <TurnQueue turns={activeBattle.upcomingTurns} />
         <Enemies enemies={activeBattle.enemy} selectedTargetId={selectedTargetId} currentUnitId={activeBattle.currentTurnUnitId} selectable={canAct} hitUnitId={hitUnitId} onSelectTarget={setSelectedTargetId} />
@@ -228,6 +263,18 @@ function selectedEnemy(battle: BattleView, selectedTargetId: UnitId | null): Ene
 
 function firstAliveEnemy(enemies: readonly EnemyUnitView[]): EnemyUnitView | null {
   return enemies.find((enemy) => !enemy.down && enemy.hp > 0) ?? null;
+}
+
+function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView[]): Action | null {
+  const alive = enemies.filter((e) => !e.down && e.hp > 0);
+  if (alive.length === 0) return null;
+  const target = alive.reduce((low, e) => (e.hp < low.hp ? e : low));
+  const affordable = actor.skills.filter((s) => s.energyCost <= actor.en);
+  if (affordable.length > 0) {
+    const best = affordable.reduce((a, b) => (b.power > a.power ? b : a));
+    return { type: 'skill', unitId: actor.id, skillId: best.id, targetId: target.id };
+  }
+  return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
 function TurnQueue({ turns }: { readonly turns: readonly TurnEntry[] }): JSX.Element {
