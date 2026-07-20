@@ -297,6 +297,17 @@
   overflow: visible;
   z-index: 20;
 }
+.lightning-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 21;
+}
+.lightning-canvas {
+  display: block;
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--el-electricity, #7ec8ff) 65%, transparent));
+}
 .dmg-floater {
   position: absolute;
   font-size: 22px;

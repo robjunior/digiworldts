@@ -553,6 +553,7 @@ export function applyAction(
       targetName: target.name,
       damage: 0,
       skillName: skill.name,
+      skillElement: skill.element,
       cue: 'miss',
     });
     battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: false };
@@ -613,6 +614,7 @@ export function applyAction(
       targetName: target.name,
       damage: dmg,
       skillName: skill.name,
+      skillElement: skill.element,
       cue,
     };
     if (applied.length > 0) hitEvent.applied = applied;

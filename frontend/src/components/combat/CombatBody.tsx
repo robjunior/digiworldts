@@ -8,6 +8,7 @@ import { CommandPanel, type CommandMode } from './CommandPanel';
 import { EndCard } from './EndCard';
 import { Enemies } from './Enemies';
 import { FloaterLayer, type Floater } from './FloaterLayer';
+import { LightningLayer, type LightningEffect } from './LightningLayer';
 import { PageStrip } from './PageStrip';
 import { TurnLogV2 } from './TurnLogV2';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -16,6 +17,7 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 
 const FLOATER_TTL_MS = 800;
+const LIGHTNING_TTL_MS = 700;
 const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 
 function readAutobattlePref(): boolean {
@@ -105,6 +107,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [commandMode, setCommandMode] = useState<CommandMode>('menu');
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
+  const [lightnings, setLightnings] = useState<readonly LightningEffect[]>([]);
   const [hitUnitId, setHitUnitId] = useState<UnitId | null>(null);
   const [, setLoadError] = useState<string | null>(null);
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
@@ -148,6 +151,9 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
     for (const event of nextEvents) {
       if (event.type === 'action' && event.damage !== undefined && event.targetId) {
         spawnFloater(event, arenaRef.current, yourSide, setFloaters, setHitUnitId);
+        if (event.skillElement === 'electricity' && event.damage > 0) {
+          spawnLightning(event.targetId, arenaRef.current, yourSide, setLightnings);
+        }
       }
     }
   }, [battleEvents, activeBattle?.yourSide]);
@@ -238,6 +244,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
           </button>
         ) : null}
         <FloaterLayer floaters={floaters} />
+        <LightningLayer effects={lightnings} />
         <TurnQueue turns={activeBattle.upcomingTurns} />
         <Enemies enemies={activeBattle.enemy} selectedTargetId={selectedTargetId} currentUnitId={activeBattle.currentTurnUnitId} selectable={canAct} hitUnitId={hitUnitId} onSelectTarget={setSelectedTargetId} />
         <div className="deck-grid">
@@ -335,4 +342,22 @@ function spawnFloater(event: Extract<BattleEvent, { type: 'action' }>, arena: HT
   setFloaters((items) => [...items, { id, targetId, amount: damage, cue: event.cue, x, y }]);
   window.setTimeout(() => setFloaters((items) => items.filter((item) => item.id !== id)), FLOATER_TTL_MS);
   window.setTimeout(() => setHitUnitId(null), 400);
+}
+
+function spawnLightning(targetId: UnitId, arena: HTMLElement | null, yourSide: BattleSide, setLightnings: Dispatch<SetStateAction<readonly LightningEffect[]>>): void {
+  if (arena === null) return;
+  const isFriendly = targetId.startsWith(`${yourSide}:`);
+  const prefix = isFriendly ? 'cbt' : 'foe';
+  const target = arena.querySelector(`[data-od-id="${prefix}-${targetId}"]`);
+  if (!(target instanceof HTMLElement)) return;
+  const targetRect = target.getBoundingClientRect();
+  const arenaRect = arena.getBoundingClientRect();
+  const padding = 24;
+  const width = targetRect.width + padding * 2;
+  const height = targetRect.height + padding * 2;
+  const x = targetRect.left - arenaRect.left - padding;
+  const y = targetRect.top - arenaRect.top - padding;
+  const id = `lightning-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${targetId}`;
+  setLightnings((items) => [...items, { id, targetId, x, y, width, height }]);
+  window.setTimeout(() => setLightnings((items) => items.filter((item) => item.id !== id)), LIGHTNING_TTL_MS);
 }

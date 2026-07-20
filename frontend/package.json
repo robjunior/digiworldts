@@ -13,7 +13,6 @@
   "dependencies": {
     "@digiworld/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
-    "@types/three": "^0.185.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.1.1",
@@ -23,6 +22,7 @@
   "devDependencies": {
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.7.2",
     "vite": "^6.0.5"

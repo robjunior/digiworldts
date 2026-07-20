@@ -77,6 +77,7 @@ export type BattleEvent =
       targetName?: string;
       damage?: number;
       skillName?: string;
+      skillElement?: Element;
       cue: ActionCue;
       applied?: Ailmented[];
       captureChance?: number;
