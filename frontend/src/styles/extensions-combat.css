@@ -297,16 +297,24 @@
   overflow: visible;
   z-index: 20;
 }
-.lightning-layer {
+.attack-effect-layer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   overflow: visible;
   z-index: 21;
 }
-.lightning-canvas {
+.attack-effect-canvas {
   display: block;
+}
+.attack-effect-canvas--electricity {
   filter: drop-shadow(0 0 6px color-mix(in oklab, var(--el-electricity, #7ec8ff) 65%, transparent));
+}
+.attack-effect-canvas--fire {
+  filter: drop-shadow(0 0 7px color-mix(in oklab, var(--el-fire, #ff8833) 70%, transparent));
+}
+.attack-effect-canvas--plant {
+  filter: drop-shadow(0 0 6px color-mix(in oklab, var(--el-plant, #4a9944) 65%, transparent));
 }
 .dmg-floater {
   position: absolute;

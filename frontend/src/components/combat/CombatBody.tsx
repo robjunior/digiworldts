@@ -8,7 +8,7 @@ import { CommandPanel, type CommandMode } from './CommandPanel';
 import { EndCard } from './EndCard';
 import { Enemies } from './Enemies';
 import { FloaterLayer, type Floater } from './FloaterLayer';
-import { LightningLayer, type LightningEffect } from './LightningLayer';
+import { AttackEffectLayer, isAnimatedElement, type AnimatedElement, type AttackEffect } from './AttackEffectLayer';
 import { PageStrip } from './PageStrip';
 import { TurnLogV2 } from './TurnLogV2';
 import { useWebSocket } from '../../hooks/useWebSocket';
@@ -17,8 +17,8 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 
 const FLOATER_TTL_MS = 800;
-const LIGHTNING_TTL_MS = 1200;
-const LIGHTNING_PROPAGATION_MS = 1200;
+const ATTACK_EFFECT_TTL_MS = 1200;
+const ATTACK_PROPAGATION_MS = 1200;
 const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 
 function readAutobattlePref(): boolean {
@@ -108,7 +108,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
   const [commandMode, setCommandMode] = useState<CommandMode>('menu');
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater[]>([]);
-  const [lightnings, setLightnings] = useState<readonly LightningEffect[]>([]);
+  const [attackEffects, setAttackEffects] = useState<readonly AttackEffect[]>([]);
   const [hitUnitId, setHitUnitId] = useState<UnitId | null>(null);
   const [, setLoadError] = useState<string | null>(null);
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
@@ -153,10 +153,10 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
     for (const event of nextEvents) {
       if (event.type === 'action' && event.damage !== undefined && event.targetId) {
         spawnFloater(event, arenaRef.current, yourSide, setFloaters, setHitUnitId);
-        if (event.skillElement === 'electricity' && event.damage > 0) {
+        if (isAnimatedElement(event.skillElement) && event.damage > 0) {
           const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
           if (!actorIsFriendly) {
-            spawnLightning(event.targetId, arenaRef.current, yourSide, setLightnings);
+            spawnAttackEffect(event.targetId, event.skillElement, arenaRef.current, yourSide, setAttackEffects);
           }
         }
       }
@@ -203,15 +203,15 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
 
   const dispatchAction = useCallback((action: Action): void => {
     if (!activeBattle || dispatchPendingRef.current) return;
-    const electricTargetId = actorElectricSkillTarget(actor, action);
-    if (electricTargetId !== null) {
+    const vfx = actorAnimatedSkillTarget(actor, action);
+    if (vfx !== null) {
       dispatchPendingRef.current = true;
-      spawnLightning(electricTargetId, arenaRef.current, activeBattle.yourSide, setLightnings);
+      spawnAttackEffect(vfx.targetId, vfx.element, arenaRef.current, activeBattle.yourSide, setAttackEffects);
       setCommandMode('menu');
       window.setTimeout(() => {
         runServerDispatch(action);
         dispatchPendingRef.current = false;
-      }, LIGHTNING_PROPAGATION_MS);
+      }, ATTACK_PROPAGATION_MS);
       return;
     }
     runServerDispatch(action);
@@ -263,7 +263,7 @@ export function CombatBody({ showPageStrip = true }: CombatBodyProps): JSX.Eleme
           </button>
         ) : null}
         <FloaterLayer floaters={floaters} />
-        <LightningLayer effects={lightnings} />
+        <AttackEffectLayer effects={attackEffects} />
         <TurnQueue turns={activeBattle.upcomingTurns} />
         <Enemies enemies={activeBattle.enemy} selectedTargetId={selectedTargetId} currentUnitId={activeBattle.currentTurnUnitId} selectable={canAct} hitUnitId={hitUnitId} onSelectTarget={setSelectedTargetId} />
         <div className="deck-grid">
@@ -326,15 +326,15 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
   return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
-function actorElectricSkillTarget(actor: FriendlyUnitView | null, action: Action): UnitId | null {
+function actorAnimatedSkillTarget(actor: FriendlyUnitView | null, action: Action): { readonly targetId: UnitId; readonly element: AnimatedElement } | null {
   if (actor === null) return null;
   if (action.type === 'skill') {
     const skill = actor.skills.find((s) => s.id === action.skillId);
-    if (skill?.element === 'electricity') return action.targetId;
+    if (skill && isAnimatedElement(skill.element)) return { targetId: action.targetId, element: skill.element };
     return null;
   }
-  if (action.type === 'fight' && actor.element === 'electricity') {
-    return action.targetId;
+  if (action.type === 'fight' && isAnimatedElement(actor.element)) {
+    return { targetId: action.targetId, element: actor.element };
   }
   return null;
 }
@@ -376,7 +376,7 @@ function spawnFloater(event: Extract<BattleEvent, { type: 'action' }>, arena: HT
   window.setTimeout(() => setHitUnitId(null), 400);
 }
 
-function spawnLightning(targetId: UnitId, arena: HTMLElement | null, yourSide: BattleSide, setLightnings: Dispatch<SetStateAction<readonly LightningEffect[]>>): void {
+function spawnAttackEffect(targetId: UnitId, element: AnimatedElement, arena: HTMLElement | null, yourSide: BattleSide, setEffects: Dispatch<SetStateAction<readonly AttackEffect[]>>): void {
   if (arena === null) return;
   const isFriendly = targetId.startsWith(`${yourSide}:`);
   const prefix = isFriendly ? 'cbt' : 'foe';
@@ -389,7 +389,7 @@ function spawnLightning(targetId: UnitId, arena: HTMLElement | null, yourSide: B
   const height = targetRect.height + padding * 2;
   const x = targetRect.left - arenaRect.left - padding;
   const y = targetRect.top - arenaRect.top - padding;
-  const id = `lightning-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${targetId}`;
-  setLightnings((items) => [...items, { id, targetId, x, y, width, height }]);
-  window.setTimeout(() => setLightnings((items) => items.filter((item) => item.id !== id)), LIGHTNING_TTL_MS);
+  const id = `fx-${element}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${targetId}`;
+  setEffects((items) => [...items, { id, targetId, element, x, y, width, height }]);
+  window.setTimeout(() => setEffects((items) => items.filter((item) => item.id !== id)), ATTACK_EFFECT_TTL_MS);
 }
