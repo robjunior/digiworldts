@@ -237,19 +237,38 @@
   display: none;
 }
 
+.digdex-viewport {
+  position: relative;
+  overflow: auto;
+  max-height: calc(100vh - 240px);
+  padding: 24px 0 140px;
+  cursor: grab;
+  scrollbar-width: thin;
+  user-select: none;
+  touch-action: pan-x pan-y;
+}
+
+.digdex-viewport.is-grabbing {
+  cursor: grabbing;
+}
+
+.digdex-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
+.digdex-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
+.digdex-viewport::-webkit-scrollbar-track { background: transparent; }
+
 .digdex-hive {
-  padding: 24px 0 120px;
+  padding: 0;
   perspective: 1200px;
 }
 
 .digdex-hex {
   opacity: 0;
-  transform: translateY(6px) scale(0.9);
-  animation: digdex-hex-in 380ms cubic-bezier(0.2, 0.9, 0.3, 1.05) forwards;
+  transform: translateY(20px) scale(0.7) rotate(-6deg);
+  animation: digdex-hex-in 620ms cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
 }
 
 @keyframes digdex-hex-in {
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
 }
 
 .digdex-search {
