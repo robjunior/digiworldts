@@ -7,6 +7,7 @@ import { AUTH_ME_KEY } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Admin } from './routes/Admin';
 import { Combat } from './routes/Combat';
+import { Digdex } from './routes/Digdex';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
 import { Lobby } from './routes/Lobby';
@@ -67,6 +68,7 @@ export function App(): JSX.Element {
           <Route path="/market" element={<Market />} />
           <Route path="/nursery" element={<Nursery />} />
           <Route path="/world" element={<World />} />
+          <Route path="/digdex" element={<Digdex />} />
           <Route path="/admin" element={<Admin />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

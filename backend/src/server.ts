@@ -41,6 +41,7 @@ import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
 import { nurseryPlugin } from './nursery/routes.js';
 import { marketPlugin } from './market/routes.js';
+import { digdexPlugin } from './dex/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
@@ -141,6 +142,7 @@ async function main(): Promise<void> {
   await app.register(worldPlugin);
   await app.register(nurseryPlugin);
   await app.register(marketPlugin);
+  await app.register(digdexPlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));

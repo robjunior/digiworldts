@@ -9,6 +9,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/lobby', label: 'Lobby' },
   { to: '/world', label: 'World' },
   { to: '/roster', label: 'Roster' },
+  { to: '/digdex', label: 'Digdex' },
   { to: '/farm', label: 'Farm' },
   { to: '/training', label: 'Training' },
   { to: '/shop', label: 'Shop' },
