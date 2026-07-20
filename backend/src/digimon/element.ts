@@ -85,8 +85,9 @@ export function resolveResistance(
   defenderEl: Element,
   defenderResistances: ResistanceMap | undefined,
 ): ResistanceMult {
-  const override = defenderResistances?.[attackerEl];
-  if (override !== undefined) return override;
+  if (defenderResistances !== undefined) {
+    return defenderResistances[attackerEl] ?? 1;
+  }
   const kind = affinity(attackerEl, defenderEl);
   if (kind === 'weak') return 1.5;
   if (kind === 'resist') return 0.5;

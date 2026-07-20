@@ -264,8 +264,9 @@ export function resolveResistance(
   defenderEl: Element,
   defenderResistances: ResistanceMap | undefined,
 ): ResistanceMult {
-  const override = defenderResistances?.[attackerEl];
-  if (override !== undefined) return override;
+  if (defenderResistances !== undefined) {
+    return defenderResistances[attackerEl] ?? 1;
+  }
   if (WEAK_MAP[attackerEl] === defenderEl) return 1.5;
   if (RESIST_MAP[attackerEl] === defenderEl) return 0.5;
   return 1;
