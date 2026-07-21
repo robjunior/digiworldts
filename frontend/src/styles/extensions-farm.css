@@ -179,9 +179,75 @@
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   flex-wrap: wrap;
 }
-.factory-content-title { margin: 0; font-size: 16px; color: var(--ink); }
+.factory-content-title { margin: 0; font-size: 16px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
 .factory-content-desc { margin: 4px 0 0; font-size: 11px; }
-.factory-content-meta { min-width: 200px; }
+.factory-content-meta { min-width: 240px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ---- Factory level + upgrade ---- */
+.factory-lvl-badge {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 6px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--panel) 60%, transparent);
+  color: var(--ink);
+  border-radius: 2px;
+}
+.factory-lvl-badge--head {
+  font-size: 11px;
+  color: var(--signal);
+  border-color: color-mix(in oklab, var(--signal) 60%, var(--hairline));
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+}
+
+.factory-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 40%, transparent);
+}
+.factory-upgrade-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.factory-upgrade-line b { color: var(--ink); font-weight: 700; font-size: 10px; }
+.factory-upgrade-speed {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--signal);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.factory-upgrade-speed .muted { color: var(--muted); font-weight: 600; }
+.factory-upgrade-btn {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.factory-upgrade-cost {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--res-bits);
+  font-weight: 700;
+}
+.factory-upgrade-cost b { color: var(--res-bits); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; }
+
+.recipe-list-time-orig {
+  font-size: 10px;
+  margin-left: 4px;
+}
 
 .factory-queue-cap {
   display: flex;

@@ -404,6 +404,9 @@ export type PlayerFactoryRow = {
   id: string;
   user_id: string;
   factory_type: 'med' | 'chip' | 'rare';
+  level: number;
+  upgrade_cost: number;
+  craft_time_multiplier: number;
   created_at: number;
 };
 

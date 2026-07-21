@@ -527,10 +527,13 @@ CREATE TABLE IF NOT EXISTS farm_recipes (
 CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
 
 CREATE TABLE IF NOT EXISTS player_factories (
-  id            TEXT PRIMARY KEY,
-  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  factory_type  TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
-  created_at    INTEGER NOT NULL,
+  id                     TEXT PRIMARY KEY,
+  user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  factory_type           TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
+  level                  INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
+  upgrade_cost           INTEGER NOT NULL DEFAULT 300 CHECK (upgrade_cost > 0),
+  craft_time_multiplier  REAL NOT NULL DEFAULT 1.0 CHECK (craft_time_multiplier > 0),
+  created_at             INTEGER NOT NULL,
   UNIQUE (user_id, factory_type)
 );
 CREATE INDEX IF NOT EXISTS idx_player_factories_user ON player_factories(user_id);

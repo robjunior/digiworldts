@@ -10,6 +10,7 @@ import {
   getFarm,
   getFarmRecipes,
   startFarmCraft,
+  upgradeFactoryLevel,
   type CraftingJobView,
   type FactoryTypeId,
   type FarmView,
@@ -27,6 +28,7 @@ export function Factory(): JSX.Element {
   const [notice, setNotice] = useState<string>('');
   const [pendingRecipeId, setPendingRecipeId] = useState<string | null>(null);
   const [pendingFactoryType, setPendingFactoryType] = useState<FactoryTypeId | null>(null);
+  const [pendingUpgradeFactoryId, setPendingUpgradeFactoryId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
   const [countByRecipe, setCountByRecipe] = useState<Record<string, number>>({});
@@ -107,6 +109,21 @@ export function Factory(): JSX.Element {
     onError: (error) => setNotice(error instanceof Error ? error.message : 'cancel failed'),
   });
 
+  const upgradeFactoryMutation = useMutation({
+    mutationFn: upgradeFactoryLevel,
+    onMutate: (id) => setPendingUpgradeFactoryId(id),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: FARM_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: RECIPES_QUERY_KEY });
+      const speedPct = result.factory.craftSpeedPct;
+      setNotice(
+        `${result.factory.name} upgraded to Lv ${result.factory.level} — crafts ${speedPct > 0 ? `${speedPct}% faster` : 'at base speed'}`,
+      );
+    },
+    onError: (error) => setNotice(error instanceof Error ? error.message : 'upgrade failed'),
+    onSettled: () => setPendingUpgradeFactoryId(null),
+  });
+
   const totalQueued = owned.reduce((s, f) => s + f.queue.length, 0);
 
   return (
@@ -149,6 +166,7 @@ export function Factory(): JSX.Element {
                       <div className="factory-sidebar-item-head">
                         <b className="factory-sidebar-item-name">{f.name}</b>
                         <span className={`factory-type-badge factory-type-badge--${f.type}`}>{f.type}</span>
+                        <span className="factory-lvl-badge" title={`Level ${f.level} / ${f.maxLevel} — crafts ${f.craftSpeedPct}% faster`}>Lv {f.level}</span>
                       </div>
                       <div className="factory-sidebar-item-meta muted">
                         {f.queue.length === 0
@@ -217,6 +235,7 @@ export function Factory(): JSX.Element {
                 pendingRecipeId={pendingRecipeId}
                 queueBusy={queueMutation.isPending}
                 cancelBusy={cancelMutation.isPending}
+                upgradePending={pendingUpgradeFactoryId === selectedFactory.id && upgradeFactoryMutation.isPending}
                 countByRecipe={countByRecipe}
                 onCountChange={(recipeId, count) =>
                   setCountByRecipe((prev) => ({ ...prev, [recipeId]: count }))
@@ -230,6 +249,7 @@ export function Factory(): JSX.Element {
                   })
                 }
                 onCancel={(jobId) => cancelMutation.mutate(jobId)}
+                onUpgrade={() => upgradeFactoryMutation.mutate(selectedFactory.id)}
               />
             )}
           </section>
@@ -249,10 +269,12 @@ function FactoryContent({
   pendingRecipeId,
   queueBusy,
   cancelBusy,
+  upgradePending,
   countByRecipe,
   onCountChange,
   onQueue,
   onCancel,
+  onUpgrade,
 }: {
   readonly factory: PlayerFactoryView;
   readonly recipes: readonly RecipeView[];
@@ -263,21 +285,62 @@ function FactoryContent({
   readonly pendingRecipeId: string | null;
   readonly queueBusy: boolean;
   readonly cancelBusy: boolean;
+  readonly upgradePending: boolean;
   readonly countByRecipe: Record<string, number>;
   readonly onCountChange: (recipeId: string, count: number) => void;
   readonly onQueue: (recipeId: string, count: number, auto?: boolean) => void;
   readonly onCancel: (jobId: string) => void;
+  readonly onUpgrade: () => void;
 }): JSX.Element {
   const queuePct = Math.min(100, (factory.queueTotalMs / queueMaxMs) * 100);
   const queueGroups = groupQueue(factory.queue);
+  const atMaxLevel = !factory.canUpgrade;
+  const canAffordUpgrade = balances.Bits >= factory.upgradeCost;
+  const nextSpeedPct =
+    factory.nextCraftTimeMultiplier !== null
+      ? Math.round((1 / factory.nextCraftTimeMultiplier - 1) * 100)
+      : factory.craftSpeedPct;
+  const upgradeLabel = upgradePending
+    ? 'Upgrading…'
+    : atMaxLevel
+    ? `Max Lv ${factory.maxLevel}`
+    : !canAffordUpgrade
+    ? `Need ${factory.upgradeCost.toLocaleString()} Bits`
+    : `Upgrade → Lv ${factory.level + 1}`;
   return (
     <>
       <header className="factory-content-head">
         <div>
-          <h2 className="factory-content-title">{factory.name}</h2>
+          <h2 className="factory-content-title">
+            {factory.name}
+            <span className="factory-lvl-badge factory-lvl-badge--head" title={`Level ${factory.level} / ${factory.maxLevel}`}>Lv {factory.level}</span>
+          </h2>
           <p className="factory-content-desc muted">{factory.description}</p>
         </div>
         <div className="factory-content-meta">
+          <div className="factory-upgrade" aria-label="Factory level upgrade">
+            <div className="factory-upgrade-line">
+              <b>Craft speed</b>
+              <span className="factory-upgrade-speed">
+                {factory.craftSpeedPct > 0 ? `+${factory.craftSpeedPct}%` : 'base'}
+                {!atMaxLevel && nextSpeedPct !== factory.craftSpeedPct ? (
+                  <span className="muted"> → +{nextSpeedPct}%</span>
+                ) : null}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="btn btn--tertiary btn--sm factory-upgrade-btn"
+              disabled={upgradePending || atMaxLevel || !canAffordUpgrade}
+              onClick={onUpgrade}
+              title={atMaxLevel ? 'Factory at max level' : `Upgrade costs ${factory.upgradeCost.toLocaleString()} Bits`}
+            >
+              {upgradeLabel}
+              {!atMaxLevel && canAffordUpgrade && !upgradePending ? (
+                <span className="factory-upgrade-cost">{factory.upgradeCost.toLocaleString()} <b>Bits</b></span>
+              ) : null}
+            </button>
+          </div>
           <div className="factory-queue-cap">
             <div className="factory-queue-cap-lbl">
               Queue <b>{formatDuration(factory.queueTotalMs)}</b> / {formatDuration(queueMaxMs)}
@@ -310,8 +373,9 @@ function FactoryContent({
           <ul className="recipe-list">
             {recipes.map((recipe) => {
               const rowPending = pendingRecipeId === recipe.id && queueBusy;
+              const effectiveMs = Math.max(1, Math.round(recipe.craftTimeMs * factory.craftTimeMultiplier));
               const affordCount = maxAffordableCount(recipe, balances);
-              const roomCount = recipe.craftTimeMs > 0 ? Math.floor(factory.queueRemainingCapMs / recipe.craftTimeMs) : 0;
+              const roomCount = effectiveMs > 0 ? Math.floor(factory.queueRemainingCapMs / effectiveMs) : 0;
               const maxCount = Math.max(0, Math.min(affordCount, roomCount, 100));
               const rawCount = countByRecipe[recipe.id] ?? 1;
               const count = maxCount === 0 ? 1 : Math.max(1, Math.min(maxCount, rawCount));
@@ -337,7 +401,10 @@ function FactoryContent({
                     {recipe.bitsCost > 0 ? <span className="ps-res ps-res--bits" title="Bits"><span className="ps-dot" />{recipe.bitsCost}</span> : null}
                     {recipe.dataCost > 0 ? <span className="ps-res ps-res--data" title="Data"><span className="ps-dot" />{recipe.dataCost}</span> : null}
                   </div>
-                  <div className="recipe-list-time">{formatDuration(recipe.craftTimeMs)}</div>
+                  <div className="recipe-list-time" title={factory.craftSpeedPct > 0 ? `Base ${formatDuration(recipe.craftTimeMs)} — ${factory.craftSpeedPct}% faster at Lv ${factory.level}` : undefined}>
+                    {formatDuration(effectiveMs)}
+                    {factory.craftSpeedPct > 0 ? <span className="recipe-list-time-orig muted"> ({formatDuration(recipe.craftTimeMs)})</span> : null}
+                  </div>
                   <div className="recipe-qty-stepper" aria-label={`Amount of ${recipe.itemName} to queue`}>
                     <button
                       type="button"

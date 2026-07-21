@@ -83,6 +83,13 @@ export type PlayerFactoryView = {
   readonly name: string;
   readonly description: string;
   readonly createdAt: number;
+  readonly level: number;
+  readonly maxLevel: number;
+  readonly craftTimeMultiplier: number;
+  readonly craftSpeedPct: number;
+  readonly upgradeCost: number;
+  readonly canUpgrade: boolean;
+  readonly nextCraftTimeMultiplier: number | null;
   readonly queue: readonly CraftingJobView[];
   readonly queueTotalMs: number;
   readonly queueRemainingCapMs: number;
@@ -97,6 +104,12 @@ export type FactoryPageView = {
 };
 
 export type BuyFactoryResult = {
+  readonly ok: true;
+  readonly factory: PlayerFactoryView;
+  readonly balances: Record<FarmResourceKind, number>;
+};
+
+export type UpgradeFactoryResult = {
   readonly ok: true;
   readonly factory: PlayerFactoryView;
   readonly balances: Record<FarmResourceKind, number>;
@@ -137,6 +150,10 @@ export function getFarmRecipes(): Promise<FactoryPageView> {
 
 export function buyFactory(type: FactoryTypeId): Promise<BuyFactoryResult> {
   return apiFetch<BuyFactoryResult>('/api/farm/factories/buy', { method: 'POST', body: { type } });
+}
+
+export function upgradeFactoryLevel(factoryId: string): Promise<UpgradeFactoryResult> {
+  return apiFetch<UpgradeFactoryResult>(`/api/farm/factory/upgrade/${encodeURIComponent(factoryId)}`, { method: 'POST' });
 }
 
 export function startFarmCraft(

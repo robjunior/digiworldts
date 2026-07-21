@@ -95,7 +95,9 @@ const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE
 
 const SQL_SELECT_FACTORIES_USER = `SELECT * FROM player_factories WHERE user_id = ? ORDER BY created_at`;
 const SQL_SELECT_FACTORY = `SELECT * FROM player_factories WHERE id = ? AND user_id = ?`;
-const SQL_INSERT_FACTORY = `INSERT INTO player_factories (id, user_id, factory_type, created_at) VALUES (?, ?, ?, ?)`;
+const SQL_INSERT_FACTORY = `INSERT INTO player_factories (id, user_id, factory_type, level, upgrade_cost, craft_time_multiplier, created_at)
+     VALUES (?, ?, ?, 1, ?, 1.0, ?)`;
+const SQL_UPGRADE_FACTORY = `UPDATE player_factories SET level = ?, upgrade_cost = ?, craft_time_multiplier = ? WHERE id = ? AND user_id = ?`;
 const SQL_COUNT_FACTORIES_USER = `SELECT COUNT(*) AS n FROM player_factories WHERE user_id = ? AND factory_type = ?`;
 
 const SQL_SELECT_ACTIVE_JOB_BY_FACTORY = `SELECT j.*, s.name AS item_name
@@ -299,7 +301,7 @@ export async function seedFactoryStarterForUser(userId: string): Promise<void> {
   const existing = await q<PlayerFactoryRow>(SQL_SELECT_FACTORIES_USER, userId);
   if (existing.length > 0) return;
   const now = Date.now();
-  await run(SQL_INSERT_FACTORY, newId('fac'), userId, 'med', now);
+  await run(SQL_INSERT_FACTORY, newId('fac'), userId, 'med', FACTORY_BASE_UPGRADE_COST, now);
   log.info('farm.factory.seed.ok', { userId, type: 'med' });
 }
 
@@ -312,7 +314,7 @@ export async function backfillStarterFactoriesForExistingUsers(): Promise<{ coun
   const now = Date.now();
   await tx(async (t) => {
     for (const row of rows) {
-      await t.run(SQL_INSERT_FACTORY, [newId('fac'), row.id, 'med', now]);
+      await t.run(SQL_INSERT_FACTORY, [newId('fac'), row.id, 'med', FACTORY_BASE_UPGRADE_COST, now]);
     }
   });
   log.info('farm.factory.backfill.ok', { count: rows.length });
@@ -353,10 +355,36 @@ export type PlayerFactoryView = {
   readonly name: string;
   readonly description: string;
   readonly createdAt: number;
+  readonly level: number;
+  readonly maxLevel: number;
+  readonly craftTimeMultiplier: number;
+  readonly craftSpeedPct: number;
+  readonly upgradeCost: number;
+  readonly canUpgrade: boolean;
+  readonly nextCraftTimeMultiplier: number | null;
   readonly queue: readonly CraftingJobView[];
   readonly queueTotalMs: number;
   readonly queueRemainingCapMs: number;
 };
+
+const FACTORY_MAX_LEVEL = 10;
+const FACTORY_SPEED_STEP = 0.9;
+const FACTORY_COST_STEP = 1.6;
+const FACTORY_BASE_UPGRADE_COST = 300;
+
+function factoryUpgradePreview(row: PlayerFactoryRow): {
+  readonly canUpgrade: boolean;
+  readonly nextCraftTimeMultiplier: number | null;
+  readonly nextUpgradeCost: number;
+  readonly nextLevel: number;
+} {
+  if (row.level >= FACTORY_MAX_LEVEL) {
+    return { canUpgrade: false, nextCraftTimeMultiplier: null, nextUpgradeCost: row.upgrade_cost, nextLevel: row.level };
+  }
+  const nextMultiplier = Number((row.craft_time_multiplier * FACTORY_SPEED_STEP).toFixed(6));
+  const nextCost = Math.round(row.upgrade_cost * FACTORY_COST_STEP);
+  return { canUpgrade: true, nextCraftTimeMultiplier: nextMultiplier, nextUpgradeCost: nextCost, nextLevel: row.level + 1 };
+}
 
 export type FactoryPageView = {
   readonly balances: Record<ResourceKind, number>;
@@ -454,6 +482,9 @@ async function advanceFactory(userId: string, factoryId: string): Promise<void> 
         const dedInfo = await t.run(SQL_DEDUCT_RESOURCE, [cost, now, userId, res, cost]);
         if (dedInfo.changes === 0) return;
       }
+      const factoryRows = await t.query<PlayerFactoryRow>(SQL_SELECT_FACTORY, [factoryId, userId]);
+      const autoMultiplier = factoryRows[0]?.craft_time_multiplier ?? 1.0;
+      const autoDurationMs = Math.max(1, Math.round(recipe.craft_time_ms * autoMultiplier));
       await t.run(SQL_INSERT_JOB, [
         newId('crf'),
         userId,
@@ -461,7 +492,7 @@ async function advanceFactory(userId: string, factoryId: string): Promise<void> 
         recipe.item_id,
         factoryId,
         now,
-        recipe.craft_time_ms,
+        autoDurationMs,
         1,
         now,
       ]);
@@ -511,12 +542,20 @@ export async function getUserFactories(userId: string): Promise<PlayerFactoryVie
     const jobs = jobsByFactory.get(f.id) ?? [];
     const queue = jobs.map((j) => jobRowToView(j, now));
     const totalMs = computeQueueTotalMs(queue, now);
+    const upgrade = factoryUpgradePreview(f);
     return {
       id: f.id,
       type: f.factory_type,
       name: meta.name,
       description: meta.description,
       createdAt: f.created_at,
+      level: f.level,
+      maxLevel: FACTORY_MAX_LEVEL,
+      craftTimeMultiplier: f.craft_time_multiplier,
+      craftSpeedPct: Math.round((1 / f.craft_time_multiplier - 1) * 100),
+      upgradeCost: f.upgrade_cost,
+      canUpgrade: upgrade.canUpgrade,
+      nextCraftTimeMultiplier: upgrade.nextCraftTimeMultiplier,
       queue,
       queueTotalMs: totalMs,
       queueRemainingCapMs: Math.max(0, QUEUE_MAX_TOTAL_MS - totalMs),
@@ -567,7 +606,7 @@ export async function buyFactory(
       if (cost <= 0) continue;
       await t.run(SQL_DEDUCT_RESOURCE, [cost, now, userId, res, cost]);
     }
-    await t.run(SQL_INSERT_FACTORY, [factoryId, userId, type, now]);
+    await t.run(SQL_INSERT_FACTORY, [factoryId, userId, type, FACTORY_BASE_UPGRADE_COST, now]);
   });
 
   if (alreadyOwned) return { ok: false, error: 'already-owned' };
@@ -581,6 +620,13 @@ export async function buyFactory(
     name: meta.name,
     description: meta.description,
     createdAt: now,
+    level: 1,
+    maxLevel: FACTORY_MAX_LEVEL,
+    craftTimeMultiplier: 1.0,
+    craftSpeedPct: 0,
+    upgradeCost: FACTORY_BASE_UPGRADE_COST,
+    canUpgrade: true,
+    nextCraftTimeMultiplier: Number((FACTORY_SPEED_STEP).toFixed(6)),
     queue: [],
     queueTotalMs: 0,
     queueRemainingCapMs: QUEUE_MAX_TOTAL_MS,
@@ -634,12 +680,14 @@ export async function queueItem(
 
   await advanceFactory(userId, factoryId);
 
+  const effectiveCraftMs = Math.max(1, Math.round(recipe.craft_time_ms * factory.craft_time_multiplier));
+
   const jobRows = await q<CraftingJobJoinRow>(SQL_SELECT_QUEUE_BY_FACTORY, factoryId);
   const now = Date.now();
   const currentQueue = jobRows.map((j) => jobRowToView(j, now));
   const currentTotalMs = computeQueueTotalMs(currentQueue, now);
   const remainingCapMs = Math.max(0, QUEUE_MAX_TOTAL_MS - currentTotalMs);
-  if (currentTotalMs + recipe.craft_time_ms * requestedCount > QUEUE_MAX_TOTAL_MS) {
+  if (currentTotalMs + effectiveCraftMs * requestedCount > QUEUE_MAX_TOTAL_MS) {
     return {
       ok: false,
       error: 'queue-full',
@@ -697,7 +745,7 @@ export async function queueItem(
         recipe.item_id,
         factoryId,
         startedAt,
-        recipe.craft_time_ms,
+        effectiveCraftMs,
         jobIsAuto,
         now,
       ]);
@@ -842,4 +890,61 @@ export async function upgradeBuilding(
     return { error: 'insufficient-bits', needed: row.upgrade_cost - have };
   }
   return { view: await readFarm(userId) };
+}
+
+export type UpgradeFactoryError = 'factory-not-found' | 'max-level' | 'insufficient-bits';
+
+export async function upgradeFactory(
+  userId: string,
+  factoryId: string,
+): Promise<
+  | { ok: true; factory: PlayerFactoryView; balances: Record<ResourceKind, number> }
+  | { ok: false; error: UpgradeFactoryError; needed?: number }
+> {
+  const factoryRow = await one<PlayerFactoryRow>(SQL_SELECT_FACTORY, factoryId, userId);
+  if (!factoryRow) return { ok: false, error: 'factory-not-found' };
+  if (factoryRow.level >= FACTORY_MAX_LEVEL) return { ok: false, error: 'max-level' };
+
+  const now = Date.now();
+  const nextLevel = factoryRow.level + 1;
+  const nextMultiplier = Number((factoryRow.craft_time_multiplier * FACTORY_SPEED_STEP).toFixed(6));
+  const nextUpgradeCost = Math.round(factoryRow.upgrade_cost * FACTORY_COST_STEP);
+  let insufficient = false;
+
+  await tx(async (t) => {
+    const deductRes = await t.run(SQL_DEDUCT_BITS, [factoryRow.upgrade_cost, now, userId, factoryRow.upgrade_cost]);
+    if (deductRes.changes === 0) {
+      insufficient = true;
+      return;
+    }
+    await t.run(SQL_UPGRADE_FACTORY, [nextLevel, nextUpgradeCost, nextMultiplier, factoryId, userId]);
+  });
+
+  if (insufficient) {
+    const balance = await one<{ amount: number }>(SQL_SELECT_BITS, userId);
+    const have = balance?.amount ?? 0;
+    return { ok: false, error: 'insufficient-bits', needed: factoryRow.upgrade_cost - have };
+  }
+
+  const balancesAfter: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+  for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
+
+  const [upgraded] = await getUserFactoriesByIds(userId, [factoryId]);
+  if (!upgraded) throw new Error('upgradeFactory: factory disappeared after update');
+  log.info('farm.factory.upgrade', {
+    userId,
+    factoryId,
+    type: factoryRow.factory_type,
+    fromLevel: factoryRow.level,
+    toLevel: nextLevel,
+    costBits: factoryRow.upgrade_cost,
+    newMultiplier: nextMultiplier,
+  });
+  return { ok: true, factory: upgraded, balances: balancesAfter };
+}
+
+async function getUserFactoriesByIds(userId: string, factoryIds: readonly string[]): Promise<PlayerFactoryView[]> {
+  const wanted = new Set(factoryIds);
+  const all = await getUserFactories(userId);
+  return all.filter((f) => wanted.has(f.id));
 }

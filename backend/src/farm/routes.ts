@@ -23,6 +23,7 @@ import {
   readFactoryPage,
   readFarm,
   upgradeBuilding,
+  upgradeFactory,
 } from './engine.js';
 
 const CraftSchema = z.object({
@@ -135,6 +136,24 @@ export const farmPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const result = await upgradeBuilding(user.id, id);
     if ('error' in result) {
       const status = result.error === 'not-found' ? 404 : 402;
+      const payload: { error: string; needed?: number } = { error: result.error };
+      if (typeof result.needed === 'number') payload.needed = result.needed;
+      return reply.code(status).send(payload);
+    }
+    return reply.send(result);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/farm/factory/upgrade/:id', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const { id } = req.params;
+    if (!id || typeof id !== 'string') return reply.code(400).send({ error: 'factory id required' });
+    const result = await upgradeFactory(user.id, id);
+    if (!result.ok) {
+      const status =
+        result.error === 'factory-not-found' ? 404
+        : result.error === 'max-level' ? 409
+        : result.error === 'insufficient-bits' ? 402
+        : 400;
       const payload: { error: string; needed?: number } = { error: result.error };
       if (typeof result.needed === 'number') payload.needed = result.needed;
       return reply.code(status).send(payload);
