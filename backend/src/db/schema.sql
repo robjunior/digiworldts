@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   spd_bonus     INTEGER NOT NULL DEFAULT 0,
   mood          INTEGER NOT NULL DEFAULT 50 CHECK (mood BETWEEN 0 AND 100),
   status        TEXT NOT NULL DEFAULT 'resting'          -- resting | training | party
-                CHECK (status IN ('resting', 'training', 'party')),
+                CHECK (status IN ('resting', 'training', 'party', 'adventure')),
   slot_index    INTEGER,                                 -- 0..2 if in party, else NULL
   revive_at     INTEGER,                                 -- unix ms; when set and > now, mon is downed and unusable in PVE
   pets_today    INTEGER NOT NULL DEFAULT 0,              -- nursery: count of pets given today (resets when pets_day rolls)
@@ -555,6 +555,23 @@ CREATE INDEX IF NOT EXISTS idx_crafting_factory ON crafting_jobs(factory_id);
 CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_factory
   ON crafting_jobs(factory_id)
   WHERE collected_at IS NULL AND started_at IS NOT NULL AND factory_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS adventures (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mon_ids           TEXT NOT NULL,
+  distance_ms       INTEGER NOT NULL CHECK (distance_ms > 0),
+  provisions_spent  INTEGER NOT NULL CHECK (provisions_spent >= 0),
+  started_at        INTEGER NOT NULL,
+  collected_at      INTEGER,
+  seed              INTEGER NOT NULL,
+  report            TEXT,
+  created_at        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
+  ON adventures(user_id)
+  WHERE collected_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

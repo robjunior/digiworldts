@@ -158,7 +158,7 @@ export type RosterRow = {
   int_bonus: number;
   spd_bonus: number;
   mood: number;
-  status: 'resting' | 'training' | 'party';
+  status: 'resting' | 'training' | 'party' | 'adventure';
   slot_index: number | null;
   revive_at: number | null;
   pets_today: number;
@@ -420,6 +420,19 @@ export type CraftingJobRow = {
   duration_ms: number;
   is_auto: 0 | 1;
   collected_at: number | null;
+  created_at: number;
+};
+
+export type AdventureRow = {
+  id: string;
+  user_id: string;
+  mon_ids: string;
+  distance_ms: number;
+  provisions_spent: number;
+  started_at: number;
+  collected_at: number | null;
+  seed: number;
+  report: string | null;
   created_at: number;
 };
 

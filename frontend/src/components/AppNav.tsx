@@ -23,6 +23,7 @@ const NAV_ITEMS: readonly NavItem[] = [
       { to: '/factory', label: 'Factory' },
       { to: '/farm', label: 'Farm' },
       { to: '/nursery', label: 'Nursery' },
+      { to: '/adventure', label: 'Adventure' },
     ],
   },
   { to: '/training', label: 'Training' },

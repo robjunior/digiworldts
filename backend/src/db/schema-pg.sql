@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   spd_bonus     INTEGER NOT NULL DEFAULT 0,
   mood          INTEGER NOT NULL DEFAULT 50 CHECK (mood BETWEEN 0 AND 100),
   status        TEXT NOT NULL DEFAULT 'resting'
-                CHECK (status IN ('resting', 'training', 'party')),
+                CHECK (status IN ('resting', 'training', 'party', 'adventure')),
   slot_index    INTEGER,
   revive_at     BIGINT,
   pets_today    INTEGER NOT NULL DEFAULT 0,
@@ -555,3 +555,24 @@ ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_day TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS listed_at BIGINT;
+
+ALTER TABLE player_roster DROP CONSTRAINT IF EXISTS player_roster_status_check;
+ALTER TABLE player_roster ADD CONSTRAINT player_roster_status_check
+  CHECK (status IN ('resting', 'training', 'party', 'adventure'));
+
+CREATE TABLE IF NOT EXISTS adventures (
+  id                TEXT PRIMARY KEY,
+  user_id           TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  mon_ids           TEXT NOT NULL,
+  distance_ms       BIGINT NOT NULL CHECK (distance_ms > 0),
+  provisions_spent  INTEGER NOT NULL CHECK (provisions_spent >= 0),
+  started_at        BIGINT NOT NULL,
+  collected_at      BIGINT,
+  seed              BIGINT NOT NULL,
+  report            TEXT,
+  created_at        BIGINT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
+  ON adventures(user_id)
+  WHERE collected_at IS NULL;

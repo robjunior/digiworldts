@@ -116,7 +116,7 @@ export type RosterView = {
   xpNext: number;
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
   mood: number;
-  status: 'resting' | 'training' | 'party';
+  status: 'resting' | 'training' | 'party' | 'adventure';
   slot: number | null;
   reviveAt: number | null;
   listedAt: number | null;

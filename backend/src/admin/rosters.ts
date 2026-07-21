@@ -59,7 +59,7 @@ export type AdminRosterView = {
   xp: number;
   statBonus: AdminStatBonus;
   mood: number;
-  status: 'resting' | 'training' | 'party';
+  status: 'resting' | 'training' | 'party' | 'adventure';
   slot: number | null;
   createdAt: number;
   updatedAt: number;
@@ -172,7 +172,7 @@ function clampBonus(v: number | undefined, existing: number): number {
   return Math.max(-9999, Math.min(9999, Math.floor(v)));
 }
 
-function validateSlot(slot: number | null | undefined, status: 'resting' | 'training' | 'party'): RosterError | null {
+function validateSlot(slot: number | null | undefined, status: 'resting' | 'training' | 'party' | 'adventure'): RosterError | null {
   if (status === 'party') {
     if (slot == null) return 'invalid-slot';
     if (!Number.isInteger(slot) || slot < 0 || slot > 2) return 'invalid-slot';

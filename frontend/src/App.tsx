@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { AUTH_ME_KEY } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
 import { Admin } from './routes/Admin';
+import { Adventure } from './routes/Adventure';
 import { Combat } from './routes/Combat';
 import { Digdex } from './routes/Digdex';
 import { Factory } from './routes/Factory';
@@ -66,6 +67,7 @@ export function App(): JSX.Element {
           <Route path="/roster" element={<Roster />} />
           <Route path="/farm" element={<Farm />} />
           <Route path="/factory" element={<Factory />} />
+          <Route path="/adventure" element={<Adventure />} />
           <Route path="/training" element={<Training />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/items" element={<Items />} />
