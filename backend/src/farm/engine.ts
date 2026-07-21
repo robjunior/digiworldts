@@ -596,15 +596,18 @@ export type QueueCraftError =
   | 'category-mismatch'
   | 'queue-full'
   | 'insufficient-resources'
-  | 'premium-required';
+  | 'premium-required'
+  | 'invalid-count';
+
+const QUEUE_COUNT_MAX = 100;
 
 export async function queueItem(
   userId: string,
   factoryId: string,
   recipeId: string,
-  opts?: { auto?: boolean },
+  opts?: { auto?: boolean; count?: number },
 ): Promise<
-  | { ok: true; job: CraftingJobView; balances: Record<ResourceKind, number> }
+  | { ok: true; job: CraftingJobView; queuedCount: number; balances: Record<ResourceKind, number> }
   | {
       ok: false;
       error: QueueCraftError;
@@ -613,6 +616,10 @@ export async function queueItem(
     }
 > {
   const auto = opts?.auto === true;
+  const requestedCount = opts?.count ?? 1;
+  if (!Number.isInteger(requestedCount) || requestedCount < 1 || requestedCount > QUEUE_COUNT_MAX) {
+    return { ok: false, error: 'invalid-count' };
+  }
   if (auto && !(await isUserPremium(userId))) return { ok: false, error: 'premium-required' };
 
   const factory = await one<PlayerFactoryRow>(SQL_SELECT_FACTORY, factoryId, userId);
@@ -630,34 +637,39 @@ export async function queueItem(
   const jobRows = await q<CraftingJobJoinRow>(SQL_SELECT_QUEUE_BY_FACTORY, factoryId);
   const now = Date.now();
   const currentQueue = jobRows.map((j) => jobRowToView(j, now));
-  const totalMs = computeQueueTotalMs(currentQueue, now);
-  if (totalMs + recipe.craft_time_ms > QUEUE_MAX_TOTAL_MS) {
+  const currentTotalMs = computeQueueTotalMs(currentQueue, now);
+  const remainingCapMs = Math.max(0, QUEUE_MAX_TOTAL_MS - currentTotalMs);
+  if (currentTotalMs + recipe.craft_time_ms * requestedCount > QUEUE_MAX_TOTAL_MS) {
     return {
       ok: false,
       error: 'queue-full',
-      queueRemainingCapMs: Math.max(0, QUEUE_MAX_TOTAL_MS - totalMs),
+      queueRemainingCapMs: remainingCapMs,
     };
   }
 
-  const jobId = newId('crf');
+  const totalMeat = recipe.meat_cost * requestedCount;
+  const totalBits = recipe.bits_cost * requestedCount;
+  const totalData = recipe.data_cost * requestedCount;
+
   let deficit: Partial<Record<ResourceKind, number>> | null = null;
+  const insertedJobIds: string[] = [];
 
   await tx(async (t) => {
     const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
     for (const r of await t.query<ResourceRow>(SQL_SELECT_RESOURCES, [userId])) balances[r.resource] = r.amount;
     const missing: Partial<Record<ResourceKind, number>> = {};
-    if (balances.Meat < recipe.meat_cost) missing.Meat = recipe.meat_cost - balances.Meat;
-    if (balances.Bits < recipe.bits_cost) missing.Bits = recipe.bits_cost - balances.Bits;
-    if (balances.Data < recipe.data_cost) missing.Data = recipe.data_cost - balances.Data;
+    if (balances.Meat < totalMeat) missing.Meat = totalMeat - balances.Meat;
+    if (balances.Bits < totalBits) missing.Bits = totalBits - balances.Bits;
+    if (balances.Data < totalData) missing.Data = totalData - balances.Data;
     if (Object.keys(missing).length > 0) {
       deficit = missing;
       return;
     }
 
     const costs: Array<[ResourceKind, number]> = [
-      ['Meat', recipe.meat_cost],
-      ['Bits', recipe.bits_cost],
-      ['Data', recipe.data_cost],
+      ['Meat', totalMeat],
+      ['Bits', totalBits],
+      ['Data', totalData],
     ];
     for (const [res, cost] of costs) {
       if (cost <= 0) continue;
@@ -669,32 +681,53 @@ export async function queueItem(
     }
 
     const activeRows = await t.query<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB_BY_FACTORY, [factoryId]);
-    const startedAt = activeRows.length === 0 ? now : null;
-    await t.run(SQL_INSERT_JOB, [
-      jobId,
-      userId,
-      recipe.id,
-      recipe.item_id,
-      factoryId,
-      startedAt,
-      recipe.craft_time_ms,
-      auto ? 1 : 0,
-      now,
-    ]);
+    const factoryHasActive = activeRows.length > 0;
+
+    for (let i = 0; i < requestedCount; i++) {
+      const isFirst = i === 0;
+      const isLast = i === requestedCount - 1;
+      const startedAt = isFirst && !factoryHasActive ? now : null;
+      const jobIsAuto = auto && isLast ? 1 : 0;
+      const id = newId('crf');
+      insertedJobIds.push(id);
+      await t.run(SQL_INSERT_JOB, [
+        id,
+        userId,
+        recipe.id,
+        recipe.item_id,
+        factoryId,
+        startedAt,
+        recipe.craft_time_ms,
+        jobIsAuto,
+        now,
+      ]);
+    }
   }).catch((err: unknown) => {
     if (err instanceof Error && err.message === 'craft-race') return;
     throw err;
   });
 
   if (deficit) return { ok: false, error: 'insufficient-resources', missing: deficit };
+  if (insertedJobIds.length === 0) {
+    return { ok: false, error: 'insufficient-resources', missing: deficit ?? {} };
+  }
 
   const balancesAfter: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
-  const inserted = await one<CraftingJobJoinRow>(SQL_SELECT_JOB_JOIN_BY_ID, jobId);
+  const firstId = insertedJobIds[0]!;
+  const inserted = await one<CraftingJobJoinRow>(SQL_SELECT_JOB_JOIN_BY_ID, firstId);
   if (!inserted) throw new Error('queueItem: job disappeared after insert');
   const jobView = jobRowToView(inserted, Date.now());
-  log.info('farm.craft.queue', { userId, factoryId, recipeId, itemId: recipe.item_id, auto, jobId });
-  return { ok: true, job: jobView, balances: balancesAfter };
+  log.info('farm.craft.queue', {
+    userId,
+    factoryId,
+    recipeId,
+    itemId: recipe.item_id,
+    auto,
+    count: requestedCount,
+    firstJobId: firstId,
+  });
+  return { ok: true, job: jobView, queuedCount: requestedCount, balances: balancesAfter };
 }
 
 export type CancelJobError = 'job-not-found';

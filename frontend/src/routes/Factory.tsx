@@ -29,6 +29,7 @@ export function Factory(): JSX.Element {
   const [pendingFactoryType, setPendingFactoryType] = useState<FactoryTypeId | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
+  const [countByRecipe, setCountByRecipe] = useState<Record<string, number>>({});
 
   const farmQuery = useQuery({ queryKey: FARM_QUERY_KEY, queryFn: getFarm });
   const pageQuery = useQuery({ queryKey: RECIPES_QUERY_KEY, queryFn: getFarmRecipes, refetchInterval: 15_000 });
@@ -77,18 +78,20 @@ export function Factory(): JSX.Element {
   });
 
   const queueMutation = useMutation({
-    mutationFn: (params: { readonly recipeId: string; readonly factoryId: string; readonly auto?: boolean }) =>
-      startFarmCraft(params.factoryId, params.recipeId, params.auto === true ? { auto: true } : undefined),
+    mutationFn: (params: { readonly recipeId: string; readonly factoryId: string; readonly auto?: boolean; readonly count?: number }) => {
+      const opts: { auto?: boolean; count?: number } = {};
+      if (params.auto === true) opts.auto = true;
+      if (typeof params.count === 'number') opts.count = params.count;
+      return startFarmCraft(params.factoryId, params.recipeId, opts);
+    },
     onMutate: (p) => setPendingRecipeId(p.recipeId),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: FARM_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: RECIPES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ['items'] });
-      setNotice(
-        result.job.isAuto
-          ? `Auto-producing ${result.job.itemName}`
-          : `Queued: ${result.job.itemName}`,
-      );
+      setCountByRecipe((prev) => ({ ...prev, [result.job.recipeId]: 1 }));
+      const label = result.queuedCount > 1 ? `${result.queuedCount}× ${result.job.itemName}` : result.job.itemName;
+      setNotice(result.job.isAuto ? `Auto-producing ${label}` : `Queued: ${label}`);
     },
     onError: (error) => setNotice(error instanceof Error ? error.message : 'queue failed'),
     onSettled: () => setPendingRecipeId(null),
@@ -207,16 +210,22 @@ export function Factory(): JSX.Element {
               <FactoryContent
                 factory={selectedFactory}
                 recipes={filteredRecipes}
+                balances={farm.balances}
                 queueMaxMs={queueMaxMs}
                 now={now}
                 isPremium={isPremium}
                 pendingRecipeId={pendingRecipeId}
                 queueBusy={queueMutation.isPending}
                 cancelBusy={cancelMutation.isPending}
-                onQueue={(recipeId, auto) =>
+                countByRecipe={countByRecipe}
+                onCountChange={(recipeId, count) =>
+                  setCountByRecipe((prev) => ({ ...prev, [recipeId]: count }))
+                }
+                onQueue={(recipeId, count, auto) =>
                   queueMutation.mutate({
                     factoryId: selectedFactory.id,
                     recipeId,
+                    ...(count > 1 ? { count } : {}),
                     ...(auto === true ? { auto: true } : {}),
                   })
                 }
@@ -233,27 +242,34 @@ export function Factory(): JSX.Element {
 function FactoryContent({
   factory,
   recipes,
+  balances,
   queueMaxMs,
   now,
   isPremium,
   pendingRecipeId,
   queueBusy,
   cancelBusy,
+  countByRecipe,
+  onCountChange,
   onQueue,
   onCancel,
 }: {
   readonly factory: PlayerFactoryView;
   readonly recipes: readonly RecipeView[];
+  readonly balances: Record<'Meat' | 'Bits' | 'Data', number>;
   readonly queueMaxMs: number;
   readonly now: number;
   readonly isPremium: boolean;
   readonly pendingRecipeId: string | null;
   readonly queueBusy: boolean;
   readonly cancelBusy: boolean;
-  readonly onQueue: (recipeId: string, auto?: boolean) => void;
+  readonly countByRecipe: Record<string, number>;
+  readonly onCountChange: (recipeId: string, count: number) => void;
+  readonly onQueue: (recipeId: string, count: number, auto?: boolean) => void;
   readonly onCancel: (jobId: string) => void;
 }): JSX.Element {
   const queuePct = Math.min(100, (factory.queueTotalMs / queueMaxMs) * 100);
+  const queueGroups = groupQueue(factory.queue);
   return (
     <>
       <header className="factory-content-head">
@@ -275,12 +291,12 @@ function FactoryContent({
 
       <section className="factory-queue" aria-label="Queue">
         <h3 className="factory-section-h">Queue ({factory.queue.length})</h3>
-        {factory.queue.length === 0 ? (
+        {queueGroups.length === 0 ? (
           <p className="muted">Nothing crafting — pick a recipe below.</p>
         ) : (
           <ol className="factory-queue-list">
-            {factory.queue.map((j) => (
-              <QueueRow key={j.id} job={j} now={now} disabled={cancelBusy} onCancel={onCancel} />
+            {queueGroups.map((group) => (
+              <QueueRow key={group.jobs[0]!.id} group={group} now={now} disabled={cancelBusy} onCancel={onCancel} />
             ))}
           </ol>
         )}
@@ -294,14 +310,21 @@ function FactoryContent({
           <ul className="recipe-list">
             {recipes.map((recipe) => {
               const rowPending = pendingRecipeId === recipe.id && queueBusy;
-              const queueFull = factory.queueRemainingCapMs < recipe.craftTimeMs;
-              const disabled = !recipe.canCraft || queueFull || rowPending;
+              const affordCount = maxAffordableCount(recipe, balances);
+              const roomCount = recipe.craftTimeMs > 0 ? Math.floor(factory.queueRemainingCapMs / recipe.craftTimeMs) : 0;
+              const maxCount = Math.max(0, Math.min(affordCount, roomCount, 100));
+              const rawCount = countByRecipe[recipe.id] ?? 1;
+              const count = maxCount === 0 ? 1 : Math.max(1, Math.min(maxCount, rawCount));
+              const queueFull = roomCount === 0;
+              const disabled = !recipe.canCraft || queueFull || rowPending || maxCount === 0;
               const buttonLabel = rowPending
                 ? 'Queuing…'
                 : queueFull
                 ? 'Queue full'
                 : !recipe.canCraft
                 ? 'Need resources'
+                : count > 1
+                ? `Queue ×${count}`
                 : 'Queue';
               return (
                 <li key={recipe.id} className={`recipe-list-row${disabled && !rowPending ? ' recipe-list-row--locked' : ''}`}>
@@ -315,12 +338,34 @@ function FactoryContent({
                     {recipe.dataCost > 0 ? <span className="ps-res ps-res--data" title="Data"><span className="ps-dot" />{recipe.dataCost}</span> : null}
                   </div>
                   <div className="recipe-list-time">{formatDuration(recipe.craftTimeMs)}</div>
+                  <div className="recipe-qty-stepper" aria-label={`Amount of ${recipe.itemName} to queue`}>
+                    <button
+                      type="button"
+                      className="qty-btn"
+                      disabled={disabled || count <= 1}
+                      onClick={() => onCountChange(recipe.id, count - 1)}
+                      aria-label="Decrease amount"
+                    >
+                      −
+                    </button>
+                    <span className="qty-value" aria-live="polite">{count}</span>
+                    <button
+                      type="button"
+                      className="qty-btn"
+                      disabled={disabled || count >= maxCount}
+                      onClick={() => onCountChange(recipe.id, Math.min(maxCount, count + 1))}
+                      aria-label="Increase amount"
+                      title={maxCount === count ? (queueFull ? 'Queue is full' : 'Not enough resources for more') : undefined}
+                    >
+                      +
+                    </button>
+                  </div>
                   <div className="recipe-list-actions">
                     <button
                       type="button"
                       className="btn btn--sm"
                       disabled={disabled}
-                      onClick={() => onQueue(recipe.id)}
+                      onClick={() => onQueue(recipe.id, count)}
                       title={queueFull ? 'Queue full (8h max)' : undefined}
                     >
                       {buttonLabel}
@@ -330,7 +375,7 @@ function FactoryContent({
                         type="button"
                         className="btn btn--sm btn--premium"
                         disabled={disabled}
-                        onClick={() => onQueue(recipe.id, true)}
+                        onClick={() => onQueue(recipe.id, count, true)}
                         title="Premium: auto-refill when queue empties, until resources deplete"
                       >
                         Auto ∞
@@ -347,34 +392,95 @@ function FactoryContent({
   );
 }
 
+type QueueGroup = {
+  readonly jobs: readonly CraftingJobView[];
+  readonly recipeId: string;
+  readonly itemName: string;
+  readonly count: number;
+  readonly hasAuto: boolean;
+  readonly hasActive: boolean;
+  readonly activeJob: CraftingJobView | null;
+  readonly durationMsPerUnit: number;
+};
+
+function groupQueue(queue: readonly CraftingJobView[]): readonly QueueGroup[] {
+  const groups: Array<{
+    jobs: CraftingJobView[];
+    recipeId: string;
+    itemName: string;
+    hasAuto: boolean;
+  }> = [];
+  for (const job of queue) {
+    const last = groups[groups.length - 1];
+    if (last && last.recipeId === job.recipeId && last.hasAuto === job.isAuto) {
+      last.jobs.push(job);
+    } else {
+      groups.push({ jobs: [job], recipeId: job.recipeId, itemName: job.itemName, hasAuto: job.isAuto });
+    }
+  }
+  return groups.map((g) => {
+    const active = g.jobs.find((j) => j.isActive) ?? null;
+    return {
+      jobs: g.jobs,
+      recipeId: g.recipeId,
+      itemName: g.itemName,
+      count: g.jobs.length,
+      hasAuto: g.hasAuto,
+      hasActive: active !== null,
+      activeJob: active,
+      durationMsPerUnit: g.jobs[0]!.durationMs,
+    };
+  });
+}
+
+function maxAffordableCount(recipe: RecipeView, balances: Record<'Meat' | 'Bits' | 'Data', number>): number {
+  const perResource = [
+    recipe.meatCost > 0 ? Math.floor(balances.Meat / recipe.meatCost) : Number.POSITIVE_INFINITY,
+    recipe.bitsCost > 0 ? Math.floor(balances.Bits / recipe.bitsCost) : Number.POSITIVE_INFINITY,
+    recipe.dataCost > 0 ? Math.floor(balances.Data / recipe.dataCost) : Number.POSITIVE_INFINITY,
+  ];
+  const min = Math.min(...perResource);
+  return Number.isFinite(min) ? min : 999;
+}
+
 function QueueRow({
-  job,
+  group,
   now,
   disabled,
   onCancel,
 }: {
-  readonly job: CraftingJobView;
+  readonly group: QueueGroup;
   readonly now: number;
   readonly disabled: boolean;
   readonly onCancel: (jobId: string) => void;
 }): JSX.Element {
-  const remainingMs = job.finishesAt !== null ? Math.max(0, job.finishesAt - now) : job.durationMs;
+  const active = group.activeJob;
+  const remainingActiveMs =
+    active !== null && active.finishesAt !== null ? Math.max(0, active.finishesAt - now) : group.durationMsPerUnit;
   const progressPct =
-    job.isActive && job.startedAt !== null
-      ? Math.min(100, Math.max(0, ((now - job.startedAt) / job.durationMs) * 100))
+    active !== null && active.startedAt !== null
+      ? Math.min(100, Math.max(0, ((now - active.startedAt) / active.durationMs) * 100))
       : 0;
+  const waitingUnits = group.count - (active !== null ? 1 : 0);
+  const remainingGroupMs = (active !== null ? remainingActiveMs : 0) + waitingUnits * group.durationMsPerUnit;
+  const lastJobId = group.jobs[group.jobs.length - 1]!.id;
   return (
-    <li className={`queue-item${job.isActive ? ' is-active' : ''}${job.isAuto ? ' is-auto' : ''}`}>
+    <li className={`queue-item${active !== null ? ' is-active' : ''}${group.hasAuto ? ' is-auto' : ''}`}>
       <div className="queue-item-head">
         <span className="queue-item-name">
-          <b>{job.itemName}</b>
-          {job.isAuto ? <span className="queue-item-auto">AUTO</span> : null}
+          <b>{group.itemName}</b>
+          {group.count > 1 ? <span className="queue-item-qty">×{group.count}</span> : null}
+          {group.hasAuto ? <span className="queue-item-auto">AUTO</span> : null}
         </span>
         <span className="queue-item-timer">
-          {job.isActive ? formatCountdown(remainingMs) : `~${formatDuration(job.durationMs)} wait`}
+          {active !== null
+            ? group.count > 1
+              ? `${formatCountdown(remainingActiveMs)}  ·  ${formatDuration(remainingGroupMs)} total`
+              : formatCountdown(remainingActiveMs)
+            : `~${formatDuration(remainingGroupMs)} wait`}
         </span>
       </div>
-      {job.isActive ? (
+      {active !== null ? (
         <div className="queue-item-progress">
           <div className="queue-item-progress-fill" style={{ width: `${progressPct}%` }} />
         </div>
@@ -383,9 +489,10 @@ function QueueRow({
         type="button"
         className="btn btn--secondary btn--sm queue-item-cancel"
         disabled={disabled}
-        onClick={() => onCancel(job.id)}
+        onClick={() => onCancel(lastJobId)}
+        title={group.count > 1 ? 'Cancel one from the end of this group (refunds resources)' : 'Cancel + refund'}
       >
-        Cancel
+        {group.count > 1 ? `Cancel 1 of ${group.count}` : 'Cancel'}
       </button>
     </li>
   );

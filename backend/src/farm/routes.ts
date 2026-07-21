@@ -29,6 +29,7 @@ const CraftSchema = z.object({
   factoryId: z.string().min(1),
   recipeId: z.string().min(1),
   auto: z.boolean().optional(),
+  count: z.number().int().min(1).max(100).optional(),
 });
 
 const BuyFactorySchema = z.object({
@@ -79,17 +80,16 @@ export const farmPlugin: FastifyPluginAsync = async (app): Promise<void> => {
         message: parsed.error.issues[0]?.message ?? 'factoryId + recipeId required',
       });
     }
-    const result = await queueItem(
-      user.id,
-      parsed.data.factoryId,
-      parsed.data.recipeId,
-      parsed.data.auto === true ? { auto: true } : undefined,
-    );
+    const opts: { auto?: boolean; count?: number } = {};
+    if (parsed.data.auto === true) opts.auto = true;
+    if (typeof parsed.data.count === 'number') opts.count = parsed.data.count;
+    const result = await queueItem(user.id, parsed.data.factoryId, parsed.data.recipeId, opts);
     if (!result.ok) {
       const status =
         result.error === 'factory-not-found' || result.error === 'recipe-not-found' ? 404
         : result.error === 'item-missing' ? 404
         : result.error === 'category-mismatch' ? 400
+        : result.error === 'invalid-count' ? 400
         : result.error === 'queue-full' ? 409
         : result.error === 'insufficient-resources' ? 402
         : result.error === 'premium-required' ? 403

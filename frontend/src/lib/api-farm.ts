@@ -105,6 +105,7 @@ export type BuyFactoryResult = {
 export type QueueCraftResult = {
   readonly ok: true;
   readonly job: CraftingJobView;
+  readonly queuedCount: number;
   readonly balances: Record<FarmResourceKind, number>;
 };
 
@@ -141,12 +142,12 @@ export function buyFactory(type: FactoryTypeId): Promise<BuyFactoryResult> {
 export function startFarmCraft(
   factoryId: string,
   recipeId: string,
-  opts?: { readonly auto?: boolean },
+  opts?: { readonly auto?: boolean; readonly count?: number },
 ): Promise<QueueCraftResult> {
-  return apiFetch<QueueCraftResult>('/api/farm/craft', {
-    method: 'POST',
-    body: { factoryId, recipeId, ...(opts?.auto ? { auto: true } : {}) },
-  });
+  const body: Record<string, unknown> = { factoryId, recipeId };
+  if (opts?.auto === true) body.auto = true;
+  if (typeof opts?.count === 'number') body.count = opts.count;
+  return apiFetch<QueueCraftResult>('/api/farm/craft', { method: 'POST', body });
 }
 
 export function cancelFarmCraftJob(jobId: string): Promise<CancelCraftJobResult> {
