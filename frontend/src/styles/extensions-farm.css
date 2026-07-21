@@ -94,9 +94,11 @@
 .factory-sidebar-item--med { --ftc: var(--res-meat); }
 .factory-sidebar-item--chip { --ftc: var(--res-data); }
 .factory-sidebar-item--rare { --ftc: var(--gold); }
-.factory-sidebar-item.is-active.factory-sidebar-item--med   { border-left-color: var(--res-meat); background: color-mix(in oklab, var(--res-meat) 12%, var(--panel)); }
-.factory-sidebar-item.is-active.factory-sidebar-item--chip  { border-left-color: var(--res-data); background: color-mix(in oklab, var(--res-data) 12%, var(--panel)); }
-.factory-sidebar-item.is-active.factory-sidebar-item--rare  { border-left-color: var(--gold);     background: color-mix(in oklab, var(--gold) 12%, var(--panel)); }
+.factory-sidebar-item--pantry { --ftc: var(--el-nature); }
+.factory-sidebar-item.is-active.factory-sidebar-item--med    { border-left-color: var(--res-meat); background: color-mix(in oklab, var(--res-meat) 12%, var(--panel)); }
+.factory-sidebar-item.is-active.factory-sidebar-item--chip   { border-left-color: var(--res-data); background: color-mix(in oklab, var(--res-data) 12%, var(--panel)); }
+.factory-sidebar-item.is-active.factory-sidebar-item--rare   { border-left-color: var(--gold);     background: color-mix(in oklab, var(--gold) 12%, var(--panel)); }
+.factory-sidebar-item.is-active.factory-sidebar-item--pantry { border-left-color: var(--el-nature); background: color-mix(in oklab, var(--el-nature) 12%, var(--panel)); }
 
 .factory-sidebar-item-head {
   display: flex;
@@ -128,9 +130,10 @@
   color: var(--ftc, var(--muted));
   background: color-mix(in oklab, var(--ftc, var(--muted)) 10%, transparent);
 }
-.factory-type-badge--med  { --ftc: var(--res-meat); }
-.factory-type-badge--chip { --ftc: var(--res-data); }
-.factory-type-badge--rare { --ftc: var(--gold); }
+.factory-type-badge--med    { --ftc: var(--res-meat); }
+.factory-type-badge--chip   { --ftc: var(--res-data); }
+.factory-type-badge--rare   { --ftc: var(--gold); }
+.factory-type-badge--pantry { --ftc: var(--el-nature); }
 
 /* Buy card (for factory types the user does not own) */
 .factory-buy-card {

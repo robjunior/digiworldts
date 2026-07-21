@@ -501,12 +501,15 @@ CREATE TABLE IF NOT EXISTS farm_recipes (
 CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
 
 ALTER TABLE farm_recipes ADD COLUMN IF NOT EXISTS craft_time_ms BIGINT NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0);
-ALTER TABLE farm_recipes ADD COLUMN IF NOT EXISTS category TEXT CHECK (category IN ('med', 'chip', 'rare'));
+ALTER TABLE farm_recipes ADD COLUMN IF NOT EXISTS category TEXT CHECK (category IN ('med', 'chip', 'rare', 'pantry'));
+ALTER TABLE farm_recipes DROP CONSTRAINT IF EXISTS farm_recipes_category_check;
+ALTER TABLE farm_recipes ADD CONSTRAINT farm_recipes_category_check
+  CHECK (category IN ('med', 'chip', 'rare', 'pantry'));
 
 CREATE TABLE IF NOT EXISTS player_factories (
   id                     TEXT PRIMARY KEY,
   user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  factory_type           TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
+  factory_type           TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare', 'pantry')),
   level                  INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   upgrade_cost           INTEGER NOT NULL DEFAULT 300 CHECK (upgrade_cost > 0),
   craft_time_multiplier  DOUBLE PRECISION NOT NULL DEFAULT 1.0 CHECK (craft_time_multiplier > 0),
@@ -518,6 +521,9 @@ CREATE INDEX IF NOT EXISTS idx_player_factories_user ON player_factories(user_id
 ALTER TABLE player_factories ADD COLUMN IF NOT EXISTS level INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1);
 ALTER TABLE player_factories ADD COLUMN IF NOT EXISTS upgrade_cost INTEGER NOT NULL DEFAULT 300 CHECK (upgrade_cost > 0);
 ALTER TABLE player_factories ADD COLUMN IF NOT EXISTS craft_time_multiplier DOUBLE PRECISION NOT NULL DEFAULT 1.0 CHECK (craft_time_multiplier > 0);
+ALTER TABLE player_factories DROP CONSTRAINT IF EXISTS player_factories_factory_type_check;
+ALTER TABLE player_factories ADD CONSTRAINT player_factories_factory_type_check
+  CHECK (factory_type IN ('med', 'chip', 'rare', 'pantry'));
 
 CREATE TABLE IF NOT EXISTS crafting_jobs (
   id            TEXT PRIMARY KEY,

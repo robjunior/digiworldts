@@ -83,6 +83,15 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
     payload: JSON.stringify({ en_pct: 1.0 }),
   },
   {
+    id: 'itm-provision',
+    name: 'Provision',
+    description: 'Trail rations for an expedition. Consumed at 10/hour to keep an adventuring party fed and healed on the road.',
+    price_credits: 20,
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ provision: true }),
+  },
+  {
     id: 'itm-xp-boost',
     name: 'Focus Chip',
     description: 'Doubles XP from your next match win.',

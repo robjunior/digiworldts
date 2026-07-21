@@ -231,7 +231,7 @@ export type UpgradeError = 'not-found' | 'insufficient-bits';
 // gates. Advance loop runs lazily on read and auto-collects finished jobs.
 // ============================================================================
 
-export type FactoryTypeId = 'med' | 'chip' | 'rare';
+export type FactoryTypeId = 'med' | 'chip' | 'rare' | 'pantry';
 
 export type FactoryPurchaseCost = {
   readonly meat: number;
@@ -265,6 +265,12 @@ const FACTORY_TYPE_METADATA: Record<FactoryTypeId, FactoryTypeInfo> = {
     description: 'Manufactures rare consumables like Digi-Revives.',
     cost: { meat: 200, bits: 200, data: 200 },
   },
+  pantry: {
+    id: 'pantry',
+    name: 'Pantry',
+    description: 'Packs Provisions — expedition rations that keep your team fed during adventures.',
+    cost: { meat: 30, bits: 20, data: 10 },
+  },
 };
 
 const QUEUE_MAX_TOTAL_MS = 8 * 60 * 60 * 1000;
@@ -285,6 +291,7 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-def-buff', item_id: 'itm-def-buff', meat: 20, bits: 20, data: 0, craft_time_ms: 240_000, category: 'chip' },
   { id: 'rcp-heal-large', item_id: 'itm-heal-large', meat: 20, bits: 40, data: 10, craft_time_ms: 300_000, category: 'med' },
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
+  { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
 ];
 
 export async function seedFarmRecipes(): Promise<void> {
@@ -297,28 +304,39 @@ export async function seedFarmRecipes(): Promise<void> {
   log.info('farm.recipes.seed.ok', { count: SEED_RECIPES.length });
 }
 
+const STARTER_FACTORY_TYPES: readonly FactoryTypeId[] = ['med', 'pantry'];
+
 export async function seedFactoryStarterForUser(userId: string): Promise<void> {
   const existing = await q<PlayerFactoryRow>(SQL_SELECT_FACTORIES_USER, userId);
-  if (existing.length > 0) return;
-  const now = Date.now();
-  await run(SQL_INSERT_FACTORY, newId('fac'), userId, 'med', FACTORY_BASE_UPGRADE_COST, now);
-  log.info('farm.factory.seed.ok', { userId, type: 'med' });
-}
-
-const SQL_SELECT_USERS_WITHOUT_FACTORY = `SELECT u.id FROM users u
-     WHERE NOT EXISTS (SELECT 1 FROM player_factories pf WHERE pf.user_id = u.id)`;
-
-export async function backfillStarterFactoriesForExistingUsers(): Promise<{ count: number }> {
-  const rows = await q<{ id: string }>(SQL_SELECT_USERS_WITHOUT_FACTORY);
-  if (rows.length === 0) return { count: 0 };
+  const owned = new Set(existing.map((f) => f.factory_type));
+  const missing = STARTER_FACTORY_TYPES.filter((t) => !owned.has(t));
+  if (missing.length === 0) return;
   const now = Date.now();
   await tx(async (t) => {
-    for (const row of rows) {
-      await t.run(SQL_INSERT_FACTORY, [newId('fac'), row.id, 'med', FACTORY_BASE_UPGRADE_COST, now]);
+    for (const type of missing) {
+      await t.run(SQL_INSERT_FACTORY, [newId('fac'), userId, type, FACTORY_BASE_UPGRADE_COST, now]);
     }
   });
-  log.info('farm.factory.backfill.ok', { count: rows.length });
-  return { count: rows.length };
+  log.info('farm.factory.seed.ok', { userId, types: missing });
+}
+
+const SQL_SELECT_USERS_WITHOUT_FACTORY_TYPE = `SELECT u.id FROM users u
+     WHERE NOT EXISTS (SELECT 1 FROM player_factories pf WHERE pf.user_id = u.id AND pf.factory_type = ?)`;
+
+export async function backfillStarterFactoriesForExistingUsers(): Promise<{ count: number }> {
+  const now = Date.now();
+  let inserted = 0;
+  await tx(async (t) => {
+    for (const type of STARTER_FACTORY_TYPES) {
+      const rows = await t.query<{ id: string }>(SQL_SELECT_USERS_WITHOUT_FACTORY_TYPE, [type]);
+      for (const row of rows) {
+        await t.run(SQL_INSERT_FACTORY, [newId('fac'), row.id, type, FACTORY_BASE_UPGRADE_COST, now]);
+        inserted++;
+      }
+    }
+  });
+  if (inserted > 0) log.info('farm.factory.backfill.ok', { count: inserted, types: STARTER_FACTORY_TYPES });
+  return { count: inserted };
 }
 
 export type RecipeView = {

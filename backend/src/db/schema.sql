@@ -520,7 +520,7 @@ CREATE TABLE IF NOT EXISTS farm_recipes (
   bits_cost      INTEGER NOT NULL DEFAULT 0 CHECK (bits_cost >= 0),
   data_cost      INTEGER NOT NULL DEFAULT 0 CHECK (data_cost >= 0),
   craft_time_ms  INTEGER NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0),
-  category       TEXT CHECK (category IN ('med', 'chip', 'rare')),
+  category       TEXT CHECK (category IN ('med', 'chip', 'rare', 'pantry')),
   enabled        INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   created_at     INTEGER NOT NULL
 );
@@ -529,7 +529,7 @@ CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
 CREATE TABLE IF NOT EXISTS player_factories (
   id                     TEXT PRIMARY KEY,
   user_id                TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  factory_type           TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
+  factory_type           TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare', 'pantry')),
   level                  INTEGER NOT NULL DEFAULT 1 CHECK (level >= 1),
   upgrade_cost           INTEGER NOT NULL DEFAULT 300 CHECK (upgrade_cost > 0),
   craft_time_multiplier  REAL NOT NULL DEFAULT 1.0 CHECK (craft_time_multiplier > 0),

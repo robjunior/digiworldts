@@ -34,7 +34,7 @@ export type FarmUpgradeResult = {
   readonly view: FarmView;
 };
 
-export type FactoryTypeId = 'med' | 'chip' | 'rare';
+export type FactoryTypeId = 'med' | 'chip' | 'rare' | 'pantry';
 
 export type FactoryPurchaseCost = {
   readonly meat: number;
