@@ -77,7 +77,9 @@ import {
   PARTY_SIZE,
   SKILLS_PER_DIGIMON,
   STAGES,
+  type Element,
   type EvolveEdge,
+  type ResistanceMap,
   type Skill,
   type TemplateDigimon,
 } from '../digimon/types.js';
@@ -129,18 +131,35 @@ const EvolveEdgeInputSchema = z.object({
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
 });
 
+const ResistanceMultZ = z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(1.5), z.literal(2)]);
+const ResistanceMapInputSchema = z.object({
+  fire: ResistanceMultZ,
+  water: ResistanceMultZ,
+  plant: ResistanceMultZ,
+  ice: ResistanceMultZ,
+  electricity: ResistanceMultZ,
+  earth: ResistanceMultZ,
+  steel: ResistanceMultZ,
+  wind: ResistanceMultZ,
+  light: ResistanceMultZ,
+  dark: ResistanceMultZ,
+  null: ResistanceMultZ,
+}).partial();
+
 const TemplateInputSchema = z.object({
   id: z.string().min(3).max(48).regex(/^[a-z0-9_-]+$/i, 'id must be alphanumeric with -_'),
   name: z.string().trim().min(1).max(48),
   stage: z.enum(STAGES),
   attribute: z.enum(ATTRIBUTES),
   element: z.enum(ELEMENTS),
+  type: z.string().min(1).max(64).optional(),
   baseStats: StatsInputSchema,
   skillPool: z.array(SkillInputSchema).min(1).max(SKILLS_PER_DIGIMON),
   assets: AssetsInputSchema,
   sourceUrl: z.string().url().optional(),
   wikimonSlug: z.string().optional(),
   evolvesInto: z.array(EvolveEdgeInputSchema).max(24).optional(),
+  resistances: ResistanceMapInputSchema.optional(),
 });
 
 type ParsedTemplate = z.infer<typeof TemplateInputSchema>;
@@ -174,6 +193,7 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
     skillPool: raw.skillPool.map(toStrictSkill),
     assets: raw.assets,
   };
+  if (raw.type !== undefined) out.type = raw.type;
   if (raw.sourceUrl !== undefined) out.sourceUrl = raw.sourceUrl;
   if (raw.wikimonSlug !== undefined) out.wikimonSlug = raw.wikimonSlug;
   if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) {
@@ -185,6 +205,13 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
       if (edge.requiredAttribute !== undefined) e.requiredAttribute = edge.requiredAttribute;
       return e;
     });
+  }
+  if (raw.resistances !== undefined && Object.keys(raw.resistances).length > 0) {
+    const map: ResistanceMap = {};
+    for (const [el, mult] of Object.entries(raw.resistances)) {
+      if (mult !== undefined) map[el as Element] = mult;
+    }
+    out.resistances = map;
   }
   return out;
 }

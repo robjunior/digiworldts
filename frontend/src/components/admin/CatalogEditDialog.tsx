@@ -1,4 +1,4 @@
-import type { Attribute, Element, EvolveEdge, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Attribute, Element, EvolveEdge, ResistanceMap, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
 import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
@@ -19,6 +19,7 @@ type DraftState = {
   stage: Stage;
   attribute: Attribute;
   element: Element;
+  type: string;
   wikimonSlug: string;
   sourceUrl: string;
   baseStats: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
@@ -34,6 +35,7 @@ function emptyDraft(): DraftState {
     stage: DEFAULT_STAGE,
     attribute: DEFAULT_ATTRIBUTE,
     element: DEFAULT_ELEMENT,
+    type: '',
     wikimonSlug: '',
     sourceUrl: '',
     baseStats: { hp: 500, en: 30, atk: 100, def: 80, int: 90, spd: 100 },
@@ -61,6 +63,7 @@ function draftFromTemplate(template: TemplateDigimon): DraftState {
     stage: template.stage,
     attribute: template.attribute,
     element: template.element,
+    type: template.type ?? '',
     wikimonSlug: template.wikimonSlug ?? '',
     sourceUrl: template.sourceUrl ?? '',
     baseStats: { ...template.baseStats },
@@ -70,19 +73,23 @@ function draftFromTemplate(template: TemplateDigimon): DraftState {
   };
 }
 
-function draftToPayload(draft: DraftState): TemplateDraft | null {
+function draftToPayload(draft: DraftState, original?: TemplateDigimon): TemplateDraft | null {
   if (!draft.id.trim() || !draft.name.trim() || !draft.assets.portrait.trim() || !draft.assets.dot.trim()) return null;
   const skillPool: Skill[] = [];
   for (let i = 0; i < SKILL_COUNT; i += 1) {
     const s = draft.skills[i]!;
     if (!s.name.trim()) return null;
-    skillPool.push({
+    const skill: Skill = {
       id: `s${i}`,
       name: s.name.trim(),
       element: s.element,
       energyCost: s.energyCost,
       power: s.power,
-    });
+    };
+    const originalSkill = original?.skillPool[i];
+    if (originalSkill?.description !== undefined) skill.description = originalSkill.description;
+    if (originalSkill?.effect !== undefined) skill.effect = originalSkill.effect;
+    skillPool.push(skill);
   }
   const payload: TemplateDraft = {
     id: draft.id.trim(),
@@ -94,6 +101,8 @@ function draftToPayload(draft: DraftState): TemplateDraft | null {
     skillPool,
     assets: { portrait: draft.assets.portrait.trim(), dot: draft.assets.dot.trim() },
   };
+  const typeStr = draft.type.trim();
+  if (typeStr) (payload as { type?: string }).type = typeStr;
   const wiki = draft.wikimonSlug.trim();
   if (wiki) (payload as { wikimonSlug?: string }).wikimonSlug = wiki;
   const src = draft.sourceUrl.trim();
@@ -107,6 +116,9 @@ function draftToPayload(draft: DraftState): TemplateDraft | null {
       if (e.requiredAttribute !== undefined) edge.requiredAttribute = e.requiredAttribute;
       return edge;
     });
+  }
+  if (original?.resistances && Object.keys(original.resistances).length > 0) {
+    (payload as { resistances?: ResistanceMap }).resistances = original.resistances;
   }
   return payload;
 }
@@ -146,7 +158,7 @@ export function CatalogEditDialog({
 
   const submit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
-    const payload = draftToPayload(draft);
+    const payload = draftToPayload(draft, initial);
     if (payload === null) {
       setError('Fill id, name, portrait, dot, and every skill name.');
       return;
@@ -164,6 +176,7 @@ export function CatalogEditDialog({
 
   const title = mode === 'edit' ? `Edit ${initial?.name ?? 'template'}` : 'Custom catalog entry';
   const submitLabel = mode === 'edit' ? 'Save changes' : 'Create template';
+  const resistanceCount = initial?.resistances ? Object.keys(initial.resistances).length : 0;
 
   return (
     <div className="modal-overlay show" role="dialog" aria-modal="true" aria-labelledby="catalog-dialog-title">
@@ -198,6 +211,9 @@ export function CatalogEditDialog({
               <Field label="Element">
                 <Select value={draft.element} values={ELEMENTS} onChange={(v) => setDraft({ ...draft, element: v })} />
               </Field>
+              <Field label="Type (e.g. Reptile)">
+                <input className="input" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value })} />
+              </Field>
               <Field label="Wikimon slug">
                 <input className="input" value={draft.wikimonSlug} onChange={(e) => setDraft({ ...draft, wikimonSlug: e.target.value })} />
               </Field>
@@ -211,6 +227,11 @@ export function CatalogEditDialog({
                 <input className="input" value={draft.assets.dot} onChange={(e) => setDraft({ ...draft, assets: { ...draft.assets, dot: e.target.value } })} required />
               </Field>
             </div>
+            {resistanceCount > 0 ? (
+              <p className="muted">
+                {resistanceCount} custom resistance override{resistanceCount === 1 ? '' : 's'} preserved from XML (not editable here yet).
+              </p>
+            ) : null}
           </section>
 
           <section className="stack" aria-label="Base stats">
@@ -232,7 +253,7 @@ export function CatalogEditDialog({
           </section>
 
           <section className="stack" aria-label="Skills">
-            <h4 className="caps">Skills</h4>
+            <h4 className="caps">Skills <span className="muted">(description + effect preserved on save)</span></h4>
             <div className="skill-editor">
               {draft.skills.map((skill, index) => (
                 <div key={index} className="skill-editor-row">

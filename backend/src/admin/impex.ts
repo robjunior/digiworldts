@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { one, q, run, type ScrapedRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { loadCatalog, saveCatalog } from '../digimon/xml.js';
-import type { Catalog, EvolveEdge, TemplateDigimon } from '../digimon/types.js';
+import type { Catalog, Element, EvolveEdge, ResistanceMap, TemplateDigimon } from '../digimon/types.js';
 import { AILMENTS, ATTRIBUTES, ELEMENTS, MAX_ENERGY, SKILLS_PER_DIGIMON, STAGES } from '../digimon/types.js';
 
 export type ImpexScope = 'all' | 'items' | 'blueprints' | 'catalog' | 'scraped';
@@ -125,18 +125,35 @@ const ManifestEvolveEdgeSchema = z.object({
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
 });
 
+const ManifestResistanceMultZ = z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(1.5), z.literal(2)]);
+const ManifestResistanceMapSchema = z.object({
+  fire: ManifestResistanceMultZ,
+  water: ManifestResistanceMultZ,
+  plant: ManifestResistanceMultZ,
+  ice: ManifestResistanceMultZ,
+  electricity: ManifestResistanceMultZ,
+  earth: ManifestResistanceMultZ,
+  steel: ManifestResistanceMultZ,
+  wind: ManifestResistanceMultZ,
+  light: ManifestResistanceMultZ,
+  dark: ManifestResistanceMultZ,
+  null: ManifestResistanceMultZ,
+}).partial();
+
 const ManifestTemplateSchema = z.object({
   id: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'id must be alphanumeric with -_'),
   name: z.string().trim().min(1).max(48),
   stage: z.enum(STAGES),
   attribute: z.enum(ATTRIBUTES),
   element: z.enum(ELEMENTS),
+  type: z.string().min(1).max(64).optional(),
   baseStats: ManifestStatsSchema,
   skillPool: z.array(ManifestSkillSchema).min(1).max(SKILLS_PER_DIGIMON),
   assets: ManifestAssetsSchema,
   sourceUrl: z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   wikimonSlug: z.string().max(64).optional(),
   evolvesInto: z.array(ManifestEvolveEdgeSchema).max(24).optional(),
+  resistances: ManifestResistanceMapSchema.optional(),
 });
 type ManifestTemplate = z.infer<typeof ManifestTemplateSchema>;
 
@@ -169,6 +186,7 @@ function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
     skillPool,
     assets: raw.assets,
   };
+  if (raw.type !== undefined) tpl.type = raw.type;
   if (raw.sourceUrl !== undefined) tpl.sourceUrl = raw.sourceUrl;
   if (raw.wikimonSlug !== undefined) tpl.wikimonSlug = raw.wikimonSlug;
   if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) {
@@ -180,6 +198,13 @@ function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
       if (edge.requiredAttribute !== undefined) out.requiredAttribute = edge.requiredAttribute;
       return out;
     });
+  }
+  if (raw.resistances !== undefined && Object.keys(raw.resistances).length > 0) {
+    const map: ResistanceMap = {};
+    for (const [el, mult] of Object.entries(raw.resistances)) {
+      if (mult !== undefined) map[el as Element] = mult;
+    }
+    tpl.resistances = map;
   }
   return tpl;
 }

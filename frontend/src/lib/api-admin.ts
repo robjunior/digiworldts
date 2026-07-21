@@ -1,4 +1,4 @@
-import type { Attribute, BaseStats, Element, EvolveEdge, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Attribute, BaseStats, Element, EvolveEdge, ResistanceMap, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
 
 import { apiFetch } from './api';
 
@@ -137,6 +137,7 @@ export type TemplateDraft = {
   readonly stage: Stage;
   readonly attribute: Attribute;
   readonly element: Element;
+  readonly type?: string;
   readonly baseStats: BaseStats;
   readonly skillPool: readonly Skill[];
   readonly assets: {
@@ -146,6 +147,7 @@ export type TemplateDraft = {
   readonly sourceUrl?: string;
   readonly wikimonSlug?: string;
   readonly evolvesInto?: readonly EvolveEdge[];
+  readonly resistances?: ResistanceMap;
 };
 
 export function getAdminStats(): Promise<AdminStats> {
