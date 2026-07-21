@@ -3,19 +3,31 @@ import { Link, useLocation } from 'react-router';
 
 import { useAuth } from '../hooks/useAuth';
 
-type NavItem = { readonly to: string; readonly label: string };
+type LeafNavItem = { readonly to: string; readonly label: string };
+type ParentNavItem = { readonly label: string; readonly submenu: readonly LeafNavItem[] };
+type NavItem = LeafNavItem | ParentNavItem;
+
+function isParent(item: NavItem): item is ParentNavItem {
+  return 'submenu' in item;
+}
 
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/lobby', label: 'Lobby' },
   { to: '/world', label: 'World' },
   { to: '/roster', label: 'Roster' },
   { to: '/digdex', label: 'Digdex' },
-  { to: '/farm', label: 'Farm' },
+  {
+    label: 'City',
+    submenu: [
+      { to: '/factory', label: 'Factory' },
+      { to: '/farm', label: 'Farm' },
+      { to: '/nursery', label: 'Nursery' },
+    ],
+  },
   { to: '/training', label: 'Training' },
   { to: '/shop', label: 'Shop' },
   { to: '/items', label: 'Items' },
   { to: '/market', label: 'Market' },
-  { to: '/nursery', label: 'Nursery' },
 ];
 
 function isPathActive(current: string, target: string): boolean {
@@ -41,8 +53,36 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
         </span>
       </Link>
       <div className="nav-links" role="tablist">
-        {NAV_ITEMS.map((item) =>
-          active(item.to) ? (
+        {NAV_ITEMS.map((item) => {
+          if (isParent(item)) {
+            const anyActive = item.submenu.some((s) => active(s.to));
+            return (
+              <div
+                key={item.label}
+                className={`nav-link nav-link--parent${anyActive ? ' is-active' : ''}`}
+                role="tab"
+                tabIndex={0}
+                aria-haspopup="menu"
+                aria-current={anyActive ? 'page' : undefined}
+              >
+                <span className="nav-link-label">{item.label}</span>
+                <span className="nav-link-chev" aria-hidden="true">▾</span>
+                <div className="nav-submenu" role="menu">
+                  {item.submenu.map((sub) => (
+                    <Link
+                      key={sub.to}
+                      to={sub.to}
+                      role="menuitem"
+                      className={`nav-submenu-item${active(sub.to) ? ' is-active' : ''}`}
+                    >
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            );
+          }
+          return active(item.to) ? (
             <span key={item.to} className="nav-link is-active" role="tab" aria-current="page">
               {item.label}
             </span>
@@ -50,8 +90,8 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
             <Link key={item.to} to={item.to} className="nav-link" role="tab">
               {item.label}
             </Link>
-          ),
-        )}
+          );
+        })}
         {user?.isAdmin ? (
           active('/admin') ? (
             <span className="nav-link nav-link--admin is-active" role="tab" aria-current="page">

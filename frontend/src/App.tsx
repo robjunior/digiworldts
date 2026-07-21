@@ -8,6 +8,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { Admin } from './routes/Admin';
 import { Combat } from './routes/Combat';
 import { Digdex } from './routes/Digdex';
+import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
 import { Items } from './routes/Items';
@@ -64,6 +65,7 @@ export function App(): JSX.Element {
           <Route path="/combat" element={<Combat />} />
           <Route path="/roster" element={<Roster />} />
           <Route path="/farm" element={<Farm />} />
+          <Route path="/factory" element={<Factory />} />
           <Route path="/training" element={<Training />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/items" element={<Items />} />
