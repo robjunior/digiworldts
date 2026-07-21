@@ -2,22 +2,26 @@
  * Farm HTTP routes. All require an authenticated user. Engine calls are
  * async since the DbAdapter refactor — every one gets `await`.
  *
- *   GET  /api/farm                  → full farm view (balances + credits + buildings)
- *   POST /api/farm/collect          → collect every building at once
- *   POST /api/farm/collect/:id      → collect one building
- *   POST /api/farm/upgrade/:id      → spend credits to raise a building's tier
- *   GET  /api/farm/recipes          → list craftable item recipes + can-craft flags
- *   POST /api/farm/craft            → { recipeId } spend resources + grant 1 item
+ *   GET  /api/farm                     → full farm view (balances + credits + buildings)
+ *   POST /api/farm/collect             → collect every building at once
+ *   POST /api/farm/collect/:id         → collect one building
+ *   POST /api/farm/upgrade/:id         → spend credits to raise a building's tier
+ *   GET  /api/farm/recipes             → list craftable recipes + can-craft + active job
+ *   POST /api/farm/craft               → { recipeId } start a timed crafting job
+ *   POST /api/farm/craft/collect       → deliver finished item to inventory
+ *   POST /api/farm/craft/cancel        → cancel active job + refund resources
  */
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import {
+  cancelCraftingJob,
   collectAllBuildings,
   collectBuilding,
-  craftItem,
+  collectCraftedItem,
   readFarm,
   readRecipes,
+  startCraft,
   upgradeBuilding,
 } from './engine.js';
 
@@ -38,10 +42,33 @@ export const farmPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const user = await requireAuth(req, reply);
     const parsed = CraftSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', message: parsed.error.issues[0]?.message ?? 'recipeId required' });
-    const result = await craftItem(user.id, parsed.data.recipeId);
+    const result = await startCraft(user.id, parsed.data.recipeId);
     if (!result.ok) {
-      const status = result.error === 'not-found' ? 404 : result.error === 'insufficient-resources' ? 402 : 409;
+      const status =
+        result.error === 'not-found' ? 404
+        : result.error === 'insufficient-resources' ? 402
+        : result.error === 'busy' ? 409
+        : 409;
       return reply.code(status).send({ error: result.error, ...(result.missing ? { missing: result.missing } : {}) });
+    }
+    return reply.send(result);
+  });
+
+  app.post('/api/farm/craft/collect', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await collectCraftedItem(user.id);
+    if (!result.ok) {
+      const status = result.error === 'no-active-job' ? 404 : 409;
+      return reply.code(status).send({ error: result.error });
+    }
+    return reply.send(result);
+  });
+
+  app.post('/api/farm/craft/cancel', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await cancelCraftingJob(user.id);
+    if (!result.ok) {
+      return reply.code(404).send({ error: result.error });
     }
     return reply.send(result);
   });

@@ -514,15 +514,31 @@ CREATE TABLE IF NOT EXISTS catalog_loot_entries (
 CREATE INDEX IF NOT EXISTS idx_catalog_loot_catalog ON catalog_loot_entries(catalog_id);
 
 CREATE TABLE IF NOT EXISTS farm_recipes (
-  id           TEXT PRIMARY KEY,
-  item_id      TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
-  meat_cost    INTEGER NOT NULL DEFAULT 0 CHECK (meat_cost >= 0),
-  bits_cost    INTEGER NOT NULL DEFAULT 0 CHECK (bits_cost >= 0),
-  data_cost    INTEGER NOT NULL DEFAULT 0 CHECK (data_cost >= 0),
-  enabled      INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
-  created_at   INTEGER NOT NULL
+  id             TEXT PRIMARY KEY,
+  item_id        TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  meat_cost      INTEGER NOT NULL DEFAULT 0 CHECK (meat_cost >= 0),
+  bits_cost      INTEGER NOT NULL DEFAULT 0 CHECK (bits_cost >= 0),
+  data_cost      INTEGER NOT NULL DEFAULT 0 CHECK (data_cost >= 0),
+  craft_time_ms  INTEGER NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0),
+  enabled        INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  created_at     INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
+
+CREATE TABLE IF NOT EXISTS crafting_jobs (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  recipe_id     TEXT NOT NULL REFERENCES farm_recipes(id) ON DELETE CASCADE,
+  item_id       TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  started_at    INTEGER NOT NULL,
+  duration_ms   INTEGER NOT NULL CHECK (duration_ms > 0),
+  collected_at  INTEGER,
+  created_at    INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_crafting_user ON crafting_jobs(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_user
+  ON crafting_jobs(user_id)
+  WHERE collected_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

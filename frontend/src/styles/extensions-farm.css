@@ -12,3 +12,89 @@
 .bld .fill i { width: var(--pct); }
 @media (max-width:860px) { .city { grid-template-columns:repeat(2, 1fr); } }
 @media (max-width:520px) { .city { grid-template-columns:1fr; } }
+
+.factory-active-job {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  background: color-mix(in oklab, var(--panel) 92%, var(--signal) 8%);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--signal);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.factory-active-job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.factory-active-job-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 8px;
+}
+.factory-active-job-name {
+  color: var(--ink);
+  font-size: 14px;
+}
+.factory-active-job-timer {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 2px 8px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+}
+.factory-active-job-timer.is-ready {
+  color: var(--signal);
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 12%, var(--panel));
+  text-transform: uppercase;
+}
+.factory-active-job-progress {
+  position: relative;
+  height: 8px;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.factory-active-job-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--signal) 55%, transparent) 0%,
+    var(--signal) 100%);
+  transition: width 0.4s linear;
+}
+.factory-active-job-progress.is-ready .factory-active-job-progress-fill {
+  background: var(--signal);
+  animation: factory-pulse 1.6s ease-in-out infinite;
+}
+@keyframes factory-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
+}
+.factory-active-job-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.recipe-card-time {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 2px 6px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  margin-left: 8px;
+}

@@ -394,7 +394,19 @@ export type FarmRecipeRow = {
   meat_cost: number;
   bits_cost: number;
   data_cost: number;
+  craft_time_ms: number;
   enabled: 0 | 1;
+  created_at: number;
+};
+
+export type CraftingJobRow = {
+  id: string;
+  user_id: string;
+  recipe_id: string;
+  item_id: string;
+  started_at: number;
+  duration_ms: number;
+  collected_at: number | null;
   created_at: number;
 };
 

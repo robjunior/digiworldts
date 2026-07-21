@@ -13,7 +13,7 @@
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
  */
-import { one, q, tx, type FarmBuildingRow, type FarmRecipeRow, type ResourceRow, type ShopItemRow, type WalletRow } from '../db/index.js';
+import { one, q, tx, type CraftingJobRow, type FarmBuildingRow, type FarmRecipeRow, type ResourceRow, type ShopItemRow, type WalletRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
@@ -57,12 +57,20 @@ const SQL_SELECT_RECIPES = `SELECT r.*, s.name AS item_name, s.description AS it
      WHERE r.enabled = 1 AND s.enabled = 1 AND s.class = 'item'
      ORDER BY r.meat_cost + r.bits_cost + r.data_cost ASC`;
 const SQL_SELECT_RECIPE = `SELECT * FROM farm_recipes WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, craft_time_ms, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+     ON CONFLICT (id) DO UPDATE SET craft_time_ms = excluded.craft_time_ms`;
 const SQL_DEDUCT_RESOURCE = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = ? AND amount >= ?`;
 const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
 const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
+const SQL_SELECT_ACTIVE_JOB = `SELECT j.*, s.name AS item_name
+     FROM crafting_jobs j JOIN shop_items s ON s.id = j.item_id
+     WHERE j.user_id = ? AND j.collected_at IS NULL`;
+const SQL_INSERT_JOB = `INSERT INTO crafting_jobs (id, user_id, recipe_id, item_id, started_at, duration_ms, collected_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`;
+const SQL_MARK_JOB_COLLECTED = `UPDATE crafting_jobs SET collected_at = ? WHERE id = ? AND collected_at IS NULL`;
+const SQL_DELETE_JOB = `DELETE FROM crafting_jobs WHERE id = ? AND collected_at IS NULL`;
 
 function computeProduced(row: FarmBuildingRow, now: number): number {
   const elapsed = Math.max(0, now - row.last_touch);
@@ -172,21 +180,21 @@ export async function collectAllBuildings(userId: string): Promise<CollectResult
 
 export type UpgradeError = 'not-found' | 'insufficient-bits';
 
-const SEED_RECIPES: ReadonlyArray<{ id: string; item_id: string; meat: number; bits: number; data: number }> = [
-  { id: 'rcp-heal-small', item_id: 'itm-heal-small', meat: 5, bits: 10, data: 0 },
-  { id: 'rcp-energy-drink', item_id: 'itm-energy-drink', meat: 0, bits: 15, data: 5 },
-  { id: 'rcp-status-cure', item_id: 'itm-status-cure', meat: 10, bits: 10, data: 5 },
-  { id: 'rcp-atk-buff', item_id: 'itm-atk-buff', meat: 20, bits: 20, data: 0 },
-  { id: 'rcp-def-buff', item_id: 'itm-def-buff', meat: 20, bits: 20, data: 0 },
-  { id: 'rcp-heal-large', item_id: 'itm-heal-large', meat: 20, bits: 40, data: 10 },
-  { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30 },
+const SEED_RECIPES: ReadonlyArray<{ id: string; item_id: string; meat: number; bits: number; data: number; craft_time_ms: number }> = [
+  { id: 'rcp-heal-small', item_id: 'itm-heal-small', meat: 5, bits: 10, data: 0, craft_time_ms: 60_000 },
+  { id: 'rcp-energy-drink', item_id: 'itm-energy-drink', meat: 0, bits: 15, data: 5, craft_time_ms: 120_000 },
+  { id: 'rcp-status-cure', item_id: 'itm-status-cure', meat: 10, bits: 10, data: 5, craft_time_ms: 180_000 },
+  { id: 'rcp-atk-buff', item_id: 'itm-atk-buff', meat: 20, bits: 20, data: 0, craft_time_ms: 240_000 },
+  { id: 'rcp-def-buff', item_id: 'itm-def-buff', meat: 20, bits: 20, data: 0, craft_time_ms: 240_000 },
+  { id: 'rcp-heal-large', item_id: 'itm-heal-large', meat: 20, bits: 40, data: 10, craft_time_ms: 300_000 },
+  { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000 },
 ];
 
 export async function seedFarmRecipes(): Promise<void> {
   const now = Date.now();
   await tx(async (t) => {
     for (const recipe of SEED_RECIPES) {
-      await t.run(SQL_INSERT_RECIPE, [recipe.id, recipe.item_id, recipe.meat, recipe.bits, recipe.data, now]);
+      await t.run(SQL_INSERT_RECIPE, [recipe.id, recipe.item_id, recipe.meat, recipe.bits, recipe.data, recipe.craft_time_ms, now]);
     }
   });
   log.info('farm.recipes.seed.ok', { count: SEED_RECIPES.length });
@@ -200,10 +208,48 @@ export type RecipeView = {
   readonly meatCost: number;
   readonly bitsCost: number;
   readonly dataCost: number;
+  readonly craftTimeMs: number;
   readonly canCraft: boolean;
 };
 
-export async function readRecipes(userId: string): Promise<{ recipes: RecipeView[]; balances: Record<ResourceKind, number> }> {
+export type CraftingJobView = {
+  readonly id: string;
+  readonly recipeId: string;
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly startedAt: number;
+  readonly durationMs: number;
+  readonly finishesAt: number;
+  readonly progressPct: number;
+  readonly readyToCollect: boolean;
+};
+
+type CraftingJobJoinRow = CraftingJobRow & { item_name: string };
+
+function jobRowToView(row: CraftingJobJoinRow, now: number): CraftingJobView {
+  const finishesAt = row.started_at + row.duration_ms;
+  const elapsed = Math.max(0, now - row.started_at);
+  const progressPct = Math.min(100, Math.max(0, (elapsed / row.duration_ms) * 100));
+  return {
+    id: row.id,
+    recipeId: row.recipe_id,
+    itemId: row.item_id,
+    itemName: row.item_name,
+    startedAt: row.started_at,
+    durationMs: row.duration_ms,
+    finishesAt,
+    progressPct,
+    readyToCollect: now >= finishesAt,
+  };
+}
+
+export async function getActiveCraftingJob(userId: string): Promise<CraftingJobView | null> {
+  const row = await one<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB, userId);
+  if (!row) return null;
+  return jobRowToView(row, Date.now());
+}
+
+export async function readRecipes(userId: string): Promise<{ recipes: RecipeView[]; balances: Record<ResourceKind, number>; activeJob: CraftingJobView | null }> {
   const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
   type RecipeJoinRow = FarmRecipeRow & { item_name: string; item_description: string };
@@ -216,16 +262,18 @@ export async function readRecipes(userId: string): Promise<{ recipes: RecipeView
     meatCost: row.meat_cost,
     bitsCost: row.bits_cost,
     dataCost: row.data_cost,
+    craftTimeMs: row.craft_time_ms,
     canCraft: balances.Meat >= row.meat_cost && balances.Bits >= row.bits_cost && balances.Data >= row.data_cost,
   }));
-  return { recipes, balances };
+  const activeJob = await getActiveCraftingJob(userId);
+  return { recipes, balances, activeJob };
 }
 
-export type CraftError = 'not-found' | 'item-missing' | 'insufficient-resources';
+export type StartCraftError = 'not-found' | 'item-missing' | 'insufficient-resources' | 'busy';
 
-export async function craftItem(userId: string, recipeId: string): Promise<
-  | { ok: true; itemId: string; itemName: string; balances: Record<ResourceKind, number> }
-  | { ok: false; error: CraftError; missing?: Partial<Record<ResourceKind, number>> }
+export async function startCraft(userId: string, recipeId: string): Promise<
+  | { ok: true; job: CraftingJobView; balances: Record<ResourceKind, number> }
+  | { ok: false; error: StartCraftError; missing?: Partial<Record<ResourceKind, number>> }
 > {
   const recipe = await one<FarmRecipeRow>(SQL_SELECT_RECIPE, recipeId);
   if (!recipe) return { ok: false, error: 'not-found' };
@@ -234,8 +282,15 @@ export async function craftItem(userId: string, recipeId: string): Promise<
 
   const now = Date.now();
   let deficit: Partial<Record<ResourceKind, number>> | null = null;
+  let busy = false;
+  const jobId = newId('crf');
 
   await tx(async (t) => {
+    const existing = await t.query<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB, [userId]);
+    if (existing.length > 0) {
+      busy = true;
+      return;
+    }
     const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
     for (const r of await t.query<ResourceRow>(SQL_SELECT_RESOURCES, [userId])) balances[r.resource] = r.amount;
     const missing: Partial<Record<ResourceKind, number>> = {};
@@ -259,18 +314,84 @@ export async function craftItem(userId: string, recipeId: string): Promise<
         throw new Error('craft-race');
       }
     }
-    await t.run(SQL_UPSERT_INVENTORY_ITEM, [userId, recipe.item_id, now]);
+    await t.run(SQL_INSERT_JOB, [jobId, userId, recipe.id, recipe.item_id, now, recipe.craft_time_ms, now]);
   }).catch((err: unknown) => {
     if (err instanceof Error && err.message === 'craft-race') return;
     throw err;
   });
 
+  if (busy) return { ok: false, error: 'busy' };
   if (deficit) return { ok: false, error: 'insufficient-resources', missing: deficit };
 
   const balancesAfter: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
-  log.info('farm.craft.ok', { userId, recipeId, itemId: recipe.item_id });
-  return { ok: true, itemId: recipe.item_id, itemName: item.name, balances: balancesAfter };
+  const job = await getActiveCraftingJob(userId);
+  if (!job) throw new Error('startCraft: job disappeared after insert');
+  log.info('farm.craft.start', { userId, recipeId, itemId: recipe.item_id, durationMs: recipe.craft_time_ms });
+  return { ok: true, job, balances: balancesAfter };
+}
+
+export type CollectCraftError = 'no-active-job' | 'not-ready';
+
+export async function collectCraftedItem(userId: string): Promise<
+  | { ok: true; itemId: string; itemName: string; activeJob: null }
+  | { ok: false; error: CollectCraftError }
+> {
+  const now = Date.now();
+  const active = await one<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB, userId);
+  if (!active) return { ok: false, error: 'no-active-job' };
+  if (now < active.started_at + active.duration_ms) return { ok: false, error: 'not-ready' };
+
+  let raced = false;
+  await tx(async (t) => {
+    const info = await t.run(SQL_MARK_JOB_COLLECTED, [now, active.id]);
+    if (info.changes === 0) {
+      raced = true;
+      return;
+    }
+    await t.run(SQL_UPSERT_INVENTORY_ITEM, [userId, active.item_id, now]);
+  });
+  if (raced) return { ok: false, error: 'no-active-job' };
+  log.info('farm.craft.collect', { userId, jobId: active.id, itemId: active.item_id });
+  return { ok: true, itemId: active.item_id, itemName: active.item_name, activeJob: null };
+}
+
+export type CancelCraftError = 'no-active-job';
+
+export async function cancelCraftingJob(userId: string): Promise<
+  | { ok: true; refunded: Partial<Record<ResourceKind, number>>; balances: Record<ResourceKind, number>; activeJob: null }
+  | { ok: false; error: CancelCraftError }
+> {
+  const active = await one<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB, userId);
+  if (!active) return { ok: false, error: 'no-active-job' };
+  const recipe = await one<FarmRecipeRow>(SQL_SELECT_RECIPE, active.recipe_id);
+  if (!recipe) return { ok: false, error: 'no-active-job' };
+
+  const now = Date.now();
+  const refunded: Partial<Record<ResourceKind, number>> = {};
+  let raced = false;
+  await tx(async (t) => {
+    const info = await t.run(SQL_DELETE_JOB, [active.id]);
+    if (info.changes === 0) {
+      raced = true;
+      return;
+    }
+    const costs: Array<[ResourceKind, number]> = [
+      ['Meat', recipe.meat_cost],
+      ['Bits', recipe.bits_cost],
+      ['Data', recipe.data_cost],
+    ];
+    for (const [res, cost] of costs) {
+      if (cost <= 0) continue;
+      await t.run(SQL_UPSERT_RESOURCE, [userId, res, cost, now]);
+      refunded[res] = cost;
+    }
+  });
+  if (raced) return { ok: false, error: 'no-active-job' };
+  const balancesAfter: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+  for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
+  log.info('farm.craft.cancel', { userId, jobId: active.id, refunded });
+  return { ok: true, refunded, balances: balancesAfter, activeJob: null };
 }
 
 /**
