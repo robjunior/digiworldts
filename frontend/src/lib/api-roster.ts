@@ -110,6 +110,7 @@ export type LearnedSkillEntry = {
   readonly sourceTemplateId: string;
   readonly sourceTemplateName: string;
   readonly sourceStage: string;
+  readonly sourceAttribute: string;
   readonly source: 'current' | 'history';
 };
 

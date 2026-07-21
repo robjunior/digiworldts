@@ -62,6 +62,7 @@ export type LearnedSkillEntry = {
   sourceTemplateId: string;
   sourceTemplateName: string;
   sourceStage: string;
+  sourceAttribute: string;
   source: 'current' | 'history';
 };
 
@@ -84,6 +85,7 @@ export function learnedSkillsFor(currentTpl: TemplateDigimon, historyIds: readon
         sourceTemplateId: tpl.id,
         sourceTemplateName: tpl.name,
         sourceStage: tpl.stage,
+        sourceAttribute: tpl.attribute,
         source,
       });
     }

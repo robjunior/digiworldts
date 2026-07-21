@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 
-import { STAGES } from '@digiworld/shared/digimon';
+import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 
 import { ApiError } from '../../lib/api';
 import { getMonSkills, setMonSkills } from '../../lib/api-roster';
@@ -14,6 +14,8 @@ type SkillEditorProps = {
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const DND_MIME = 'application/x-digiworld-skill';
 type StageFilter = 'all' | (typeof STAGES)[number];
+type ElementFilter = 'all' | (typeof ELEMENTS)[number];
+type AttributeFilter = 'all' | (typeof ATTRIBUTES)[number];
 
 function padSlots(equipped: readonly string[], max: number): (string | null)[] {
   const slots: (string | null)[] = new Array(max).fill(null);
@@ -38,6 +40,8 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [poolDragOver, setPoolDragOver] = useState(false);
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
+  const [elementFilter, setElementFilter] = useState<ElementFilter>('all');
+  const [attributeFilter, setAttributeFilter] = useState<AttributeFilter>('all');
   const draggingKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -72,14 +76,27 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const canSave = dirty && chosenKeys.size > 0 && chosenKeys.size <= data.maxEquipped;
 
   const countByStage = new Map<string, number>();
+  const countByElement = new Map<string, number>();
+  const countByAttribute = new Map<string, number>();
   for (const entry of data.learnedSkills) {
     countByStage.set(entry.sourceStage, (countByStage.get(entry.sourceStage) ?? 0) + 1);
+    countByElement.set(entry.skill.element, (countByElement.get(entry.skill.element) ?? 0) + 1);
+    countByAttribute.set(entry.sourceAttribute, (countByAttribute.get(entry.sourceAttribute) ?? 0) + 1);
   }
   const availableStages = STAGES.filter((s) => countByStage.has(s));
+  const availableElements = ELEMENTS.filter((e) => countByElement.has(e));
+  const availableAttributes = ATTRIBUTES.filter((a) => countByAttribute.has(a));
   const activeStageFilter: StageFilter = stageFilter !== 'all' && !countByStage.has(stageFilter) ? 'all' : stageFilter;
-  const visibleEntries = activeStageFilter === 'all'
-    ? data.learnedSkills
-    : data.learnedSkills.filter((e) => e.sourceStage === activeStageFilter);
+  const activeElementFilter: ElementFilter = elementFilter !== 'all' && !countByElement.has(elementFilter) ? 'all' : elementFilter;
+  const activeAttributeFilter: AttributeFilter = attributeFilter !== 'all' && !countByAttribute.has(attributeFilter) ? 'all' : attributeFilter;
+  const visibleEntries = data.learnedSkills.filter((e) => {
+    if (activeStageFilter !== 'all' && e.sourceStage !== activeStageFilter) return false;
+    if (activeElementFilter !== 'all' && e.skill.element !== activeElementFilter) return false;
+    if (activeAttributeFilter !== 'all' && e.sourceAttribute !== activeAttributeFilter) return false;
+    return true;
+  });
+  const anyFilterActive =
+    activeStageFilter !== 'all' || activeElementFilter !== 'all' || activeAttributeFilter !== 'all';
 
   const equipToFirstFree = (key: string): void => {
     setMessage(null);
@@ -198,29 +215,87 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
 
       <div className="skill-editor-cols">
         <div className="skill-editor-col skill-editor-col--left">
-          <div className="skill-filter" role="tablist" aria-label="Filter skills by stage">
-            <button
-              type="button"
-              role="tab"
-              className={`skill-filter-btn ${activeStageFilter === 'all' ? 'is-active' : ''}`}
-              aria-selected={activeStageFilter === 'all'}
-              onClick={() => setStageFilter('all')}
-            >
-              All <span className="filter-count">{data.learnedSkills.length}</span>
-            </button>
-            {availableStages.map((stage) => (
+          <div className="skill-filters">
+            <div className="skill-filter" role="tablist" aria-label="Filter skills by stage">
+              <span className="skill-filter-label">Stage</span>
               <button
-                key={stage}
                 type="button"
                 role="tab"
-                className={`skill-filter-btn ${activeStageFilter === stage ? 'is-active' : ''}`}
-                aria-selected={activeStageFilter === stage}
-                data-stage={stage.toLowerCase()}
-                onClick={() => setStageFilter(stage)}
+                className={`skill-filter-btn ${activeStageFilter === 'all' ? 'is-active' : ''}`}
+                aria-selected={activeStageFilter === 'all'}
+                onClick={() => setStageFilter('all')}
               >
-                {stage} <span className="filter-count">{countByStage.get(stage) ?? 0}</span>
+                All <span className="filter-count">{data.learnedSkills.length}</span>
               </button>
-            ))}
+              {availableStages.map((stage) => (
+                <button
+                  key={stage}
+                  type="button"
+                  role="tab"
+                  className={`skill-filter-btn ${activeStageFilter === stage ? 'is-active' : ''}`}
+                  aria-selected={activeStageFilter === stage}
+                  data-stage={stage.toLowerCase()}
+                  onClick={() => setStageFilter(stage)}
+                >
+                  {stage} <span className="filter-count">{countByStage.get(stage) ?? 0}</span>
+                </button>
+              ))}
+            </div>
+            {availableElements.length > 0 ? (
+              <div className="skill-filter" role="tablist" aria-label="Filter skills by element">
+                <span className="skill-filter-label">Element</span>
+                <button
+                  type="button"
+                  role="tab"
+                  className={`skill-filter-btn ${activeElementFilter === 'all' ? 'is-active' : ''}`}
+                  aria-selected={activeElementFilter === 'all'}
+                  onClick={() => setElementFilter('all')}
+                >
+                  All
+                </button>
+                {availableElements.map((element) => (
+                  <button
+                    key={element}
+                    type="button"
+                    role="tab"
+                    className={`skill-filter-btn skill-filter-btn--el ${activeElementFilter === element ? 'is-active' : ''}`}
+                    aria-selected={activeElementFilter === element}
+                    data-element={element}
+                    style={{ ['--fchip' as string]: `var(--el-${element})` }}
+                    onClick={() => setElementFilter(element)}
+                  >
+                    {element} <span className="filter-count">{countByElement.get(element) ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {availableAttributes.length > 0 ? (
+              <div className="skill-filter" role="tablist" aria-label="Filter skills by source Digimon attribute">
+                <span className="skill-filter-label">Type</span>
+                <button
+                  type="button"
+                  role="tab"
+                  className={`skill-filter-btn ${activeAttributeFilter === 'all' ? 'is-active' : ''}`}
+                  aria-selected={activeAttributeFilter === 'all'}
+                  onClick={() => setAttributeFilter('all')}
+                >
+                  All
+                </button>
+                {availableAttributes.map((attribute) => (
+                  <button
+                    key={attribute}
+                    type="button"
+                    role="tab"
+                    className={`skill-filter-btn skill-filter-btn--attr ${activeAttributeFilter === attribute ? 'is-active' : ''}`}
+                    aria-selected={activeAttributeFilter === attribute}
+                    data-attribute={attribute.toLowerCase()}
+                    onClick={() => setAttributeFilter(attribute)}
+                  >
+                    {attribute} <span className="filter-count">{countByAttribute.get(attribute) ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div
             className={`skill-pool ${poolDragOver ? 'is-dropzone' : ''}`}
@@ -229,7 +304,9 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
             onDrop={handlePoolDrop}
           >
             {visibleEntries.length === 0 ? (
-              <div className="skill-group-empty">No {activeStageFilter === 'all' ? 'learned skills' : `${activeStageFilter} skills`} yet.</div>
+              <div className="skill-group-empty">
+                {anyFilterActive ? 'No skills match the current filters.' : 'No learned skills yet.'}
+              </div>
             ) : (
               <div className="skill-grid">
                 {visibleEntries.map((entry) => {

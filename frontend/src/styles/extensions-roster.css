@@ -248,11 +248,25 @@
 .skill-editor-col--left { display: flex; flex-direction: column; gap: 10px; }
 .skill-editor-col--right { position: sticky; top: 12px; }
 
+.skill-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
 .skill-filter {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   padding: 6px 0 2px;
+  align-items: center;
+}
+.skill-filter-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 52px;
 }
 .skill-filter-btn {
   background: var(--panel);
@@ -282,6 +296,17 @@
 .skill-filter-btn[data-stage="champion"].is-active { background: var(--el-electric); border-color: var(--el-electric); }
 .skill-filter-btn[data-stage="ultimate"].is-active { background: var(--signal); border-color: var(--signal); }
 .skill-filter-btn[data-stage="mega"].is-active     { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+.skill-filter-btn--el.is-active {
+  background: var(--fchip, var(--ink));
+  border-color: var(--fchip, var(--ink));
+  color: var(--bg);
+}
+.skill-filter-btn--attr.is-active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.skill-filter-btn--attr[data-attribute="vaccine"].is-active  { background: var(--signal);      border-color: var(--signal); }
+.skill-filter-btn--attr[data-attribute="virus"].is-active    { background: var(--el-dark);     border-color: var(--el-dark); }
+.skill-filter-btn--attr[data-attribute="data"].is-active     { background: var(--el-electric); border-color: var(--el-electric); }
+.skill-filter-btn--attr[data-attribute="free"].is-active     { background: var(--el-light);    border-color: var(--el-light); color: var(--bg); }
+.skill-filter-btn--attr[data-attribute="variable"].is-active { background: var(--gold);        border-color: var(--gold); color: var(--bg); }
 .filter-count {
   font-size: 9px;
   font-weight: 700;
