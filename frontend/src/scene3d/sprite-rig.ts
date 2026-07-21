@@ -37,8 +37,6 @@ const ATTACK_JUMP_UNITS = 0.25;
 const HIT_SHAKE_UNITS = 0.07;
 const IDLE_BOB_AMP = 0.03;
 const IDLE_BOB_FREQ = 2;
-const BASE_EMISSIVE_HEX = 0x0a0e16;
-const BASE_EMISSIVE_INTENSITY = 0.35;
 const ALPHA_THRESHOLD = 24;
 
 export const FORMATION_SIDE_X = 3.0;
@@ -112,7 +110,6 @@ type GifState = {
 type AnimState = { type: 'attack' | 'hit'; t: number; dur: number };
 
 type IlluminationState = {
-  readonly baseHex: number;
   readonly color: THREE.Color;
   intensity: number;
   decayPerSec: number;
@@ -127,8 +124,8 @@ export class SpriteRig implements SpriteRigApi {
   private readonly scene: THREE.Scene;
   private readonly mesh: THREE.Mesh;
   private readonly shadow: THREE.Mesh;
-  private readonly mat: THREE.MeshLambertMaterial;
-  private readonly baseEmissive: THREE.Color;
+  private readonly mat: THREE.MeshBasicMaterial;
+  private readonly baseColor: THREE.Color;
   private readonly basePosition: THREE.Vector3;
   private readonly phase: number;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
@@ -149,14 +146,13 @@ export class SpriteRig implements SpriteRigApi {
     this.downed = config.initiallyDowned === true;
 
     const placeholder = makePlaceholderTexture();
-    this.baseEmissive = new THREE.Color(BASE_EMISSIVE_HEX);
-    this.mat = new THREE.MeshLambertMaterial({
+    this.baseColor = new THREE.Color(0xffffff);
+    this.mat = new THREE.MeshBasicMaterial({
       map: placeholder,
       transparent: true,
       alphaTest: 0.5,
       side: THREE.DoubleSide,
-      emissive: this.baseEmissive.clone(),
-      emissiveIntensity: BASE_EMISSIVE_INTENSITY,
+      color: this.baseColor.clone(),
     });
     const geometry = new THREE.PlaneGeometry(SPRITE_WIDTH, SPRITE_HEIGHT);
     this.mesh = new THREE.Mesh(geometry, this.mat);
@@ -357,12 +353,10 @@ export class SpriteRig implements SpriteRigApi {
       const illum = this.illumination;
       illum.intensity = Math.max(0, illum.intensity - illum.decayPerSec * dt);
       if (illum.intensity <= 0.001) {
-        this.mat.emissive.setHex(illum.baseHex);
-        this.mat.emissiveIntensity = BASE_EMISSIVE_INTENSITY;
+        this.mat.color.copy(this.baseColor);
         this.illumination = null;
       } else {
-        this.mat.emissive.copy(this.baseEmissive).lerp(illum.color, Math.min(1, illum.intensity));
-        this.mat.emissiveIntensity = BASE_EMISSIVE_INTENSITY + illum.intensity * 0.9;
+        this.mat.color.copy(this.baseColor).lerp(illum.color, Math.min(1, illum.intensity));
       }
     }
   }
@@ -381,7 +375,6 @@ export class SpriteRig implements SpriteRigApi {
     if (this.disposedFlag) return;
     const c = color instanceof THREE.Color ? color.clone() : new THREE.Color(color);
     this.illumination = {
-      baseHex: BASE_EMISSIVE_HEX,
       color: c,
       intensity: Math.max(0, intensity),
       decayPerSec: Math.max(0.1, decayPerSec),
