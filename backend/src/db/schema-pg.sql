@@ -237,11 +237,17 @@ CREATE TABLE IF NOT EXISTS training_sessions (
   stat_kinds    TEXT NOT NULL,
   started_at    BIGINT NOT NULL,
   duration_ms   BIGINT NOT NULL CHECK (duration_ms > 0),
-  collected_at  BIGINT,
-  CONSTRAINT training_unique_building UNIQUE (building_id)
+  collected_at  BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_training_user ON training_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_active ON training_sessions(user_id) WHERE collected_at IS NULL;
+-- Only ONE ACTIVE session per building. Collected/cancelled rows are kept for history
+-- but do not block re-assignment. Migration drops the pre-existing full-column constraint
+-- from older deployments where it exists.
+ALTER TABLE training_sessions DROP CONSTRAINT IF EXISTS training_unique_building;
+CREATE UNIQUE INDEX IF NOT EXISTS training_unique_active_building
+  ON training_sessions(building_id)
+  WHERE collected_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- matches

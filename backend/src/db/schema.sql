@@ -250,11 +250,16 @@ CREATE TABLE IF NOT EXISTS training_sessions (
   stat_kinds    TEXT NOT NULL,                           -- JSON array: ['hp'] | ['atk','int'] | ...
   started_at    INTEGER NOT NULL,
   duration_ms   INTEGER NOT NULL CHECK (duration_ms > 0),
-  collected_at  INTEGER,                                 -- NULL while active; set on collect/cancel
-  UNIQUE (building_id) ON CONFLICT ABORT                 -- one active session per station
+  collected_at  INTEGER                                  -- NULL while active; set on collect/cancel
 );
 CREATE INDEX IF NOT EXISTS idx_training_user ON training_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_training_active ON training_sessions(user_id) WHERE collected_at IS NULL;
+-- Only ONE ACTIVE session per building; collected/cancelled rows are kept for history.
+-- NOTE: pre-existing SQLite dev DBs with the old inline UNIQUE(building_id) need `pnpm db:init --reset`
+-- (SQLite has no DROP CONSTRAINT). New DBs and Postgres are handled automatically.
+CREATE UNIQUE INDEX IF NOT EXISTS training_unique_active_building
+  ON training_sessions(building_id)
+  WHERE collected_at IS NULL;
 
 -- ----------------------------------------------------------------------------
 -- matches: history of 3v3 battles for the leaderboard/replay of outcomes.
