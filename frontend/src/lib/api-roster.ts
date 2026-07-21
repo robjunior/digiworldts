@@ -1,4 +1,4 @@
-import type { Skill, Stage } from '@digiworld/shared/digimon';
+import type { Attribute, Skill, Stage } from '@digiworld/shared/digimon';
 
 import { apiFetch } from './api';
 
@@ -11,13 +11,20 @@ export type SeedStarterResponse = {
   readonly reason?: string;
 };
 
-export type EvolutionReason = 'no-paths' | 'level-too-low' | 'no-chip' | 'stage-cap' | 'no-mood';
+export type EvolutionReason = 'no-paths' | 'level-too-low' | 'no-chip' | 'stage-cap' | 'no-mood' | 'attribute-mismatch';
 
 export type EvolutionOption = {
   readonly catalogId: string;
   readonly name: string;
   readonly stage: Stage;
   readonly portrait: string;
+  readonly eligible: boolean;
+  readonly reason?: EvolutionReason;
+  readonly requiredLevel: number;
+  readonly requiredMood: number;
+  readonly requiredItemId: string | null;
+  readonly hasRequiredItem: boolean;
+  readonly requiredAttribute: Attribute | null;
 };
 
 export type EvolutionGate = {

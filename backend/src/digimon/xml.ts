@@ -34,8 +34,10 @@ import {
   AILMENTS,
   ELEMENTS,
   STAGES,
+  type Attribute,
   type Catalog,
   type Element,
+  type EvolveEdge,
   type ResistanceMap,
   type ResistanceMult,
   type Skill,
@@ -80,6 +82,10 @@ const SkillsZ = z.union([
 
 const EvolveEntryZ = z.object({
   '@_targetId': z.string().min(1),
+  '@_requiredLevel': z.coerce.number().int().nonnegative().optional(),
+  '@_requiredMood': z.coerce.number().int().min(0).max(100).optional(),
+  '@_requiredItemId': z.string().min(1).max(64).optional(),
+  '@_requiredAttribute': z.enum(ATTRIBUTES).optional(),
 });
 
 const EvolutionsZ = z.union([
@@ -205,8 +211,15 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
   if (raw['@_type']) tpl.type = raw['@_type'];
   if (raw.evolutions && 'evolve' in raw.evolutions) {
     const list = Array.isArray(raw.evolutions.evolve) ? raw.evolutions.evolve : [raw.evolutions.evolve];
-    const ids = list.map((e) => e['@_targetId']);
-    if (ids.length > 0) tpl.evolvesInto = ids;
+    const edges: EvolveEdge[] = list.map((e) => {
+      const edge: EvolveEdge = { targetId: e['@_targetId'] };
+      if (e['@_requiredLevel'] !== undefined) edge.requiredLevel = e['@_requiredLevel'];
+      if (e['@_requiredMood'] !== undefined) edge.requiredMood = e['@_requiredMood'];
+      if (e['@_requiredItemId'] !== undefined) edge.requiredItemId = e['@_requiredItemId'];
+      if (e['@_requiredAttribute'] !== undefined) edge.requiredAttribute = e['@_requiredAttribute'] as Attribute;
+      return edge;
+    });
+    if (edges.length > 0) tpl.evolvesInto = edges;
   }
   if (raw.resistances && 'r' in raw.resistances) {
     const list = Array.isArray(raw.resistances.r) ? raw.resistances.r : [raw.resistances.r];
@@ -262,7 +275,16 @@ function fromTemplate(t: TemplateDigimon): unknown {
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
   if (t.type) out['@_type'] = t.type;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
-    out.evolutions = { evolve: t.evolvesInto.map((targetId) => ({ '@_targetId': targetId })) };
+    out.evolutions = {
+      evolve: t.evolvesInto.map((edge) => {
+        const attrs: Record<string, unknown> = { '@_targetId': edge.targetId };
+        if (edge.requiredLevel !== undefined) attrs['@_requiredLevel'] = edge.requiredLevel;
+        if (edge.requiredMood !== undefined) attrs['@_requiredMood'] = edge.requiredMood;
+        if (edge.requiredItemId !== undefined) attrs['@_requiredItemId'] = edge.requiredItemId;
+        if (edge.requiredAttribute !== undefined) attrs['@_requiredAttribute'] = edge.requiredAttribute;
+        return attrs;
+      }),
+    };
   }
   if (t.resistances) {
     const entries = Object.entries(t.resistances);

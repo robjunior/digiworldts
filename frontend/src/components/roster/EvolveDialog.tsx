@@ -1,4 +1,4 @@
-import type { EvolutionGate } from '../../lib/api-roster';
+import type { EvolutionGate, EvolutionOption, EvolutionReason } from '../../lib/api-roster';
 
 export function EvolveDialog({ gate, monName, busy, onClose, onEvolve }: { readonly gate: EvolutionGate | null; readonly monName: string | null; readonly busy: boolean; readonly onClose: () => void; readonly onEvolve: (targetCatalogId: string) => void }): JSX.Element {
   const open = monName !== null;
@@ -19,36 +19,72 @@ function EvolveBody({ gate, busy, onEvolve }: { readonly gate: EvolutionGate; re
   if (gate.reason === 'stage-cap' || gate.reason === 'no-paths' || gate.options.length === 0) {
     return <div className="evolve-gate warn">No evolution paths available for this Digimon.</div>;
   }
-  const message = evolveMessage(gate);
+  const anyEligible = gate.options.some((o) => o.eligible);
   return (
     <>
-      <div className={`evolve-gate ${gate.eligible ? 'ok' : 'warn'}`}>{message}</div>
+      <div className={`evolve-gate ${anyEligible ? 'ok' : 'warn'}`}>
+        {anyEligible ? `Pick a path — ${gate.options.filter((o) => o.eligible).length} of ${gate.options.length} available.` : 'No path currently eligible. See per-path requirements below.'}
+      </div>
       {gate.options.map((option) => (
-        <button key={option.catalogId} className={`evolve-option ${gate.eligible ? 'is-clickable' : 'is-disabled'}`} type="button" disabled={!gate.eligible || busy} onClick={() => onEvolve(option.catalogId)}>
-          <img src={option.portrait} alt={option.name} loading="lazy" />
-          <span className="info"><span className="name">{option.name}</span><span className="sub">{option.stage}</span></span>
-        </button>
+        <EvolveOptionCard
+          key={option.catalogId}
+          option={option}
+          gate={gate}
+          busy={busy}
+          onEvolve={onEvolve}
+        />
       ))}
     </>
   );
 }
 
-function evolveMessage(gate: EvolutionGate): string {
-  if (gate.eligible) {
-    return `Ready to evolve into ${gate.nextStage ?? 'next stage'}. This will consume 1 ${gate.requiredItemId ?? 'chip'} and reset XP to 0.`;
+function EvolveOptionCard({ option, gate, busy, onEvolve }: {
+  readonly option: EvolutionOption;
+  readonly gate: EvolutionGate;
+  readonly busy: boolean;
+  readonly onEvolve: (targetCatalogId: string) => void;
+}): JSX.Element {
+  const detail = optionMessage(option, gate);
+  return (
+    <button
+      className={`evolve-option ${option.eligible ? 'is-clickable' : 'is-disabled'}`}
+      type="button"
+      disabled={!option.eligible || busy}
+      onClick={() => onEvolve(option.catalogId)}
+    >
+      <img src={option.portrait} alt={option.name} loading="lazy" />
+      <span className="info">
+        <span className="name">{option.name}</span>
+        <span className="sub">{option.stage}</span>
+        <span className={`sub ${option.eligible ? 'evolve-option-ok' : 'evolve-option-warn'}`}>{detail}</span>
+      </span>
+    </button>
+  );
+}
+
+function optionMessage(option: EvolutionOption, gate: EvolutionGate): string {
+  if (option.eligible) {
+    const cost = option.requiredItemId ?? 'no chip';
+    return `Ready · needs ${cost}`;
   }
-  switch (gate.reason) {
+  return reasonDetail(option.reason, option, gate);
+}
+
+function reasonDetail(reason: EvolutionReason | undefined, option: EvolutionOption, gate: EvolutionGate): string {
+  switch (reason) {
     case 'level-too-low':
-      return `Reach level ${gate.requiredLevel} to evolve into ${gate.nextStage ?? 'next stage'}. Currently Lv ${gate.currentLevel}.`;
+      return `Needs Lv ${option.requiredLevel} (currently ${gate.currentLevel})`;
     case 'no-chip':
-      return `Missing required item: ${gate.requiredItemId ?? 'evolution chip'}. Buy one from the shop.`;
+      return `Missing ${option.requiredItemId ?? 'chip'}`;
     case 'no-mood':
-      return `Raise mood to ${gate.requiredMood} before evolving. Current mood is ${gate.currentMood}.`;
+      return `Needs mood ${option.requiredMood} (currently ${gate.currentMood})`;
+    case 'attribute-mismatch':
+      return `Requires ${option.requiredAttribute ?? '?'} attribute`;
     case 'no-paths':
     case 'stage-cap':
-      return 'No evolution paths available for this Digimon.';
+      return 'No path';
     case undefined:
-      return 'Not eligible.';
+      return 'Not eligible';
   }
-  return 'Not eligible.';
+  return 'Not eligible';
 }

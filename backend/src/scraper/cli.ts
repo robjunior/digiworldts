@@ -132,7 +132,7 @@ function chooseFourSkills(
   return chosen;
 }
 
-function buildTemplateFromScraped(row: ScrapedRow, wikimon: WikimonPage | null, evolvesInto: string[]): TemplateDigimon {
+function buildTemplateFromScraped(row: ScrapedRow, wikimon: WikimonPage | null, evolvesInto: readonly string[]): TemplateDigimon {
   const attrEnumSafe = row.attribute as TemplateDigimon['attribute'];
   const element = attributeToElement(attrEnumSafe);
   const stage = row.stage as TemplateDigimon['stage'];
@@ -154,7 +154,7 @@ function buildTemplateFromScraped(row: ScrapedRow, wikimon: WikimonPage | null, 
   };
   if (row.wikimon_slug) skeleton.wikimonSlug = row.wikimon_slug;
   skeleton.skillPool = chooseFourSkills(wikimon?.attacks ?? [], skeleton);
-  if (evolvesInto.length > 0) skeleton.evolvesInto = evolvesInto;
+  if (evolvesInto.length > 0) skeleton.evolvesInto = evolvesInto.map((targetId) => ({ targetId }));
   return skeleton;
 }
 

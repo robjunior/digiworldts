@@ -17,7 +17,7 @@ import { z } from 'zod';
 import { one, q, run, type ScrapedRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { loadCatalog, saveCatalog } from '../digimon/xml.js';
-import type { Catalog, TemplateDigimon } from '../digimon/types.js';
+import type { Catalog, EvolveEdge, TemplateDigimon } from '../digimon/types.js';
 import { AILMENTS, ATTRIBUTES, ELEMENTS, MAX_ENERGY, SKILLS_PER_DIGIMON, STAGES } from '../digimon/types.js';
 
 export type ImpexScope = 'all' | 'items' | 'blueprints' | 'catalog' | 'scraped';
@@ -117,6 +117,14 @@ const ManifestAssetsSchema = z.object({
   dot: z.string().min(1).max(400),
 });
 
+const ManifestEvolveEdgeSchema = z.object({
+  targetId: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i),
+  requiredLevel: z.number().int().min(0).max(999).optional(),
+  requiredMood: z.number().int().min(0).max(100).optional(),
+  requiredItemId: z.string().min(1).max(64).optional(),
+  requiredAttribute: z.enum(ATTRIBUTES).optional(),
+});
+
 const ManifestTemplateSchema = z.object({
   id: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'id must be alphanumeric with -_'),
   name: z.string().trim().min(1).max(48),
@@ -128,7 +136,7 @@ const ManifestTemplateSchema = z.object({
   assets: ManifestAssetsSchema,
   sourceUrl: z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   wikimonSlug: z.string().max(64).optional(),
-  evolvesInto: z.array(z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i)).max(24).optional(),
+  evolvesInto: z.array(ManifestEvolveEdgeSchema).max(24).optional(),
 });
 type ManifestTemplate = z.infer<typeof ManifestTemplateSchema>;
 
@@ -163,7 +171,16 @@ function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
   };
   if (raw.sourceUrl !== undefined) tpl.sourceUrl = raw.sourceUrl;
   if (raw.wikimonSlug !== undefined) tpl.wikimonSlug = raw.wikimonSlug;
-  if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) tpl.evolvesInto = raw.evolvesInto;
+  if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) {
+    tpl.evolvesInto = raw.evolvesInto.map((edge) => {
+      const out: EvolveEdge = { targetId: edge.targetId };
+      if (edge.requiredLevel !== undefined) out.requiredLevel = edge.requiredLevel;
+      if (edge.requiredMood !== undefined) out.requiredMood = edge.requiredMood;
+      if (edge.requiredItemId !== undefined) out.requiredItemId = edge.requiredItemId;
+      if (edge.requiredAttribute !== undefined) out.requiredAttribute = edge.requiredAttribute;
+      return out;
+    });
+  }
   return tpl;
 }
 

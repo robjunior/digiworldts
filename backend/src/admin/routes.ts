@@ -77,6 +77,7 @@ import {
   PARTY_SIZE,
   SKILLS_PER_DIGIMON,
   STAGES,
+  type EvolveEdge,
   type Skill,
   type TemplateDigimon,
 } from '../digimon/types.js';
@@ -120,6 +121,14 @@ const AssetsInputSchema = z.object({
   dot: z.string().min(1).max(400),
 });
 
+const EvolveEdgeInputSchema = z.object({
+  targetId: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'targetId must be alphanumeric with -_'),
+  requiredLevel: z.number().int().min(0).max(999).optional(),
+  requiredMood: z.number().int().min(0).max(100).optional(),
+  requiredItemId: z.string().min(1).max(64).optional(),
+  requiredAttribute: z.enum(ATTRIBUTES).optional(),
+});
+
 const TemplateInputSchema = z.object({
   id: z.string().min(3).max(48).regex(/^[a-z0-9_-]+$/i, 'id must be alphanumeric with -_'),
   name: z.string().trim().min(1).max(48),
@@ -131,6 +140,7 @@ const TemplateInputSchema = z.object({
   assets: AssetsInputSchema,
   sourceUrl: z.string().url().optional(),
   wikimonSlug: z.string().optional(),
+  evolvesInto: z.array(EvolveEdgeInputSchema).max(24).optional(),
 });
 
 type ParsedTemplate = z.infer<typeof TemplateInputSchema>;
@@ -166,6 +176,16 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
   };
   if (raw.sourceUrl !== undefined) out.sourceUrl = raw.sourceUrl;
   if (raw.wikimonSlug !== undefined) out.wikimonSlug = raw.wikimonSlug;
+  if (raw.evolvesInto !== undefined && raw.evolvesInto.length > 0) {
+    out.evolvesInto = raw.evolvesInto.map((edge) => {
+      const e: EvolveEdge = { targetId: edge.targetId };
+      if (edge.requiredLevel !== undefined) e.requiredLevel = edge.requiredLevel;
+      if (edge.requiredMood !== undefined) e.requiredMood = edge.requiredMood;
+      if (edge.requiredItemId !== undefined) e.requiredItemId = edge.requiredItemId;
+      if (edge.requiredAttribute !== undefined) e.requiredAttribute = edge.requiredAttribute;
+      return e;
+    });
+  }
   return out;
 }
 
@@ -232,7 +252,7 @@ function skillsFromWikimon(
 function buildTemplateFromScraped(
   row: ScrapedRow,
   attacks: Array<{ name: string; description?: string | undefined }>,
-  evolvesInto: string[],
+  evolvesInto: readonly string[],
 ): TemplateDigimon {
   const attribute = row.attribute as TemplateDigimon['attribute'];
   const stage = row.stage as TemplateDigimon['stage'];
@@ -253,7 +273,7 @@ function buildTemplateFromScraped(
     sourceUrl: `https://api.skullbot.fr/digimon/${row.skullbot_id}`,
   };
   if (row.wikimon_slug) tpl.wikimonSlug = row.wikimon_slug;
-  if (evolvesInto.length > 0) tpl.evolvesInto = evolvesInto;
+  if (evolvesInto.length > 0) tpl.evolvesInto = evolvesInto.map((targetId) => ({ targetId }));
   return tpl;
 }
 

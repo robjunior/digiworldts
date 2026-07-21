@@ -46,6 +46,14 @@ export type Assets = {
   dot: string;
 };
 
+export type EvolveEdge = {
+  targetId: string;
+  requiredLevel?: number;
+  requiredMood?: number;
+  requiredItemId?: string;
+  requiredAttribute?: Attribute;
+};
+
 export type TemplateDigimon = {
   id: string;
   name: string;
@@ -57,7 +65,7 @@ export type TemplateDigimon = {
   assets: Assets;
   sourceUrl?: string;
   wikimonSlug?: string;
-  evolvesInto?: string[];
+  evolvesInto?: EvolveEdge[];
   resistances?: ResistanceMap;
   type?: string;
 };

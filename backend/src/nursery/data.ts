@@ -86,10 +86,10 @@ function reverseGraph(catalog: readonly TemplateDigimon[]): Map<string, string[]
   if (cached) return cached;
   const graph = new Map<string, string[]>();
   for (const t of catalog) {
-    for (const target of t.evolvesInto ?? []) {
-      const list = graph.get(target) ?? [];
+    for (const edge of t.evolvesInto ?? []) {
+      const list = graph.get(edge.targetId) ?? [];
       list.push(t.id);
-      graph.set(target, list);
+      graph.set(edge.targetId, list);
     }
   }
   reverseGraphCache.set(catalog, graph);

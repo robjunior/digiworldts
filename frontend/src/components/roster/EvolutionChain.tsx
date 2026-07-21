@@ -63,9 +63,9 @@ function buildChain(
   const forward: TemplateDigimon[] = [];
   cursor = current;
   while (cursor && forward.length < MAX_FORWARD) {
-    const nexts = (cursor.evolvesInto ?? []).filter((id) => !seen.has(id));
+    const nexts = (cursor.evolvesInto ?? []).filter((edge) => !seen.has(edge.targetId));
     if (nexts.length === 0) break;
-    const child = byId.get(nexts[0]!);
+    const child = byId.get(nexts[0]!.targetId);
     if (!child) break;
     seen.add(child.id);
     forward.push(child);

@@ -33,10 +33,10 @@ export function DigdexDetailModal({ entry, entriesById, onClose, onSelect }: Dig
   const previousForms: DigdexEntry[] = [];
   for (const other of entriesById.values()) {
     if (!other.template) continue;
-    if (other.template.evolvesInto?.includes(template.id)) previousForms.push(other);
+    if (other.template.evolvesInto?.some((edge) => edge.targetId === template.id)) previousForms.push(other);
   }
   const nextForms: DigdexEntry[] = (template.evolvesInto ?? [])
-    .map((id) => entriesById.get(id))
+    .map((edge) => entriesById.get(edge.targetId))
     .filter((e): e is DigdexEntry => e !== undefined);
 
   const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();

@@ -66,10 +66,10 @@ export function Roster(): JSX.Element {
   const reverseGraph = useMemo<ReadonlyMap<string, readonly string[]>>(() => {
     const g = new Map<string, string[]>();
     for (const t of catalogQuery.data?.digimons ?? []) {
-      for (const target of t.evolvesInto ?? []) {
-        const list = g.get(target) ?? [];
+      for (const edge of t.evolvesInto ?? []) {
+        const list = g.get(edge.targetId) ?? [];
         list.push(t.id);
-        g.set(target, list);
+        g.set(edge.targetId, list);
       }
     }
     return g;
