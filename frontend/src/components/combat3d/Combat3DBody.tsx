@@ -169,6 +169,8 @@ export function Combat3DBody(): JSX.Element | null {
     <section className="c3d-stage" aria-label="Battle arena">
       <Combat3DScene ref={sceneRef} battle={activeBattle} />
 
+      <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
+
       <div className={`c3d-turn ${activeBattle.yourTurn ? 'is-your' : 'is-opp'}`} role="status">
         <span className="rnd">Round <b>{activeBattle.round}</b></span>
         <span className="who">{activeBattle.yourTurn ? 'Your turn' : 'Opponent'}</span>
@@ -263,6 +265,64 @@ function TeamOverlay({ label, units, align }: { readonly label: string; readonly
         ))}
       </div>
       <div className="c3d-sub"><b>{alive}</b>/{units.length} alive</div>
+    </div>
+  );
+}
+
+function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
+  const alive = battle.enemy.filter((e) => !e.down && e.hp > 0);
+  const barRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    let rafId = 0;
+    const tick = (): void => {
+      const scene = sceneRef.current;
+      if (scene !== null) {
+        for (const [unitId, bar] of barRefs.current.entries()) {
+          const pos = scene.screenPositionOf(unitId);
+          if (pos !== null) {
+            bar.style.transform = `translate3d(${pos.x - 44}px, ${pos.y + 6}px, 0)`;
+            bar.style.opacity = '1';
+          } else {
+            bar.style.opacity = '0';
+          }
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [sceneRef]);
+
+  useEffect(() => {
+    const keep = new Set(alive.map((e) => e.id));
+    for (const id of Array.from(barRefs.current.keys())) {
+      if (!keep.has(id)) barRefs.current.delete(id);
+    }
+  }, [alive]);
+
+  return (
+    <div className="c3d-enemy-hp-layer" aria-hidden="true">
+      {alive.map((enemy) => {
+        const pct = enemy.hpMax > 0 ? Math.max(0, enemy.hp) / enemy.hpMax * 100 : 0;
+        const critical = pct <= 25;
+        return (
+          <div
+            key={enemy.id}
+            ref={(el) => {
+              if (el === null) barRefs.current.delete(enemy.id);
+              else barRefs.current.set(enemy.id, el);
+            }}
+            className={`c3d-enemy-hp ${critical ? 'is-critical' : ''}`}
+            style={{ ['--el' as string]: `var(--el-${enemy.element})` }}
+          >
+            <div className="c3d-enemy-hp-name">{enemy.name}</div>
+            <div className="c3d-enemy-hp-bar">
+              <span className="c3d-enemy-hp-fill" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

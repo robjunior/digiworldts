@@ -24,11 +24,9 @@ export type SpriteRigApi = {
   dispose(): void;
 };
 
-const SPRITE_WIDTH = 0.9;
-const SPRITE_HEIGHT = 1.125;
-const SHADOW_MAX_WIDTH = 0.95;
+const SPRITE_MAX_DIMENSION = 0.7;
+const SHADOW_MAX_WIDTH = 0.75;
 const SHADOW_DEPTH_RATIO = 0.55;
-const BASE_Y = 0.585;
 const GROUND_Y = 0.02;
 const ATTACK_ANIM_S = 0.5;
 const HIT_ANIM_S = 0.35;
@@ -39,11 +37,26 @@ const ALPHA_THRESHOLD = 24;
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
 
+let gifCacheContainer: HTMLDivElement | null = null;
+function ensureGifCache(): HTMLDivElement {
+  if (gifCacheContainer !== null) return gifCacheContainer;
+  if (typeof document === 'undefined') {
+    throw new Error('sprite-rig: gif cache requires a document');
+  }
+  const div = document.createElement('div');
+  div.setAttribute('aria-hidden', 'true');
+  div.setAttribute('data-role', 'c3d-gif-cache');
+  div.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none;';
+  document.body.appendChild(div);
+  gifCacheContainer = div;
+  return div;
+}
+
 export function slotWorldPosition(side: SpriteSide, slotIndex: number): THREE.Vector3 {
   const sign = side === 'you' ? -1 : 1;
   const x = sign * FORMATION_SIDE_X;
   const z = (slotIndex - 1) * FORMATION_SLOT_Z_SPACING;
-  return new THREE.Vector3(x, BASE_Y, z);
+  return new THREE.Vector3(x, SPRITE_MAX_DIMENSION / 2 + GROUND_Y, z);
 }
 
 function makeShadowTexture(): THREE.CanvasTexture {
@@ -124,6 +137,7 @@ export class SpriteRig implements SpriteRigApi {
   private readonly mat: THREE.MeshBasicMaterial;
   private readonly baseColor: THREE.Color;
   private readonly basePosition: THREE.Vector3;
+  private readonly baseScale: THREE.Vector2 = new THREE.Vector2(SPRITE_MAX_DIMENSION, SPRITE_MAX_DIMENSION);
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
@@ -149,9 +163,10 @@ export class SpriteRig implements SpriteRigApi {
       side: THREE.DoubleSide,
       color: this.baseColor.clone(),
     });
-    const geometry = new THREE.PlaneGeometry(SPRITE_WIDTH, SPRITE_HEIGHT);
+    const geometry = new THREE.PlaneGeometry(1, 1);
     this.mesh = new THREE.Mesh(geometry, this.mat);
     this.mesh.position.copy(this.basePosition);
+    this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
     this.mesh.castShadow = false;
     this.mesh.userData = { spriteRig: this };
     this.scene.add(this.mesh);
@@ -188,6 +203,18 @@ export class SpriteRig implements SpriteRigApi {
     texture.offset.x = 1;
   }
 
+  private applyAspect(width: number, height: number): void {
+    if (width <= 0 || height <= 0) return;
+    const aspect = width / height;
+    if (aspect >= 1) {
+      this.baseScale.set(SPRITE_MAX_DIMENSION, SPRITE_MAX_DIMENSION / aspect);
+    } else {
+      this.baseScale.set(SPRITE_MAX_DIMENSION * aspect, SPRITE_MAX_DIMENSION);
+    }
+    this.basePosition.y = this.baseScale.y / 2 + GROUND_Y;
+    this.shadowWidthUnits = Math.min(SHADOW_MAX_WIDTH, this.baseScale.x * 1.05);
+  }
+
   private loadTexture(url: string): void {
     if (/\.gif(\?|$)/i.test(url)) {
       this.loadGif(url);
@@ -207,6 +234,10 @@ export class SpriteRig implements SpriteRigApi {
       this.mat.map = tex;
       this.mat.needsUpdate = true;
       previous?.dispose();
+      const image = tex.image as { width?: number; height?: number } | undefined;
+      if (image && typeof image.width === 'number' && typeof image.height === 'number') {
+        this.applyAspect(image.width, image.height);
+      }
       this.analyzeStaticAlphaBbox(tex);
     });
   }
@@ -214,8 +245,13 @@ export class SpriteRig implements SpriteRigApi {
   private loadGif(url: string): void {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    const cache = ensureGifCache();
+    img.style.cssText = 'width:1px;height:1px;';
     img.onload = () => {
-      if (this.disposedFlag) return;
+      if (this.disposedFlag) {
+        img.remove();
+        return;
+      }
       const cw = img.naturalWidth || 64;
       const ch = img.naturalHeight || 64;
       const canvas = document.createElement('canvas');
@@ -233,8 +269,10 @@ export class SpriteRig implements SpriteRigApi {
       this.mat.map = texture;
       this.mat.needsUpdate = true;
       previous?.dispose();
+      this.applyAspect(cw, ch);
       this.gif = { img, canvas, ctx, texture, bboxAnalyzed: false, frameCount: 0 };
     };
+    cache.appendChild(img);
     img.src = url;
   }
 
@@ -318,12 +356,11 @@ export class SpriteRig implements SpriteRigApi {
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
     this.mesh.position.y = this.basePosition.y;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(1, 1, 1);
+    this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
-    const shadowScale = this.shadowWidthUnits / SHADOW_MAX_WIDTH;
-    this.shadow.scale.set(shadowScale, shadowScale * SHADOW_DEPTH_RATIO, 1);
+    this.shadow.scale.set(this.shadowWidthUnits / SHADOW_MAX_WIDTH, (this.shadowWidthUnits * SHADOW_DEPTH_RATIO) / SHADOW_MAX_WIDTH, 1);
     this.shadow.position.x = this.mesh.position.x;
 
     if (this.illumination !== null) {
@@ -377,6 +414,7 @@ export class SpriteRig implements SpriteRigApi {
     this.mat.dispose();
     (this.shadow.material as THREE.MeshBasicMaterial).dispose();
     if (this.gif !== null) {
+      this.gif.img.remove();
       this.gif.texture.dispose();
     }
   }

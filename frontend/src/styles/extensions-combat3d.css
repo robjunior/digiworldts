@@ -319,15 +319,39 @@ body:has(.combat3d-shell) {
   right: 12px;
   bottom: 12px;
   width: 320px;
+  height: 360px;
   background: color-mix(in oklab, var(--bg) 92%, transparent);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   border: 1px solid var(--hairline);
-  padding: 10px;
+  padding: 14px;
   clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
     calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
   z-index: 6;
   animation: c3dPanelIn .28s cubic-bezier(.16, 1, .3, 1) both;
+  overflow: hidden;
+}
+
+.c3d-cmd > .command-panel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.c3d-cmd .skill-menu {
+  overflow: visible;
+  max-height: none;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.c3d-cmd .cbt-actions,
+.c3d-cmd .skill-menu,
+.c3d-cmd .item-menu,
+.c3d-cmd .await-banner {
+  animation: c3dModeIn .24s cubic-bezier(.16, 1, .3, 1) both;
 }
 
 .c3d-cmd [data-od-id="cmd-guard"],
@@ -345,10 +369,15 @@ body:has(.combat3d-shell) {
   transform: translateY(-1px);
 }
 
+@keyframes c3dModeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
 .c3d-target-picker {
   position: absolute;
   right: 12px;
-  bottom: 220px;
+  bottom: 384px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -396,6 +425,63 @@ body:has(.combat3d-shell) {
   inset: 0;
   pointer-events: none;
   z-index: 30;
+}
+
+.c3d-enemy-hp-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.c3d-enemy-hp {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 88px;
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.c3d-enemy-hp-name {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-align: center;
+  text-shadow: 0 1px 0 var(--bg), 0 0 4px var(--bg);
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-enemy-hp-bar {
+  height: 4px;
+  background: color-mix(in oklab, var(--bg) 60%, var(--hairline));
+  border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
+  overflow: hidden;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+}
+
+.c3d-enemy-hp-fill {
+  display: block;
+  height: 100%;
+  background: var(--el, var(--battle));
+  transition: width .5s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-enemy-hp.is-critical .c3d-enemy-hp-fill {
+  background: var(--battle);
+  animation: c3dHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes c3dHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
 }
 
 .c3d-float {
