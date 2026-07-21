@@ -520,26 +520,38 @@ CREATE TABLE IF NOT EXISTS farm_recipes (
   bits_cost      INTEGER NOT NULL DEFAULT 0 CHECK (bits_cost >= 0),
   data_cost      INTEGER NOT NULL DEFAULT 0 CHECK (data_cost >= 0),
   craft_time_ms  INTEGER NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0),
+  category       TEXT CHECK (category IN ('med', 'chip', 'rare')),
   enabled        INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   created_at     INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
+
+CREATE TABLE IF NOT EXISTS player_factories (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  factory_type  TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
+  created_at    INTEGER NOT NULL,
+  UNIQUE (user_id, factory_type)
+);
+CREATE INDEX IF NOT EXISTS idx_player_factories_user ON player_factories(user_id);
 
 CREATE TABLE IF NOT EXISTS crafting_jobs (
   id            TEXT PRIMARY KEY,
   user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   recipe_id     TEXT NOT NULL REFERENCES farm_recipes(id) ON DELETE CASCADE,
   item_id       TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
-  started_at    INTEGER NOT NULL,
+  factory_id    TEXT REFERENCES player_factories(id) ON DELETE CASCADE,
+  started_at    INTEGER,
   duration_ms   INTEGER NOT NULL CHECK (duration_ms > 0),
   is_auto       INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1)),
   collected_at  INTEGER,
   created_at    INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_crafting_user ON crafting_jobs(user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_user
-  ON crafting_jobs(user_id)
-  WHERE collected_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_crafting_factory ON crafting_jobs(factory_id);
+CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_factory
+  ON crafting_jobs(factory_id)
+  WHERE collected_at IS NULL AND started_at IS NOT NULL AND factory_id IS NOT NULL;
 
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):

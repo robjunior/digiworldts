@@ -34,6 +34,21 @@ export type FarmUpgradeResult = {
   readonly view: FarmView;
 };
 
+export type FactoryTypeId = 'med' | 'chip' | 'rare';
+
+export type FactoryPurchaseCost = {
+  readonly meat: number;
+  readonly bits: number;
+  readonly data: number;
+};
+
+export type FactoryTypeInfo = {
+  readonly id: FactoryTypeId;
+  readonly name: string;
+  readonly description: string;
+  readonly cost: FactoryPurchaseCost;
+};
+
 export type RecipeView = {
   readonly id: string;
   readonly itemId: string;
@@ -43,46 +58,60 @@ export type RecipeView = {
   readonly bitsCost: number;
   readonly dataCost: number;
   readonly craftTimeMs: number;
+  readonly category: FactoryTypeId | null;
   readonly canCraft: boolean;
 };
 
 export type CraftingJobView = {
   readonly id: string;
+  readonly factoryId: string;
   readonly recipeId: string;
   readonly itemId: string;
   readonly itemName: string;
-  readonly startedAt: number;
+  readonly startedAt: number | null;
   readonly durationMs: number;
-  readonly finishesAt: number;
+  readonly finishesAt: number | null;
   readonly progressPct: number;
   readonly readyToCollect: boolean;
   readonly isAuto: boolean;
+  readonly isActive: boolean;
 };
 
-export type RecipesResponse = {
-  readonly recipes: readonly RecipeView[];
+export type PlayerFactoryView = {
+  readonly id: string;
+  readonly type: FactoryTypeId;
+  readonly name: string;
+  readonly description: string;
+  readonly createdAt: number;
+  readonly queue: readonly CraftingJobView[];
+  readonly queueTotalMs: number;
+  readonly queueRemainingCapMs: number;
+};
+
+export type FactoryPageView = {
   readonly balances: Record<FarmResourceKind, number>;
-  readonly activeJob: CraftingJobView | null;
+  readonly recipes: readonly RecipeView[];
+  readonly ownedFactories: readonly PlayerFactoryView[];
+  readonly availableFactories: readonly FactoryTypeInfo[];
+  readonly queueMaxMs: number;
 };
 
-export type StartCraftResult = {
+export type BuyFactoryResult = {
+  readonly ok: true;
+  readonly factory: PlayerFactoryView;
+  readonly balances: Record<FarmResourceKind, number>;
+};
+
+export type QueueCraftResult = {
   readonly ok: true;
   readonly job: CraftingJobView;
   readonly balances: Record<FarmResourceKind, number>;
 };
 
-export type CollectCraftResult = {
-  readonly ok: true;
-  readonly itemId: string;
-  readonly itemName: string;
-  readonly activeJob: null;
-};
-
-export type CancelCraftResult = {
+export type CancelCraftJobResult = {
   readonly ok: true;
   readonly refunded: Partial<Record<FarmResourceKind, number>>;
   readonly balances: Record<FarmResourceKind, number>;
-  readonly activeJob: null;
 };
 
 export function getFarm(): Promise<FarmView> {
@@ -101,18 +130,25 @@ export function upgradeFarmBuilding(buildingId: string): Promise<FarmUpgradeResu
   return apiFetch<FarmUpgradeResult>(`/api/farm/upgrade/${encodeURIComponent(buildingId)}`, { method: 'POST' });
 }
 
-export function getFarmRecipes(): Promise<RecipesResponse> {
-  return apiFetch<RecipesResponse>('/api/farm/recipes');
+export function getFarmRecipes(): Promise<FactoryPageView> {
+  return apiFetch<FactoryPageView>('/api/farm/recipes');
 }
 
-export function startFarmCraft(recipeId: string, opts?: { readonly auto?: boolean }): Promise<StartCraftResult> {
-  return apiFetch<StartCraftResult>('/api/farm/craft', { method: 'POST', body: { recipeId, ...(opts?.auto ? { auto: true } : {}) } });
+export function buyFactory(type: FactoryTypeId): Promise<BuyFactoryResult> {
+  return apiFetch<BuyFactoryResult>('/api/farm/factories/buy', { method: 'POST', body: { type } });
 }
 
-export function collectFarmCraft(): Promise<CollectCraftResult> {
-  return apiFetch<CollectCraftResult>('/api/farm/craft/collect', { method: 'POST' });
+export function startFarmCraft(
+  factoryId: string,
+  recipeId: string,
+  opts?: { readonly auto?: boolean },
+): Promise<QueueCraftResult> {
+  return apiFetch<QueueCraftResult>('/api/farm/craft', {
+    method: 'POST',
+    body: { factoryId, recipeId, ...(opts?.auto ? { auto: true } : {}) },
+  });
 }
 
-export function cancelFarmCraft(): Promise<CancelCraftResult> {
-  return apiFetch<CancelCraftResult>('/api/farm/craft/cancel', { method: 'POST' });
+export function cancelFarmCraftJob(jobId: string): Promise<CancelCraftJobResult> {
+  return apiFetch<CancelCraftJobResult>(`/api/farm/craft/cancel/${encodeURIComponent(jobId)}`, { method: 'POST' });
 }

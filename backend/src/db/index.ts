@@ -395,7 +395,15 @@ export type FarmRecipeRow = {
   bits_cost: number;
   data_cost: number;
   craft_time_ms: number;
+  category: 'med' | 'chip' | 'rare' | null;
   enabled: 0 | 1;
+  created_at: number;
+};
+
+export type PlayerFactoryRow = {
+  id: string;
+  user_id: string;
+  factory_type: 'med' | 'chip' | 'rare';
   created_at: number;
 };
 
@@ -404,7 +412,8 @@ export type CraftingJobRow = {
   user_id: string;
   recipe_id: string;
   item_id: string;
-  started_at: number;
+  factory_id: string | null;
+  started_at: number | null;
   duration_ms: number;
   is_auto: 0 | 1;
   collected_at: number | null;

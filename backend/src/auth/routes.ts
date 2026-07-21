@@ -26,7 +26,7 @@ import {
   recordLoginAttempt,
 } from './session.js';
 import { config } from '../config.js';
-import { seedFarmForUser } from '../farm/engine.js';
+import { seedFactoryStarterForUser, seedFarmForUser } from '../farm/engine.js';
 import { seedTrainingStationForUser } from '../training/engine.js';
 
 // ============================================================================
@@ -198,6 +198,11 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
       await seedTrainingStationForUser(user.id);
     } catch (err) {
       log.warn('auth.register.seed-training.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
+    }
+    try {
+      await seedFactoryStarterForUser(user.id);
+    } catch (err) {
+      log.warn('auth.register.seed-factory.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
     }
 
     log.info('auth.register.ok', { userId: user.id, isAdmin: user.is_admin === 1 });

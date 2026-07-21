@@ -1,3 +1,6 @@
+/* ============================================================================
+ * Farm building city (Meat / Bits / Data producers) — unchanged from base.
+ * ========================================================================== */
 .sec-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
 .sec-head h2 { font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0; }
 .collect-all { display:inline-flex; align-items:center; gap:10px; }
@@ -13,88 +16,362 @@
 @media (max-width:860px) { .city { grid-template-columns:repeat(2, 1fr); } }
 @media (max-width:520px) { .city { grid-template-columns:1fr; } }
 
-.factory-active-job {
+/* ============================================================================
+ * Factory page (multi-factory queue system)
+ *
+ * Layout: left sidebar (owned factories + buy new) + main content
+ * (selected factory queue + filtered recipe list).
+ * ========================================================================== */
+
+.factory-main { display: flex; flex-direction: column; }
+
+.factory-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .factory-layout { grid-template-columns: 1fr; }
+}
+
+/* ---- Sidebar ---- */
+
+.factory-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  background: color-mix(in oklab, var(--panel) 92%, var(--signal) 8%);
-  border: 1px solid var(--hairline);
-  border-left: 3px solid var(--signal);
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-}
-.factory-active-job-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
+  padding: 14px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  min-height: 320px;
 }
-.factory-active-job-lbl {
+.factory-sidebar-header,
+.factory-sidebar-subheader {
   font-size: 10px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
-  margin-right: 8px;
+  margin: 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--hairline);
 }
-.factory-active-job-name {
-  color: var(--ink);
-  font-size: 14px;
+.factory-sidebar-subheader { margin-top: 8px; }
+.factory-sidebar-empty { font-size: 12px; padding: 4px 0; }
+.factory-sidebar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.factory-active-job-timer {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  padding: 2px 8px;
+
+.factory-sidebar-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
   border: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  border-left: 3px solid transparent;
+  color: var(--ink);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.12s, border-color 0.12s;
 }
-.factory-active-job-timer.is-ready {
-  color: var(--signal);
-  border-color: var(--signal);
+.factory-sidebar-item:hover {
+  background: color-mix(in oklab, var(--panel) 90%, var(--signal) 10%);
+}
+.factory-sidebar-item.is-active {
   background: color-mix(in oklab, var(--signal) 12%, var(--panel));
-  text-transform: uppercase;
+  border-left-color: var(--signal);
 }
-.factory-active-job-progress {
+.factory-sidebar-item--med { --ftc: var(--res-meat); }
+.factory-sidebar-item--chip { --ftc: var(--res-data); }
+.factory-sidebar-item--rare { --ftc: var(--gold); }
+.factory-sidebar-item.is-active.factory-sidebar-item--med   { border-left-color: var(--res-meat); background: color-mix(in oklab, var(--res-meat) 12%, var(--panel)); }
+.factory-sidebar-item.is-active.factory-sidebar-item--chip  { border-left-color: var(--res-data); background: color-mix(in oklab, var(--res-data) 12%, var(--panel)); }
+.factory-sidebar-item.is-active.factory-sidebar-item--rare  { border-left-color: var(--gold);     background: color-mix(in oklab, var(--gold) 12%, var(--panel)); }
+
+.factory-sidebar-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.factory-sidebar-item-name {
+  font-size: 12px;
+  color: var(--ink);
+}
+.factory-sidebar-item-meta {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.factory-sidebar-item-active {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+/* Factory type badge (colored pill) */
+.factory-type-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  color: var(--ftc, var(--muted));
+  background: color-mix(in oklab, var(--ftc, var(--muted)) 10%, transparent);
+}
+.factory-type-badge--med  { --ftc: var(--res-meat); }
+.factory-type-badge--chip { --ftc: var(--res-data); }
+.factory-type-badge--rare { --ftc: var(--gold); }
+
+/* Buy card (for factory types the user does not own) */
+.factory-buy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--bg) 40%, transparent);
+  border: 1px dashed var(--hairline);
+}
+.factory-buy-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+.factory-buy-desc { font-size: 11px; margin: 0; }
+.factory-buy-costs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 11px;
+}
+.factory-buy-card .btn { margin-top: 2px; align-self: flex-start; }
+
+/* ---- Main content ---- */
+
+.factory-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.factory-content-empty { padding: 40px; text-align: center; }
+
+.factory-content-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 16px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  flex-wrap: wrap;
+}
+.factory-content-title { margin: 0; font-size: 16px; color: var(--ink); }
+.factory-content-desc { margin: 4px 0 0; font-size: 11px; }
+.factory-content-meta { min-width: 200px; }
+
+.factory-queue-cap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.factory-queue-cap-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.factory-queue-cap-lbl b { color: var(--ink); font-weight: 700; }
+.factory-queue-cap-bar {
+  height: 6px;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border: 1px solid var(--hairline);
   position: relative;
-  height: 8px;
+  overflow: hidden;
+}
+.factory-queue-cap-fill {
+  height: 100%;
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--signal) 45%, transparent) 0%,
+    var(--signal) 100%);
+  transition: width 0.35s linear;
+}
+
+.factory-section-h {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+/* ---- Queue list ---- */
+
+.factory-queue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  counter-reset: qi;
+}
+.queue-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%);
+  border: 1px solid var(--hairline);
+  counter-increment: qi;
+}
+.queue-item::before {
+  content: counter(qi);
+  grid-column: 1 / 3;
+  grid-row: 0;
+  display: none;
+}
+.queue-item.is-active {
+  border-left: 3px solid var(--signal);
+  padding-left: 10px;
+  background: color-mix(in oklab, var(--signal) 6%, var(--panel));
+}
+.queue-item.is-auto { border-right: 3px solid var(--gold); }
+.queue-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  grid-column: 1;
+}
+.queue-item-name {
+  font-size: 12px;
+  color: var(--ink);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.queue-item-auto {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+  background: color-mix(in oklab, var(--gold) 10%, transparent);
+  padding: 1px 5px;
+}
+.queue-item-timer {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.queue-item.is-active .queue-item-timer { color: var(--signal); font-weight: 700; }
+.queue-item-progress {
+  grid-column: 1 / 3;
+  height: 4px;
   background: color-mix(in oklab, var(--bg) 70%, transparent);
   border: 1px solid var(--hairline);
   overflow: hidden;
 }
-.factory-active-job-progress-fill {
+.queue-item-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg,
-    color-mix(in oklab, var(--signal) 55%, transparent) 0%,
-    var(--signal) 100%);
-  transition: width 0.4s linear;
-}
-.factory-active-job-progress.is-ready .factory-active-job-progress-fill {
   background: var(--signal);
-  animation: factory-pulse 1.6s ease-in-out infinite;
+  transition: width 0.35s linear;
 }
-@keyframes factory-pulse {
-  0%, 100% { opacity: 1; }
-  50%      { opacity: 0.55; }
-}
-.factory-active-job-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+.queue-item-cancel {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
 }
 
-.recipe-card-time {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+/* ---- Recipe list ---- */
+
+.recipe-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.recipe-list-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%);
+  border: 1px solid var(--hairline);
+  transition: background 0.12s;
+}
+.recipe-list-row:hover { background: color-mix(in oklab, var(--panel) 80%, var(--signal) 8%); }
+.recipe-list-row--locked { opacity: 0.55; }
+.recipe-list-row--locked:hover { background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%); }
+
+.recipe-list-name b {
+  font-size: 12px;
+  color: var(--ink);
+}
+.recipe-list-name p {
+  font-size: 11px;
+  margin: 2px 0 0;
+}
+.recipe-list-costs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 11px;
+}
+.recipe-list-time {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
   color: var(--muted);
-  padding: 2px 6px;
+  padding: 2px 8px;
   border: 1px solid var(--hairline);
   background: color-mix(in oklab, var(--bg) 60%, transparent);
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  margin-left: 8px;
+  min-width: 44px;
+  text-align: center;
+}
+.recipe-list-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Premium action button (Auto ∞) — distinguishes from primary queue button */
+.btn.btn--premium {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: color-mix(in oklab, var(--gold) 10%, transparent);
+}
+.btn.btn--premium:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--gold) 22%, transparent);
+}
+
+@media (max-width: 720px) {
+  .recipe-list-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name time"
+      "costs actions";
+  }
+  .recipe-list-name  { grid-area: name; }
+  .recipe-list-time  { grid-area: time; }
+  .recipe-list-costs { grid-area: costs; }
+  .recipe-list-actions { grid-area: actions; }
 }

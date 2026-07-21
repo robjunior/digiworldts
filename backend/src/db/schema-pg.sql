@@ -494,19 +494,31 @@ CREATE TABLE IF NOT EXISTS farm_recipes (
   bits_cost      INTEGER NOT NULL DEFAULT 0 CHECK (bits_cost >= 0),
   data_cost      INTEGER NOT NULL DEFAULT 0 CHECK (data_cost >= 0),
   craft_time_ms  BIGINT NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0),
+  category       TEXT CHECK (category IN ('med', 'chip', 'rare')),
   enabled        INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
   created_at     BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_farm_recipes_item ON farm_recipes(item_id);
 
 ALTER TABLE farm_recipes ADD COLUMN IF NOT EXISTS craft_time_ms BIGINT NOT NULL DEFAULT 60000 CHECK (craft_time_ms > 0);
+ALTER TABLE farm_recipes ADD COLUMN IF NOT EXISTS category TEXT CHECK (category IN ('med', 'chip', 'rare'));
+
+CREATE TABLE IF NOT EXISTS player_factories (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  factory_type  TEXT NOT NULL CHECK (factory_type IN ('med', 'chip', 'rare')),
+  created_at    BIGINT NOT NULL,
+  UNIQUE (user_id, factory_type)
+);
+CREATE INDEX IF NOT EXISTS idx_player_factories_user ON player_factories(user_id);
 
 CREATE TABLE IF NOT EXISTS crafting_jobs (
   id            TEXT PRIMARY KEY,
   user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   recipe_id     TEXT NOT NULL REFERENCES farm_recipes(id) ON DELETE CASCADE,
   item_id       TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
-  started_at    BIGINT NOT NULL,
+  factory_id    TEXT REFERENCES player_factories(id) ON DELETE CASCADE,
+  started_at    BIGINT,
   duration_ms   BIGINT NOT NULL CHECK (duration_ms > 0),
   is_auto       INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1)),
   collected_at  BIGINT,
@@ -518,6 +530,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_user
   WHERE collected_at IS NULL;
 
 ALTER TABLE crafting_jobs ADD COLUMN IF NOT EXISTS is_auto INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1));
+ALTER TABLE crafting_jobs ADD COLUMN IF NOT EXISTS factory_id TEXT REFERENCES player_factories(id) ON DELETE CASCADE;
+ALTER TABLE crafting_jobs ALTER COLUMN started_at DROP NOT NULL;
+
+DROP INDEX IF EXISTS crafting_unique_active_user;
+DELETE FROM crafting_jobs WHERE factory_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_factory
+  ON crafting_jobs(factory_id)
+  WHERE collected_at IS NULL AND started_at IS NOT NULL AND factory_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_crafting_factory ON crafting_jobs(factory_id);
 
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;

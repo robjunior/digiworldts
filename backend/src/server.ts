@@ -27,7 +27,7 @@ import { loadCatalog } from './digimon/xml.js';
 import { verifyCatalogAssets } from './scraper/verifier.js';
 import { authPlugin } from './auth/routes.js';
 import { farmPlugin } from './farm/routes.js';
-import { seedFarmRecipes } from './farm/engine.js';
+import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogFromXml } from './skills/seed.js';
 import { rosterPlugin } from './roster/routes.js';
 import { adminPlugin } from './admin/routes.js';
@@ -95,6 +95,7 @@ async function main(): Promise<void> {
 
   await seedShopItems();
   await seedFarmRecipes();
+  await backfillStarterFactoriesForExistingUsers();
   await seedInitialBlueprints();
   await seedDefaultOnboarding();
   await seedDefaultGameSettings();
