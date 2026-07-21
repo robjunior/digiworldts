@@ -525,14 +525,12 @@ CREATE TABLE IF NOT EXISTS crafting_jobs (
   created_at    BIGINT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_crafting_user ON crafting_jobs(user_id);
-CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_user
-  ON crafting_jobs(user_id)
-  WHERE collected_at IS NULL;
 
 ALTER TABLE crafting_jobs ADD COLUMN IF NOT EXISTS is_auto INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1));
 ALTER TABLE crafting_jobs ADD COLUMN IF NOT EXISTS factory_id TEXT REFERENCES player_factories(id) ON DELETE CASCADE;
 ALTER TABLE crafting_jobs ALTER COLUMN started_at DROP NOT NULL;
 
+-- Migration: legacy per-user active index existed before multi-factory + count queueing.
 DROP INDEX IF EXISTS crafting_unique_active_user;
 DELETE FROM crafting_jobs WHERE factory_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_factory
