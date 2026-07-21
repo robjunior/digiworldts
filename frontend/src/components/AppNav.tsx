@@ -15,6 +15,7 @@ function isParent(item: NavItem): item is ParentNavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/lobby', label: 'Lobby' },
   { to: '/world', label: 'World' },
+  { to: '/combat3d', label: '3D Combat' },
   { to: '/roster', label: 'Roster' },
   { to: '/digdex', label: 'Digdex' },
   {
