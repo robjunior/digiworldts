@@ -175,8 +175,8 @@ export function Combat3DBody(): JSX.Element | null {
         <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
       </div>
 
-      <TeamOverlay label="Your team" units={activeBattle.friendly} align="left" />
-      <TeamOverlay label={`vs ${oppSide.toUpperCase()}`} units={activeBattle.enemy} align="right" />
+      <TeamOverlay label="Your team" units={activeBattle.friendly} align="right" />
+      <TeamOverlay label={`vs ${oppSide.toUpperCase()}`} units={activeBattle.enemy} align="left" />
 
       <div className="c3d-party" role="list" aria-label="Your party status">
         {activeBattle.friendly.map((unit) => (

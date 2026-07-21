@@ -24,25 +24,25 @@ export type SpriteRigApi = {
   dispose(): void;
 };
 
-const SPRITE_WIDTH = 1.8;
-const SPRITE_HEIGHT = 2.25;
-const SHADOW_MAX_WIDTH = 1.9;
+const SPRITE_WIDTH = 0.9;
+const SPRITE_HEIGHT = 1.125;
+const SHADOW_MAX_WIDTH = 0.95;
 const SHADOW_DEPTH_RATIO = 0.55;
-const BASE_Y = 1.15;
+const BASE_Y = 0.585;
 const GROUND_Y = 0.02;
 const ATTACK_ANIM_S = 0.5;
 const HIT_ANIM_S = 0.35;
-const ATTACK_LUNGE_UNITS = 2.4;
-const ATTACK_JUMP_UNITS = 0.5;
-const HIT_SHAKE_UNITS = 0.14;
-const IDLE_BOB_AMP = 0.06;
+const ATTACK_LUNGE_UNITS = 1.2;
+const ATTACK_JUMP_UNITS = 0.25;
+const HIT_SHAKE_UNITS = 0.07;
+const IDLE_BOB_AMP = 0.03;
 const IDLE_BOB_FREQ = 2;
 const BASE_EMISSIVE_HEX = 0x0a0e16;
 const BASE_EMISSIVE_INTENSITY = 0.35;
 const ALPHA_THRESHOLD = 24;
 
-export const FORMATION_SIDE_X = 4.8;
-export const FORMATION_SLOT_Z_SPACING = 3.4;
+export const FORMATION_SIDE_X = 3.0;
+export const FORMATION_SLOT_Z_SPACING = 2.4;
 
 export function slotWorldPosition(side: SpriteSide, slotIndex: number): THREE.Vector3 {
   const sign = side === 'you' ? -1 : 1;
@@ -191,7 +191,7 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private applyFacingFlip(texture: THREE.Texture): void {
-    if (this.side !== 'opp') return;
+    if (this.side !== 'you') return;
     texture.wrapS = THREE.RepeatWrapping;
     texture.repeat.x = -1;
     texture.offset.x = 1;

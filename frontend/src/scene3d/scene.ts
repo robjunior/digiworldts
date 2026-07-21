@@ -8,11 +8,11 @@ import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPositio
 
 export type SpriteInit = SpriteRigConfig;
 
-const FRUSTUM = 7;
-const CAM_ELEV_DEG = 20;
-const CAM_YAW_DEG = 35;
+const FRUSTUM = 4.5;
+const CAM_ELEV_DEG = 22;
+const CAM_YAW_DEG = 22;
 const CAM_DIST = 14;
-const CAM_LOOK_AT_Y = 1.4;
+const CAM_LOOK_AT_Y = 0.6;
 
 export class SceneManager {
   readonly scene: THREE.Scene;
@@ -64,6 +64,7 @@ export class SceneManager {
     this.buildTeamSideRings();
 
     this.propsGroup = new THREE.Group();
+    this.propsGroup.visible = false;
     this.scene.add(this.propsGroup);
     this.buildDefaultProps();
 
