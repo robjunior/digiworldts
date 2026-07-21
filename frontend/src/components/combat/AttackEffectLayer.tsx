@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LightningStrike } from 'three-stdlib';
+import { Line2, LineGeometry, LineMaterial, LightningStrike } from 'three-stdlib';
 import type { UnitId } from '@digiworld/shared/battle';
 import type { Element } from '@digiworld/shared/digimon';
 import { useEffect, useRef } from 'react';
@@ -155,9 +155,9 @@ function buildLightningRunner(scene: THREE.Scene, effect: AttackEffect): Runner 
   const layers: Array<{ geometry: LightningStrike; material: THREE.MeshBasicMaterial; mesh: THREE.Mesh; baseOpacity: number }> = [];
 
   const specs = [
-    { color: 0xffffff, radius: 6.5, baseOpacity: 1.0, timeScale: 1.4 },
-    { color: 0x7ec8ff, radius: 9.5, baseOpacity: 0.75, timeScale: 1.1 },
-    { color: 0x2f6fff, radius: 14, baseOpacity: 0.35, timeScale: 0.85 },
+    { color: 0xffffff, radius: 3.0, baseOpacity: 1.0, timeScale: 1.4 },
+    { color: 0x7ec8ff, radius: 4.6, baseOpacity: 0.75, timeScale: 1.1 },
+    { color: 0x2f6fff, radius: 6.8, baseOpacity: 0.35, timeScale: 0.85 },
   ];
 
   for (const spec of specs) {
