@@ -59,7 +59,7 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
   const stage = mon.template?.stage ?? '?';
   const attribute = mon.template?.attribute ?? '?';
   const element = mon.template?.element ?? 'null';
-  const training = activity !== null;
+  const training = activity !== null || mon.status === 'training';
   const rowClass = ['roster-list-row', isOpen ? 'is-open' : '', downed ? 'is-downed' : '', typeof mon.slot === 'number' ? 'is-party' : '', training ? 'is-training' : '']
     .filter(Boolean)
     .join(' ');
@@ -99,8 +99,8 @@ function RosterListRow({ mon, now, activity, actions, templateById, reverseGraph
           <span className="rl-pill rl-pill--stage">{stage}</span>
           <span className="rl-pill rl-pill--attr">{attribute}</span>
           <span className="rl-pill rl-pill--el"><span className="rl-el-dot" />{element}</span>
-          {training ? <span className="rl-pill rl-pill--training">{activity.readyToCollect ? 'Ready' : 'Training'}</span> : null}
-          <PartyToggle mon={mon} downed={downed} actions={actions} />
+          {training ? <span className="rl-pill rl-pill--training">{activity?.readyToCollect ? 'Ready' : 'Training'}</span> : null}
+          <PartyToggle mon={mon} downed={downed} training={training} activityReady={activity?.readyToCollect ?? false} actions={actions} />
         </span>
         <span className="rl-stats" aria-label="Stats">
           <StatCell label="HP" value={stats.hp} />
@@ -140,7 +140,13 @@ function StatCell({ label, value }: { readonly label: string; readonly value: nu
   );
 }
 
-function PartyToggle({ mon, downed, actions }: { readonly mon: RosterMon; readonly downed: boolean; readonly actions: RosterActions }): JSX.Element {
+function PartyToggle({ mon, downed, training, activityReady, actions }: {
+  readonly mon: RosterMon;
+  readonly downed: boolean;
+  readonly training: boolean;
+  readonly activityReady: boolean;
+  readonly actions: RosterActions;
+}): JSX.Element {
   const inParty = typeof mon.slot === 'number';
   const listed = mon.listedAt !== null;
   if (listed) {
@@ -162,6 +168,17 @@ function PartyToggle({ mon, downed, actions }: { readonly mon: RosterMon; readon
   }
   if (downed) {
     return <span className="rl-party-btn is-locked" aria-label="Downed — cannot enter party">Downed</span>;
+  }
+  if (training) {
+    return (
+      <span
+        className="rl-party-btn is-locked"
+        aria-label={activityReady ? 'Training session ready to collect — collect it before joining the party' : 'Currently training — cannot enter party until training ends'}
+        title={activityReady ? 'Collect the training session before adding to party' : 'Training in progress — cannot enter party'}
+      >
+        {activityReady ? 'Collect first' : 'Training'}
+      </span>
+    );
   }
   return (
     <button

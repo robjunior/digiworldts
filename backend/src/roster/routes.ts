@@ -328,6 +328,13 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (target.listed_at !== null) {
       return reply.code(409).send({ error: 'mon-listed', message: 'This Digimon is on the market. Cancel the listing first.' });
     }
+    if (target.status !== 'resting' && target.status !== 'party') {
+      return reply.code(409).send({
+        error: 'mon-busy',
+        status: target.status,
+        message: `This Digimon is currently ${target.status === 'training' ? 'training — collect the session first' : `busy (${target.status})`}.`,
+      });
+    }
     await tx(async (t) => {
       await t.run(SQL_CLEAR_SLOT, [now, user.id, slot]);
       await t.run(SQL_UPDATE_STATUS_SLOT, ['party', slot, now, monId, user.id]);

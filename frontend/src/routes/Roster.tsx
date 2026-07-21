@@ -80,7 +80,11 @@ export function Roster(): JSX.Element {
     void queryClient.invalidateQueries({ queryKey: TRAINING_QUERY_KEY });
   };
 
-  const assignMutation = useMutation({ mutationFn: ({ monId, slot }: { readonly monId: string; readonly slot: number }) => setPartySlot(monId, slot), onSuccess: () => { setMessage('Party updated.'); invalidateRoster(); } });
+  const assignMutation = useMutation({
+    mutationFn: ({ monId, slot }: { readonly monId: string; readonly slot: number }) => setPartySlot(monId, slot),
+    onSuccess: () => { setMessage('Party updated.'); invalidateRoster(); },
+    onError: (error) => setMessage(error instanceof Error ? error.message : 'party update failed'),
+  });
   const removeMutation = useMutation({ mutationFn: removeFromParty, onSuccess: () => { setMessage('Party slot cleared.'); invalidateRoster(); } });
   const seedMutation = useMutation({ mutationFn: seedStarterRoster, onSuccess: (result) => { setMessage(result.seeded > 0 ? `Seeded ${result.seeded} starter Digimon.` : result.reason ?? 'Nothing to seed.'); invalidateRoster(); } });
   const renameMutation = useMutation({ mutationFn: ({ monId, nickname }: { readonly monId: string; readonly nickname: string }) => renameRosterMon(monId, nickname), onSuccess: () => { setMessage('Nickname updated.'); setRenameMon(null); invalidateRoster(); } });
@@ -105,6 +109,7 @@ export function Roster(): JSX.Element {
       if (typeof mon.slot === 'number') return;
       if (isDowned(mon, now)) { setMessage('This Digimon is recovering. Revive it first.'); return; }
       if (mon.listedAt !== null) { setMessage('This Digimon is on the market. Cancel the listing first.'); return; }
+      if (mon.status === 'training') { setMessage('This Digimon is training. Collect the training session first.'); return; }
       const emptySlot = partyBySlot.findIndex((slot) => slot === null);
       if (emptySlot >= 0) { assignMutation.mutate({ monId: mon.id, slot: emptySlot }); return; }
       setSubstituteFor(mon);
