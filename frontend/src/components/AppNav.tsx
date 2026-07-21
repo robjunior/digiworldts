@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { useAuth } from '../hooks/useAuth';
@@ -43,6 +44,49 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
   const { user, logout } = useAuth();
   const location = useLocation();
   const active = (to: string): boolean => isPathActive(location.pathname, to);
+  const [openParent, setOpenParent] = useState<string | null>(null);
+  const navLinksRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setOpenParent(null);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (openParent === null) return;
+    const handleDocClick = (event: globalThis.MouseEvent): void => {
+      const container = navLinksRef.current;
+      if (container !== null && event.target instanceof Node && !container.contains(event.target)) {
+        setOpenParent(null);
+      }
+    };
+    const handleEscape = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpenParent(null);
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleDocClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [openParent]);
+
+  const toggleParent = (label: string): void => {
+    setOpenParent((current) => (current === label ? null : label));
+  };
+
+  const onParentKey = (event: KeyboardEvent<HTMLDivElement>, label: string): void => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleParent(label);
+    } else if (event.key === 'Escape') {
+      setOpenParent(null);
+    }
+  };
+
+  const onSubmenuItemClick = (event: MouseEvent<HTMLAnchorElement>): void => {
+    event.stopPropagation();
+    setOpenParent(null);
+  };
 
   return (
     <nav className="app-nav" aria-label="Primary">
@@ -52,18 +96,22 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
           Digi<b>World</b>
         </span>
       </Link>
-      <div className="nav-links" role="tablist">
+      <div className="nav-links" role="tablist" ref={navLinksRef}>
         {NAV_ITEMS.map((item) => {
           if (isParent(item)) {
             const anyActive = item.submenu.some((s) => active(s.to));
+            const isOpen = openParent === item.label;
             return (
               <div
                 key={item.label}
-                className={`nav-link nav-link--parent${anyActive ? ' is-active' : ''}`}
+                className={`nav-link nav-link--parent${anyActive ? ' is-active' : ''}${isOpen ? ' is-open' : ''}`}
                 role="tab"
                 tabIndex={0}
                 aria-haspopup="menu"
+                aria-expanded={isOpen}
                 aria-current={anyActive ? 'page' : undefined}
+                onClick={() => toggleParent(item.label)}
+                onKeyDown={(event) => onParentKey(event, item.label)}
               >
                 <span className="nav-link-label">{item.label}</span>
                 <span className="nav-link-chev" aria-hidden="true">▾</span>
@@ -74,6 +122,7 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
                       to={sub.to}
                       role="menuitem"
                       className={`nav-submenu-item${active(sub.to) ? ' is-active' : ''}`}
+                      onClick={onSubmenuItemClick}
                     >
                       {sub.label}
                     </Link>

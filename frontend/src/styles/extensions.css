@@ -94,22 +94,29 @@
 }
 
 .app-nav .nav-link--parent {
-  cursor: default;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding-right: 8px;
+  user-select: none;
+  /* clip-path from .nav-link would also clip the absolutely-positioned
+     .nav-submenu below the tab, making it non-hit-testable. */
+  clip-path: none;
 }
 .app-nav .nav-link--parent .nav-link-chev {
   font-size: 9px;
   color: currentColor;
   opacity: 0.65;
-  transition: transform 0.15s;
+  transition: transform 0.15s, opacity 0.15s;
 }
 .app-nav .nav-link--parent:hover .nav-link-chev,
-.app-nav .nav-link--parent:focus-within .nav-link-chev {
+.app-nav .nav-link--parent.is-open .nav-link-chev {
   transform: translateY(1px);
   opacity: 1;
+}
+.app-nav .nav-link--parent.is-open .nav-link-chev {
+  transform: rotate(180deg);
 }
 .app-nav .nav-submenu {
   position: absolute;
@@ -127,7 +134,7 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 .app-nav .nav-link--parent:hover .nav-submenu,
-.app-nav .nav-link--parent:focus-within .nav-submenu {
+.app-nav .nav-link--parent.is-open .nav-submenu {
   display: flex;
 }
 .app-nav .nav-submenu-item {
