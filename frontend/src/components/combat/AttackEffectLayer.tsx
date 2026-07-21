@@ -149,6 +149,36 @@ const RUNNERS: Record<AnimatedElement, (scene: THREE.Scene, effect: AttackEffect
   null: buildNullRunner,
 };
 
+function arenaResolution(effect: AttackEffect): THREE.Vector2 {
+  return new THREE.Vector2(effect.arenaWidth, effect.arenaHeight);
+}
+
+function makeBoldLine(
+  points: readonly THREE.Vector3[],
+  color: number,
+  opacity: number,
+  linewidth: number,
+  resolution: THREE.Vector2,
+): { mesh: Line2; geometry: LineGeometry; material: LineMaterial } {
+  const flat: number[] = [];
+  for (const p of points) {
+    flat.push(p.x, p.y, p.z);
+  }
+  const geometry = new LineGeometry();
+  geometry.setPositions(flat);
+  const material = new LineMaterial({
+    color,
+    linewidth,
+    transparent: true,
+    opacity,
+    resolution: resolution.clone(),
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  });
+  const mesh = new Line2(geometry, material);
+  return { mesh, geometry, material };
+}
+
 function buildLightningRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   const source = new THREE.Vector3(effect.source.x, effect.source.y, 0);
   const dest = new THREE.Vector3(effect.target.x, effect.target.y, 0);
@@ -436,14 +466,15 @@ function seedImpactParticle(cx: number, cy: number): FireImpactParticle {
 
 function buildPlantRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   const { targetRect } = effect;
+  const resolution = arenaResolution(effect);
   const layerSpecs = [
-    { color: 0xa8ff88, opacity: 1.0 },
-    { color: 0x4a9944, opacity: 0.55 },
-    { color: 0x226622, opacity: 0.3 },
+    { color: 0xa8ff88, opacity: 1.0, width: 3.5 },
+    { color: 0x4a9944, opacity: 0.55, width: 4.5 },
+    { color: 0x226622, opacity: 0.3, width: 6.0 },
   ];
-  const lines: THREE.Line[] = [];
-  const materials: THREE.LineBasicMaterial[] = [];
-  const geometries: THREE.BufferGeometry[] = [];
+  const lines: Line2[] = [];
+  const materials: LineMaterial[] = [];
+  const geometries: LineGeometry[] = [];
 
   const flickerMs = 110;
   const boltMin = 4;
@@ -464,19 +495,11 @@ function buildPlantRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
     for (let i = 0; i < count; i++) {
       const points = plantPath(targetRect, i, count);
       for (const spec of layerSpecs) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-          color: spec.color,
-          transparent: true,
-          opacity: spec.opacity * currentFade,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-        lines.push(line);
-        geometries.push(geometry);
-        materials.push(material);
+        const bold = makeBoldLine(points, spec.color, spec.opacity * currentFade, spec.width, resolution);
+        scene.add(bold.mesh);
+        lines.push(bold.mesh);
+        geometries.push(bold.geometry);
+        materials.push(bold.material);
       }
     }
   }
@@ -831,14 +854,15 @@ function buildEarthRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
 
 function buildSteelRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   const { targetRect } = effect;
+  const resolution = arenaResolution(effect);
   const slashCount = 3;
   const slashes: Array<{
-    line: THREE.Line;
-    geometry: THREE.BufferGeometry;
-    material: THREE.LineBasicMaterial;
-    coreLine: THREE.Line;
-    coreGeometry: THREE.BufferGeometry;
-    coreMaterial: THREE.LineBasicMaterial;
+    line: Line2;
+    geometry: LineGeometry;
+    material: LineMaterial;
+    coreLine: Line2;
+    coreGeometry: LineGeometry;
+    coreMaterial: LineMaterial;
     startAt: number;
   }> = [];
   const angles = [Math.PI * 0.15, Math.PI * -0.2, Math.PI * 0.55];
@@ -850,27 +874,19 @@ function buildSteelRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
     const dx = Math.cos(angle) * halfLen;
     const dy = Math.sin(angle) * halfLen;
     const points = [new THREE.Vector3(cx - dx, cy - dy, 0), new THREE.Vector3(cx + dx, cy + dy, 0)];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({
-      color: 0xc8d0d8,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
+    const halo = makeBoldLine(points, 0xc8d0d8, 0, 6.0, resolution);
+    scene.add(halo.mesh);
+    const core = makeBoldLine(points, 0xffffff, 0, 4.0, resolution);
+    scene.add(core.mesh);
+    slashes.push({
+      line: halo.mesh,
+      geometry: halo.geometry,
+      material: halo.material,
+      coreLine: core.mesh,
+      coreGeometry: core.geometry,
+      coreMaterial: core.material,
+      startAt: 120 + i * 180,
     });
-    const line = new THREE.Line(geometry, material);
-    scene.add(line);
-    const coreGeometry = new THREE.BufferGeometry().setFromPoints(points);
-    const coreMaterial = new THREE.LineBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const coreLine = new THREE.Line(coreGeometry, coreMaterial);
-    scene.add(coreLine);
-    slashes.push({ line, geometry, material, coreLine, coreGeometry, coreMaterial, startAt: 120 + i * 180 });
   }
 
   const sparkCount = 30;
@@ -955,16 +971,17 @@ function buildSteelRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
 
 function buildWindRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   const { targetRect } = effect;
+  const resolution = arenaResolution(effect);
   const centerX = targetRect.x + targetRect.width / 2;
   const centerY = targetRect.y + targetRect.height / 2;
   const outerR = Math.max(targetRect.width, targetRect.height) * 0.65;
-  const lines: THREE.Line[] = [];
-  const materials: THREE.LineBasicMaterial[] = [];
-  const geometries: THREE.BufferGeometry[] = [];
+  const lines: Line2[] = [];
+  const materials: LineMaterial[] = [];
+  const geometries: LineGeometry[] = [];
   const layerSpecs = [
-    { color: 0xffffff, opacity: 0.95 },
-    { color: 0xbef0ff, opacity: 0.65 },
-    { color: 0x60b0e0, opacity: 0.35 },
+    { color: 0xffffff, opacity: 0.95, width: 3.0 },
+    { color: 0xbef0ff, opacity: 0.65, width: 4.0 },
+    { color: 0x60b0e0, opacity: 0.35, width: 5.0 },
   ];
   const arcCount = 5;
 
@@ -982,19 +999,11 @@ function buildWindRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
         points.push(new THREE.Vector3(centerX + Math.cos(a) * radius, centerY + Math.sin(a) * radius, 0));
       }
       for (const spec of layerSpecs) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-          color: spec.color,
-          transparent: true,
-          opacity: spec.opacity * currentFade,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-        lines.push(line);
-        geometries.push(geometry);
-        materials.push(material);
+        const bold = makeBoldLine(points, spec.color, spec.opacity * currentFade, spec.width, resolution);
+        scene.add(bold.mesh);
+        lines.push(bold.mesh);
+        geometries.push(bold.geometry);
+        materials.push(bold.material);
       }
     }
   }
@@ -1078,9 +1087,10 @@ function buildLightRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   }
 
   const rayCount = 12;
-  const rayLines: THREE.Line[] = [];
-  const rayGeometries: THREE.BufferGeometry[] = [];
-  const rayMaterials: THREE.LineBasicMaterial[] = [];
+  const rayResolution = arenaResolution(effect);
+  const rayLines: Line2[] = [];
+  const rayGeometries: LineGeometry[] = [];
+  const rayMaterials: LineMaterial[] = [];
   for (let i = 0; i < rayCount; i++) {
     const angle = (i / rayCount) * Math.PI * 2;
     const outerR = Math.max(targetRect.width, targetRect.height) * 0.9;
@@ -1088,19 +1098,11 @@ function buildLightRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
       new THREE.Vector3(target.x, target.y, 0),
       new THREE.Vector3(target.x + Math.cos(angle) * outerR, target.y + Math.sin(angle) * outerR, 0),
     ];
-    const geometry = new THREE.BufferGeometry().setFromPoints(points);
-    const material = new THREE.LineBasicMaterial({
-      color: 0xffe89a,
-      transparent: true,
-      opacity: 0,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    });
-    const line = new THREE.Line(geometry, material);
-    scene.add(line);
-    rayLines.push(line);
-    rayGeometries.push(geometry);
-    rayMaterials.push(material);
+    const bold = makeBoldLine(points, 0xffe89a, 0, 3.0, rayResolution);
+    scene.add(bold.mesh);
+    rayLines.push(bold.mesh);
+    rayGeometries.push(bold.geometry);
+    rayMaterials.push(bold.material);
   }
 
   return {
@@ -1130,14 +1132,15 @@ function buildLightRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
 
 function buildDarkRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
   const { targetRect } = effect;
+  const resolution = arenaResolution(effect);
   const layerSpecs = [
-    { color: 0xe0c8ff, opacity: 1.0 },
-    { color: 0x6020a0, opacity: 0.6 },
-    { color: 0x1a0530, opacity: 0.35 },
+    { color: 0xe0c8ff, opacity: 1.0, width: 3.5 },
+    { color: 0x6020a0, opacity: 0.6, width: 4.5 },
+    { color: 0x1a0530, opacity: 0.35, width: 6.0 },
   ];
-  const lines: THREE.Line[] = [];
-  const materials: THREE.LineBasicMaterial[] = [];
-  const geometries: THREE.BufferGeometry[] = [];
+  const lines: Line2[] = [];
+  const materials: LineMaterial[] = [];
+  const geometries: LineGeometry[] = [];
   const flickerMs = 90;
   const boltMin = 5;
   const boltMax = 7;
@@ -1157,19 +1160,11 @@ function buildDarkRunner(scene: THREE.Scene, effect: AttackEffect): Runner {
     for (let i = 0; i < count; i++) {
       const points = darkTendrilPath(targetRect, i, count);
       for (const spec of layerSpecs) {
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-          color: spec.color,
-          transparent: true,
-          opacity: spec.opacity * currentFade,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        const line = new THREE.Line(geometry, material);
-        scene.add(line);
-        lines.push(line);
-        geometries.push(geometry);
-        materials.push(material);
+        const bold = makeBoldLine(points, spec.color, spec.opacity * currentFade, spec.width, resolution);
+        scene.add(bold.mesh);
+        lines.push(bold.mesh);
+        geometries.push(bold.geometry);
+        materials.push(bold.material);
       }
     }
   }
