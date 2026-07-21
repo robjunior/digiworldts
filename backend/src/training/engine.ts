@@ -25,6 +25,7 @@ import {
 } from '../digimon/types.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { clampBonusToCap } from '../progression/xp.js';
+import { getXpRate } from '../settings/engine.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
@@ -116,14 +117,19 @@ function moodDeltaFor(durationMs: number): number {
   return -15;
 }
 
-function computeGains(durationMs: number, statKinds: readonly TrainingStat[]): Partial<Record<TrainingStat, number>> {
+function computeGains(
+  durationMs: number,
+  statKinds: readonly TrainingStat[],
+  rate: number = 1,
+): Partial<Record<TrainingStat, number>> {
   const hours = Math.min(8, Math.max(0, durationMs / MS_PER_HOUR));
   const durationScale = hours / 8;
   const statCount = Math.max(1, statKinds.length);
+  const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
   const result: Partial<Record<TrainingStat, number>> = {};
   for (const stat of statKinds) {
     const max = MAX_STAT_GAIN_8H[stat];
-    result[stat] = Math.max(1, Math.round((max * durationScale) / statCount));
+    result[stat] = Math.max(1, Math.round(((max * durationScale) / statCount) * safeRate));
   }
   return result;
 }
@@ -137,6 +143,7 @@ export async function readTraining(userId: string): Promise<TrainingView> {
   const rosterById = new Map(rosterRows.map((r) => [r.id, r]));
   const catalog = loadCatalog();
   const templateById = new Map(catalog.digimons.map((t) => [t.id, t]));
+  const xpRate = await getXpRate();
 
   const stations: TrainingSlotView[] = buildings
     .filter((s): s is FarmBuildingRow & { building_type: 'training' | 'training_premium' } =>
@@ -162,7 +169,7 @@ export async function readTraining(userId: string): Promise<TrainingView> {
             finishesAt: session.started_at + session.duration_ms,
             progressPct: progressPct(session.started_at, session.duration_ms, now),
             readyToCollect: now >= session.started_at + session.duration_ms,
-            previewGains: computeGains(session.duration_ms, statKinds),
+            previewGains: computeGains(session.duration_ms, statKinds, xpRate),
             previewMoodDelta: moodDeltaFor(session.duration_ms),
           };
         }
@@ -311,7 +318,8 @@ export async function collectTraining(userId: string, buildingId: string): Promi
   const tpl = catalog.digimons.find((t) => t.id === mon.catalog_id);
   const stage: Stage = tpl?.stage ?? 'Rookie';
   const statKinds = JSON.parse(session.stat_kinds) as TrainingStat[];
-  const gained = computeGains(session.duration_ms, statKinds);
+  const xpRate = await getXpRate();
+  const gained = computeGains(session.duration_ms, statKinds, xpRate);
   const moodDelta = moodDeltaFor(session.duration_ms);
   const newMood = Math.max(0, Math.min(100, mon.mood + moodDelta));
   const rawBonus = {

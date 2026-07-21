@@ -373,6 +373,17 @@ CREATE TABLE IF NOT EXISTS onboarding_config (
 );
 
 -- ----------------------------------------------------------------------------
+-- game_settings: singleton (id=1) admin-editable global rates. xp_rate scales
+-- BOTH match-end XP awards (PvP + PvE) AND training stat gains at collect time.
+-- Default 1.0 = no change to existing balance. Bounded 0.1..10.0 in the API.
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS game_settings (
+  id          SMALLINT PRIMARY KEY CHECK (id = 1),
+  xp_rate     DOUBLE PRECISION NOT NULL DEFAULT 1.0 CHECK (xp_rate > 0),
+  updated_at  BIGINT NOT NULL
+);
+
+-- ----------------------------------------------------------------------------
 -- onboarding_teams: admin-editable starter team choices (3 mons per team).
 -- On player select, the engine spawns 3 player_roster rows from these ids.
 -- ----------------------------------------------------------------------------

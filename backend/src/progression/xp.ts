@@ -147,8 +147,11 @@ export function awardXp(
   deltaXp: number,
   baseStats?: BaseStats,
   stagePools?: StagePools,
+  rate: number = 1,
 ): AwardResult {
-  const newXp = Math.max(0, currentXp + deltaXp);
+  const safeRate = Number.isFinite(rate) && rate > 0 ? rate : 1;
+  const scaledDelta = Math.max(0, Math.round(deltaXp * safeRate));
+  const newXp = Math.max(0, currentXp + scaledDelta);
   const derivedLevel = levelFromXp(newXp, stage);
   const newLevel = Math.max(currentLevel, derivedLevel);
   const gained = Math.max(0, newLevel - currentLevel);

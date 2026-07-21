@@ -330,6 +330,12 @@ export type OnboardingConfigRow = {
   updated_at: number;
 };
 
+export type GameSettingsRow = {
+  id: 1;
+  xp_rate: number;
+  updated_at: number;
+};
+
 export type OnboardingTeamRow = {
   id: string;
   slug: string;

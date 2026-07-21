@@ -4,6 +4,7 @@ import { AppNav } from '../components/AppNav';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { CatalogTable } from '../components/admin/CatalogTable';
+import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
@@ -20,6 +21,7 @@ const ADMIN_TABS = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
   { id: 'shop', label: 'Shop Admin' },
+  { id: 'settings', label: 'Settings' },
 ] as const;
 
 type AdminTab = (typeof ADMIN_TABS)[number]['id'];
@@ -71,6 +73,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <SkillsAdmin />;
     case 'shop':
       return <ShopAdmin />;
+    case 'settings':
+      return <GameSettingsAdmin />;
     default:
       return assertNever(tab);
   }

@@ -305,6 +305,22 @@ export function putCatalogLoot(catalogId: string, entries: readonly LootEntryInp
   });
 }
 
+export type AdminGameSettings = {
+  readonly xpRate: number;
+  readonly updatedAt: number;
+};
+
+export const ADMIN_XP_RATE_MIN = 0.1;
+export const ADMIN_XP_RATE_MAX = 10.0;
+
+export function getAdminGameSettings(): Promise<{ readonly settings: AdminGameSettings }> {
+  return apiFetch<{ readonly settings: AdminGameSettings }>('/api/admin/game-settings');
+}
+
+export function updateAdminGameSettings(input: { readonly xpRate: number }): Promise<{ readonly settings: AdminGameSettings }> {
+  return apiFetch<{ readonly settings: AdminGameSettings }>('/api/admin/game-settings', { method: 'PUT', body: input });
+}
+
 function toQueryString(query: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {

@@ -11,6 +11,7 @@ import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';
+import { getXpRate } from '../settings/engine.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -299,6 +300,8 @@ async function awardPveBattleRewards(
   const partyRows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
   const now = Date.now();
   const xpAwards: XpAward[] = [];
+  const xpRate = await getXpRate();
+  const scaledXpPerParticipant = Math.max(0, Math.round(xpPerParticipant * xpRate));
 
   for (const row of partyRows) {
     if (row.slot_index === null || !participantSlots.has(row.slot_index)) continue;
@@ -334,13 +337,13 @@ async function awardPveBattleRewards(
         didChange = delta !== 0;
       }
     } else if (matchOutcome === 'win' && xpPerParticipant > 0) {
-      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant, template.baseStats);
+      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant, template.baseStats, undefined, xpRate);
       const grownFloor = xpToReach(result.level, template.stage);
       nextXp = Math.max(grownFloor, result.xp);
       nextLevel = result.level;
       nextBonus = result.bonus;
       gainedLevels = result.gainedLevels;
-      delta = xpPerParticipant;
+      delta = scaledXpPerParticipant;
       didChange = true;
     }
 

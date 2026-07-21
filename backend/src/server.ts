@@ -39,6 +39,8 @@ import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot } from './lobby/ws.js';
 import { onboardingPlugin } from './onboarding/routes.js';
 import { seedDefaultOnboarding } from './onboarding/engine.js';
+import { gameSettingsPlugin } from './settings/routes.js';
+import { seedDefaultGameSettings } from './settings/engine.js';
 import { seedDefaultWorldObjects } from './quests/seed.js';
 import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
@@ -95,6 +97,7 @@ async function main(): Promise<void> {
   await seedFarmRecipes();
   await seedInitialBlueprints();
   await seedDefaultOnboarding();
+  await seedDefaultGameSettings();
   await seedDefaultWorldObjects();
   await seedSkillsCatalogFromXml();
 
@@ -155,6 +158,7 @@ async function main(): Promise<void> {
   await app.register(dailyPlugin);
   await app.register(trainingPlugin);
   await app.register(onboardingPlugin);
+  await app.register(gameSettingsPlugin);
   await app.register(questsPlugin);
   await app.register(worldPlugin);
   await app.register(nurseryPlugin);

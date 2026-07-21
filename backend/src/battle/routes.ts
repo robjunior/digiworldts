@@ -16,6 +16,7 @@ import { one, q, run, tx, type ActiveMatchRow, type UserRow } from '../db/index.
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
+import { getXpRate } from '../settings/engine.js';
 import { loadPartyLoadout, partyAverageLevel } from '../roster/routes.js';
 import { loadCatalog } from '../digimon/xml.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
@@ -445,6 +446,7 @@ async function grantRewardsInTx(
     if (mult > 1) xp = Math.round(xp * mult);
   }
   if (xp <= 0) return;
+  const xpRate = await getXpRate();
   const rows = await txAdapter.query<PartyRow>(SQL_SELECT_PARTY, [userId]);
   const now = Date.now();
   for (const r of rows) {
@@ -458,6 +460,8 @@ async function grantRewardsInTx(
       stage,
       xp,
       template?.baseStats,
+      undefined,
+      xpRate,
     );
     await txAdapter.run(SQL_UPDATE_MON, [
       grown.level,
