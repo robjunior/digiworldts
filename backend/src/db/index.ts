@@ -406,6 +406,7 @@ export type CraftingJobRow = {
   item_id: string;
   started_at: number;
   duration_ms: number;
+  is_auto: 0 | 1;
   collected_at: number | null;
   created_at: number;
 };

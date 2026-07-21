@@ -25,7 +25,7 @@ import {
   upgradeBuilding,
 } from './engine.js';
 
-const CraftSchema = z.object({ recipeId: z.string().min(1) });
+const CraftSchema = z.object({ recipeId: z.string().min(1), auto: z.boolean().optional() });
 
 export const farmPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/farm', async (req, reply) => {
@@ -42,11 +42,12 @@ export const farmPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const user = await requireAuth(req, reply);
     const parsed = CraftSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', message: parsed.error.issues[0]?.message ?? 'recipeId required' });
-    const result = await startCraft(user.id, parsed.data.recipeId);
+    const result = await startCraft(user.id, parsed.data.recipeId, parsed.data.auto === true ? { auto: true } : undefined);
     if (!result.ok) {
       const status =
         result.error === 'not-found' ? 404
         : result.error === 'insufficient-resources' ? 402
+        : result.error === 'premium-required' ? 403
         : result.error === 'busy' ? 409
         : 409;
       return reply.code(status).send({ error: result.error, ...(result.missing ? { missing: result.missing } : {}) });

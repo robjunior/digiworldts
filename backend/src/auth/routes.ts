@@ -41,6 +41,7 @@ const SQL_INSERT_USER = `INSERT INTO users (id, username, display_name, password
 const SQL_UPDATE_LAST_LOGIN = `UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?`;
 const SQL_INIT_WALLET = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, 0, 0, ?) ON CONFLICT DO NOTHING`;
 const SQL_INIT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, 0, ?) ON CONFLICT DO NOTHING`;
+const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE user_id = ?`;
 
 // ============================================================================
 // Input schemas
@@ -82,9 +83,11 @@ export type PublicUser = {
   lastLoginAt: number | null;
   onboardingCompleted: boolean;
   mmr: number;
+  premiumUntil: number | null;
 };
 
-function toPublic(u: UserRow): PublicUser {
+async function toPublic(u: UserRow): Promise<PublicUser> {
+  const row = await one<{ premium_until: number | null }>(SQL_SELECT_WALLET_PREMIUM, u.id);
   return {
     id: u.id,
     username: u.username,
@@ -94,6 +97,7 @@ function toPublic(u: UserRow): PublicUser {
     lastLoginAt: u.last_login_at,
     onboardingCompleted: u.onboarding_completed_at != null,
     mmr: u.mmr,
+    premiumUntil: row?.premium_until ?? null,
   };
 }
 
@@ -109,7 +113,7 @@ function clientIp(req: FastifyRequest): string | undefined {
 export async function currentUser(req: FastifyRequest): Promise<PublicUser | null> {
   const token = readSessionCookie(req);
   const session = await resolveSession(token ?? undefined);
-  return session ? toPublic(session.user) : null;
+  return session ? await toPublic(session.user) : null;
 }
 
 /** Guard: require any authenticated user. */
@@ -197,7 +201,7 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     }
 
     log.info('auth.register.ok', { userId: user.id, isAdmin: user.is_admin === 1 });
-    return reply.code(201).send({ user: toPublic(user) });
+    return reply.code(201).send({ user: await toPublic(user) });
   });
 
   app.post('/api/auth/login', async (req, reply) => {
@@ -232,7 +236,7 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     await recordLoginAttempt(username, ip, true);
 
     log.info('auth.login.ok', { userId: user.id });
-    return reply.send({ user: toPublic(user) });
+    return reply.send({ user: await toPublic(user) });
   });
 
   app.post('/api/auth/logout', async (req, reply) => {

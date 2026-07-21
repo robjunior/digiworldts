@@ -56,6 +56,7 @@ export type CraftingJobView = {
   readonly finishesAt: number;
   readonly progressPct: number;
   readonly readyToCollect: boolean;
+  readonly isAuto: boolean;
 };
 
 export type RecipesResponse = {
@@ -104,8 +105,8 @@ export function getFarmRecipes(): Promise<RecipesResponse> {
   return apiFetch<RecipesResponse>('/api/farm/recipes');
 }
 
-export function startFarmCraft(recipeId: string): Promise<StartCraftResult> {
-  return apiFetch<StartCraftResult>('/api/farm/craft', { method: 'POST', body: { recipeId } });
+export function startFarmCraft(recipeId: string, opts?: { readonly auto?: boolean }): Promise<StartCraftResult> {
+  return apiFetch<StartCraftResult>('/api/farm/craft', { method: 'POST', body: { recipeId, ...(opts?.auto ? { auto: true } : {}) } });
 }
 
 export function collectFarmCraft(): Promise<CollectCraftResult> {

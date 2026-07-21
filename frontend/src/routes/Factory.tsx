@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { AppNav, NavStat } from '../components/AppNav';
 import { PageStrip } from '../components/common/PageStrip';
+import { useAuth } from '../hooks/useAuth';
 import {
   cancelFarmCraft,
   collectFarmCraft,
@@ -18,6 +19,7 @@ const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;
 
 export function Factory(): JSX.Element {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [notice, setNotice] = useState<string>('');
   const [pendingRecipeId, setPendingRecipeId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
@@ -33,6 +35,8 @@ export function Factory(): JSX.Element {
   const progressPct = activeJob === null ? 0 : Math.min(100, Math.max(0, ((now - activeJob.startedAt) / activeJob.durationMs) * 100));
   const readyToCollect = activeJob !== null && remainingMs === 0;
   const craftableCount = recipes.filter((recipe) => recipe.canCraft && !factoryBusy).length;
+  const isPremium = user?.premiumUntil != null && user.premiumUntil > now;
+  const isAutoJob = activeJob?.isAuto === true;
 
   useEffect(() => {
     if (activeJob === null) return;
@@ -47,12 +51,17 @@ export function Factory(): JSX.Element {
   }, [activeJob, readyToCollect, queryClient]);
 
   const startMutation = useMutation({
-    mutationFn: startFarmCraft,
-    onMutate: (recipeId) => setPendingRecipeId(recipeId),
+    mutationFn: (params: { readonly recipeId: string; readonly auto?: boolean }) =>
+      startFarmCraft(params.recipeId, params.auto === true ? { auto: true } : undefined),
+    onMutate: (params) => setPendingRecipeId(params.recipeId),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: FARM_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: RECIPES_QUERY_KEY });
-      setNotice(`Crafting started: ${result.job.itemName} (${formatDuration(result.job.durationMs)})`);
+      setNotice(
+        result.job.isAuto
+          ? `Auto-producing ${result.job.itemName} (${formatDuration(result.job.durationMs)} per unit until resources deplete)`
+          : `Crafting started: ${result.job.itemName} (${formatDuration(result.job.durationMs)})`,
+      );
     },
     onError: (error) => setNotice(error instanceof Error ? error.message : 'craft failed'),
     onSettled: () => setPendingRecipeId(null),
@@ -105,14 +114,14 @@ export function Factory(): JSX.Element {
         <div className="farm-alert" role="status" aria-live="polite">{notice}</div>
 
         {activeJob ? (
-          <section className="factory-active-job" aria-label="Active crafting job">
+          <section className={`factory-active-job${isAutoJob ? ' is-auto' : ''}`} aria-label="Active crafting job">
             <div className="factory-active-job-head">
               <div>
-                <span className="factory-active-job-lbl">Crafting</span>
+                <span className="factory-active-job-lbl">{isAutoJob ? 'Auto-producing' : 'Crafting'}</span>
                 <b className="factory-active-job-name">{activeJob.itemName}</b>
               </div>
               <div className={`factory-active-job-timer${readyToCollect ? ' is-ready' : ''}`}>
-                {readyToCollect ? 'Ready' : formatCountdown(remainingMs)}
+                {readyToCollect ? (isAutoJob ? 'Cycling…' : 'Ready') : formatCountdown(remainingMs)}
               </div>
             </div>
             <div
@@ -131,16 +140,18 @@ export function Factory(): JSX.Element {
                 disabled={cancelMutation.isPending}
                 onClick={() => cancelMutation.mutate()}
               >
-                {cancelMutation.isPending ? 'Cancelling…' : 'Cancel + refund'}
+                {cancelMutation.isPending ? 'Cancelling…' : isAutoJob ? 'Stop auto-produce' : 'Cancel + refund'}
               </button>
-              <button
-                className="btn btn--sm"
-                type="button"
-                disabled={!readyToCollect || collectMutation.isPending}
-                onClick={() => collectMutation.mutate()}
-              >
-                {collectMutation.isPending ? 'Collecting…' : readyToCollect ? 'Collect' : `Waiting ${formatCountdown(remainingMs)}`}
-              </button>
+              {!isAutoJob ? (
+                <button
+                  className="btn btn--sm"
+                  type="button"
+                  disabled={!readyToCollect || collectMutation.isPending}
+                  onClick={() => collectMutation.mutate()}
+                >
+                  {collectMutation.isPending ? 'Collecting…' : readyToCollect ? 'Collect' : `Waiting ${formatCountdown(remainingMs)}`}
+                </button>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -172,15 +183,28 @@ export function Factory(): JSX.Element {
                       {recipe.bitsCost > 0 ? <span className="ps-res ps-res--bits" title="Bits"><span className="ps-dot" />{recipe.bitsCost}</span> : null}
                       {recipe.dataCost > 0 ? <span className="ps-res ps-res--data" title="Data"><span className="ps-dot" />{recipe.dataCost}</span> : null}
                     </div>
-                    <button
-                      className="btn btn--sm"
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => startMutation.mutate(recipe.id)}
-                      title={factoryBusy ? 'The factory is already crafting an item. Collect or cancel first.' : undefined}
-                    >
-                      {buttonLabel}
-                    </button>
+                    <div className="recipe-card-actions">
+                      <button
+                        className="btn btn--sm"
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => startMutation.mutate({ recipeId: recipe.id })}
+                        title={factoryBusy ? 'The factory is already crafting an item. Collect or cancel first.' : undefined}
+                      >
+                        {buttonLabel}
+                      </button>
+                      {isPremium ? (
+                        <button
+                          className="btn btn--sm btn--premium"
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => startMutation.mutate({ recipeId: recipe.id, auto: true })}
+                          title={factoryBusy ? 'The factory is already crafting an item. Collect or cancel first.' : 'Premium: auto-produce this item nonstop until resources deplete'}
+                        >
+                          {rowPending ? 'Starting…' : 'Produce ∞'}
+                        </button>
+                      ) : null}
+                    </div>
                   </article>
                 );
               })}

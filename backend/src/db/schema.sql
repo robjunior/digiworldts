@@ -532,6 +532,7 @@ CREATE TABLE IF NOT EXISTS crafting_jobs (
   item_id       TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
   started_at    INTEGER NOT NULL,
   duration_ms   INTEGER NOT NULL CHECK (duration_ms > 0),
+  is_auto       INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1)),
   collected_at  INTEGER,
   created_at    INTEGER NOT NULL
 );

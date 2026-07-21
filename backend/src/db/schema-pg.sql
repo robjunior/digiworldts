@@ -508,6 +508,7 @@ CREATE TABLE IF NOT EXISTS crafting_jobs (
   item_id       TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
   started_at    BIGINT NOT NULL,
   duration_ms   BIGINT NOT NULL CHECK (duration_ms > 0),
+  is_auto       INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1)),
   collected_at  BIGINT,
   created_at    BIGINT NOT NULL
 );
@@ -515,6 +516,8 @@ CREATE INDEX IF NOT EXISTS idx_crafting_user ON crafting_jobs(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS crafting_unique_active_user
   ON crafting_jobs(user_id)
   WHERE collected_at IS NULL;
+
+ALTER TABLE crafting_jobs ADD COLUMN IF NOT EXISTS is_auto INTEGER NOT NULL DEFAULT 0 CHECK (is_auto IN (0, 1));
 
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS revive_at BIGINT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS pets_today INTEGER NOT NULL DEFAULT 0;

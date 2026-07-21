@@ -67,10 +67,11 @@ const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled 
 const SQL_SELECT_ACTIVE_JOB = `SELECT j.*, s.name AS item_name
      FROM crafting_jobs j JOIN shop_items s ON s.id = j.item_id
      WHERE j.user_id = ? AND j.collected_at IS NULL`;
-const SQL_INSERT_JOB = `INSERT INTO crafting_jobs (id, user_id, recipe_id, item_id, started_at, duration_ms, collected_at, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`;
+const SQL_INSERT_JOB = `INSERT INTO crafting_jobs (id, user_id, recipe_id, item_id, started_at, duration_ms, is_auto, collected_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?)`;
 const SQL_MARK_JOB_COLLECTED = `UPDATE crafting_jobs SET collected_at = ? WHERE id = ? AND collected_at IS NULL`;
 const SQL_DELETE_JOB = `DELETE FROM crafting_jobs WHERE id = ? AND collected_at IS NULL`;
+const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE user_id = ?`;
 
 function computeProduced(row: FarmBuildingRow, now: number): number {
   const elapsed = Math.max(0, now - row.last_touch);
@@ -222,6 +223,7 @@ export type CraftingJobView = {
   readonly finishesAt: number;
   readonly progressPct: number;
   readonly readyToCollect: boolean;
+  readonly isAuto: boolean;
 };
 
 type CraftingJobJoinRow = CraftingJobRow & { item_name: string };
@@ -240,7 +242,70 @@ function jobRowToView(row: CraftingJobJoinRow, now: number): CraftingJobView {
     finishesAt,
     progressPct,
     readyToCollect: now >= finishesAt,
+    isAuto: row.is_auto === 1,
   };
+}
+
+async function isUserPremium(userId: string, now: number = Date.now()): Promise<boolean> {
+  const row = await one<{ premium_until: number | null }>(SQL_SELECT_WALLET_PREMIUM, userId);
+  return (row?.premium_until ?? 0) > now;
+}
+
+const ADVANCE_LOOP_SAFETY_CAP = 100;
+
+async function advanceAutoLoop(userId: string): Promise<void> {
+  for (let i = 0; i < ADVANCE_LOOP_SAFETY_CAP; i++) {
+    const now = Date.now();
+    const active = await one<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB, userId);
+    if (!active) return;
+    if (active.is_auto !== 1) return;
+    if (now < active.started_at + active.duration_ms) return;
+
+    const recipe = await one<FarmRecipeRow>(SQL_SELECT_RECIPE, active.recipe_id);
+    if (!recipe) return;
+
+    const premiumOk = await isUserPremium(userId, now);
+    let restarted = false;
+
+    await tx(async (t) => {
+      const info = await t.run(SQL_MARK_JOB_COLLECTED, [now, active.id]);
+      if (info.changes === 0) return;
+      await t.run(SQL_UPSERT_INVENTORY_ITEM, [userId, active.item_id, now]);
+
+      if (!premiumOk) return;
+
+      const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
+      for (const r of await t.query<ResourceRow>(SQL_SELECT_RESOURCES, [userId])) balances[r.resource] = r.amount;
+      if (balances.Meat < recipe.meat_cost || balances.Bits < recipe.bits_cost || balances.Data < recipe.data_cost) return;
+
+      const costs: Array<[ResourceKind, number]> = [['Meat', recipe.meat_cost], ['Bits', recipe.bits_cost], ['Data', recipe.data_cost]];
+      for (const [res, cost] of costs) {
+        if (cost <= 0) continue;
+        const dedInfo = await t.run(SQL_DEDUCT_RESOURCE, [cost, now, userId, res, cost]);
+        if (dedInfo.changes === 0) return;
+      }
+
+      const nextStart = active.started_at + active.duration_ms;
+      await t.run(SQL_INSERT_JOB, [
+        newId('crf'),
+        userId,
+        recipe.id,
+        recipe.item_id,
+        nextStart,
+        recipe.craft_time_ms,
+        1,
+        now,
+      ]);
+      restarted = true;
+    });
+
+    if (!restarted) {
+      log.info('farm.craft.auto.stopped', { userId, jobId: active.id, reason: premiumOk ? 'insufficient-resources' : 'premium-expired' });
+      return;
+    }
+    log.info('farm.craft.auto.advance', { userId, prevJobId: active.id, itemId: active.item_id });
+  }
+  log.warn('farm.craft.auto.safety-cap-hit', { userId, cap: ADVANCE_LOOP_SAFETY_CAP });
 }
 
 export async function getActiveCraftingJob(userId: string): Promise<CraftingJobView | null> {
@@ -250,6 +315,7 @@ export async function getActiveCraftingJob(userId: string): Promise<CraftingJobV
 }
 
 export async function readRecipes(userId: string): Promise<{ recipes: RecipeView[]; balances: Record<ResourceKind, number>; activeJob: CraftingJobView | null }> {
+  await advanceAutoLoop(userId);
   const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
   type RecipeJoinRow = FarmRecipeRow & { item_name: string; item_description: string };
@@ -269,12 +335,21 @@ export async function readRecipes(userId: string): Promise<{ recipes: RecipeView
   return { recipes, balances, activeJob };
 }
 
-export type StartCraftError = 'not-found' | 'item-missing' | 'insufficient-resources' | 'busy';
+export type StartCraftError = 'not-found' | 'item-missing' | 'insufficient-resources' | 'busy' | 'premium-required';
 
-export async function startCraft(userId: string, recipeId: string): Promise<
+export async function startCraft(
+  userId: string,
+  recipeId: string,
+  opts?: { auto?: boolean },
+): Promise<
   | { ok: true; job: CraftingJobView; balances: Record<ResourceKind, number> }
   | { ok: false; error: StartCraftError; missing?: Partial<Record<ResourceKind, number>> }
 > {
+  const auto = opts?.auto === true;
+  if (auto && !(await isUserPremium(userId))) {
+    return { ok: false, error: 'premium-required' };
+  }
+
   const recipe = await one<FarmRecipeRow>(SQL_SELECT_RECIPE, recipeId);
   if (!recipe) return { ok: false, error: 'not-found' };
   const item = await one<ShopItemRow>(SQL_SELECT_SHOP_ITEM, recipe.item_id);
@@ -314,7 +389,7 @@ export async function startCraft(userId: string, recipeId: string): Promise<
         throw new Error('craft-race');
       }
     }
-    await t.run(SQL_INSERT_JOB, [jobId, userId, recipe.id, recipe.item_id, now, recipe.craft_time_ms, now]);
+    await t.run(SQL_INSERT_JOB, [jobId, userId, recipe.id, recipe.item_id, now, recipe.craft_time_ms, auto ? 1 : 0, now]);
   }).catch((err: unknown) => {
     if (err instanceof Error && err.message === 'craft-race') return;
     throw err;
@@ -327,7 +402,7 @@ export async function startCraft(userId: string, recipeId: string): Promise<
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balancesAfter[r.resource] = r.amount;
   const job = await getActiveCraftingJob(userId);
   if (!job) throw new Error('startCraft: job disappeared after insert');
-  log.info('farm.craft.start', { userId, recipeId, itemId: recipe.item_id, durationMs: recipe.craft_time_ms });
+  log.info('farm.craft.start', { userId, recipeId, itemId: recipe.item_id, durationMs: recipe.craft_time_ms, auto });
   return { ok: true, job, balances: balancesAfter };
 }
 

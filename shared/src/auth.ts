@@ -16,6 +16,8 @@ export type PublicUser = {
   /** True once the user completes the onboarding flow. */
   onboardingCompleted: boolean;
   mmr: number;
+  /** ms epoch when premium expires, or null if never activated / expired. */
+  premiumUntil: number | null;
 };
 
 /** GET /api/auth/status — no auth required. */
