@@ -14,6 +14,37 @@ import { isAnimatedElement } from '../../scene3d/attack-runners/types';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 
 const ATTACK_PROPAGATION_MS = 700;
+const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
+
+function readAutobattlePref(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(AUTOBATTLE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeAutobattlePref(on: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(AUTOBATTLE_STORAGE_KEY, on ? '1' : '0');
+  } catch {
+    return;
+  }
+}
+
+function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView[]): Action | null {
+  const alive = enemies.filter((e) => !e.down && e.hp > 0);
+  if (alive.length === 0) return null;
+  const target = alive.reduce((low, e) => (e.hp < low.hp ? e : low));
+  const affordable = actor.skills.filter((s) => s.energyCost <= actor.en);
+  if (affordable.length > 0) {
+    const best = affordable.reduce((a, b) => (b.power > a.power ? b : a));
+    return { type: 'skill', unitId: actor.id, skillId: best.id, targetId: target.id };
+  }
+  return { type: 'fight', unitId: actor.id, targetId: target.id };
+}
 
 type Floater3D = { readonly id: string; readonly text: string; readonly kind: 'dmg' | 'crit' | 'miss' | 'resist'; readonly x: number; readonly y: number };
 
@@ -31,10 +62,16 @@ export function Combat3DBody(): JSX.Element | null {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
   const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
+  const [autobattle, setAutobattle] = useState<boolean>(() => readAutobattlePref());
 
   const sceneRef = useRef<Combat3DSceneHandle | null>(null);
   const seenEventCountRef = useRef(0);
   const dispatchPendingRef = useRef<boolean>(false);
+  const autobattleKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    writeAutobattlePref(autobattle);
+  }, [autobattle]);
 
   const displayEvents = battleEvents.length > 0 ? battleEvents : activeBattle?.log ?? [];
 
@@ -159,11 +196,31 @@ export function Combat3DBody(): JSX.Element | null {
     setCommandMode('menu');
   }, [activeBattle, actor, runServerDispatch]);
 
+  useEffect(() => {
+    if (activeBattle?.status !== 'active') {
+      autobattleKeyRef.current = null;
+    }
+  }, [activeBattle?.status, activeBattle?.id]);
+
+  useEffect(() => {
+    if (!autobattle) return;
+    if (!activeBattle || activeBattle.mode !== 'pve' || activeBattle.status !== 'active') return;
+    if (!activeBattle.yourTurn || actor === null || actor.down) return;
+    const turnKey = `${activeBattle.id}:${activeBattle.round}:${activeBattle.log.length}:${actor.id}`;
+    if (autobattleKeyRef.current === turnKey) return;
+    const action = pickAutoAction(actor, activeBattle.enemy);
+    if (action === null) return;
+    autobattleKeyRef.current = turnKey;
+    const timerId = window.setTimeout(() => dispatchAction(action), 400);
+    return () => window.clearTimeout(timerId);
+  }, [autobattle, activeBattle, actor, dispatchAction]);
+
   if (activeBattle === null) return null;
 
   const canAct = activeBattle.yourTurn && actor !== null && !actor.down && activeBattle.status === 'active';
   const yourSide = activeBattle.yourSide;
   const oppSide = yourSide === 'a' ? 'b' : 'a';
+  const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
 
   return (
     <section className="c3d-stage" aria-label="Battle arena">
@@ -241,6 +298,19 @@ export function Combat3DBody(): JSX.Element | null {
 
       {loadError !== null ? <div className="c3d-toast is-err">{loadError}</div> : null}
 
+      {showAutobattle ? (
+        <button
+          type="button"
+          className={`c3d-autobattle ${autobattle ? 'is-on' : ''}`}
+          aria-pressed={autobattle}
+          onClick={() => setAutobattle((v) => !v)}
+          data-od-id="c3d-autobattle-toggle"
+        >
+          <span className="c3d-autobattle-dot" aria-hidden="true" />
+          Auto: {autobattle ? 'ON' : 'OFF'}
+        </button>
+      ) : null}
+
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
           battle={activeBattle}
@@ -281,7 +351,7 @@ function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; re
         for (const [unitId, bar] of barRefs.current.entries()) {
           const pos = scene.screenPositionOf(unitId);
           if (pos !== null) {
-            bar.style.transform = `translate3d(${pos.x - 44}px, ${pos.y + 6}px, 0)`;
+            bar.style.transform = `translate3d(${pos.x - 60}px, ${pos.y + 34}px, 0)`;
             bar.style.opacity = '1';
           } else {
             bar.style.opacity = '0';
