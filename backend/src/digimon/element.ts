@@ -135,7 +135,7 @@ export function scaleForLevel(base: number, level: number): number {
 export function scaleStatsForLevel(base: BaseStats, level: number, bonus: BaseStats): BaseStats {
   return {
     hp: scaleForLevel(base.hp, level) + bonus.hp,
-    en: Math.min(41, scaleForLevel(base.en, level) + bonus.en),
+    en: scaleForLevel(base.en, level) + bonus.en,
     atk: scaleForLevel(base.atk, level) + bonus.atk,
     def: scaleForLevel(base.def, level) + bonus.def,
     int: scaleForLevel(base.int, level) + bonus.int,
