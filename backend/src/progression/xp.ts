@@ -19,12 +19,12 @@ import type { BaseStats, GrowthRate, Stage, StagePools } from '../digimon/types.
 import { combatCapFor, combatSum, defaultMaxedPools, hpenCapFor, hpenSum, STAGE_BASE_EXP, STAGE_GROWTH_RATE } from '../digimon/types.js';
 
 const STAGE_GROWTH: Record<Stage, BaseStats> = {
-  Baby: { hp: 4, en: 0, atk: 1, def: 1, int: 1, spd: 1 },
-  'In-Training': { hp: 6, en: 0, atk: 2, def: 1, int: 1, spd: 1 },
-  Rookie: { hp: 10, en: 0, atk: 3, def: 2, int: 2, spd: 2 },
-  Champion: { hp: 16, en: 0, atk: 5, def: 3, int: 4, spd: 3 },
-  Ultimate: { hp: 22, en: 0, atk: 7, def: 5, int: 6, spd: 4 },
-  Mega: { hp: 30, en: 0, atk: 10, def: 7, int: 9, spd: 5 },
+  Baby: { hp: 4, en: 1, atk: 1, def: 1, int: 1, spd: 1 },
+  'In-Training': { hp: 6, en: 1, atk: 2, def: 1, int: 1, spd: 1 },
+  Rookie: { hp: 10, en: 1, atk: 3, def: 2, int: 2, spd: 2 },
+  Champion: { hp: 16, en: 2, atk: 5, def: 3, int: 4, spd: 3 },
+  Ultimate: { hp: 22, en: 2, atk: 7, def: 5, int: 6, spd: 4 },
+  Mega: { hp: 30, en: 3, atk: 10, def: 7, int: 9, spd: 5 },
 };
 
 function xpAtLevelForRate(level: number, rate: GrowthRate): number {
