@@ -33,10 +33,7 @@ const GROUND_Y = 0.02;
 const ATTACK_ANIM_S = 0.5;
 const HIT_ANIM_S = 0.35;
 const ATTACK_LUNGE_UNITS = 1.2;
-const ATTACK_JUMP_UNITS = 0.25;
 const HIT_SHAKE_UNITS = 0.07;
-const IDLE_BOB_AMP = 0.03;
-const IDLE_BOB_FREQ = 2;
 const ALPHA_THRESHOLD = 24;
 
 export const FORMATION_SIDE_X = 3.0;
@@ -127,7 +124,6 @@ export class SpriteRig implements SpriteRigApi {
   private readonly mat: THREE.MeshBasicMaterial;
   private readonly baseColor: THREE.Color;
   private readonly basePosition: THREE.Vector3;
-  private readonly phase: number;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
@@ -142,7 +138,6 @@ export class SpriteRig implements SpriteRigApi {
     this.slotIndex = config.slotIndex;
     this.basePosition = slotWorldPosition(config.side, config.slotIndex);
     this.worldPosition = this.basePosition.clone();
-    this.phase = Math.random() * Math.PI * 2;
     this.downed = config.initiallyDowned === true;
 
     const placeholder = makePlaceholderTexture();
@@ -302,14 +297,8 @@ export class SpriteRig implements SpriteRigApi {
       }
     }
 
-    let y = this.basePosition.y;
-    let sx = 1;
-    let sy = 1;
     let ox = 0;
-    let lift = 0;
-    const bob = Math.sin(elapsedS * IDLE_BOB_FREQ + this.phase) * IDLE_BOB_AMP;
-    y += bob;
-    lift = bob;
+    let lungeOffset = 0;
 
     if (this.anim !== null) {
       this.anim.t += dt;
@@ -317,36 +306,24 @@ export class SpriteRig implements SpriteRigApi {
       if (this.anim.type === 'attack') {
         const dir = this.side === 'you' ? 1 : -1;
         const lunge = Math.sin(p * Math.PI);
-        this.mesh.position.x = this.basePosition.x + dir * lunge * ATTACK_LUNGE_UNITS;
-        const jump = Math.sin(p * Math.PI) * ATTACK_JUMP_UNITS;
-        y += jump;
-        lift += jump;
-        if (p > 0.6) {
-          sy = 1 - (p - 0.6) * 0.6;
-          sx = 1 + (p - 0.6) * 0.5;
-        }
+        lungeOffset = dir * lunge * ATTACK_LUNGE_UNITS;
       } else if (this.anim.type === 'hit') {
         ox = Math.sin(p * Math.PI * 6) * HIT_SHAKE_UNITS * (1 - p);
       }
       if (p >= 1) {
         this.anim = null;
-        this.mesh.position.x = this.basePosition.x;
       }
     }
 
-    if (this.anim === null || this.anim.type !== 'attack') {
-      this.mesh.position.x = this.basePosition.x + ox;
-    }
-    this.mesh.position.y = y;
-    this.mesh.scale.set(sx, sy, 1);
+    this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
+    this.mesh.position.y = this.basePosition.y;
+    this.mesh.position.z = this.basePosition.z;
+    this.mesh.scale.set(1, 1, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
-    const k = Math.max(0, 1 - lift * 1.6);
-    const shadowWidth = this.shadowWidthUnits * (0.85 + k * 0.15) * sx;
-    const shadowDepth = this.shadowWidthUnits * SHADOW_DEPTH_RATIO * (0.85 + k * 0.15);
-    this.shadow.scale.set(shadowWidth / SHADOW_MAX_WIDTH, shadowDepth / SHADOW_MAX_WIDTH, 1);
-    (this.shadow.material as THREE.MeshBasicMaterial).opacity = 0.9 * (0.45 + k * 0.55);
+    const shadowScale = this.shadowWidthUnits / SHADOW_MAX_WIDTH;
+    this.shadow.scale.set(shadowScale, shadowScale * SHADOW_DEPTH_RATIO, 1);
     this.shadow.position.x = this.mesh.position.x;
 
     if (this.illumination !== null) {
@@ -359,6 +336,7 @@ export class SpriteRig implements SpriteRigApi {
         this.mat.color.copy(this.baseColor).lerp(illum.color, Math.min(1, illum.intensity));
       }
     }
+    void elapsedS;
   }
 
   playAttack(): void {
