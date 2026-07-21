@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppNav } from '../components/AppNav';
-import { CombatBody } from '../components/combat/CombatBody';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
@@ -16,7 +15,6 @@ import { getBattleView } from '../lib/api';
 import { getWorldObjects, getWorldState, moveInWorld, type WorldDirection, type WorldEncounter, type WorldObject, type WorldPosition, type WorldState, type WorldTile } from '../lib/api-world';
 import { createWorldScene, type WorldScene } from '../lib/world-scene';
 import { useWsStore } from '../state/wsStore';
-import '../styles/extensions-combat.css';
 import '../styles/extensions-world.css';
 
 const KEY_DIRECTIONS: Readonly<Record<string, WorldDirection>> = {
@@ -240,14 +238,6 @@ export function World(): JSX.Element {
       <TileInfoPanel position={position} focusedTile={focusedTile} />
       <WorldDpad disabled={worldState?.battleActive ?? false} onMove={attemptMove} />
       <EncounterModal encounter={encounter} message={notice ?? loadError} onDismiss={() => { setEncounter(null); setNotice(null); setLoadError(null); }} />
-      {battleOverlayVisible ? (
-        <div className="world-pve-overlay" role="dialog" aria-modal="true" aria-label="Wild encounter">
-          <div className="world-pve-vignette" aria-hidden="true" />
-          <div className="world-pve-frame">
-            <CombatBody showPageStrip />
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

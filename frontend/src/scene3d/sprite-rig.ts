@@ -46,7 +46,7 @@ function ensureGifCache(): HTMLDivElement {
   const div = document.createElement('div');
   div.setAttribute('aria-hidden', 'true');
   div.setAttribute('data-role', 'c3d-gif-cache');
-  div.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none;';
+  div.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;clip-path:inset(50%);width:auto;height:auto;';
   document.body.appendChild(div);
   gifCacheContainer = div;
   return div;
@@ -245,8 +245,9 @@ export class SpriteRig implements SpriteRigApi {
   private loadGif(url: string): void {
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
     const cache = ensureGifCache();
-    img.style.cssText = 'width:1px;height:1px;';
+    img.style.cssText = 'display:inline-block;';
     img.onload = () => {
       if (this.disposedFlag) {
         img.remove();
