@@ -11,7 +11,7 @@ export type SeedStarterResponse = {
   readonly reason?: string;
 };
 
-export type EvolutionReason = 'no-paths' | 'level-too-low' | 'no-chip' | 'stage-cap' | 'no-mood' | 'attribute-mismatch';
+export type EvolutionReason = 'no-paths' | 'level-too-low' | 'stage-cap' | 'no-mood' | 'attribute-mismatch';
 
 export type EvolutionOption = {
   readonly catalogId: string;
@@ -22,8 +22,6 @@ export type EvolutionOption = {
   readonly reason?: EvolutionReason;
   readonly requiredLevel: number;
   readonly requiredMood: number;
-  readonly requiredItemId: string | null;
-  readonly hasRequiredItem: boolean;
   readonly requiredAttribute: Attribute | null;
 };
 
@@ -36,8 +34,6 @@ export type EvolutionGate = {
   readonly nextStage: Stage | null;
   readonly requiredLevel: number;
   readonly requiredMood: number;
-  readonly requiredItemId: string | null;
-  readonly hasRequiredItem: boolean;
   readonly options: readonly EvolutionOption[];
 };
 

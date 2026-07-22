@@ -46,7 +46,7 @@ function ensureGifCache(): HTMLDivElement {
   const div = document.createElement('div');
   div.setAttribute('aria-hidden', 'true');
   div.setAttribute('data-role', 'c3d-gif-cache');
-  div.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;clip-path:inset(50%);width:auto;height:auto;';
+  div.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;opacity:0;z-index:-1;contain:layout paint;';
   document.body.appendChild(div);
   gifCacheContainer = div;
   return div;
@@ -108,13 +108,20 @@ function makePlaceholderTexture(): THREE.CanvasTexture {
   return tex;
 }
 
+type GifFrame = {
+  readonly bitmap: ImageBitmap;
+  readonly durationMs: number;
+};
+
 type GifState = {
-  readonly img: HTMLImageElement;
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   readonly texture: THREE.CanvasTexture;
+  frames: readonly GifFrame[];
+  currentFrame: number;
+  elapsedMsInFrame: number;
   bboxAnalyzed: boolean;
-  frameCount: number;
+  fallbackImg: HTMLImageElement | null;
 };
 
 type AnimState = { type: 'attack' | 'hit'; t: number; dur: number };
@@ -162,12 +169,19 @@ export class SpriteRig implements SpriteRigApi {
       alphaTest: 0.5,
       side: THREE.DoubleSide,
       color: this.baseColor.clone(),
+      fog: false,
     });
     const geometry = new THREE.PlaneGeometry(1, 1);
     this.mesh = new THREE.Mesh(geometry, this.mat);
     this.mesh.position.copy(this.basePosition);
     this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
-    this.mesh.castShadow = false;
+    this.mesh.castShadow = true;
+    this.mesh.receiveShadow = false;
+    this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
+      map: placeholder,
+      alphaTest: 0.5,
+      depthPacking: THREE.RGBADepthPacking,
+    });
     this.mesh.userData = { spriteRig: this };
     this.scene.add(this.mesh);
 
@@ -215,6 +229,15 @@ export class SpriteRig implements SpriteRigApi {
     this.shadowWidthUnits = Math.min(SHADOW_MAX_WIDTH, this.baseScale.x * 1.05);
   }
 
+  private syncDepthMap(): void {
+    const depth = this.mesh.customDepthMaterial as THREE.MeshDepthMaterial | undefined;
+    if (depth === undefined) return;
+    if (depth.map !== this.mat.map) {
+      depth.map = this.mat.map;
+      depth.needsUpdate = true;
+    }
+  }
+
   private loadTexture(url: string): void {
     if (/\.gif(\?|$)/i.test(url)) {
       this.loadGif(url);
@@ -233,6 +256,7 @@ export class SpriteRig implements SpriteRigApi {
       const previous = this.mat.map;
       this.mat.map = tex;
       this.mat.needsUpdate = true;
+      this.syncDepthMap();
       previous?.dispose();
       const image = tex.image as { width?: number; height?: number } | undefined;
       if (image && typeof image.width === 'number' && typeof image.height === 'number') {
@@ -243,11 +267,68 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private loadGif(url: string): void {
+    if (typeof globalThis.ImageDecoder !== 'undefined') {
+      this.loadGifViaDecoder(url).catch(() => this.loadGifViaImgFallback(url));
+      return;
+    }
+    this.loadGifViaImgFallback(url);
+  }
+
+  private async loadGifViaDecoder(url: string): Promise<void> {
+    const response = await fetch(url, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error(`gif fetch failed: ${response.status}`);
+    const blob = await response.blob();
+    if (this.disposedFlag) return;
+    const decoder = new ImageDecoder({ data: blob.stream(), type: blob.type || 'image/gif' });
+    await decoder.tracks.ready;
+    if (this.disposedFlag) { decoder.close(); return; }
+    const track = decoder.tracks.selectedTrack;
+    if (track === null) { decoder.close(); throw new Error('gif has no track'); }
+    const frameCount = Math.max(1, track.frameCount);
+    const frames: GifFrame[] = [];
+    let w = 0;
+    let h = 0;
+    for (let i = 0; i < frameCount; i++) {
+      const result = await decoder.decode({ frameIndex: i });
+      if (this.disposedFlag) { result.image.close(); break; }
+      w = result.image.displayWidth;
+      h = result.image.displayHeight;
+      const bitmap = await createImageBitmap(result.image);
+      const durationMs = (result.image.duration ?? 100000) / 1000;
+      frames.push({ bitmap, durationMs: Math.max(20, durationMs) });
+      result.image.close();
+    }
+    decoder.close();
+    if (this.disposedFlag || frames.length === 0 || w <= 0 || h <= 0) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (ctx === null) return;
+    ctx.imageSmoothingEnabled = false;
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.magFilter = THREE.NearestFilter;
+    texture.minFilter = THREE.NearestFilter;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.applyFacingFlip(texture);
+    const previous = this.mat.map;
+    this.mat.map = texture;
+    this.mat.needsUpdate = true;
+    this.syncDepthMap();
+    previous?.dispose();
+    this.applyAspect(w, h);
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(frames[0]!.bitmap, 0, 0);
+    texture.needsUpdate = true;
+    this.gif = { canvas, ctx, texture, frames, currentFrame: 0, elapsedMsInFrame: 0, bboxAnalyzed: false, fallbackImg: null };
+  }
+
+  private loadGifViaImgFallback(url: string): void {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.decoding = 'async';
     const cache = ensureGifCache();
-    img.style.cssText = 'display:inline-block;';
+    img.style.cssText = 'display:block;width:auto;height:auto;';
     img.onload = () => {
       if (this.disposedFlag) {
         img.remove();
@@ -269,9 +350,10 @@ export class SpriteRig implements SpriteRigApi {
       const previous = this.mat.map;
       this.mat.map = texture;
       this.mat.needsUpdate = true;
+      this.syncDepthMap();
       previous?.dispose();
       this.applyAspect(cw, ch);
-      this.gif = { img, canvas, ctx, texture, bboxAnalyzed: false, frameCount: 0 };
+      this.gif = { canvas, ctx, texture, frames: [], currentFrame: 0, elapsedMsInFrame: 0, bboxAnalyzed: false, fallbackImg: img };
     };
     cache.appendChild(img);
     img.src = url;
@@ -322,17 +404,33 @@ export class SpriteRig implements SpriteRigApi {
 
     if (this.gif !== null) {
       const gif = this.gif;
-      gif.ctx.clearRect(0, 0, gif.canvas.width, gif.canvas.height);
-      gif.ctx.drawImage(gif.img, 0, 0);
-      gif.texture.needsUpdate = true;
-      gif.frameCount += 1;
-      if (!gif.bboxAnalyzed && gif.frameCount >= 2) {
+      if (gif.frames.length > 0) {
+        gif.elapsedMsInFrame += dt * 1000;
+        const currentFrame = gif.frames[gif.currentFrame]!;
+        if (gif.elapsedMsInFrame >= currentFrame.durationMs) {
+          gif.elapsedMsInFrame -= currentFrame.durationMs;
+          gif.currentFrame = (gif.currentFrame + 1) % gif.frames.length;
+          const nextFrame = gif.frames[gif.currentFrame]!;
+          gif.ctx.clearRect(0, 0, gif.canvas.width, gif.canvas.height);
+          gif.ctx.drawImage(nextFrame.bitmap, 0, 0);
+          gif.texture.needsUpdate = true;
+          if (!gif.bboxAnalyzed) {
+            try {
+              this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
+              gif.bboxAnalyzed = true;
+            } catch {
+              gif.bboxAnalyzed = true;
+            }
+          }
+        }
+      } else if (gif.fallbackImg !== null && !gif.bboxAnalyzed) {
+        gif.ctx.clearRect(0, 0, gif.canvas.width, gif.canvas.height);
+        gif.ctx.drawImage(gif.fallbackImg, 0, 0);
+        gif.texture.needsUpdate = true;
         try {
           this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
-          gif.bboxAnalyzed = true;
-        } catch {
-          gif.bboxAnalyzed = true;
-        }
+        } catch {}
+        gif.bboxAnalyzed = true;
       }
     }
 
@@ -415,8 +513,9 @@ export class SpriteRig implements SpriteRigApi {
     this.mat.dispose();
     (this.shadow.material as THREE.MeshBasicMaterial).dispose();
     if (this.gif !== null) {
-      this.gif.img.remove();
+      this.gif.fallbackImg?.remove();
       this.gif.texture.dispose();
+      for (const frame of this.gif.frames) frame.bitmap.close();
     }
   }
 }
