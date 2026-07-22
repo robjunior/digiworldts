@@ -1,0 +1,109 @@
+/* Intro tour — floating card + target highlight */
+
+.intro-tour {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 400;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+  animation: introTourIn .32s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.intro-tour-card {
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  padding: 18px 22px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+  pointer-events: auto;
+}
+
+.intro-tour-progress {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.intro-tour-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--ink);
+}
+
+.intro-tour-body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.intro-tour-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.intro-tour-skip {
+  background: transparent;
+  border: 0;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .18s;
+}
+.intro-tour-skip:hover { color: var(--ink); }
+
+.intro-tour-next {
+  background: var(--signal);
+  color: var(--bg);
+  border: 1px solid var(--signal);
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: filter .18s, transform .12s cubic-bezier(.16, 1, .3, 1);
+}
+.intro-tour-next:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* Highlight the target nav link with a signal-colored outline + pulse */
+[data-intro-target="true"] {
+  position: relative;
+  z-index: 401;
+  outline: 2px solid var(--signal);
+  outline-offset: 3px;
+  animation: introTargetPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes introTargetPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--signal) 40%, transparent); }
+  50%      { box-shadow: 0 0 0 6px color-mix(in oklab, var(--signal) 10%, transparent); }
+}
+
+@keyframes introTourIn {
+  from { opacity: 0; transform: translate(-50%, 12px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}

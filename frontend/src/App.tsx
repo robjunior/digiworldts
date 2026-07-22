@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { IntroTour } from './components/intro/IntroTour';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AUTH_ME_KEY } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -10,16 +11,17 @@ import { Digdex } from './routes/Digdex';
 import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
+import { Intro } from './routes/Intro';
 import { Items } from './routes/Items';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
 import { Nursery } from './routes/Nursery';
-import { Onboarding } from './routes/Onboarding';
 import { Roster } from './routes/Roster';
 import { Shop } from './routes/Shop';
 import { Training } from './routes/Training';
 import { useWsStore } from './state/wsStore';
+import './styles/extensions-intro.css';
 
 const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
 const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
@@ -58,12 +60,13 @@ export function App(): JSX.Element {
   return (
     <>
       <RealtimeBridge />
+      <IntroTour />
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
-            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/intro" element={<Intro />} />
             <Route path="/lobby" element={<Lobby />} />
             <Route path="/combat" element={<Combat />} />
             <Route path="/roster" element={<Roster />} />

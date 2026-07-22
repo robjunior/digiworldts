@@ -22,8 +22,8 @@ export function ProtectedRoute(): JSX.Element {
     return <Navigate to="/login" replace />;
   }
 
-  if (user !== null && !user.onboardingCompleted && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />;
+  if (user !== null && !user.onboardingCompleted && location.pathname !== '/intro') {
+    return <Navigate to="/intro" replace />;
   }
 
   return <Outlet />;

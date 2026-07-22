@@ -6,15 +6,28 @@ import { DialogueLayer } from '../components/onboarding/DialogueLayer';
 import { FallbackMessage } from '../components/onboarding/FallbackMessage';
 import { TeamsLayer } from '../components/onboarding/TeamsLayer';
 import { TransitionOverlay } from '../components/onboarding/TransitionOverlay';
+import { INTRO_TOUR_ACTIVE_KEY, INTRO_TOUR_DONE_KEY, INTRO_TOUR_STEP_KEY } from '../components/intro/tourSteps';
 import { AUTH_ME_KEY, useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
 import { getOnboardingState, selectOnboardingTeam, type OnboardingTeamView } from '../lib/api-onboarding';
 import '../styles/extensions-onboarding.css';
 
-const ONBOARDING_QUERY_KEY = ['onboarding'] as const;
+const INTRO_QUERY_KEY = ['onboarding'] as const;
 const INTRO_FALLBACK = 'Welcome to DigiWorld.';
 
-export function Onboarding(): JSX.Element {
+function armIntroTour(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(INTRO_TOUR_ACTIVE_KEY, '1');
+    window.localStorage.setItem(INTRO_TOUR_STEP_KEY, '0');
+    window.localStorage.removeItem(INTRO_TOUR_DONE_KEY);
+    window.dispatchEvent(new Event('digiworld:intro-tour-armed'));
+  } catch {
+    // storage unavailable — tour will simply not fire
+  }
+}
+
+export function Intro(): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -23,14 +36,14 @@ export function Onboarding(): JSX.Element {
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [transitionActive, setTransitionActive] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const onboardingQuery = useQuery({ queryKey: ONBOARDING_QUERY_KEY, queryFn: getOnboardingState, retry: false });
+  const introQuery = useQuery({ queryKey: INTRO_QUERY_KEY, queryFn: getOnboardingState, retry: false });
   const selectTeamMutation = useMutation({ mutationFn: selectOnboardingTeam });
 
-  const data = onboardingQuery.data;
+  const data = introQuery.data;
   const config = data?.config;
   const teams = data?.completed === false ? data.teams : [];
   const paragraphs = useMemo(() => splitDialogue(config?.introDialogue ?? INTRO_FALLBACK), [config?.introDialogue]);
-  const showFallback = shouldShowFallback(onboardingQuery.error, data, teams);
+  const showFallback = shouldShowFallback(introQuery.error, data, teams);
 
   useEffect(() => {
     document.body.classList.add('onboarding');
@@ -65,6 +78,7 @@ export function Onboarding(): JSX.Element {
     try {
       const result = await selectTeamMutation.mutateAsync(team.id);
       sessionStorage.setItem('digiworld:just-onboarded', team.slug || result.teamSlug);
+      armIntroTour();
       await queryClient.invalidateQueries({ queryKey: AUTH_ME_KEY });
       window.setTimeout(() => {
         setTransitionActive(true);
@@ -86,7 +100,7 @@ export function Onboarding(): JSX.Element {
 
   return (
     <main>
-      {onboardingQuery.isPending ? <div className="fallback-msg">Loading onboarding…</div> : null}
+      {introQuery.isPending ? <div className="fallback-msg">Loading intro…</div> : null}
       {showFallback ? <FallbackMessage visible /> : null}
       {selectionError ? <div className="auth-error fallback-msg" role="alert">{selectionError}</div> : null}
       {data?.completed === false && teams.length > 0 ? (
