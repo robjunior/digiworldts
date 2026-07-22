@@ -1,7 +1,8 @@
 import type { Action, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import type { Ailment } from '@digiworld/shared/digimon';
 import type { WSClientMessage } from '@digiworld/shared/ws';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
 import { CommandPanel, type CommandMode } from '../combat/CommandPanel';
@@ -68,12 +69,36 @@ export function Combat3DBody(): JSX.Element | null {
   const seenEventCountRef = useRef(0);
   const dispatchPendingRef = useRef<boolean>(false);
   const autobattleKeyRef = useRef<string | null>(null);
+  const cmdRef = useRef<HTMLDivElement | null>(null);
+  const logBodyRef = useRef<HTMLDivElement | null>(null);
+  const enemyPlaybackRef = useRef<{ queue: BattleView['log']; timer: number | null }>({ queue: [], timer: null });
+
+  useEffect(() => {
+    const node = cmdRef.current;
+    if (node === null) return;
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry === undefined) return;
+      const h = entry.contentRect.height;
+      node.style.setProperty('--c3d-cmd-live-h', `${Math.round(h)}px`);
+      const stage = node.closest('.c3d-stage') as HTMLElement | null;
+      if (stage !== null) stage.style.setProperty('--c3d-cmd-live-h', `${Math.round(h)}px`);
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     writeAutobattlePref(autobattle);
   }, [autobattle]);
 
   const displayEvents = battleEvents.length > 0 ? battleEvents : activeBattle?.log ?? [];
+
+  useEffect(() => {
+    const el = logBodyRef.current;
+    if (el === null) return;
+    el.scrollTop = el.scrollHeight;
+  }, [displayEvents.length]);
 
   const actor = useMemo<FriendlyUnitView | null>(() => {
     if (!activeBattle) return null;
@@ -89,6 +114,11 @@ export function Combat3DBody(): JSX.Element | null {
     }
     return activeBattle.enemy.find((e) => !e.down && e.hp > 0) ?? null;
   }, [activeBattle, selectedTargetId]);
+
+  const aliveEnemies = useMemo<readonly EnemyUnitView[]>(
+    () => (activeBattle ? activeBattle.enemy.filter((e) => !e.down) : []),
+    [activeBattle],
+  );
 
   useEffect(() => {
     if (!activeBattle) return;
@@ -112,30 +142,59 @@ export function Combat3DBody(): JSX.Element | null {
     window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), 900);
   }, []);
 
+  const playActionEvent = useCallback((event: BattleView['log'][number]): void => {
+    if (event.type !== 'action') return;
+    const targetId = event.targetId;
+    const damage = event.damage;
+    if (targetId === undefined || targetId === null) return;
+    const yourSide = activeBattle?.yourSide ?? 'a';
+    const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
+    if (damage !== undefined) {
+      const kind: Floater3D['kind'] = event.cue === 'crit' ? 'crit' : event.cue === 'miss' ? 'miss' : event.cue === 'resist' ? 'resist' : 'dmg';
+      spawnFloater(targetId, damage > 0 ? String(damage) : event.cue === 'miss' ? 'MISS' : event.cue === 'resist' ? 'RESIST' : '0', kind);
+    }
+    if (!actorIsFriendly && isAnimatedElement(event.skillElement) && (damage ?? 0) > 0) {
+      sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId);
+    }
+  }, [activeBattle?.yourSide, spawnFloater]);
+
+  const drainEnemyQueue = useCallback((): void => {
+    const state = enemyPlaybackRef.current;
+    const next = state.queue.shift();
+    if (next === undefined) {
+      state.timer = null;
+      return;
+    }
+    playActionEvent(next);
+    state.timer = window.setTimeout(() => drainEnemyQueue(), ATTACK_PROPAGATION_MS);
+  }, [playActionEvent]);
+
+  useEffect(() => {
+    return () => {
+      const t = enemyPlaybackRef.current.timer;
+      if (t !== null) window.clearTimeout(t);
+      enemyPlaybackRef.current.timer = null;
+      enemyPlaybackRef.current.queue = [];
+    };
+  }, []);
+
   useEffect(() => {
     const nextEvents = battleEvents.slice(seenEventCountRef.current);
     seenEventCountRef.current = battleEvents.length;
     const yourSide = activeBattle?.yourSide ?? 'a';
     for (const event of nextEvents) {
       if (event.type !== 'action') continue;
-      const targetId = event.targetId;
-      const damage = event.damage;
-      if (targetId === undefined || targetId === null) continue;
-      const isFriendly = targetId.startsWith(`${yourSide}:`);
       const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
-      if (damage !== undefined) {
-        const kind: Floater3D['kind'] = event.cue === 'crit' ? 'crit' : event.cue === 'miss' ? 'miss' : event.cue === 'resist' ? 'resist' : 'dmg';
-        spawnFloater(targetId, damage > 0 ? String(damage) : event.cue === 'miss' ? 'MISS' : event.cue === 'resist' ? 'RESIST' : '0', kind);
+      if (actorIsFriendly) {
+        playActionEvent(event);
+      } else {
+        enemyPlaybackRef.current.queue.push(event);
       }
-      const shouldSpawnEnemyEffect = !actorIsFriendly && isAnimatedElement(event.skillElement) && (damage ?? 0) > 0;
-      if (shouldSpawnEnemyEffect) {
-        sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId);
-      }
-      const isFriendlyTarget = isFriendly;
-      const notSpawnedYet = !actorIsFriendly;
-      void isFriendlyTarget; void notSpawnedYet;
     }
-  }, [battleEvents, activeBattle?.yourSide, spawnFloater]);
+    if (enemyPlaybackRef.current.timer === null && enemyPlaybackRef.current.queue.length > 0) {
+      drainEnemyQueue();
+    }
+  }, [battleEvents, activeBattle?.yourSide, playActionEvent, drainEnemyQueue]);
 
   const runServerDispatch = useCallback((action: Action): void => {
     if (!activeBattle) return;
@@ -228,11 +287,15 @@ export function Combat3DBody(): JSX.Element | null {
 
       <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
 
+      <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
+
       <div className={`c3d-turn ${activeBattle.yourTurn ? 'is-your' : 'is-opp'}`} role="status">
         <span className="rnd">Round <b>{activeBattle.round}</b></span>
         <span className="who">{activeBattle.yourTurn ? 'Your turn' : 'Opponent'}</span>
         <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
       </div>
+
+      <TurnOrderStrip battle={activeBattle} />
 
       <TeamOverlay label="Your team" units={activeBattle.friendly} align="right" />
       <TeamOverlay label={`vs ${oppSide.toUpperCase()}`} units={activeBattle.enemy} align="left" />
@@ -245,7 +308,7 @@ export function Combat3DBody(): JSX.Element | null {
 
       <aside className="c3d-log" aria-label="Battle log">
         <div className="c3d-log-head">Battle feed</div>
-        <div className="c3d-log-body">
+        <div className="c3d-log-body" ref={logBodyRef}>
           {displayEvents.slice(-30).map((event, idx) => (
             <div key={`log-${idx}-${event.at}`} className={`c3d-log-line ${event.type === 'action' ? event.cue ?? '' : event.type}`}>
               <span className="rd">R{event.type === 'round-start' ? event.round : (activeBattle.round)}</span>
@@ -255,7 +318,7 @@ export function Combat3DBody(): JSX.Element | null {
         </div>
       </aside>
 
-      <div className="c3d-cmd" data-od-id="command-menu">
+      <div className={`c3d-cmd c3d-cmd--${commandMode}`} data-mode={commandMode} data-od-id="command-menu" ref={cmdRef}>
         <CommandPanel
           mode={commandMode}
           actor={actor}
@@ -274,7 +337,7 @@ export function Combat3DBody(): JSX.Element | null {
       </div>
 
       <div className="c3d-target-picker" aria-label="Target selection">
-        {activeBattle.enemy.filter((e) => !e.down).map((foe) => (
+        {aliveEnemies.map((foe) => (
           <button
             key={foe.id}
             type="button"
@@ -324,8 +387,127 @@ export function Combat3DBody(): JSX.Element | null {
   );
 }
 
-function TeamOverlay({ label, units, align }: { readonly label: string; readonly units: readonly { readonly id: string; readonly name: string; readonly down: boolean; readonly hp: number; readonly element: string }[]; readonly align: 'left' | 'right' }): JSX.Element {
-  const alive = units.filter((u) => !u.down && u.hp > 0).length;
+const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
+  const units = useMemo(() => {
+    const withAilments: Array<{ id: UnitId; side: 'you' | 'opp'; ailments: readonly { kind: Ailment; turnsLeft: number }[] }> = [];
+    for (const u of battle.friendly) {
+      if (u.ailments.length > 0 && !u.down) withAilments.push({ id: u.id, side: 'you', ailments: u.ailments });
+    }
+    for (const u of battle.enemy) {
+      if (u.ailments.length > 0 && !u.down) withAilments.push({ id: u.id, side: 'opp', ailments: u.ailments });
+    }
+    return withAilments;
+  }, [battle.friendly, battle.enemy]);
+  const groupRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    let rafId = 0;
+    const tick = (): void => {
+      const scene = sceneRef.current;
+      if (scene !== null) {
+        for (const [unitId, node] of groupRefs.current.entries()) {
+          const pos = scene.screenPositionOf(unitId);
+          if (pos !== null) {
+            const side = node.dataset['side'];
+            const offsetX = side === 'you' ? -48 : 20;
+            node.style.transform = `translate3d(${pos.x + offsetX}px, ${pos.y - 24}px, 0)`;
+            node.style.opacity = '1';
+          } else {
+            node.style.opacity = '0';
+          }
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [sceneRef]);
+
+  useEffect(() => {
+    const keep = new Set(units.map((u) => u.id));
+    for (const id of Array.from(groupRefs.current.keys())) {
+      if (!keep.has(id)) groupRefs.current.delete(id);
+    }
+  }, [units]);
+
+  return (
+    <div className="c3d-ailment-layer" aria-hidden="true">
+      {units.map((unit) => (
+        <div
+          key={unit.id}
+          ref={(el) => {
+            if (el === null) groupRefs.current.delete(unit.id);
+            else groupRefs.current.set(unit.id, el);
+          }}
+          data-side={unit.side}
+          className="c3d-ailment-group"
+        >
+          {unit.ailments.map((a) => (
+            <span
+              key={a.kind}
+              className={`c3d-ailment c3d-ailment--${a.kind}`}
+              title={`${AILMENT_LABEL[a.kind]} · ${a.turnsLeft} turn${a.turnsLeft === 1 ? '' : 's'} left`}
+            >
+              <span className="c3d-ailment-icon" aria-hidden="true">{AILMENT_ICON[a.kind]}</span>
+              <span className="c3d-ailment-tl">{a.turnsLeft}</span>
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+const AILMENT_ICON: Record<Ailment, string> = {
+  burn: '🔥',
+  poison: '☠',
+  weaken: '⬇',
+  freeze: '❄',
+  stun: '⚡',
+  sleep: '💤',
+};
+
+const AILMENT_LABEL: Record<Ailment, string> = {
+  burn: 'Burned',
+  poison: 'Poisoned',
+  weaken: 'Weakened',
+  freeze: 'Frozen',
+  stun: 'Stunned',
+  sleep: 'Asleep',
+};
+
+const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battle: BattleView }): JSX.Element | null {
+  const upcoming = battle.upcomingTurns ?? [];
+  if (upcoming.length === 0) return null;
+  const yourSide = battle.yourSide;
+  const templateFor = (unitId: string): { templateId: string; name: string; element: string } | null => {
+    const friendly = battle.friendly.find((u) => u.id === unitId);
+    if (friendly) return { templateId: friendly.templateId, name: friendly.name, element: friendly.element };
+    const enemy = battle.enemy.find((u) => u.id === unitId);
+    if (enemy) return { templateId: enemy.templateId, name: enemy.name, element: enemy.element };
+    return null;
+  };
+  return (
+    <div className="c3d-order" role="list" aria-label="Upcoming turn order">
+      <span className="c3d-order-label">Next</span>
+      {upcoming.map((entry, idx) => {
+        const meta = templateFor(entry.unitId);
+        if (meta === null) return null;
+        const isYours = entry.side === yourSide;
+        const isCurrent = idx === 0;
+        const cls = ['c3d-order-slot', isYours ? 'is-yours' : 'is-opp', isCurrent ? 'is-current' : ''].filter(Boolean).join(' ');
+        return (
+          <div key={`${entry.unitId}-${idx}`} className={cls} role="listitem" title={`${meta.name} · ${isYours ? 'you' : 'opp'}${isCurrent ? ' · current' : ''}`} style={{ ['--el' as string]: `var(--el-${meta.element})` }}>
+            <img className="c3d-order-mon" src={`/assets/digimon/${meta.templateId}/dot.gif`} alt={meta.name} loading="eager" />
+            {isCurrent ? <span className="c3d-order-caret" aria-hidden="true" /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+const TeamOverlay = memo(function TeamOverlay({ label, units, align }: { readonly label: string; readonly units: readonly { readonly id: string; readonly name: string; readonly down: boolean; readonly hp: number; readonly element: string }[]; readonly align: 'left' | 'right' }): JSX.Element {  const alive = units.filter((u) => !u.down && u.hp > 0).length;
   return (
     <div className={`c3d-ov c3d-ov--${align === 'left' ? 'tl' : 'tr'}`}>
       <div className="c3d-ov-eyebrow">{label}</div>
@@ -337,9 +519,9 @@ function TeamOverlay({ label, units, align }: { readonly label: string; readonly
       <div className="c3d-sub"><b>{alive}</b>/{units.length} alive</div>
     </div>
   );
-}
+});
 
-function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
+const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
   const alive = battle.enemy.filter((e) => !e.down && e.hp > 0);
   const barRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
 
@@ -395,9 +577,9 @@ function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; re
       })}
     </div>
   );
-}
+});
 
-function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
+const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
   const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax : 0;
   const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax : 0;
   return (
@@ -411,7 +593,7 @@ function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly
       <div className="c3d-unit-en"><i style={{ transform: `scaleX(${enPct})` }} /></div>
     </div>
   );
-}
+});
 
 function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
   if (actor === null) return null;
