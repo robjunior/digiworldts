@@ -193,7 +193,6 @@
       <evolve targetId="skb-78"></evolve>
       <evolve targetId="skb-115"></evolve>
       <evolve targetId="skb-308"></evolve>
-      <evolve targetId="skb-676"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="0"></r>
@@ -526,7 +525,6 @@
     <evolutions>
       <evolve targetId="skb-44"></evolve>
       <evolve targetId="skb-74"></evolve>
-      <evolve targetId="skb-722"></evolve>
     </evolutions>
     <resistances>
       <r element="water" mult="0.5"></r>
@@ -1086,7 +1084,6 @@
       <skill id="s3" name="Overdrive" element="electricity" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-722"></evolve>
       <evolve targetId="skb-727"></evolve>
       <evolve targetId="skb-770"></evolve>
     </evolutions>
@@ -1118,25 +1115,6 @@
       <r element="plant" mult="0.5"></r>
       <r element="electricity" mult="1.5"></r>
       <r element="earth" mult="0.5"></r>
-    </resistances>
-  </digimon>
-  <digimon id="skb-676" name="Agunimon" stage="Rookie" attribute="Variable" element="fire" wikimonSlug="Agunimon" sourceUrl="https://api.skullbot.fr/digimon/676" type="Wizard">
-    <assets portrait="/assets/digimon/skb-676/portrait.webp" dot="/assets/digimon/skb-676/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Pyro Punch" element="fire" cost="41" power="35" description="[Target: 1 enemy] Performs Fire physical attack at power 35 x 2 hits. Increased damage to targets with Immortal Trait."></skill>
-      <skill id="s1" name="Corona Blaster" element="fire" cost="41" power="20" description="[Target: All enemies] Performs Fire physical attack at power 20 x 2 hits. Increased damage to targets with Immortal Trait."></skill>
-      <skill id="s2" name="Fire Darts" element="fire" cost="26" power="300" description="Throws small bits of fire from its gauntlet at its target."></skill>
-      <skill id="s3" name="Crimson Knuckle" element="fire" cost="41" power="380" description="1 2 A powerful two-step punch. Spins upward as a tornado of fire."></skill>
-    </skills>
-    <evolutions>
-      <evolve targetId="skb-669"></evolve>
-    </evolutions>
-    <resistances>
-      <r element="fire" mult="0"></r>
-      <r element="water" mult="1.5"></r>
-      <r element="ice" mult="2"></r>
-      <r element="steel" mult="0.5"></r>
     </resistances>
   </digimon>
   <digimon id="skb-751" name="Rapidmon (Armor)" stage="Rookie" attribute="Vaccine" element="electricity" wikimonSlug="Rapidmon_(Armor)" sourceUrl="https://api.skullbot.fr/digimon/751" type="Holy Knight">
@@ -3573,26 +3551,6 @@
       <r element="plant" mult="0.5"></r>
       <r element="earth" mult="0.5"></r>
       <r element="steel" mult="1.5"></r>
-    </resistances>
-  </digimon>
-  <digimon id="skb-722" name="Rapidmon" stage="Ultimate" attribute="Vaccine" element="steel" wikimonSlug="Rapidmon" sourceUrl="https://api.skullbot.fr/digimon/722" type="Android">
-    <assets portrait="/assets/digimon/skb-722/portrait.webp" dot="/assets/digimon/skb-722/dot.gif"></assets>
-    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
-    <skills>
-      <skill id="s0" name="Golden Triangle" element="steel" cost="41" power="80" description="[Target: 1 enemy] Performs Electricity magic attack at power 80. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
-      <skill id="s1" name="Thunder Fall II" element="steel" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
-      <skill id="s2" name="Nanomachine Break II" element="steel" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
-      <skill id="s3" name="Power Energy III" element="null" cost="41" power="75" description="[Target: 1 enemy] Performs Null magic attack at power 75. 95% ACU. 15% CRT Rate."></skill>
-    </skills>
-    <evolutions>
-      <evolve targetId="skb-741"></evolve>
-      <evolve targetId="skb-426"></evolve>
-    </evolutions>
-    <resistances>
-      <r element="water" mult="1.5"></r>
-      <r element="plant" mult="0.5"></r>
-      <r element="electricity" mult="1.5"></r>
-      <r element="steel" mult="0.5"></r>
     </resistances>
   </digimon>
   <digimon id="skb-71" name="RizeGreymon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="RizeGreymon" sourceUrl="https://api.skullbot.fr/digimon/71" type="Android">
