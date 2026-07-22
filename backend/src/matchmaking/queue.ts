@@ -88,27 +88,18 @@ class ClusterMatchmaker implements Matchmaker {
   async snapshot(): Promise<QueueEntry[]> {
     const cluster = await getCluster();
     const members = await cluster.zrange(QUEUE_KEY, 0, -1);
-    const out: QueueEntry[] = [];
-    for (const m of members) {
-      const meta = await readMeta(cluster, m.member);
-      if (meta) out.push(meta);
-    }
-    return out;
+    const metas = await Promise.all(members.map((m) => readMeta(cluster, m.member)));
+    return metas.filter((m): m is QueueEntry => m !== null);
   }
 
   async purgeStale(now: number = Date.now()): Promise<number> {
     const cluster = await getCluster();
     const cutoff = now - QUEUE_TTL_MS;
     const members = await cluster.zrange(QUEUE_KEY, 0, -1);
-    let dropped = 0;
-    for (const m of members) {
-      if (m.score < cutoff) {
-        await cluster.zrem(QUEUE_KEY, m.member);
-        await cluster.del(META_KEY(m.member));
-        dropped += 1;
-      }
-    }
-    return dropped;
+    const stale = members.filter((m) => m.score < cutoff);
+    if (stale.length === 0) return 0;
+    await Promise.all(stale.flatMap((m) => [cluster.zrem(QUEUE_KEY, m.member), cluster.del(META_KEY(m.member))]));
+    return stale.length;
   }
 
   /**
@@ -123,11 +114,8 @@ class ClusterMatchmaker implements Matchmaker {
     try {
       const members = await cluster.zrange(QUEUE_KEY, 0, 24);
       if (members.length < 2) return null;
-      const entries: QueueEntry[] = [];
-      for (const m of members) {
-        const meta = await readMeta(cluster, m.member);
-        if (meta) entries.push(meta);
-      }
+      const metas = await Promise.all(members.map((m) => readMeta(cluster, m.member)));
+      const entries = metas.filter((m): m is QueueEntry => m !== null);
       const now = Date.now();
       for (let i = 0; i < entries.length; i++) {
         const a = entries[i]!;
@@ -173,5 +161,5 @@ export async function hydrateMatchmaking(): Promise<number> {
 /** Test / admin: nuke the queue via `snapshot() → dequeue(each)`. */
 export async function resetMatchmaking(): Promise<void> {
   const snap = await matchmaker.snapshot();
-  for (const e of snap) await matchmaker.dequeue(e.userId);
+  await Promise.all(snap.map((e) => matchmaker.dequeue(e.userId)));
 }

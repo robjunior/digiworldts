@@ -14,6 +14,7 @@
  */
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
@@ -30,6 +31,24 @@ const SCHEMA_PATH = resolve(__dirname, 'schema-pg.sql');
 // silently misbehaves (register race check, xp math, etc.).
 const PG_INT8_OID = 20;
 pg.types.setTypeParser(PG_INT8_OID, (v: string) => (v === null ? null : Number(v)));
+
+const PREPARED_CACHE_LIMIT = 256;
+const preparedCache = new Map<string, string>();
+function preparedName(text: string): string {
+  const cached = preparedCache.get(text);
+  if (cached !== undefined) {
+    preparedCache.delete(text);
+    preparedCache.set(text, cached);
+    return cached;
+  }
+  if (preparedCache.size >= PREPARED_CACHE_LIMIT) {
+    const oldest = preparedCache.keys().next().value;
+    if (oldest !== undefined) preparedCache.delete(oldest);
+  }
+  const name = `dw_${createHash('sha1').update(text).digest('hex').slice(0, 24)}`;
+  preparedCache.set(text, name);
+  return name;
+}
 
 type ClientLike = pg.PoolClient | pg.Pool;
 
@@ -69,7 +88,7 @@ export class PgAdapter implements DbAdapter {
 
   async query<T = Record<string, unknown>>(sql: string, params: readonly unknown[] = []): Promise<T[]> {
     const text = toPgPlaceholders(sql);
-    const res = await this.client().query({ text, values: params as unknown[] });
+    const res = await this.client().query({ name: preparedName(text), text, values: params as unknown[] });
     return res.rows as T[];
   }
 
@@ -80,7 +99,7 @@ export class PgAdapter implements DbAdapter {
 
   async run(sql: string, params: readonly unknown[] = []): Promise<RunResult> {
     const text = toPgPlaceholders(sql);
-    const res = await this.client().query({ text, values: params as unknown[] });
+    const res = await this.client().query({ name: preparedName(text), text, values: params as unknown[] });
     const first = res.rows[0] as Record<string, unknown> | undefined;
     const idCandidate = first && (first['id'] ?? first['user_id']);
     return {

@@ -119,10 +119,12 @@ async function deliverToUser(userId: string, payload: unknown): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function applyPreBattleBuffs(loadout: Loadout): Promise<PendingBuff[]> {
+  const perMember = await Promise.all(
+    loadout.members.map((m) => consumePreBattleBuffs(loadout.playerId, m.monId)),
+  );
   const applied: PendingBuff[] = [];
-  for (const m of loadout.members) {
-    const consumed = await consumePreBattleBuffs(loadout.playerId, m.monId);
-    for (const b of consumed) {
+  loadout.members.forEach((m, i) => {
+    for (const b of perMember[i]!) {
       if (b.effectKind === 'hp_pct') {
         const extra = Math.max(0, Math.round(m.template.baseStats.hp * b.magnitude));
         m.statBonus.hp += extra;
@@ -132,7 +134,7 @@ async function applyPreBattleBuffs(loadout: Loadout): Promise<PendingBuff[]> {
       }
       applied.push(b);
     }
-  }
+  });
   return applied;
 }
 
@@ -214,6 +216,7 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     if (!battle) return { ok: false, error: 'match not found', code: 'battle-over' };
     const side = sideForPlayerId(battle, userId);
     if (!side) return { ok: false, error: 'you are not in this match', code: 'not-your-turn' };
+    const priorRound = battle.round;
     const result = applyAction(battle, side, action);
     if (!result.ok) return { ok: false, error: result.error, code: result.code };
     const viewA = serializeForSide(battle, 'a');
@@ -227,7 +230,7 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
         attachPvpMmrToView(viewA, pvpMmr.a);
         attachPvpMmrToView(viewB, pvpMmr.b);
       }
-    } else {
+    } else if (battle.round !== priorRound) {
       await saveSnapshot(battle);
     }
     await deliverToUser(battle.playerA, { type: 'event', matchId: battle.id, events: result.events });
@@ -302,7 +305,7 @@ export async function hydrateActiveMatches(): Promise<number> {
   // Legacy: attempt to hydrate any orphaned SQLite active_matches rows so an
   // upgrade from the pre-cluster shape doesn't lose live matches.
   try {
-    const legacy = await q<ActiveMatchRow>(`SELECT * FROM active_matches`);
+    const legacy = await q<Pick<ActiveMatchRow, 'snapshot'>>(`SELECT snapshot FROM active_matches`);
     for (const row of legacy) {
       try {
         const battle = JSON.parse(row.snapshot) as Battle;

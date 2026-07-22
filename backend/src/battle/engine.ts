@@ -21,7 +21,8 @@
  * timers, no clients. Transport + persistence live in battle/routes.ts.
  */
 import { newId } from '../util/ids.js';
-import { affinity, AFFINITY_MULT, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleStatsForLevel } from '../digimon/element.js';
+import { log } from '../util/log.js';
+import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleStatsForLevel } from '../digimon/element.js';
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -77,9 +78,14 @@ export type Loadout = {
 
 function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
-  const skills = m.equippedSkills && m.equippedSkills.length > 0
+  const rawSkills = m.equippedSkills && m.equippedSkills.length > 0
     ? m.equippedSkills.slice(0, SKILLS_PER_DIGIMON)
     : m.template.skillPool.slice(0, SKILLS_PER_DIGIMON);
+  const skills = rawSkills.filter((s) => {
+    if (s.energyCost <= scaled.en) return true;
+    log.warn('battle.skill.unusable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
+    return false;
+  });
   const unit: BattleUnit = {
     id: `${side}:${slot}` as UnitId,
     side,
@@ -96,6 +102,7 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wi
     atk: scaled.atk,
     def: scaled.def,
     spd: scaled.spd,
+    int: scaled.int,
     skills,
     ailments: [],
     guarding: false,
@@ -289,8 +296,11 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
+const BATTLE_LOG_MAX = 200;
+
 function pushEvent(battle: Battle, event: BattleEvent): void {
   battle.log.push(event);
+  if (battle.log.length > BATTLE_LOG_MAX) battle.log.splice(0, battle.log.length - BATTLE_LOG_MAX);
 }
 
 // ----- Rules resolution -----------------------------------------------------
@@ -456,6 +466,7 @@ export function applyAction(
         atk: target.atk,
         def: target.def,
         spd: target.spd,
+        int: target.int,
         skills: target.skills.map((s) => ({ name: s.name, element: s.element, power: s.power, energyCost: s.energyCost })),
         ...(target.wildInfo ? { wild: target.wildInfo } : {}),
       },
@@ -571,7 +582,8 @@ export function applyAction(
       ((prev.element === skill.element && skill.element !== 'null') ||
         (prev.attribute === actor.attribute && ATTRS_TRIANGLE_ELIGIBLE.has(actor.attribute)));
     const chainMult = chained ? CHAIN_MULT : 1;
-    const baseDamage = actor.atk * 0.4 + skill.power;
+    const attackStat = skill.element === 'null' ? actor.atk : actor.int;
+    const baseDamage = attackStat * 0.4 + skill.power;
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
@@ -877,12 +889,14 @@ export function abandonBattle(battle: Battle, culprit: BattleSide | null): void 
 
 /** Redact the enemy side's EN / skills / atk / def / spd for a side view. */
 export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
-  const friendly: FriendlyUnitView[] = battle.units
-    .filter((u) => u.side === side)
-    .map((u) => ({ ...u, down: u.hp === 0 }));
-  const enemy: EnemyUnitView[] = battle.units
-    .filter((u) => u.side !== side)
-    .map((u) => {
+  const friendly: FriendlyUnitView[] = [];
+  const enemy: EnemyUnitView[] = [];
+  const aliveUnitIds = new Set<UnitId>();
+  for (const u of battle.units) {
+    if (u.hp > 0) aliveUnitIds.add(u.id);
+    if (u.side === side) {
+      friendly.push({ ...u, down: u.hp === 0 });
+    } else if (u.hpMax > 0) {
       const view: EnemyUnitView = {
         id: u.id,
         slot: u.slot,
@@ -895,12 +909,18 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
         ailments: u.ailments,
         down: u.hp === 0,
       };
+      if (u.resistances) view.resistances = u.resistances;
       if (u.analyzed) view.analyzed = true;
       if (u.wildInfo) view.wild = u.wildInfo;
-      return view;
-    });
+      enemy.push(view);
+    }
+  }
   const head = currentEntry(battle);
-  const upcoming = battle.turnQueue.slice(battle.turnCursor, battle.turnCursor + 8);
+  const upcoming: TurnEntry[] = [];
+  for (let i = battle.turnCursor; i < battle.turnQueue.length && upcoming.length < 10; i++) {
+    const entry = battle.turnQueue[i]!;
+    if (aliveUnitIds.has(entry.unitId)) upcoming.push(entry);
+  }
   const oppSide: BattleSide = side === 'a' ? 'b' : 'a';
   const oppName = battle.displayNames?.[oppSide];
   const view: BattleView = {

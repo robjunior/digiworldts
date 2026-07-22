@@ -20,7 +20,7 @@ import { attributeToElement, defaultStatsForStage } from '../digimon/element.js'
 import { log } from '../util/log.js';
 import { SKILLS_PER_DIGIMON, MAX_ENERGY, type Skill, type TemplateDigimon } from '../digimon/types.js';
 
-type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'refresh' | 'help';
+type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'refresh' | 'fill-missing' | 'help';
 
 function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: number } {
   let mode: Mode = 'help';
@@ -34,6 +34,7 @@ function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: numb
     else if (a === '--all') mode = 'all';
     else if (a === '--resistances') mode = 'resistances';
     else if (a === '--refresh') mode = 'refresh';
+    else if (a === '--fill-missing') mode = 'fill-missing';
     else if (a === '--detail') {
       mode = 'detail';
       const next = argv[i + 1];
@@ -64,6 +65,7 @@ function printHelp(): void {
       'pnpm scrape --all                      list + enrich + assets',
       'pnpm scrape --resistances [--limit N]  scrape per-mon Element resistance tables from wikimon (default all)',
       'pnpm scrape --refresh [--limit N]      pull authoritative attribute + resistances from grindosaur and update the catalog XML in place',
+      'pnpm scrape --fill-missing             enrich + add every evolution target referenced by the catalog but not present (iterative, includes assets)',
       'pnpm scrape --detail <skullbotId>      fetch + print one detail page',
       '',
     ].join('\n'),
@@ -221,6 +223,107 @@ async function runAssets(limit: number): Promise<void> {
   log.info('scrape.assets.begin', { jobs: jobs.length });
   const { summary } = await downloadAssetBatch(jobs);
   log.info('scrape.assets.done', summary);
+}
+
+// ---------------------------------------------------------------------------
+// fill-missing mode
+// ---------------------------------------------------------------------------
+
+const FILL_MAX_ROUNDS = 5;
+
+async function runFillMissing(): Promise<void> {
+  let catalog = loadCatalog();
+  if (catalog.digimons.length === 0) {
+    log.warn('scrape.fill-missing.empty-catalog');
+    return;
+  }
+  const now = Date.now();
+  const newlyAdded = new Set<string>();
+  const stillMissing = new Set<string>();
+  let totalEnriched = 0;
+  let totalFailed = 0;
+
+  for (let round = 1; round <= FILL_MAX_ROUNDS; round++) {
+    const existing = new Set(catalog.digimons.map((d) => d.id));
+    const missing = new Set<string>();
+    for (const d of catalog.digimons) {
+      for (const edge of d.evolvesInto ?? []) {
+        if (!existing.has(edge.targetId)) missing.add(edge.targetId);
+      }
+    }
+    if (missing.size === 0) {
+      log.info('scrape.fill-missing.stable', { round });
+      break;
+    }
+    log.info('scrape.fill-missing.round', { round, missing: missing.size });
+    let mutated = catalog;
+    let enrichedThisRound = 0;
+    for (const catalogId of Array.from(missing).sort()) {
+      const match = /^skb-(\d+)$/.exec(catalogId);
+      if (!match || match[1] === undefined) {
+        log.warn('scrape.fill-missing.bad-id', { catalogId });
+        stillMissing.add(catalogId);
+        totalFailed += 1;
+        continue;
+      }
+      const skullbotId = Number(match[1]);
+      const row = await one<ScrapedRow>(SQL_SELECT_SCRAPED_BY_ID, skullbotId);
+      if (!row) {
+        log.warn('scrape.fill-missing.no-scraped-row', { catalogId, skullbotId });
+        stillMissing.add(catalogId);
+        totalFailed += 1;
+        continue;
+      }
+      const slug = row.wikimon_slug ?? row.name.replace(/\s+/g, '_');
+      const wm = await fetchWikimonPage(slug);
+      const detail = await fetchDigimonDetail(skullbotId);
+      const evolvesInto = detail?.evolvesInto.map((e) => `skb-${e.skullbot_id}`) ?? [];
+      const template = buildTemplateFromScraped(row, wm, evolvesInto);
+      mutated = upsertTemplate(mutated, template);
+      let base: Record<string, unknown> = {};
+      try { base = JSON.parse(row.raw_json) as Record<string, unknown>; } catch { base = {}; }
+      const patched = { ...base, wikimon: wm ?? { attacks: [], profile: {} }, evolvesInto };
+      await run(SQL_MARK_ENRICHED, JSON.stringify(patched), now, skullbotId);
+      await run(SQL_MARK_IN_CATALOG, skullbotId);
+      newlyAdded.add(catalogId);
+      stillMissing.delete(catalogId);
+      enrichedThisRound += 1;
+      totalEnriched += 1;
+    }
+    if (enrichedThisRound > 0) saveCatalog(mutated);
+    catalog = mutated;
+    if (enrichedThisRound === 0) {
+      log.warn('scrape.fill-missing.no-progress', { round, remaining: missing.size });
+      for (const id of missing) stillMissing.add(id);
+      break;
+    }
+  }
+
+  if (newlyAdded.size > 0) {
+    log.info('scrape.fill-missing.download-assets', { count: newlyAdded.size });
+    const jobs: AssetJob[] = [];
+    for (const catalogId of newlyAdded) {
+      if (hasLocalAssets(catalogId)) continue;
+      const match = /^skb-(\d+)$/.exec(catalogId);
+      if (!match || match[1] === undefined) continue;
+      const skullbotId = Number(match[1]);
+      const row = await one<ScrapedRow>(SQL_SELECT_SCRAPED_BY_ID, skullbotId);
+      if (!row) continue;
+      jobs.push({ catalogId, portraitUrl: row.portrait_url, dotUrl: row.dot_url });
+    }
+    if (jobs.length > 0) {
+      const { summary } = await downloadAssetBatch(jobs);
+      log.info('scrape.fill-missing.assets-done', summary);
+    }
+  }
+
+  log.info('scrape.fill-missing.done', {
+    totalEnriched,
+    totalFailed,
+    stillMissing: stillMissing.size,
+    catalogSize: catalog.digimons.length,
+    ...(stillMissing.size > 0 ? { stillMissingIds: Array.from(stillMissing).sort() } : {}),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -396,6 +499,7 @@ async function main(): Promise<void> {
     else if (args.mode === 'assets') await runAssets(args.limit);
     else if (args.mode === 'resistances') await runResistances(args.limit);
     else if (args.mode === 'refresh') await runRefresh(args.limit);
+    else if (args.mode === 'fill-missing') await runFillMissing();
     else if (args.mode === 'detail') {
       if (args.detailId == null) {
         process.stderr.write('--detail requires an id\n');

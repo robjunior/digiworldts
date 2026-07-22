@@ -12,6 +12,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { applyColumnMigrations } from './sqlite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema.sql');
@@ -48,8 +49,24 @@ export function db(): DatabaseHandle {
 function applySchema(handle: DatabaseHandle): void {
   const sql = readFileSync(SCHEMA_PATH, 'utf8');
   handle.exec(sql);
-  migratePlayerRosterColumns(handle);
-  migrateUsersColumns(handle);
+  applyColumnMigrations(handle);
+}
+
+function migrateShopItemsColumns(handle: DatabaseHandle): void {
+  const existing = new Set(
+    handle
+      .prepare<[], { name: string }>(`PRAGMA table_info(shop_items)`)
+      .all()
+      .map((c) => c.name),
+  );
+  const additions: Array<[string, string]> = [
+    ['class', `TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item'))`],
+  ];
+  for (const [name, def] of additions) {
+    if (!existing.has(name)) {
+      handle.exec(`ALTER TABLE shop_items ADD COLUMN ${name} ${def}`);
+    }
+  }
 }
 
 function migrateUsersColumns(handle: DatabaseHandle): void {
@@ -69,11 +86,6 @@ function migrateUsersColumns(handle: DatabaseHandle): void {
   }
 }
 
-/**
- * SQLite ADD COLUMN has no IF NOT EXISTS syntax before 3.35. Probe the
- * table_info list once and add each missing column so re-running against
- * a migrated DB is a no-op.
- */
 function migratePlayerRosterColumns(handle: DatabaseHandle): void {
   const existing = new Set(
     handle

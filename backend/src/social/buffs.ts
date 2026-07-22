@@ -30,7 +30,6 @@ const SQL_INSERT = `INSERT INTO pending_buffs (id, user_id, mon_id, effect_kind,
 const SQL_ACTIVE_FOR_USER = `SELECT * FROM pending_buffs WHERE user_id = ? AND consumed_at IS NULL ORDER BY created_at`;
 const SQL_ACTIVE_FOR_MON = `SELECT * FROM pending_buffs WHERE user_id = ? AND mon_id = ? AND effect_kind IN ('hp_pct','en_pct') AND consumed_at IS NULL ORDER BY created_at`;
 const SQL_ACTIVE_XP_MULT = `SELECT * FROM pending_buffs WHERE user_id = ? AND mon_id IS NULL AND effect_kind = 'xp_mult' AND consumed_at IS NULL ORDER BY created_at`;
-const SQL_MARK_CONSUMED = `UPDATE pending_buffs SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL`;
 
 function toBuff(r: PendingBuffRow): PendingBuff {
   return {
@@ -81,7 +80,8 @@ export async function consumePreBattleBuffs(userId: string, monId: string): Prom
     const rows = await t.query<PendingBuffRow>(SQL_ACTIVE_FOR_MON, [userId, monId]);
     if (rows.length === 0) return [];
     const now = Date.now();
-    for (const r of rows) await t.run(SQL_MARK_CONSUMED, [now, r.id]);
+    const placeholders = rows.map(() => '?').join(',');
+    await t.run(`UPDATE pending_buffs SET consumed_at = ? WHERE id IN (${placeholders}) AND consumed_at IS NULL`, [now, ...rows.map((r) => r.id)]);
     log.info('buffs.consume.pre-battle', { userId, monId, count: rows.length });
     return rows.map(toBuff);
   });
@@ -96,7 +96,8 @@ export async function consumeXpMultBuffs(userId: string): Promise<PendingBuff[]>
     const rows = await t.query<PendingBuffRow>(SQL_ACTIVE_XP_MULT, [userId]);
     if (rows.length === 0) return [];
     const now = Date.now();
-    for (const r of rows) await t.run(SQL_MARK_CONSUMED, [now, r.id]);
+    const placeholders = rows.map(() => '?').join(',');
+    await t.run(`UPDATE pending_buffs SET consumed_at = ? WHERE id IN (${placeholders}) AND consumed_at IS NULL`, [now, ...rows.map((r) => r.id)]);
     log.info('buffs.consume.xp-mult', { userId, count: rows.length });
     return rows.map(toBuff);
   });

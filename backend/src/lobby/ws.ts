@@ -149,9 +149,9 @@ async function presenceMarkOffline(userId: string): Promise<void> {
 async function presenceSnapshotCluster(): Promise<Array<{ userId: string; displayName: string; nodeId: string }>> {
   const cluster = await getCluster();
   const keys = await cluster.keys(`presence:user:*`);
+  const raws = await Promise.all(keys.map((k) => cluster.get(k)));
   const out: Array<{ userId: string; displayName: string; nodeId: string }> = [];
-  for (const key of keys) {
-    const raw = await cluster.get(key);
+  for (const raw of raws) {
     if (!raw) continue;
     try { out.push(JSON.parse(raw) as { userId: string; displayName: string; nodeId: string }); } catch {}
   }
@@ -339,9 +339,9 @@ async function runPresenceBroadcast(): Promise<void> {
 
 async function runPresenceRefresh(): Promise<void> {
   const cluster = await getCluster();
-  for (const entry of connections.values()) {
-    await cluster.expire(K_PRESENCE(entry.userId), PRESENCE_TTL_SEC);
-  }
+  await Promise.all(
+    [...connections.values()].map((entry) => cluster.expire(K_PRESENCE(entry.userId), PRESENCE_TTL_SEC)),
+  );
 }
 
 async function startCloudLoops(): Promise<void> {

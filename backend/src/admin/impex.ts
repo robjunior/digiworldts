@@ -121,7 +121,6 @@ const ManifestEvolveEdgeSchema = z.object({
   targetId: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i),
   requiredLevel: z.number().int().min(0).max(999).optional(),
   requiredMood: z.number().int().min(0).max(100).optional(),
-  requiredItemId: z.string().min(1).max(64).optional(),
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
 });
 
@@ -194,7 +193,6 @@ function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
       const out: EvolveEdge = { targetId: edge.targetId };
       if (edge.requiredLevel !== undefined) out.requiredLevel = edge.requiredLevel;
       if (edge.requiredMood !== undefined) out.requiredMood = edge.requiredMood;
-      if (edge.requiredItemId !== undefined) out.requiredItemId = edge.requiredItemId;
       if (edge.requiredAttribute !== undefined) out.requiredAttribute = edge.requiredAttribute;
       return out;
     });

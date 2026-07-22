@@ -576,3 +576,11 @@ CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
   ON adventures(user_id)
   WHERE collected_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_roster_user_created_at ON player_roster(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_roster_user_status_slot ON player_roster(user_id, status, slot_index);
+CREATE INDEX IF NOT EXISTS idx_species_user_percent_kills ON player_species_data(user_id, percent DESC, kills DESC);
+CREATE INDEX IF NOT EXISTS idx_farm_user_created_at ON farm_buildings(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_shop_enabled_price ON shop_items(enabled, price_credits);
+CREATE INDEX IF NOT EXISTS idx_world_objects_created_at ON world_objects(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quests_created_at ON quests(created_at DESC);

@@ -81,6 +81,25 @@ export async function closeDbAdapter(): Promise<void> {
  *   - block comments:               `/* nested ok *​/` (nesting supported per PG SQL)
  */
 export function toPgPlaceholders(sql: string): string {
+  const cached = pgTranslationCache.get(sql);
+  if (cached !== undefined) {
+    pgTranslationCache.delete(sql);
+    pgTranslationCache.set(sql, cached);
+    return cached;
+  }
+  const result = translateToPgPlaceholders(sql);
+  if (pgTranslationCache.size >= PG_TRANSLATION_LIMIT) {
+    const oldest = pgTranslationCache.keys().next().value;
+    if (oldest !== undefined) pgTranslationCache.delete(oldest);
+  }
+  pgTranslationCache.set(sql, result);
+  return result;
+}
+
+const PG_TRANSLATION_LIMIT = 512;
+const pgTranslationCache = new Map<string, string>();
+
+function translateToPgPlaceholders(sql: string): string {
   let out = '';
   let i = 0;
   let paramIdx = 0;

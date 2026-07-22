@@ -34,6 +34,7 @@ import { evolveRoster, getEvolutionOptions } from './evolve.js';
 // SQL
 // ============================================================================
 const SQL_SELECT_ALL = `SELECT * FROM player_roster WHERE user_id = ? ORDER BY created_at`;
+const SQL_SELECT_PARTY_MEMBERS = `SELECT * FROM player_roster WHERE user_id = ? AND slot_index IS NOT NULL ORDER BY slot_index`;
 const SQL_SELECT_BY_ID = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_INSERT = `INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, status, slot_index, created_at, updated_at)
      VALUES (?, ?, ?, ?, 5, 0, 0, 0, 0, 0, ?, ?, ?, ?)`;
@@ -203,7 +204,7 @@ export async function seedStarterRoster(userId: string): Promise<{ seeded: numbe
 // ============================================================================
 
 export async function loadPartyLoadout(userId: string): Promise<Loadout | { error: string; missing: number[] }> {
-  const rows = (await q<RosterRow>(SQL_SELECT_ALL, userId)).filter((r) => r.slot_index !== null);
+  const rows = await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
   const catalog = loadCatalog();
   const templateById = new Map<string, TemplateDigimon>();
   for (const t of catalog.digimons) templateById.set(t.id, t);
@@ -265,7 +266,7 @@ export async function loadPartyLoadout(userId: string): Promise<Loadout | { erro
 
 /** Compute the mean party level (for matchmaking brackets). */
 export async function partyAverageLevel(userId: string): Promise<number> {
-  const rows = (await q<RosterRow>(SQL_SELECT_ALL, userId)).filter((r) => r.slot_index !== null);
+  const rows = await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
   if (rows.length === 0) return 1;
   const sum = rows.reduce((s, r) => s + r.level, 0);
   return Math.max(1, Math.round(sum / rows.length));
@@ -397,7 +398,7 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
     const result = await evolveRoster(req.params.monId, user.id, parsed.data.targetCatalogId);
     if (!result.ok) {
-      const gateReasons = new Set(['no-chip', 'invalid target', 'level-too-low', 'no-paths', 'stage-cap', 'race-conflict']);
+      const gateReasons = new Set(['invalid target', 'level-too-low', 'no-paths', 'stage-cap', 'race-conflict']);
       const code = result.error === 'mon not found' ? 404 : gateReasons.has(result.error) ? 409 : 500;
       return reply.code(code).send({ error: result.error });
     }

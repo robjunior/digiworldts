@@ -21,6 +21,37 @@ import type { DbAdapter, RunResult } from './adapter.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema.sql');
 
+export function applyColumnMigrations(handle: DatabaseHandle): void {
+  addMissingColumns(handle, 'users', [
+    ['mmr', 'INTEGER NOT NULL DEFAULT 1000'],
+  ]);
+  addMissingColumns(handle, 'player_roster', [
+    ['revive_at', 'INTEGER'],
+    ['pets_today', 'INTEGER NOT NULL DEFAULT 0'],
+    ['pets_day', 'TEXT'],
+    ['listed_at', 'INTEGER'],
+    ['evolution_history', 'TEXT'],
+    ['equipped_skill_ids', 'TEXT'],
+  ]);
+  addMissingColumns(handle, 'shop_items', [
+    ['class', `TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item'))`],
+  ]);
+}
+
+function addMissingColumns(handle: DatabaseHandle, table: string, columns: ReadonlyArray<readonly [string, string]>): void {
+  const existing = new Set(
+    handle
+      .prepare<[], { name: string }>(`PRAGMA table_info(${table})`)
+      .all()
+      .map((c) => c.name),
+  );
+  for (const [name, def] of columns) {
+    if (!existing.has(name)) {
+      handle.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${def}`);
+    }
+  }
+}
+
 export class SqliteAdapter implements DbAdapter {
   readonly kind = 'sqlite' as const;
 
@@ -43,6 +74,7 @@ export class SqliteAdapter implements DbAdapter {
   async init(): Promise<void> {
     const sql = readFileSync(SCHEMA_PATH, 'utf8');
     this.handle.exec(sql);
+    applyColumnMigrations(this.handle);
   }
 
   async close(): Promise<void> {

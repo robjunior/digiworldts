@@ -50,7 +50,6 @@ export type EvolveEdge = {
   targetId: string;
   requiredLevel?: number;
   requiredMood?: number;
-  requiredItemId?: string;
   requiredAttribute?: Attribute;
 };
 
@@ -101,12 +100,6 @@ export const EVOLUTION_LEVELS: Record<Stage, number> = {
   Champion: 20,
   Ultimate: 40,
   Mega: 60,
-};
-
-export const CHIP_ITEM_IDS: Partial<Record<Stage, string>> = {
-  Champion: 'itm-digi-chip-champion',
-  Ultimate: 'itm-digi-chip-ultimate',
-  Mega: 'itm-digi-chip-mega',
 };
 
 export function nextStageAfter(stage: Stage): Stage | null {

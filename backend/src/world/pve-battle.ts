@@ -303,84 +303,86 @@ async function awardPveBattleRewards(
   const xpRate = await getXpRate();
   const scaledXpPerParticipant = Math.max(0, Math.round(xpPerParticipant * xpRate));
 
-  for (const row of partyRows) {
-    if (row.slot_index === null || !participantSlots.has(row.slot_index)) continue;
-    const template = findTemplate(catalog, row.catalog_id);
-    if (!template) continue;
+  await tx(async (t) => {
+    for (const row of partyRows) {
+      if (row.slot_index === null || !participantSlots.has(row.slot_index)) continue;
+      const template = findTemplate(catalog, row.catalog_id);
+      if (!template) continue;
 
-    const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
-    const isDefeated = unit ? unit.hp <= 0 : false;
-    const previousLevel = row.level;
-    const previousXp = row.xp;
-    const currentBonus: BaseStats = {
-      hp: row.hp_bonus,
-      en: row.en_bonus,
-      atk: row.atk_bonus,
-      def: row.def_bonus,
-      int: row.int_bonus,
-      spd: row.spd_bonus,
-    };
+      const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
+      const isDefeated = unit ? unit.hp <= 0 : false;
+      const previousLevel = row.level;
+      const previousXp = row.xp;
+      const currentBonus: BaseStats = {
+        hp: row.hp_bonus,
+        en: row.en_bonus,
+        atk: row.atk_bonus,
+        def: row.def_bonus,
+        int: row.int_bonus,
+        spd: row.spd_bonus,
+      };
 
-    let delta = 0;
-    let nextLevel = previousLevel;
-    let nextXp = previousXp;
-    let nextBonus = currentBonus;
-    let gainedLevels = 0;
-    let didChange = false;
+      let delta = 0;
+      let nextLevel = previousLevel;
+      let nextXp = previousXp;
+      let nextBonus = currentBonus;
+      let gainedLevels = 0;
+      let didChange = false;
 
-    if (isDefeated) {
-      const penalty = Math.round(previousXp * 0.1);
-      if (penalty > 0) {
-        const currentLevelFloor = xpToReach(previousLevel, template.stage);
-        nextXp = Math.max(currentLevelFloor, previousXp - penalty);
-        delta = nextXp - previousXp;
-        didChange = delta !== 0;
+      if (isDefeated) {
+        const penalty = Math.round(previousXp * 0.1);
+        if (penalty > 0) {
+          const currentLevelFloor = xpToReach(previousLevel, template.stage);
+          nextXp = Math.max(currentLevelFloor, previousXp - penalty);
+          delta = nextXp - previousXp;
+          didChange = delta !== 0;
+        }
+      } else if (matchOutcome === 'win' && xpPerParticipant > 0) {
+        const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant, template.baseStats, undefined, xpRate);
+        const grownFloor = xpToReach(result.level, template.stage);
+        nextXp = Math.max(grownFloor, result.xp);
+        nextLevel = result.level;
+        nextBonus = result.bonus;
+        gainedLevels = result.gainedLevels;
+        delta = scaledXpPerParticipant;
+        didChange = true;
       }
-    } else if (matchOutcome === 'win' && xpPerParticipant > 0) {
-      const result = awardXp(previousLevel, previousXp, currentBonus, template.stage, xpPerParticipant, template.baseStats, undefined, xpRate);
-      const grownFloor = xpToReach(result.level, template.stage);
-      nextXp = Math.max(grownFloor, result.xp);
-      nextLevel = result.level;
-      nextBonus = result.bonus;
-      gainedLevels = result.gainedLevels;
-      delta = scaledXpPerParticipant;
-      didChange = true;
-    }
 
-    if (didChange) {
-      await run(SQL_UPDATE_MON_XP, [
-        nextLevel,
-        nextXp,
-        nextBonus.hp,
-        nextBonus.en,
-        nextBonus.atk,
-        nextBonus.def,
-        nextBonus.int,
-        nextBonus.spd,
-        now,
-        row.id,
-      ]);
-    }
+      if (didChange) {
+        await t.run(SQL_UPDATE_MON_XP, [
+          nextLevel,
+          nextXp,
+          nextBonus.hp,
+          nextBonus.en,
+          nextBonus.atk,
+          nextBonus.def,
+          nextBonus.int,
+          nextBonus.spd,
+          now,
+          row.id,
+        ]);
+      }
 
-    xpAwards.push({
-      monId: row.id,
-      catalogId: row.catalog_id,
-      nickname: row.nickname,
-      delta,
-      previousLevel,
-      newLevel: nextLevel,
-      gainedLevels,
-      xpBefore: previousXp,
-      xpAfter: nextXp,
-      xpFloor: xpToReach(nextLevel, template.stage),
-      xpNext: xpToReach(nextLevel + 1, template.stage),
-      xpFloorBefore: xpToReach(previousLevel, template.stage),
-      xpNextBefore: xpToReach(previousLevel + 1, template.stage),
-      defeated: isDefeated,
-      statsBefore: scaleStatsForLevel(template.baseStats, previousLevel, currentBonus),
-      statsAfter: scaleStatsForLevel(template.baseStats, nextLevel, nextBonus),
-    });
-  }
+      xpAwards.push({
+        monId: row.id,
+        catalogId: row.catalog_id,
+        nickname: row.nickname,
+        delta,
+        previousLevel,
+        newLevel: nextLevel,
+        gainedLevels,
+        xpBefore: previousXp,
+        xpAfter: nextXp,
+        xpFloor: xpToReach(nextLevel, template.stage),
+        xpNext: xpToReach(nextLevel + 1, template.stage),
+        xpFloorBefore: xpToReach(previousLevel, template.stage),
+        xpNextBefore: xpToReach(previousLevel + 1, template.stage),
+        defeated: isDefeated,
+        statsBefore: scaleStatsForLevel(template.baseStats, previousLevel, currentBonus),
+        statsAfter: scaleStatsForLevel(template.baseStats, nextLevel, nextBonus),
+      });
+    }
+  });
 
   const itemDrops: ItemDrop[] = [];
   if (matchOutcome === 'win') {
@@ -397,9 +399,7 @@ async function awardPveBattleRewards(
         if (drop) itemDrops.push(drop);
       }
     }
-    for (const drop of itemDrops) {
-      await grantItemDrop(userId, drop);
-    }
+    await Promise.all(itemDrops.map((drop) => grantItemDrop(userId, drop)));
   }
 
   // A KO'd ally goes on a revive cooldown regardless of match outcome — they
@@ -407,13 +407,21 @@ async function awardPveBattleRewards(
   // revive item is used from the roster page.
   const reviveDeadline = now + REVIVE_COOLDOWN_MS;
   const downedIds: string[] = [];
+  const revivePatches: string[] = [];
   for (const row of partyRows) {
     if (row.slot_index === null) continue;
+    const wasAlreadyDownedBeforeBattle = row.revive_at !== null && row.revive_at > now;
+    if (wasAlreadyDownedBeforeBattle) continue;
     const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
     if (unit && unit.hp <= 0) {
-      await run(SQL_SET_REVIVE_AT, [reviveDeadline, now, row.id]);
+      revivePatches.push(row.id);
       downedIds.push(row.id);
     }
+  }
+  if (revivePatches.length > 0) {
+    await tx(async (t) => {
+      for (const id of revivePatches) await t.run(SQL_SET_REVIVE_AT, [reviveDeadline, now, id]);
+    });
   }
 
   if (xpAwards.length > 0 || itemDrops.length > 0 || downedIds.length > 0 || speciesAwards.length > 0 || creditsGained > 0 || bitsGained > 0) {

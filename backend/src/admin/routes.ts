@@ -127,7 +127,6 @@ const EvolveEdgeInputSchema = z.object({
   targetId: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'targetId must be alphanumeric with -_'),
   requiredLevel: z.number().int().min(0).max(999).optional(),
   requiredMood: z.number().int().min(0).max(100).optional(),
-  requiredItemId: z.string().min(1).max(64).optional(),
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
 });
 
@@ -201,7 +200,6 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
       const e: EvolveEdge = { targetId: edge.targetId };
       if (edge.requiredLevel !== undefined) e.requiredLevel = edge.requiredLevel;
       if (edge.requiredMood !== undefined) e.requiredMood = edge.requiredMood;
-      if (edge.requiredItemId !== undefined) e.requiredItemId = edge.requiredItemId;
       if (edge.requiredAttribute !== undefined) e.requiredAttribute = edge.requiredAttribute;
       return e;
     });

@@ -227,7 +227,6 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
       monId: result.monId,
       rookieCatalogId: result.rookieCatalogId,
       nickname: result.nickname,
-      chipItemIds: result.chipItemIds,
     });
   });
 };
