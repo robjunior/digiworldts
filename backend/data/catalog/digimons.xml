@@ -796,7 +796,7 @@
       <r element="null" mult="2"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-367" name="Kuwagamon" stage="Champion" attribute="Virus" element="null" wikimonSlug="Kuwagamon" sourceUrl="https://api.skullbot.fr/digimon/367" type="Insectoid">
+  <digimon id="skb-367" name="Kuwagamon" stage="Champion" attribute="Virus" element="electricity" wikimonSlug="Kuwagamon" sourceUrl="https://api.skullbot.fr/digimon/367" type="Insectoid">
     <assets portrait="/assets/digimon/skb-367/portrait.webp" dot="/assets/digimon/skb-367/dot.gif"></assets>
     <stats hp="750" en="41" atk="150" def="120" int="135" spd="150"></stats>
     <skills>
@@ -1177,12 +1177,12 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-704" name="GroundLocomon" stage="Mega" attribute="Data" element="electricity" wikimonSlug="GroundLocomon" sourceUrl="https://api.skullbot.fr/digimon/704" type="Machine">
+  <digimon id="skb-704" name="GroundLocomon" stage="Mega" attribute="Data" element="steel" wikimonSlug="GroundLocomon" sourceUrl="https://api.skullbot.fr/digimon/704" type="Machine">
     <assets portrait="/assets/digimon/skb-704/portrait.webp" dot="/assets/digimon/skb-704/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Destruction Crush" element="electricity" cost="41" power="20" description="[Target: All enemies] Performs Electricity physical attack at power 20 x 3 hits. Increased damage to targets with Unknown Trait."></skill>
-      <skill id="s1" name="Thunder Fall III" element="electricity" cost="41" power="15" description="[Target: All enemies] Performs Electricity magic attack at power 15 x 3 hits. 90% ACU."></skill>
+      <skill id="s0" name="Destruction Crush" element="steel" cost="41" power="20" description="[Target: All enemies] Performs Electricity physical attack at power 20 x 3 hits. Increased damage to targets with Unknown Trait."></skill>
+      <skill id="s1" name="Thunder Fall III" element="steel" cost="41" power="15" description="[Target: All enemies] Performs Electricity magic attack at power 15 x 3 hits. 90% ACU."></skill>
       <skill id="s2" name="Thruster Metal III" element="steel" cost="41" power="11" description="[Target: 1 enemy] Performs Steel magic attack at power 11 x 7 hits. 90% ACU. 20% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
@@ -1268,11 +1268,11 @@
       <r element="wind" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-753" name="BlackKingNumemon" stage="Ultimate" attribute="Virus" element="null" wikimonSlug="BlackKingNumemon" sourceUrl="https://api.skullbot.fr/digimon/753" type="Mollusk">
+  <digimon id="skb-753" name="BlackKingNumemon" stage="Ultimate" attribute="Virus" element="dark" wikimonSlug="BlackKingNumemon" sourceUrl="https://api.skullbot.fr/digimon/753" type="Mollusk">
     <assets portrait="/assets/digimon/skb-753/portrait.webp" dot="/assets/digimon/skb-753/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Dark Pupil" element="null" cost="41" power="70" description="[Target: 1 enemy] Performs Null magic attack at power 70. 50% chance to apply Injury."></skill>
+      <skill id="s0" name="Dark Pupil" element="dark" cost="41" power="70" description="[Target: 1 enemy] Performs Null magic attack at power 70. 50% chance to apply Injury."></skill>
       <skill id="s1" name="Nightmare II" element="dark" cost="41" power="60" description="[Target: 1 enemy] Performs Dark magic attack at power 60. 95% ACU."></skill>
       <skill id="s2" name="Hell Crusher II" element="dark" cost="41" power="35" description="[Target: All enemies] Performs Dark magic attack at power 35. 90% ACU."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
@@ -1413,11 +1413,11 @@
       <r element="steel" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-719" name="Cyberdramon" stage="Ultimate" attribute="Vaccine" element="null" wikimonSlug="Cyberdramon" sourceUrl="https://api.skullbot.fr/digimon/719" type="Android">
+  <digimon id="skb-719" name="Cyberdramon" stage="Ultimate" attribute="Vaccine" element="steel" wikimonSlug="Cyberdramon" sourceUrl="https://api.skullbot.fr/digimon/719" type="Android">
     <assets portrait="/assets/digimon/skb-719/portrait.webp" dot="/assets/digimon/skb-719/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Desolation Claw" element="null" cost="41" power="85" description="[Target: 1 enemy] Performs Null physical attack at power 85. If target is Data: Increased damage."></skill>
+      <skill id="s0" name="Desolation Claw" element="steel" cost="41" power="85" description="[Target: 1 enemy] Performs Null physical attack at power 85. If target is Data: Increased damage."></skill>
       <skill id="s1" name="Nanomachine Break II" element="electricity" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
       <skill id="s2" name="Thunder Fall II" element="electricity" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
@@ -1499,11 +1499,11 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-606" name="Divermon" stage="Ultimate" attribute="Data" element="steel" wikimonSlug="Divermon" sourceUrl="https://api.skullbot.fr/digimon/606" type="Aquatic Beast Man">
+  <digimon id="skb-606" name="Divermon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Divermon" sourceUrl="https://api.skullbot.fr/digimon/606" type="Aquatic Beast Man">
     <assets portrait="/assets/digimon/skb-606/portrait.webp" dot="/assets/digimon/skb-606/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Strike Fishing" element="steel" cost="41" power="80" description="[Target: 1 enemy] Performs Steel physical attack at power 80. Always hits. 100% chance of 20% reduction to EVA for 3 turn(s). Increased damage to targets with Aquatic Trait."></skill>
+      <skill id="s0" name="Strike Fishing" element="water" cost="41" power="80" description="[Target: 1 enemy] Performs Steel physical attack at power 80. Always hits. 100% chance of 20% reduction to EVA for 3 turn(s). Increased damage to targets with Aquatic Trait."></skill>
       <skill id="s1" name="Ocean Wave II" element="water" cost="41" power="35" description="[Target: All enemies] Performs Water magic attack at power 35. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null physical attack at power 60. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
@@ -1767,12 +1767,12 @@
       <r element="null" mult="2"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-484" name="JewelBeemon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="JewelBeemon" sourceUrl="https://api.skullbot.fr/digimon/484" type="Insectoid">
+  <digimon id="skb-484" name="JewelBeemon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="JewelBeemon" sourceUrl="https://api.skullbot.fr/digimon/484" type="Insectoid">
     <assets portrait="/assets/digimon/skb-484/portrait.webp" dot="/assets/digimon/skb-484/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Spike Buster" element="plant" cost="41" power="25" description="[Target: 1 enemy] Performs Plant physical attack at power 25 x 3 hits. Nullifies unfavorable compatibility. Increased damage to targets with Insectoid Trait."></skill>
-      <skill id="s1" name="Crescent Leaf II" element="plant" cost="41" power="9" description="[Target: 1 enemy] Performs Plant physical attack at power 9 x 7 hits. 95% ACU."></skill>
+      <skill id="s0" name="Spike Buster" element="electricity" cost="41" power="25" description="[Target: 1 enemy] Performs Plant physical attack at power 25 x 3 hits. Nullifies unfavorable compatibility. Increased damage to targets with Insectoid Trait."></skill>
+      <skill id="s1" name="Crescent Leaf II" element="electricity" cost="41" power="9" description="[Target: 1 enemy] Performs Plant physical attack at power 9 x 7 hits. 95% ACU."></skill>
       <skill id="s2" name="Stone Cleave II" element="earth" cost="41" power="45" description="[Target: All enemies] Performs Earth physical attack at power 45. 85% ACU."></skill>
       <skill id="s3" name="Overdrive" element="electricity" cost="38" power="380"></skill>
     </skills>
@@ -2444,7 +2444,7 @@
       <r element="wind" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-451" name="Ebemon" stage="Mega" attribute="Virus" element="null" wikimonSlug="Ebemon" sourceUrl="https://api.skullbot.fr/digimon/451" type="Android">
+  <digimon id="skb-451" name="Ebemon" stage="Mega" attribute="Virus" element="steel" wikimonSlug="Ebemon" sourceUrl="https://api.skullbot.fr/digimon/451" type="Android">
     <assets portrait="/assets/digimon/skb-451/portrait.webp" dot="/assets/digimon/skb-451/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
@@ -2492,11 +2492,11 @@
       <r element="dark" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-423" name="GranKuwagamon" stage="Mega" attribute="Free" element="plant" wikimonSlug="GranKuwagamon" sourceUrl="https://api.skullbot.fr/digimon/423" type="Insectoid">
+  <digimon id="skb-423" name="GranKuwagamon" stage="Mega" attribute="Free" element="electricity" wikimonSlug="GranKuwagamon" sourceUrl="https://api.skullbot.fr/digimon/423" type="Insectoid">
     <assets portrait="/assets/digimon/skb-423/portrait.webp" dot="/assets/digimon/skb-423/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Dimension Scissor" element="plant" cost="41" power="100" description="[Target: 1 enemy] Performs Plant physical attack at power 100. Increased damage to targets with Insectoid Trait."></skill>
+      <skill id="s0" name="Dimension Scissor" element="electricity" cost="41" power="100" description="[Target: 1 enemy] Performs Plant physical attack at power 100. Increased damage to targets with Insectoid Trait."></skill>
       <skill id="s1" name="Hell Crusher III" element="dark" cost="41" power="45" description="[Target: All enemies] Performs Dark magic attack at power 45. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike III" element="null" cost="41" power="75" description="[Target: 1 enemy] Performs Null physical attack at power 75. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Kuáng Zhǎn Zhìcái" element="electricity" cost="41" power="380" description="Slashing Sanctions"></skill>
@@ -3140,11 +3140,11 @@
       <r element="electricity" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-383" name="RustTyrannomon" stage="Mega" attribute="Virus" element="electricity" wikimonSlug="RustTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/383" type="Android">
+  <digimon id="skb-383" name="RustTyrannomon" stage="Mega" attribute="Virus" element="steel" wikimonSlug="RustTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/383" type="Android">
     <assets portrait="/assets/digimon/skb-383/portrait.webp" dot="/assets/digimon/skb-383/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Terrors Cluster" element="electricity" cost="41" power="90" description="[Target: 1 enemy] Performs Electricity physical attack at power 90. 25% chance to apply Immobilization. Increased damage to targets with Antibody Trait."></skill>
+      <skill id="s0" name="Terrors Cluster" element="steel" cost="41" power="90" description="[Target: 1 enemy] Performs Electricity physical attack at power 90. 25% chance to apply Immobilization. Increased damage to targets with Antibody Trait."></skill>
       <skill id="s1" name="Wolkenapalm III" element="fire" cost="41" power="75" description="[Target: 1 enemy] Performs Fire physical attack at power 75. 95% ACU."></skill>
       <skill id="s2" name="Magma Fall III" element="fire" cost="41" power="45" description="[Target: All enemies] Performs Fire magic attack at power 45. 90% ACU."></skill>
       <skill id="s3" name="Void Ray III" element="null" cost="41" power="45" description="[Target: All enemies] Performs Null magic attack at power 45. 90% ACU. 10% CRT Rate."></skill>
@@ -3404,12 +3404,12 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-401" name="Okuwamon" stage="Ultimate" attribute="Virus" element="plant" wikimonSlug="Okuwamon" sourceUrl="https://api.skullbot.fr/digimon/401" type="Insectoid">
+  <digimon id="skb-401" name="Okuwamon" stage="Ultimate" attribute="Virus" element="electricity" wikimonSlug="Okuwamon" sourceUrl="https://api.skullbot.fr/digimon/401" type="Insectoid">
     <assets portrait="/assets/digimon/skb-401/portrait.webp" dot="/assets/digimon/skb-401/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Double Scissor Claw" element="plant" cost="41" power="85" description="[Target: 1 enemy] Performs Plant physical attack at power 85. Nullifies unfavorable compatibility. Increased damage to targets with Antibody Trait."></skill>
-      <skill id="s1" name="Rune Forest II" element="plant" cost="41" power="35" description="[Target: All enemies] Performs Plant magic attack at power 35. 90% ACU."></skill>
+      <skill id="s0" name="Double Scissor Claw" element="electricity" cost="41" power="85" description="[Target: 1 enemy] Performs Plant physical attack at power 85. Nullifies unfavorable compatibility. Increased damage to targets with Antibody Trait."></skill>
+      <skill id="s1" name="Rune Forest II" element="electricity" cost="41" power="35" description="[Target: All enemies] Performs Plant magic attack at power 35. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null physical attack at power 60. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
@@ -3512,14 +3512,14 @@
       <r element="wind" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-584" name="Phantomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Phantomon" sourceUrl="https://api.skullbot.fr/digimon/584" type="Ghost">
+  <digimon id="skb-584" name="Phantomon" stage="Ultimate" attribute="Virus" element="dark" wikimonSlug="Phantomon" sourceUrl="https://api.skullbot.fr/digimon/584" type="Ghost">
     <assets portrait="/assets/digimon/skb-584/portrait.webp" dot="/assets/digimon/skb-584/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
       <skill id="s0" name="Nightmare II" element="dark" cost="41" power="60" description="[Target: 1 enemy] Performs Dark magic attack at power 60. 95% ACU."></skill>
       <skill id="s1" name="Power Energy II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null magic attack at power 60. 95% ACU. 15% CRT Rate."></skill>
-      <skill id="s2" name="Diabolic Star" element="fire" cost="26" power="300" description="Attacks with the mace at the end of its chain."></skill>
-      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+      <skill id="s2" name="Diabolic Star" element="dark" cost="26" power="300" description="Attacks with the mace at the end of its chain."></skill>
+      <skill id="s3" name="Overdrive" element="dark" cost="38" power="380"></skill>
     </skills>
     <evolutions>
       <evolve targetId="skb-425"></evolve>
@@ -3575,13 +3575,13 @@
       <r element="steel" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-722" name="Rapidmon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="Rapidmon" sourceUrl="https://api.skullbot.fr/digimon/722" type="Android">
+  <digimon id="skb-722" name="Rapidmon" stage="Ultimate" attribute="Vaccine" element="steel" wikimonSlug="Rapidmon" sourceUrl="https://api.skullbot.fr/digimon/722" type="Android">
     <assets portrait="/assets/digimon/skb-722/portrait.webp" dot="/assets/digimon/skb-722/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Golden Triangle" element="electricity" cost="41" power="80" description="[Target: 1 enemy] Performs Electricity magic attack at power 80. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
-      <skill id="s1" name="Thunder Fall II" element="electricity" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
-      <skill id="s2" name="Nanomachine Break II" element="electricity" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
+      <skill id="s0" name="Golden Triangle" element="steel" cost="41" power="80" description="[Target: 1 enemy] Performs Electricity magic attack at power 80. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
+      <skill id="s1" name="Thunder Fall II" element="steel" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
+      <skill id="s2" name="Nanomachine Break II" element="steel" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
       <skill id="s3" name="Power Energy III" element="null" cost="41" power="75" description="[Target: 1 enemy] Performs Null magic attack at power 75. 95% ACU. 15% CRT Rate."></skill>
     </skills>
     <evolutions>
@@ -3718,14 +3718,14 @@
       <r element="dark" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24" type="Pixie">
+  <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="water" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24" type="Pixie">
     <assets portrait="/assets/digimon/skb-24/portrait.webp" dot="/assets/digimon/skb-24/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
       <skill id="s0" name="Hydro Water III" element="water" cost="41" power="15" description="[Target: 1 enemy] Performs Water magic attack at power 15 x 5 hits. 95% ACU."></skill>
       <skill id="s1" name="Ocean Wave III" element="water" cost="41" power="45" description="[Target: All enemies] Performs Water magic attack at power 45. 90% ACU."></skill>
       <skill id="s2" name="Holy Light III" element="light" cost="41" power="75" description="[Target: 1 enemy] Performs Light magic attack at power 75. 95% ACU."></skill>
-      <skill id="s3" name="Extra Smile" element="plant" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
+      <skill id="s3" name="Extra Smile" element="water" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
     </skills>
     <resistances>
       <r element="water" mult="0.5"></r>
@@ -3750,14 +3750,14 @@
       <evolve targetId="skb-422"></evolve>
     </evolutions>
   </digimon>
-  <digimon id="skb-140" name="WereGarurumon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="WereGarurumon" sourceUrl="https://api.skullbot.fr/digimon/140">
+  <digimon id="skb-140" name="WereGarurumon" stage="Ultimate" attribute="Vaccine" element="ice" wikimonSlug="WereGarurumon" sourceUrl="https://api.skullbot.fr/digimon/140">
     <assets portrait="/assets/digimon/skb-140/portrait.webp" dot="/assets/digimon/skb-140/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Kaiser Nail" element="plant" cost="0" power="100" description="1 2 Cuts the opponent to pieces with the sharp claws on both of its hands. Shoots energy blades by slashing with its claws."></skill>
-      <skill id="s1" name="Baldy Blow" element="plant" cost="16" power="220" description="Punches the enemy with its spiked brass knuckles."></skill>
-      <skill id="s2" name="Garuru Kick" element="plant" cost="26" power="300" description="Kicks the enemy."></skill>
-      <skill id="s3" name="Foxfire" element="plant" cost="41" power="380" description="Fires high temperature blue flames from its mouth."></skill>
+      <skill id="s0" name="Kaiser Nail" element="ice" cost="0" power="100" description="1 2 Cuts the opponent to pieces with the sharp claws on both of its hands. Shoots energy blades by slashing with its claws."></skill>
+      <skill id="s1" name="Baldy Blow" element="ice" cost="16" power="220" description="Punches the enemy with its spiked brass knuckles."></skill>
+      <skill id="s2" name="Garuru Kick" element="ice" cost="26" power="300" description="Kicks the enemy."></skill>
+      <skill id="s3" name="Foxfire" element="ice" cost="41" power="380" description="Fires high temperature blue flames from its mouth."></skill>
     </skills>
     <evolutions>
       <evolve targetId="skb-80"></evolve>
