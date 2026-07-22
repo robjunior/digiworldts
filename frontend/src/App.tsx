@@ -1,13 +1,11 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AUTH_ME_KEY } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
-import { Admin } from './routes/Admin';
 import { Adventure } from './routes/Adventure';
-import { Combat } from './routes/Combat';
 import { Digdex } from './routes/Digdex';
 import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
@@ -21,8 +19,11 @@ import { Onboarding } from './routes/Onboarding';
 import { Roster } from './routes/Roster';
 import { Shop } from './routes/Shop';
 import { Training } from './routes/Training';
-import { World } from './routes/World';
 import { useWsStore } from './state/wsStore';
+
+const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
+const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
+const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
 
 function RealtimeBridge(): JSX.Element | null {
   useWebSocket();
@@ -36,6 +37,7 @@ function RealtimeBridge(): JSX.Element | null {
   useEffect(() => {
     if (
       activeBattleId !== null &&
+      activeBattleMode === 'pvp' &&
       activeBattleStatus !== 'ended' &&
       location.pathname !== '/combat'
     ) {
@@ -56,28 +58,30 @@ export function App(): JSX.Element {
   return (
     <>
       <RealtimeBridge />
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/lobby" element={<Lobby />} />
-          <Route path="/combat" element={<Combat />} />
-          <Route path="/roster" element={<Roster />} />
-          <Route path="/farm" element={<Farm />} />
-          <Route path="/factory" element={<Factory />} />
-          <Route path="/adventure" element={<Adventure />} />
-          <Route path="/training" element={<Training />} />
-          <Route path="/shop" element={<Shop />} />
-          <Route path="/items" element={<Items />} />
-          <Route path="/market" element={<Market />} />
-          <Route path="/nursery" element={<Nursery />} />
-          <Route path="/world" element={<World />} />
-          <Route path="/digdex" element={<Digdex />} />
-          <Route path="/admin" element={<Admin />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/lobby" element={<Lobby />} />
+            <Route path="/combat" element={<Combat />} />
+            <Route path="/roster" element={<Roster />} />
+            <Route path="/farm" element={<Farm />} />
+            <Route path="/factory" element={<Factory />} />
+            <Route path="/adventure" element={<Adventure />} />
+            <Route path="/training" element={<Training />} />
+            <Route path="/shop" element={<Shop />} />
+            <Route path="/items" element={<Items />} />
+            <Route path="/market" element={<Market />} />
+            <Route path="/nursery" element={<Nursery />} />
+            <Route path="/world" element={<World />} />
+            <Route path="/digdex" element={<Digdex />} />
+            <Route path="/admin" element={<Admin />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </>
   );
 }

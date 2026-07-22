@@ -434,3 +434,614 @@
   color: var(--muted);
 }
 
+.scene-admin { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.scene-admin-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.scene-admin-header h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+
+.scene-admin-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.4; max-width: 640px; }
+
+.scene-admin-header-actions { display: inline-flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+
+.scene-admin-badge {
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.scene-admin-badge[data-active="1"] { color: var(--signal); border-color: var(--signal); }
+
+.scene-admin-reset {
+  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--battle);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--battle) 45%, var(--hairline));
+  cursor: pointer;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.scene-admin-reset:disabled { opacity: .4; cursor: not-allowed; }
+.scene-admin-reset:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 10%, transparent); }
+
+.scene-admin-presets {
+  padding: var(--sp-3);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+}
+
+.scene-admin-presets h3 { margin: 0 0 var(--sp-2); font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+
+.scene-admin-presets-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto minmax(140px, 1fr) auto;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.scene-admin-presets-row select,
+.scene-admin-presets-row input,
+.scene-admin-presets-row button {
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+}
+
+.scene-admin-presets-row button {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.scene-admin-presets-row button:disabled { opacity: .4; cursor: not-allowed; }
+.scene-admin-presets-row button:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+
+.scene-admin-preview-section {
+  padding: var(--sp-3);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.scene-admin-arena-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scene-admin-arena-tab {
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: lowercase;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.scene-admin-arena-tab:hover:not(.is-active) { color: var(--ink); border-color: color-mix(in oklab, var(--signal) 40%, var(--hairline)); }
+.scene-admin-arena-tab.is-active { color: var(--signal); border-color: var(--signal); background: color-mix(in oklab, var(--signal) 12%, var(--bg)); }
+
+.scene-admin-preview {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 240px;
+  border: 1px solid var(--hairline);
+  background: #000;
+  overflow: hidden;
+}
+
+.scene-admin-preview-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--sp-3);
+}
+
+.scene-admin-fullsize {
+  position: relative;
+  height: calc(100vh - 220px);
+  min-height: 600px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  background: #000;
+}
+
+.scene-admin-fullsize .scene-admin-canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.scene-admin-fullsize .scene-admin-canvas-layer .scene-admin-preview {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+}
+
+.scene-admin-fullsize .scene-admin-canvas-layer .scene-admin-preview-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.scene-admin-fullsize .scene-admin-arena-picker {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 20;
+  background: color-mix(in oklab, var(--panel) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--hairline);
+  padding: 6px;
+}
+
+.scene-admin-controls-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 440px;
+  max-width: calc(100% - 24px);
+  z-index: 15;
+  overflow-y: auto;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--hairline);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.scene-admin-controls-panel .scene-admin-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.scene-admin-controls-panel .scene-admin-header h2 { font-size: 13px; }
+.scene-admin-controls-panel .scene-admin-note { font-size: 10px; }
+
+.scene-admin-controls-panel .scene-admin-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.scene-admin-controls-panel .scene-admin-presets {
+  padding: var(--sp-2);
+}
+
+.scene-admin-controls-panel .scene-admin-presets-row {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.scene-admin-controls-panel .scene-admin-grid {
+  grid-template-columns: 1fr;
+  gap: var(--sp-2);
+}
+
+.scene-admin-controls-panel .scene-admin-copy-from {
+  min-width: 140px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+
+.scene-admin-section {
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+}
+
+.scene-admin-section > summary {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  list-style: none;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.scene-admin-section > summary::-webkit-details-marker { display: none; }
+
+.scene-admin-section > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform .15s;
+  color: var(--muted);
+}
+
+.scene-admin-section[open] > summary::before { transform: rotate(90deg); }
+
+.scene-admin-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.scene-admin-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 80px;
+  gap: 10px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.scene-admin-label {
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.scene-admin-row input[type="range"] { width: 100%; accent-color: var(--signal); }
+
+.scene-admin-row input[type="number"],
+.scene-admin-row input[type="text"] {
+  width: 100%;
+  padding: 3px 6px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.scene-admin-row--color input[type="color"] {
+  width: 100%;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  cursor: pointer;
+}
+
+.scene-admin-row--color input[type="text"] { text-align: center; }
+
+.scene-admin-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--signal);
+  cursor: pointer;
+  justify-self: start;
+}
+
+.scene-admin-row select {
+  width: 100%;
+  padding: 4px 8px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.scene-admin-value {
+  color: var(--muted);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .scene-admin-presets-row { grid-template-columns: 1fr; }
+  .scene-admin-row { grid-template-columns: 80px 1fr 70px; font-size: 10px; }
+}
+
+.scene-admin-row--radio { grid-template-columns: 90px 1fr; }
+
+.scene-admin-radio-group {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.scene-admin-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+
+.scene-admin-radio input[type="radio"] { display: none; }
+.scene-admin-radio.is-active { color: var(--bg); background: var(--signal); border-color: var(--signal); }
+
+.biome-editor { display: flex; flex-direction: column; gap: var(--sp-4); }
+
+.biome-editor-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.biome-editor-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+
+.biome-editor-note { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; max-width: 640px; }
+
+.biome-editor-note strong { color: var(--gold); }
+
+.biome-editor-header-actions { display: inline-flex; align-items: center; gap: var(--sp-2); flex-shrink: 0; }
+
+.biome-editor-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+
+.biome-editor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2);
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+  border: 1px solid var(--hairline);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.biome-editor-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: capitalize;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: color .15s, background .15s, border-color .15s;
+}
+
+.biome-editor-item:hover { background: color-mix(in oklab, var(--signal) 6%, var(--panel)); }
+.biome-editor-item.is-active { background: color-mix(in oklab, var(--signal) 12%, var(--panel)); border-left-color: var(--signal); color: var(--signal); }
+
+.biome-editor-item-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--signal);
+  border-radius: 50%;
+}
+
+.biome-editor-item.has-override .biome-editor-item-name::after {
+  content: '';
+}
+
+.biome-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+}
+
+.biome-editor-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.biome-editor-panel-head h3 { margin: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; text-transform: capitalize; }
+
+.biome-editor-fieldset {
+  border: 1px solid var(--hairline);
+  padding: var(--sp-3);
+  margin: 0;
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+}
+
+.biome-editor-fieldset > legend {
+  padding: 0 var(--sp-2);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.biome-editor-total { color: var(--signal); font-weight: 600; text-transform: none; letter-spacing: .04em; }
+
+.biome-editor-empty { color: var(--muted); font-size: 11px; font-style: italic; padding: var(--sp-2); }
+
+.biome-editor-arena-options { display: flex; flex-direction: column; gap: 4px; }
+
+.biome-editor-arena-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+
+.biome-editor-arena-opt:hover { border-color: var(--signal); }
+.biome-editor-arena-opt.is-active { border-color: var(--signal); color: var(--signal); background: color-mix(in oklab, var(--signal) 8%, var(--bg)); }
+.biome-editor-arena-opt input[type="radio"] { accent-color: var(--signal); }
+
+.biome-editor-spawn-add {
+  margin-bottom: var(--sp-2);
+}
+
+.biome-editor-spawn-add select {
+  width: 100%;
+  padding: 6px 10px;
+  font-family: inherit;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+}
+
+.biome-editor-spawn-list { display: flex; flex-direction: column; gap: 4px; }
+
+.biome-editor-spawn-row {
+  display: grid;
+  grid-template-columns: 24px minmax(120px, 1fr) auto 44px 22px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  font-size: 11px;
+}
+
+.biome-editor-spawn-icon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+}
+
+.biome-editor-spawn-meta { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.biome-editor-spawn-meta b { color: var(--ink); font-size: 12px; }
+.biome-editor-spawn-meta span { color: var(--muted); font-size: 10px; }
+
+.biome-editor-spawn-weight {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.biome-editor-spawn-weight input {
+  width: 46px;
+  padding: 2px 6px;
+  background: color-mix(in oklab, var(--bg) 70%, var(--panel));
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.biome-editor-spawn-pct {
+  color: var(--signal);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.biome-editor-spawn-remove {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  transition: color .15s;
+}
+
+.biome-editor-spawn-remove:hover { color: var(--battle); }
+
+.biome-editor-scene-fieldset > summary {
+  padding: var(--sp-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+}
+
+.biome-editor-scene-fieldset > summary::-webkit-details-marker { display: none; }
+
+.biome-editor-scene-fieldset > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform .15s;
+}
+
+.biome-editor-scene-fieldset[open] > summary::before { transform: rotate(90deg); }
+
+.biome-editor-scene-wrap { padding-top: var(--sp-2); }
+
+@media (max-width: 960px) {
+  .biome-editor-layout { grid-template-columns: 1fr; }
+  .biome-editor-list { max-height: 200px; }
+}
+

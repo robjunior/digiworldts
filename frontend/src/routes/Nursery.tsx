@@ -80,11 +80,10 @@ export function Nursery(): JSX.Element {
     mutationFn: async (entry: PendingHatchEntry) => {
       const result = await collectPendingHatch(entry.id);
       if (!result.ok) throw new ApiError(collectErrorMessage(result.error), 409);
-      return { nickname: result.nickname, chipItemIds: result.chipItemIds };
+      return { nickname: result.nickname };
     },
     onSuccess: async (result) => {
-      const chipNote = result.chipItemIds.length > 0 ? ` + ${result.chipItemIds.length} chip${result.chipItemIds.length > 1 ? 's' : ''}` : '';
-      setNotice(`${result.nickname} hatched into your roster${chipNote}!`);
+      setNotice(`${result.nickname} hatched into your roster!`);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY }),
