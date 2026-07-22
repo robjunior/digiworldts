@@ -31,6 +31,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: digiworld-postgres-1
     environment:
       POSTGRES_USER: digiworld
       POSTGRES_PASSWORD: digiworld
@@ -45,6 +46,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: digiworld-redis-1
     command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redisdata:/data
@@ -56,6 +58,7 @@ services:
 
   game-node1: &game
     build: .
+    container_name: digiworld-game-node1-1
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -77,6 +80,7 @@ services:
 
   game-node2:
     <<: *game
+    container_name: digiworld-game-node2-1
     environment:
       NODE_ENV: production
       NODE_ID: game-node2
@@ -91,6 +95,7 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
+    container_name: digiworld-nginx-1
     depends_on: [game-node1, game-node2]
     ports:
       - '8080:80'

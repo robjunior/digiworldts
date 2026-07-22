@@ -3,6 +3,7 @@ name: digiworld
 services:
   db:
     image: postgres:16-alpine
+    container_name: digiworld-db-1
     environment:
       POSTGRES_USER: digiworld
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - copy .env.example to .env and edit}
@@ -10,7 +11,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U digiworld -d digiworld']
+      test: ["CMD-SHELL", "pg_isready -U digiworld -d digiworld"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -20,6 +21,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    container_name: digiworld-backend-1
     depends_on:
       db:
         condition: service_healthy
@@ -40,7 +42,11 @@ services:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
     healthcheck:
-      test: ['CMD-SHELL', 'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -51,12 +57,21 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    container_name: digiworld-frontend-1
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - '${HOST_PORT:-8080}:8080'
+      - "${HOST_PORT:-8080}:8080"
     restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?CLOUDFLARE_TUNNEL_TOKEN is required - set in .env}
+    depends_on:
+      - frontend
 
 volumes:
   pgdata:
