@@ -57,6 +57,7 @@ services:
     volumes:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
+      - ./backend/data/catalog:/app/backend/data/catalog
     healthcheck:
       test:
         [
