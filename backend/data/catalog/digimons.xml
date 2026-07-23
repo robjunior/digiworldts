@@ -285,7 +285,6 @@
       <evolve targetId="skb-3"></evolve>
       <evolve targetId="skb-51"></evolve>
       <evolve targetId="skb-710"></evolve>
-      <evolve targetId="skb-751"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="0.5"></r>
@@ -1115,22 +1114,6 @@
       <r element="plant" mult="0.5"></r>
       <r element="electricity" mult="1.5"></r>
       <r element="earth" mult="0.5"></r>
-    </resistances>
-  </digimon>
-  <digimon id="skb-751" name="Rapidmon (Armor)" stage="Rookie" attribute="Vaccine" element="electricity" wikimonSlug="Rapidmon_(Armor)" sourceUrl="https://api.skullbot.fr/digimon/751" type="Holy Knight">
-    <assets portrait="/assets/digimon/skb-751/portrait.webp" dot="/assets/digimon/skb-751/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Golden Triangle" element="electricity" cost="41" power="85" description="[Target: 1 enemy] Performs Electricity magic attack at power 85. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
-      <skill id="s1" name="Saint Knuckle II" element="light" cost="41" power="30" description="[Target: 1 enemy] Performs Light physical attack at power 30 x 2 hits. 95% ACU."></skill>
-      <skill id="s2" name="Shine Burst II" element="light" cost="41" power="35" description="[Target: All enemies] Performs Light magic attack at power 35. 90% ACU."></skill>
-      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
-    </skills>
-    <resistances>
-      <r element="water" mult="1.5"></r>
-      <r element="electricity" mult="0.5"></r>
-      <r element="light" mult="0.5"></r>
-      <r element="dark" mult="1.5"></r>
     </resistances>
   </digimon>
   <digimon id="skb-28" name="BigMamemon" stage="Ultimate" attribute="Data" element="steel" wikimonSlug="BigMamemon" sourceUrl="https://api.skullbot.fr/digimon/28" type="Mutant">
@@ -3346,22 +3329,6 @@
       <r element="electricity" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-677" name="EmperorGreymon" stage="Rookie" attribute="Variable" element="fire" wikimonSlug="EmperorGreymon" sourceUrl="https://api.skullbot.fr/digimon/677" type="Dragon Warrior">
-    <assets portrait="/assets/digimon/skb-677/portrait.webp" dot="/assets/digimon/skb-677/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Firedrake Strike" element="fire" cost="41" power="90" description="[Target: 1 enemy] Performs Fire physical attack at power 90. Increased damage to targets with Dragon Trait."></skill>
-      <skill id="s1" name="Pyro Dragons" element="earth" cost="41" power="85" description="[Target: 1 enemy] Performs Earth physical attack at power 85. 100% chance of reduction to Earth resistance. Increased damage to targets with Dragon Trait."></skill>
-      <skill id="s2" name="Magma Fall III" element="fire" cost="41" power="45" description="[Target: All enemies] Performs Fire magic attack at power 45. 90% ACU."></skill>
-      <skill id="s3" name="Saint Knuckle III" element="light" cost="41" power="38" description="[Target: 1 enemy] Performs Light physical attack at power 38 x 2 hits. 95% ACU."></skill>
-    </skills>
-    <resistances>
-      <r element="fire" mult="0"></r>
-      <r element="water" mult="1.5"></r>
-      <r element="ice" mult="2"></r>
-      <r element="earth" mult="0.5"></r>
-    </resistances>
-  </digimon>
   <digimon id="skb-61" name="Monzaemon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Monzaemon" sourceUrl="https://api.skullbot.fr/digimon/61" type="Puppet">
     <assets portrait="/assets/digimon/skb-61/portrait.webp" dot="/assets/digimon/skb-61/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
@@ -3928,19 +3895,6 @@
       <skill id="s2" name="Heaven&apos;s Arrow" element="plant" cost="26" power="300" description="Hebunzu Arō"></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
-  </digimon>
-  <digimon id="skb-669" name="Aldamon" stage="Rookie" attribute="Unknown" element="null" wikimonSlug="Aldamon" sourceUrl="https://api.skullbot.fr/digimon/669">
-    <assets portrait="/assets/digimon/skb-669/portrait.webp" dot="/assets/digimon/skb-669/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Brahmashira" element="fire" cost="0" power="100" description="Uses holy flames to manufacture giant ball of flame like the core of the sun, then detonates it."></skill>
-      <skill id="s1" name="Brahmastra" element="null" cost="16" power="220" description="Rapid-fires high-temperature shots from its &quot; Rudriya Darpaṇa &quot;."></skill>
-      <skill id="s2" name="Rampage" element="null" cost="28" power="300"></skill>
-      <skill id="s3" name="Overdrive" element="null" cost="38" power="380"></skill>
-    </skills>
-    <evolutions>
-      <evolve targetId="skb-677"></evolve>
-    </evolutions>
   </digimon>
   <digimon id="skb-688" name="Gankoomon" stage="Mega" attribute="Data" element="water" wikimonSlug="Gankoomon" sourceUrl="https://api.skullbot.fr/digimon/688">
     <assets portrait="/assets/digimon/skb-688/portrait.webp" dot="/assets/digimon/skb-688/dot.gif"></assets>
