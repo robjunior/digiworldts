@@ -34,6 +34,7 @@ import {
   handleDisconnect,
   isInMatch,
   partyAverageLevel,
+  partyTrainedness,
   activeMatchCount,
 } from '../battle/routes.js';
 import { joinSpectate, leaveSpectate } from '../battle/spectate.js';
@@ -283,10 +284,12 @@ const handleQueue: Handler = async (entry, msg) => {
   }
   if (msg.join) {
     const level = await partyAverageLevel(entry.userId);
+    const trainedness = await partyTrainedness(entry.userId);
     const result = await matchmaker.enqueue({
       userId: entry.userId,
       displayName: entry.displayName,
       averageLevel: level,
+      trainedness,
       queuedAt: Date.now(),
     });
     if (result === 'full') {

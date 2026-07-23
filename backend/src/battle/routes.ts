@@ -17,7 +17,7 @@ import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
 import { getXpRate, getDamageRate } from '../settings/engine.js';
-import { loadPartyLoadout, partyAverageLevel } from '../roster/routes.js';
+import { loadPartyLoadout, partyAverageLevel, partyTrainedness } from '../roster/routes.js';
 import { loadCatalog } from '../digimon/xml.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
 import { consumePreBattleBuffs, consumeXpMultBuffs, xpMultOf, type PendingBuff } from '../social/buffs.js';
@@ -490,4 +490,4 @@ async function grantRewardsInTx(
   }
 }
 
-export { partyAverageLevel };
+export { partyAverageLevel, partyTrainedness };

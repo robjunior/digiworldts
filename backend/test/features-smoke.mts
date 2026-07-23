@@ -60,6 +60,7 @@ import {
 import { initBattle } from '../src/battle/engine.ts';
 import type { Loadout, LoadoutMember } from '../src/battle/engine.ts';
 import type { TemplateDigimon } from '../src/digimon/types.ts';
+import { matchmaker, resetMatchmaking, type QueueEntry } from '../src/matchmaking/queue.ts';
 
 const DB_PATH = process.env.DB_PATH!;
 for (const f of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
@@ -296,6 +297,47 @@ async function main(): Promise<void> {
     check('initBattle stores damageRate=1.0 when passed', b1.damageRate === 1.0);
     check('initBattle stores damageRate=2.0 when passed', b2.damageRate === 2.0);
     check('initBattle defaults damageRate to 1.0 when omitted', b3.damageRate === 1.0);
+  }
+
+  console.log('\n=== matchmaking training-tier gate ===');
+  {
+    await resetMatchmaking();
+    const now = Date.now();
+    const untrained: QueueEntry = { userId: 'usr_mm_untr', displayName: 'Untr', averageLevel: 40, trainedness: 0,   queuedAt: now };
+    const trained:   QueueEntry = { userId: 'usr_mm_trnd', displayName: 'Trnd', averageLevel: 40, trainedness: 800, queuedAt: now };
+
+    check('enqueue untrained', (await matchmaker.enqueue(untrained)) === 'queued');
+    check('enqueue trained', (await matchmaker.enqueue(trained)) === 'queued');
+
+    const noPair = await matchmaker.tryPair();
+    check('mismatched trainedness (0 vs 800) blocks fresh pair (bracket=100)', noPair === null);
+    check('both entries still queued after failed pair', (await matchmaker.size()) === 2);
+
+    await matchmaker.dequeue(untrained.userId);
+    await matchmaker.dequeue(trained.userId);
+
+    const past = now - 60_000;
+    const oldUntr: QueueEntry = { ...untrained, queuedAt: past };
+    const oldTrnd: QueueEntry = { ...trained,   queuedAt: past };
+    await matchmaker.enqueue(oldUntr);
+    await matchmaker.enqueue(oldTrnd);
+
+    const paired = await matchmaker.tryPair();
+    check('after 60s wait, widened bracket (2100) allows the mismatched pair', paired !== null);
+    if (paired !== null) {
+      check('pair returns both users', paired.a.userId !== paired.b.userId);
+    }
+    check('queue is empty after successful pair', (await matchmaker.size()) === 0);
+
+    await resetMatchmaking();
+    const closeA: QueueEntry = { userId: 'usr_mm_ca', displayName: 'A', averageLevel: 40, trainedness: 400, queuedAt: now };
+    const closeB: QueueEntry = { userId: 'usr_mm_cb', displayName: 'B', averageLevel: 40, trainedness: 450, queuedAt: now };
+    await matchmaker.enqueue(closeA);
+    await matchmaker.enqueue(closeB);
+    const closePair = await matchmaker.tryPair();
+    check('similar trainedness (50 gap ≤ 100 bracket) pairs immediately', closePair !== null);
+
+    await resetMatchmaking();
   }
 
   await closeCluster();
