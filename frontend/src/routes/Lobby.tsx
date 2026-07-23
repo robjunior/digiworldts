@@ -9,6 +9,7 @@ import { DAILY_QUERY_KEY, DailyStrip } from '../components/lobby/DailyStrip';
 import { LastMatch } from '../components/lobby/LastMatch';
 import { PartyHero } from '../components/lobby/PartyHero';
 import { PresenceList } from '../components/lobby/PresenceList';
+import { RoomsPanel } from '../components/lobby/RoomsPanel';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { getDaily, getLastMatch, getRoster } from '../lib/api';
@@ -84,6 +85,9 @@ export function Lobby(): JSX.Element {
                 <Objective color="var(--claim-next)" text="Win 1 match today (0/1)" />
                 <Objective color="var(--claim-todo)" text="Reach player level 15" />
               </ul>
+            </section>
+            <section className="lobby-section" data-od-id="rooms-section">
+              <RoomsPanel send={send} />
             </section>
           </aside>
         </div>

@@ -76,6 +76,7 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Shop with `apply` → `pending_buffs` combat integration | [`social/shop.ts`](backend/src/social/shop.ts), [`social/buffs.ts`](backend/src/social/buffs.ts) |
 | Daily rewards (7-day cycle) | [`social/daily.ts`](backend/src/social/daily.ts) |
 | Global chat (rate-limited, cluster pub/sub) | [`lobby/ws.ts:237-250`](backend/src/lobby/ws.ts:237) |
+| Chat rooms + DMs (per-room fanout via wsdeliver, `chat_rooms` + `chat_room_members` via migration 002) | [`chat/rooms.ts`](backend/src/chat/rooms.ts), [`chat/routes.ts`](backend/src/chat/routes.ts), [`components/lobby/RoomsPanel.tsx`](frontend/src/components/lobby/RoomsPanel.tsx) |
 | Password reset — admin-issued cluster tokens + hard reset | [`auth/reset.ts`](backend/src/auth/reset.ts), [`admin/users.ts:170-182`](backend/src/admin/users.ts:170) |
 
 ### Admin
@@ -116,12 +117,9 @@ See Shipped ▸ Meta / social. Admin-issued token flow at [`auth/reset.ts`](back
 - Once we're confident no live deployment predates the cluster refactor, `DROP TABLE` in a schema migration.
 - Blocker: needs a migration story ([`schema.sql`](backend/src/db/schema.sql) has no versioning today — [`db/init.ts`](backend/src/db/init.ts) is idempotent `CREATE TABLE IF NOT EXISTS`).
 
-### N3 — Chat rooms + DMs
-- Global chat is fine for MVP but bad for 100+ concurrent users.
-- Data model: `room:{roomId}` (pub/sub channel) + `room:members:{roomId}` (SET). DMs = private 2-member room.
-- HTTP: `POST /api/chat/room`, `POST /api/chat/dm`, `GET /api/chat/rooms/mine`.
-- WS: extend the client-side `chat` message with `room?: string`; unlabeled = global.
-- Rate-limiting: reuse the existing token bucket + per-room sliding window.
+### N3 — ~~Chat rooms + DMs~~ ✅ shipped
+
+See Shipped ▸ Meta / social. Migration `002_chat_rooms.sql` adds `chat_rooms` + `chat_room_members`. Backend at [`backend/src/chat/rooms.ts`](backend/src/chat/rooms.ts) + [`backend/src/chat/routes.ts`](backend/src/chat/routes.ts). WS `chat` message extended with optional `room` in [`shared/src/ws.ts`](shared/src/ws.ts); server-side membership check + per-member wsdeliver fanout in [`backend/src/lobby/ws.ts`](backend/src/lobby/ws.ts). Frontend [`RoomsPanel`](frontend/src/components/lobby/RoomsPanel.tsx) lists rooms, opens DMs by username, sends per-room chat. Global chat unchanged.
 
 ### N4 — ~~Spectator mode~~ ✅ shipped
 

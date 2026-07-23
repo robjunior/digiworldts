@@ -19,21 +19,29 @@ import { unlinkSync, existsSync } from 'node:fs';
 
 const DB_PATH = process.env.DB_PATH!;
 
-async function assertGone(a: SqliteAdapter): Promise<void> {
-  const t = await a.query<{ name: string }>(
+async function assertMigrationsApplied(a: SqliteAdapter): Promise<void> {
+  const legacy = await a.query<{ name: string }>(
     "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('active_matches','matchmaking_queue')",
   );
-  if (t.length !== 0) {
-    console.error('FAIL: legacy tables still present:', t.map((r) => r.name));
+  if (legacy.length !== 0) {
+    console.error('FAIL: legacy tables still present:', legacy.map((r) => r.name));
     process.exit(1);
   }
-  const v = await a.query<{ version: string }>(
-    "SELECT version FROM schema_versions WHERE version = ?",
-    ['001_drop_legacy_tables'],
+  const chat = await a.query<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('chat_rooms','chat_room_members') ORDER BY name",
   );
-  if (v.length !== 1) {
-    console.error('FAIL: migration 001 not in ledger, got:', v);
+  if (chat.length !== 2) {
+    console.error('FAIL: chat tables missing, got:', chat.map((r) => r.name));
     process.exit(1);
+  }
+  const versions = await a.query<{ version: string }>(`SELECT version FROM schema_versions ORDER BY version`);
+  const expected = ['001_drop_legacy_tables', '002_chat_rooms'];
+  const got = versions.map((v) => v.version);
+  for (const v of expected) {
+    if (!got.includes(v)) {
+      console.error(`FAIL: schema_versions missing ${v}, got:`, got);
+      process.exit(1);
+    }
   }
 }
 
@@ -41,11 +49,11 @@ for (const f of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
   if (existsSync(f)) unlinkSync(f);
 }
 
-console.log('=== Case A: fresh DB (no legacy tables) ===');
+console.log('=== Case A: fresh DB ===');
 {
   const a = await SqliteAdapter.create();
-  await assertGone(a);
-  console.log('  PASS: fresh DB has no legacy tables, migration 001 in ledger');
+  await assertMigrationsApplied(a);
+  console.log('  PASS: fresh DB — legacy tables absent, chat tables present, both migrations in ledger');
   await a.close();
 }
 
@@ -77,8 +85,8 @@ console.log('=== Case B: pre-existing DB WITH legacy tables ===');
   console.log('  seeded: legacy tables present with 1 stale row');
 
   const a = await SqliteAdapter.create();
-  await assertGone(a);
-  console.log('  PASS: migration 001 dropped both legacy tables cleanly');
+  await assertMigrationsApplied(a);
+  console.log('  PASS: legacy tables dropped, chat tables created, both migrations recorded');
   await a.close();
 }
 
@@ -86,5 +94,5 @@ for (const f of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
   if (existsSync(f)) unlinkSync(f);
 }
 
-console.log('\n=== all migrator N2 checks passed ===');
+console.log('\n=== all migrator checks passed ===');
 process.exit(0);

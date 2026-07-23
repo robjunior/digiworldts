@@ -51,6 +51,7 @@ import { nurseryPlugin } from './nursery/routes.js';
 import { marketPlugin } from './market/routes.js';
 import { digdexPlugin } from './dex/routes.js';
 import { adventurePlugin } from './adventure/routes.js';
+import { chatPlugin } from './chat/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
 import { battlePlugin } from './battle/http.js';
@@ -171,6 +172,7 @@ async function main(): Promise<void> {
   await app.register(marketPlugin);
   await app.register(digdexPlugin);
   await app.register(adventurePlugin);
+  await app.register(chatPlugin);
   await app.register(battlePlugin);
   await app.register(lobbyPlugin);
 

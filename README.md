@@ -293,6 +293,11 @@ digiworld/
 | POST | `/api/friends/accept` | user | `{ userId }` |
 | POST | `/api/friends/remove` | user | `{ userId }` |
 | POST | `/api/friends/block` | user | `{ userId }` |
+| GET | `/api/chat/rooms/mine` | user | rooms the caller is a member of |
+| POST | `/api/chat/room/create` | user | `{ name }` — creates a room + adds creator as owner+member |
+| POST | `/api/chat/room/join` | user | `{ roomId }` — join an existing room (`kind='room'` only) |
+| POST | `/api/chat/room/leave` | user | `{ roomId }` — remove caller from a room |
+| POST | `/api/chat/dm/open` | user | `{ username }` — find-or-create a 2-member DM room with the given user |
 | GET | `/api/admin/scraped-list` | admin | paginated + filterable |
 | POST | `/api/admin/scrape/refresh` | admin | pull the skullbot list again |
 | POST | `/api/admin/catalog/from-scraped` | admin | `{ skullbotId, enrich }` |
@@ -315,12 +320,14 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 ```json
 { "type": "hello" }
 { "type": "ping" }
-{ "type": "chat",  "text": "..." }
+{ "type": "chat",  "text": "...", "room?": "rm_..." }
 { "type": "queue", "join": true|false }
 { "type": "act",   "matchId": "mtc_...",
   "action": { "type": "fight"|"skill"|"guard"|"flee", ... } }
 { "type": "spectate", "matchId": "mtc_...", "join": true|false }
 ```
+
+Chat messages without `room` route through the global `chat:global` channel (broadcast to every online socket). With `room`, membership is validated against `chat_room_members` and the message fans out to each member's `wsdeliver:{userId}` channel.
 
 ### Server → client
 
@@ -328,7 +335,7 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 { "type": "welcome",  "user": {...}, "presence": [...], "matchId?": "mtc_..." }
 { "type": "pong" }
 { "type": "presence", "users": [...], "count": N }
-{ "type": "chat",     "from": "usr_...", "displayName": "...", "text": "...", "at": ms }
+{ "type": "chat",     "from": "usr_...", "displayName": "...", "text": "...", "at": ms, "room?": "rm_..." }
 { "type": "queue",    "status": "idle"|"waiting"|"matched", "size": N }
 { "type": "match",    "matchId": "mtc_...", "view": BattleView }
 { "type": "battle",   "matchId": "mtc_...", "view": BattleView }
@@ -424,6 +431,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 ## Recently addressed (post-MVP rewrite)
 
+- **Chat rooms + DMs.** Two new tables (`chat_rooms`, `chat_room_members`) landed via migration `002_chat_rooms.sql`. Endpoints: `POST /api/chat/room/create`, `/room/join`, `/room/leave`, `/dm/open` (find-or-create), `GET /api/chat/rooms/mine`. WS `chat` message gains optional `room` field — with `room`, membership is validated then delivered to each member's `wsdeliver:{userId}` channel (cross-node just works). Global chat unchanged. Frontend `RoomsPanel` in the lobby lists rooms + DMs, opens DM by username, sends per-room messages. See [`backend/src/chat/rooms.ts`](backend/src/chat/rooms.ts) and [`frontend/src/components/lobby/RoomsPanel.tsx`](frontend/src/components/lobby/RoomsPanel.tsx).
 - **Spectator mode.** New `GET /api/battle/spectate/:matchId` returns the current `BattleView` (side-A perspective — enemy stats redacted); WS `{type:'spectate', matchId, join:true}` subscribes the socket to live `event`/`battle`/`end` fanout for that match. Up to 20 spectators per match, tracked in a `battle:spectators:{matchId}` ZSET in the cluster. Cleaned up automatically when the match ends. Frontend viewer at `/spectate?matchId=...` (minimal text HP bars + event log; a rich 3D viewer is a follow-up). See [`backend/src/battle/spectate.ts`](backend/src/battle/spectate.ts) and [`frontend/src/routes/Spectate.tsx`](frontend/src/routes/Spectate.tsx).
 - **Password reset via admin-issued cluster tokens.** New admin route `POST /api/admin/users/:id/reset-token` issues a one-time reset token stored at `reset:{token}` in the Cluster (TTL 15 min). User consumes via `POST /api/auth/reset-consume { token, newPassword }` — argon2id hashes the new password, all sessions for that user are revoked, and the token is deleted (single-use). Complements the existing hard-reset (where admin picks the password directly). Frontend consume page at `/reset?token=...`. See [`backend/src/auth/reset.ts`](backend/src/auth/reset.ts).
 - **Shop items now feed into combat.** `POST /api/shop/apply { itemId, monId? }` consumes one inventory item into a `pending_buffs` row. `hp_pct` / `en_pct` are consumed at the START of the target mon's next battle (mutates `statBonus`); `xp_mult` is player-wide and consumed at the END of the next won match (multiplies XP awarded). Deprecated `POST /api/shop/use` still exists for backwards compat but no longer has combat semantics.
@@ -434,7 +442,6 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 ## Known limitations / next passes
 
 - **Admin bootstrap recovery still needs shell access.** Any user can be reset by an admin via the token flow above (or the hard-reset variant). A totally-lost *admin* password still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
-- **Chat is global-only.** No rooms, no DMs.
 - **Spectator view is minimal (text-based).** The `/spectate?matchId=...` page renders HP bars + event log rather than the full 3D combat viewer. Wiring the 3D pipeline into read-only mode is a follow-up (Combat3DBody currently assumes player-side state — it needs a `readOnly` prop pass).
 - **The multi-node docker-compose ships with `DATABASE=postgres`.** Both game nodes share the bundled Postgres 16 by default. To run the zero-external-dep local demo instead, flip the two commented `DATABASE: sqlite` lines under each `game-node*` service in `docker-compose.multinode.yml`.
 

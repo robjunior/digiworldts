@@ -37,6 +37,7 @@ import {
   activeMatchCount,
 } from '../battle/routes.js';
 import { joinSpectate, leaveSpectate } from '../battle/spectate.js';
+import { isMember as isChatRoomMember, listMembers as listChatRoomMembers } from '../chat/rooms.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
 
@@ -56,7 +57,11 @@ const K_PRESENCE = (userId: string): string => `presence:user:${userId}`;
 // ============================================================================
 // Client → server message schemas
 // ============================================================================
-const ChatSchema = z.object({ type: z.literal('chat'), text: z.string().trim().min(1).max(300) });
+const ChatSchema = z.object({
+  type: z.literal('chat'),
+  text: z.string().trim().min(1).max(300),
+  room: z.string().min(3).max(64).optional(),
+});
 const QueueSchema = z.object({ type: z.literal('queue'), join: z.boolean() });
 const HelloSchema = z.object({ type: z.literal('hello') });
 const PingSchema = z.object({ type: z.literal('ping') });
@@ -247,9 +252,26 @@ const handleChat: Handler = async (entry, msg) => {
   }
   entry.chatLog.push(now);
   const cluster = await getCluster();
-  await cluster.publish(CHAT_CHANNEL, JSON.stringify({
-    type: 'chat', from: entry.userId, displayName: entry.displayName, text: msg.text, at: now, nodeId: config.NODE_ID,
-  }));
+  const basePayload = {
+    type: 'chat' as const,
+    from: entry.userId,
+    displayName: entry.displayName,
+    text: msg.text,
+    at: now,
+    nodeId: config.NODE_ID,
+  };
+  if (msg.room !== undefined) {
+    const member = await isChatRoomMember(msg.room, entry.userId);
+    if (!member) {
+      safeSend(entry.socket, { type: 'error', code: 'not-in-room', message: 'you are not a member of that room' });
+      return;
+    }
+    const members = await listChatRoomMembers(msg.room);
+    const payload = JSON.stringify({ ...basePayload, room: msg.room });
+    await Promise.all(members.map((uid) => cluster.publish(`${WSDELIVER_PREFIX}${uid}`, payload)));
+    return;
+  }
+  await cluster.publish(CHAT_CHANNEL, JSON.stringify(basePayload));
 };
 
 const handleQueue: Handler = async (entry, msg) => {

@@ -28,7 +28,7 @@ export type PresenceUser = {
 export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
-  | { type: 'chat'; text: string }
+  | { type: 'chat'; text: string; room?: string }
   | { type: 'queue'; join: boolean }
   | { type: 'act'; matchId: string; action: Action }
   | { type: 'spectate'; matchId: string; join: boolean };
@@ -88,6 +88,8 @@ export type WSServerMessage =
       text: string;
       at: number;
       nodeId: string;
+      /** Present iff this is a per-room message. Absent = global chat. */
+      room?: string;
     }
   | {
       type: 'queue';

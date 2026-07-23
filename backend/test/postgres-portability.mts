@@ -30,6 +30,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const SRC = join(ROOT, 'src');
 const SCHEMA_PATH = join(SRC, 'db/schema-pg.sql');
+const MIGRATIONS_DIR = join(SRC, 'db/migrations');
 
 type SqlConstant = { file: string; name: string; sql: string };
 type Check = { name: string; ok: boolean; err?: string };
@@ -70,6 +71,20 @@ async function main(): Promise<void> {
   } catch (e) {
     console.log(`  ✗ schema failed: ${(e as Error).message}`);
     process.exit(1);
+  }
+  // Baseline schema applied; now apply every numbered migration in order
+  // so PREPARE-time table lookups see the full post-migrator shape.
+  const migrationFiles = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
+  for (const f of migrationFiles) {
+    try {
+      await db.exec(readFileSync(join(MIGRATIONS_DIR, f), 'utf8'));
+    } catch (e) {
+      console.log(`  ✗ migration ${f} failed: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+  if (migrationFiles.length > 0) {
+    console.log(`  ✓ ${migrationFiles.length} migration${migrationFiles.length === 1 ? '' : 's'} applied: ${migrationFiles.join(', ')}`);
   }
   const tables = await db.query<{ table_name: string }>(
     `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`,

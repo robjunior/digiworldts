@@ -25,6 +25,7 @@ type WsState = {
   readonly presence: PresenceUser[];
   readonly presenceCount: number;
   readonly chat: ChatMessage[];
+  readonly chatsByRoom: Record<string, ChatMessage[]>;
   readonly queue: QueueState;
   readonly activeMatchId: string | null;
   readonly activeBattle: BattleView | null;
@@ -33,6 +34,7 @@ type WsState = {
   readonly welcome: WelcomeState | null;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
+  readonly clearRoomChat: (roomId: string) => void;
   readonly reset: () => void;
 };
 
@@ -42,13 +44,14 @@ const initialState = {
   presence: [],
   presenceCount: 0,
   chat: [],
+  chatsByRoom: {},
   queue: { status: 'idle', size: 0, since: null },
   activeMatchId: null,
   activeBattle: null,
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
-} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle'>;
+} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
 
 export const useWsStore = create<WsState>((set) => ({
   ...initialState,
@@ -66,11 +69,24 @@ export const useWsStore = create<WsState>((set) => ({
         set({ presence: msg.users, presenceCount: msg.count });
         return;
       case 'chat':
-        set((state) => ({
-          chat: [...state.chat, { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at }].slice(
-            -MAX_LOG_MESSAGES,
-          ),
-        }));
+        if (msg.room !== undefined) {
+          const roomId = msg.room;
+          set((state) => ({
+            chatsByRoom: {
+              ...state.chatsByRoom,
+              [roomId]: [
+                ...(state.chatsByRoom[roomId] ?? []),
+                { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at },
+              ].slice(-MAX_LOG_MESSAGES),
+            },
+          }));
+        } else {
+          set((state) => ({
+            chat: [...state.chat, { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at }].slice(
+              -MAX_LOG_MESSAGES,
+            ),
+          }));
+        }
         return;
       case 'queue':
         set({ queue: { status: msg.status, size: msg.size, since: msg.since ?? null } });
@@ -126,5 +142,12 @@ export const useWsStore = create<WsState>((set) => ({
   },
   clearActiveBattle: () => {
     set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null });
+  },
+  clearRoomChat: (roomId: string) => {
+    set((state) => {
+      const next = { ...state.chatsByRoom };
+      delete next[roomId];
+      return { chatsByRoom: next };
+    });
   },
 }));
