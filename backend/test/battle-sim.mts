@@ -67,7 +67,10 @@ function mkLoadout(playerId: string, bonus: BaseStats): Loadout {
 }
 
 const UNTRAINED: BaseStats = { hp: 0,   en: 0,  atk: 0,  def: 0,  int: 0,  spd: 0  };
-const TRAINED:   BaseStats = { hp: 900, en: 70, atk: 30, def: 30, int: 40, spd: 30 };
+// Saturates the rebalanced STAGE_COMBAT_POOL=700 and STAGE_HPEN_POOL=1000:
+//   Rookie combatSum base = 370 → +330 room = ~80 per stat
+//   Rookie hpenSum base   = 530 → +470 room = 400 hp + 70 en
+const TRAINED:   BaseStats = { hp: 400, en: 70, atk: 80, def: 80, int: 90, spd: 80 };
 
 function pickAction(battle: Battle, side: BattleSide): Action | null {
   const active = battle.turnQueue[battle.turnCursor];

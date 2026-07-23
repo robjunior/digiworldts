@@ -148,21 +148,21 @@ export const MOOD_MIN_FOR_STAGE: Partial<Record<Stage, number>> = {
 };
 
 export const STAGE_COMBAT_POOL: Record<Stage, number> = {
-  Baby: 500,
-  'In-Training': 500,
-  Rookie: 500,
-  Champion: 500,
-  Ultimate: 500,
-  Mega: 500,
+  Baby: 700,
+  'In-Training': 700,
+  Rookie: 700,
+  Champion: 700,
+  Ultimate: 700,
+  Mega: 700,
 };
 
 export const STAGE_HPEN_POOL: Record<Stage, number> = {
-  Baby: 1500,
-  'In-Training': 1500,
-  Rookie: 1500,
-  Champion: 1500,
-  Ultimate: 1500,
-  Mega: 1500,
+  Baby: 1000,
+  'In-Training': 1000,
+  Rookie: 1000,
+  Champion: 1000,
+  Ultimate: 1000,
+  Mega: 1000,
 };
 
 export type StageAlloc = { combat: number; hpen: number };
