@@ -75,6 +75,7 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Shop with `apply` → `pending_buffs` combat integration | [`social/shop.ts`](backend/src/social/shop.ts), [`social/buffs.ts`](backend/src/social/buffs.ts) |
 | Daily rewards (7-day cycle) | [`social/daily.ts`](backend/src/social/daily.ts) |
 | Global chat (rate-limited, cluster pub/sub) | [`lobby/ws.ts:237-250`](backend/src/lobby/ws.ts:237) |
+| Password reset — admin-issued cluster tokens + hard reset | [`auth/reset.ts`](backend/src/auth/reset.ts), [`admin/users.ts:170-182`](backend/src/admin/users.ts:170) |
 
 ### Admin
 
@@ -105,10 +106,9 @@ The whole 3D combat rewrite + scene/biome tooling lives here. Not yet merged. Un
 
 Ordered by size × user impact, smallest × highest first.
 
-### N1 — Password-reset flow
-- Losing the admin password today means resetting `data/digiworld.db` or a manual SQL update. Add a token-based email or admin-issued reset.
-- Zod schema for `POST /api/auth/reset-request` + `POST /api/auth/reset-consume`.
-- Reset tokens stored in cluster (`reset:{token}`, TTL 15 min) so multi-node just works.
+### N1 — ~~Password-reset flow~~ ✅ shipped
+
+See Shipped ▸ Meta / social. Admin-issued token flow at [`auth/reset.ts`](backend/src/auth/reset.ts) (routes `POST /api/admin/users/:id/reset-token` + `POST /api/auth/reset-consume`), hard-reset at [`admin/users.ts:170`](backend/src/admin/users.ts:170). Frontend consume page at [`frontend/src/routes/Reset.tsx`](frontend/src/routes/Reset.tsx).
 
 ### N2 — Drop legacy SQLite tables
 - `active_matches` and `matchmaking_queue` are retained only as a one-shot migration source (battle) and admin import/export snapshots. See [`schema.sql:326-333,362-368`](backend/src/db/schema.sql:326).

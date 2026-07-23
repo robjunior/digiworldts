@@ -270,6 +270,7 @@ digiworld/
 | POST | `/api/auth/register` | — | open by default; first registrant becomes admin. Returns 403 only when `ADMIN_BOOTSTRAP=closed` |
 | POST | `/api/auth/login` | — | argon2id verify + set cookie |
 | POST | `/api/auth/logout` | cookie | destroy session |
+| POST | `/api/auth/reset-consume` | — | `{ token, newPassword }` — consume an admin-issued reset token, hashes the new password, invalidates all sessions for that user (10 attempts/IP/15min throttle) |
 | GET | `/api/auth/me` | cookie | current user |
 | GET | `/api/catalog` | user | full XML catalog |
 | GET | `/api/roster` | user | owned Digimon + templates |
@@ -299,6 +300,8 @@ digiworld/
 | PUT | `/api/admin/catalog/:id` | admin | replace (id must match) |
 | DELETE | `/api/admin/catalog/:id` | admin | remove |
 | POST | `/api/admin/assets/:id/download` | admin | force re-download portrait+dot |
+| POST | `/api/admin/users/:id/reset-token` | admin | issue a one-time password-reset token (`reset:{token}` in the cluster, TTL 15 min). Returns `{ token, expiresAt, url }` — hand the URL to the user, they consume via `/reset?token=...` and pick their own password |
+| POST | `/api/admin/users/:id/reset-password` | admin | hard reset — admin types the new password directly |
 
 ---
 
@@ -418,6 +421,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 ## Recently addressed (post-MVP rewrite)
 
+- **Password reset via admin-issued cluster tokens.** New admin route `POST /api/admin/users/:id/reset-token` issues a one-time reset token stored at `reset:{token}` in the Cluster (TTL 15 min). User consumes via `POST /api/auth/reset-consume { token, newPassword }` — argon2id hashes the new password, all sessions for that user are revoked, and the token is deleted (single-use). Complements the existing hard-reset (where admin picks the password directly). Frontend consume page at `/reset?token=...`. See [`backend/src/auth/reset.ts`](backend/src/auth/reset.ts).
 - **Shop items now feed into combat.** `POST /api/shop/apply { itemId, monId? }` consumes one inventory item into a `pending_buffs` row. `hp_pct` / `en_pct` are consumed at the START of the target mon's next battle (mutates `statBonus`); `xp_mult` is player-wide and consumed at the END of the next won match (multiplies XP awarded). Deprecated `POST /api/shop/use` still exists for backwards compat but no longer has combat semantics.
 - **Battle state now survives server restart AND crosses nodes.** Every mutation upserts the full `Battle` JSON blob into the cluster at `battle:snap:{matchId}`. On boot, `hydrateActiveMatches()` in [`src/battle/routes.ts`](backend/src/battle/routes.ts) reports the cluster count and migrates any orphaned SQLite rows from a pre-cluster deploy shape. On Redis, any node in the deployment can serve any player's actions — mutations serialize via `battle:lock:{matchId}` (SET NX EX + Lua CAS release). See [`test/cluster-crossnode.mts`](backend/test/cluster-crossnode.mts) for the empirical proof.
 - **Matchmaking queue now crosses nodes.** `mm:queue` (ZSET, member=userId, score=queuedAt) + `mm:meta:{userId}` (KV, TTL 5 min) live in the cluster. `tryPair()` holds the `mm:pair-lock` for the walk so only one node ZREMs a given pair. `hydrateMatchmaking()` reports queue size at boot — no SQL rehydration needed.
@@ -425,7 +429,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 ## Known limitations / next passes
 
-- **No password-reset flow.** Losing the admin password today means resetting `data/digiworld.db` (or a manual SQL update). Password reset is out of scope for MVP.
+- **Admin bootstrap recovery still needs shell access.** Any user can be reset by an admin via the token flow above (or the hard-reset variant). A totally-lost *admin* password still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
 - **Chat is global-only.** No rooms, no DMs.
 - **No spectator mode.** You can only see matches you're in.
 - **The multi-node docker-compose ships with `DATABASE=postgres`.** Both game nodes share the bundled Postgres 16 by default. To run the zero-external-dep local demo instead, flip the two commented `DATABASE: sqlite` lines under each `game-node*` service in `docker-compose.multinode.yml`.

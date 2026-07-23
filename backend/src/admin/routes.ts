@@ -31,6 +31,7 @@ import {
 } from './blueprints.js';
 import { applyManifest, buildManifest, type ImpexScope } from './impex.js';
 import { activeMatchCount } from '../battle/routes.js';
+import { issueResetToken } from '../auth/reset.js';
 import {
   createSkill,
   deleteSkill,
@@ -716,6 +717,15 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
     log.info('admin.user.resetPassword', { adminId: admin.id, targetId: req.params.id });
     return reply.send(result);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/users/:id/reset-token', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const user = await getUser(req.params.id);
+    if (!user) return reply.code(404).send({ error: 'not-found' });
+    const { token, expiresAt } = await issueResetToken(user.id);
+    log.info('admin.user.resetToken.issued', { adminId: admin.id, targetId: user.id });
+    return reply.send({ token, expiresAt, url: `/reset?token=${token}` });
   });
 
   app.delete<{ Params: { id: string } }>('/api/admin/users/:id', async (req, reply) => {

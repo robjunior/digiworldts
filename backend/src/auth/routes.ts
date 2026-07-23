@@ -28,6 +28,8 @@ import {
 import { config } from '../config.js';
 import { seedFactoryStarterForUser, seedFarmForUser } from '../farm/engine.js';
 import { seedTrainingStationForUser } from '../training/engine.js';
+import { resetUserPassword } from '../admin/users.js';
+import { checkResetThrottle, consumeResetToken, recordResetAttempt, resolveResetToken } from './reset.js';
 
 // ============================================================================
 // SQL
@@ -68,6 +70,11 @@ const RegisterSchema = z.object({
 const LoginSchema = z.object({
   username: UsernameSchema,
   password: z.string().min(1),
+});
+
+const ResetConsumeSchema = z.object({
+  token: z.string().length(64),
+  newPassword: z.string().min(1),
 });
 
 // ============================================================================
@@ -263,5 +270,35 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     const existingCount = existingCountRow?.n ?? 0;
     const registrationOpen = config.ADMIN_BOOTSTRAP !== 'closed';
     return reply.send({ userCount: existingCount, registrationOpen });
+  });
+
+  app.post('/api/auth/reset-consume', async (req, reply) => {
+    const ip = clientIp(req);
+    const throttle = await checkResetThrottle(ip);
+    if (!throttle.allowed) {
+      return reply
+        .code(429)
+        .header('Retry-After', String(throttle.retryInSec))
+        .send({ error: 'too many reset attempts — try again later' });
+    }
+    const parsed = ResetConsumeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      await recordResetAttempt(ip, false);
+      return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    }
+    const { token, newPassword } = parsed.data;
+    const stored = await resolveResetToken(token);
+    if (!stored) {
+      await recordResetAttempt(ip, false);
+      return reply.code(400).send({ error: 'invalid-or-expired-token' });
+    }
+    const result = await resetUserPassword(stored.userId, newPassword);
+    if (!result.ok) {
+      await recordResetAttempt(ip, false);
+      return reply.code(400).send({ error: result.error, message: result.message });
+    }
+    await consumeResetToken(token);
+    log.info('auth.resetConsume.ok', { userId: stored.userId });
+    return reply.send({ ok: true, username: result.user.username });
   });
 };

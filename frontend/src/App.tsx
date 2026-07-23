@@ -17,6 +17,7 @@ import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
 import { Nursery } from './routes/Nursery';
+import { Reset } from './routes/Reset';
 import { Roster } from './routes/Roster';
 import { Shop } from './routes/Shop';
 import { Training } from './routes/Training';
@@ -64,6 +65,7 @@ export function App(): JSX.Element {
       <Suspense fallback={null}>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/reset" element={<Reset />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Home />} />
             <Route path="/intro" element={<Intro />} />

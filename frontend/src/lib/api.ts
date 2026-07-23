@@ -151,6 +151,13 @@ export function authLogout(): Promise<AuthLogoutResponse> {
   return apiFetch<AuthLogoutResponse>('/api/auth/logout', { method: 'POST' });
 }
 
+export function authResetConsume(body: { token: string; newPassword: string }): Promise<{ ok: true; username: string }> {
+  return apiFetch<{ ok: true; username: string }>('/api/auth/reset-consume', {
+    method: 'POST',
+    body,
+  });
+}
+
 type WorldBattleResponse = {
   readonly battle: BattleView;
 };
