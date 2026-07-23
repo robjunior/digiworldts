@@ -34,8 +34,21 @@ async function assertMigrationsApplied(a: SqliteAdapter): Promise<void> {
     console.error('FAIL: chat tables missing, got:', chat.map((r) => r.name));
     process.exit(1);
   }
+  // migration 003 recreated skills_catalog with the 11-element CHECK — probe it
+  // by trying to insert a row with an element that would have been rejected
+  // under the old 5-element CHECK ('plant').
+  try {
+    await a.run(
+      "INSERT INTO skills_catalog (id, name, description, element, energy_cost, cooldown, actions_json, tags_json, animation, enabled, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+      ['sk_probe', 'PlantProbe', '', 'plant', 0, 0, '[]', '[]', null, 1, Date.now(), Date.now()],
+    );
+    await a.run("DELETE FROM skills_catalog WHERE id = ?", ['sk_probe']);
+  } catch (err) {
+    console.error('FAIL: skills_catalog rejects element=plant after migration 003:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
   const versions = await a.query<{ version: string }>(`SELECT version FROM schema_versions ORDER BY version`);
-  const expected = ['001_drop_legacy_tables', '002_chat_rooms'];
+  const expected = ['001_drop_legacy_tables', '002_chat_rooms', '003_skills_element_check'];
   const got = versions.map((v) => v.version);
   for (const v of expected) {
     if (!got.includes(v)) {

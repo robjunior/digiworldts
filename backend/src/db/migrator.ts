@@ -9,11 +9,17 @@
  * Each migration executes inside a transaction; a failure rolls the entire
  * change (including the ledger insert) back and boot aborts.
  *
- * Migrations SHOULD be portable across SQLite and Postgres. When a change is
- * genuinely dialect-specific, either keep it out of the pipeline (see the
- * legacy SQLite column backfill in sqlite.ts) or gate on `adapter.kind`
- * before running dialect-specific SQL from a separate branch. This module
- * intentionally has no dialect awareness.
+ * Portability — three shapes:
+ *   NNN_desc.sql          → portable, applied on BOTH dialects
+ *   NNN_desc.sqlite.sql   → applied only on SQLite (PG skips)
+ *   NNN_desc.pg.sql       → applied only on Postgres (SQLite skips)
+ *
+ * The version key stored in `schema_versions` strips the dialect suffix, so
+ * a dialect-specific migration and its counterpart on the OTHER dialect
+ * share the same version. Migrations that only need to run on one dialect
+ * (like fixing a SQLite-only CHECK constraint drift where Postgres was
+ * born with the right shape) simply have no counterpart — the other
+ * dialect's ledger just won't have that entry.
  *
  * Race safety: `schema_versions.version` is a PRIMARY KEY. If two nodes
  * boot simultaneously and both attempt migration X, the loser's INSERT
@@ -37,25 +43,37 @@ CREATE TABLE IF NOT EXISTS schema_versions (
   applied_at BIGINT NOT NULL
 )`;
 
+export type Dialect = 'sqlite' | 'postgres';
 export type Migration = { version: string; filename: string; sql: string };
 
-export function loadMigrations(): Migration[] {
+export function loadMigrations(dialect: Dialect): Migration[] {
   if (!existsSync(MIGRATIONS_DIR)) return [];
+  const mySuffix = dialect === 'sqlite' ? '.sqlite.sql' : '.pg.sql';
+  const otherSuffix = dialect === 'sqlite' ? '.pg.sql' : '.sqlite.sql';
   const files = readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith('.sql'))
+    .filter((f) => {
+      if (!f.endsWith('.sql')) return false;
+      if (f.endsWith(otherSuffix)) return false;
+      return true;
+    })
     .sort();
-  return files.map((filename) => ({
-    version: filename.replace(/\.sql$/, ''),
-    filename,
-    sql: readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'),
-  }));
+  return files.map((filename) => {
+    let version = filename;
+    if (version.endsWith(mySuffix)) version = version.slice(0, -mySuffix.length);
+    else version = version.slice(0, -'.sql'.length);
+    return {
+      version,
+      filename,
+      sql: readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'),
+    };
+  });
 }
 
 export type MigrationResult = { applied: string[]; skipped: string[] };
 
 export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult> {
   await adapter.exec(CREATE_LEDGER);
-  const migrations = loadMigrations();
+  const migrations = loadMigrations(adapter.kind);
   const applied: string[] = [];
   const skipped: string[] = [];
 
