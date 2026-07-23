@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
 import type { DbAdapter, RunResult } from './adapter.js';
+import { runMigrations } from './migrator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema.sql');
@@ -75,6 +76,7 @@ export class SqliteAdapter implements DbAdapter {
     const sql = readFileSync(SCHEMA_PATH, 'utf8');
     this.handle.exec(sql);
     applyColumnMigrations(this.handle);
+    await runMigrations(this);
   }
 
   async close(): Promise<void> {

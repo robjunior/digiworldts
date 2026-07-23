@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
 import { toPgPlaceholders, type DbAdapter, type RunResult } from './adapter.js';
+import { runMigrations } from './migrator.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema-pg.sql');
@@ -79,6 +80,7 @@ export class PgAdapter implements DbAdapter {
   async init(): Promise<void> {
     const sql = readFileSync(SCHEMA_PATH, 'utf8');
     await this.exec(sql);
+    await runMigrations(this);
   }
 
   async close(): Promise<void> {

@@ -45,67 +45,14 @@ export function db(): DatabaseHandle {
   return handle;
 }
 
-/** Apply schema idempotently. All CREATE TABLEs use IF NOT EXISTS. */
+/** Apply schema idempotently. All CREATE TABLEs use IF NOT EXISTS. The
+ *  legacy SQLite column backfill and numbered migrations both run via the
+ *  async SqliteAdapter — this sync path is a compatibility shim for the
+ *  `db:init` CLI and legacy `prep()` callers. */
 function applySchema(handle: DatabaseHandle): void {
   const sql = readFileSync(SCHEMA_PATH, 'utf8');
   handle.exec(sql);
   applyColumnMigrations(handle);
-}
-
-function migrateShopItemsColumns(handle: DatabaseHandle): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(shop_items)`)
-      .all()
-      .map((c) => c.name),
-  );
-  const additions: Array<[string, string]> = [
-    ['class', `TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item'))`],
-  ];
-  for (const [name, def] of additions) {
-    if (!existing.has(name)) {
-      handle.exec(`ALTER TABLE shop_items ADD COLUMN ${name} ${def}`);
-    }
-  }
-}
-
-function migrateUsersColumns(handle: DatabaseHandle): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(users)`)
-      .all()
-      .map((c) => c.name),
-  );
-  const additions: Array<[string, string]> = [
-    ['mmr', 'INTEGER NOT NULL DEFAULT 1000'],
-  ];
-  for (const [name, def] of additions) {
-    if (!existing.has(name)) {
-      handle.exec(`ALTER TABLE users ADD COLUMN ${name} ${def}`);
-    }
-  }
-}
-
-function migratePlayerRosterColumns(handle: DatabaseHandle): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(player_roster)`)
-      .all()
-      .map((c) => c.name),
-  );
-  const additions: Array<[string, string]> = [
-    ['revive_at', 'INTEGER'],
-    ['pets_today', 'INTEGER NOT NULL DEFAULT 0'],
-    ['pets_day', 'TEXT'],
-    ['listed_at', 'INTEGER'],
-    ['evolution_history', 'TEXT'],
-    ['equipped_skill_ids', 'TEXT'],
-  ];
-  for (const [name, def] of additions) {
-    if (!existing.has(name)) {
-      handle.exec(`ALTER TABLE player_roster ADD COLUMN ${name} ${def}`);
-    }
-  }
 }
 
 /** Close the connection (used in tests). */
