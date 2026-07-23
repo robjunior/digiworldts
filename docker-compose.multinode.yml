@@ -26,10 +26,11 @@
 #   Open http://localhost:8080/
 #
 # CLUSTER=redis and DATABASE=postgres are both fully wired end-to-end (see
-# README §Multi-node and test/postgres-portability.mts). This compose file
-# ships DATABASE=sqlite by default for zero-external-dep local demo; flip to
-# `DATABASE=postgres` + `DATABASE_URL=postgres://digiworld:digiworld@postgres:5432/digiworld`
-# for a real production shape.
+# README §Multi-node and test/postgres-portability.mts). This compose ships
+# DATABASE=postgres by default — the stack already runs a real Postgres 16
+# next door, so there's no reason to fall back to SQLite here. To pin to
+# SQLite (e.g. a local demo without external services), swap the two
+# commented DATABASE lines under each game-node and drop the postgres service.
 # ============================================================================
 
 services:
@@ -73,8 +74,10 @@ services:
       PORT: 3000
       CLUSTER: redis
       REDIS_URL: redis://redis:6379
-      DATABASE: sqlite
-      DB_PATH: /data/digiworld.db
+      DATABASE: postgres
+      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
+      # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: change-me-32-char-min-in-production-please
       ADMIN_BOOTSTRAP: open
     volumes:
@@ -92,8 +95,10 @@ services:
       PORT: 3000
       CLUSTER: redis
       REDIS_URL: redis://redis:6379
-      DATABASE: sqlite
-      DB_PATH: /data/digiworld.db
+      DATABASE: postgres
+      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
+      # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: change-me-32-char-min-in-production-please
       ADMIN_BOOTSTRAP: open
 
