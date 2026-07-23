@@ -569,10 +569,11 @@
 
 .scene-admin-fullsize {
   position: relative;
-  height: calc(100vh - 220px);
-  min-height: 600px;
+  height: 100%;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--hairline);
   background: #000;
 }
 

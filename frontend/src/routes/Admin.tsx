@@ -15,6 +15,7 @@ import { UserTable } from '../components/admin/UserTable';
 import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/extensions-admin.css';
+import '../styles/extensions-combat3d.css';
 
 const ADMIN_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -33,6 +34,19 @@ type AdminTab = (typeof ADMIN_TABS)[number]['id'];
 export function Admin(): JSX.Element {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  if (activeTab === 'scene') {
+    return (
+      <AdminGuard>
+        <div className="app-shell combat3d-shell">
+          <AppNav />
+          <main className="app-main combat3d-main">
+            <SceneSettingsAdmin />
+          </main>
+        </div>
+      </AdminGuard>
+    );
+  }
 
   return (
     <AdminGuard>
