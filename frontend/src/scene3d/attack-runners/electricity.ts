@@ -11,9 +11,9 @@ const BOLT_LAYERS: ReadonlyArray<{
   readonly color: number;
   readonly opacity: number;
 }> = [
-  { radius0: 0.09, minRadius: 0.02, maxIterations: 7, color: 0xffffff, opacity: 1.0 },
-  { radius0: 0.14, minRadius: 0.03, maxIterations: 5, color: 0xfff880, opacity: 0.7 },
-  { radius0: 0.20, minRadius: 0.05, maxIterations: 4, color: 0xffe040, opacity: 0.45 },
+  { radius0: 0.05, minRadius: 0.012, maxIterations: 7, color: 0xffffff, opacity: 1.0 },
+  { radius0: 0.08, minRadius: 0.018, maxIterations: 5, color: 0xfff880, opacity: 0.7 },
+  { radius0: 0.11, minRadius: 0.028, maxIterations: 4, color: 0xffe040, opacity: 0.45 },
 ];
 
 type BoltLayer = {
