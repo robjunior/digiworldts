@@ -47,6 +47,12 @@ export function IntroTour(): JSX.Element | null {
 
   useEffect(() => {
     if (!state.active) return;
+    document.body.classList.add('intro-active');
+    return () => document.body.classList.remove('intro-active');
+  }, [state.active]);
+
+  useEffect(() => {
+    if (!state.active) return;
     const step = INTRO_TOUR_STEPS[state.step];
     if (step === undefined) return;
     const removeHighlight = highlight(step.targetHref);
@@ -87,16 +93,19 @@ export function IntroTour(): JSX.Element | null {
   const total = INTRO_TOUR_STEPS.length;
 
   return (
-    <div className="intro-tour" role="dialog" aria-labelledby="intro-tour-title" aria-modal="false">
-      <div className="intro-tour-card">
-        <div className="intro-tour-progress">Step {state.step + 1} of {total}</div>
-        <h2 id="intro-tour-title" className="intro-tour-title">{step.title}</h2>
-        <p className="intro-tour-body">{step.body}</p>
-        <div className="intro-tour-actions">
-          <button type="button" className="intro-tour-skip" onClick={skip}>Skip intro</button>
-          <button type="button" className="intro-tour-next" onClick={next}>{isFinal ? 'Finish' : 'Next →'}</button>
+    <>
+      <div className="intro-tour-backdrop" aria-hidden="true" />
+      <div className="intro-tour" role="dialog" aria-labelledby="intro-tour-title" aria-modal="true">
+        <div className="intro-tour-card">
+          <div className="intro-tour-progress">Step {state.step + 1} of {total}</div>
+          <h2 id="intro-tour-title" className="intro-tour-title">{step.title}</h2>
+          <p className="intro-tour-body">{step.body}</p>
+          <div className="intro-tour-actions">
+            <button type="button" className="intro-tour-skip" onClick={skip}>Skip intro</button>
+            <button type="button" className="intro-tour-next" onClick={next}>{isFinal ? 'Finish' : 'Next →'}</button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
