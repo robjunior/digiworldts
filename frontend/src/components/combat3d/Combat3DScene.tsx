@@ -168,7 +168,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           manager.applySettings(localArenaOverride);
         }
       }
-      void getSceneDefaults()
+      void getSceneDefaults(true)
         .then((allDefaults) => {
           const codeDefaults = allDefaults[arenaKey] ?? {};
           const patchToApply: Partial<SceneSettings> = {};

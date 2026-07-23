@@ -50,6 +50,7 @@ const CHAT_MAX_IN_WINDOW = 4;
 const DISCONNECT_GRACE_MS = 15_000;
 
 const CHAT_CHANNEL = 'chat:global';
+const SCENE_DEFAULTS_CHANNEL = 'scene:defaults:updated';
 const WSDELIVER_PREFIX = 'wsdeliver:';
 const WSDELIVER_PATTERN = `${WSDELIVER_PREFIX}*`;
 const K_PRESENCE = (userId: string): string => `presence:user:${userId}`;
@@ -351,6 +352,7 @@ let pairingTimer: NodeJS.Timeout | null = null;
 let presenceTimer: NodeJS.Timeout | null = null;
 let refreshTimer: NodeJS.Timeout | null = null;
 let chatUnsub: Unsubscribe | null = null;
+let sceneDefaultsUnsub: Unsubscribe | null = null;
 let deliverUnsub: Unsubscribe | null = null;
 
 async function runPairing(): Promise<void> {
@@ -404,6 +406,14 @@ async function startCloudLoops(): Promise<void> {
     broadcastLocal(parsed);
   });
 
+  if (sceneDefaultsUnsub) await sceneDefaultsUnsub();
+  sceneDefaultsUnsub = await cluster.subscribe(SCENE_DEFAULTS_CHANNEL, (msg) => {
+    let payload: { at?: unknown };
+    try { payload = JSON.parse(msg) as { at?: unknown }; } catch { return; }
+    const at = typeof payload.at === 'number' ? payload.at : Date.now();
+    broadcastLocal({ type: 'scene-defaults-updated', at });
+  });
+
   if (deliverUnsub) await deliverUnsub();
   deliverUnsub = await cluster.psubscribe(WSDELIVER_PATTERN, (msg, channel) => {
     const userId = channel.slice(WSDELIVER_PREFIX.length);
@@ -434,6 +444,7 @@ export async function stopLobbyLoops(): Promise<void> {
   if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
   if (chatUnsub) { await chatUnsub(); chatUnsub = null; }
+  if (sceneDefaultsUnsub) { await sceneDefaultsUnsub(); sceneDefaultsUnsub = null; }
   if (deliverUnsub) { await deliverUnsub(); deliverUnsub = null; }
   for (const entry of connections.values()) {
     await presenceMarkOffline(entry.userId);

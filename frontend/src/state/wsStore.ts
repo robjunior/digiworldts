@@ -2,6 +2,8 @@ import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/b
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import { create } from 'zustand';
 
+import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+
 type ChatMessage = {
   readonly from: string;
   readonly displayName: string;
@@ -128,6 +130,12 @@ export const useWsStore = create<WsState>((set) => ({
               : state,
           );
         }
+        return;
+      case 'scene-defaults-updated':
+        // Admin saved on some node → cluster fanned out to every ws → we null
+        // the module cache so the next getSceneDefaults() call refetches. TTL
+        // in scene-defaults.ts is the safety net if we miss this message.
+        invalidateSceneDefaultsCache();
         return;
       case 'error':
         return;

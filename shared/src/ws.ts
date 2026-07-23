@@ -116,6 +116,11 @@ export type WSServerMessage =
       /** Total spectators after this join. */
       count?: number;
     }
+  | {
+      type: 'scene-defaults-updated';
+      /** ms epoch when the admin's write completed on the server. */
+      at: number;
+    }
   | { type: 'error'; code: WSErrorCode; message: string };
 
 // ============================================================================

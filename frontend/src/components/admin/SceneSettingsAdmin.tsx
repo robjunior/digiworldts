@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '../../lib/api';
-import { getSceneDefaults, invalidateSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
+import { getSceneDefaults, replaceSceneDefaultsCache, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
@@ -141,7 +141,7 @@ export function SceneSettingsAdmin(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false;
-    void getSceneDefaults()
+    void getSceneDefaults(true)
       .then((remoteDefaults) => {
         if (!cancelled) setCodeDefaults(remoteDefaults);
       })
@@ -275,7 +275,7 @@ export function SceneSettingsAdmin(): JSX.Element {
       else delete nextCode[previewArena];
       const body = await apiFetch<{ ok: true; defaults: PerArenaSceneDefaults }>('/api/admin/scene-defaults', { method: 'POST', body: nextCode });
       setCodeDefaults(body.defaults);
-      invalidateSceneDefaults(body.defaults);
+      replaceSceneDefaultsCache(body.defaults);
       setOverride((prev) => {
         const next = { ...prev };
         delete next[previewArena];

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { getCluster } from '../cluster/index.js';
 import { getGameSettings, updateGameSettings } from './engine.js';
 
 const SCENE_DEFAULTS_PATH = resolve(config.paths.dataDir, 'scene-defaults.json');
@@ -105,6 +106,11 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
     }
     await writeSceneDefaults(parsed.data);
+    // Broadcast to every WS client via the cluster so their scene-defaults
+    // cache invalidates immediately — no need to wait for the 30s TTL.
+    const cluster = await getCluster();
+    const at = Date.now();
+    await cluster.publish('scene:defaults:updated', JSON.stringify({ at }));
     log.info('admin.scene.defaults.update', {
       adminId: admin.id,
       arenas: Object.keys(parsed.data),
