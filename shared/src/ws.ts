@@ -30,7 +30,8 @@ export type WSClientMessage =
   | { type: 'ping' }
   | { type: 'chat'; text: string }
   | { type: 'queue'; join: boolean }
-  | { type: 'act'; matchId: string; action: Action };
+  | { type: 'act'; matchId: string; action: Action }
+  | { type: 'spectate'; matchId: string; join: boolean };
 
 // ============================================================================
 // Server → Client
@@ -65,6 +66,8 @@ export type WSErrorCode =
   | 'match-ended'
   | 'internal-error'
   | (string & {});
+
+export type SpectateStatus = 'joined' | 'left' | 'full' | 'not-found' | 'already-in-match';
 
 export type WSServerMessage =
   | {
@@ -101,6 +104,15 @@ export type WSServerMessage =
       matchId: string;
       view: BattleView;
       outcome: BattleOutcome;
+    }
+  | {
+      type: 'spectate';
+      matchId: string;
+      status: SpectateStatus;
+      /** Present only when `status === 'joined'` (initial view). */
+      view?: BattleView;
+      /** Total spectators after this join. */
+      count?: number;
     }
   | { type: 'error'; code: WSErrorCode; message: string };
 

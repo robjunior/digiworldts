@@ -300,6 +300,7 @@ digiworld/
 | PUT | `/api/admin/catalog/:id` | admin | replace (id must match) |
 | DELETE | `/api/admin/catalog/:id` | admin | remove |
 | POST | `/api/admin/assets/:id/download` | admin | force re-download portrait+dot |
+| GET | `/api/battle/spectate/:matchId` | user | initial `BattleView` + `spectatorCount` for a live match. Any authenticated user can call it; enemy stats are redacted (matches side-A view). WS live updates via `spectate` message |
 | POST | `/api/admin/users/:id/reset-token` | admin | issue a one-time password-reset token (`reset:{token}` in the cluster, TTL 15 min). Returns `{ token, expiresAt, url }` — hand the URL to the user, they consume via `/reset?token=...` and pick their own password |
 | POST | `/api/admin/users/:id/reset-password` | admin | hard reset — admin types the new password directly |
 
@@ -318,6 +319,7 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 { "type": "queue", "join": true|false }
 { "type": "act",   "matchId": "mtc_...",
   "action": { "type": "fight"|"skill"|"guard"|"flee", ... } }
+{ "type": "spectate", "matchId": "mtc_...", "join": true|false }
 ```
 
 ### Server → client
@@ -332,6 +334,7 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 { "type": "battle",   "matchId": "mtc_...", "view": BattleView }
 { "type": "event",    "matchId": "mtc_...", "events": [BattleEvent, ...] }
 { "type": "end",      "matchId": "mtc_...", "view": BattleView, "outcome": "win_a"|... }
+{ "type": "spectate", "matchId": "mtc_...", "status": "joined"|"left"|"full"|"not-found"|"already-in-match", "view?": BattleView, "count?": N }
 { "type": "error",    "code": "not-your-turn"|..., "message": "..." }
 ```
 
@@ -421,6 +424,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 ## Recently addressed (post-MVP rewrite)
 
+- **Spectator mode.** New `GET /api/battle/spectate/:matchId` returns the current `BattleView` (side-A perspective — enemy stats redacted); WS `{type:'spectate', matchId, join:true}` subscribes the socket to live `event`/`battle`/`end` fanout for that match. Up to 20 spectators per match, tracked in a `battle:spectators:{matchId}` ZSET in the cluster. Cleaned up automatically when the match ends. Frontend viewer at `/spectate?matchId=...` (minimal text HP bars + event log; a rich 3D viewer is a follow-up). See [`backend/src/battle/spectate.ts`](backend/src/battle/spectate.ts) and [`frontend/src/routes/Spectate.tsx`](frontend/src/routes/Spectate.tsx).
 - **Password reset via admin-issued cluster tokens.** New admin route `POST /api/admin/users/:id/reset-token` issues a one-time reset token stored at `reset:{token}` in the Cluster (TTL 15 min). User consumes via `POST /api/auth/reset-consume { token, newPassword }` — argon2id hashes the new password, all sessions for that user are revoked, and the token is deleted (single-use). Complements the existing hard-reset (where admin picks the password directly). Frontend consume page at `/reset?token=...`. See [`backend/src/auth/reset.ts`](backend/src/auth/reset.ts).
 - **Shop items now feed into combat.** `POST /api/shop/apply { itemId, monId? }` consumes one inventory item into a `pending_buffs` row. `hp_pct` / `en_pct` are consumed at the START of the target mon's next battle (mutates `statBonus`); `xp_mult` is player-wide and consumed at the END of the next won match (multiplies XP awarded). Deprecated `POST /api/shop/use` still exists for backwards compat but no longer has combat semantics.
 - **Battle state now survives server restart AND crosses nodes.** Every mutation upserts the full `Battle` JSON blob into the cluster at `battle:snap:{matchId}`. On boot, `hydrateActiveMatches()` in [`src/battle/routes.ts`](backend/src/battle/routes.ts) reports the cluster count and migrates any orphaned SQLite rows from a pre-cluster deploy shape. On Redis, any node in the deployment can serve any player's actions — mutations serialize via `battle:lock:{matchId}` (SET NX EX + Lua CAS release). See [`test/cluster-crossnode.mts`](backend/test/cluster-crossnode.mts) for the empirical proof.
@@ -431,7 +435,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 - **Admin bootstrap recovery still needs shell access.** Any user can be reset by an admin via the token flow above (or the hard-reset variant). A totally-lost *admin* password still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
 - **Chat is global-only.** No rooms, no DMs.
-- **No spectator mode.** You can only see matches you're in.
+- **Spectator view is minimal (text-based).** The `/spectate?matchId=...` page renders HP bars + event log rather than the full 3D combat viewer. Wiring the 3D pipeline into read-only mode is a follow-up (Combat3DBody currently assumes player-side state — it needs a `readOnly` prop pass).
 - **The multi-node docker-compose ships with `DATABASE=postgres`.** Both game nodes share the bundled Postgres 16 by default. To run the zero-external-dep local demo instead, flip the two commented `DATABASE: sqlite` lines under each `game-node*` service in `docker-compose.multinode.yml`.
 
 ---

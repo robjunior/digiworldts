@@ -95,6 +95,24 @@ export const useWsStore = create<WsState>((set) => ({
             : state,
         );
         return;
+      case 'spectate':
+        // Spectator join: hydrate battle state so subsequent battle/event/end
+        // messages (which gate on activeMatchId matching) actually apply.
+        if (msg.status === 'joined' && msg.view) {
+          set({
+            activeMatchId: msg.matchId,
+            activeBattle: msg.view,
+            battleEvents: msg.view.log ?? [],
+            battleOutcome: msg.view.outcome ?? null,
+          });
+        } else if (msg.status === 'left') {
+          set((state) =>
+            state.activeMatchId === msg.matchId
+              ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null }
+              : state,
+          );
+        }
+        return;
       case 'error':
         return;
       case 'pong':

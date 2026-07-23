@@ -158,6 +158,12 @@ export function authResetConsume(body: { token: string; newPassword: string }): 
   });
 }
 
+export function battleSpectate(matchId: string): Promise<{ matchId: string; view: BattleView; spectatorCount: number }> {
+  return apiFetch<{ matchId: string; view: BattleView; spectatorCount: number }>(
+    `/api/battle/spectate/${encodeURIComponent(matchId)}`,
+  );
+}
+
 type WorldBattleResponse = {
   readonly battle: BattleView;
 };

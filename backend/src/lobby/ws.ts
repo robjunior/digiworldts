@@ -30,11 +30,13 @@ import {
   createBattleForPair,
   dispatchAction,
   getMatchView,
+  getSpectatorView,
   handleDisconnect,
   isInMatch,
   partyAverageLevel,
   activeMatchCount,
 } from '../battle/routes.js';
+import { joinSpectate, leaveSpectate } from '../battle/spectate.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
 
@@ -67,8 +69,9 @@ const ActionSchema: z.ZodType<Action> = z.discriminatedUnion('type', [
 ]) as unknown as z.ZodType<Action>;
 
 const ActSchema = z.object({ type: z.literal('act'), matchId: z.string(), action: ActionSchema });
+const SpectateSchema = z.object({ type: z.literal('spectate'), matchId: z.string().min(1).max(64), join: z.boolean() });
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -285,12 +288,37 @@ const handleAct: Handler = async (entry, msg) => {
   // players itself — no local send needed.
 };
 
+const handleSpectate: Handler = async (entry, msg) => {
+  if (msg.type !== 'spectate') return;
+  if (msg.join) {
+    const result = await joinSpectate(msg.matchId, entry.userId);
+    if (!result.ok) {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: result.error });
+      return;
+    }
+    if (result.status === 'already-in-match') {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'already-in-match' });
+      return;
+    }
+    const view = await getSpectatorView(msg.matchId);
+    if (!view) {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'not-found' });
+      return;
+    }
+    safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'joined', view: view.view, count: result.count });
+  } else {
+    await leaveSpectate(msg.matchId, entry.userId);
+    safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'left' });
+  }
+};
+
 const dispatcher: Record<IncomingMessage['type'], Handler> = {
   hello: handleHello,
   ping: handlePing,
   chat: handleChat,
   queue: handleQueue,
   act: handleAct,
+  spectate: handleSpectate,
 };
 
 // ============================================================================

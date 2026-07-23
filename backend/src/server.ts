@@ -53,6 +53,7 @@ import { digdexPlugin } from './dex/routes.js';
 import { adventurePlugin } from './adventure/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
+import { battlePlugin } from './battle/http.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
 import { normalizeRosterXpFloor } from './progression/normalize.js';
 import { getCluster, closeCluster } from './cluster/index.js';
@@ -170,6 +171,7 @@ async function main(): Promise<void> {
   await app.register(marketPlugin);
   await app.register(digdexPlugin);
   await app.register(adventurePlugin);
+  await app.register(battlePlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));

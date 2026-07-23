@@ -41,6 +41,7 @@ import type {
 } from './types.js';
 import { computeMmrDelta, MMR_START } from './mmr.js';
 import { getCluster } from '../cluster/index.js';
+import { clearSpectators, listSpectators } from './spectate.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -112,6 +113,12 @@ async function deleteBattleState(battle: Battle): Promise<void> {
 async function deliverToUser(userId: string, payload: unknown): Promise<void> {
   const cluster = await getCluster();
   await cluster.publish(WSDELIVER(userId), JSON.stringify(payload));
+}
+
+async function deliverToSpectators(matchId: string, payload: unknown): Promise<void> {
+  const spectators = await listSpectators(matchId);
+  if (spectators.length === 0) return;
+  await Promise.all(spectators.map((uid) => deliverToUser(uid, payload)));
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +198,7 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   await deliverToUser(userB, { type: 'match', matchId: battle.id, view: viewB });
   await deliverToUser(userA, { type: 'queue', status: 'matched', size: 0 });
   await deliverToUser(userB, { type: 'queue', status: 'matched', size: 0 });
-
+  await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
   log.info('battle.start', { matchId: battle.id, a: userA, b: userB, buffsA: buffsA.length, buffsB: buffsB.length, mmrA: uA?.mmr, mmrB: uB?.mmr });
   return { ok: true, matchId: battle.id, viewA, viewB, playerA: userA, playerB: userB };
 }
@@ -237,9 +244,13 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     await deliverToUser(battle.playerB, { type: 'event', matchId: battle.id, events: result.events });
     await deliverToUser(battle.playerA, { type: 'battle', matchId: battle.id, view: viewA });
     await deliverToUser(battle.playerB, { type: 'battle', matchId: battle.id, view: viewB });
+    await deliverToSpectators(battle.id, { type: 'event', matchId: battle.id, events: result.events });
+    await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
     if (ended) {
       await deliverToUser(battle.playerA, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
       await deliverToUser(battle.playerB, { type: 'end', matchId: battle.id, view: viewB, outcome: viewB.outcome });
+      await deliverToSpectators(battle.id, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
+      await clearSpectators(battle.id);
     }
     return { ok: true, matchId: battle.id, viewA, viewB, newEvents: result.events, ended };
   } finally {
@@ -269,6 +280,11 @@ export async function handleDisconnect(userId: string): Promise<{ matchId: strin
     if (pvpMmr) {
       attachPvpMmrToView(opponentView, opponentSide === 'a' ? pvpMmr.a : pvpMmr.b);
     }
+    // Spectators saw everything from A's perspective; deliver end from that view.
+    const spectatorView = opponentSide === 'a' ? opponentView : serializeForSide(battle, 'a');
+    await deliverToSpectators(matchId, { type: 'battle', matchId, view: spectatorView });
+    await deliverToSpectators(matchId, { type: 'end', matchId, view: spectatorView, outcome: spectatorView.outcome });
+    await clearSpectators(matchId);
     return { matchId, opponentId, opponentView };
   } finally {
     await cluster.unlock(K_LOCK(matchId), lockToken);
@@ -284,6 +300,15 @@ export async function getMatchView(userId: string): Promise<{ matchId: string; v
   const side = sideForPlayerId(battle, userId);
   if (!side) return null;
   return { matchId, view: serializeForSide(battle, side) };
+}
+
+/** Read-only spectator view. Returns null when the match no longer exists.
+ *  The returned view is always from side 'a' — enemy stats redacted (matches
+ *  what a friendly-side player sees). */
+export async function getSpectatorView(matchId: string): Promise<{ matchId: string; view: BattleView } | null> {
+  const battle = await loadSnapshot(matchId);
+  if (!battle) return null;
+  return { matchId, view: serializeForSide(battle, 'a') };
 }
 
 export async function isInMatch(userId: string): Promise<boolean> {

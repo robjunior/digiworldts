@@ -49,6 +49,7 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Battle feed with auto-scroll cap | commits `a9b01f2`, `6f36d9b` |
 | Auto-battle toggle | commit `6f36d9b` |
 | Per-enemy HP bars, DOM-attached GIF, sprite-rig polish | commits `0f8ed86`, `a226e41` |
+| Spectator mode (cross-node fanout, max 20/match, ZSET-backed) | [`battle/spectate.ts`](backend/src/battle/spectate.ts), [`battle/http.ts`](backend/src/battle/http.ts) |
 
 ### Content & progression
 
@@ -122,10 +123,9 @@ See Shipped ▸ Meta / social. Admin-issued token flow at [`auth/reset.ts`](back
 - WS: extend the client-side `chat` message with `room?: string`; unlabeled = global.
 - Rate-limiting: reuse the existing token bucket + per-room sliding window.
 
-### N4 — Spectator mode
-- Read-only viewer for in-progress matches. `GET /api/battle/spectate/:matchId` returns the current `BattleView` with any player-side secret stripped (already trivial — see [`serializeForSide`](backend/src/battle/engine.ts)).
-- WS: new message type `spectate` with `{matchId}`; server subscribes the socket to `wsdeliver:spectate:{matchId}` fanout.
-- Bounded fanout: max 20 spectators per match. Above that, poll every 2s.
+### N4 — ~~Spectator mode~~ ✅ shipped
+
+See Shipped ▸ Combat. Backend: [`backend/src/battle/spectate.ts`](backend/src/battle/spectate.ts) (ZSET registry, max 20/match), [`backend/src/battle/http.ts`](backend/src/battle/http.ts) (GET `/api/battle/spectate/:matchId`), fanout hooks in [`battle/routes.ts`](backend/src/battle/routes.ts) call `deliverToSpectators` alongside player deliveries; WS `spectate` join/leave handler in [`lobby/ws.ts`](backend/src/lobby/ws.ts). Frontend viewer at [`frontend/src/routes/Spectate.tsx`](frontend/src/routes/Spectate.tsx). Minimal text-based render for MVP — 3D viewer is a follow-up.
 
 ### N5 — Merge `feat/combat3d` → `main`
 - Rebase check, one review pass, merge. Followed by a tag.

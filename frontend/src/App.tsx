@@ -20,6 +20,7 @@ import { Nursery } from './routes/Nursery';
 import { Reset } from './routes/Reset';
 import { Roster } from './routes/Roster';
 import { Shop } from './routes/Shop';
+import { Spectate } from './routes/Spectate';
 import { Training } from './routes/Training';
 import { useWsStore } from './state/wsStore';
 import './styles/extensions-intro.css';
@@ -82,6 +83,7 @@ export function App(): JSX.Element {
             <Route path="/nursery" element={<Nursery />} />
             <Route path="/world" element={<World />} />
             <Route path="/digdex" element={<Digdex />} />
+            <Route path="/spectate" element={<Spectate />} />
             <Route path="/admin" element={<Admin />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
