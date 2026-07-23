@@ -3,8 +3,12 @@
  *
  * Startup order matters and is enforced here:
  *   1. Config + DB opened (both fail-fast on bad env or unwritable disk).
- *   2. Live-match state hydrated from `active_matches` and matchmaking queue
- *      hydrated from `matchmaking_queue` — restart no longer forfeits.
+ *   2. Cluster (memory or Redis) connected. Live-match state and matchmaking
+ *      queue live IN THE CLUSTER, not SQL — so a restart on Redis loses
+ *      nothing, and a memory-cluster restart starts empty by design.
+ *      `hydrateActiveMatches` also migrates any orphaned SQLite
+ *      `active_matches` rows from a pre-cluster deploy shape, then wipes the
+ *      table so it can retire cleanly.
  *   3. XML catalog loaded, then asset verifier walks it (re-downloads any
  *      portrait/dot that is missing from public/assets/digimon/{id}/).
  *   4. Fastify + cookie + websocket + static plugins registered.

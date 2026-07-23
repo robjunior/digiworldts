@@ -323,11 +323,12 @@ CREATE TABLE IF NOT EXISTS player_inventory (
 );
 
 -- ----------------------------------------------------------------------------
--- active_matches: live 3v3 battle snapshots. One row per in-flight match.
--- `snapshot` is the full Battle JSON blob (see src/battle/types.ts). Written
--- after every state mutation (create + each action); DELETEd when the battle
--- ends. Boot code in src/battle/routes.ts hydrates the in-memory map from
--- this table so a server restart no longer forfeits live matches.
+-- active_matches: LEGACY. Retained for admin import/export snapshots and as a
+-- one-shot migration source for deployments that upgraded from the pre-cluster
+-- shape. Live battle state now lives in the Cluster (Redis or in-process) at
+-- `battle:snap:{matchId}` — see src/battle/routes.ts. `hydrateActiveMatches`
+-- reads any orphaned rows once at boot, moves them into the cluster, then
+-- DELETEs the table.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS active_matches (
   id             TEXT PRIMARY KEY,
@@ -363,9 +364,10 @@ CREATE INDEX IF NOT EXISTS idx_pending_buffs_active
   ON pending_buffs(user_id, mon_id, effect_kind) WHERE consumed_at IS NULL;
 
 -- ----------------------------------------------------------------------------
--- matchmaking_queue: persisted mirror of the in-memory FIFO queue. Survives
--- short server restarts. Single-node only — true horizontal sharding still
--- requires a Redis-backed queue + broker (see src/matchmaking/queue.ts).
+-- matchmaking_queue: LEGACY. Retained for admin import/export snapshots. The
+-- live matchmaking queue lives in the Cluster at `mm:queue` (ZSET) + per-user
+-- `mm:meta:{userId}` (KV) — see src/matchmaking/queue.ts. On Redis the state
+-- is shared across every node; on memory it's process-local by design.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS matchmaking_queue (
   user_id         TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

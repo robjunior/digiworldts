@@ -12,20 +12,24 @@
 #                                                    scraped assets)
 #
 # Both game nodes share Redis for cluster state (sessions, presence, chat,
-# matchmaking queue, live battle state) and Postgres for durable data
-# (users, roster, wallet, matches, farm, catalog metadata).
+# matchmaking queue, live battle state, cross-node WS delivery) and Postgres
+# for durable data (users, roster, wallet, matches, farm, catalog metadata).
 #
 # `ip_hash` sticky routing keeps a client's WebSocket pinned to a single
 # node for the connection's lifetime; sessions in Redis mean HTTP fallback
-# still works if the client hits the other node.
+# still works if the client hits the other node. Battle events and match
+# starts route to the correct node via `wsdeliver:{userId}` pub/sub so
+# even a wrong-node HTTP request finds its way home.
 #
 # Usage:
 #   docker compose -f docker-compose.multinode.yml up --build
 #   Open http://localhost:8080/
 #
-# The DB refactor to fully drive Postgres is on the roadmap (see README).
-# Today: CLUSTER=redis works out of the box; DATABASE=postgres requires the
-# route-file async refactor to be complete.
+# CLUSTER=redis and DATABASE=postgres are both fully wired end-to-end (see
+# README §Multi-node and test/postgres-portability.mts). This compose file
+# ships DATABASE=sqlite by default for zero-external-dep local demo; flip to
+# `DATABASE=postgres` + `DATABASE_URL=postgres://digiworld:digiworld@postgres:5432/digiworld`
+# for a real production shape.
 # ============================================================================
 
 services:

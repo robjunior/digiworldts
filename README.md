@@ -419,16 +419,17 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 ## Recently addressed (post-MVP rewrite)
 
 - **Shop items now feed into combat.** `POST /api/shop/apply { itemId, monId? }` consumes one inventory item into a `pending_buffs` row. `hp_pct` / `en_pct` are consumed at the START of the target mon's next battle (mutates `statBonus`); `xp_mult` is player-wide and consumed at the END of the next won match (multiplies XP awarded). Deprecated `POST /api/shop/use` still exists for backwards compat but no longer has combat semantics.
-- **Battle state now survives server restart.** Every mutation (create + each action + end) upserts the full `Battle` JSON blob into the `active_matches` table. On boot, `hydrateActiveMatches()` in `src/battle/routes.ts` restores the in-memory `activeBattles` + `userToMatch` maps before the WS listener starts, so a reconnecting player immediately picks up their live match.
-- **Matchmaking queue now persists.** `matchmaking_queue` mirrors the in-memory FIFO; `hydrateMatchmaking()` reloads it at boot. Stale entries (>5 min) are dropped during hydration.
+- **Battle state now survives server restart AND crosses nodes.** Every mutation upserts the full `Battle` JSON blob into the cluster at `battle:snap:{matchId}`. On boot, `hydrateActiveMatches()` in [`src/battle/routes.ts`](backend/src/battle/routes.ts) reports the cluster count and migrates any orphaned SQLite rows from a pre-cluster deploy shape. On Redis, any node in the deployment can serve any player's actions — mutations serialize via `battle:lock:{matchId}` (SET NX EX + Lua CAS release). See [`test/cluster-crossnode.mts`](backend/test/cluster-crossnode.mts) for the empirical proof.
+- **Matchmaking queue now crosses nodes.** `mm:queue` (ZSET, member=userId, score=queuedAt) + `mm:meta:{userId}` (KV, TTL 5 min) live in the cluster. `tryPair()` holds the `mm:pair-lock` for the walk so only one node ZREMs a given pair. `hydrateMatchmaking()` reports queue size at boot — no SQL rehydration needed.
+- **WS delivery is cross-node.** Any node can `publish` on `wsdeliver:{userId}`; a psubscribe on `wsdeliver:*` in every node forwards to whichever node hosts that user's live socket. Chat rides `chat:global`; presence is a scan over `presence:user:*` (30s TTL, refreshed every 15s).
 
 ## Known limitations / next passes
 
-- No password-reset flow.
-- Chat is global-only (no rooms / DMs).
-- Matchmaking persistence is **single-node**. Real horizontal sharding across multiple game servers still requires a Redis-backed queue + broker — the `Matchmaker` interface in `src/matchmaking/queue.ts` was designed so that swap is drop-in.
-- Battle persistence is single-node too — same shape.
-- No spectator mode.
+- **No password-reset flow.** Losing the admin password today means resetting `data/digiworld.db` (or a manual SQL update). Password reset is out of scope for MVP.
+- **Chat is global-only.** No rooms, no DMs.
+- **No spectator mode.** You can only see matches you're in.
+- **Legacy SQLite tables kept around.** `active_matches` and `matchmaking_queue` still exist in `schema.sql` / `schema-pg.sql` — no longer authoritative, retained only as a one-shot migration source (battle) and for admin import/export snapshots. Safe to drop in a future migration once no live deployment predates the cluster refactor.
+- **The multi-node docker-compose ships with `DATABASE=sqlite`.** Both game nodes bind-mount `/data` to a shared volume for a zero-external-dep demo. For a real production deploy, set `DATABASE=postgres` + `DATABASE_URL` — the Postgres path is fully wired and regression-tested (see §Postgres above).
 
 ---
 

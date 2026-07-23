@@ -30,6 +30,7 @@ import {
   type BlueprintError,
 } from './blueprints.js';
 import { applyManifest, buildManifest, type ImpexScope } from './impex.js';
+import { activeMatchCount } from '../battle/routes.js';
 import {
   createSkill,
   deleteSkill,
@@ -528,13 +529,15 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     await requireAdmin(req, reply);
     const catalog = loadCatalog();
     const userRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM users');
-    const matchRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM active_matches');
+    // Battle state lives in the Cluster (Redis or in-process), not SQL — see
+    // src/battle/routes.ts. `active_matches` in schema.sql is a legacy migration hook.
+    const activeMatches = await activeMatchCount();
     const bpRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM building_blueprints');
     const buildingRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM farm_buildings');
     const rosterRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM player_roster');
     return reply.send({
       users: userRow?.n ?? 0,
-      activeMatches: matchRow?.n ?? 0,
+      activeMatches,
       catalogTemplates: catalog.digimons.length,
       buildingBlueprints: bpRow?.n ?? 0,
       totalPlayerBuildings: buildingRow?.n ?? 0,

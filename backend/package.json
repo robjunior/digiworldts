@@ -12,6 +12,7 @@
     "scrape": "tsx src/scraper/cli.ts",
     "db:init": "tsx src/db/init.ts",
     "test:pg-portability": "tsx test/postgres-portability.mts",
+    "test:cluster": "tsx test/cluster-crossnode.mts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2"
   },
   "dependencies": {
