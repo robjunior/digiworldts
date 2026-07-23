@@ -274,6 +274,7 @@ export type OnboardingConfigRow = {
 export type GameSettingsRow = {
   id: 1;
   xp_rate: number;
+  damage_rate: number;
   updated_at: number;
 };
 

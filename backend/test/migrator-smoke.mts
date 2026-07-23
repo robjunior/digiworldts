@@ -47,8 +47,24 @@ async function assertMigrationsApplied(a: SqliteAdapter): Promise<void> {
     console.error('FAIL: skills_catalog rejects element=plant after migration 003:', err instanceof Error ? err.message : err);
     process.exit(1);
   }
+  // migration 004 added game_settings.damage_rate with DEFAULT 1.0 CHECK (> 0).
+  // Probe: PRAGMA reveals the column definition + default. The migrator smoke
+  // test doesn't call seedDefaultGameSettings (that's boot-side), so we can't
+  // SELECT a row — we can still confirm the column landed.
+  const cols = await a.query<{ name: string; dflt_value: string | null }>(
+    "PRAGMA table_info(game_settings)",
+  );
+  const dmgCol = cols.find((c) => c.name === 'damage_rate');
+  if (!dmgCol) {
+    console.error(`FAIL: game_settings.damage_rate column missing after migration 004; cols=`, cols.map((c) => c.name));
+    process.exit(1);
+  }
+  if (dmgCol.dflt_value !== '1.0' && dmgCol.dflt_value !== '1') {
+    console.error(`FAIL: game_settings.damage_rate default should be 1.0, got: ${dmgCol.dflt_value}`);
+    process.exit(1);
+  }
   const versions = await a.query<{ version: string }>(`SELECT version FROM schema_versions ORDER BY version`);
-  const expected = ['001_drop_legacy_tables', '002_chat_rooms', '003_skills_element_check'];
+  const expected = ['001_drop_legacy_tables', '002_chat_rooms', '003_skills_element_check', '004_add_damage_rate_setting'];
   const got = versions.map((v) => v.version);
   for (const v of expected) {
     if (!got.includes(v)) {

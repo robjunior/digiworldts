@@ -79,17 +79,30 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({ settings: await getGameSettings() });
   });
 
-  app.put<{ Body: { xpRate?: number } }>('/api/admin/game-settings', async (req, reply) => {
+  app.put<{ Body: { xpRate?: number; damageRate?: number } }>('/api/admin/game-settings', async (req, reply) => {
     const admin = await requireAdmin(req, reply);
     const body = req.body ?? {};
-    if (typeof body.xpRate !== 'number') {
+    if (body.xpRate !== undefined && typeof body.xpRate !== 'number') {
       return reply.code(400).send({ error: 'invalid-input', message: 'xpRate must be a number' });
     }
-    const result = await updateGameSettings({ xpRate: body.xpRate });
+    if (body.damageRate !== undefined && typeof body.damageRate !== 'number') {
+      return reply.code(400).send({ error: 'invalid-input', message: 'damageRate must be a number' });
+    }
+    if (body.xpRate === undefined && body.damageRate === undefined) {
+      return reply.code(400).send({ error: 'invalid-input', message: 'must provide xpRate and/or damageRate' });
+    }
+    const patch: { xpRate?: number; damageRate?: number } = {};
+    if (body.xpRate !== undefined) patch.xpRate = body.xpRate;
+    if (body.damageRate !== undefined) patch.damageRate = body.damageRate;
+    const result = await updateGameSettings(patch);
     if (!result.ok) {
       return reply.code(400).send({ error: result.error, message: result.message });
     }
-    log.info('admin.game.settings.update', { adminId: admin.id, xpRate: result.value.xpRate });
+    log.info('admin.game.settings.update', {
+      adminId: admin.id,
+      xpRate: result.value.xpRate,
+      damageRate: result.value.damageRate,
+    });
     return reply.send({ settings: result.value });
   });
 

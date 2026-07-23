@@ -127,6 +127,11 @@ export type Battle = {
   endedAt: number | null;
   lastAction: { side: BattleSide; element: Element; attribute: Attribute; wasHit: boolean } | null;
   displayNames?: { a?: string; b?: string };
+  /** Global damage multiplier fetched from `game_settings.damage_rate` at
+   *  match init and frozen for the match's lifetime. Optional for backward
+   *  compat with in-flight `battle:snap:*` blobs from before the field was
+   *  added — `applyAction` falls back to `1.0` when absent. */
+  damageRate?: number;
 };
 
 export type EnemyUnitView = {

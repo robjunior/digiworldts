@@ -48,6 +48,18 @@ import {
 } from '../src/battle/spectate.ts';
 import { getCluster, closeCluster } from '../src/cluster/index.ts';
 import { newId } from '../src/util/ids.ts';
+import {
+  getGameSettings,
+  updateGameSettings,
+  seedDefaultGameSettings,
+  DEFAULT_XP_RATE,
+  DEFAULT_DAMAGE_RATE,
+  MIN_DAMAGE_RATE,
+  MAX_DAMAGE_RATE,
+} from '../src/settings/engine.ts';
+import { initBattle } from '../src/battle/engine.ts';
+import type { Loadout, LoadoutMember } from '../src/battle/engine.ts';
+import type { TemplateDigimon } from '../src/digimon/types.ts';
 
 const DB_PATH = process.env.DB_PATH!;
 for (const f of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
@@ -69,6 +81,34 @@ async function insertUser(id: string, username: string, password: string, isAdmi
     'INSERT INTO users (id, username, display_name, password_hash, is_admin, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
     [id, username, username, hash, isAdmin ? 1 : 0, now, now],
   );
+}
+
+function mkTemplate(id: string): TemplateDigimon {
+  return {
+    id,
+    name: id,
+    stage: 'Rookie',
+    attribute: 'Vaccine',
+    element: 'fire',
+    baseStats: { hp: 500, en: 30, atk: 100, def: 80, int: 90, spd: 100 },
+    skillPool: [
+      { id: 's0', name: 'Basic', element: 'fire', energyCost: 0, power: 100 },
+    ],
+    assets: { portrait: '', dot: '' },
+  };
+}
+
+function mkLoadout(playerId: string, tag: string): Loadout {
+  const template = mkTemplate(`t-${tag}`);
+  const member: LoadoutMember = {
+    monId: `m-${tag}`,
+    templateId: template.id,
+    template,
+    level: 10,
+    nickname: template.name,
+    statBonus: { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 },
+  };
+  return { playerId, members: [member] };
 }
 
 async function main(): Promise<void> {
@@ -217,6 +257,45 @@ async function main(): Promise<void> {
     await destroyAllSessionsForUser(aliceId);
     check('destroyAllSessionsForUser(alice) kills alice session', (await resolveSession(aliceSession1.token)) === null);
     check("destroyAllSessionsForUser(alice) does NOT touch bob's session", (await resolveSession(bobSession.token))?.user.id === bobId);
+  }
+
+  console.log('\n=== game_settings: damage_rate + xp_rate round-trip ===');
+  {
+    await seedDefaultGameSettings();
+    const initial = await getGameSettings();
+    check('defaults seed at xpRate=1.0', initial.xpRate === DEFAULT_XP_RATE);
+    check('defaults seed at damageRate=1.0', initial.damageRate === DEFAULT_DAMAGE_RATE);
+
+    const okBoth = await updateGameSettings({ xpRate: 1.5, damageRate: 1.4 });
+    check('updateGameSettings accepts both rates', okBoth.ok === true);
+    if (okBoth.ok) {
+      check('xpRate applied', okBoth.value.xpRate === 1.5);
+      check('damageRate applied', okBoth.value.damageRate === 1.4);
+    }
+
+    const okXpOnly = await updateGameSettings({ xpRate: 2.0 });
+    check('partial update: xpRate only', okXpOnly.ok === true && okXpOnly.value.xpRate === 2.0);
+    check('partial update: damageRate preserved', okXpOnly.ok === true && okXpOnly.value.damageRate === 1.4);
+
+    const tooLow = await updateGameSettings({ damageRate: MIN_DAMAGE_RATE - 0.01 });
+    check('damageRate below MIN rejected', tooLow.ok === false && tooLow.error === 'invalid-input');
+    const tooHigh = await updateGameSettings({ damageRate: MAX_DAMAGE_RATE + 0.01 });
+    check('damageRate above MAX rejected', tooHigh.ok === false && tooHigh.error === 'invalid-input');
+
+    await updateGameSettings({ damageRate: 1.0, xpRate: 1.0 });
+  }
+
+  console.log('\n=== battle.damageRate flows into applyAction ===');
+  {
+    const loadoutA = mkLoadout(aliceId, 'a');
+    const loadoutB = mkLoadout(bobId, 'b');
+
+    const b1 = initBattle({ loadoutA, loadoutB, damageRate: 1.0 });
+    const b2 = initBattle({ loadoutA, loadoutB, damageRate: 2.0 });
+    const b3 = initBattle({ loadoutA, loadoutB });
+    check('initBattle stores damageRate=1.0 when passed', b1.damageRate === 1.0);
+    check('initBattle stores damageRate=2.0 when passed', b2.damageRate === 2.0);
+    check('initBattle defaults damageRate to 1.0 when omitted', b3.damageRate === 1.0);
   }
 
   await closeCluster();

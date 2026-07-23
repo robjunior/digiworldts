@@ -11,7 +11,7 @@ import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import type { BaseStats, Stage } from '../digimon/types.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';
-import { getXpRate } from '../settings/engine.js';
+import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -192,7 +192,7 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
     });
   }
-  const battle = initPveBattle({ playerLoadout, wildParty });
+  const battle = initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
   activeByUser.set(userId, battle);
   advanceWildAI(battle);
   if (battle.status === 'ended') {

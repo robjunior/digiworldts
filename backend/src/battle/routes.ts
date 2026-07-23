@@ -16,7 +16,7 @@ import { one, q, run, tx, type UserRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
-import { getXpRate } from '../settings/engine.js';
+import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { loadPartyLoadout, partyAverageLevel } from '../roster/routes.js';
 import { loadCatalog } from '../digimon/xml.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
@@ -184,11 +184,13 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   const buffsA = await applyPreBattleBuffs(loadA);
   const buffsB = await applyPreBattleBuffs(loadB);
 
+  const damageRate = await getDamageRate();
   const battle = initBattle({
     matchId: newId('mtc'),
     loadoutA: loadA,
     loadoutB: loadB,
     displayNames: { a: uA?.display_name ?? '', b: uB?.display_name ?? '' },
+    damageRate,
   });
   await saveSnapshot(battle);
 

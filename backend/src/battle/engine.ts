@@ -172,6 +172,7 @@ export function initBattle(input: {
   mode?: BattleMode;
   wildFlags?: ReadonlyArray<WildInfo | undefined>;
   displayNames?: { a?: string; b?: string };
+  damageRate?: number;
 }): Battle {
   const id = input.matchId ?? newId('mtc');
   const mode = input.mode ?? 'pvp';
@@ -212,6 +213,7 @@ export function initBattle(input: {
     startedAt: now,
     endedAt: null,
     lastAction: null,
+    damageRate: input.damageRate ?? 1.0,
   };
   if (input.displayNames) {
     const dn: { a?: string; b?: string } = {};
@@ -231,6 +233,7 @@ export function initPveBattle(input: {
   matchId?: string;
   playerLoadout: Loadout;
   wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
+  damageRate?: number;
 }): Battle {
   if (input.wildParty.length < 1 || input.wildParty.length > MAX_WILD_PARTY_SIZE) {
     throw new Error(`initPveBattle: wildParty must be 1-${MAX_WILD_PARTY_SIZE} mons, got ${input.wildParty.length}`);
@@ -267,6 +270,7 @@ export function initPveBattle(input: {
     loadoutB: wildLoadout,
     mode: 'pve',
     wildFlags,
+    ...(input.damageRate !== undefined ? { damageRate: input.damageRate } : {}),
   });
   for (let i = input.wildParty.length; i < MAX_WILD_PARTY_SIZE; i++) {
     const phantom = battle.units.find((u) => u.id === (`b:${i}` as UnitId));
@@ -587,9 +591,10 @@ export function applyAction(
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
+    const rate = typeof battle.damageRate === 'number' && battle.damageRate > 0 ? battle.damageRate : 1.0;
     const dmg = resMult === 0 ? 0 : Math.max(
       1,
-      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance),
+      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
     );
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
     target.guarding = false;
