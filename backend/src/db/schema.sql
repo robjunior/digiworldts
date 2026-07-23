@@ -323,27 +323,6 @@ CREATE TABLE IF NOT EXISTS player_inventory (
 );
 
 -- ----------------------------------------------------------------------------
--- active_matches: LEGACY. Retained for admin import/export snapshots and as a
--- one-shot migration source for deployments that upgraded from the pre-cluster
--- shape. Live battle state now lives in the Cluster (Redis or in-process) at
--- `battle:snap:{matchId}` — see src/battle/routes.ts. `hydrateActiveMatches`
--- reads any orphaned rows once at boot, moves them into the cluster, then
--- DELETEs the table.
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS active_matches (
-  id             TEXT PRIMARY KEY,
-  player_a       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  player_b       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  snapshot       TEXT NOT NULL,
-  round          INTEGER NOT NULL DEFAULT 1,
-  active_side    TEXT NOT NULL CHECK (active_side IN ('a','b')),
-  started_at     INTEGER NOT NULL,
-  updated_at     INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pa ON active_matches(player_a);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pb ON active_matches(player_b);
-
--- ----------------------------------------------------------------------------
 -- pending_buffs: unconsumed shop item effects waiting to be applied at the
 -- start of a battle (hp_pct, en_pct) or on match completion (xp_mult).
 -- `mon_id` NULL = player-wide (e.g. xp_mult). `magnitude` interpretation
@@ -362,20 +341,6 @@ CREATE TABLE IF NOT EXISTS pending_buffs (
 );
 CREATE INDEX IF NOT EXISTS idx_pending_buffs_active
   ON pending_buffs(user_id, mon_id, effect_kind) WHERE consumed_at IS NULL;
-
--- ----------------------------------------------------------------------------
--- matchmaking_queue: LEGACY. Retained for admin import/export snapshots. The
--- live matchmaking queue lives in the Cluster at `mm:queue` (ZSET) + per-user
--- `mm:meta:{userId}` (KV) — see src/matchmaking/queue.ts. On Redis the state
--- is shared across every node; on memory it's process-local by design.
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS matchmaking_queue (
-  user_id         TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  display_name    TEXT NOT NULL,
-  average_level   INTEGER NOT NULL CHECK (average_level >= 1),
-  queued_at       INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
 
 -- ----------------------------------------------------------------------------
 -- onboarding_config: singleton (id=1) admin-editable intro dialog + background.

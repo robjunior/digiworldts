@@ -12,7 +12,7 @@
  * All persistence now routes through the async DbAdapter (SQLite or Postgres)
  * via the q/one/run/tx helpers from src/db/index.ts.
  */
-import { one, q, run, tx, type ActiveMatchRow, type UserRow } from '../db/index.js';
+import { one, q, run, tx, type UserRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
@@ -302,24 +302,6 @@ export async function hydrateActiveMatches(): Promise<number> {
   const cluster = await getCluster();
   const keys = await cluster.keys('battle:snap:*');
   if (keys.length > 0) log.info('battle.hydrate.detected', { count: keys.length });
-  // Legacy: attempt to hydrate any orphaned SQLite active_matches rows so an
-  // upgrade from the pre-cluster shape doesn't lose live matches.
-  try {
-    const legacy = await q<Pick<ActiveMatchRow, 'snapshot'>>(`SELECT snapshot FROM active_matches`);
-    for (const row of legacy) {
-      try {
-        const battle = JSON.parse(row.snapshot) as Battle;
-        if (battle.status !== 'active') continue;
-        await cluster.set(K_SNAP(battle.id), row.snapshot, SNAPSHOT_TTL_SEC);
-        await cluster.set(K_USER(battle.playerA), battle.id, SNAPSHOT_TTL_SEC);
-        await cluster.set(K_USER(battle.playerB), battle.id, SNAPSHOT_TTL_SEC);
-      } catch {}
-    }
-    if (legacy.length > 0) {
-      await run(`DELETE FROM active_matches`);
-      log.info('battle.hydrate.migrated-legacy', { count: legacy.length });
-    }
-  } catch {}
   return keys.length;
 }
 

@@ -428,8 +428,7 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 - **No password-reset flow.** Losing the admin password today means resetting `data/digiworld.db` (or a manual SQL update). Password reset is out of scope for MVP.
 - **Chat is global-only.** No rooms, no DMs.
 - **No spectator mode.** You can only see matches you're in.
-- **Legacy SQLite tables kept around.** `active_matches` and `matchmaking_queue` still exist in `schema.sql` / `schema-pg.sql` — no longer authoritative, retained only as a one-shot migration source (battle) and for admin import/export snapshots. Safe to drop in a future migration once no live deployment predates the cluster refactor.
-- **The multi-node docker-compose ships with `DATABASE=sqlite`.** Both game nodes bind-mount `/data` to a shared volume for a zero-external-dep demo. For a real production deploy, set `DATABASE=postgres` + `DATABASE_URL` — the Postgres path is fully wired and regression-tested (see §Postgres above).
+- **The multi-node docker-compose ships with `DATABASE=postgres`.** Both game nodes share the bundled Postgres 16 by default. To run the zero-external-dep local demo instead, flip the two commented `DATABASE: sqlite` lines under each `game-node*` service in `docker-compose.multinode.yml`.
 
 ---
 

@@ -6,9 +6,8 @@
  *   2. Cluster (memory or Redis) connected. Live-match state and matchmaking
  *      queue live IN THE CLUSTER, not SQL — so a restart on Redis loses
  *      nothing, and a memory-cluster restart starts empty by design.
- *      `hydrateActiveMatches` also migrates any orphaned SQLite
- *      `active_matches` rows from a pre-cluster deploy shape, then wipes the
- *      table so it can retire cleanly.
+ *      `hydrateActiveMatches` and `hydrateMatchmaking` are status pings that
+ *      report the cluster size at boot.
  *   3. XML catalog loaded, then asset verifier walks it (re-downloads any
  *      portrait/dot that is missing from public/assets/digimon/{id}/).
  *   4. Fastify + cookie + websocket + static plugins registered.

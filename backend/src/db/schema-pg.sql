@@ -320,22 +320,6 @@ CREATE TABLE IF NOT EXISTS player_inventory (
 );
 
 -- ----------------------------------------------------------------------------
--- active_matches (kept for parity; Redis is authoritative when CLUSTER=redis)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS active_matches (
-  id           TEXT PRIMARY KEY,
-  player_a     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  player_b     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  snapshot     TEXT NOT NULL,
-  round        INTEGER NOT NULL DEFAULT 1,
-  active_side  TEXT NOT NULL CHECK (active_side IN ('a','b')),
-  started_at   BIGINT NOT NULL,
-  updated_at   BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pa ON active_matches(player_a);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pb ON active_matches(player_b);
-
--- ----------------------------------------------------------------------------
 -- pending_buffs
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS pending_buffs (
@@ -350,17 +334,6 @@ CREATE TABLE IF NOT EXISTS pending_buffs (
 );
 CREATE INDEX IF NOT EXISTS idx_pending_buffs_active
   ON pending_buffs(user_id, mon_id, effect_kind) WHERE consumed_at IS NULL;
-
--- ----------------------------------------------------------------------------
--- matchmaking_queue (kept for parity; Redis is authoritative when CLUSTER=redis)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS matchmaking_queue (
-  user_id        TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  display_name   TEXT NOT NULL,
-  average_level  INTEGER NOT NULL CHECK (average_level >= 1),
-  queued_at      BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
 
 -- ----------------------------------------------------------------------------
 -- onboarding_config: singleton (id=1) admin-editable intro dialog + background.

@@ -530,7 +530,8 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const catalog = loadCatalog();
     const userRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM users');
     // Battle state lives in the Cluster (Redis or in-process), not SQL — see
-    // src/battle/routes.ts. `active_matches` in schema.sql is a legacy migration hook.
+    // src/battle/routes.ts. The legacy `active_matches` table was dropped by
+    // migration 001; live counts come from `battle:snap:*` cluster keys.
     const activeMatches = await activeMatchCount();
     const bpRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM building_blueprints');
     const buildingRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM farm_buildings');

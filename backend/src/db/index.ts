@@ -253,17 +253,6 @@ export type InventoryRow = {
   updated_at: number;
 };
 
-export type ActiveMatchRow = {
-  id: string;
-  player_a: string;
-  player_b: string;
-  snapshot: string;
-  round: number;
-  active_side: 'a' | 'b';
-  started_at: number;
-  updated_at: number;
-};
-
 export type PendingBuffRow = {
   id: string;
   user_id: string;
@@ -273,13 +262,6 @@ export type PendingBuffRow = {
   source_item: string | null;
   created_at: number;
   consumed_at: number | null;
-};
-
-export type MatchmakingQueueRow = {
-  user_id: string;
-  display_name: string;
-  average_level: number;
-  queued_at: number;
 };
 
 export type OnboardingConfigRow = {

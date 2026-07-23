@@ -7,9 +7,9 @@
  * ids get INSERTED). Unrelated rows are never touched.
  *
  *   Excluded on purpose: user data (users, player_roster, player_wallet,
- *   player_inventory, sessions, matches, active_matches, matchmaking_queue,
- *   pending_buffs, resources, farm_buildings, training_sessions). Those are
- *   player-owned and must not be clobbered by admin content restore.
+ *   player_inventory, sessions, matches, pending_buffs, resources,
+ *   farm_buildings, training_sessions). Those are player-owned and must
+ *   not be clobbered by admin content restore.
  *
  * Skills catalog: not yet in scope this ship (Skills Editor Phase 1 comes next).
  */
