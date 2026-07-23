@@ -6,6 +6,7 @@ import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
 const STORAGE_KEY = 'digiworld.scene-settings-override';
+const BASELINE_STORAGE_KEY = 'digiworld.scene-defaults-baseline';
 
 const PREVIEW_ARENAS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light'] as const;
 type PreviewArenaKey = (typeof PREVIEW_ARENAS)[number];
@@ -106,8 +107,30 @@ function savePresetsToStorage(presets: Presets): void {
   }
 }
 
+function arenaHash(defaults: Partial<SceneSettings> | undefined): string {
+  return JSON.stringify(defaults ?? {});
+}
+
+function loadBaseline(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = window.localStorage.getItem(BASELINE_STORAGE_KEY);
+    if (raw === null) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof v === 'string') out[k] = v;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 export function SceneSettingsAdmin(): JSX.Element {
   const [override, setOverride] = useState<PerArenaOverride>(() => loadOverride());
+  const [baseline, setBaseline] = useState<Record<string, string>>(() => loadBaseline());
   const [codeDefaults, setCodeDefaults] = useState<PerArenaSceneDefaults>({});
   const [presets, setPresets] = useState<Presets>(() => loadPresets());
   const [presetName, setPresetName] = useState('');
@@ -125,6 +148,38 @@ export function SceneSettingsAdmin(): JSX.Element {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const overrideKeys = Object.keys(override);
+    if (overrideKeys.length === 0) return;
+    const nextOverride: PerArenaOverride = { ...override };
+    const nextBaseline: Record<string, string> = { ...baseline };
+    let baselineChanged = false;
+    let overrideChanged = false;
+    for (const arena of overrideKeys) {
+      const currentHash = arenaHash(codeDefaults[arena]);
+      const recordedHash = baseline[arena];
+      if (recordedHash === undefined) {
+        nextBaseline[arena] = currentHash;
+        baselineChanged = true;
+      } else if (recordedHash !== currentHash) {
+        delete nextOverride[arena];
+        delete nextBaseline[arena];
+        overrideChanged = true;
+        baselineChanged = true;
+      }
+    }
+    if (overrideChanged) setOverride(nextOverride);
+    if (baselineChanged) setBaseline(nextBaseline);
+  }, [codeDefaults]);
+
+  useEffect(() => {
+    try {
+      const hasAny = Object.keys(baseline).length > 0;
+      if (hasAny) window.localStorage.setItem(BASELINE_STORAGE_KEY, JSON.stringify(baseline));
+      else window.localStorage.removeItem(BASELINE_STORAGE_KEY);
+    } catch { /* noop */ }
+  }, [baseline]);
 
   const settings: SceneSettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
@@ -170,6 +225,17 @@ export function SceneSettingsAdmin(): JSX.Element {
       delete next[previewArena];
       return next;
     });
+    setBaseline((prev) => {
+      if (!(previewArena in prev)) return prev;
+      const next = { ...prev };
+      delete next[previewArena];
+      return next;
+    });
+  };
+
+  const clearAllOverrides = (): void => {
+    setOverride({});
+    setBaseline({});
   };
 
   const savePreset = (): void => {
@@ -211,6 +277,12 @@ export function SceneSettingsAdmin(): JSX.Element {
       setCodeDefaults(body.defaults);
       invalidateSceneDefaults(body.defaults);
       setOverride((prev) => {
+        const next = { ...prev };
+        delete next[previewArena];
+        return next;
+      });
+      setBaseline((prev) => {
+        if (!(previewArena in prev)) return prev;
         const next = { ...prev };
         delete next[previewArena];
         return next;
@@ -290,6 +362,15 @@ export function SceneSettingsAdmin(): JSX.Element {
             {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : `Save ${previewArena} to code`}
           </button>
           <button type="button" className="scene-admin-reset" onClick={resetArena} disabled={overrideCount === 0}>Reset arena</button>
+          <button
+            type="button"
+            className="scene-admin-reset"
+            onClick={clearAllOverrides}
+            disabled={Object.keys(override).length === 0}
+            title="Clear ALL local scene overrides for every arena so you see exactly what other users see (server defaults)"
+          >
+            Reset all local
+          </button>
         </div>
       </header>
 
