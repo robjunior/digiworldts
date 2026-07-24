@@ -32,6 +32,7 @@ import { authPlugin } from './auth/routes.js';
 import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogFromXml } from './skills/seed.js';
+import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
@@ -107,6 +108,15 @@ async function main(): Promise<void> {
   await seedDefaultGameSettings();
   await seedDefaultWorldObjects();
   await seedSkillsCatalogFromXml();
+  if (config.SKILLS_V2_ENABLED) {
+    const v2Result = await seedSkillsCatalogV2();
+    log.info('skills.v2.boot.seed', {
+      total: v2Result.total,
+      inserted: v2Result.inserted,
+      skipped: v2Result.skipped,
+      validationErrors: v2Result.validationErrors.length,
+    });
+  }
 
   const app = Fastify({
     logger: false,

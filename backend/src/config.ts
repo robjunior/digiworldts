@@ -57,6 +57,7 @@ const ConfigSchema = z.object({
   MAX_LOBBY_CONNECTIONS: z.coerce.number().int().positive().default(1200),
   MAX_CONCURRENT_MATCHES: z.coerce.number().int().positive().default(200),
   CORS_ORIGINS: z.string().default(''),
+  SKILLS_V2_ENABLED: z.string().default('false').transform((v) => v === 'true' || v === '1'),
 }).refine((c) => c.CLUSTER !== 'redis' || (c.REDIS_URL && c.REDIS_URL.length > 0), {
   message: 'REDIS_URL is required when CLUSTER=redis',
   path: ['REDIS_URL'],
