@@ -199,6 +199,14 @@ check(
   'every resolved skill has non-zero energyCost or Basic slot',
   resolved.every((s) => typeof s.energyCost === 'number'),
 );
+check(
+  'every resolved skill has name_pt propagated (P5 Day 3)',
+  resolved.every((s) => typeof s.name_pt === 'string' && s.name_pt.length > 0),
+);
+check(
+  'every resolved skill has description_pt propagated (P5 Day 3)',
+  resolved.every((s) => typeof s.description_pt === 'string' && (s.description_pt?.length ?? 0) > 0),
+);
 
 console.log(`\n=== resolveCatalogSkills mixed input (silently drops non-catalog ids) ===`);
 const mixed = await resolveCatalogSkills([...fireRookie.slice(0, 2), 'skb-317:s0', 'wikimon-only']);
