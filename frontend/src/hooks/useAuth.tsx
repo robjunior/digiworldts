@@ -1,8 +1,9 @@
 import type { AuthMeResponse, LoginBody, PublicUser, RegisterBody } from '@digiworld/shared/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, type ReactNode, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'react';
 
 import { ApiError, authLogin, authLogout, authMe, authRegister } from '../lib/api';
+import { seedLocaleFromServer } from '../lib/locale';
 import { useWsStore } from '../state/wsStore';
 
 type AuthStatus = 'loading' | 'authed' | 'anon';
@@ -64,6 +65,9 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): JS
 
   const user = meQuery.data?.user ?? null;
   const status = getStatus(meQuery.isPending, user, meQuery.error);
+  useEffect(() => {
+    if (user?.localePref) seedLocaleFromServer(user.localePref);
+  }, [user?.localePref]);
   const value = useMemo<AuthContextValue>(
     () => ({
       user,

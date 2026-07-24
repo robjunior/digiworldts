@@ -25,6 +25,22 @@ export function setLocale(locale: Locale): void {
     localStorage.setItem(STORAGE_KEY, locale);
   }
   for (const l of listeners) l();
+  if (typeof fetch !== 'undefined') {
+    void fetch('/api/auth/locale-pref', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ locale }),
+    }).catch(() => {});
+  }
+}
+
+export function seedLocaleFromServer(locale: Locale | null): void {
+  if (locale === null) return;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(STORAGE_KEY, locale);
+  }
+  for (const l of listeners) l();
 }
 
 export function subscribeLocale(listener: () => void): () => void {
