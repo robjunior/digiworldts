@@ -2,7 +2,7 @@ import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/b
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import { create } from 'zustand';
 
-import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+import { invalidateBiomeScenesCache, invalidateSceneDefaultsCache } from '../lib/scene-defaults';
 
 type ChatMessage = {
   readonly from: string;
@@ -136,6 +136,9 @@ export const useWsStore = create<WsState>((set) => ({
         // the module cache so the next getSceneDefaults() call refetches. TTL
         // in scene-defaults.ts is the safety net if we miss this message.
         invalidateSceneDefaultsCache();
+        return;
+      case 'biome-scenes-updated':
+        invalidateBiomeScenesCache();
         return;
       case 'error':
         return;
