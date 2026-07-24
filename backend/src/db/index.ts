@@ -212,6 +212,12 @@ export type SkillCatalogRow = {
   enabled: 0 | 1;
   created_at: number;
   updated_at: number;
+  name_pt: string;
+  description_pt: string | null;
+  stage: 'Baby' | 'In-Training' | 'Rookie' | 'Champion' | 'Ultimate' | 'Mega' | null;
+  slot_role: string | null;
+  upgrade_of: string | null;
+  tier_2: 0 | 1;
 };
 
 export type MatchRow = {

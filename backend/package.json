@@ -19,6 +19,7 @@
     "test:battle-combo": "tsx test/battle-combo.mts",
     "test:dsl-runtime": "tsx test/dsl-runtime.mts",
     "test:seed-v2": "tsx test/seed-catalog-v2-smoke.mts",
+    "test:pool": "tsx test/pool-smoke.mts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2"
   },
   "dependencies": {
