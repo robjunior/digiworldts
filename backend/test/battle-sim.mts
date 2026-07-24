@@ -27,6 +27,9 @@ import { initBattle, applyAction } from '../src/battle/engine.ts';
 import type { Loadout, LoadoutMember } from '../src/battle/engine.ts';
 import type { BaseStats, Skill, TemplateDigimon } from '../src/digimon/types.ts';
 import type { Action, Battle, BattleSide } from '../src/battle/types.ts';
+import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
+import { seedSkillsCatalogV2 } from '../src/skills/seed-catalog.ts';
+import { resolveCatalogSkills } from '../src/skills/pool.ts';
 
 const RUNS = Number(process.env.RUNS ?? '1000');
 const DAMAGE_RATE = Number(process.env.DAMAGE_RATE ?? '1.0');
@@ -66,6 +69,21 @@ function mkLoadout(playerId: string, bonus: BaseStats): Loadout {
   };
 }
 
+function mkCatalogLoadout(playerId: string, bonus: BaseStats, skills: Skill[]): Loadout {
+  return {
+    playerId,
+    members: [0, 1, 2].map((i): LoadoutMember => ({
+      monId: `${playerId}-${i}`,
+      templateId: `t-${playerId}-${i}`,
+      template: tmpl(`t-${playerId}-${i}`),
+      level: LEVEL,
+      nickname: `${playerId}-${i}`,
+      statBonus: bonus,
+      equippedSkills: skills,
+    })),
+  };
+}
+
 const UNTRAINED: BaseStats = { hp: 0,   en: 0,  atk: 0,  def: 0,  int: 0,  spd: 0  };
 // Saturates the rebalanced STAGE_COMBAT_POOL=700 and STAGE_HPEN_POOL=1000:
 //   Rookie combatSum base = 370 → +330 room = ~80 per stat
@@ -81,11 +99,10 @@ function pickAction(battle: Battle, side: BattleSide): Action | null {
   const enemy = battle.units.find((u) => u.side !== side && u.hp > 0);
   if (enemy === undefined) return null;
 
-  // Both sides share SKILL_POOL (same template), so we consult it directly.
-  // BattleUnit itself doesn't carry the skill list — that lives on template.
-  const affordable = SKILL_POOL
+  const affordable = unit.skills
     .filter((s) => s.energyCost > 0 && s.energyCost <= unit.en)
-    .sort((a, b) => b.power - a.power);
+    .filter((s) => (unit.skillCooldowns?.[s.id] ?? 0) === 0)
+    .sort((a, b) => b.energyCost - a.energyCost);
   const best = affordable[0];
   if (best !== undefined) {
     return { type: 'skill', unitId: unit.id, skillId: best.id, targetId: enemy.id };
@@ -123,6 +140,10 @@ function runOne(loadA: Loadout, loadB: Loadout, rate: number): Result {
       const actorSide = evt.actor.startsWith('a:') ? 'a' : 'b';
       if (actorSide === 'a') dmgA += evt.damage;
       else dmgB += evt.damage;
+    } else if (evt.type === 'ailment-tick' && typeof evt.damage === 'number' && evt.damage > 0) {
+      const targetSide = evt.unit.startsWith('a:') ? 'a' : 'b';
+      if (targetSide === 'a') dmgB += evt.damage;
+      else dmgA += evt.damage;
     }
   }
   return {
@@ -209,6 +230,31 @@ async function main(): Promise<void> {
     const a = agg();
     for (let i = 0; i < RUNS; i++) push(a, runOne(loadA, loadB, DAMAGE_RATE));
     reportMatchup(s.label, a, s.a, s.b);
+  }
+
+  if (process.env.DB_PATH) {
+    await getDb();
+    const seed = await seedSkillsCatalogV2();
+    if (seed.validationErrors.length > 0) {
+      console.error(`FAIL: seed had ${seed.validationErrors.length} validation errors`);
+      process.exit(1);
+    }
+    const fireRookieIds = ['sk-fire-pa-r', 'sk-fire-sd-r', 'sk-fire-ct-r', 'sk-fire-bs-r'];
+    const catalogSkills = await resolveCatalogSkills(fireRookieIds);
+    console.log(`\n══════════════════════════════════════════════════════════════════`);
+    console.log(`  CATALOG SKILL MATCHUPS (P5 Day 7 — DSL runtime dispatch)`);
+    console.log(`  Skills: ${catalogSkills.map((s) => `${s.name}(EN${s.energyCost}${s.cooldown ? ',CD' + s.cooldown : ''})`).join(', ')}`);
+    console.log(`══════════════════════════════════════════════════════════════════`);
+    for (const s of scenarios) {
+      const loadA = mkCatalogLoadout('a', s.a, catalogSkills);
+      const loadB = mkCatalogLoadout('b', s.b, catalogSkills);
+      const a = agg();
+      for (let i = 0; i < RUNS; i++) push(a, runOne(loadA, loadB, DAMAGE_RATE));
+      reportMatchup(`[catalog] ${s.label}`, a, s.a, s.b);
+    }
+    await closeDbAdapter();
+  } else {
+    console.log(`\n(Set DB_PATH env to also run catalog-skill matchups — e.g. DB_PATH=/tmp/dw-sim.db pnpm test:battle-sim)`);
   }
 }
 
