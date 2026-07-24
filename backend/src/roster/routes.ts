@@ -28,6 +28,7 @@ import { loadCatalog } from '../digimon/xml.js';
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
+import { getLearnedPoolIds, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
 
 // ============================================================================
@@ -247,11 +248,15 @@ export async function loadPartyLoadout(userId: string): Promise<Loadout | { erro
     };
     if (equippedIds.length > 0) {
       const historyIds = parseJsonStringArray(row.evolution_history);
-      const learned = learnedSkillsFor(template, historyIds, catalog.digimons);
-      const learnedByKey = new Map(learned.map((e) => [e.key, e.skill] as const));
+      const wikimonLearned = learnedSkillsFor(template, historyIds, catalog.digimons);
+      const wikimonByKey = new Map(wikimonLearned.map((e) => [e.key, e.skill] as const));
+      const catalogSkills = await resolveCatalogSkills(equippedIds);
+      const catalogById = new Map(catalogSkills.map((s) => [s.id, s] as const));
       const resolved = equippedIds
-        .map((entry) => normalizeEquippedKey(entry, template.id))
-        .map((key) => learnedByKey.get(key))
+        .map((entry) => {
+          if (isCatalogSkillId(entry)) return catalogById.get(entry);
+          return wikimonByKey.get(normalizeEquippedKey(entry, template.id));
+        })
         .filter((s): s is Skill => Boolean(s));
       if (resolved.length > 0) member.equippedSkills = resolved;
     }
@@ -469,13 +474,17 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       return reply.code(400).send({ error: 'too-many-skills-for-stage', stage: currentTpl.stage, maxEquipped: equipCap });
     }
     const historyIds = parseJsonStringArray(row.evolution_history);
-    const learned = learnedSkillsFor(currentTpl, historyIds, catalog.digimons);
-    const learnedKeys = new Set(learned.map((e) => e.key));
-    const normalized = skillIds.map((entry) => normalizeEquippedKey(entry, row.catalog_id));
+    const wikimonLearned = learnedSkillsFor(currentTpl, historyIds, catalog.digimons);
+    const wikimonKeys = new Set(wikimonLearned.map((e) => e.key));
+    const catalogPoolIds = new Set(await getLearnedPoolIds(currentTpl.element, currentTpl.stage));
+    const normalized = skillIds.map((entry) =>
+      isCatalogSkillId(entry) ? entry : normalizeEquippedKey(entry, row.catalog_id),
+    );
     const unique = Array.from(new Set(normalized));
     if (unique.length !== normalized.length) return reply.code(400).send({ error: 'duplicate-skill' });
     for (const key of normalized) {
-      if (!learnedKeys.has(key)) return reply.code(400).send({ error: 'skill-not-learned', skillKey: key });
+      const known = isCatalogSkillId(key) ? catalogPoolIds.has(key) : wikimonKeys.has(key);
+      if (!known) return reply.code(400).send({ error: 'skill-not-learned', skillKey: key });
     }
     await run(SQL_UPDATE_EQUIPPED_SKILLS, JSON.stringify(normalized), Date.now(), req.params.monId, user.id);
     log.info('roster.skills.update', { userId: user.id, monId: req.params.monId, skillKeys: normalized });
