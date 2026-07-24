@@ -40,6 +40,7 @@ import {
   updateSkill,
   type SkillError,
 } from '../skills/catalog.js';
+import { getAllCatalogSkillsMeta } from '../skills/pool.js';
 import {
   createShopItem,
   deleteShopItem,
@@ -587,6 +588,12 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/skills', async (req, reply) => {
     await requireAdmin(req, reply);
     return reply.send({ skills: await listSkills() });
+  });
+
+  app.get('/api/admin/skills-catalog', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const skills = await getAllCatalogSkillsMeta();
+    return reply.send({ skills });
   });
 
   app.get<{ Params: { id: string } }>('/api/admin/skills/:id', async (req, reply) => {
