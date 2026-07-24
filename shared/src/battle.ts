@@ -1,4 +1,4 @@
-import type { Ailment, Attribute, Element, ResistanceMap, Skill } from './digimon.js';
+import type { Ailment, Attribute, BuffKind, Element, ResistanceMap, Skill } from './digimon.js';
 
 export type BattleSide = 'a' | 'b';
 export type SlotIndex = 0 | 1 | 2 | 3 | 4 | 5;
@@ -15,6 +15,13 @@ export type WildInfo = {
 };
 
 export type Ailmented = { kind: Ailment; turnsLeft: number };
+
+export type ActiveBuff = {
+  kind: BuffKind;
+  amount: number;
+  remainingTurns: number;
+  sourceId: UnitId;
+};
 
 export type BattleUnit = {
   id: UnitId;
@@ -36,6 +43,9 @@ export type BattleUnit = {
   int: number;
   skills: Skill[];
   ailments: Ailmented[];
+  /** Optional for backward compat with pre-P1 `battle:snap:*` blobs; engine defaults to `[]` / `0`. */
+  activeBuffs?: ActiveBuff[];
+  evade?: number;
   guarding: boolean;
   wildInfo?: WildInfo;
   analyzed: boolean;
@@ -185,7 +195,7 @@ export const CAPTURE_RARE_MULT = 0.5;
 export const CAPTURE_ANALYZED_MULT = 1.3;
 export const CAPTURE_MAX = 0.95;
 
-export const CONTROL_AILMENTS: readonly Ailment[] = ['freeze', 'stun', 'sleep'];
+export const CONTROL_AILMENTS: readonly Ailment[] = ['freeze', 'stun', 'sleep', 'petrify', 'confusion', 'charm'];
 
 export function isControlAilment(ailment: Ailment): boolean {
   return CONTROL_AILMENTS.includes(ailment);

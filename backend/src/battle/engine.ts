@@ -23,7 +23,7 @@
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleForLevel, scaleStatsForLevel } from '../digimon/element.js';
-import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
+import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
   CAPTURE_ANALYZED_MULT,
@@ -78,9 +78,10 @@ export type Loadout = {
 
 function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
+  const equipCap = EQUIPPED_SLOTS_PER_STAGE[m.template.stage] ?? SKILLS_PER_DIGIMON;
   const rawSkills = m.equippedSkills && m.equippedSkills.length > 0
-    ? m.equippedSkills.slice(0, SKILLS_PER_DIGIMON)
-    : m.template.skillPool.slice(0, SKILLS_PER_DIGIMON);
+    ? m.equippedSkills.slice(0, equipCap)
+    : m.template.skillPool.slice(0, equipCap);
   const skills = rawSkills.filter((s) => {
     if (s.energyCost <= scaled.en) return true;
     log.warn('battle.skill.unusable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });

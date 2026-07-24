@@ -13,8 +13,23 @@ export type Element = (typeof ELEMENTS)[number];
 export type ResistanceMult = 0 | 0.5 | 1 | 1.5 | 2;
 export type ResistanceMap = Partial<Record<Element, ResistanceMult>>;
 
-export const AILMENTS = ['burn', 'poison', 'weaken', 'freeze', 'stun', 'sleep'] as const;
+export const AILMENTS = [
+  'burn', 'poison', 'weaken', 'freeze', 'stun', 'sleep',
+  'blind', 'silence', 'root', 'petrify', 'curse', 'corruption', 'confusion', 'charm',
+] as const;
 export type Ailment = (typeof AILMENTS)[number];
+
+export const BUFF_KINDS = [
+  'shield_absorb',
+  'damage_reduction',
+  'invulnerable',
+  'accuracy_up', 'accuracy_down',
+  'evasion_up', 'evasion_down',
+  'crit_up',
+  'atk_up', 'def_up', 'spd_up', 'int_up',
+  'atk_down', 'def_down', 'spd_down', 'int_down',
+] as const;
+export type BuffKind = (typeof BUFF_KINDS)[number];
 
 export type BaseStats = {
   hp: number;
@@ -67,6 +82,7 @@ export type TemplateDigimon = {
   evolvesInto?: EvolveEdge[];
   resistances?: ResistanceMap;
   type?: string;
+  signatureSkillId?: string;
 };
 
 export type RosterDigimon = {
@@ -92,6 +108,15 @@ export const MAX_ENERGY = 41;
 export const ATB_THRESHOLD = 100;
 export const PARTY_SIZE = 3;
 export const SKILLS_PER_DIGIMON = 4;
+
+export const EQUIPPED_SLOTS_PER_STAGE: Record<Stage, number> = {
+  Baby: 4,
+  'In-Training': 4,
+  Rookie: 4,
+  Champion: 6,
+  Ultimate: 8,
+  Mega: 10,
+};
 
 export const EVOLUTION_LEVELS: Record<Stage, number> = {
   Baby: 0,
