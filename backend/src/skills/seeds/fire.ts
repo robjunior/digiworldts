@@ -358,6 +358,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-fire-id-u',
     actions: [
       { kind: 'deal_damage', target: 'self', amount: 200, element: 'null', ignore_defense: true },

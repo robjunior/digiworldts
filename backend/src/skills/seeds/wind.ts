@@ -370,6 +370,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     tier_2: true,
     upgrade_of: 'sk-wind-id-u',
     actions: [

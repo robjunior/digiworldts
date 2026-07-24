@@ -358,6 +358,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-light-id-u',
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'invulnerable', amount: 1, turns: 2 },

@@ -349,6 +349,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-water-id-u',
     actions: [
       { kind: 'heal', target: 'caster_ally_all', amount: { base: 260, scale: 'int', factor: 2.6 } },

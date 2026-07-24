@@ -359,6 +359,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-null-id-u',
     actions: [
       { kind: 'drain', target: 'enemy_all', damage: { base: 120, scale: 'int', factor: 3.2 }, heal_pct: 0.9, element: 'null' },
