@@ -355,6 +355,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-earth-id-u',
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 260, turns: 4 },

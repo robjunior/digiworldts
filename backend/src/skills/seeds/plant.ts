@@ -345,6 +345,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     stage: 'Mega',
     slot_role: 'identity_finisher',
     energyCost: 40,
+    cooldown: 2,
     upgrade_of: 'sk-plant-id-u',
     actions: [
       { kind: 'drain', target: 'enemy_all', damage: { base: 120, scale: 'int', factor: 3.2 }, heal_pct: 0.8, element: 'plant' },
