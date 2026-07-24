@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { AppNav } from '../components/AppNav';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
-import { BiomeEditor } from '../components/admin/BiomeEditor';
+import { BiomeSceneEditor } from '../components/admin/BiomeSceneEditor';
 import { CatalogTable } from '../components/admin/CatalogTable';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
@@ -24,8 +24,8 @@ const ADMIN_TABS = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
   { id: 'shop', label: 'Shop Admin' },
-  { id: 'biomes', label: 'Biomes' },
-  { id: 'scene', label: 'Scene' },
+  { id: 'biomes', label: 'Biome scenes' },
+  { id: 'scene', label: 'Scene (per-arena)' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 
@@ -92,7 +92,7 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
     case 'shop':
       return <ShopAdmin />;
     case 'biomes':
-      return <BiomeEditor />;
+      return <BiomeSceneEditor />;
     case 'scene':
       return <SceneSettingsAdmin />;
     case 'settings':

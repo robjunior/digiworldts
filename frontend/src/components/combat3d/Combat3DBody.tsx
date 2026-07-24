@@ -465,6 +465,14 @@ const AILMENT_ICON: Record<Ailment, string> = {
   freeze: '❄',
   stun: '⚡',
   sleep: '💤',
+  blind: '🙈',
+  silence: '∅',
+  root: '⚓',
+  petrify: '🗿',
+  curse: '💀',
+  corruption: '☣',
+  confusion: '💫',
+  charm: '💘',
 };
 
 const AILMENT_LABEL: Record<Ailment, string> = {
@@ -474,6 +482,14 @@ const AILMENT_LABEL: Record<Ailment, string> = {
   freeze: 'Frozen',
   stun: 'Stunned',
   sleep: 'Asleep',
+  blind: 'Blinded',
+  silence: 'Silenced',
+  root: 'Rooted',
+  petrify: 'Petrified',
+  curse: 'Cursed',
+  corruption: 'Corrupted',
+  confusion: 'Confused',
+  charm: 'Charmed',
 };
 
 const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battle: BattleView }): JSX.Element | null {
