@@ -1,7 +1,6 @@
-import { one, run, tx, type RosterRow } from '../db/index.js';
+import { one, tx, type RosterRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
 import {
-  CHIP_ITEM_IDS,
   EVOLUTION_LEVELS,
   MOOD_MIN_FOR_STAGE,
   STAGES,
@@ -19,9 +18,6 @@ import {
 import { log } from '../util/log.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
-const SQL_SELECT_INV_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
-const SQL_DECREMENT_CHIP = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
-const SQL_DELETE_EMPTY_INV = `DELETE FROM player_inventory WHERE user_id = ? AND item_id = ? AND qty <= 0`;
 const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = NULL, stage_pools = ?, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
 
 function freezeCurrentStagePool(row: RosterRow, currentStage: Stage): StagePools {
@@ -55,7 +51,6 @@ function parseHistory(raw: string | null): string[] {
 export type EvolveReason =
   | 'no-paths'
   | 'level-too-low'
-  | 'no-chip'
   | 'stage-cap'
   | 'no-mood'
   | 'attribute-mismatch';
@@ -69,8 +64,6 @@ export type EvolutionOption = {
   reason?: EvolveReason;
   requiredLevel: number;
   requiredMood: number;
-  requiredItemId: string | null;
-  hasRequiredItem: boolean;
   requiredAttribute: Attribute | null;
 };
 
@@ -83,27 +76,18 @@ export type EvolutionGate = {
   nextStage: Stage | null;
   requiredLevel: number;
   requiredMood: number;
-  requiredItemId: string | null;
-  hasRequiredItem: boolean;
   options: EvolutionOption[];
 };
 
 function resolveEdgeRequirements(edge: EvolveEdge, targetStage: Stage): {
   requiredLevel: number;
   requiredMood: number;
-  requiredItemId: string | null;
   requiredAttribute: Attribute | null;
 } {
   const requiredLevel = edge.requiredLevel ?? EVOLUTION_LEVELS[targetStage];
   const requiredMood = edge.requiredMood ?? MOOD_MIN_FOR_STAGE[targetStage] ?? 0;
-  const requiredItemId = edge.requiredItemId ?? CHIP_ITEM_IDS[targetStage] ?? null;
   const requiredAttribute = edge.requiredAttribute ?? null;
-  return { requiredLevel, requiredMood, requiredItemId, requiredAttribute };
-}
-
-async function ownsItem(userId: string, itemId: string): Promise<boolean> {
-  const inv = await one<{ qty: number }>(SQL_SELECT_INV_QTY, userId, itemId);
-  return (inv?.qty ?? 0) > 0;
+  return { requiredLevel, requiredMood, requiredAttribute };
 }
 
 export async function getEvolutionOptions(monId: string, userId: string): Promise<EvolutionGate | null> {
@@ -113,7 +97,7 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
   const current = catalog.digimons.find((d) => d.id === row.catalog_id);
   if (!current) return null;
   const nextStage = nextStageAfter(current.stage);
-  const templateById = new Map(catalog.digimons.map((t) => [t.id, t]));
+  const templateById = new Map<string, TemplateDigimon>(catalog.digimons.map((t) => [t.id, t]));
 
   const edges = current.evolvesInto ?? [];
   const options: EvolutionOption[] = [];
@@ -121,13 +105,11 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
     const target = templateById.get(edge.targetId);
     if (!target) continue;
     const req = resolveEdgeRequirements(edge, target.stage);
-    const hasRequiredItem = req.requiredItemId ? await ownsItem(userId, req.requiredItemId) : true;
 
     let reason: EvolveReason | undefined;
     if (req.requiredAttribute !== null && current.attribute !== req.requiredAttribute) reason = 'attribute-mismatch';
     else if (row.level < req.requiredLevel) reason = 'level-too-low';
     else if (row.mood < req.requiredMood) reason = 'no-mood';
-    else if (!hasRequiredItem) reason = 'no-chip';
 
     const option: EvolutionOption = {
       catalogId: target.id,
@@ -137,8 +119,6 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
       eligible: reason === undefined,
       requiredLevel: req.requiredLevel,
       requiredMood: req.requiredMood,
-      requiredItemId: req.requiredItemId,
-      hasRequiredItem,
       requiredAttribute: req.requiredAttribute,
     };
     if (reason !== undefined) option.reason = reason;
@@ -147,8 +127,6 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
 
   const topRequiredLevel = nextStage ? EVOLUTION_LEVELS[nextStage] : Number.MAX_SAFE_INTEGER;
   const topRequiredMood = nextStage ? MOOD_MIN_FOR_STAGE[nextStage] ?? 0 : 0;
-  const topRequiredItemId = nextStage ? CHIP_ITEM_IDS[nextStage] ?? null : null;
-  const topHasRequiredItem = topRequiredItemId ? await ownsItem(userId, topRequiredItemId) : false;
 
   const anyEligibleOption = options.some((o) => o.eligible);
   let eligible = true;
@@ -170,8 +148,6 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
     nextStage,
     requiredLevel: topRequiredLevel,
     requiredMood: topRequiredMood,
-    requiredItemId: topRequiredItemId,
-    hasRequiredItem: topHasRequiredItem,
     options,
   };
 }
@@ -199,15 +175,10 @@ export async function evolveRoster(
   if (!current || !target) return { ok: false, error: 'template not found' };
 
   const newNickname = row.nickname === current.name ? target.name : row.nickname;
-  const chipItemId = selectedOption.requiredItemId;
   const now = Date.now();
 
   try {
     await tx(async (t) => {
-      if (chipItemId !== null) {
-        const consumed = await t.run(SQL_DECREMENT_CHIP, [1, now, userId, chipItemId, 1]);
-        if (consumed.changes === 0) throw new Error('no-chip');
-      }
       const priorHistory = parseHistory(row.evolution_history);
       const nextHistory = priorHistory.includes(current.id) ? priorHistory : [...priorHistory, current.id];
       const historyJson = JSON.stringify(nextHistory);
@@ -220,7 +191,6 @@ export async function evolveRoster(
     const msg = e instanceof Error ? e.message : 'tx-failed';
     return { ok: false, error: msg };
   }
-  if (chipItemId !== null) await run(SQL_DELETE_EMPTY_INV, userId, chipItemId);
   log.info('roster.evolved', { userId, monId, from: current.id, to: target.id, nickname: newNickname });
   return { ok: true, monId, fromCatalogId: current.id, toCatalogId: target.id, nickname: newNickname, level: row.level, stage: target.stage };
 }

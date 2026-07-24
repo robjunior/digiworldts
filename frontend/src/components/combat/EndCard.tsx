@@ -74,7 +74,13 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
       </div>
       {isPve && pveResults ? <PveRewards results={pveResults} /> : null}
       <div className="cta-row">
-        <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
+        {isPve ? (
+          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-world">
+            Return to World
+          </button>
+        ) : (
+          <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
+        )}
       </div>
     </section>
   );
@@ -152,15 +158,23 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
   const deltaLabel = award.defeated
     ? `Defeated · ${award.delta} xp`
     : award.delta > 0 ? `+${award.delta} xp` : award.delta < 0 ? `${award.delta} xp` : 'no xp';
-  const [currentPct, setCurrentPct] = useState<number>(pctBefore);
   const [done, setDone] = useState(false);
   const startedRef = useRef(false);
   const onDoneRef = useRef(onDone);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
     if (!active || startedRef.current) return;
     startedRef.current = true;
+    const writePct = (pct: number): void => {
+      if (fillRef.current !== null) fillRef.current.style.width = `${pct}%`;
+      if (wrapperRef.current !== null) {
+        const tremble = Math.max(0, Math.min(1, (pct - 55) / 45));
+        wrapperRef.current.style.setProperty('--tremble', String(tremble));
+      }
+    };
     let cancelled = false;
     const animate = (from: number, to: number, ms: number): Promise<void> =>
       new Promise((resolve) => {
@@ -169,7 +183,7 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
           if (cancelled) { resolve(); return; }
           const t = Math.min(1, (now - start) / ms);
           const eased = 1 - (1 - t) * (1 - t);
-          setCurrentPct(from + (to - from) * eased);
+          writePct(from + (to - from) * eased);
           if (t < 1) requestAnimationFrame(tick);
           else resolve();
         };
@@ -184,13 +198,13 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
         await animate(pctBefore, 100, 900);
         if (cancelled) return;
         for (let i = 1; i < award.gainedLevels; i++) {
-          setCurrentPct(0);
+          writePct(0);
           await delay(120);
           if (cancelled) return;
           await animate(0, 100, 550);
           if (cancelled) return;
         }
-        setCurrentPct(0);
+        writePct(0);
         await delay(150);
         if (cancelled) return;
         await animate(0, pctAfter, 700);
@@ -208,7 +222,6 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  const tremble = Math.max(0, Math.min(1, (currentPct - 55) / 45));
   const showLevelUp = done && leveledUp;
   const displayLevel = showLevelUp ? award.newLevel : award.previousLevel;
   const portraitUrl = `/assets/digimon/${award.catalogId}/dot.gif`;
@@ -246,9 +259,9 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
           </div>
         </div>
       ) : (
-        <div className="pve-xp-progress" style={{ ['--tremble' as string]: tremble }}>
+        <div className="pve-xp-progress" ref={wrapperRef} style={{ ['--tremble' as string]: 0 }}>
           <div className="pve-xp-bar" title={`${award.xpBefore} → ${award.xpAfter} / ${award.xpNext}`}>
-            <div className="pve-xp-fill" style={{ width: `${currentPct}%` }} />
+            <div className="pve-xp-fill" ref={fillRef} style={{ width: `${pctBefore}%` }} />
           </div>
           <span className={`pve-xp-delta ${award.defeated ? 'pve-xp-loss' : award.delta > 0 ? 'pve-xp-win' : 'pve-xp-muted'}`}>{deltaLabel}</span>
         </div>

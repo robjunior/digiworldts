@@ -1,4 +1,4 @@
-import { q, run, type RosterRow } from '../db/index.js';
+import { q, tx, type RosterRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
 import { log } from '../util/log.js';
 import { xpToReach } from './xp.js';
@@ -14,18 +14,18 @@ export async function normalizeRosterXpFloor(): Promise<{ updated: number; scann
     return { updated: 0, scanned: 0 };
   }
   const rows = await q<MonXpRow>(SQL_SELECT_ALL_MONS);
-  let updated = 0;
+  const patches: Array<[number, string]> = [];
   for (const row of rows) {
     const template = findTemplate(catalog, row.catalog_id);
     if (!template) continue;
     const floor = xpToReach(row.level, template.stage);
-    if (row.xp < floor) {
-      await run(SQL_UPDATE_XP, [floor, row.id]);
-      updated += 1;
-    }
+    if (row.xp < floor) patches.push([floor, row.id]);
   }
-  if (updated > 0) {
-    log.info('boot.normalize-xp', { updated, scanned: rows.length });
+  if (patches.length > 0) {
+    await tx(async (t) => {
+      for (const [floor, id] of patches) await t.run(SQL_UPDATE_XP, [floor, id]);
+    });
+    log.info('boot.normalize-xp', { updated: patches.length, scanned: rows.length });
   }
-  return { updated, scanned: rows.length };
+  return { updated: patches.length, scanned: rows.length };
 }

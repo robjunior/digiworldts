@@ -3,13 +3,18 @@
  *
  * Storage layout (works identically on memory or Redis):
  *   mm:queue                 → ZSET member=userId, score=queuedAt (FIFO by time)
- *   mm:meta:{userId}         → JSON { userId, displayName, averageLevel, queuedAt }
+ *   mm:meta:{userId}         → JSON { userId, displayName, averageLevel, trainedness, queuedAt }
  *   mm:pair-lock             → short-lived lock during atomic pair selection
  *
  * Multi-node: on Redis this state is shared. Any node's `tryPair` uses the
  * cluster lock to make sure only one node walks the queue at a time (avoids
  * two nodes ZREMing the same pair). Memory backend gets the same code path
  * for free.
+ *
+ * Pairing brackets: two independent bounds that both must be satisfied,
+ * each widening over queue wait time so nobody sits forever:
+ *   level bracket       → |avgLevel_a − avgLevel_b|   ≤ 5   + 5×⌊wait/3s⌋
+ *   trainedness bracket → |trainedness_a − trainedness_b| ≤ 100 + 100×⌊wait/3s⌋
  *
  * Interface is async. Old sync `Matchmaker` callers must migrate — the
  * pairing loop in lobby/ws.ts already runs in an async context.
@@ -21,6 +26,8 @@ import { getCluster, type Cluster } from '../cluster/index.js';
 const QUEUE_TTL_MS = 5 * 60 * 1000;
 const BRACKET_START = 5;
 const BRACKET_WIDEN_MS = 3_000;
+const TRAINEDNESS_BRACKET_START = 100;
+const TRAINEDNESS_BRACKET_WIDEN_MS = 3_000;
 const PAIR_LOCK_KEY = 'mm:pair-lock';
 const PAIR_LOCK_TTL_SEC = 2;
 const QUEUE_KEY = 'mm:queue';
@@ -30,6 +37,10 @@ export type QueueEntry = {
   userId: string;
   displayName: string;
   averageLevel: number;
+  /** Party's average total stat bonus (hp+en+atk+def+int+spd). 0 for
+   *  untrained; ~800 for a fully-trained party per the current stage pools.
+   *  See `partyTrainedness()` in roster/routes.ts. */
+  trainedness: number;
   queuedAt: number;
 };
 
@@ -49,7 +60,15 @@ async function readMeta(cluster: Cluster, userId: string): Promise<QueueEntry | 
   const raw = await cluster.get(META_KEY(userId));
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as QueueEntry;
+    const parsed = JSON.parse(raw) as Partial<QueueEntry>;
+    if (typeof parsed.userId !== 'string' || typeof parsed.displayName !== 'string') return null;
+    return {
+      userId: parsed.userId,
+      displayName: parsed.displayName,
+      averageLevel: typeof parsed.averageLevel === 'number' ? parsed.averageLevel : 1,
+      trainedness: typeof parsed.trainedness === 'number' ? parsed.trainedness : 0,
+      queuedAt: typeof parsed.queuedAt === 'number' ? parsed.queuedAt : Date.now(),
+    };
   } catch {
     return null;
   }
@@ -88,27 +107,18 @@ class ClusterMatchmaker implements Matchmaker {
   async snapshot(): Promise<QueueEntry[]> {
     const cluster = await getCluster();
     const members = await cluster.zrange(QUEUE_KEY, 0, -1);
-    const out: QueueEntry[] = [];
-    for (const m of members) {
-      const meta = await readMeta(cluster, m.member);
-      if (meta) out.push(meta);
-    }
-    return out;
+    const metas = await Promise.all(members.map((m) => readMeta(cluster, m.member)));
+    return metas.filter((m): m is QueueEntry => m !== null);
   }
 
   async purgeStale(now: number = Date.now()): Promise<number> {
     const cluster = await getCluster();
     const cutoff = now - QUEUE_TTL_MS;
     const members = await cluster.zrange(QUEUE_KEY, 0, -1);
-    let dropped = 0;
-    for (const m of members) {
-      if (m.score < cutoff) {
-        await cluster.zrem(QUEUE_KEY, m.member);
-        await cluster.del(META_KEY(m.member));
-        dropped += 1;
-      }
-    }
-    return dropped;
+    const stale = members.filter((m) => m.score < cutoff);
+    if (stale.length === 0) return 0;
+    await Promise.all(stale.flatMap((m) => [cluster.zrem(QUEUE_KEY, m.member), cluster.del(META_KEY(m.member))]));
+    return stale.length;
   }
 
   /**
@@ -123,20 +133,20 @@ class ClusterMatchmaker implements Matchmaker {
     try {
       const members = await cluster.zrange(QUEUE_KEY, 0, 24);
       if (members.length < 2) return null;
-      const entries: QueueEntry[] = [];
-      for (const m of members) {
-        const meta = await readMeta(cluster, m.member);
-        if (meta) entries.push(meta);
-      }
+      const metas = await Promise.all(members.map((m) => readMeta(cluster, m.member)));
+      const entries = metas.filter((m): m is QueueEntry => m !== null);
       const now = Date.now();
       for (let i = 0; i < entries.length; i++) {
         const a = entries[i]!;
         const wait = now - a.queuedAt;
-        const widened = BRACKET_START + Math.floor(wait / BRACKET_WIDEN_MS) * BRACKET_START;
+        const widenedLevel = BRACKET_START + Math.floor(wait / BRACKET_WIDEN_MS) * BRACKET_START;
+        const widenedTrained =
+          TRAINEDNESS_BRACKET_START + Math.floor(wait / TRAINEDNESS_BRACKET_WIDEN_MS) * TRAINEDNESS_BRACKET_START;
         for (let j = i + 1; j < entries.length; j++) {
           const b = entries[j]!;
           if (b.userId === a.userId) continue;
-          if (Math.abs(a.averageLevel - b.averageLevel) > widened) continue;
+          if (Math.abs(a.averageLevel - b.averageLevel) > widenedLevel) continue;
+          if (Math.abs(a.trainedness - b.trainedness) > widenedTrained) continue;
           const removed = await cluster.zrem(QUEUE_KEY, a.userId, b.userId);
           await cluster.del(META_KEY(a.userId));
           await cluster.del(META_KEY(b.userId));
@@ -144,7 +154,8 @@ class ClusterMatchmaker implements Matchmaker {
           log.info('mm.pair', {
             a: a.userId,
             b: b.userId,
-            gap: Math.abs(a.averageLevel - b.averageLevel),
+            levelGap: Math.abs(a.averageLevel - b.averageLevel),
+            trainednessGap: Math.abs(a.trainedness - b.trainedness),
             nodeId: config.NODE_ID,
           });
           return { a, b };
@@ -173,5 +184,5 @@ export async function hydrateMatchmaking(): Promise<number> {
 /** Test / admin: nuke the queue via `snapshot() → dequeue(each)`. */
 export async function resetMatchmaking(): Promise<void> {
   const snap = await matchmaker.snapshot();
-  for (const e of snap) await matchmaker.dequeue(e.userId);
+  await Promise.all(snap.map((e) => matchmaker.dequeue(e.userId)));
 }

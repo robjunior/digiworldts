@@ -30,11 +30,15 @@ import {
   createBattleForPair,
   dispatchAction,
   getMatchView,
+  getSpectatorView,
   handleDisconnect,
   isInMatch,
   partyAverageLevel,
+  partyTrainedness,
   activeMatchCount,
 } from '../battle/routes.js';
+import { joinSpectate, leaveSpectate } from '../battle/spectate.js';
+import { isMember as isChatRoomMember, listMembers as listChatRoomMembers } from '../chat/rooms.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
 
@@ -47,6 +51,7 @@ const CHAT_MAX_IN_WINDOW = 4;
 const DISCONNECT_GRACE_MS = 15_000;
 
 const CHAT_CHANNEL = 'chat:global';
+const SCENE_DEFAULTS_CHANNEL = 'scene:defaults:updated';
 const WSDELIVER_PREFIX = 'wsdeliver:';
 const WSDELIVER_PATTERN = `${WSDELIVER_PREFIX}*`;
 const K_PRESENCE = (userId: string): string => `presence:user:${userId}`;
@@ -54,7 +59,11 @@ const K_PRESENCE = (userId: string): string => `presence:user:${userId}`;
 // ============================================================================
 // Client → server message schemas
 // ============================================================================
-const ChatSchema = z.object({ type: z.literal('chat'), text: z.string().trim().min(1).max(300) });
+const ChatSchema = z.object({
+  type: z.literal('chat'),
+  text: z.string().trim().min(1).max(300),
+  room: z.string().min(3).max(64).optional(),
+});
 const QueueSchema = z.object({ type: z.literal('queue'), join: z.boolean() });
 const HelloSchema = z.object({ type: z.literal('hello') });
 const PingSchema = z.object({ type: z.literal('ping') });
@@ -67,8 +76,9 @@ const ActionSchema: z.ZodType<Action> = z.discriminatedUnion('type', [
 ]) as unknown as z.ZodType<Action>;
 
 const ActSchema = z.object({ type: z.literal('act'), matchId: z.string(), action: ActionSchema });
+const SpectateSchema = z.object({ type: z.literal('spectate'), matchId: z.string().min(1).max(64), join: z.boolean() });
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -149,9 +159,9 @@ async function presenceMarkOffline(userId: string): Promise<void> {
 async function presenceSnapshotCluster(): Promise<Array<{ userId: string; displayName: string; nodeId: string }>> {
   const cluster = await getCluster();
   const keys = await cluster.keys(`presence:user:*`);
+  const raws = await Promise.all(keys.map((k) => cluster.get(k)));
   const out: Array<{ userId: string; displayName: string; nodeId: string }> = [];
-  for (const key of keys) {
-    const raw = await cluster.get(key);
+  for (const raw of raws) {
     if (!raw) continue;
     try { out.push(JSON.parse(raw) as { userId: string; displayName: string; nodeId: string }); } catch {}
   }
@@ -244,9 +254,26 @@ const handleChat: Handler = async (entry, msg) => {
   }
   entry.chatLog.push(now);
   const cluster = await getCluster();
-  await cluster.publish(CHAT_CHANNEL, JSON.stringify({
-    type: 'chat', from: entry.userId, displayName: entry.displayName, text: msg.text, at: now, nodeId: config.NODE_ID,
-  }));
+  const basePayload = {
+    type: 'chat' as const,
+    from: entry.userId,
+    displayName: entry.displayName,
+    text: msg.text,
+    at: now,
+    nodeId: config.NODE_ID,
+  };
+  if (msg.room !== undefined) {
+    const member = await isChatRoomMember(msg.room, entry.userId);
+    if (!member) {
+      safeSend(entry.socket, { type: 'error', code: 'not-in-room', message: 'you are not a member of that room' });
+      return;
+    }
+    const members = await listChatRoomMembers(msg.room);
+    const payload = JSON.stringify({ ...basePayload, room: msg.room });
+    await Promise.all(members.map((uid) => cluster.publish(`${WSDELIVER_PREFIX}${uid}`, payload)));
+    return;
+  }
+  await cluster.publish(CHAT_CHANNEL, JSON.stringify(basePayload));
 };
 
 const handleQueue: Handler = async (entry, msg) => {
@@ -257,10 +284,12 @@ const handleQueue: Handler = async (entry, msg) => {
   }
   if (msg.join) {
     const level = await partyAverageLevel(entry.userId);
+    const trainedness = await partyTrainedness(entry.userId);
     const result = await matchmaker.enqueue({
       userId: entry.userId,
       displayName: entry.displayName,
       averageLevel: level,
+      trainedness,
       queuedAt: Date.now(),
     });
     if (result === 'full') {
@@ -285,12 +314,37 @@ const handleAct: Handler = async (entry, msg) => {
   // players itself — no local send needed.
 };
 
+const handleSpectate: Handler = async (entry, msg) => {
+  if (msg.type !== 'spectate') return;
+  if (msg.join) {
+    const result = await joinSpectate(msg.matchId, entry.userId);
+    if (!result.ok) {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: result.error });
+      return;
+    }
+    if (result.status === 'already-in-match') {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'already-in-match' });
+      return;
+    }
+    const view = await getSpectatorView(msg.matchId);
+    if (!view) {
+      safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'not-found' });
+      return;
+    }
+    safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'joined', view: view.view, count: result.count });
+  } else {
+    await leaveSpectate(msg.matchId, entry.userId);
+    safeSend(entry.socket, { type: 'spectate', matchId: msg.matchId, status: 'left' });
+  }
+};
+
 const dispatcher: Record<IncomingMessage['type'], Handler> = {
   hello: handleHello,
   ping: handlePing,
   chat: handleChat,
   queue: handleQueue,
   act: handleAct,
+  spectate: handleSpectate,
 };
 
 // ============================================================================
@@ -301,6 +355,7 @@ let pairingTimer: NodeJS.Timeout | null = null;
 let presenceTimer: NodeJS.Timeout | null = null;
 let refreshTimer: NodeJS.Timeout | null = null;
 let chatUnsub: Unsubscribe | null = null;
+let sceneDefaultsUnsub: Unsubscribe | null = null;
 let deliverUnsub: Unsubscribe | null = null;
 
 async function runPairing(): Promise<void> {
@@ -339,9 +394,9 @@ async function runPresenceBroadcast(): Promise<void> {
 
 async function runPresenceRefresh(): Promise<void> {
   const cluster = await getCluster();
-  for (const entry of connections.values()) {
-    await cluster.expire(K_PRESENCE(entry.userId), PRESENCE_TTL_SEC);
-  }
+  await Promise.all(
+    [...connections.values()].map((entry) => cluster.expire(K_PRESENCE(entry.userId), PRESENCE_TTL_SEC)),
+  );
 }
 
 async function startCloudLoops(): Promise<void> {
@@ -352,6 +407,14 @@ async function startCloudLoops(): Promise<void> {
     let parsed: unknown;
     try { parsed = JSON.parse(msg); } catch { return; }
     broadcastLocal(parsed);
+  });
+
+  if (sceneDefaultsUnsub) await sceneDefaultsUnsub();
+  sceneDefaultsUnsub = await cluster.subscribe(SCENE_DEFAULTS_CHANNEL, (msg) => {
+    let payload: { at?: unknown };
+    try { payload = JSON.parse(msg) as { at?: unknown }; } catch { return; }
+    const at = typeof payload.at === 'number' ? payload.at : Date.now();
+    broadcastLocal({ type: 'scene-defaults-updated', at });
   });
 
   if (deliverUnsub) await deliverUnsub();
@@ -384,6 +447,7 @@ export async function stopLobbyLoops(): Promise<void> {
   if (presenceTimer) { clearInterval(presenceTimer); presenceTimer = null; }
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
   if (chatUnsub) { await chatUnsub(); chatUnsub = null; }
+  if (sceneDefaultsUnsub) { await sceneDefaultsUnsub(); sceneDefaultsUnsub = null; }
   if (deliverUnsub) { await deliverUnsub(); deliverUnsub = null; }
   for (const entry of connections.values()) {
     await presenceMarkOffline(entry.userId);

@@ -1,11 +1,14 @@
 /**
  * CLI: initialize (or reset) the SQLite database.
  * Usage:
- *   pnpm db:init           # apply schema, keep existing data
+ *   pnpm db:init           # apply schema + run any pending migrations
  *   pnpm db:init --reset   # DROP everything and recreate (asks for confirmation)
  *
- * Meant for local dev. Production migrations are applied automatically by
- * `db()` on first open — schema.sql is idempotent (all CREATE ... IF NOT EXISTS).
+ * Meant for local dev. Production runs go through `db()` on first open —
+ * schema.sql is idempotent (all CREATE ... IF NOT EXISTS), the legacy
+ * SQLite column backfill in sqlite.ts is idempotent, and numbered
+ * migrations under src/db/migrations/ are applied once via the async
+ * SqliteAdapter (and PgAdapter for Postgres).
  */
 import { unlinkSync, existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';

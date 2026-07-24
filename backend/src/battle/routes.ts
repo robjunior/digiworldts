@@ -12,12 +12,12 @@
  * All persistence now routes through the async DbAdapter (SQLite or Postgres)
  * via the q/one/run/tx helpers from src/db/index.ts.
  */
-import { one, q, run, tx, type ActiveMatchRow, type UserRow } from '../db/index.js';
+import { one, q, run, tx, type UserRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
-import { getXpRate } from '../settings/engine.js';
-import { loadPartyLoadout, partyAverageLevel } from '../roster/routes.js';
+import { getXpRate, getDamageRate } from '../settings/engine.js';
+import { loadPartyLoadout, partyAverageLevel, partyTrainedness } from '../roster/routes.js';
 import { loadCatalog } from '../digimon/xml.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
 import { consumePreBattleBuffs, consumeXpMultBuffs, xpMultOf, type PendingBuff } from '../social/buffs.js';
@@ -41,6 +41,7 @@ import type {
 } from './types.js';
 import { computeMmrDelta, MMR_START } from './mmr.js';
 import { getCluster } from '../cluster/index.js';
+import { clearSpectators, listSpectators } from './spectate.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -114,15 +115,23 @@ async function deliverToUser(userId: string, payload: unknown): Promise<void> {
   await cluster.publish(WSDELIVER(userId), JSON.stringify(payload));
 }
 
+async function deliverToSpectators(matchId: string, payload: unknown): Promise<void> {
+  const spectators = await listSpectators(matchId);
+  if (spectators.length === 0) return;
+  await Promise.all(spectators.map((uid) => deliverToUser(uid, payload)));
+}
+
 // ---------------------------------------------------------------------------
 // Pre-battle buff application (mutates loadout in place)
 // ---------------------------------------------------------------------------
 
 async function applyPreBattleBuffs(loadout: Loadout): Promise<PendingBuff[]> {
+  const perMember = await Promise.all(
+    loadout.members.map((m) => consumePreBattleBuffs(loadout.playerId, m.monId)),
+  );
   const applied: PendingBuff[] = [];
-  for (const m of loadout.members) {
-    const consumed = await consumePreBattleBuffs(loadout.playerId, m.monId);
-    for (const b of consumed) {
+  loadout.members.forEach((m, i) => {
+    for (const b of perMember[i]!) {
       if (b.effectKind === 'hp_pct') {
         const extra = Math.max(0, Math.round(m.template.baseStats.hp * b.magnitude));
         m.statBonus.hp += extra;
@@ -132,7 +141,7 @@ async function applyPreBattleBuffs(loadout: Loadout): Promise<PendingBuff[]> {
       }
       applied.push(b);
     }
-  }
+  });
   return applied;
 }
 
@@ -175,11 +184,13 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   const buffsA = await applyPreBattleBuffs(loadA);
   const buffsB = await applyPreBattleBuffs(loadB);
 
+  const damageRate = await getDamageRate();
   const battle = initBattle({
     matchId: newId('mtc'),
     loadoutA: loadA,
     loadoutB: loadB,
     displayNames: { a: uA?.display_name ?? '', b: uB?.display_name ?? '' },
+    damageRate,
   });
   await saveSnapshot(battle);
 
@@ -189,7 +200,7 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   await deliverToUser(userB, { type: 'match', matchId: battle.id, view: viewB });
   await deliverToUser(userA, { type: 'queue', status: 'matched', size: 0 });
   await deliverToUser(userB, { type: 'queue', status: 'matched', size: 0 });
-
+  await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
   log.info('battle.start', { matchId: battle.id, a: userA, b: userB, buffsA: buffsA.length, buffsB: buffsB.length, mmrA: uA?.mmr, mmrB: uB?.mmr });
   return { ok: true, matchId: battle.id, viewA, viewB, playerA: userA, playerB: userB };
 }
@@ -214,6 +225,7 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     if (!battle) return { ok: false, error: 'match not found', code: 'battle-over' };
     const side = sideForPlayerId(battle, userId);
     if (!side) return { ok: false, error: 'you are not in this match', code: 'not-your-turn' };
+    const priorRound = battle.round;
     const result = applyAction(battle, side, action);
     if (!result.ok) return { ok: false, error: result.error, code: result.code };
     const viewA = serializeForSide(battle, 'a');
@@ -227,16 +239,20 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
         attachPvpMmrToView(viewA, pvpMmr.a);
         attachPvpMmrToView(viewB, pvpMmr.b);
       }
-    } else {
+    } else if (battle.round !== priorRound) {
       await saveSnapshot(battle);
     }
     await deliverToUser(battle.playerA, { type: 'event', matchId: battle.id, events: result.events });
     await deliverToUser(battle.playerB, { type: 'event', matchId: battle.id, events: result.events });
     await deliverToUser(battle.playerA, { type: 'battle', matchId: battle.id, view: viewA });
     await deliverToUser(battle.playerB, { type: 'battle', matchId: battle.id, view: viewB });
+    await deliverToSpectators(battle.id, { type: 'event', matchId: battle.id, events: result.events });
+    await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
     if (ended) {
       await deliverToUser(battle.playerA, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
       await deliverToUser(battle.playerB, { type: 'end', matchId: battle.id, view: viewB, outcome: viewB.outcome });
+      await deliverToSpectators(battle.id, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
+      await clearSpectators(battle.id);
     }
     return { ok: true, matchId: battle.id, viewA, viewB, newEvents: result.events, ended };
   } finally {
@@ -266,6 +282,11 @@ export async function handleDisconnect(userId: string): Promise<{ matchId: strin
     if (pvpMmr) {
       attachPvpMmrToView(opponentView, opponentSide === 'a' ? pvpMmr.a : pvpMmr.b);
     }
+    // Spectators saw everything from A's perspective; deliver end from that view.
+    const spectatorView = opponentSide === 'a' ? opponentView : serializeForSide(battle, 'a');
+    await deliverToSpectators(matchId, { type: 'battle', matchId, view: spectatorView });
+    await deliverToSpectators(matchId, { type: 'end', matchId, view: spectatorView, outcome: spectatorView.outcome });
+    await clearSpectators(matchId);
     return { matchId, opponentId, opponentView };
   } finally {
     await cluster.unlock(K_LOCK(matchId), lockToken);
@@ -281,6 +302,15 @@ export async function getMatchView(userId: string): Promise<{ matchId: string; v
   const side = sideForPlayerId(battle, userId);
   if (!side) return null;
   return { matchId, view: serializeForSide(battle, side) };
+}
+
+/** Read-only spectator view. Returns null when the match no longer exists.
+ *  The returned view is always from side 'a' — enemy stats redacted (matches
+ *  what a friendly-side player sees). */
+export async function getSpectatorView(matchId: string): Promise<{ matchId: string; view: BattleView } | null> {
+  const battle = await loadSnapshot(matchId);
+  if (!battle) return null;
+  return { matchId, view: serializeForSide(battle, 'a') };
 }
 
 export async function isInMatch(userId: string): Promise<boolean> {
@@ -299,24 +329,6 @@ export async function hydrateActiveMatches(): Promise<number> {
   const cluster = await getCluster();
   const keys = await cluster.keys('battle:snap:*');
   if (keys.length > 0) log.info('battle.hydrate.detected', { count: keys.length });
-  // Legacy: attempt to hydrate any orphaned SQLite active_matches rows so an
-  // upgrade from the pre-cluster shape doesn't lose live matches.
-  try {
-    const legacy = await q<ActiveMatchRow>(`SELECT * FROM active_matches`);
-    for (const row of legacy) {
-      try {
-        const battle = JSON.parse(row.snapshot) as Battle;
-        if (battle.status !== 'active') continue;
-        await cluster.set(K_SNAP(battle.id), row.snapshot, SNAPSHOT_TTL_SEC);
-        await cluster.set(K_USER(battle.playerA), battle.id, SNAPSHOT_TTL_SEC);
-        await cluster.set(K_USER(battle.playerB), battle.id, SNAPSHOT_TTL_SEC);
-      } catch {}
-    }
-    if (legacy.length > 0) {
-      await run(`DELETE FROM active_matches`);
-      log.info('battle.hydrate.migrated-legacy', { count: legacy.length });
-    }
-  } catch {}
   return keys.length;
 }
 
@@ -478,4 +490,4 @@ async function grantRewardsInTx(
   }
 }
 
-export { partyAverageLevel };
+export { partyAverageLevel, partyTrainedness };

@@ -3,19 +3,25 @@ import { log } from '../util/log.js';
 
 const SQL_GET_SETTINGS = `SELECT * FROM game_settings WHERE id = 1`;
 const SQL_UPSERT_SETTINGS = `
-  INSERT INTO game_settings (id, xp_rate, updated_at)
-       VALUES (1, ?, ?)
+  INSERT INTO game_settings (id, xp_rate, damage_rate, updated_at)
+       VALUES (1, ?, ?, ?)
     ON CONFLICT (id) DO UPDATE
-       SET xp_rate    = excluded.xp_rate,
-           updated_at = excluded.updated_at
+       SET xp_rate     = excluded.xp_rate,
+           damage_rate = excluded.damage_rate,
+           updated_at  = excluded.updated_at
 `;
 
 export const DEFAULT_XP_RATE = 1.0;
 export const MIN_XP_RATE = 0.1;
 export const MAX_XP_RATE = 10.0;
 
+export const DEFAULT_DAMAGE_RATE = 1.0;
+export const MIN_DAMAGE_RATE = 0.25;
+export const MAX_DAMAGE_RATE = 5.0;
+
 export type GameSettingsView = {
   readonly xpRate: number;
+  readonly damageRate: number;
   readonly updatedAt: number;
 };
 
@@ -25,11 +31,13 @@ export type SettingsOutcome<T> =
 
 function rowToView(row: GameSettingsRow | null): GameSettingsView {
   if (row === null) {
-    return { xpRate: DEFAULT_XP_RATE, updatedAt: 0 };
+    return { xpRate: DEFAULT_XP_RATE, damageRate: DEFAULT_DAMAGE_RATE, updatedAt: 0 };
   }
-  const rate = Number(row.xp_rate);
+  const xp = Number(row.xp_rate);
+  const dmg = Number(row.damage_rate);
   return {
-    xpRate: Number.isFinite(rate) && rate > 0 ? rate : DEFAULT_XP_RATE,
+    xpRate: Number.isFinite(xp) && xp > 0 ? xp : DEFAULT_XP_RATE,
+    damageRate: Number.isFinite(dmg) && dmg > 0 ? dmg : DEFAULT_DAMAGE_RATE,
     updatedAt: row.updated_at,
   };
 }
@@ -44,28 +52,42 @@ export async function getXpRate(): Promise<number> {
   return view.xpRate;
 }
 
-export async function updateGameSettings(input: { xpRate: number }): Promise<SettingsOutcome<GameSettingsView>> {
-  const xpRate = Number(input.xpRate);
-  if (!Number.isFinite(xpRate)) {
+export async function getDamageRate(): Promise<number> {
+  const view = await getGameSettings();
+  return view.damageRate;
+}
+
+export async function updateGameSettings(
+  input: { xpRate?: number; damageRate?: number },
+): Promise<SettingsOutcome<GameSettingsView>> {
+  const current = await getGameSettings();
+  const nextXpRate = input.xpRate !== undefined ? Number(input.xpRate) : current.xpRate;
+  const nextDamageRate = input.damageRate !== undefined ? Number(input.damageRate) : current.damageRate;
+
+  if (!Number.isFinite(nextXpRate)) {
     return { ok: false, error: 'invalid-input', message: 'xpRate must be a finite number' };
   }
-  if (xpRate < MIN_XP_RATE || xpRate > MAX_XP_RATE) {
-    return {
-      ok: false,
-      error: 'invalid-input',
-      message: `xpRate must be between ${MIN_XP_RATE} and ${MAX_XP_RATE}`,
-    };
+  if (nextXpRate < MIN_XP_RATE || nextXpRate > MAX_XP_RATE) {
+    return { ok: false, error: 'invalid-input', message: `xpRate must be between ${MIN_XP_RATE} and ${MAX_XP_RATE}` };
   }
-  const rounded = Math.round(xpRate * 100) / 100;
+  if (!Number.isFinite(nextDamageRate)) {
+    return { ok: false, error: 'invalid-input', message: 'damageRate must be a finite number' };
+  }
+  if (nextDamageRate < MIN_DAMAGE_RATE || nextDamageRate > MAX_DAMAGE_RATE) {
+    return { ok: false, error: 'invalid-input', message: `damageRate must be between ${MIN_DAMAGE_RATE} and ${MAX_DAMAGE_RATE}` };
+  }
+
+  const roundedXp = Math.round(nextXpRate * 100) / 100;
+  const roundedDmg = Math.round(nextDamageRate * 100) / 100;
   const now = Date.now();
-  await run(SQL_UPSERT_SETTINGS, [rounded, now]);
-  log.info('game.settings.update', { xpRate: rounded });
+  await run(SQL_UPSERT_SETTINGS, [roundedXp, roundedDmg, now]);
+  log.info('game.settings.update', { xpRate: roundedXp, damageRate: roundedDmg });
   return { ok: true, value: await getGameSettings() };
 }
 
 export async function seedDefaultGameSettings(): Promise<{ seeded: boolean }> {
   const existing = await one<GameSettingsRow>(SQL_GET_SETTINGS);
   if (existing !== null) return { seeded: false };
-  await run(SQL_UPSERT_SETTINGS, [DEFAULT_XP_RATE, Date.now()]);
+  await run(SQL_UPSERT_SETTINGS, [DEFAULT_XP_RATE, DEFAULT_DAMAGE_RATE, Date.now()]);
   return { seeded: true };
 }

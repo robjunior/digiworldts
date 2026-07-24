@@ -3,8 +3,11 @@
  *
  * Startup order matters and is enforced here:
  *   1. Config + DB opened (both fail-fast on bad env or unwritable disk).
- *   2. Live-match state hydrated from `active_matches` and matchmaking queue
- *      hydrated from `matchmaking_queue` — restart no longer forfeits.
+ *   2. Cluster (memory or Redis) connected. Live-match state and matchmaking
+ *      queue live IN THE CLUSTER, not SQL — so a restart on Redis loses
+ *      nothing, and a memory-cluster restart starts empty by design.
+ *      `hydrateActiveMatches` and `hydrateMatchmaking` are status pings that
+ *      report the cluster size at boot.
  *   3. XML catalog loaded, then asset verifier walks it (re-downloads any
  *      portrait/dot that is missing from public/assets/digimon/{id}/).
  *   4. Fastify + cookie + websocket + static plugins registered.
@@ -48,8 +51,10 @@ import { nurseryPlugin } from './nursery/routes.js';
 import { marketPlugin } from './market/routes.js';
 import { digdexPlugin } from './dex/routes.js';
 import { adventurePlugin } from './adventure/routes.js';
+import { chatPlugin } from './chat/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
+import { battlePlugin } from './battle/http.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
 import { normalizeRosterXpFloor } from './progression/normalize.js';
 import { getCluster, closeCluster } from './cluster/index.js';
@@ -167,6 +172,8 @@ async function main(): Promise<void> {
   await app.register(marketPlugin);
   await app.register(digdexPlugin);
   await app.register(adventurePlugin);
+  await app.register(chatPlugin);
+  await app.register(battlePlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));

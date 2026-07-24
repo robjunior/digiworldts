@@ -33,6 +33,11 @@ const SQL_SELECT_ACTIVE_MARKET = `
     JOIN player_roster m ON m.id = l.mon_id
     JOIN users u ON u.id = l.seller_id
    WHERE l.sold_at IS NULL AND l.canceled_at IS NULL
+     AND (CAST(? AS INTEGER) IS NULL OR l.price_credits >= ?)
+     AND (CAST(? AS INTEGER) IS NULL OR l.price_credits <= ?)
+     AND (CAST(? AS INTEGER) IS NULL OR m.level >= ?)
+     AND (CAST(? AS INTEGER) IS NULL OR m.level <= ?)
+     AND (CAST(? AS TEXT) IS NULL OR LOWER(m.nickname) LIKE LOWER(?))
 `;
 const SQL_SELECT_MY_LISTINGS = `
   SELECT l.id AS listing_id, l.price_credits, l.listed_at, l.sold_at, l.canceled_at, l.sold_to,
@@ -121,16 +126,15 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     }
     const { page, perPage, stage, element, minLevel, maxLevel, minPrice, maxPrice, q: search, sort } = parsed.data;
 
-    const conds: string[] = [];
-    const params: unknown[] = [];
-    if (minPrice != null) { conds.push('l.price_credits >= ?'); params.push(minPrice); }
-    if (maxPrice != null) { conds.push('l.price_credits <= ?'); params.push(maxPrice); }
-    if (minLevel != null) { conds.push('m.level >= ?'); params.push(minLevel); }
-    if (maxLevel != null) { conds.push('m.level <= ?'); params.push(maxLevel); }
-    if (search) { conds.push('LOWER(m.nickname) LIKE LOWER(?)'); params.push(`%${search}%`); }
-
-    const sqlBase = SQL_SELECT_ACTIVE_MARKET + (conds.length ? ' AND ' + conds.join(' AND ') : '');
-    const rows = await q<MarketRowJoined>(sqlBase, ...params);
+    const searchPattern = search ? `%${search}%` : null;
+    const rows = await q<MarketRowJoined>(
+      SQL_SELECT_ACTIVE_MARKET,
+      minPrice ?? null, minPrice ?? null,
+      maxPrice ?? null, maxPrice ?? null,
+      minLevel ?? null, minLevel ?? null,
+      maxLevel ?? null, maxLevel ?? null,
+      searchPattern, searchPattern,
+    );
 
     const catalog = loadCatalog();
     const templateById = new Map<string, TemplateDigimon>();

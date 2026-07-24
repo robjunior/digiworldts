@@ -7,11 +7,15 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "start": "node --enable-source-maps dist/server.js",
-    "build": "tsc -p tsconfig.json && node -e \"const {cpSync,mkdirSync}=require('node:fs');mkdirSync('dist/db',{recursive:true});cpSync('src/db/schema.sql','dist/db/schema.sql');cpSync('src/db/schema-pg.sql','dist/db/schema-pg.sql');\"",
+    "build": "tsc -p tsconfig.json && node -e \"const {cpSync,mkdirSync}=require('node:fs');mkdirSync('dist/db',{recursive:true});cpSync('src/db/schema.sql','dist/db/schema.sql');cpSync('src/db/schema-pg.sql','dist/db/schema-pg.sql');cpSync('src/db/migrations','dist/db/migrations',{recursive:true});\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "scrape": "tsx src/scraper/cli.ts",
     "db:init": "tsx src/db/init.ts",
     "test:pg-portability": "tsx test/postgres-portability.mts",
+    "test:cluster": "tsx test/cluster-crossnode.mts",
+    "test:migrator": "tsx test/migrator-smoke.mts",
+    "test:features": "tsx test/features-smoke.mts",
+    "test:battle-sim": "tsx test/battle-sim.mts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2"
   },
   "dependencies": {

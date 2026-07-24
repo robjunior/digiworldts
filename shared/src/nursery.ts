@@ -4,8 +4,7 @@
  * The nursery collects "species data" from every wild Digimon the player
  * defeats in PVE. When a species meter reaches 100% the player can hatch a
  * new Rookie of that lineage — a 3-minute egg timer runs before the hatched
- * mon appears on the roster. Higher-stage targets grant chip items (evolution
- * fodder) for each stage step above Rookie.
+ * mon appears on the roster.
  */
 
 import type { Stage } from './digimon.js';
@@ -37,7 +36,6 @@ export type PendingHatchEntry = {
   rookieCatalogId: string;
   rookieName: string;
   rookieDot: string;
-  chipItemIds: string[];
   hatchAt: number;
   ready: boolean;
 };
@@ -60,5 +58,5 @@ export type MixHatchResponse =
   | { ok: false; error: 'no-data' | 'no-path' };
 
 export type CollectHatchResponse =
-  | { ok: true; monId: string; rookieCatalogId: string; nickname: string; chipItemIds: string[] }
+  | { ok: true; monId: string; rookieCatalogId: string; nickname: string }
   | { ok: false; error: 'not-found' | 'not-ready' | 'template-missing' };

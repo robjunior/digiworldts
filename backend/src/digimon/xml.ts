@@ -84,7 +84,6 @@ const EvolveEntryZ = z.object({
   '@_targetId': z.string().min(1),
   '@_requiredLevel': z.coerce.number().int().nonnegative().optional(),
   '@_requiredMood': z.coerce.number().int().min(0).max(100).optional(),
-  '@_requiredItemId': z.string().min(1).max(64).optional(),
   '@_requiredAttribute': z.enum(ATTRIBUTES).optional(),
 });
 
@@ -215,7 +214,6 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
       const edge: EvolveEdge = { targetId: e['@_targetId'] };
       if (e['@_requiredLevel'] !== undefined) edge.requiredLevel = e['@_requiredLevel'];
       if (e['@_requiredMood'] !== undefined) edge.requiredMood = e['@_requiredMood'];
-      if (e['@_requiredItemId'] !== undefined) edge.requiredItemId = e['@_requiredItemId'];
       if (e['@_requiredAttribute'] !== undefined) edge.requiredAttribute = e['@_requiredAttribute'] as Attribute;
       return edge;
     });
@@ -280,7 +278,6 @@ function fromTemplate(t: TemplateDigimon): unknown {
         const attrs: Record<string, unknown> = { '@_targetId': edge.targetId };
         if (edge.requiredLevel !== undefined) attrs['@_requiredLevel'] = edge.requiredLevel;
         if (edge.requiredMood !== undefined) attrs['@_requiredMood'] = edge.requiredMood;
-        if (edge.requiredItemId !== undefined) attrs['@_requiredItemId'] = edge.requiredItemId;
         if (edge.requiredAttribute !== undefined) attrs['@_requiredAttribute'] = edge.requiredAttribute;
         return attrs;
       }),
@@ -378,6 +375,13 @@ export function removeTemplate(catalog: Catalog, id: string): Catalog {
 }
 
 /** Lookup by id or `undefined`. */
+const templateIndex = new WeakMap<Catalog, Map<string, TemplateDigimon>>();
 export function findTemplate(catalog: Catalog, id: string): TemplateDigimon | undefined {
-  return catalog.digimons.find((d) => d.id === id);
+  let index = templateIndex.get(catalog);
+  if (index === undefined) {
+    index = new Map<string, TemplateDigimon>();
+    for (const t of catalog.digimons) index.set(t.id, t);
+    templateIndex.set(catalog, index);
+  }
+  return index.get(id);
 }

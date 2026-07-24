@@ -12,6 +12,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { applyColumnMigrations } from './sqlite.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCHEMA_PATH = resolve(__dirname, 'schema.sql');
@@ -44,56 +45,14 @@ export function db(): DatabaseHandle {
   return handle;
 }
 
-/** Apply schema idempotently. All CREATE TABLEs use IF NOT EXISTS. */
+/** Apply schema idempotently. All CREATE TABLEs use IF NOT EXISTS. The
+ *  legacy SQLite column backfill and numbered migrations both run via the
+ *  async SqliteAdapter — this sync path is a compatibility shim for the
+ *  `db:init` CLI and legacy `prep()` callers. */
 function applySchema(handle: DatabaseHandle): void {
   const sql = readFileSync(SCHEMA_PATH, 'utf8');
   handle.exec(sql);
-  migratePlayerRosterColumns(handle);
-  migrateUsersColumns(handle);
-}
-
-function migrateUsersColumns(handle: DatabaseHandle): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(users)`)
-      .all()
-      .map((c) => c.name),
-  );
-  const additions: Array<[string, string]> = [
-    ['mmr', 'INTEGER NOT NULL DEFAULT 1000'],
-  ];
-  for (const [name, def] of additions) {
-    if (!existing.has(name)) {
-      handle.exec(`ALTER TABLE users ADD COLUMN ${name} ${def}`);
-    }
-  }
-}
-
-/**
- * SQLite ADD COLUMN has no IF NOT EXISTS syntax before 3.35. Probe the
- * table_info list once and add each missing column so re-running against
- * a migrated DB is a no-op.
- */
-function migratePlayerRosterColumns(handle: DatabaseHandle): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(player_roster)`)
-      .all()
-      .map((c) => c.name),
-  );
-  const additions: Array<[string, string]> = [
-    ['revive_at', 'INTEGER'],
-    ['pets_today', 'INTEGER NOT NULL DEFAULT 0'],
-    ['pets_day', 'TEXT'],
-    ['listed_at', 'INTEGER'],
-    ['evolution_history', 'TEXT'],
-    ['equipped_skill_ids', 'TEXT'],
-  ];
-  for (const [name, def] of additions) {
-    if (!existing.has(name)) {
-      handle.exec(`ALTER TABLE player_roster ADD COLUMN ${name} ${def}`);
-    }
-  }
+  applyColumnMigrations(handle);
 }
 
 /** Close the connection (used in tests). */
@@ -294,17 +253,6 @@ export type InventoryRow = {
   updated_at: number;
 };
 
-export type ActiveMatchRow = {
-  id: string;
-  player_a: string;
-  player_b: string;
-  snapshot: string;
-  round: number;
-  active_side: 'a' | 'b';
-  started_at: number;
-  updated_at: number;
-};
-
 export type PendingBuffRow = {
   id: string;
   user_id: string;
@@ -314,13 +262,6 @@ export type PendingBuffRow = {
   source_item: string | null;
   created_at: number;
   consumed_at: number | null;
-};
-
-export type MatchmakingQueueRow = {
-  user_id: string;
-  display_name: string;
-  average_level: number;
-  queued_at: number;
 };
 
 export type OnboardingConfigRow = {
@@ -333,6 +274,7 @@ export type OnboardingConfigRow = {
 export type GameSettingsRow = {
   id: 1;
   xp_rate: number;
+  damage_rate: number;
   updated_at: number;
 };
 
