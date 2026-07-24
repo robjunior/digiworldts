@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
-import { createSkill, deleteSkill, getSkills, updateSkill, type SkillElement, type SkillInput, type SkillView } from '../../lib/api-admin';
+import { ELEMENTS } from '@digiworld/shared/digimon';
+import { useLocale } from '../../hooks/useLocale';
+import { localizedName, localizedDescription } from '../../lib/locale';
+import { createSkill, deleteSkill, getCatalogSkills, getSkills, updateSkill, type SkillElement, type SkillInput, type SkillView, type CatalogSkillMeta } from '../../lib/api-admin';
 import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
 
 const SKILLS_QUERY_KEY = ['admin', 'skills'] as const;
@@ -39,42 +42,45 @@ export function SkillsAdmin(): JSX.Element {
   };
 
   return (
-    <div className="admin-two-column">
-      <AdminSection title={`Skills (${skills.length})`} lede="Skill DSL: name/element/EN cost/cooldown + a JSON actions array + optional tags. Delete removes the row and un-equips it from any mon that referenced it.">
-        <ErrorText error={skillsQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
-        <div className="admin-scroll">
-          <table className="admin-table">
-            <thead><tr><th>Name</th><th>Element</th><th>EN</th><th>Actions</th><th>Enabled</th><th></th></tr></thead>
-            <tbody>
-              {skills.map((skill) => (
-                <tr key={skill.id}>
-                  <td>
-                    <b>{skill.name}</b>
-                    {skill.description ? <><br /><span className="muted">{skill.description}</span></> : null}
-                  </td>
-                  <td><span className="badge">{skill.element}</span></td>
-                  <td>{skill.energyCost}</td>
-                  <td className="muted">{skill.actions.length} action{skill.actions.length === 1 ? '' : 's'}{typeof skill.cooldown === 'number' && skill.cooldown > 0 ? ` · cd ${skill.cooldown}` : ''}</td>
-                  <td>{skill.enabled === false ? 'no' : 'yes'}</td>
-                  <td className="admin-actions-cell">
-                    <button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(skill)}>Edit</button>
-                    <button className="btn btn--danger btn--sm" type="button" onClick={() => remove(skill.id, skill.name)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {skillsQuery.isPending ? <AdminMessage tone="muted">Loading skills…</AdminMessage> : null}
-        {!skillsQuery.isPending && skills.length === 0 ? <AdminMessage tone="muted">No skills yet — create the first one on the right.</AdminMessage> : null}
-      </AdminSection>
-      <SkillForm
-        key={editing?.id ?? 'new'}
-        skill={editing}
-        busy={createMutation.isPending || updateMutation.isPending}
-        onCancel={() => setEditing(null)}
-        onSubmit={submit}
-      />
+    <div className="stack" style={{ gap: '32px' }}>
+      <div className="admin-two-column">
+        <AdminSection title={`Skills (${skills.length})`} lede="Skill DSL: name/element/EN cost/cooldown + a JSON actions array + optional tags. Delete removes the row and un-equips it from any mon that referenced it.">
+          <ErrorText error={skillsQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
+          <div className="admin-scroll">
+            <table className="admin-table">
+              <thead><tr><th>Name</th><th>Element</th><th>EN</th><th>Actions</th><th>Enabled</th><th></th></tr></thead>
+              <tbody>
+                {skills.map((skill) => (
+                  <tr key={skill.id}>
+                    <td>
+                      <b>{skill.name}</b>
+                      {skill.description ? <><br /><span className="muted">{skill.description}</span></> : null}
+                    </td>
+                    <td><span className="badge">{skill.element}</span></td>
+                    <td>{skill.energyCost}</td>
+                    <td className="muted">{skill.actions.length} action{skill.actions.length === 1 ? '' : 's'}{typeof skill.cooldown === 'number' && skill.cooldown > 0 ? ` · cd ${skill.cooldown}` : ''}</td>
+                    <td>{skill.enabled === false ? 'no' : 'yes'}</td>
+                    <td className="admin-actions-cell">
+                      <button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(skill)}>Edit</button>
+                      <button className="btn btn--danger btn--sm" type="button" onClick={() => remove(skill.id, skill.name)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {skillsQuery.isPending ? <AdminMessage tone="muted">Loading skills…</AdminMessage> : null}
+          {!skillsQuery.isPending && skills.length === 0 ? <AdminMessage tone="muted">No skills yet — create the first one on the right.</AdminMessage> : null}
+        </AdminSection>
+        <SkillForm
+          key={editing?.id ?? 'new'}
+          skill={editing}
+          busy={createMutation.isPending || updateMutation.isPending}
+          onCancel={() => setEditing(null)}
+          onSubmit={submit}
+        />
+      </div>
+      <CatalogSkillsViewer />
     </div>
   );
 }
@@ -121,6 +127,175 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
           <button className="btn" type="submit" disabled={busy}>{skill ? 'Save skill' : 'Create skill'}</button>
         </div>
       </form>
+    </AdminSection>
+  );
+}
+
+const CATALOG_STAGES = ['Rookie', 'Champion', 'Ultimate', 'Mega'] as const;
+const SLOT_ROLES = ['primary_attack', 'sustain_dot', 'control', 'buff_support', 'utility', 'identity_finisher'] as const;
+
+function CatalogSkillsViewer(): JSX.Element {
+  const locale = useLocale();
+  const query = useQuery({ queryKey: ['admin', 'skills-catalog'], queryFn: getCatalogSkills });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [elementFilter, setElementFilter] = useState<'all' | (typeof ELEMENTS)[number]>('all');
+  const [stageFilter, setStageFilter] = useState<'all' | (typeof CATALOG_STAGES)[number]>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | (typeof SLOT_ROLES)[number]>('all');
+  const [tier2Only, setTier2Only] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const [hoveredChainTarget, setHoveredChainTarget] = useState<string | null>(null);
+
+  const skills = query.data?.skills ?? [];
+
+  const visible = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim();
+    return skills.filter((sk) => {
+      if (elementFilter !== 'all' && sk.element !== elementFilter) return false;
+      if (stageFilter !== 'all' && sk.stage !== stageFilter) return false;
+      if (roleFilter !== 'all' && sk.slot_role !== roleFilter) return false;
+      if (tier2Only && !sk.tier_2) return false;
+      if (q.length > 0 && !sk.name.toLowerCase().includes(q) && !sk.name_pt.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [skills, searchTerm, elementFilter, stageFilter, roleFilter, tier2Only]);
+
+  const countByElement = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const sk of skills) map.set(sk.element, (map.get(sk.element) ?? 0) + 1);
+    return map;
+  }, [skills]);
+
+  const countByStage = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const sk of skills) map.set(sk.stage, (map.get(sk.stage) ?? 0) + 1);
+    return map;
+  }, [skills]);
+
+  const buildChainString = (skillId: string): string => {
+    const chain: CatalogSkillMeta[] = [];
+    let current: CatalogSkillMeta | undefined = skills.find((s) => s.id === skillId);
+    while (current) {
+      chain.unshift(current);
+      if (!current.upgrade_of) break;
+      const prevId = current.upgrade_of;
+      current = skills.find((s) => s.id === prevId);
+    }
+    return chain.map((sk) => sk.id === skillId ? `${sk.name} (this)` : sk.name).join(' → ');
+  };
+
+  if (!open) {
+    return (
+      <AdminSection title={`Skills Catalog (v2, ${skills.length} seeded)`}>
+        <div style={{ paddingBottom: '16px' }}>
+          <button className="btn btn--secondary" type="button" onClick={() => setOpen(true)}>Expand read-only catalog</button>
+        </div>
+      </AdminSection>
+    );
+  }
+
+  return (
+    <AdminSection title={`Skills Catalog (v2, ${skills.length} seeded)`} actions={<button className="btn btn--sm btn--secondary" onClick={() => setOpen(false)}>Collapse</button>}>
+      <ErrorText error={query.error} />
+      
+      <div className="stack" style={{ marginBottom: '24px' }}>
+        <div className="row">
+          <Field label="Search by name">
+            <input className="input" type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Type name..." />
+          </Field>
+          <div className="field">
+            <label className="admin-checkbox" style={{ marginTop: '24px' }}>
+              <input type="checkbox" checked={tier2Only} onChange={(e) => setTier2Only(e.target.checked)} /> Tier 2 only
+            </label>
+          </div>
+        </div>
+
+        <div className="skill-filters">
+          <div className="skill-filter" role="tablist">
+            <span className="skill-filter-label">Stage</span>
+            <button type="button" role="tab" className={`skill-filter-btn ${stageFilter === 'all' ? 'is-active' : ''}`} onClick={() => setStageFilter('all')}>All <span className="filter-count">{skills.length}</span></button>
+            {CATALOG_STAGES.map((s) => (
+              <button key={s} type="button" role="tab" className={`skill-filter-btn ${stageFilter === s ? 'is-active' : ''}`} onClick={() => setStageFilter(s)}>
+                {s} <span className="filter-count">{countByStage.get(s) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="skill-filter" role="tablist">
+            <span className="skill-filter-label">Element</span>
+            <button type="button" role="tab" className={`skill-filter-btn ${elementFilter === 'all' ? 'is-active' : ''}`} onClick={() => setElementFilter('all')}>All</button>
+            {ELEMENTS.map((el) => (
+              <button key={el} type="button" role="tab" className={`skill-filter-btn ${elementFilter === el ? 'is-active' : ''}`} onClick={() => setElementFilter(el)}>
+                {el} <span className="filter-count">{countByElement.get(el) ?? 0}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="skill-filter" role="tablist">
+            <span className="skill-filter-label">Role</span>
+            <button type="button" role="tab" className={`skill-filter-btn ${roleFilter === 'all' ? 'is-active' : ''}`} onClick={() => setRoleFilter('all')}>All</button>
+            {SLOT_ROLES.map((r) => (
+              <button key={r} type="button" role="tab" className={`skill-filter-btn ${roleFilter === r ? 'is-active' : ''}`} onClick={() => setRoleFilter(r)}>
+                {r.split('_').map(w => w.toUpperCase()).join(' ')}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {query.isPending ? <AdminMessage tone="muted">Loading catalog…</AdminMessage> : null}
+      
+      {!query.isPending && (
+        <div className="skill-grid">
+          {visible.map((entry) => {
+            const locName = localizedName(entry, locale);
+            const locDesc = localizedDescription(entry, locale);
+            const subName = locale === 'en' ? entry.name_pt : entry.name;
+            const chainStr = (entry.upgrade_of && hoveredChainTarget === entry.id) ? buildChainString(entry.id) : null;
+
+            return (
+              <div key={entry.id} className="skill-chip catalog-skill-card" data-element={entry.element}>
+                <span className="chip-head">
+                  <span className="chip-name">
+                    {locName}
+                    {entry.tier_2 ? <span className="tier-2-badge" title="Tier 2">★</span> : null}
+                  </span>
+                  {entry.slot_role ? (
+                    <span className="catalog-badge">
+                      {entry.slot_role === 'primary_attack' ? 'PRIMARY' : 
+                       entry.slot_role === 'sustain_dot' ? 'SUSTAIN' : 
+                       entry.slot_role === 'control' ? 'CONTROL' : 
+                       entry.slot_role === 'buff_support' ? 'BUFF' : 
+                       entry.slot_role === 'utility' ? 'UTILITY' : 
+                       entry.slot_role === 'identity_finisher' ? 'FINISHER' : 
+                       entry.slot_role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="chip-name-pt" style={{ fontStyle: 'italic', fontSize: '11px', color: 'var(--muted)', marginTop: '-2px', marginBottom: '2px', display: 'block' }}>{subName}</span>
+                <span className="chip-meta">
+                  <span className="chip-el" style={{ color: `var(--el-${entry.element})` }}>{entry.element}</span>
+                  <span className="chip-from">{entry.stage}</span>
+                  <span className="chip-en">EN {entry.energyCost}</span>
+                  {entry.cooldown > 0 ? <span className="chip-en">CD {entry.cooldown}</span> : null}
+                </span>
+                {locDesc ? <span className="chip-desc" style={{ marginTop: '4px' }}>{locDesc.length > 80 ? locDesc.slice(0, 80) + '...' : locDesc}</span> : null}
+                {entry.upgrade_of ? (
+                  <span 
+                    className="chip-chain-hint" 
+                    style={{ fontSize: '10px', color: 'var(--ink)', background: 'color-mix(in oklab, var(--hairline) 30%, transparent)', padding: '2px 4px', borderRadius: '4px', marginTop: '4px', cursor: 'help', display: 'inline-block' }}
+                    onMouseEnter={() => setHoveredChainTarget(entry.id)}
+                    onMouseLeave={() => setHoveredChainTarget(null)}
+                  >
+                    {chainStr ? chainStr : '↰ upgrades'}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+          {visible.length === 0 ? <div className="muted">No skills match filters.</div> : null}
+        </div>
+      )}
     </AdminSection>
   );
 }

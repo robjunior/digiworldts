@@ -1046,3 +1046,39 @@
   .biome-editor-list { max-height: 200px; }
 }
 
+
+/* Admin Skills Catalog Viewer */
+.skill-filters { display: flex; flex-direction: column; gap: 4px; }
+.skill-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; align-items: center; }
+.skill-filter-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); min-width: 52px; }
+.skill-filter-btn { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s, background-color 0.15s; clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); display: inline-flex; align-items: center; gap: 5px; }
+.skill-filter-btn:hover:not(.is-active) { color: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active .filter-count { background: color-mix(in oklab, var(--bg) 30%, transparent); color: var(--bg); }
+.filter-count { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: color-mix(in oklab, var(--ink) 12%, transparent); color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.skill-chip { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--hairline); border-left: 3px solid var(--el-neutral); color: var(--ink); font-family: inherit; text-align: left; transition: border-color 0.15s, background-color 0.15s, transform 0.15s; }
+.skill-chip[data-element="fire"] { border-left-color: var(--el-fire); }
+.skill-chip[data-element="water"] { border-left-color: var(--el-water); }
+.skill-chip[data-element="plant"] { border-left-color: var(--el-nature); }
+.skill-chip[data-element="ice"] { border-left-color: var(--el-water); }
+.skill-chip[data-element="electricity"] { border-left-color: var(--el-electric); }
+.skill-chip[data-element="earth"] { border-left-color: var(--el-nature); }
+.skill-chip[data-element="steel"] { border-left-color: var(--muted); }
+.skill-chip[data-element="wind"] { border-left-color: var(--el-light); }
+.skill-chip[data-element="light"] { border-left-color: var(--el-light); }
+.skill-chip[data-element="dark"] { border-left-color: var(--el-dark); }
+.skill-chip[data-element="null"] { border-left-color: var(--el-neutral); }
+.chip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.chip-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chip-meta { display: flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.chip-el { font-weight: 700; }
+.chip-en { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-cd { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.chip-from { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: 0; }
+
+.tier-2-badge { display: inline-block; margin-left: 4px; color: var(--gold); font-size: 11px; line-height: 1; vertical-align: middle; }
+.catalog-badge { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; background: color-mix(in oklab, var(--hairline) 50%, transparent); padding: 2px 6px; border-radius: 4px; }
+

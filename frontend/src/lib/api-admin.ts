@@ -275,6 +275,25 @@ export function deleteSkill(id: string): Promise<{ readonly ok: true; readonly i
   return apiFetch<{ readonly ok: true; readonly id: string }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export type CatalogSkillMeta = {
+  readonly id: string;
+  readonly name: string;
+  readonly name_pt: string;
+  readonly description: string | null;
+  readonly description_pt: string | null;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly cooldown: number;
+  readonly stage: Stage;
+  readonly slot_role: string | null;
+  readonly tier_2: boolean;
+  readonly upgrade_of: string | null;
+};
+
+export function getCatalogSkills(): Promise<{ readonly skills: readonly CatalogSkillMeta[] }> {
+  return apiFetch<{ readonly skills: readonly CatalogSkillMeta[] }>('/api/admin/skills-catalog');
+}
+
 export type LootEntryView = {
   readonly id: string;
   readonly itemId: string;
