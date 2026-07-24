@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 
 import { ApiError } from '../../lib/api';
-import { getMonSkills, setMonSkills } from '../../lib/api-roster';
-import { SkillSlotBox } from './SkillSlotBox';
+import { isCatalogSkillId, getMonSkills, setMonSkills } from '../../lib/api-roster';
+import { type EquippedSlotContent, SkillSlotBox } from './SkillSlotBox';
 
 type SkillEditorProps = {
   readonly monId: string;
@@ -71,6 +71,7 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const currentSlots = slots ?? padSlots(data.equipped, data.maxEquipped);
   const chosenKeys = new Set(currentSlots.filter((k): k is string => k !== null));
   const skillByKey = new Map(data.learnedSkills.map((e) => [e.key, e] as const));
+  const catalogSkillById = new Map(data.catalogPool.map((e) => [e.id, e] as const));
   const equippedFromLoad = padSlots(data.equipped, data.maxEquipped);
   const dirty = !slotsEqual(currentSlots, equippedFromLoad);
   const canSave = dirty && chosenKeys.size > 0 && chosenKeys.size <= data.maxEquipped;
@@ -97,6 +98,29 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   });
   const anyFilterActive =
     activeStageFilter !== 'all' || activeElementFilter !== 'all' || activeAttributeFilter !== 'all';
+
+  const [catalogStageFilter, setCatalogStageFilter] = useState<StageFilter>('all');
+  const catalogCountByStage = new Map<string, number>();
+  for (const entry of data.catalogPool) {
+    catalogCountByStage.set(entry.stage, (catalogCountByStage.get(entry.stage) ?? 0) + 1);
+  }
+  const catalogAvailableStages = STAGES.filter((s) => catalogCountByStage.has(s));
+  const activeCatalogStageFilter: StageFilter = catalogStageFilter !== 'all' && !catalogCountByStage.has(catalogStageFilter) ? 'all' : catalogStageFilter;
+  const visibleCatalogEntries = data.catalogPool.filter((e) => {
+    if (activeCatalogStageFilter !== 'all' && e.stage !== activeCatalogStageFilter) return false;
+    return true;
+  });
+
+  const mapSlotContent = (key: string | null): EquippedSlotContent | null => {
+    if (key === null) return null;
+    if (isCatalogSkillId(key)) {
+      const meta = catalogSkillById.get(key);
+      return meta ? { kind: 'catalog', meta } : null;
+    } else {
+      const entry = skillByKey.get(key);
+      return entry ? { kind: 'wikimon', entry } : null;
+    }
+  };
 
   const equipToFirstFree = (key: string): void => {
     setMessage(null);
@@ -340,6 +364,99 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
               </div>
             )}
           </div>
+
+          {data.catalogPool.length > 0 ? (
+            <div className="catalog-skills-section">
+              <div className="roster-section-title" style={{ marginTop: '24px' }}>
+                <h4>{data.currentElement.charAt(0).toUpperCase() + data.currentElement.slice(1)} Skills (Advanced)</h4>
+              </div>
+              <div className="skill-filters">
+                <div className="skill-filter" role="tablist" aria-label="Filter catalog skills by stage">
+                  <span className="skill-filter-label">Stage</span>
+                  <button
+                    type="button"
+                    role="tab"
+                    className={`skill-filter-btn ${activeCatalogStageFilter === 'all' ? 'is-active' : ''}`}
+                    aria-selected={activeCatalogStageFilter === 'all'}
+                    onClick={() => setCatalogStageFilter('all')}
+                  >
+                    All <span className="filter-count">{data.catalogPool.length}</span>
+                  </button>
+                  {catalogAvailableStages.map((stage) => (
+                    <button
+                      key={stage}
+                      type="button"
+                      role="tab"
+                      className={`skill-filter-btn ${activeCatalogStageFilter === stage ? 'is-active' : ''}`}
+                      aria-selected={activeCatalogStageFilter === stage}
+                      data-stage={stage.toLowerCase()}
+                      onClick={() => setCatalogStageFilter(stage)}
+                    >
+                      {stage} <span className="filter-count">{catalogCountByStage.get(stage) ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div
+                className={`skill-pool ${poolDragOver ? 'is-dropzone' : ''}`}
+                onDragOver={handlePoolDragOver}
+                onDragLeave={() => setPoolDragOver(false)}
+                onDrop={handlePoolDrop}
+              >
+                {visibleCatalogEntries.length === 0 ? (
+                  <div className="skill-group-empty">
+                    No catalog skills match the current filters.
+                  </div>
+                ) : (
+                  <div className="skill-grid">
+                    {visibleCatalogEntries.map((entry) => {
+                      const equipped = chosenKeys.has(entry.id);
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          className={`skill-chip catalog-skill-card ${equipped ? 'is-equipped' : ''}`}
+                          draggable
+                          onDragStart={handleDragStart(entry.id)}
+                          onDragEnd={handleDragEnd}
+                          onClick={() => equipToFirstFree(entry.id)}
+                          data-element={entry.element}
+                          title={entry.description ?? entry.name}
+                        >
+                          {equipped ? <span className="chip-equipped-badge">Equipped</span> : null}
+                          <span className="chip-head">
+                            <span className="chip-name">
+                              {entry.name}
+                              {entry.tier_2 ? <span className="tier-2-badge" title="Tier 2">★</span> : null}
+                            </span>
+                            {entry.slot_role ? (
+                              <span className="catalog-badge">
+                                {entry.slot_role === 'primary_attack' ? 'PRIMARY' : 
+                                 entry.slot_role === 'sustain_dot' ? 'SUSTAIN' : 
+                                 entry.slot_role === 'control' ? 'CONTROL' : 
+                                 entry.slot_role === 'buff_support' ? 'BUFF' : 
+                                 entry.slot_role === 'utility' ? 'UTILITY' : 
+                                 entry.slot_role === 'identity_finisher' ? 'FINISHER' : 
+                                 entry.slot_role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                              </span>
+                            ) : null}
+                          </span>
+                          <span className="chip-name-pt">{entry.name_pt}</span>
+                          <span className="chip-meta">
+                            <span className="chip-el" style={{ color: `var(--el-${entry.element})` }}>{entry.element}</span>
+                            <span className="chip-en">EN {entry.energyCost}</span>
+                            {entry.cooldown > 0 ? <span className="chip-cd">CD {entry.cooldown}</span> : null}
+                            <span className="chip-from">{entry.stage}</span>
+                          </span>
+                          {entry.description ? <span className="chip-desc">{entry.description.length > 80 ? entry.description.substring(0, 80) + '...' : entry.description}</span> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <div className="skill-editor-col skill-editor-col--right">
@@ -348,7 +465,7 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
               <SkillSlotBox
                 key={index}
                 index={index}
-                entry={key !== null ? skillByKey.get(key) ?? null : null}
+                entry={mapSlotContent(key)}
                 isDragOver={dragOverIndex === index}
                 onDragOver={handleSlotDragOver(index)}
                 onDragLeave={() => setDragOverIndex((prev) => (prev === index ? null : prev))}

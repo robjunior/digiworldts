@@ -353,6 +353,8 @@
 .slot-name { font-size: 13px; font-weight: 700; color: var(--ink); }
 .slot-meta { display: inline-flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--muted); }
 .slot-el { font-weight: 700; }
+.slot-en { color: var(--muted); }
+.slot-cd { color: var(--muted); }
 .slot-source { font-size: 10px; color: var(--muted); font-style: italic; }
 .slot-clear {
   position: absolute;
@@ -448,7 +450,13 @@
 .chip-meta { display: flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
 .chip-el { font-weight: 700; }
 .chip-en { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-cd { color: var(--muted); font-variant-numeric: tabular-nums; }
 .chip-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.chip-name-pt { font-size: 10px; color: var(--muted); font-style: italic; margin-top: -4px; margin-bottom: 2px; }
+.tier-2-badge { display: inline-block; margin-left: 4px; color: var(--gold); font-size: 11px; line-height: 1; vertical-align: middle; }
+.catalog-badge { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; background: color-mix(in oklab, var(--hairline) 50%, transparent); padding: 2px 6px; border-radius: 4px; }
+.catalog-skills-section h4 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--ink); text-transform: uppercase; letter-spacing: 0.06em; }
 
 @media (max-width: 1024px) {
   .roster-list-head { grid-template-columns: 44px minmax(120px, 1fr) 64px 140px 16px; }
