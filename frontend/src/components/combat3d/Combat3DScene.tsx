@@ -1,10 +1,11 @@
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import type { Biome, PerBiomeSceneDefaults } from '@digiworld/shared/world';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { getSceneDefaults } from '../../lib/scene-defaults';
+import { getBiomeScenes, getSceneDefaults } from '../../lib/scene-defaults';
 import { useAuth } from '../../hooks/useAuth';
 
 const ARENA_MODEL_BY_KEY: Readonly<Record<string, string>> = {
@@ -36,32 +37,25 @@ const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   null: 'null',
 };
 
+const ELEMENT_TO_BIOME: Readonly<Record<string, Biome>> = {
+  fire: 'desert',
+  plant: 'forest',
+  nature: 'forest',
+  water: 'lake',
+  electricity: 'storm',
+  ice: 'tundra',
+  earth: 'mountain',
+  steel: 'foundry',
+  wind: 'plateau',
+  light: 'prairie',
+  dark: 'swamp',
+  null: 'void',
+};
+
 const ARENA_FALLBACK = 'steel';
-const VALID_ARENA_KEYS = new Set(['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light']);
-
-let biomeConfigCache: { raw: string; parsed: Record<string, { arenaKey?: string | null } | undefined> } | null = null;
-
-function readBiomeArenaOverride(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const biomeKey = window.localStorage.getItem('digiworld.current-biome');
-    if (biomeKey === null) return null;
-    const rawConfig = window.localStorage.getItem('digiworld.biome-config');
-    if (rawConfig === null) return null;
-    if (biomeConfigCache === null || biomeConfigCache.raw !== rawConfig) {
-      biomeConfigCache = { raw: rawConfig, parsed: JSON.parse(rawConfig) as Record<string, { arenaKey?: string | null } | undefined> };
-    }
-    const override = biomeConfigCache.parsed[biomeKey]?.arenaKey;
-    if (typeof override === 'string' && VALID_ARENA_KEYS.has(override)) return override;
-    return null;
-  } catch {
-    return null;
-  }
-}
+const BIOME_FALLBACK: Biome = 'void';
 
 function pickArenaKey(battle: BattleView): string {
-  const biomeOverride = readBiomeArenaOverride();
-  if (biomeOverride !== null) return biomeOverride;
   const counts = new Map<string, number>();
   for (const enemy of battle.enemy) {
     const arena = ARENA_BY_ELEMENT[enemy.element];
@@ -80,6 +74,27 @@ function pickArenaKey(battle: BattleView): string {
     if (arena !== undefined) return arena;
   }
   return ARENA_FALLBACK;
+}
+
+function pickBiome(battle: BattleView): Biome {
+  const counts = new Map<Biome, number>();
+  for (const enemy of battle.enemy) {
+    const biome = ELEMENT_TO_BIOME[enemy.element];
+    if (biome !== undefined) counts.set(biome, (counts.get(biome) ?? 0) + 1);
+  }
+  if (counts.size > 0) {
+    let bestKey: Biome = BIOME_FALLBACK;
+    let bestCount = 0;
+    for (const [key, n] of counts) {
+      if (n > bestCount) { bestCount = n; bestKey = key; }
+    }
+    return bestKey;
+  }
+  for (const mon of battle.friendly) {
+    const biome = ELEMENT_TO_BIOME[mon.element];
+    if (biome !== undefined) return biome;
+  }
+  return BIOME_FALLBACK;
 }
 
 export type Combat3DSceneHandle = {
@@ -127,7 +142,17 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
-  const arenaModelUrl = ARENA_MODEL_BY_KEY[arenaKey];
+  const biome = useMemo(() => pickBiome(battle), [battle]);
+  const [biomeScenes, setBiomeScenes] = useState<PerBiomeSceneDefaults>({});
+  useEffect(() => {
+    let cancelled = false;
+    void getBiomeScenes(true).then((next) => { if (!cancelled) setBiomeScenes(next); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [biome]);
+  const biomeConfig = biomeScenes[biome];
+  const arenaModelUrl = biomeConfig?.file !== undefined
+    ? `/assets/arenas/${biomeConfig.file}`
+    : ARENA_MODEL_BY_KEY[arenaKey];
 
   useEffect(() => {
     const manager = sceneRef.current;
@@ -161,8 +186,6 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     try {
       const localKeys = new Set<string>();
       if (isAdmin) {
-        // Admin preview override; reading it for non-admins shadows the
-        // server-broadcast scene defaults (xenon bug).
         const raw = window.localStorage.getItem('digiworld.scene-settings-override');
         if (raw !== null) {
           const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -174,17 +197,17 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           }
         }
       } else {
-        // Defense-in-depth: nuke stale admin keys that may have leaked via
-        // Chrome sync, shared machine, or a prior admin session.
         window.localStorage.removeItem('digiworld.scene-settings-override');
         window.localStorage.removeItem('digiworld.scene-defaults-baseline');
       }
-      void getSceneDefaults(true)
-        .then((allDefaults) => {
-          const codeDefaults = allDefaults[arenaKey] ?? {};
+      void Promise.all([getSceneDefaults(true), getBiomeScenes(true)])
+        .then(([allArenaDefaults, allBiomeScenes]) => {
+          const biomeSettings = (allBiomeScenes[biome]?.settings ?? {}) as Partial<SceneSettings>;
+          const arenaDefaults = allArenaDefaults[arenaKey] ?? {};
+          const merged: Partial<SceneSettings> = { ...arenaDefaults, ...biomeSettings };
           const patchToApply: Partial<SceneSettings> = {};
-          for (const key of Object.keys(codeDefaults) as (keyof SceneSettings)[]) {
-            if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = codeDefaults[key];
+          for (const key of Object.keys(merged) as (keyof SceneSettings)[]) {
+            if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = merged[key];
           }
           if (Object.keys(patchToApply).length > 0) manager?.applySettings(patchToApply);
         })
