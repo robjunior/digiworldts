@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { useAuth } from '../hooks/useAuth';
+import { useLocale } from '../hooks/useLocale';
+import { setLocale } from '../lib/locale';
 
 type LeafNavItem = { readonly to: string; readonly label: string };
 type ParentNavItem = { readonly label: string; readonly submenu: readonly LeafNavItem[] };
@@ -43,6 +45,7 @@ export type AppNavProps = {
 
 export function AppNav({ children }: AppNavProps): JSX.Element {
   const { user, logout } = useAuth();
+  const locale = useLocale();
   const location = useLocation();
   const active = (to: string): boolean => isPathActive(location.pathname, to);
   const [openParent, setOpenParent] = useState<string | null>(null);
@@ -160,6 +163,24 @@ export function AppNav({ children }: AppNavProps): JSX.Element {
         </div>
       ) : null}
       <div className="nav-account">
+        <div className="nav-locale" role="group" aria-label="Language">
+          <button
+            type="button"
+            className={`nav-locale-btn ${locale === 'en' ? 'is-active' : ''}`}
+            aria-pressed={locale === 'en'}
+            onClick={() => setLocale('en')}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            className={`nav-locale-btn ${locale === 'pt' ? 'is-active' : ''}`}
+            aria-pressed={locale === 'pt'}
+            onClick={() => setLocale('pt')}
+          >
+            PT
+          </button>
+        </div>
         {user !== null ? (
           <>
             <span className="nav-user-mmr" title="Ranked MMR (PVP)">MMR <b>{user.mmr}</b></span>
