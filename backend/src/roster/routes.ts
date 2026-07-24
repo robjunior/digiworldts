@@ -25,7 +25,7 @@ import { one, q, run, tx, type RosterRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { loadCatalog } from '../digimon/xml.js';
-import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type TemplateDigimon } from '../digimon/types.js';
+import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
@@ -307,8 +307,10 @@ const EvolveSchema = z.object({
   targetCatalogId: z.string().min(1),
 });
 
+const MAX_EQUIPPED_SLOTS = Math.max(...Object.values(EQUIPPED_SLOTS_PER_STAGE));
+
 const SkillsSchema = z.object({
-  skillIds: z.array(z.string().min(1)).min(1).max(SKILLS_PER_DIGIMON),
+  skillIds: z.array(z.string().min(1)).min(1).max(MAX_EQUIPPED_SLOTS),
 });
 
 export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
@@ -435,9 +437,10 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const normalizedEquipped = rawEquipped
       .map((entry) => normalizeEquippedKey(entry, row.catalog_id))
       .filter((key) => learnedKeys.has(key));
+    const equipCap = EQUIPPED_SLOTS_PER_STAGE[currentTpl.stage] ?? SKILLS_PER_DIGIMON;
     const equipped = normalizedEquipped.length > 0
       ? normalizedEquipped
-      : currentTpl.skillPool.slice(0, SKILLS_PER_DIGIMON).map((s) => skillKey(currentTpl.id, s.id));
+      : currentTpl.skillPool.slice(0, equipCap).map((s) => skillKey(currentTpl.id, s.id));
     return reply.send({
       monId: row.id,
       currentCatalogId: row.catalog_id,
@@ -447,7 +450,7 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       learnedSkills,
       equipped,
       groupings: { fromCurrent, fromHistory },
-      maxEquipped: SKILLS_PER_DIGIMON,
+      maxEquipped: equipCap,
     });
   });
 
@@ -461,6 +464,10 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const catalog = loadCatalog();
     const currentTpl = catalog.digimons.find((t) => t.id === row.catalog_id);
     if (!currentTpl) return reply.code(500).send({ error: 'template missing' });
+    const equipCap = EQUIPPED_SLOTS_PER_STAGE[currentTpl.stage] ?? SKILLS_PER_DIGIMON;
+    if (skillIds.length > equipCap) {
+      return reply.code(400).send({ error: 'too-many-skills-for-stage', stage: currentTpl.stage, maxEquipped: equipCap });
+    }
     const historyIds = parseJsonStringArray(row.evolution_history);
     const learned = learnedSkillsFor(currentTpl, historyIds, catalog.digimons);
     const learnedKeys = new Set(learned.map((e) => e.key));

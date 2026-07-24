@@ -123,6 +123,7 @@ const DigimonZ = z.object({
   // http(s) scheme so import/XML paths can't smuggle a JS URI past the
   // custom-route regex.
   '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
+  '@_signatureSkillId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
   assets: AssetsZ,
   stats: StatsZ,
   resistances: ResistancesZ.optional(),
@@ -208,6 +209,7 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
   if (raw['@_wikimonSlug']) tpl.wikimonSlug = raw['@_wikimonSlug'];
   if (raw['@_sourceUrl']) tpl.sourceUrl = raw['@_sourceUrl'];
   if (raw['@_type']) tpl.type = raw['@_type'];
+  if (raw['@_signatureSkillId']) tpl.signatureSkillId = raw['@_signatureSkillId'];
   if (raw.evolutions && 'evolve' in raw.evolutions) {
     const list = Array.isArray(raw.evolutions.evolve) ? raw.evolutions.evolve : [raw.evolutions.evolve];
     const edges: EvolveEdge[] = list.map((e) => {
@@ -272,6 +274,7 @@ function fromTemplate(t: TemplateDigimon): unknown {
   if (t.wikimonSlug) out['@_wikimonSlug'] = t.wikimonSlug;
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
   if (t.type) out['@_type'] = t.type;
+  if (t.signatureSkillId) out['@_signatureSkillId'] = t.signatureSkillId;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
     out.evolutions = {
       evolve: t.evolvesInto.map((edge) => {
