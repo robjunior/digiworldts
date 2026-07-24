@@ -5,6 +5,7 @@ import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
 import { getSceneDefaults } from '../../lib/scene-defaults';
+import { useAuth } from '../../hooks/useAuth';
 
 const ARENA_MODEL_BY_KEY: Readonly<Record<string, string>> = {
   plant: '/assets/arenas/plant.glb',
@@ -123,6 +124,8 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<SceneManager | null>(null);
+  const { user } = useAuth();
+  const isAdmin = user?.isAdmin === true;
   const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
   const arenaModelUrl = ARENA_MODEL_BY_KEY[arenaKey];
 
@@ -156,17 +159,25 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     manager.startLoop();
     manager.runEntrance();
     try {
-      const raw = window.localStorage.getItem('digiworld.scene-settings-override');
       const localKeys = new Set<string>();
-      let localArenaOverride: Partial<SceneSettings> = {};
-      if (raw !== null) {
-        const parsed = JSON.parse(raw) as Record<string, unknown>;
-        const perArenaEntry = parsed && typeof parsed === 'object' ? parsed[arenaKey] : null;
-        if (perArenaEntry !== null && typeof perArenaEntry === 'object') {
-          localArenaOverride = perArenaEntry as Partial<SceneSettings>;
-          for (const k of Object.keys(localArenaOverride)) localKeys.add(k);
-          manager.applySettings(localArenaOverride);
+      if (isAdmin) {
+        // Admin preview override; reading it for non-admins shadows the
+        // server-broadcast scene defaults (xenon bug).
+        const raw = window.localStorage.getItem('digiworld.scene-settings-override');
+        if (raw !== null) {
+          const parsed = JSON.parse(raw) as Record<string, unknown>;
+          const perArenaEntry = parsed && typeof parsed === 'object' ? parsed[arenaKey] : null;
+          if (perArenaEntry !== null && typeof perArenaEntry === 'object') {
+            const localArenaOverride = perArenaEntry as Partial<SceneSettings>;
+            for (const k of Object.keys(localArenaOverride)) localKeys.add(k);
+            manager.applySettings(localArenaOverride);
+          }
         }
+      } else {
+        // Defense-in-depth: nuke stale admin keys that may have leaked via
+        // Chrome sync, shared machine, or a prior admin session.
+        window.localStorage.removeItem('digiworld.scene-settings-override');
+        window.localStorage.removeItem('digiworld.scene-defaults-baseline');
       }
       void getSceneDefaults(true)
         .then((allDefaults) => {
