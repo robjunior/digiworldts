@@ -97,5 +97,6 @@ function rowToSkill(row: SkillCatalogRow): Skill {
     actions: parseActions(row.actions_json),
   };
   if (row.description) skill.description = row.description;
+  if (row.cooldown > 0) skill.cooldown = row.cooldown;
   return skill;
 }
