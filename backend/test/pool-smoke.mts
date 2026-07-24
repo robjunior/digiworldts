@@ -11,7 +11,8 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { seedSkillsCatalogV2 } from '../src/skills/seed-catalog.ts';
 import { ALL_SKILL_SEEDS } from '../src/skills/seeds/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
-import { getLearnedPoolIds, isCatalogSkillId, resolveCatalogSkills } from '../src/skills/pool.ts';
+import { getDefaultEquippedForStage, getLearnedPoolIds, isCatalogSkillId, resolveCatalogSkills } from '../src/skills/pool.ts';
+import { EQUIPPED_SLOTS_PER_STAGE } from '@digiworld/shared/digimon';
 
 const DB_PATH = process.env.DB_PATH!;
 if (!DB_PATH) {
@@ -72,6 +73,82 @@ const waterMega = await getLearnedPoolIds('water', 'Mega');
 check(
   'fire Mega ∩ water Mega = ∅',
   fireMega.every((id) => !waterMega.includes(id)),
+);
+
+console.log(`\n=== Pool ordering: newest stage first, then slot_role (pa/su/cr/bs/ut/if) ===`);
+check(
+  'fire Champion first 6 IDs are all Champion tier',
+  fireChampion.slice(0, 6).every((id) => id.endsWith('-c')),
+  `first 6: ${fireChampion.slice(0, 6).join(', ')}`,
+);
+check(
+  'fire Champion first ID is Champion primary_attack (sk-fire-pa-c)',
+  fireChampion[0] === 'sk-fire-pa-c',
+  `got ${fireChampion[0]}`,
+);
+check(
+  'fire Mega first 6 IDs are all Mega tier',
+  fireMega.slice(0, 6).every((id) => id.endsWith('-m')),
+);
+check(
+  'fire Rookie first ID is Rookie primary_attack (sk-fire-pa-r)',
+  fireRookie[0] === 'sk-fire-pa-r',
+  `got ${fireRookie[0]}`,
+);
+
+console.log(`\n=== getDefaultEquippedForStage returns EQUIPPED_SLOTS_PER_STAGE[stage] IDs ===`);
+for (const stage of ['Rookie', 'Champion', 'Ultimate', 'Mega'] as const) {
+  const defaults = await getDefaultEquippedForStage('fire', stage);
+  const cap = EQUIPPED_SLOTS_PER_STAGE[stage];
+  check(`fire ${stage} defaults length = cap ${cap}`, defaults.length === cap, `got ${defaults.length}`);
+  check(
+    `fire ${stage} defaults are unique`,
+    new Set(defaults).size === defaults.length,
+  );
+}
+
+console.log(`\n=== Rookie defaults drop utility + identity_finisher (cap 4 < roles 6) ===`);
+const fireRookieDefaults = await getDefaultEquippedForStage('fire', 'Rookie');
+check(
+  'fire Rookie defaults = [pa-r, sd-r, ct-r, bs-r]',
+  JSON.stringify(fireRookieDefaults) === JSON.stringify(['sk-fire-pa-r', 'sk-fire-sd-r', 'sk-fire-ct-r', 'sk-fire-bs-r']),
+  `got ${JSON.stringify(fireRookieDefaults)}`,
+);
+
+console.log(`\n=== Champion defaults = all 6 Champion role skills (cap 6 = roles 6) ===`);
+const fireChampionDefaults = await getDefaultEquippedForStage('fire', 'Champion');
+check(
+  'fire Champion defaults are all Champion tier',
+  fireChampionDefaults.every((id) => id.endsWith('-c')),
+  `got ${JSON.stringify(fireChampionDefaults)}`,
+);
+
+console.log(`\n=== Ultimate defaults = 6 Ultimate + 2 Champion (cap 8) ===`);
+const fireUltimateDefaults = await getDefaultEquippedForStage('fire', 'Ultimate');
+const ultimateTier = fireUltimateDefaults.filter((id) => id.endsWith('-u'));
+const championTierInUlt = fireUltimateDefaults.filter((id) => id.endsWith('-c'));
+check('Ultimate defaults have 6 Ultimate skills', ultimateTier.length === 6, `got ${ultimateTier.length}`);
+check('Ultimate defaults have 2 Champion carry-forward skills', championTierInUlt.length === 2, `got ${championTierInUlt.length}`);
+check(
+  'Champion carry-forwards are pa + sd',
+  championTierInUlt.includes('sk-fire-pa-c') && championTierInUlt.includes('sk-fire-sd-c'),
+  `got ${JSON.stringify(championTierInUlt)}`,
+);
+
+console.log(`\n=== Mega defaults = 6 Mega + 4 Ultimate (cap 10) ===`);
+const fireMegaDefaults = await getDefaultEquippedForStage('fire', 'Mega');
+const megaTier = fireMegaDefaults.filter((id) => id.endsWith('-m'));
+const ultimateTierInMega = fireMegaDefaults.filter((id) => id.endsWith('-u'));
+check('Mega defaults have 6 Mega skills', megaTier.length === 6, `got ${megaTier.length}`);
+check('Mega defaults have 4 Ultimate carry-forward skills', ultimateTierInMega.length === 4, `got ${ultimateTierInMega.length}`);
+
+console.log(`\n=== getDefaultEquippedForStage output is a valid PUT skills body ===`);
+const validationCheck = fireMegaDefaults.every((id) => isCatalogSkillId(id));
+check('every default is a catalog id (routes through catalog validation)', validationCheck);
+const inLearnedPool = new Set(fireMega);
+check(
+  'every default is in the learned pool (would pass PUT validation)',
+  fireMegaDefaults.every((id) => inLearnedPool.has(id)),
 );
 
 console.log(`\n=== resolveCatalogSkills ===`);
