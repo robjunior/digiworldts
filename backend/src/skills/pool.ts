@@ -101,6 +101,13 @@ export async function getLearnedPoolMeta(element: Element, stage: Stage): Promis
   return filtered.map(rowToMeta);
 }
 
+const SQL_SELECT_ALL_CATALOG = `SELECT * FROM skills_catalog WHERE stage IS NOT NULL AND enabled = 1 ORDER BY element, stage, slot_role`;
+
+export async function getAllCatalogSkillsMeta(): Promise<CatalogSkillMeta[]> {
+  const rows = await q<SkillCatalogRow>(SQL_SELECT_ALL_CATALOG);
+  return rows.map(rowToMeta);
+}
+
 function rowToMeta(row: SkillCatalogRow): CatalogSkillMeta {
   return {
     id: row.id,
