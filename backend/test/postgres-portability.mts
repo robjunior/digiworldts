@@ -25,11 +25,13 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { toPgPlaceholders } from '../src/db/adapter.ts';
+import { loadMigrations } from '../src/db/migrator.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
 const SRC = join(ROOT, 'src');
 const SCHEMA_PATH = join(SRC, 'db/schema-pg.sql');
+const MIGRATIONS_DIR = join(SRC, 'db/migrations');
 
 type SqlConstant = { file: string; name: string; sql: string };
 type Check = { name: string; ok: boolean; err?: string };
@@ -70,6 +72,21 @@ async function main(): Promise<void> {
   } catch (e) {
     console.log(`  ✗ schema failed: ${(e as Error).message}`);
     process.exit(1);
+  }
+  // Baseline schema applied; now apply every numbered migration in order
+  // (dialect-filtered — SQLite-only migrations are skipped) so PREPARE-time
+  // table lookups see the full post-migrator shape.
+  const migrations = loadMigrations('postgres');
+  for (const m of migrations) {
+    try {
+      await db.exec(m.sql);
+    } catch (e) {
+      console.log(`  ✗ migration ${m.filename} failed: ${(e as Error).message}`);
+      process.exit(1);
+    }
+  }
+  if (migrations.length > 0) {
+    console.log(`  ✓ ${migrations.length} migration${migrations.length === 1 ? '' : 's'} applied: ${migrations.map((m) => m.filename).join(', ')}`);
   }
   const tables = await db.query<{ table_name: string }>(
     `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`,

@@ -38,7 +38,7 @@
 }
 
 .digdex-counter strong {
-  color: var(--text, #eef2f7);
+  color: var(--ink);
   font-weight: 700;
 }
 
@@ -46,7 +46,7 @@
   display: inline-block;
   width: 220px;
   height: 6px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.08);
   border-radius: 3px;
   margin-left: 12px;
   overflow: hidden;
@@ -69,8 +69,8 @@
 }
 
 .digdex-filter-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.08);
   color: var(--muted, #8892a0);
   padding: 6px 12px;
   border-radius: 20px;
@@ -80,14 +80,14 @@
 }
 
 .digdex-filter-btn:hover {
-  background: rgba(255,255,255,0.1);
-  color: var(--text, #eef2f7);
+  background: rgba(0,0,0,0.1);
+  color: var(--ink);
 }
 
 .digdex-filter-btn.is-active {
   background: rgba(125, 211, 252, 0.15);
   border-color: rgba(125, 211, 252, 0.4);
-  color: #7dd3fc;
+  color: #075985;
 }
 
 .digdex-hive {
@@ -114,7 +114,7 @@
   width: var(--digdex-hex-w);
   height: var(--digdex-hex-h);
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-  background: rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.04);
   border: none;
   padding: 0;
   cursor: pointer;
@@ -139,7 +139,7 @@
 }
 
 .digdex-hex.is-unmet {
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.03);
 }
 
 .digdex-hex.is-unmet:hover {
@@ -168,7 +168,7 @@
 .digdex-hex-unknown {
   font-size: 42px;
   font-weight: 900;
-  color: rgba(255,255,255,0.14);
+  color: rgba(0,0,0,0.14);
   text-shadow: 0 2px 8px rgba(0,0,0,0.4);
   letter-spacing: -0.02em;
 }
@@ -230,7 +230,7 @@
 .digdex-hex-element-light.is-unmet,
 .digdex-hex-element-dark.is-unmet,
 .digdex-hex-element-null.is-unmet {
-  box-shadow: inset 0 0 0 2px rgba(255,255,255,0.06);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,0.06);
 }
 
 .digdex-clusters {
@@ -253,7 +253,7 @@
 }
 
 .digdex-viewport::-webkit-scrollbar { width: 8px; height: 8px; }
-.digdex-viewport::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 4px; }
+.digdex-viewport::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.14); border-radius: 4px; }
 .digdex-viewport::-webkit-scrollbar-track { background: transparent; }
 
 .digdex-hive {
@@ -287,14 +287,14 @@
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  background: color-mix(in oklab, #0b0d13 78%, transparent);
+  background: color-mix(in oklab, var(--panel) 88%, transparent);
   backdrop-filter: blur(14px) saturate(140%);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
   box-shadow:
     0 20px 40px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.03),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 0 0 1px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 rgba(0, 0, 0, 0.05);
   max-width: calc(100vw - 48px);
 }
 
@@ -316,7 +316,7 @@
 .digdex-island-sep {
   width: 1px;
   height: 22px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.08);
   margin: 0 4px;
   flex-shrink: 0;
 }
@@ -325,7 +325,7 @@
   appearance: none;
   border: 1px solid transparent;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(0, 0, 0, 0.72);
   font-size: 12px;
   font-weight: 700;
   padding: 7px 14px;
@@ -341,8 +341,8 @@
 }
 
 .digdex-pill:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink);
 }
 
 .digdex-pill.is-active {
@@ -388,8 +388,8 @@
 }
 
 .digdex-modal {
-  background: var(--surface, #1a1f2e);
-  border: 1px solid rgba(255,255,255,0.1);
+  background: var(--panel);
+  border: 1px solid rgba(0,0,0,0.1);
   border-radius: 12px;
   max-width: 640px;
   width: 100%;
@@ -405,9 +405,9 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(0,0,0,0.06);
   border: none;
-  color: #fff;
+  color: var(--ink);
   width: 32px;
   height: 32px;
   border-radius: 50%;
@@ -419,7 +419,7 @@
 }
 
 .digdex-modal-close:hover {
-  background: rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.14);
 }
 
 .digdex-modal-head {
@@ -433,7 +433,7 @@
   height: 128px;
   object-fit: cover;
   border-radius: 8px;
-  border: 2px solid rgba(255,255,255,0.1);
+  border: 2px solid rgba(0,0,0,0.1);
   flex-shrink: 0;
 }
 
@@ -455,21 +455,21 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  background: rgba(255,255,255,0.08);
-  color: var(--text, #eef2f7);
+  background: rgba(0,0,0,0.08);
+  color: var(--ink);
 }
 
-.digdex-tag-fire        { background: rgba(239,68,68,0.2);   color: #fca5a5; }
-.digdex-tag-water       { background: rgba(59,130,246,0.2);  color: #93c5fd; }
-.digdex-tag-plant       { background: rgba(34,197,94,0.2);   color: #86efac; }
-.digdex-tag-ice         { background: rgba(125,211,252,0.2); color: #bae6fd; }
-.digdex-tag-electricity { background: rgba(234,179,8,0.2);   color: #fde68a; }
-.digdex-tag-earth       { background: rgba(163,101,61,0.2);  color: #d6b28a; }
-.digdex-tag-steel       { background: rgba(148,163,184,0.2); color: #cbd5e1; }
-.digdex-tag-wind        { background: rgba(167,243,208,0.2); color: #d1fae5; }
-.digdex-tag-light       { background: rgba(254,243,199,0.2); color: #fef9c3; }
-.digdex-tag-dark        { background: rgba(124,58,237,0.2);  color: #c4b5fd; }
-.digdex-tag-null        { background: rgba(100,116,139,0.2); color: #cbd5e1; }
+.digdex-tag-fire        { background: rgba(239,68,68,0.2);   color: #991b1b; }
+.digdex-tag-water       { background: rgba(59,130,246,0.2);  color: #1e40af; }
+.digdex-tag-plant       { background: rgba(34,197,94,0.2);   color: #166534; }
+.digdex-tag-ice         { background: rgba(125,211,252,0.2); color: #075985; }
+.digdex-tag-electricity { background: rgba(234,179,8,0.2);   color: #854d0e; }
+.digdex-tag-earth       { background: rgba(163,101,61,0.2);  color: #7c4a1e; }
+.digdex-tag-steel       { background: rgba(148,163,184,0.2); color: #334155; }
+.digdex-tag-wind        { background: rgba(167,243,208,0.2); color: #065f46; }
+.digdex-tag-light       { background: rgba(254,243,199,0.2); color: #713f12; }
+.digdex-tag-dark        { background: rgba(124,58,237,0.2);  color: #4c1d95; }
+.digdex-tag-null        { background: rgba(100,116,139,0.2); color: #334155; }
 
 .digdex-stats {
   display: grid;
@@ -481,7 +481,7 @@
   display: flex;
   justify-content: space-between;
   padding: 6px 10px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.03);
   border-radius: 4px;
   font-size: 13px;
 }
@@ -496,7 +496,7 @@
 }
 
 .digdex-stat-value {
-  color: var(--text, #eef2f7);
+  color: var(--ink);
   font-weight: 800;
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
@@ -511,7 +511,7 @@
 
 .digdex-skill {
   padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.03);
   border-radius: 6px;
   margin-bottom: 6px;
 }
@@ -554,7 +554,7 @@
   align-items: center;
   gap: 4px;
   padding: 8px;
-  background: rgba(255,255,255,0.03);
+  background: rgba(0,0,0,0.03);
   border-radius: 6px;
   min-width: 88px;
   cursor: pointer;
@@ -583,9 +583,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.05);
   border-radius: 4px;
-  color: rgba(255,255,255,0.2);
+  color: rgba(0,0,0,0.2);
   font-size: 28px;
   font-weight: 900;
 }
@@ -601,7 +601,7 @@
 }
 
 .digdex-evo-arrow {
-  color: rgba(255,255,255,0.3);
+  color: rgba(0,0,0,0.3);
   font-size: 18px;
   padding: 0 4px;
 }

@@ -162,10 +162,14 @@
 }
 
 .world-pve-overlay {
-  position: fixed; inset: 0; z-index: 60;
+  position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center;
   padding: 24px;
-  animation: world-pve-fade 240ms ease-out;
+  animation: world-pve-fade 260ms cubic-bezier(.16, 1, .3, 1);
+}
+.world-pve-overlay.is-leaving {
+  animation: world-pve-fade-out 300ms cubic-bezier(.4, 0, .8, .3) both;
+  pointer-events: none;
 }
 .world-pve-vignette {
   position: absolute; inset: 0; pointer-events: none;
@@ -190,9 +194,36 @@
 .world-pve-frame .arena { padding-top: 4px; }
 .world-pve-frame .page-strip { margin: -20px -22px 12px; border-radius: 0; }
 
+.world-pve-overlay.c3d-overlay-shell {
+  padding: 0;
+}
+.world-pve-frame.c3d-overlay-frame {
+  width: 100%; max-width: none; max-height: none;
+  height: 100dvh;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  clip-path: none;
+  box-shadow: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.world-pve-frame.c3d-overlay-frame > .c3d-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+
 @keyframes world-pve-fade {
-  from { opacity: 0; transform: scale(0.98); }
+  from { opacity: 0; transform: scale(0.985); }
   to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes world-pve-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.02); }
 }
 
 .world-page:has(.world-pve-overlay) .world-scene-wrap,

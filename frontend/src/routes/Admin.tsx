@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { AppNav } from '../components/AppNav';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
+import { BiomeEditor } from '../components/admin/BiomeEditor';
 import { CatalogTable } from '../components/admin/CatalogTable';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
+import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
 import { SkillsAdmin } from '../components/admin/SkillsAdmin';
@@ -13,6 +15,7 @@ import { UserTable } from '../components/admin/UserTable';
 import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/extensions-admin.css';
+import '../styles/extensions-combat3d.css';
 
 const ADMIN_TABS = [
   { id: 'overview', label: 'Overview' },
@@ -21,6 +24,8 @@ const ADMIN_TABS = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
   { id: 'shop', label: 'Shop Admin' },
+  { id: 'biomes', label: 'Biomes' },
+  { id: 'scene', label: 'Scene' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 
@@ -29,6 +34,19 @@ type AdminTab = (typeof ADMIN_TABS)[number]['id'];
 export function Admin(): JSX.Element {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+
+  if (activeTab === 'scene') {
+    return (
+      <AdminGuard>
+        <div className="app-shell combat3d-shell">
+          <AppNav />
+          <main className="app-main combat3d-main">
+            <SceneSettingsAdmin />
+          </main>
+        </div>
+      </AdminGuard>
+    );
+  }
 
   return (
     <AdminGuard>
@@ -73,6 +91,10 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <SkillsAdmin />;
     case 'shop':
       return <ShopAdmin />;
+    case 'biomes':
+      return <BiomeEditor />;
+    case 'scene':
+      return <SceneSettingsAdmin />;
     case 'settings':
       return <GameSettingsAdmin />;
     default:

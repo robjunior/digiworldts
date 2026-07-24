@@ -473,7 +473,8 @@ async function advanceFactory(userId: string, factoryId: string): Promise<void> 
 
       const nextQueued = await t.query<{ id: string }>(SQL_SELECT_NEXT_QUEUED, [factoryId]);
       if (nextQueued.length > 0) {
-        await t.run(SQL_START_QUEUED_JOB, [now, nextQueued[0]!.id]);
+        const nextStartedAt = (active.started_at ?? now) + active.duration_ms;
+        await t.run(SQL_START_QUEUED_JOB, [nextStartedAt, nextQueued[0]!.id]);
         return;
       }
 

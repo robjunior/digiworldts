@@ -29,6 +29,8 @@ const BIOME_ELEMENT_PREFERENCE = 0.7;
 const RARE_BUDGET_BOOST = 1.30;
 const LEVEL_FLOOR_OFFSET = 3;
 
+const WILD_ENCOUNTER_BLACKLIST: ReadonlySet<string> = new Set(['skb-1']);
+
 export type Position = { x: number; y: number; seed: number };
 
 export async function loadOrInitPosition(userId: string): Promise<Position> {
@@ -216,10 +218,11 @@ function rollWildPartySize(): number {
 
 export async function generateWildParty(biome: Biome, rating: PartyRating): Promise<WildMon[]> {
   const catalog = loadCatalog();
+  const spawnable = catalog.digimons.filter((t) => !WILD_ENCOUNTER_BLACKLIST.has(t.id));
   const preferred = BIOME_ELEMENT[biome];
   const size = rollWildPartySize();
-  const stagePool = catalog.digimons.filter((t) => t.stage === rating.maxStage);
-  const pool = stagePool.length > 0 ? stagePool : [...catalog.digimons];
+  const stagePool = spawnable.filter((t) => t.stage === rating.maxStage);
+  const pool = stagePool.length > 0 ? stagePool : spawnable;
   const stageFloor = stageMinLevel(rating.maxStage);
   const minStageDr = pool.reduce((min, t) => {
     const growth = applyGrowth(ZERO_BONUS, rating.maxStage, Math.max(0, stageFloor - 1));
@@ -231,7 +234,7 @@ export async function generateWildParty(biome: Biome, rating: PartyRating): Prom
   for (let i = 0; i < size; i++) {
     const rare = Math.random() < RARE_MON_RATE;
     const budget = perMonBudget * (rare ? RARE_BUDGET_BOOST : 1);
-    const pick = pickTemplateForBudget(catalog.digimons, preferred, rating.maxStage, budget, levelFloor);
+    const pick = pickTemplateForBudget(spawnable, preferred, rating.maxStage, budget, levelFloor);
     if (!pick) break;
     const level = levelForBudget(pick.template, budget, levelFloor);
     mons.push({

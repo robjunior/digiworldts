@@ -320,22 +320,6 @@ CREATE TABLE IF NOT EXISTS player_inventory (
 );
 
 -- ----------------------------------------------------------------------------
--- active_matches (kept for parity; Redis is authoritative when CLUSTER=redis)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS active_matches (
-  id           TEXT PRIMARY KEY,
-  player_a     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  player_b     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  snapshot     TEXT NOT NULL,
-  round        INTEGER NOT NULL DEFAULT 1,
-  active_side  TEXT NOT NULL CHECK (active_side IN ('a','b')),
-  started_at   BIGINT NOT NULL,
-  updated_at   BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pa ON active_matches(player_a);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pb ON active_matches(player_b);
-
--- ----------------------------------------------------------------------------
 -- pending_buffs
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS pending_buffs (
@@ -350,17 +334,6 @@ CREATE TABLE IF NOT EXISTS pending_buffs (
 );
 CREATE INDEX IF NOT EXISTS idx_pending_buffs_active
   ON pending_buffs(user_id, mon_id, effect_kind) WHERE consumed_at IS NULL;
-
--- ----------------------------------------------------------------------------
--- matchmaking_queue (kept for parity; Redis is authoritative when CLUSTER=redis)
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS matchmaking_queue (
-  user_id        TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  display_name   TEXT NOT NULL,
-  average_level  INTEGER NOT NULL CHECK (average_level >= 1),
-  queued_at      BIGINT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
 
 -- ----------------------------------------------------------------------------
 -- onboarding_config: singleton (id=1) admin-editable intro dialog + background.
@@ -576,3 +549,11 @@ CREATE INDEX IF NOT EXISTS idx_adventures_user ON adventures(user_id);
 CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
   ON adventures(user_id)
   WHERE collected_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_roster_user_created_at ON player_roster(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_roster_user_status_slot ON player_roster(user_id, status, slot_index);
+CREATE INDEX IF NOT EXISTS idx_species_user_percent_kills ON player_species_data(user_id, percent DESC, kills DESC);
+CREATE INDEX IF NOT EXISTS idx_farm_user_created_at ON farm_buildings(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_shop_enabled_price ON shop_items(enabled, price_credits);
+CREATE INDEX IF NOT EXISTS idx_world_objects_created_at ON world_objects(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quests_created_at ON quests(created_at DESC);

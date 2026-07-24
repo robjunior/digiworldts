@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import type { DigdexEntry } from '../../lib/api-digdex';
 
@@ -30,14 +30,20 @@ export function DigdexDetailModal({ entry, entriesById, onClose, onSelect }: Dig
   if (!entry.met || !entry.template) return null;
   const template = entry.template;
 
-  const previousForms: DigdexEntry[] = [];
-  for (const other of entriesById.values()) {
-    if (!other.template) continue;
-    if (other.template.evolvesInto?.some((edge) => edge.targetId === template.id)) previousForms.push(other);
-  }
-  const nextForms: DigdexEntry[] = (template.evolvesInto ?? [])
-    .map((edge) => entriesById.get(edge.targetId))
-    .filter((e): e is DigdexEntry => e !== undefined);
+  const previousForms = useMemo<DigdexEntry[]>(() => {
+    const out: DigdexEntry[] = [];
+    for (const other of entriesById.values()) {
+      if (!other.template) continue;
+      if (other.template.evolvesInto?.some((edge) => edge.targetId === template.id)) out.push(other);
+    }
+    return out;
+  }, [entriesById, template.id]);
+  const nextForms = useMemo<DigdexEntry[]>(
+    () => (template.evolvesInto ?? [])
+      .map((edge) => entriesById.get(edge.targetId))
+      .filter((e): e is DigdexEntry => e !== undefined),
+    [entriesById, template.evolvesInto, template.id],
+  );
 
   const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
 

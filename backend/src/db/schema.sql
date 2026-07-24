@@ -323,26 +323,6 @@ CREATE TABLE IF NOT EXISTS player_inventory (
 );
 
 -- ----------------------------------------------------------------------------
--- active_matches: live 3v3 battle snapshots. One row per in-flight match.
--- `snapshot` is the full Battle JSON blob (see src/battle/types.ts). Written
--- after every state mutation (create + each action); DELETEd when the battle
--- ends. Boot code in src/battle/routes.ts hydrates the in-memory map from
--- this table so a server restart no longer forfeits live matches.
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS active_matches (
-  id             TEXT PRIMARY KEY,
-  player_a       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  player_b       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  snapshot       TEXT NOT NULL,
-  round          INTEGER NOT NULL DEFAULT 1,
-  active_side    TEXT NOT NULL CHECK (active_side IN ('a','b')),
-  started_at     INTEGER NOT NULL,
-  updated_at     INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pa ON active_matches(player_a);
-CREATE INDEX IF NOT EXISTS idx_active_matches_pb ON active_matches(player_b);
-
--- ----------------------------------------------------------------------------
 -- pending_buffs: unconsumed shop item effects waiting to be applied at the
 -- start of a battle (hp_pct, en_pct) or on match completion (xp_mult).
 -- `mon_id` NULL = player-wide (e.g. xp_mult). `magnitude` interpretation
@@ -361,19 +341,6 @@ CREATE TABLE IF NOT EXISTS pending_buffs (
 );
 CREATE INDEX IF NOT EXISTS idx_pending_buffs_active
   ON pending_buffs(user_id, mon_id, effect_kind) WHERE consumed_at IS NULL;
-
--- ----------------------------------------------------------------------------
--- matchmaking_queue: persisted mirror of the in-memory FIFO queue. Survives
--- short server restarts. Single-node only — true horizontal sharding still
--- requires a Redis-backed queue + broker (see src/matchmaking/queue.ts).
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS matchmaking_queue (
-  user_id         TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-  display_name    TEXT NOT NULL,
-  average_level   INTEGER NOT NULL CHECK (average_level >= 1),
-  queued_at       INTEGER NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_matchmaking_queued_at ON matchmaking_queue(queued_at);
 
 -- ----------------------------------------------------------------------------
 -- onboarding_config: singleton (id=1) admin-editable intro dialog + background.
@@ -578,3 +545,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
 --   journal_mode = WAL, synchronous = NORMAL, foreign_keys = ON, busy_timeout = 5000
 -- Applied by src/db/index.ts. Do NOT set them here — they are per-connection.
 -- ----------------------------------------------------------------------------
+
+CREATE INDEX IF NOT EXISTS idx_roster_user_created_at ON player_roster(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_roster_user_status_slot ON player_roster(user_id, status, slot_index);
+CREATE INDEX IF NOT EXISTS idx_species_user_percent_kills ON player_species_data(user_id, percent DESC, kills DESC);
+CREATE INDEX IF NOT EXISTS idx_farm_user_created_at ON farm_buildings(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_shop_enabled_price ON shop_items(enabled, price_credits);
+CREATE INDEX IF NOT EXISTS idx_world_objects_created_at ON world_objects(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_quests_created_at ON quests(created_at DESC);

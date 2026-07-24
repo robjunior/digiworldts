@@ -28,9 +28,10 @@ export type PresenceUser = {
 export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
-  | { type: 'chat'; text: string }
+  | { type: 'chat'; text: string; room?: string }
   | { type: 'queue'; join: boolean }
-  | { type: 'act'; matchId: string; action: Action };
+  | { type: 'act'; matchId: string; action: Action }
+  | { type: 'spectate'; matchId: string; join: boolean };
 
 // ============================================================================
 // Server → Client
@@ -66,6 +67,8 @@ export type WSErrorCode =
   | 'internal-error'
   | (string & {});
 
+export type SpectateStatus = 'joined' | 'left' | 'full' | 'not-found' | 'already-in-match';
+
 export type WSServerMessage =
   | {
       type: 'welcome';
@@ -85,6 +88,8 @@ export type WSServerMessage =
       text: string;
       at: number;
       nodeId: string;
+      /** Present iff this is a per-room message. Absent = global chat. */
+      room?: string;
     }
   | {
       type: 'queue';
@@ -101,6 +106,20 @@ export type WSServerMessage =
       matchId: string;
       view: BattleView;
       outcome: BattleOutcome;
+    }
+  | {
+      type: 'spectate';
+      matchId: string;
+      status: SpectateStatus;
+      /** Present only when `status === 'joined'` (initial view). */
+      view?: BattleView;
+      /** Total spectators after this join. */
+      count?: number;
+    }
+  | {
+      type: 'scene-defaults-updated';
+      /** ms epoch when the admin's write completed on the server. */
+      at: number;
     }
   | { type: 'error'; code: WSErrorCode; message: string };
 

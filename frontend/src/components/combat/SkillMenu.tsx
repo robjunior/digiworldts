@@ -31,7 +31,7 @@ function SkillRow({ skill, unit, target, onSkill }: {
   readonly onSkill: (skillId: string, targetId: UnitId) => void;
 }): JSX.Element {
   const disabled = target === null || skill.energyCost > unit.en;
-   const affinityCue = target ? affinity(skill.element, target.element) : 'none';
+  const affinityCue = target ? affinity(skill.element, target) : 'none';
 
   return (
     <button className="skill-row" type="button" role="menuitem" disabled={disabled} onClick={() => target && onSkill(skill.id, target.id)} data-od-id={`skill-${skill.id}`}>
@@ -90,11 +90,18 @@ const RESIST_AFFINITY = {
   null: null,
 } as const satisfies Record<Element, Element | null>;
 
-function affinity(attacker: Element, defender: Element): Affinity {
-  if (WEAK_AFFINITY[attacker] === defender) {
+function affinity(attackerElement: Element, defender: EnemyUnitView): Affinity {
+  const resist = defender.resistances?.[attackerElement];
+  if (resist !== undefined) {
+    if (resist >= 1.5) return 'weak';
+    if (resist > 0 && resist <= 0.5) return 'resist';
+    if (resist === 0) return 'resist';
+    return 'none';
+  }
+  if (WEAK_AFFINITY[attackerElement] === defender.element) {
     return 'weak';
   }
-  if (RESIST_AFFINITY[attacker] === defender) {
+  if (RESIST_AFFINITY[attackerElement] === defender.element) {
     return 'resist';
   }
   return 'none';

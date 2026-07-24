@@ -30,6 +30,8 @@ import {
   type BlueprintError,
 } from './blueprints.js';
 import { applyManifest, buildManifest, type ImpexScope } from './impex.js';
+import { activeMatchCount } from '../battle/routes.js';
+import { issueResetToken } from '../auth/reset.js';
 import {
   createSkill,
   deleteSkill,
@@ -127,7 +129,6 @@ const EvolveEdgeInputSchema = z.object({
   targetId: z.string().min(1).max(48).regex(/^[a-z0-9_-]+$/i, 'targetId must be alphanumeric with -_'),
   requiredLevel: z.number().int().min(0).max(999).optional(),
   requiredMood: z.number().int().min(0).max(100).optional(),
-  requiredItemId: z.string().min(1).max(64).optional(),
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
 });
 
@@ -201,7 +202,6 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
       const e: EvolveEdge = { targetId: edge.targetId };
       if (edge.requiredLevel !== undefined) e.requiredLevel = edge.requiredLevel;
       if (edge.requiredMood !== undefined) e.requiredMood = edge.requiredMood;
-      if (edge.requiredItemId !== undefined) e.requiredItemId = edge.requiredItemId;
       if (edge.requiredAttribute !== undefined) e.requiredAttribute = edge.requiredAttribute;
       return e;
     });
@@ -530,13 +530,16 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     await requireAdmin(req, reply);
     const catalog = loadCatalog();
     const userRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM users');
-    const matchRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM active_matches');
+    // Battle state lives in the Cluster (Redis or in-process), not SQL — see
+    // src/battle/routes.ts. The legacy `active_matches` table was dropped by
+    // migration 001; live counts come from `battle:snap:*` cluster keys.
+    const activeMatches = await activeMatchCount();
     const bpRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM building_blueprints');
     const buildingRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM farm_buildings');
     const rosterRow = await one<{ n: number }>('SELECT COUNT(*) AS n FROM player_roster');
     return reply.send({
       users: userRow?.n ?? 0,
-      activeMatches: matchRow?.n ?? 0,
+      activeMatches,
       catalogTemplates: catalog.digimons.length,
       buildingBlueprints: bpRow?.n ?? 0,
       totalPlayerBuildings: buildingRow?.n ?? 0,
@@ -714,6 +717,15 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
     log.info('admin.user.resetPassword', { adminId: admin.id, targetId: req.params.id });
     return reply.send(result);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/users/:id/reset-token', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const user = await getUser(req.params.id);
+    if (!user) return reply.code(404).send({ error: 'not-found' });
+    const { token, expiresAt } = await issueResetToken(user.id);
+    log.info('admin.user.resetToken.issued', { adminId: admin.id, targetId: user.id });
+    return reply.send({ token, expiresAt, url: `/reset?token=${token}` });
   });
 
   app.delete<{ Params: { id: string } }>('/api/admin/users/:id', async (req, reply) => {

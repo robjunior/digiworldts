@@ -121,7 +121,6 @@ function CatalogRow({ template, expanded, busy, onToggle, onDelete, onDownload, 
                 const parts: string[] = [];
                 if (edge.requiredLevel !== undefined) parts.push(`Lv ${edge.requiredLevel}`);
                 if (edge.requiredMood !== undefined) parts.push(`Mood ${edge.requiredMood}`);
-                if (edge.requiredItemId !== undefined) parts.push(edge.requiredItemId);
                 if (edge.requiredAttribute !== undefined) parts.push(edge.requiredAttribute);
                 return (
                   <span key={edge.targetId} className="catalog-evolution-tag">

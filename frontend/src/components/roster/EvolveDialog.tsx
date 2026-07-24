@@ -64,8 +64,7 @@ function EvolveOptionCard({ option, gate, busy, onEvolve }: {
 
 function optionMessage(option: EvolutionOption, gate: EvolutionGate): string {
   if (option.eligible) {
-    const cost = option.requiredItemId ?? 'no chip';
-    return `Ready · needs ${cost}`;
+    return 'Ready';
   }
   return reasonDetail(option.reason, option, gate);
 }
@@ -74,8 +73,6 @@ function reasonDetail(reason: EvolutionReason | undefined, option: EvolutionOpti
   switch (reason) {
     case 'level-too-low':
       return `Needs Lv ${option.requiredLevel} (currently ${gate.currentLevel})`;
-    case 'no-chip':
-      return `Missing ${option.requiredItemId ?? 'chip'}`;
     case 'no-mood':
       return `Needs mood ${option.requiredMood} (currently ${gate.currentMood})`;
     case 'attribute-mismatch':

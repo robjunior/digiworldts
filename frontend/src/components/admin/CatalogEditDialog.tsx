@@ -112,7 +112,6 @@ function draftToPayload(draft: DraftState, original?: TemplateDigimon): Template
       const edge: EvolveEdge = { targetId: e.targetId };
       if (e.requiredLevel !== undefined) edge.requiredLevel = e.requiredLevel;
       if (e.requiredMood !== undefined) edge.requiredMood = e.requiredMood;
-      if (e.requiredItemId !== undefined && e.requiredItemId.trim() !== '') edge.requiredItemId = e.requiredItemId.trim();
       if (e.requiredAttribute !== undefined) edge.requiredAttribute = e.requiredAttribute;
       return edge;
     });
@@ -382,7 +381,6 @@ function EdgeEditor({
     targetId?: string;
     requiredLevel?: number | null;
     requiredMood?: number | null;
-    requiredItemId?: string | null;
     requiredAttribute?: Attribute | null;
   }): EvolveEdge => {
     const merged: EvolveEdge = { targetId: overrides.targetId ?? edge.targetId };
@@ -390,8 +388,6 @@ function EdgeEditor({
     if (level !== null && level !== undefined) merged.requiredLevel = level;
     const mood = 'requiredMood' in overrides ? overrides.requiredMood : edge.requiredMood;
     if (mood !== null && mood !== undefined) merged.requiredMood = mood;
-    const itemId = 'requiredItemId' in overrides ? overrides.requiredItemId : edge.requiredItemId;
-    if (itemId !== null && itemId !== undefined) merged.requiredItemId = itemId;
     const attr = 'requiredAttribute' in overrides ? overrides.requiredAttribute : edge.requiredAttribute;
     if (attr !== null && attr !== undefined) merged.requiredAttribute = attr;
     return merged;
@@ -436,14 +432,6 @@ function EdgeEditor({
             value={edge.requiredMood ?? ''}
             placeholder="stage default"
             onChange={(e) => onChange(buildEdge({ requiredMood: e.target.value === '' ? null : Number(e.target.value) }))}
-          />
-        </Field>
-        <Field label="Item ID">
-          <input
-            className="input"
-            value={edge.requiredItemId ?? ''}
-            placeholder="itm-digi-chip-… or empty"
-            onChange={(e) => onChange(buildEdge({ requiredItemId: e.target.value === '' ? null : e.target.value }))}
           />
         </Field>
         <Field label="Attribute">

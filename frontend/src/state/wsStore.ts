@@ -2,6 +2,8 @@ import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/b
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import { create } from 'zustand';
 
+import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+
 type ChatMessage = {
   readonly from: string;
   readonly displayName: string;
@@ -25,6 +27,7 @@ type WsState = {
   readonly presence: PresenceUser[];
   readonly presenceCount: number;
   readonly chat: ChatMessage[];
+  readonly chatsByRoom: Record<string, ChatMessage[]>;
   readonly queue: QueueState;
   readonly activeMatchId: string | null;
   readonly activeBattle: BattleView | null;
@@ -33,6 +36,7 @@ type WsState = {
   readonly welcome: WelcomeState | null;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
+  readonly clearRoomChat: (roomId: string) => void;
   readonly reset: () => void;
 };
 
@@ -42,13 +46,14 @@ const initialState = {
   presence: [],
   presenceCount: 0,
   chat: [],
+  chatsByRoom: {},
   queue: { status: 'idle', size: 0, since: null },
   activeMatchId: null,
   activeBattle: null,
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
-} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle'>;
+} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
 
 export const useWsStore = create<WsState>((set) => ({
   ...initialState,
@@ -66,11 +71,24 @@ export const useWsStore = create<WsState>((set) => ({
         set({ presence: msg.users, presenceCount: msg.count });
         return;
       case 'chat':
-        set((state) => ({
-          chat: [...state.chat, { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at }].slice(
-            -MAX_LOG_MESSAGES,
-          ),
-        }));
+        if (msg.room !== undefined) {
+          const roomId = msg.room;
+          set((state) => ({
+            chatsByRoom: {
+              ...state.chatsByRoom,
+              [roomId]: [
+                ...(state.chatsByRoom[roomId] ?? []),
+                { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at },
+              ].slice(-MAX_LOG_MESSAGES),
+            },
+          }));
+        } else {
+          set((state) => ({
+            chat: [...state.chat, { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at }].slice(
+              -MAX_LOG_MESSAGES,
+            ),
+          }));
+        }
         return;
       case 'queue':
         set({ queue: { status: msg.status, size: msg.size, since: msg.since ?? null } });
@@ -95,6 +113,30 @@ export const useWsStore = create<WsState>((set) => ({
             : state,
         );
         return;
+      case 'spectate':
+        // Spectator join: hydrate battle state so subsequent battle/event/end
+        // messages (which gate on activeMatchId matching) actually apply.
+        if (msg.status === 'joined' && msg.view) {
+          set({
+            activeMatchId: msg.matchId,
+            activeBattle: msg.view,
+            battleEvents: msg.view.log ?? [],
+            battleOutcome: msg.view.outcome ?? null,
+          });
+        } else if (msg.status === 'left') {
+          set((state) =>
+            state.activeMatchId === msg.matchId
+              ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null }
+              : state,
+          );
+        }
+        return;
+      case 'scene-defaults-updated':
+        // Admin saved on some node → cluster fanned out to every ws → we null
+        // the module cache so the next getSceneDefaults() call refetches. TTL
+        // in scene-defaults.ts is the safety net if we miss this message.
+        invalidateSceneDefaultsCache();
+        return;
       case 'error':
         return;
       case 'pong':
@@ -108,5 +150,12 @@ export const useWsStore = create<WsState>((set) => ({
   },
   clearActiveBattle: () => {
     set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null });
+  },
+  clearRoomChat: (roomId: string) => {
+    set((state) => {
+      const next = { ...state.chatsByRoom };
+      delete next[roomId];
+      return { chatsByRoom: next };
+    });
   },
 }));

@@ -50,11 +50,6 @@ export function affinity(attackerEl: Element, defenderEl: Element): AffinityKind
   return null;
 }
 
-export const AFFINITY_MULT: Record<Exclude<AffinityKind, null>, number> = {
-  weak: 1.5,
-  resist: 0.5,
-};
-
 const ATTR_STRONG: Record<Attribute, Attribute | undefined> = {
   Vaccine: 'Virus',
   Virus: 'Data',
@@ -76,8 +71,8 @@ export function attrAffinity(attackerAttr: Attribute, defenderAttr: Attribute): 
 }
 
 export const ATTR_MULT: Record<Exclude<AttrAffinityKind, null>, number> = {
-  advantage: 2.0,
-  disadvantage: 0.5,
+  advantage: 1.35,
+  disadvantage: 0.75,
 };
 
 export function resolveResistance(

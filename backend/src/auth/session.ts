@@ -123,7 +123,7 @@ export async function destroySession(token: string): Promise<void> {
 export async function destroyAllSessionsForUser(userId: string): Promise<void> {
   const cluster = await getCluster();
   const tokens = await cluster.zrange(K_USER_SESSIONS(userId), 0, -1);
-  for (const t of tokens) await cluster.del(K_SESSION(t.member));
+  await Promise.all(tokens.map((t) => cluster.del(K_SESSION(t.member))));
   await cluster.del(K_USER_SESSIONS(userId));
 }
 

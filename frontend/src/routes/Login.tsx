@@ -12,7 +12,7 @@ type AuthTab = 'signin' | 'register';
 const AUTH_STATUS_QUERY_KEY = ['auth', 'status'] as const;
 
 function targetForUser(user: PublicUser, nextTarget: string): string {
-  return user.onboardingCompleted ? nextTarget : '/onboarding';
+  return user.onboardingCompleted ? nextTarget : '/intro';
 }
 
 export function Login(): JSX.Element {

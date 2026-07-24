@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppNav } from '../components/AppNav';
-import { CombatBody } from '../components/combat/CombatBody';
+import { Combat3DBody } from '../components/combat3d/Combat3DBody';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
@@ -16,7 +16,7 @@ import { getBattleView } from '../lib/api';
 import { getWorldObjects, getWorldState, moveInWorld, type WorldDirection, type WorldEncounter, type WorldObject, type WorldPosition, type WorldState, type WorldTile } from '../lib/api-world';
 import { createWorldScene, type WorldScene } from '../lib/world-scene';
 import { useWsStore } from '../state/wsStore';
-import '../styles/extensions-combat.css';
+import '../styles/extensions-combat3d.css';
 import '../styles/extensions-world.css';
 
 const KEY_DIRECTIONS: Readonly<Record<string, WorldDirection>> = {
@@ -51,6 +51,23 @@ export function World(): JSX.Element {
   const worldObjectsQuery = useQuery({ queryKey: ['world-objects'] as const, queryFn: getWorldObjects, staleTime: 30_000 });
   const worldObjects = worldObjectsQuery.data?.objects ?? [];
   const battleOverlayVisible = activeBattle !== null && activeBattle.mode === 'pve';
+  const [overlayMounted, setOverlayMounted] = useState<boolean>(false);
+  const [overlayLeaving, setOverlayLeaving] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (battleOverlayVisible) {
+      setOverlayMounted(true);
+      setOverlayLeaving(false);
+      return;
+    }
+    if (!overlayMounted) return;
+    setOverlayLeaving(true);
+    const timer = window.setTimeout(() => {
+      setOverlayMounted(false);
+      setOverlayLeaving(false);
+    }, 320);
+    return () => window.clearTimeout(timer);
+  }, [battleOverlayVisible, overlayMounted]);
   const partyMons = useMemo(() => {
     const roster: readonly RosterView[] = rosterQuery.data?.roster ?? [];
     const now = Date.now();
@@ -223,6 +240,14 @@ export function World(): JSX.Element {
   const position = worldState?.position ?? null;
   const adjacentObject = useMemo(() => findAdjacentQuestObject(worldObjects, position), [position, worldObjects]);
 
+  useEffect(() => {
+    const key = position?.biome.biome ?? null;
+    if (key === null) return;
+    try {
+      window.localStorage.setItem('digiworld.current-biome', key);
+    } catch {}
+  }, [position?.biome.biome]);
+
   return (
     <div className="world-page" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
       <AppNav />
@@ -240,11 +265,11 @@ export function World(): JSX.Element {
       <TileInfoPanel position={position} focusedTile={focusedTile} />
       <WorldDpad disabled={worldState?.battleActive ?? false} onMove={attemptMove} />
       <EncounterModal encounter={encounter} message={notice ?? loadError} onDismiss={() => { setEncounter(null); setNotice(null); setLoadError(null); }} />
-      {battleOverlayVisible ? (
-        <div className="world-pve-overlay" role="dialog" aria-modal="true" aria-label="Wild encounter">
+      {overlayMounted ? (
+        <div className={`world-pve-overlay c3d-overlay-shell${overlayLeaving ? ' is-leaving' : ''}`} role="dialog" aria-modal="true" aria-label="Wild encounter">
           <div className="world-pve-vignette" aria-hidden="true" />
-          <div className="world-pve-frame">
-            <CombatBody showPageStrip />
+          <div className="world-pve-frame c3d-overlay-frame">
+            <Combat3DBody />
           </div>
         </div>
       ) : null}

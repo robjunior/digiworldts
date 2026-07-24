@@ -1,7 +1,7 @@
 import type { DbAdapter } from '../db/adapter.js';
 import { one, q, tx, type PendingHatchRow, type SpeciesDataRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
-import { CHIP_ITEM_IDS, type Stage, type TemplateDigimon } from '../digimon/types.js';
+import { type Stage, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -49,11 +49,6 @@ const SQL_INSERT_ROSTER = `
   INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, mood, status, slot_index, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?)
 `;
-const SQL_UPSERT_INVENTORY = `
-  INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
-    ON CONFLICT (user_id, item_id) DO UPDATE
-       SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at
-`;
 
 export type SpeciesAward = { catalogId: string; tier: Tier; percent: number; kills: number };
 
@@ -96,32 +91,26 @@ function reverseGraph(catalog: readonly TemplateDigimon[]): Map<string, string[]
   return graph;
 }
 
-export type HatchPath = { rookieId: string; targetId: string; chain: string[]; chipItems: string[] };
+export type HatchPath = { rookieId: string; targetId: string; chain: string[] };
 
 export function hatchPathTo(catalogId: string, catalog: readonly TemplateDigimon[]): HatchPath | null {
   const templateById = new Map(catalog.map((t) => [t.id, t] as const));
   const target = templateById.get(catalogId);
   if (!target) return null;
   if (target.stage === 'Rookie') {
-    return { rookieId: target.id, targetId: target.id, chain: [target.id], chipItems: [] };
+    return { rookieId: target.id, targetId: target.id, chain: [target.id] };
   }
   const rev = reverseGraph(catalog);
   const queue: Array<{ id: string; path: string[] }> = [{ id: catalogId, path: [catalogId] }];
   const seen = new Set<string>([catalogId]);
-  while (queue.length > 0) {
-    const node = queue.shift()!;
+  let head = 0;
+  while (head < queue.length) {
+    const node = queue[head++]!;
     const tpl = templateById.get(node.id);
     if (!tpl) continue;
     if (tpl.stage === 'Rookie') {
       const chain = node.path.slice().reverse();
-      const chipItems: string[] = [];
-      for (let i = 1; i < chain.length; i++) {
-        const step = templateById.get(chain[i]!);
-        if (!step) continue;
-        const chip = CHIP_ITEM_IDS[step.stage];
-        if (chip) chipItems.push(chip);
-      }
-      return { rookieId: tpl.id, targetId: catalogId, chain, chipItems };
+      return { rookieId: tpl.id, targetId: catalogId, chain };
     }
     for (const parent of rev.get(node.id) ?? []) {
       if (seen.has(parent)) continue;
@@ -140,7 +129,6 @@ export type PendingHatchView = {
   rookieCatalogId: string;
   rookieName: string;
   rookieDot: string;
-  chipItemIds: string[];
   hatchAt: number;
   ready: boolean;
 };
@@ -149,7 +137,6 @@ function toPendingView(row: PendingHatchRow, catalog: readonly TemplateDigimon[]
   const templateById = new Map(catalog.map((t) => [t.id, t] as const));
   const target = templateById.get(row.target_catalog);
   const rookie = templateById.get(row.rookie_catalog);
-  const chipItemIds = row.chip_items ? tryParseStringArray(row.chip_items) : [];
   return {
     id: row.id,
     targetCatalogId: row.target_catalog,
@@ -158,17 +145,9 @@ function toPendingView(row: PendingHatchRow, catalog: readonly TemplateDigimon[]
     rookieCatalogId: row.rookie_catalog,
     rookieName: rookie?.name ?? row.rookie_catalog,
     rookieDot: rookie?.assets.dot ?? `/assets/digimon/${row.rookie_catalog}/dot.gif`,
-    chipItemIds,
     hatchAt: row.hatch_at,
     ready: row.hatch_at <= now,
   };
-}
-
-function tryParseStringArray(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((v): v is string => typeof v === 'string') : [];
-  } catch { return []; }
 }
 
 export async function listSpeciesData(userId: string): Promise<SpeciesDataRow[]> {
@@ -234,20 +213,19 @@ async function insertPending(userId: string, path: HatchPath, cleanup: () => Pro
   const catalog = loadCatalog().digimons;
   const now = Date.now();
   const id = newId('hatch');
-  const chipItemsJson = path.chipItems.length > 0 ? JSON.stringify(path.chipItems) : null;
   const runCleanup = await cleanup();
   await tx(async (t) => {
     await runCleanup(t);
-    await t.run(SQL_INSERT_PENDING, [id, userId, path.targetId, path.rookieId, chipItemsJson, now + HATCH_DURATION_MS, now]);
+    await t.run(SQL_INSERT_PENDING, [id, userId, path.targetId, path.rookieId, null, now + HATCH_DURATION_MS, now]);
   });
   const row = await one<PendingHatchRow>(SQL_SELECT_PENDING_BY_ID, id, userId);
   if (!row) return { ok: false, error: 'unknown' };
-  log.info('nursery.hatch.start', { userId, hatchId: id, target: path.targetId, rookie: path.rookieId, chipItems: path.chipItems });
+  log.info('nursery.hatch.start', { userId, hatchId: id, target: path.targetId, rookie: path.rookieId });
   return { ok: true, pending: toPendingView(row, catalog, Date.now()) };
 }
 
 export type CollectResult =
-  | { ok: true; monId: string; rookieCatalogId: string; nickname: string; chipItemIds: string[] }
+  | { ok: true; monId: string; rookieCatalogId: string; nickname: string }
   | { ok: false; error: 'not-found' | 'not-ready' | 'template-missing' };
 
 export async function collectHatch(userId: string, hatchId: string): Promise<CollectResult> {
@@ -261,14 +239,10 @@ export async function collectHatch(userId: string, hatchId: string): Promise<Col
   const monId = newId('mon');
   const nickname = rookieTpl.name;
   const startingXp = xpToReach(HATCH_LEVEL, 'Rookie');
-  const chipItems = row.chip_items ? tryParseStringArray(row.chip_items) : [];
   await tx(async (t) => {
     await t.run(SQL_INSERT_ROSTER, [monId, userId, rookieTpl.id, nickname, HATCH_LEVEL, startingXp, now, now]);
-    for (const chipId of chipItems) {
-      await t.run(SQL_UPSERT_INVENTORY, [userId, chipId, 1, now]);
-    }
     await t.run(SQL_DELETE_PENDING, [hatchId, userId]);
   });
-  log.info('nursery.hatch.collect', { userId, hatchId, monId, rookie: rookieTpl.id, chipItems });
-  return { ok: true, monId, rookieCatalogId: rookieTpl.id, nickname, chipItemIds: chipItems };
+  log.info('nursery.hatch.collect', { userId, hatchId, monId, rookie: rookieTpl.id });
+  return { ok: true, monId, rookieCatalogId: rookieTpl.id, nickname };
 }

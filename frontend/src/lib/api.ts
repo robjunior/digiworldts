@@ -151,6 +151,52 @@ export function authLogout(): Promise<AuthLogoutResponse> {
   return apiFetch<AuthLogoutResponse>('/api/auth/logout', { method: 'POST' });
 }
 
+export function authResetConsume(body: { token: string; newPassword: string }): Promise<{ ok: true; username: string }> {
+  return apiFetch<{ ok: true; username: string }>('/api/auth/reset-consume', {
+    method: 'POST',
+    body,
+  });
+}
+
+export function battleSpectate(matchId: string): Promise<{ matchId: string; view: BattleView; spectatorCount: number }> {
+  return apiFetch<{ matchId: string; view: BattleView; spectatorCount: number }>(
+    `/api/battle/spectate/${encodeURIComponent(matchId)}`,
+  );
+}
+
+export type ChatRoomView = {
+  readonly id: string;
+  readonly name: string;
+  readonly kind: 'room' | 'dm';
+  readonly ownerId: string | null;
+  readonly createdAt: number;
+  readonly memberCount: number;
+};
+
+export function chatListMyRooms(): Promise<{ rooms: ChatRoomView[] }> {
+  return apiFetch<{ rooms: ChatRoomView[] }>('/api/chat/rooms/mine');
+}
+
+export function chatCreateRoom(name: string): Promise<{ room: ChatRoomView }> {
+  return apiFetch<{ room: ChatRoomView }>('/api/chat/room/create', { method: 'POST', body: { name } });
+}
+
+export function chatJoinRoom(roomId: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>('/api/chat/room/join', { method: 'POST', body: { roomId } });
+}
+
+export function chatLeaveRoom(roomId: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>('/api/chat/room/leave', { method: 'POST', body: { roomId } });
+}
+
+export function chatOpenDm(username: string): Promise<{
+  room: ChatRoomView;
+  created: boolean;
+  otherUser: { id: string; displayName: string };
+}> {
+  return apiFetch('/api/chat/dm/open', { method: 'POST', body: { username } });
+}
+
 type WorldBattleResponse = {
   readonly battle: BattleView;
 };

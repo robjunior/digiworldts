@@ -270,6 +270,7 @@ digiworld/
 | POST | `/api/auth/register` | — | open by default; first registrant becomes admin. Returns 403 only when `ADMIN_BOOTSTRAP=closed` |
 | POST | `/api/auth/login` | — | argon2id verify + set cookie |
 | POST | `/api/auth/logout` | cookie | destroy session |
+| POST | `/api/auth/reset-consume` | — | `{ token, newPassword }` — consume an admin-issued reset token, hashes the new password, invalidates all sessions for that user (10 attempts/IP/15min throttle) |
 | GET | `/api/auth/me` | cookie | current user |
 | GET | `/api/catalog` | user | full XML catalog |
 | GET | `/api/roster` | user | owned Digimon + templates |
@@ -292,6 +293,15 @@ digiworld/
 | POST | `/api/friends/accept` | user | `{ userId }` |
 | POST | `/api/friends/remove` | user | `{ userId }` |
 | POST | `/api/friends/block` | user | `{ userId }` |
+| GET | `/api/scene/defaults` | user | per-arena `SceneSettings` (lighting / fog / camera / arena offsets) for the client to apply on top of its `DEFAULT_SETTINGS` + local overrides |
+| POST | `/api/admin/scene-defaults` | admin | body: full `PerArenaSceneDefaults`. Persists to `data/scene-defaults.json` and publishes `scene:defaults:updated` on the cluster so every connected WS client invalidates its module cache |
+| GET | `/api/admin/game-settings` | admin | current `{ xpRate, damageRate, updatedAt }` — both are global multipliers |
+| PUT | `/api/admin/game-settings` | admin | `{ xpRate?, damageRate? }` — partial update; unspecified rate is preserved. `xpRate` ∈ [0.1, 10.0], `damageRate` ∈ [0.25, 5.0]. Damage rate is frozen per-match at battle start (`initBattle`) so an in-flight combat isn't disturbed mid-way |
+| GET | `/api/chat/rooms/mine` | user | rooms the caller is a member of |
+| POST | `/api/chat/room/create` | user | `{ name }` — creates a room + adds creator as owner+member |
+| POST | `/api/chat/room/join` | user | `{ roomId }` — join an existing room (`kind='room'` only) |
+| POST | `/api/chat/room/leave` | user | `{ roomId }` — remove caller from a room |
+| POST | `/api/chat/dm/open` | user | `{ username }` — find-or-create a 2-member DM room with the given user |
 | GET | `/api/admin/scraped-list` | admin | paginated + filterable |
 | POST | `/api/admin/scrape/refresh` | admin | pull the skullbot list again |
 | POST | `/api/admin/catalog/from-scraped` | admin | `{ skullbotId, enrich }` |
@@ -299,6 +309,9 @@ digiworld/
 | PUT | `/api/admin/catalog/:id` | admin | replace (id must match) |
 | DELETE | `/api/admin/catalog/:id` | admin | remove |
 | POST | `/api/admin/assets/:id/download` | admin | force re-download portrait+dot |
+| GET | `/api/battle/spectate/:matchId` | user | initial `BattleView` + `spectatorCount` for a live match. Any authenticated user can call it; enemy stats are redacted (matches side-A view). WS live updates via `spectate` message |
+| POST | `/api/admin/users/:id/reset-token` | admin | issue a one-time password-reset token (`reset:{token}` in the cluster, TTL 15 min). Returns `{ token, expiresAt, url }` — hand the URL to the user, they consume via `/reset?token=...` and pick their own password |
+| POST | `/api/admin/users/:id/reset-password` | admin | hard reset — admin types the new password directly |
 
 ---
 
@@ -311,11 +324,14 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 ```json
 { "type": "hello" }
 { "type": "ping" }
-{ "type": "chat",  "text": "..." }
+{ "type": "chat",  "text": "...", "room?": "rm_..." }
 { "type": "queue", "join": true|false }
 { "type": "act",   "matchId": "mtc_...",
   "action": { "type": "fight"|"skill"|"guard"|"flee", ... } }
+{ "type": "spectate", "matchId": "mtc_...", "join": true|false }
 ```
+
+Chat messages without `room` route through the global `chat:global` channel (broadcast to every online socket). With `room`, membership is validated against `chat_room_members` and the message fans out to each member's `wsdeliver:{userId}` channel.
 
 ### Server → client
 
@@ -323,12 +339,14 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 { "type": "welcome",  "user": {...}, "presence": [...], "matchId?": "mtc_..." }
 { "type": "pong" }
 { "type": "presence", "users": [...], "count": N }
-{ "type": "chat",     "from": "usr_...", "displayName": "...", "text": "...", "at": ms }
+{ "type": "chat",     "from": "usr_...", "displayName": "...", "text": "...", "at": ms, "room?": "rm_..." }
 { "type": "queue",    "status": "idle"|"waiting"|"matched", "size": N }
 { "type": "match",    "matchId": "mtc_...", "view": BattleView }
 { "type": "battle",   "matchId": "mtc_...", "view": BattleView }
 { "type": "event",    "matchId": "mtc_...", "events": [BattleEvent, ...] }
 { "type": "end",      "matchId": "mtc_...", "view": BattleView, "outcome": "win_a"|... }
+{ "type": "spectate", "matchId": "mtc_...", "status": "joined"|"left"|"full"|"not-found"|"already-in-match", "view?": BattleView, "count?": N }
+{ "type": "scene-defaults-updated", "at": ms }
 { "type": "error",    "code": "not-your-turn"|..., "message": "..." }
 ```
 
@@ -381,29 +399,37 @@ Hand-editing is safe — the loader Zod-validates on read and prints a targeted 
 
 ## Verified end-to-end (smoke tests)
 
-Ran during development, both re-runnable:
+Four self-contained test scripts, all runnable via `pnpm --filter @digiworld/backend test:<name>`. Every one boots real adapters — `SqliteAdapter` opens a real DB file, `PGlite` runs actual Postgres 18 in-process, `RedisCluster` talks to a real Redis (or Valkey) — so what passes here is what production runs.
 
 ```bash
-# HTTP + auth flow
-BASE=http://127.0.0.1:3000
-curl $BASE/api/auth/status                 # { userCount:0, registrationOpen:true }
-curl -c cookies -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"correct horse battery staple"}' \
-  $BASE/api/auth/register                  # 201, isAdmin:true
-curl -H 'Content-Type: application/json' \
-  -d '{"username":"other","password":"pass1234"}' \
-  $BASE/api/auth/register                  # 201, isAdmin:false (regular player)
-curl -b cookies $BASE/api/catalog          # 3 real Digimon from the XML
-curl -b cookies $BASE/api/farm             # balances + 4 seeded buildings
-curl -b cookies $BASE/api/roster           # 3-Digimon starter party
+REDIS_URL=redis://127.0.0.1:6400 pnpm --filter @digiworld/backend test:cluster
+#   18/18 — two RedisCluster instances against one Redis, proving KV, ZSET,
+#   distributed lock (SET NX EX + Lua CAS), and pub/sub (chat + wsdeliver
+#   psubscribe) all work cross-instance. This is the substrate every
+#   multi-node feature rides on. See test/cluster-crossnode.mts.
+
+DB_PATH=/tmp/dw-migrator-smoke.db pnpm --filter @digiworld/backend test:migrator
+#   Boots SqliteAdapter twice — once on a fresh DB, once on a DB pre-seeded
+#   with legacy `active_matches` + `matchmaking_queue` tables + a stale row —
+#   and verifies both paths land migrations 001 + 002 + 003 in schema_versions,
+#   drop the legacy tables, create the chat tables, and widen the
+#   `skills_catalog.element` CHECK. Includes a functional probe: INSERT with
+#   element='plant' must succeed after migration 003. See test/migrator-smoke.mts.
+
+DB_PATH=/tmp/dw-features-smoke.db pnpm --filter @digiworld/backend test:features
+#   46/0 — library-level integration for the auth/reset flow (N1), chat rooms
+#   + DMs (N3), and spectator mode (N4). Every path under test uses the exact
+#   functions the HTTP + WS handlers use (no shim). Also cross-checks that
+#   destroyAllSessionsForUser is per-user, not global. See test/features-smoke.mts.
+
+pnpm --filter @digiworld/backend test:pg-portability
+#   13/13 e2e roundtrip + 261/261 SQL_* constants PREPAREd cleanly against real
+#   Postgres 18 via @electric-sql/pglite. Also applies every migration under
+#   src/db/migrations/*.sql (dialect-filtered — SQLite-only migrations are
+#   correctly skipped). ~15s per run, safe for CI. See test/postgres-portability.mts.
 ```
 
-```bash
-# Static + WS
-curl -I $BASE/lobby.html                   # 200
-curl -I $BASE/assets/digimon/skb-1/portrait.webp   # 200 (~10 KB)
-node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
-```
+`test/battle-combo.mts` also exists and runs 47 checks on the combat engine but has 3 pre-existing failures from a balance rebalance (commit `3b37a23`) — the test expectations drifted and haven't been re-tuned. Not gating.
 
 ---
 
@@ -411,24 +437,31 @@ node /tmp/dw-ws-test.mjs                   # welcome/chat/presence/queue/pong
 
 - The **first** account created via `/api/auth/register` (browser or curl) is the admin — irrevocably.
 - Every subsequent registration is a regular player (`is_admin=0`). Registration stays open by default so the 1000-player MMO shape actually works. Set `ADMIN_BOOTSTRAP=closed` in the environment to lock the door once the game is live.
-- Losing the admin password today means resetting `data/digiworld.db` (or running a manual SQL update). Password reset flow is out of scope for this MVP.
+- **Regular user password recovery** goes through the admin: `POST /api/admin/users/:id/reset-token` issues a 15-minute cluster-stored token; the user consumes it at `/reset?token=...` and picks a new password. Alternatively the admin can hard-reset directly via `POST /api/admin/users/:id/reset-password` (admin types the new password). Either way, all live sessions for that user are revoked on success.
+- **A totally-lost *admin* password** still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
 - The admin is the ONLY user who can add/edit/remove Digimon templates. Regular players can only pick from what the admin has curated in `data/catalog/digimons.xml`.
 
 ---
 
 ## Recently addressed (post-MVP rewrite)
 
+- **Live combat pace dial via `damage_rate` admin knob.** Mirror of `xp_rate` — a global multiplier applied to every damage roll in [`battle/engine.ts::applyAction`](backend/src/battle/engine.ts). Ranges `0.25×`–`5.0×` (default `1.0×`). Frozen per-match at `initBattle` from `game_settings.damage_rate`, so an admin bump mid-tournament doesn't disturb in-flight battles — the next new match picks up the change. UI: XP rate + damage rate side-by-side sliders + presets in [`GameSettingsAdmin.tsx`](frontend/src/components/admin/GameSettingsAdmin.tsx). Rationale in the ROADMAP thread — TTK grew from ~3.4 hits at L1 Rookie to ~20 hits at L20 Mega because `skill.power` is a fixed data-driven constant while HP scales with `stage × level`; the knob lets you dial the whole curve up without a redeploy while a proper `skill.power × levelFactor` scaling fix bakes.
+- **Migrator was silent in containerized deploys since S6.** The backend build script copied `schema.sql` + `schema-pg.sql` into `dist/db/` but never copied the `migrations/` directory. Result: `loadMigrations()` resolved `dist/db/migrations/` at runtime, found nothing, `runMigrations()` created only the empty `schema_versions` ledger and exited cleanly — no errors, no warnings, no migrations applied. Chat rooms + DMs (N3) were effectively shipping into a table that didn't exist in production Postgres (never hit because those endpoints are auth-gated). Fixed by adding `cpSync('src/db/migrations', 'dist/db/migrations', {recursive: true})` to the build script. Verified on the running Postgres — `schema_versions` now has 001/002/004, `chat_rooms` + `chat_room_members` tables present, `game_settings.damage_rate` column present. Dev mode (`pnpm dev` / `tsx watch`) was unaffected because it runs from `src/`, not `dist/` — that's why every prior test suite passed and neither typecheck nor migrator-smoke caught it.
+- **Live scene-defaults cache invalidation.** The scene-defaults cache in [`frontend/src/lib/scene-defaults.ts`](frontend/src/lib/scene-defaults.ts) was a module-level Promise with no expiry — non-admin users never saw admin edits until a hard refresh, and the "auto-invalidate stale local overrides" logic in the admin panel could never fire in practice. Now: a 30-second TTL + `forceRefresh` param, plus a WS broadcast on admin save. `POST /api/admin/scene-defaults` publishes to the `scene:defaults:updated` cluster channel; every node's WS lobby subscribes and fans out `{type:'scene-defaults-updated', at}` to its local sockets; every tab's [`wsStore`](frontend/src/state/wsStore.ts) case nulls the cache so the next `getSceneDefaults()` call refetches. TTL is the safety net for freshly-loaded tabs.
+- **Numbered schema migrations with a `schema_versions` ledger.** Files in [`backend/src/db/migrations/`](backend/src/db/migrations/) named `NNN_description.sql` are applied once each in order, tracked in a `schema_versions (version TEXT PK, applied_at BIGINT)` ledger. Runner in [`backend/src/db/migrator.ts`](backend/src/db/migrator.ts) is dialect-aware — files ending `.sqlite.sql` run only on SQLite, `.pg.sql` only on Postgres, plain `.sql` on both. Each migration executes in a transaction; PK conflict on ledger insert is how we survive two-node concurrent boots. Wired into both `SqliteAdapter.init` and `PgAdapter.init` after the baseline schema. Migrations shipped so far: `001_drop_legacy_tables.sql` (kills the pre-cluster `active_matches` + `matchmaking_queue`), `002_chat_rooms.sql` (chat rooms + DM tables), `003_skills_element_check.sqlite.sql` (widens SQLite's stale 5-element CHECK on `skills_catalog.element` to the correct 11-element taxonomy — Postgres was already handled by an inline `DO $$` block in `schema-pg.sql`).
+- **Chat rooms + DMs.** Two new tables (`chat_rooms`, `chat_room_members`) landed via migration `002_chat_rooms.sql`. Endpoints: `POST /api/chat/room/create`, `/room/join`, `/room/leave`, `/dm/open` (find-or-create), `GET /api/chat/rooms/mine`. WS `chat` message gains optional `room` field — with `room`, membership is validated then delivered to each member's `wsdeliver:{userId}` channel (cross-node just works). Global chat unchanged. Frontend `RoomsPanel` in the lobby lists rooms + DMs, opens DM by username, sends per-room messages. See [`backend/src/chat/rooms.ts`](backend/src/chat/rooms.ts) and [`frontend/src/components/lobby/RoomsPanel.tsx`](frontend/src/components/lobby/RoomsPanel.tsx).
+- **Spectator mode.** New `GET /api/battle/spectate/:matchId` returns the current `BattleView` (side-A perspective — enemy stats redacted); WS `{type:'spectate', matchId, join:true}` subscribes the socket to live `event`/`battle`/`end` fanout for that match. Up to 20 spectators per match, tracked in a `battle:spectators:{matchId}` ZSET in the cluster. Cleaned up automatically when the match ends. Frontend viewer at `/spectate?matchId=...` (minimal text HP bars + event log; a rich 3D viewer is a follow-up). See [`backend/src/battle/spectate.ts`](backend/src/battle/spectate.ts) and [`frontend/src/routes/Spectate.tsx`](frontend/src/routes/Spectate.tsx).
+- **Password reset via admin-issued cluster tokens.** New admin route `POST /api/admin/users/:id/reset-token` issues a one-time reset token stored at `reset:{token}` in the Cluster (TTL 15 min). User consumes via `POST /api/auth/reset-consume { token, newPassword }` — argon2id hashes the new password, all sessions for that user are revoked, and the token is deleted (single-use). Complements the existing hard-reset (where admin picks the password directly). Frontend consume page at `/reset?token=...`. See [`backend/src/auth/reset.ts`](backend/src/auth/reset.ts).
 - **Shop items now feed into combat.** `POST /api/shop/apply { itemId, monId? }` consumes one inventory item into a `pending_buffs` row. `hp_pct` / `en_pct` are consumed at the START of the target mon's next battle (mutates `statBonus`); `xp_mult` is player-wide and consumed at the END of the next won match (multiplies XP awarded). Deprecated `POST /api/shop/use` still exists for backwards compat but no longer has combat semantics.
-- **Battle state now survives server restart.** Every mutation (create + each action + end) upserts the full `Battle` JSON blob into the `active_matches` table. On boot, `hydrateActiveMatches()` in `src/battle/routes.ts` restores the in-memory `activeBattles` + `userToMatch` maps before the WS listener starts, so a reconnecting player immediately picks up their live match.
-- **Matchmaking queue now persists.** `matchmaking_queue` mirrors the in-memory FIFO; `hydrateMatchmaking()` reloads it at boot. Stale entries (>5 min) are dropped during hydration.
+- **Battle state now survives server restart AND crosses nodes.** Every mutation upserts the full `Battle` JSON blob into the cluster at `battle:snap:{matchId}`. On boot, `hydrateActiveMatches()` in [`src/battle/routes.ts`](backend/src/battle/routes.ts) reports the cluster count. On Redis, any node in the deployment can serve any player's actions — mutations serialize via `battle:lock:{matchId}` (SET NX EX + Lua CAS release). See [`test/cluster-crossnode.mts`](backend/test/cluster-crossnode.mts) for the empirical proof.
+- **Matchmaking queue now crosses nodes.** `mm:queue` (ZSET, member=userId, score=queuedAt) + `mm:meta:{userId}` (KV, TTL 5 min) live in the cluster. `tryPair()` holds the `mm:pair-lock` for the walk so only one node ZREMs a given pair. `hydrateMatchmaking()` reports queue size at boot — no SQL rehydration needed.
+- **WS delivery is cross-node.** Any node can `publish` on `wsdeliver:{userId}`; a psubscribe on `wsdeliver:*` in every node forwards to whichever node hosts that user's live socket. Chat rides `chat:global`; presence is a scan over `presence:user:*` (30s TTL, refreshed every 15s).
 
 ## Known limitations / next passes
 
-- No password-reset flow.
-- Chat is global-only (no rooms / DMs).
-- Matchmaking persistence is **single-node**. Real horizontal sharding across multiple game servers still requires a Redis-backed queue + broker — the `Matchmaker` interface in `src/matchmaking/queue.ts` was designed so that swap is drop-in.
-- Battle persistence is single-node too — same shape.
-- No spectator mode.
+- **Admin bootstrap recovery still needs shell access.** Any user can be reset by an admin via the token flow above (or the hard-reset variant). A totally-lost *admin* password still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
+- **Spectator view is minimal (text-based).** The `/spectate?matchId=...` page renders HP bars + event log rather than the full 3D combat viewer. Wiring the 3D pipeline into read-only mode is a follow-up (Combat3DBody currently assumes player-side state — it needs a `readOnly` prop pass).
+- **The multi-node docker-compose ships with `DATABASE=postgres`.** Both game nodes share the bundled Postgres 16 by default. To run the zero-external-dep local demo instead, flip the two commented `DATABASE: sqlite` lines under each `game-node*` service in `docker-compose.multinode.yml`.
 
 ---
 

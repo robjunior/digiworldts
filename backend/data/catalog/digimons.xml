@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<catalog version="1" updatedAt="1784667047093">
+<catalog version="1" updatedAt="1784674566394">
   <digimon id="skb-1" name="ExTyrannomon" stage="Ultimate" attribute="Vaccine" element="dark" wikimonSlug="ExTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/1" type="Puppet">
     <assets portrait="/assets/digimon/skb-1/portrait.webp" dot="/assets/digimon/skb-1/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="100" spd="220"></stats>
@@ -193,7 +193,6 @@
       <evolve targetId="skb-78"></evolve>
       <evolve targetId="skb-115"></evolve>
       <evolve targetId="skb-308"></evolve>
-      <evolve targetId="skb-676"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="0"></r>
@@ -286,7 +285,6 @@
       <evolve targetId="skb-3"></evolve>
       <evolve targetId="skb-51"></evolve>
       <evolve targetId="skb-710"></evolve>
-      <evolve targetId="skb-751"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="0.5"></r>
@@ -526,7 +524,6 @@
     <evolutions>
       <evolve targetId="skb-44"></evolve>
       <evolve targetId="skb-74"></evolve>
-      <evolve targetId="skb-722"></evolve>
     </evolutions>
     <resistances>
       <r element="water" mult="0.5"></r>
@@ -796,7 +793,7 @@
       <r element="null" mult="2"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-367" name="Kuwagamon" stage="Champion" attribute="Virus" element="null" wikimonSlug="Kuwagamon" sourceUrl="https://api.skullbot.fr/digimon/367" type="Insectoid">
+  <digimon id="skb-367" name="Kuwagamon" stage="Champion" attribute="Virus" element="electricity" wikimonSlug="Kuwagamon" sourceUrl="https://api.skullbot.fr/digimon/367" type="Insectoid">
     <assets portrait="/assets/digimon/skb-367/portrait.webp" dot="/assets/digimon/skb-367/dot.gif"></assets>
     <stats hp="750" en="41" atk="150" def="120" int="135" spd="150"></stats>
     <skills>
@@ -1086,7 +1083,6 @@
       <skill id="s3" name="Overdrive" element="electricity" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-722"></evolve>
       <evolve targetId="skb-727"></evolve>
       <evolve targetId="skb-770"></evolve>
     </evolutions>
@@ -1120,41 +1116,6 @@
       <r element="earth" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-676" name="Agunimon" stage="Rookie" attribute="Variable" element="fire" wikimonSlug="Agunimon" sourceUrl="https://api.skullbot.fr/digimon/676" type="Wizard">
-    <assets portrait="/assets/digimon/skb-676/portrait.webp" dot="/assets/digimon/skb-676/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Pyro Punch" element="fire" cost="41" power="35" description="[Target: 1 enemy] Performs Fire physical attack at power 35 x 2 hits. Increased damage to targets with Immortal Trait."></skill>
-      <skill id="s1" name="Corona Blaster" element="fire" cost="41" power="20" description="[Target: All enemies] Performs Fire physical attack at power 20 x 2 hits. Increased damage to targets with Immortal Trait."></skill>
-      <skill id="s2" name="Fire Darts" element="fire" cost="26" power="300" description="Throws small bits of fire from its gauntlet at its target."></skill>
-      <skill id="s3" name="Crimson Knuckle" element="fire" cost="41" power="380" description="1 2 A powerful two-step punch. Spins upward as a tornado of fire."></skill>
-    </skills>
-    <evolutions>
-      <evolve targetId="skb-669"></evolve>
-    </evolutions>
-    <resistances>
-      <r element="fire" mult="0"></r>
-      <r element="water" mult="1.5"></r>
-      <r element="ice" mult="2"></r>
-      <r element="steel" mult="0.5"></r>
-    </resistances>
-  </digimon>
-  <digimon id="skb-751" name="Rapidmon (Armor)" stage="Rookie" attribute="Vaccine" element="electricity" wikimonSlug="Rapidmon_(Armor)" sourceUrl="https://api.skullbot.fr/digimon/751" type="Holy Knight">
-    <assets portrait="/assets/digimon/skb-751/portrait.webp" dot="/assets/digimon/skb-751/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Golden Triangle" element="electricity" cost="41" power="85" description="[Target: 1 enemy] Performs Electricity magic attack at power 85. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
-      <skill id="s1" name="Saint Knuckle II" element="light" cost="41" power="30" description="[Target: 1 enemy] Performs Light physical attack at power 30 x 2 hits. 95% ACU."></skill>
-      <skill id="s2" name="Shine Burst II" element="light" cost="41" power="35" description="[Target: All enemies] Performs Light magic attack at power 35. 90% ACU."></skill>
-      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
-    </skills>
-    <resistances>
-      <r element="water" mult="1.5"></r>
-      <r element="electricity" mult="0.5"></r>
-      <r element="light" mult="0.5"></r>
-      <r element="dark" mult="1.5"></r>
-    </resistances>
-  </digimon>
   <digimon id="skb-28" name="BigMamemon" stage="Ultimate" attribute="Data" element="steel" wikimonSlug="BigMamemon" sourceUrl="https://api.skullbot.fr/digimon/28" type="Mutant">
     <assets portrait="/assets/digimon/skb-28/portrait.webp" dot="/assets/digimon/skb-28/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
@@ -1177,12 +1138,12 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-704" name="GroundLocomon" stage="Mega" attribute="Data" element="electricity" wikimonSlug="GroundLocomon" sourceUrl="https://api.skullbot.fr/digimon/704" type="Machine">
+  <digimon id="skb-704" name="GroundLocomon" stage="Mega" attribute="Data" element="steel" wikimonSlug="GroundLocomon" sourceUrl="https://api.skullbot.fr/digimon/704" type="Machine">
     <assets portrait="/assets/digimon/skb-704/portrait.webp" dot="/assets/digimon/skb-704/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Destruction Crush" element="electricity" cost="41" power="20" description="[Target: All enemies] Performs Electricity physical attack at power 20 x 3 hits. Increased damage to targets with Unknown Trait."></skill>
-      <skill id="s1" name="Thunder Fall III" element="electricity" cost="41" power="15" description="[Target: All enemies] Performs Electricity magic attack at power 15 x 3 hits. 90% ACU."></skill>
+      <skill id="s0" name="Destruction Crush" element="steel" cost="41" power="20" description="[Target: All enemies] Performs Electricity physical attack at power 20 x 3 hits. Increased damage to targets with Unknown Trait."></skill>
+      <skill id="s1" name="Thunder Fall III" element="steel" cost="41" power="15" description="[Target: All enemies] Performs Electricity magic attack at power 15 x 3 hits. 90% ACU."></skill>
       <skill id="s2" name="Thruster Metal III" element="steel" cost="41" power="11" description="[Target: 1 enemy] Performs Steel magic attack at power 11 x 7 hits. 90% ACU. 20% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
@@ -1268,11 +1229,11 @@
       <r element="wind" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-753" name="BlackKingNumemon" stage="Ultimate" attribute="Virus" element="null" wikimonSlug="BlackKingNumemon" sourceUrl="https://api.skullbot.fr/digimon/753" type="Mollusk">
+  <digimon id="skb-753" name="BlackKingNumemon" stage="Ultimate" attribute="Virus" element="dark" wikimonSlug="BlackKingNumemon" sourceUrl="https://api.skullbot.fr/digimon/753" type="Mollusk">
     <assets portrait="/assets/digimon/skb-753/portrait.webp" dot="/assets/digimon/skb-753/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Dark Pupil" element="null" cost="41" power="70" description="[Target: 1 enemy] Performs Null magic attack at power 70. 50% chance to apply Injury."></skill>
+      <skill id="s0" name="Dark Pupil" element="dark" cost="41" power="70" description="[Target: 1 enemy] Performs Null magic attack at power 70. 50% chance to apply Injury."></skill>
       <skill id="s1" name="Nightmare II" element="dark" cost="41" power="60" description="[Target: 1 enemy] Performs Dark magic attack at power 60. 95% ACU."></skill>
       <skill id="s2" name="Hell Crusher II" element="dark" cost="41" power="35" description="[Target: All enemies] Performs Dark magic attack at power 35. 90% ACU."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
@@ -1413,11 +1374,11 @@
       <r element="steel" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-719" name="Cyberdramon" stage="Ultimate" attribute="Vaccine" element="null" wikimonSlug="Cyberdramon" sourceUrl="https://api.skullbot.fr/digimon/719" type="Android">
+  <digimon id="skb-719" name="Cyberdramon" stage="Ultimate" attribute="Vaccine" element="steel" wikimonSlug="Cyberdramon" sourceUrl="https://api.skullbot.fr/digimon/719" type="Android">
     <assets portrait="/assets/digimon/skb-719/portrait.webp" dot="/assets/digimon/skb-719/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Desolation Claw" element="null" cost="41" power="85" description="[Target: 1 enemy] Performs Null physical attack at power 85. If target is Data: Increased damage."></skill>
+      <skill id="s0" name="Desolation Claw" element="steel" cost="41" power="85" description="[Target: 1 enemy] Performs Null physical attack at power 85. If target is Data: Increased damage."></skill>
       <skill id="s1" name="Nanomachine Break II" element="electricity" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
       <skill id="s2" name="Thunder Fall II" element="electricity" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
@@ -1499,11 +1460,11 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-606" name="Divermon" stage="Ultimate" attribute="Data" element="steel" wikimonSlug="Divermon" sourceUrl="https://api.skullbot.fr/digimon/606" type="Aquatic Beast Man">
+  <digimon id="skb-606" name="Divermon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Divermon" sourceUrl="https://api.skullbot.fr/digimon/606" type="Aquatic Beast Man">
     <assets portrait="/assets/digimon/skb-606/portrait.webp" dot="/assets/digimon/skb-606/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Strike Fishing" element="steel" cost="41" power="80" description="[Target: 1 enemy] Performs Steel physical attack at power 80. Always hits. 100% chance of 20% reduction to EVA for 3 turn(s). Increased damage to targets with Aquatic Trait."></skill>
+      <skill id="s0" name="Strike Fishing" element="water" cost="41" power="80" description="[Target: 1 enemy] Performs Steel physical attack at power 80. Always hits. 100% chance of 20% reduction to EVA for 3 turn(s). Increased damage to targets with Aquatic Trait."></skill>
       <skill id="s1" name="Ocean Wave II" element="water" cost="41" power="35" description="[Target: All enemies] Performs Water magic attack at power 35. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null physical attack at power 60. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
@@ -1767,12 +1728,12 @@
       <r element="null" mult="2"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-484" name="JewelBeemon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="JewelBeemon" sourceUrl="https://api.skullbot.fr/digimon/484" type="Insectoid">
+  <digimon id="skb-484" name="JewelBeemon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="JewelBeemon" sourceUrl="https://api.skullbot.fr/digimon/484" type="Insectoid">
     <assets portrait="/assets/digimon/skb-484/portrait.webp" dot="/assets/digimon/skb-484/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Spike Buster" element="plant" cost="41" power="25" description="[Target: 1 enemy] Performs Plant physical attack at power 25 x 3 hits. Nullifies unfavorable compatibility. Increased damage to targets with Insectoid Trait."></skill>
-      <skill id="s1" name="Crescent Leaf II" element="plant" cost="41" power="9" description="[Target: 1 enemy] Performs Plant physical attack at power 9 x 7 hits. 95% ACU."></skill>
+      <skill id="s0" name="Spike Buster" element="electricity" cost="41" power="25" description="[Target: 1 enemy] Performs Plant physical attack at power 25 x 3 hits. Nullifies unfavorable compatibility. Increased damage to targets with Insectoid Trait."></skill>
+      <skill id="s1" name="Crescent Leaf II" element="electricity" cost="41" power="9" description="[Target: 1 enemy] Performs Plant physical attack at power 9 x 7 hits. 95% ACU."></skill>
       <skill id="s2" name="Stone Cleave II" element="earth" cost="41" power="45" description="[Target: All enemies] Performs Earth physical attack at power 45. 85% ACU."></skill>
       <skill id="s3" name="Overdrive" element="electricity" cost="38" power="380"></skill>
     </skills>
@@ -2444,7 +2405,7 @@
       <r element="wind" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-451" name="Ebemon" stage="Mega" attribute="Virus" element="null" wikimonSlug="Ebemon" sourceUrl="https://api.skullbot.fr/digimon/451" type="Android">
+  <digimon id="skb-451" name="Ebemon" stage="Mega" attribute="Virus" element="steel" wikimonSlug="Ebemon" sourceUrl="https://api.skullbot.fr/digimon/451" type="Android">
     <assets portrait="/assets/digimon/skb-451/portrait.webp" dot="/assets/digimon/skb-451/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
@@ -2492,11 +2453,11 @@
       <r element="dark" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-423" name="GranKuwagamon" stage="Mega" attribute="Free" element="plant" wikimonSlug="GranKuwagamon" sourceUrl="https://api.skullbot.fr/digimon/423" type="Insectoid">
+  <digimon id="skb-423" name="GranKuwagamon" stage="Mega" attribute="Free" element="electricity" wikimonSlug="GranKuwagamon" sourceUrl="https://api.skullbot.fr/digimon/423" type="Insectoid">
     <assets portrait="/assets/digimon/skb-423/portrait.webp" dot="/assets/digimon/skb-423/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Dimension Scissor" element="plant" cost="41" power="100" description="[Target: 1 enemy] Performs Plant physical attack at power 100. Increased damage to targets with Insectoid Trait."></skill>
+      <skill id="s0" name="Dimension Scissor" element="electricity" cost="41" power="100" description="[Target: 1 enemy] Performs Plant physical attack at power 100. Increased damage to targets with Insectoid Trait."></skill>
       <skill id="s1" name="Hell Crusher III" element="dark" cost="41" power="45" description="[Target: All enemies] Performs Dark magic attack at power 45. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike III" element="null" cost="41" power="75" description="[Target: 1 enemy] Performs Null physical attack at power 75. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Kuáng Zhǎn Zhìcái" element="electricity" cost="41" power="380" description="Slashing Sanctions"></skill>
@@ -3140,11 +3101,11 @@
       <r element="electricity" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-383" name="RustTyrannomon" stage="Mega" attribute="Virus" element="electricity" wikimonSlug="RustTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/383" type="Android">
+  <digimon id="skb-383" name="RustTyrannomon" stage="Mega" attribute="Virus" element="steel" wikimonSlug="RustTyrannomon" sourceUrl="https://api.skullbot.fr/digimon/383" type="Android">
     <assets portrait="/assets/digimon/skb-383/portrait.webp" dot="/assets/digimon/skb-383/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
-      <skill id="s0" name="Terrors Cluster" element="electricity" cost="41" power="90" description="[Target: 1 enemy] Performs Electricity physical attack at power 90. 25% chance to apply Immobilization. Increased damage to targets with Antibody Trait."></skill>
+      <skill id="s0" name="Terrors Cluster" element="steel" cost="41" power="90" description="[Target: 1 enemy] Performs Electricity physical attack at power 90. 25% chance to apply Immobilization. Increased damage to targets with Antibody Trait."></skill>
       <skill id="s1" name="Wolkenapalm III" element="fire" cost="41" power="75" description="[Target: 1 enemy] Performs Fire physical attack at power 75. 95% ACU."></skill>
       <skill id="s2" name="Magma Fall III" element="fire" cost="41" power="45" description="[Target: All enemies] Performs Fire magic attack at power 45. 90% ACU."></skill>
       <skill id="s3" name="Void Ray III" element="null" cost="41" power="45" description="[Target: All enemies] Performs Null magic attack at power 45. 90% ACU. 10% CRT Rate."></skill>
@@ -3368,22 +3329,6 @@
       <r element="electricity" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-677" name="EmperorGreymon" stage="Rookie" attribute="Variable" element="fire" wikimonSlug="EmperorGreymon" sourceUrl="https://api.skullbot.fr/digimon/677" type="Dragon Warrior">
-    <assets portrait="/assets/digimon/skb-677/portrait.webp" dot="/assets/digimon/skb-677/dot.gif"></assets>
-    <stats hp="500" en="30" atk="100" def="80" int="90" spd="100"></stats>
-    <skills>
-      <skill id="s0" name="Firedrake Strike" element="fire" cost="41" power="90" description="[Target: 1 enemy] Performs Fire physical attack at power 90. Increased damage to targets with Dragon Trait."></skill>
-      <skill id="s1" name="Pyro Dragons" element="earth" cost="41" power="85" description="[Target: 1 enemy] Performs Earth physical attack at power 85. 100% chance of reduction to Earth resistance. Increased damage to targets with Dragon Trait."></skill>
-      <skill id="s2" name="Magma Fall III" element="fire" cost="41" power="45" description="[Target: All enemies] Performs Fire magic attack at power 45. 90% ACU."></skill>
-      <skill id="s3" name="Saint Knuckle III" element="light" cost="41" power="38" description="[Target: 1 enemy] Performs Light physical attack at power 38 x 2 hits. 95% ACU."></skill>
-    </skills>
-    <resistances>
-      <r element="fire" mult="0"></r>
-      <r element="water" mult="1.5"></r>
-      <r element="ice" mult="2"></r>
-      <r element="earth" mult="0.5"></r>
-    </resistances>
-  </digimon>
   <digimon id="skb-61" name="Monzaemon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Monzaemon" sourceUrl="https://api.skullbot.fr/digimon/61" type="Puppet">
     <assets portrait="/assets/digimon/skb-61/portrait.webp" dot="/assets/digimon/skb-61/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
@@ -3404,12 +3349,12 @@
       <r element="null" mult="1.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-401" name="Okuwamon" stage="Ultimate" attribute="Virus" element="plant" wikimonSlug="Okuwamon" sourceUrl="https://api.skullbot.fr/digimon/401" type="Insectoid">
+  <digimon id="skb-401" name="Okuwamon" stage="Ultimate" attribute="Virus" element="electricity" wikimonSlug="Okuwamon" sourceUrl="https://api.skullbot.fr/digimon/401" type="Insectoid">
     <assets portrait="/assets/digimon/skb-401/portrait.webp" dot="/assets/digimon/skb-401/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
-      <skill id="s0" name="Double Scissor Claw" element="plant" cost="41" power="85" description="[Target: 1 enemy] Performs Plant physical attack at power 85. Nullifies unfavorable compatibility. Increased damage to targets with Antibody Trait."></skill>
-      <skill id="s1" name="Rune Forest II" element="plant" cost="41" power="35" description="[Target: All enemies] Performs Plant magic attack at power 35. 90% ACU."></skill>
+      <skill id="s0" name="Double Scissor Claw" element="electricity" cost="41" power="85" description="[Target: 1 enemy] Performs Plant physical attack at power 85. Nullifies unfavorable compatibility. Increased damage to targets with Antibody Trait."></skill>
+      <skill id="s1" name="Rune Forest II" element="electricity" cost="41" power="35" description="[Target: All enemies] Performs Plant magic attack at power 35. 90% ACU."></skill>
       <skill id="s2" name="Heavy Strike II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null physical attack at power 60. 95% ACU. 15% CRT Rate."></skill>
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
@@ -3512,14 +3457,14 @@
       <r element="wind" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-584" name="Phantomon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Phantomon" sourceUrl="https://api.skullbot.fr/digimon/584" type="Ghost">
+  <digimon id="skb-584" name="Phantomon" stage="Ultimate" attribute="Virus" element="dark" wikimonSlug="Phantomon" sourceUrl="https://api.skullbot.fr/digimon/584" type="Ghost">
     <assets portrait="/assets/digimon/skb-584/portrait.webp" dot="/assets/digimon/skb-584/dot.gif"></assets>
     <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
     <skills>
       <skill id="s0" name="Nightmare II" element="dark" cost="41" power="60" description="[Target: 1 enemy] Performs Dark magic attack at power 60. 95% ACU."></skill>
       <skill id="s1" name="Power Energy II" element="null" cost="41" power="60" description="[Target: 1 enemy] Performs Null magic attack at power 60. 95% ACU. 15% CRT Rate."></skill>
-      <skill id="s2" name="Diabolic Star" element="fire" cost="26" power="300" description="Attacks with the mace at the end of its chain."></skill>
-      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+      <skill id="s2" name="Diabolic Star" element="dark" cost="26" power="300" description="Attacks with the mace at the end of its chain."></skill>
+      <skill id="s3" name="Overdrive" element="dark" cost="38" power="380"></skill>
     </skills>
     <evolutions>
       <evolve targetId="skb-425"></evolve>
@@ -3573,26 +3518,6 @@
       <r element="plant" mult="0.5"></r>
       <r element="earth" mult="0.5"></r>
       <r element="steel" mult="1.5"></r>
-    </resistances>
-  </digimon>
-  <digimon id="skb-722" name="Rapidmon" stage="Ultimate" attribute="Vaccine" element="electricity" wikimonSlug="Rapidmon" sourceUrl="https://api.skullbot.fr/digimon/722" type="Android">
-    <assets portrait="/assets/digimon/skb-722/portrait.webp" dot="/assets/digimon/skb-722/dot.gif"></assets>
-    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
-    <skills>
-      <skill id="s0" name="Golden Triangle" element="electricity" cost="41" power="80" description="[Target: 1 enemy] Performs Electricity magic attack at power 80. 50% chance to apply Injury. Increased damage to targets with Machine Trait."></skill>
-      <skill id="s1" name="Thunder Fall II" element="electricity" cost="41" power="12" description="[Target: All enemies] Performs Electricity magic attack at power 12 x 3 hits. 90% ACU."></skill>
-      <skill id="s2" name="Nanomachine Break II" element="electricity" cost="41" power="15" description="[Target: 1 enemy] Performs Electricity physical attack at power 15 x 4 hits. 95% ACU."></skill>
-      <skill id="s3" name="Power Energy III" element="null" cost="41" power="75" description="[Target: 1 enemy] Performs Null magic attack at power 75. 95% ACU. 15% CRT Rate."></skill>
-    </skills>
-    <evolutions>
-      <evolve targetId="skb-741"></evolve>
-      <evolve targetId="skb-426"></evolve>
-    </evolutions>
-    <resistances>
-      <r element="water" mult="1.5"></r>
-      <r element="plant" mult="0.5"></r>
-      <r element="electricity" mult="1.5"></r>
-      <r element="steel" mult="0.5"></r>
     </resistances>
   </digimon>
   <digimon id="skb-71" name="RizeGreymon" stage="Ultimate" attribute="Vaccine" element="fire" wikimonSlug="RizeGreymon" sourceUrl="https://api.skullbot.fr/digimon/71" type="Android">
@@ -3718,14 +3643,14 @@
       <r element="dark" mult="0.5"></r>
     </resistances>
   </digimon>
-  <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24" type="Pixie">
+  <digimon id="skb-24" name="MarineAngemon" stage="Mega" attribute="Vaccine" element="water" wikimonSlug="MarineAngemon" sourceUrl="https://api.skullbot.fr/digimon/24" type="Pixie">
     <assets portrait="/assets/digimon/skb-24/portrait.webp" dot="/assets/digimon/skb-24/dot.gif"></assets>
     <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
     <skills>
       <skill id="s0" name="Hydro Water III" element="water" cost="41" power="15" description="[Target: 1 enemy] Performs Water magic attack at power 15 x 5 hits. 95% ACU."></skill>
       <skill id="s1" name="Ocean Wave III" element="water" cost="41" power="45" description="[Target: All enemies] Performs Water magic attack at power 45. 90% ACU."></skill>
       <skill id="s2" name="Holy Light III" element="light" cost="41" power="75" description="[Target: 1 enemy] Performs Light magic attack at power 75. 95% ACU."></skill>
-      <skill id="s3" name="Extra Smile" element="plant" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
+      <skill id="s3" name="Extra Smile" element="water" cost="41" power="380" description="Radiates patterns of rainbow light to damage the opponent."></skill>
     </skills>
     <resistances>
       <r element="water" mult="0.5"></r>
@@ -3733,5 +3658,440 @@
       <r element="light" mult="0.5"></r>
       <r element="dark" mult="1.5"></r>
     </resistances>
+  </digimon>
+  <digimon id="skb-134" name="WarGrowlmon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="WarGrowlmon" sourceUrl="https://api.skullbot.fr/digimon/134">
+    <assets portrait="/assets/digimon/skb-134/portrait.webp" dot="/assets/digimon/skb-134/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Double Edge" element="fire" cost="0" power="100" description="1 2 Cuts the opponent to pieces with the Pendulum Blades on its arms. Uses its vernier to charge forward with glowing Pendulum Blades extended."></skill>
+      <skill id="s1" name="Atomic Blaster" element="fire" cost="16" power="220" description="Fires beams from its chest&apos;s gunports that destroy the enemy at the atomic level."></skill>
+      <skill id="s2" name="Hammer Edge" element="steel" cost="26" power="300" description="1 2 Punches the enemy with the Pendulum Blade of one arm. Shoots towards the enemy with one Pendulum Blade extended, then slashes them with the other."></skill>
+      <skill id="s3" name="Megalo Spark" element="electricity" cost="41" power="380" description="Fires electricity from its chest-mounted cannons."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-47"></evolve>
+      <evolve targetId="skb-126"></evolve>
+      <evolve targetId="skb-150"></evolve>
+      <evolve targetId="skb-422"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-140" name="WereGarurumon" stage="Ultimate" attribute="Vaccine" element="ice" wikimonSlug="WereGarurumon" sourceUrl="https://api.skullbot.fr/digimon/140">
+    <assets portrait="/assets/digimon/skb-140/portrait.webp" dot="/assets/digimon/skb-140/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Kaiser Nail" element="ice" cost="0" power="100" description="1 2 Cuts the opponent to pieces with the sharp claws on both of its hands. Shoots energy blades by slashing with its claws."></skill>
+      <skill id="s1" name="Baldy Blow" element="ice" cost="16" power="220" description="Punches the enemy with its spiked brass knuckles."></skill>
+      <skill id="s2" name="Garuru Kick" element="ice" cost="26" power="300" description="Kicks the enemy."></skill>
+      <skill id="s3" name="Foxfire" element="ice" cost="41" power="380" description="Fires high temperature blue flames from its mouth."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-80"></evolve>
+      <evolve targetId="skb-135"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-172" name="Venusmon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Venusmon" sourceUrl="https://api.skullbot.fr/digimon/172">
+    <assets portrait="/assets/digimon/skb-172/portrait.webp" dot="/assets/digimon/skb-172/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Healing Therapy" element="plant" cost="0" power="100" description="1 2 Makes the opponent&apos;s fighting spirit vanish just by caressing their head. Hotan heals Venusmon and its allies, then increases their attack&apos;s powers."></skill>
+      <skill id="s1" name="LOVE YOU" element="electricity" cost="16" power="220" description="1 2 Blows a kiss that makes the opponents who receive it fall over from the shock. Blows a kiss that heals itself and its other allies and removes their stat debuffs."></skill>
+      <skill id="s2" name="Peace Fantasia" element="plant" cost="26" power="300" description="1 2 Has Olive prick the opponent in the head, making it have peaceful intentions no matter what kind of ferocious personality it has. Throws Olive at the enemy."></skill>
+      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-179" name="Bacchusmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Bacchusmon" sourceUrl="https://api.skullbot.fr/digimon/179">
+    <assets portrait="/assets/digimon/skb-179/portrait.webp" dot="/assets/digimon/skb-179/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Cook of the Hell" element="fire" cost="0" power="100" description="Wraps up the opponent in both of its hands, transforming their configuration data into drinking snacks, and then eats them."></skill>
+      <skill id="s1" name="Party of the Heaven" element="fire" cost="16" power="220" description="Refines alcohol mixed with deadly poisons that cause sleep or paralysis within its body, then pours it over the opponent to incapacitate them."></skill>
+      <skill id="s2" name="Reverse of the Dead" element="light" cost="26" power="300" description="Fires the data it has consumed from its abdominal mouth as a destructive beam when it becomes too intoxicated and the patterns on its body turn pale."></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-197" name="Eaglemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Eaglemon" sourceUrl="https://api.skullbot.fr/digimon/197">
+    <assets portrait="/assets/digimon/skb-197/portrait.webp" dot="/assets/digimon/skb-197/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Kaiser Phoenix" element="steel" cost="0" power="100" description="Performs a ramming attack with its full metal body."></skill>
+      <skill id="s1" name="Mystic Break" element="plant" cost="16" power="220" description="Emits a white ray which reduces the opponent to ash."></skill>
+      <skill id="s2" name="Rampage" element="plant" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-21" name="Whamon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Whamon" sourceUrl="https://api.skullbot.fr/digimon/21">
+    <assets portrait="/assets/digimon/skb-21/portrait.webp" dot="/assets/digimon/skb-21/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Jet Arrow" element="water" cost="0" power="100" description="Spurts out an ultra-high pressure blast of water from its blowhole."></skill>
+      <skill id="s1" name="Tsunami" element="water" cost="16" power="220" description="Generates an enormous tsunami."></skill>
+      <skill id="s2" name="Tidal Wave" element="plant" cost="26" power="300" description="Generates a gigantic tidal wave, destroying everything."></skill>
+      <skill id="s3" name="Giganto Press" element="plant" cost="41" power="380" description="Leaps up and body slams the foe."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-37"></evolve>
+      <evolve targetId="skb-75"></evolve>
+      <evolve targetId="skb-450"></evolve>
+      <evolve targetId="skb-24"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-210" name="Wingdramon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Wingdramon" sourceUrl="https://api.skullbot.fr/digimon/210">
+    <assets portrait="/assets/digimon/skb-210/portrait.webp" dot="/assets/digimon/skb-210/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Blaze Sonic Breath" element="fire" cost="0" power="100" description="Releases a supersonic heat-blast from its mouth."></skill>
+      <skill id="s1" name="Explode Sonic Lance" element="plant" cost="16" power="220" description="Dive-bombs the enemy at sonic speeds and uses the speed to catapult the lance on its back."></skill>
+      <skill id="s2" name="Wing Blast" element="plant" cost="26" power="300" description="Uses supersonic flight to generate a sonic boom."></skill>
+      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-94"></evolve>
+      <evolve targetId="skb-117"></evolve>
+      <evolve targetId="skb-213"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-33" name="Triceramon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Triceramon" sourceUrl="https://api.skullbot.fr/digimon/33">
+    <assets portrait="/assets/digimon/skb-33/portrait.webp" dot="/assets/digimon/skb-33/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Tri-Horn Attack" element="water" cost="0" power="100" description="Charges into the opponent with its three horns."></skill>
+      <skill id="s1" name="Tai Atari" element="water" cost="16" power="220" description="Tackles the enemy."></skill>
+      <skill id="s2" name="Golden Tri-Horn Attack" element="water" cost="26" power="300" description="An electrified version of Tri-Horn Attack ."></skill>
+      <skill id="s3" name="Knock Buster" element="water" cost="41" power="380" description="Nokku Basutā"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-214"></evolve>
+      <evolve targetId="skb-725"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-345" name="Zudomon" stage="Ultimate" attribute="Vaccine" element="plant" wikimonSlug="Zudomon" sourceUrl="https://api.skullbot.fr/digimon/345">
+    <assets portrait="/assets/digimon/skb-345/portrait.webp" dot="/assets/digimon/skb-345/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Hammer Spark" element="electricity" cost="0" power="100" description="Strikes the opponent with the shock wave and sparks produced when it swings down Thor Hammer ."></skill>
+      <skill id="s1" name="Horn &amp; Tusk" element="plant" cost="16" power="220" description="Attacks with its horn and tusks."></skill>
+      <skill id="s2" name="Hammer Boomerang" element="plant" cost="26" power="300" description="Tosses its hammer like a boomerang."></skill>
+      <skill id="s3" name="Ice Road Bump" element="ice" cost="41" power="380" description="Causes a wave of ice to rise up out of the ground and freeze the opponent."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-346"></evolve>
+      <evolve targetId="skb-450"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-36" name="Barbamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Barbamon" sourceUrl="https://api.skullbot.fr/digimon/36">
+    <assets portrait="/assets/digimon/skb-36/portrait.webp" dot="/assets/digimon/skb-36/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Pandemonium Lost" element="dark" cost="0" power="100" description="Unleashes all of the Dark Area &apos;s evil energies at once as an ultra-high-temperature explosion that burns up everything without a trace."></skill>
+      <skill id="s1" name="Death Lure" element="fire" cost="16" power="220" description="1 2 Uses its demonic staff &quot; Death Lure &quot; to tempt Digimon into an inescapable living hell, converting them to wickedness. Summons ghosts from its wand that attack the enemy."></skill>
+      <skill id="s2" name="Greedy Wand" element="fire" cost="26" power="300" description="Strikes its enemy with the butt of the Death Lure ."></skill>
+      <skill id="s3" name="Jigoku no Kaen" element="fire" cost="41" power="380" description="Shoots a stream of fire from Death Lure ."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-404" name="SkullGreymon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="SkullGreymon" sourceUrl="https://api.skullbot.fr/digimon/404">
+    <assets portrait="/assets/digimon/skb-404/portrait.webp" dot="/assets/digimon/skb-404/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Ground Zero" element="fire" cost="0" power="100" description="Shoots an organic missile from its spinal cord."></skill>
+      <skill id="s1" name="Oblivion Bird" element="fire" cost="16" power="220" description="An evolved form of Ground Zero that has a new tracking function and upgraded power and range."></skill>
+      <skill id="s2" name="Ground Zero Kai" element="fire" cost="26" power="300" description="Rotates its entire head to convert itself into a missile silo before launching a stronger organic missile."></skill>
+      <skill id="s3" name="Curse Breath" element="dark" cost="41" power="380" description="Exhales purple smoke from its mouth that paralyzes an opponent."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-440"></evolve>
+      <evolve targetId="skb-461"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-405" name="Taomon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="Taomon" sourceUrl="https://api.skullbot.fr/digimon/405">
+    <assets portrait="/assets/digimon/skb-405/portrait.webp" dot="/assets/digimon/skb-405/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Bonhitsusen" element="wind" cost="0" power="100" description="Chants an incantation while painting the Sanskrit character &quot;Hūṃ&quot; in the air with its gigantic brush, then hurls it at the opponent, causing it to explode."></skill>
+      <skill id="s1" name="Kofūsatsu" element="water" cost="16" power="220" description="Wreathes its talismans around the opponent&apos;s body, then detonates them."></skill>
+      <skill id="s2" name="Trinity Burst" element="water" cost="26" power="300" description="Combines powers with Megalo Growmon and Rapidmon to become a burst of rainbow colored energy that pierces the foe."></skill>
+      <skill id="s3" name="Oṃ" element="water" cost="41" power="380" description="Creates a large hemispherical shield atop a yin-yang sign that Taomon can move at will. It can also be used to electrocute an enemy caught in it."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-172"></evolve>
+      <evolve targetId="skb-425"></evolve>
+      <evolve targetId="skb-754"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-406" name="SkullMeramon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="SkullMeramon" sourceUrl="https://api.skullbot.fr/digimon/406">
+    <assets portrait="/assets/digimon/skb-406/portrait.webp" dot="/assets/digimon/skb-406/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Heavy Metal Fire" element="fire" cost="0" power="100" description="Spits out heated metal from its body."></skill>
+      <skill id="s1" name="Heat Chain" element="steel" cost="16" power="220" description="Attacks foe with a flaming metal chain."></skill>
+      <skill id="s2" name="Heat Chain Midareuchi" element="water" cost="26" power="300" description="Manipulates flaming chains to attack multiple opponents."></skill>
+      <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-35"></evolve>
+      <evolve targetId="skb-431"></evolve>
+      <evolve targetId="skb-617"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-411" name="Vademon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Vademon" sourceUrl="https://api.skullbot.fr/digimon/411">
+    <assets portrait="/assets/digimon/skb-411/portrait.webp" dot="/assets/digimon/skb-411/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Akuma no Nage Kiss" element="fire" cost="0" power="100" description="1 2 Blows a kiss at the opponent that causes them to panic. Blows a kiss that summons planetoids and asteroids to hurl at the opponent."></skill>
+      <skill id="s1" name="Abduction Kousen" element="fire" cost="16" power="220" description="Fires its ray gun."></skill>
+      <skill id="s2" name="Mutilate" element="light" cost="26" power="300" description="1 2 Mysteriously damages the opponent by dancing under multicolored spotlights. Shocks the opponent with a mysterious light from its hand."></skill>
+      <skill id="s3" name="Hold Beam" element="light" cost="41" power="380" description="Fires a ray from its gun that prevents the enemy from evolving."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-451"></evolve>
+      <evolve targetId="skb-617"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-425" name="Sakuyamon" stage="Mega" attribute="Data" element="water" wikimonSlug="Sakuyamon" sourceUrl="https://api.skullbot.fr/digimon/425">
+    <assets portrait="/assets/digimon/skb-425/portrait.webp" dot="/assets/digimon/skb-425/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Izuna" element="fire" cost="0" power="100" description="Summons 4 mystical fox spirits that are imbued with the powers of fire, water, wind and thunder that obey and fight for Sakuyamon."></skill>
+      <skill id="s1" name="Kongoukai Mandara" element="electricity" cost="16" power="220" description="Strikes the ground with its &quot; Kongou Shakujou &quot;, spreading a purifying barrier (in the form of a mandala, golden ring, spherical barrier, cherry blossoms, ball of lightning, or some combination thereof) that exorcises evil spirits."></skill>
+      <skill id="s2" name="Kudagitsune" element="water" cost="26" power="300" description="Sends a single fox spirit at the enemy."></skill>
+      <skill id="s3" name="Yougetsushū" element="water" cost="41" power="380" description="Attacks with an axe kick."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-427" name="Piedmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Piedmon" sourceUrl="https://api.skullbot.fr/digimon/427">
+    <assets portrait="/assets/digimon/skb-427/portrait.webp" dot="/assets/digimon/skb-427/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Trump Sword" element="steel" cost="0" power="100" description="Draws several swords from the sheathes on its back and flings them at its opponent."></skill>
+      <skill id="s1" name="Clown Trick" element="fire" cost="16" power="220" description="This attack has been used to cover several attacks, but is most known for turning the opponent into a key chain and causing explosions. Does various magical effects including transformation and disguises and reflecting an opponent&apos;s attack back."></skill>
+      <skill id="s2" name="Masks Square" element="steel" cost="26" power="300" description="Creates a field that allows Piemon to teleport itself and its Trump Sword anywhere at will and where all communications can be read by its Tamer."></skill>
+      <skill id="s3" name="Toy Wonderness" element="wind" cost="41" power="380" description="Creates powerful gusts of wind with a swipe of its hand."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-439" name="Belphemon SM" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Belphemon_SM" sourceUrl="https://api.skullbot.fr/digimon/439">
+    <assets portrait="/assets/digimon/skb-439/portrait.webp" dot="/assets/digimon/skb-439/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Slash" element="fire" cost="0" power="100"></skill>
+      <skill id="s1" name="Focus Strike" element="fire" cost="18" power="220"></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-492" name="Callismon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Callismon" sourceUrl="https://api.skullbot.fr/digimon/492">
+    <assets portrait="/assets/digimon/skb-492/portrait.webp" dot="/assets/digimon/skb-492/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Deep Forest" element="plant" cost="0" power="100" description="Tears the enemy apart with its sharp claws, causing their data to disintegrate."></skill>
+      <skill id="s1" name="Rodeo Bullet" element="fire" cost="16" power="220" description="Fires homing shots from the three gun barrels equipped to its right arm."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-613" name="ClavisAngemon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="ClavisAngemon" sourceUrl="https://api.skullbot.fr/digimon/613">
+    <assets portrait="/assets/digimon/skb-613/portrait.webp" dot="/assets/digimon/skb-613/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="The Key" element="light" cost="0" power="100" description="1 2 Manifests a keyhole for its key, using it to isolate the target from spacetime in a crystalline barrier. Releases a strong light from The Key while surrounded by several doors."></skill>
+      <skill id="s1" name="Zenith Gate" element="plant" cost="16" power="220" description="Zenisu Gēto"></skill>
+      <skill id="s2" name="Heaven&apos;s Arrow" element="plant" cost="26" power="300" description="Hebunzu Arō"></skill>
+      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-688" name="Gankoomon" stage="Mega" attribute="Data" element="water" wikimonSlug="Gankoomon" sourceUrl="https://api.skullbot.fr/digimon/688">
+    <assets portrait="/assets/digimon/skb-688/portrait.webp" dot="/assets/digimon/skb-688/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Tekken Seisai" element="water" cost="0" power="100" description="1 2 Strikes with all its strength. Both Gankoomon and Hinukamuy unleash a barrage of punches."></skill>
+      <skill id="s1" name="Jishin! Kaminari! Kaji! Oyaji!" element="fire" cost="16" power="220" description="1 2 Summons an earthquake, lightning bolts and an eruption of fire, then Hinukamuy deals a hammer-like punch. Hinukamuy grabs an enemy from behind."></skill>
+      <skill id="s2" name="Chabudai Gaeshi" element="steel" cost="26" power="300" description="Grabs the ground and upends it like a chabudai as hard as Chrome Digizoid ."></skill>
+      <skill id="s3" name="End Waltz" element="water" cost="41" power="380" description="After obtaining Claíomh Solais and breaking it in half, spins the halves to release a sonic wave."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-726" name="Wisemon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Wisemon" sourceUrl="https://api.skullbot.fr/digimon/726">
+    <assets portrait="/assets/digimon/skb-726/portrait.webp" dot="/assets/digimon/skb-726/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Pandora Dialogue" element="fire" cost="0" power="100" description="Repeatedly preserves the opponent&apos;s attacks within space and time, then plays them back at high speed."></skill>
+      <skill id="s1" name="Eternal Nirvana" element="fire" cost="16" power="220" description="Imprisons the opponent within the Space-time Stones for an eternity."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-38"></evolve>
+      <evolve targetId="skb-150"></evolve>
+      <evolve targetId="skb-338"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-732" name="Imperialdramon DM" stage="Mega" attribute="Free" element="electricity" wikimonSlug="Imperialdramon_DM" sourceUrl="https://api.skullbot.fr/digimon/732">
+    <assets portrait="/assets/digimon/skb-732/portrait.webp" dot="/assets/digimon/skb-732/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Mega Death" element="dark" cost="0" power="100" description="Fires dark matter from its mouth or cannon that annihilates everything within a wide radius."></skill>
+      <skill id="s1" name="Positron Laser" element="light" cost="16" power="220" description="Fires an energy beam from the cannon on its back."></skill>
+      <skill id="s2" name="Splendor Blade" element="steel" cost="26" power="300" description="Uses its glowing claws to attack."></skill>
+      <skill id="s3" name="Eternal Zeal" element="electricity" cost="41" power="380" description="Spreads its wings and generates a massive, fiery explosion."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-770" name="Tankdramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="Tankdramon" sourceUrl="https://api.skullbot.fr/digimon/770">
+    <assets portrait="/assets/digimon/skb-770/portrait.webp" dot="/assets/digimon/skb-770/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Striver Cannon" element="fire" cost="0" power="100" description="Fires shots from its back cannons that split into many missiles, reducing everything within 30 kilometers of the impact to ashes."></skill>
+      <skill id="s1" name="Blast Gatling" element="fire" cost="16" power="220" description="Uses the guns on its sides, which fires 3,600 shots per second."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-194"></evolve>
+      <evolve targetId="skb-771"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-79" name="SuperStarmon" stage="Ultimate" attribute="Data" element="water" wikimonSlug="SuperStarmon" sourceUrl="https://api.skullbot.fr/digimon/79">
+    <assets portrait="/assets/digimon/skb-79/portrait.webp" dot="/assets/digimon/skb-79/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Halley Squall" element="water" cost="0" power="100" description="Summons countless meteors to rain down upon the enemy from overhead."></skill>
+      <skill id="s1" name="Galactica Eyes" element="light" cost="16" power="220" description="Fires a beam or star-shaped pulses from its sunglasses, blasting or hypnotizing its opponent."></skill>
+      <skill id="s2" name="Superstar Seeker" element="water" cost="26" power="300" description="Withdraws its limbs to become a spinning star that flies into the opponent while glowing."></skill>
+      <skill id="s3" name="Super Upper" element="water" cost="41" power="380" description="Attacks with an uppercut."></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-48"></evolve>
+      <evolve targetId="skb-429"></evolve>
+      <evolve targetId="skb-737"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-80" name="Merukimon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Merukimon" sourceUrl="https://api.skullbot.fr/digimon/80">
+    <assets portrait="/assets/digimon/skb-80/portrait.webp" dot="/assets/digimon/skb-80/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Thousand Fist" element="fire" cost="0" power="100" description="Closes in on the enemy at top speed and launches a barrage of punches."></skill>
+      <skill id="s1" name="Spiritual Enchant" element="fire" cost="16" power="220" description="Slices through space with Aztec to summon apparitions from another world."></skill>
+      <skill id="s2" name="Mirage Image" element="fire" cost="26" power="300" description="Moves in quickly and attacks with Aztec ."></skill>
+      <skill id="s3" name="Kerykeion" element="fire" cost="41" power="380" description="Absorbs the enemy&apos;s energy with the mystical Kerykeion staff."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-908" name="SkullSeadramon" stage="Ultimate" attribute="Virus" element="fire" wikimonSlug="SkullSeadramon" sourceUrl="https://api.skullbot.fr/digimon/908">
+    <assets portrait="/assets/digimon/skb-908/portrait.webp" dot="/assets/digimon/skb-908/dot.gif"></assets>
+    <stats hp="1100" en="41" atk="220" def="176" int="198" spd="220"></stats>
+    <skills>
+      <skill id="s0" name="Thunder Javelin" element="electricity" cost="0" power="100" description="Fires a stinging lightning strike from the blade on its calvaria."></skill>
+      <skill id="s1" name="Dead Roll" element="fire" cost="16" power="220" description="Constricts the enemy with its long body."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+    <evolutions>
+      <evolve targetId="skb-37"></evolve>
+      <evolve targetId="skb-434"></evolve>
+    </evolutions>
+  </digimon>
+  <digimon id="skb-912" name="ZombiePlutomon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="ZombiePlutomon" sourceUrl="https://api.skullbot.fr/digimon/912">
+    <assets portrait="/assets/digimon/skb-912/portrait.webp" dot="/assets/digimon/skb-912/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Slash" element="fire" cost="0" power="100"></skill>
+      <skill id="s1" name="Focus Strike" element="fire" cost="18" power="220"></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-94" name="ShineGreymon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="ShineGreymon" sourceUrl="https://api.skullbot.fr/digimon/94">
+    <assets portrait="/assets/digimon/skb-94/portrait.webp" dot="/assets/digimon/skb-94/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Glorious Burst" element="light" cost="0" power="100" description="Spreads its gigantic wings, concentrating red-hot solar energy to its utmost limit, then fires it."></skill>
+      <skill id="s1" name="Shining Blast" element="light" cost="16" power="220" description="Mows down the opponent with wings of glimmering light."></skill>
+      <skill id="s2" name="GeoGrey Sword" element="earth" cost="26" power="300" description="Summons the GeoGrey Sword , in which the power of Gaia is condensed, from the solid earth."></skill>
+      <skill id="s3" name="Sparkle Shoot" element="light" cost="41" power="380" description="Fires bullets of light energy."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-126" name="Gallantmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Gallantmon" sourceUrl="https://api.skullbot.fr/digimon/126">
+    <assets portrait="/assets/digimon/skb-126/portrait.webp" dot="/assets/digimon/skb-126/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Royal Saber" element="electricity" cost="0" power="100" description="1 2 Dispatches a strong blow from the holy lance Gram . Fires a beam or lightning bolt from Gram ."></skill>
+      <skill id="s1" name="Final Elysion" element="light" cost="16" power="220" description="Fires a purifying beam from the holy shield Aegis ."></skill>
+      <skill id="s2" name="Dragon Driver" element="fire" cost="26" power="300" description="Takes Grani into a nosedive, driving through its foe with its lance."></skill>
+      <skill id="s3" name="Yuggoth / Yuggoth Blaster" element="fire" cost="41" power="380" description="Grani fires the digital bio-weapon Yuggoth ."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-213" name="Slayerdramon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Slayerdramon" sourceUrl="https://api.skullbot.fr/digimon/213">
+    <assets portrait="/assets/digimon/skb-213/portrait.webp" dot="/assets/digimon/skb-213/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Tenryūzanha" element="steel" cost="0" power="100" description="Drives its sword, accelerated with a spin of its body, vertically through the opponent&apos;s skull, cutting them in half."></skill>
+      <skill id="s1" name="Shouryūzanpa" element="steel" cost="16" power="220" description="Releases a dragon wave refined by its sword directed from the bottom part to the top, slaying the opponent just from the sword&apos;s pressure."></skill>
+      <skill id="s2" name="Kouryūzanba" element="steel" cost="26" power="300" description="Steps up close to the opponent and curls Fragarach around them, shaving off their whole body with the entwined sword blade."></skill>
+      <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-338" name="AncientWisemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="AncientWisemon" sourceUrl="https://api.skullbot.fr/digimon/338">
+    <assets portrait="/assets/digimon/skb-338/portrait.webp" dot="/assets/digimon/skb-338/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Laplace no Ma" element="light" cost="0" power="100" description="1 2 3 Calculates the coordinates to the spirit world and imprisons the opponent for eternity in a separate universe. Accesses the Akashic Records and rewrites the past and future. Vanishes into green light and reforms itself. Its arms become spindly and it emits purple flames."></skill>
+      <skill id="s1" name="Elder Sign" element="fire" cost="16" power="220" description="1 2 Summons the ultimate evil god from a separate universe. Borrows power from the Great God."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-35" name="Beelzemon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Beelzemon" sourceUrl="https://api.skullbot.fr/digimon/35">
+    <assets portrait="/assets/digimon/skb-35/portrait.webp" dot="/assets/digimon/skb-35/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Double Impact" element="fire" cost="0" power="100" description="Rapid-fires its twin Berenjena shotguns."></skill>
+      <skill id="s1" name="Darkness Claw" element="fire" cost="16" power="220" description="Raises its sharp claws overhead and then cuts the opponent to pieces"></skill>
+      <skill id="s2" name="Quick Shot" element="fire" cost="26" power="300" description="Rapidly shoot foes using Berenjena ."></skill>
+      <skill id="s3" name="Heartbreak Shot" element="fire" cost="41" power="380" description="Locks on the enemy&apos;s heart and takes it down with one shot."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-37" name="Leviamon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Leviamon" sourceUrl="https://api.skullbot.fr/digimon/37">
+    <assets portrait="/assets/digimon/skb-37/portrait.webp" dot="/assets/digimon/skb-37/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Rostrum" element="water" cost="0" power="100" description="1 2 Destroys everything with its gigantic jaws Fires a beam or stream of water from its mouth."></skill>
+      <skill id="s1" name="Cauda" element="fire" cost="16" power="220" description="Mows everything down with its long tail."></skill>
+      <skill id="s2" name="Duo Cauda" element="water" cost="26" power="300" description="1 2 Spins, hitting the enemy with its tails Causes a huge pillar of water to erupt."></skill>
+      <skill id="s3" name="Anima" element="wind" cost="41" power="380" description="Uses its breath to create a dark tornado."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-38" name="Creepymon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="Creepymon" sourceUrl="https://api.skullbot.fr/digimon/38">
+    <assets portrait="/assets/digimon/skb-38/portrait.webp" dot="/assets/digimon/skb-38/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Flame Inferno" element="fire" cost="0" power="100" description="Incinerates the opponent with superhigh-temperature hellfire (either exhaled or fired from its hands)."></skill>
+      <skill id="s1" name="Chaos Flare" element="fire" cost="16" power="220" description="1 2 Summons a massive tornado-like pillar of fire. Exhales intense, chaotic hellfire."></skill>
+      <skill id="s2" name="Slash Nail" element="fire" cost="26" power="300" description="Slashes at the opponent with the claws of its oversized left hand."></skill>
+      <skill id="s3" name="Hammer Knuckle" element="fire" cost="41" power="380" description="1 2 Bashes the opponent with a double axe handle punch thrown with all of its might. Conjures a giant fist of magic that smashes the opponent from above."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-48" name="Goldramon" stage="Mega" attribute="Vaccine" element="plant" wikimonSlug="Goldramon" sourceUrl="https://api.skullbot.fr/digimon/48">
+    <assets portrait="/assets/digimon/skb-48/portrait.webp" dot="/assets/digimon/skb-48/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="God Flame" element="fire" cost="0" power="100" description="1 2 Explodes its holy spirit, instantly mowing down enemies in all directions. Shoots a stream of flames from its closed fists."></skill>
+      <skill id="s1" name="Shoukan" element="plant" cost="16" power="220" description="Claps its hands, releasing Amon and Umon , who attack the enemy together."></skill>
+      <skill id="s2" name="God Fist" element="plant" cost="26" power="300" description="A punch with sacred power."></skill>
+      <skill id="s3" name="Gaebang: Sin-ui Him" element="light" cost="41" power="380" description="Summons Amon and Umon and releases divine power, tearing apart space itself."></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-617" name="AvengeKidmon" stage="Mega" attribute="Virus" element="fire" wikimonSlug="AvengeKidmon" sourceUrl="https://api.skullbot.fr/digimon/617">
+    <assets portrait="/assets/digimon/skb-617/portrait.webp" dot="/assets/digimon/skb-617/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Destruction Trigger" element="fire" cost="0" power="100" description="Stomps on the opponent, then fires an explosive bullet from its legs at point-blank range."></skill>
+      <skill id="s1" name="Misery Bullet Rain" element="fire" cost="16" power="220" description="A barrage of energy bullets from its fingers followed by a barrage of live ammunition from its entire body."></skill>
+      <skill id="s2" name="Rampage" element="fire" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
+    </skills>
+  </digimon>
+  <digimon id="skb-754" name="Kuzuhamon" stage="Mega" attribute="Data" element="water" wikimonSlug="Kuzuhamon" sourceUrl="https://api.skullbot.fr/digimon/754">
+    <assets portrait="/assets/digimon/skb-754/portrait.webp" dot="/assets/digimon/skb-754/dot.gif"></assets>
+    <stats hp="1500" en="41" atk="300" def="240" int="270" spd="300"></stats>
+    <skills>
+      <skill id="s0" name="Ura Izuna" element="water" cost="0" power="100" description="Attacks the opponent with the kuda-gitsune carried on its waist."></skill>
+      <skill id="s1" name="Taizoukai Mandara" element="water" cost="16" power="220" description="Spreads a purifying barrier with its Shakujou that exorcises evil spirits."></skill>
+      <skill id="s2" name="Rampage" element="water" cost="28" power="300"></skill>
+      <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
+    </skills>
   </digimon>
 </catalog>

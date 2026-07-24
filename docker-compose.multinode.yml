@@ -12,25 +12,31 @@
 #                                                    scraped assets)
 #
 # Both game nodes share Redis for cluster state (sessions, presence, chat,
-# matchmaking queue, live battle state) and Postgres for durable data
-# (users, roster, wallet, matches, farm, catalog metadata).
+# matchmaking queue, live battle state, cross-node WS delivery) and Postgres
+# for durable data (users, roster, wallet, matches, farm, catalog metadata).
 #
 # `ip_hash` sticky routing keeps a client's WebSocket pinned to a single
 # node for the connection's lifetime; sessions in Redis mean HTTP fallback
-# still works if the client hits the other node.
+# still works if the client hits the other node. Battle events and match
+# starts route to the correct node via `wsdeliver:{userId}` pub/sub so
+# even a wrong-node HTTP request finds its way home.
 #
 # Usage:
 #   docker compose -f docker-compose.multinode.yml up --build
 #   Open http://localhost:8080/
 #
-# The DB refactor to fully drive Postgres is on the roadmap (see README).
-# Today: CLUSTER=redis works out of the box; DATABASE=postgres requires the
-# route-file async refactor to be complete.
+# CLUSTER=redis and DATABASE=postgres are both fully wired end-to-end (see
+# README §Multi-node and test/postgres-portability.mts). This compose ships
+# DATABASE=postgres by default — the stack already runs a real Postgres 16
+# next door, so there's no reason to fall back to SQLite here. To pin to
+# SQLite (e.g. a local demo without external services), swap the two
+# commented DATABASE lines under each game-node and drop the postgres service.
 # ============================================================================
 
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: digiworld-postgres-1
     environment:
       POSTGRES_USER: digiworld
       POSTGRES_PASSWORD: digiworld
@@ -45,6 +51,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: digiworld-redis-1
     command: ['redis-server', '--appendonly', 'yes']
     volumes:
       - redisdata:/data
@@ -56,6 +63,7 @@ services:
 
   game-node1: &game
     build: .
+    container_name: digiworld-game-node1-1
     depends_on:
       redis: { condition: service_healthy }
       postgres: { condition: service_healthy }
@@ -66,8 +74,10 @@ services:
       PORT: 3000
       CLUSTER: redis
       REDIS_URL: redis://redis:6379
-      DATABASE: sqlite
-      DB_PATH: /data/digiworld.db
+      DATABASE: postgres
+      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
+      # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: change-me-32-char-min-in-production-please
       ADMIN_BOOTSTRAP: open
     volumes:
@@ -77,6 +87,7 @@ services:
 
   game-node2:
     <<: *game
+    container_name: digiworld-game-node2-1
     environment:
       NODE_ENV: production
       NODE_ID: game-node2
@@ -84,13 +95,16 @@ services:
       PORT: 3000
       CLUSTER: redis
       REDIS_URL: redis://redis:6379
-      DATABASE: sqlite
-      DB_PATH: /data/digiworld.db
+      DATABASE: postgres
+      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
+      # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: change-me-32-char-min-in-production-please
       ADMIN_BOOTSTRAP: open
 
   nginx:
     image: nginx:1.27-alpine
+    container_name: digiworld-nginx-1
     depends_on: [game-node1, game-node2]
     ports:
       - '8080:80'

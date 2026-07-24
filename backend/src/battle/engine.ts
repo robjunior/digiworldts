@@ -21,7 +21,8 @@
  * timers, no clients. Transport + persistence live in battle/routes.ts.
  */
 import { newId } from '../util/ids.js';
-import { affinity, AFFINITY_MULT, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleStatsForLevel } from '../digimon/element.js';
+import { log } from '../util/log.js';
+import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleForLevel, scaleStatsForLevel } from '../digimon/element.js';
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -77,9 +78,14 @@ export type Loadout = {
 
 function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
-  const skills = m.equippedSkills && m.equippedSkills.length > 0
+  const rawSkills = m.equippedSkills && m.equippedSkills.length > 0
     ? m.equippedSkills.slice(0, SKILLS_PER_DIGIMON)
     : m.template.skillPool.slice(0, SKILLS_PER_DIGIMON);
+  const skills = rawSkills.filter((s) => {
+    if (s.energyCost <= scaled.en) return true;
+    log.warn('battle.skill.unusable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
+    return false;
+  });
   const unit: BattleUnit = {
     id: `${side}:${slot}` as UnitId,
     side,
@@ -96,6 +102,7 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wi
     atk: scaled.atk,
     def: scaled.def,
     spd: scaled.spd,
+    int: scaled.int,
     skills,
     ailments: [],
     guarding: false,
@@ -165,6 +172,7 @@ export function initBattle(input: {
   mode?: BattleMode;
   wildFlags?: ReadonlyArray<WildInfo | undefined>;
   displayNames?: { a?: string; b?: string };
+  damageRate?: number;
 }): Battle {
   const id = input.matchId ?? newId('mtc');
   const mode = input.mode ?? 'pvp';
@@ -205,6 +213,7 @@ export function initBattle(input: {
     startedAt: now,
     endedAt: null,
     lastAction: null,
+    damageRate: input.damageRate ?? 1.0,
   };
   if (input.displayNames) {
     const dn: { a?: string; b?: string } = {};
@@ -224,6 +233,7 @@ export function initPveBattle(input: {
   matchId?: string;
   playerLoadout: Loadout;
   wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
+  damageRate?: number;
 }): Battle {
   if (input.wildParty.length < 1 || input.wildParty.length > MAX_WILD_PARTY_SIZE) {
     throw new Error(`initPveBattle: wildParty must be 1-${MAX_WILD_PARTY_SIZE} mons, got ${input.wildParty.length}`);
@@ -260,6 +270,7 @@ export function initPveBattle(input: {
     loadoutB: wildLoadout,
     mode: 'pve',
     wildFlags,
+    ...(input.damageRate !== undefined ? { damageRate: input.damageRate } : {}),
   });
   for (let i = input.wildParty.length; i < MAX_WILD_PARTY_SIZE; i++) {
     const phantom = battle.units.find((u) => u.id === (`b:${i}` as UnitId));
@@ -289,8 +300,11 @@ function clamp(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x));
 }
 
+const BATTLE_LOG_MAX = 200;
+
 function pushEvent(battle: Battle, event: BattleEvent): void {
   battle.log.push(event);
+  if (battle.log.length > BATTLE_LOG_MAX) battle.log.splice(0, battle.log.length - BATTLE_LOG_MAX);
 }
 
 // ----- Rules resolution -----------------------------------------------------
@@ -456,6 +470,7 @@ export function applyAction(
         atk: target.atk,
         def: target.def,
         spd: target.spd,
+        int: target.int,
         skills: target.skills.map((s) => ({ name: s.name, element: s.element, power: s.power, energyCost: s.energyCost })),
         ...(target.wildInfo ? { wild: target.wildInfo } : {}),
       },
@@ -571,13 +586,21 @@ export function applyAction(
       ((prev.element === skill.element && skill.element !== 'null') ||
         (prev.attribute === actor.attribute && ATTRS_TRIANGLE_ELIGIBLE.has(actor.attribute)));
     const chainMult = chained ? CHAIN_MULT : 1;
-    const baseDamage = actor.atk * 0.4 + skill.power;
+    const attackStat = skill.element === 'null' ? actor.atk : actor.int;
+    // Scale skill.power by the same level factor as HP/atk (element.ts:scaleForLevel).
+    // Without this, skill.power stays a fixed 100–400 catalog constant while HP scales
+    // 5.14× by L70 — the "~20-hit Mega TTK" balance drift documented in README's
+    // "Recently addressed" section. Using scaleForLevel(power, level) preserves the exact
+    // damage:HP ratio across L1–L99 with a single source of truth for the growth curve.
+    const scaledSkillPower = scaleForLevel(skill.power, actor.level);
+    const baseDamage = attackStat * 0.4 + scaledSkillPower;
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
+    const rate = typeof battle.damageRate === 'number' && battle.damageRate > 0 ? battle.damageRate : 1.0;
     const dmg = resMult === 0 ? 0 : Math.max(
       1,
-      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance),
+      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
     );
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
     target.guarding = false;
@@ -877,12 +900,14 @@ export function abandonBattle(battle: Battle, culprit: BattleSide | null): void 
 
 /** Redact the enemy side's EN / skills / atk / def / spd for a side view. */
 export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
-  const friendly: FriendlyUnitView[] = battle.units
-    .filter((u) => u.side === side)
-    .map((u) => ({ ...u, down: u.hp === 0 }));
-  const enemy: EnemyUnitView[] = battle.units
-    .filter((u) => u.side !== side)
-    .map((u) => {
+  const friendly: FriendlyUnitView[] = [];
+  const enemy: EnemyUnitView[] = [];
+  const aliveUnitIds = new Set<UnitId>();
+  for (const u of battle.units) {
+    if (u.hp > 0) aliveUnitIds.add(u.id);
+    if (u.side === side) {
+      friendly.push({ ...u, down: u.hp === 0 });
+    } else if (u.hpMax > 0) {
       const view: EnemyUnitView = {
         id: u.id,
         slot: u.slot,
@@ -895,12 +920,18 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
         ailments: u.ailments,
         down: u.hp === 0,
       };
+      if (u.resistances) view.resistances = u.resistances;
       if (u.analyzed) view.analyzed = true;
       if (u.wildInfo) view.wild = u.wildInfo;
-      return view;
-    });
+      enemy.push(view);
+    }
+  }
   const head = currentEntry(battle);
-  const upcoming = battle.turnQueue.slice(battle.turnCursor, battle.turnCursor + 8);
+  const upcoming: TurnEntry[] = [];
+  for (let i = battle.turnCursor; i < battle.turnQueue.length && upcoming.length < 10; i++) {
+    const entry = battle.turnQueue[i]!;
+    if (aliveUnitIds.has(entry.unitId)) upcoming.push(entry);
+  }
   const oppSide: BattleSide = side === 'a' ? 'b' : 'a';
   const oppName = battle.displayNames?.[oppSide];
   const view: BattleView = {

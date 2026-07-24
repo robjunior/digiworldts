@@ -44,18 +44,25 @@ export class MemoryCluster implements Cluster {
   }
 
   async del(key: string): Promise<number> {
+    let removed = 0;
     const prior = this.kv.get(key);
-    if (!prior) return 0;
-    if (prior.timer) clearTimeout(prior.timer);
-    this.kv.delete(key);
-    return 1;
+    if (prior) {
+      if (prior.timer) clearTimeout(prior.timer);
+      this.kv.delete(key);
+      removed = 1;
+    }
+    // Redis `DEL` is polymorphic: it removes any key regardless of type.
+    // MemoryCluster stores KV and ZSET in separate Maps, so drop from both.
+    if (this.zsets.delete(key)) removed = 1;
+    return removed;
   }
 
   async keys(pattern: string): Promise<string[]> {
     const re = globToRe(pattern);
-    const out: string[] = [];
-    for (const k of this.kv.keys()) if (re.test(k)) out.push(k);
-    return out;
+    const out = new Set<string>();
+    for (const k of this.kv.keys()) if (re.test(k)) out.add(k);
+    for (const k of this.zsets.keys()) if (re.test(k)) out.add(k);
+    return Array.from(out);
   }
 
   async expire(key: string, ttlSec: number): Promise<boolean> {

@@ -33,6 +33,7 @@ export type BattleUnit = {
   atk: number;
   def: number;
   spd: number;
+  int: number;
   skills: Skill[];
   ailments: Ailmented[];
   guarding: boolean;
@@ -81,7 +82,7 @@ export type BattleEvent =
       cue: ActionCue;
       applied?: Ailmented[];
       captureChance?: number;
-      analyzedInfo?: { name: string; element: Element; level: number; hp: number; hpMax: number; en: number; enMax: number; atk: number; def: number; spd: number; skills: Array<{ name: string; element: Element; power: number; energyCost: number }>; wild?: WildInfo };
+      analyzedInfo?: { name: string; element: Element; level: number; hp: number; hpMax: number; en: number; enMax: number; atk: number; def: number; spd: number; int: number; skills: Array<{ name: string; element: Element; power: number; energyCost: number }>; wild?: WildInfo };
     })
   | (EventBase & { type: 'ailment-tick'; unit: UnitId; kind: Ailment; damage: number })
   | (EventBase & { type: 'ailment-expired'; unit: UnitId; kind: Ailment })
@@ -126,6 +127,11 @@ export type Battle = {
   endedAt: number | null;
   lastAction: { side: BattleSide; element: Element; attribute: Attribute; wasHit: boolean } | null;
   displayNames?: { a?: string; b?: string };
+  /** Global damage multiplier fetched from `game_settings.damage_rate` at
+   *  match init and frozen for the match's lifetime. Optional for backward
+   *  compat with in-flight `battle:snap:*` blobs from before the field was
+   *  added — `applyAction` falls back to `1.0` when absent. */
+  damageRate?: number;
 };
 
 export type EnemyUnitView = {
@@ -134,6 +140,7 @@ export type EnemyUnitView = {
   templateId: string;
   name: string;
   element: Element;
+  resistances?: ResistanceMap;
   level: number;
   hp: number;
   hpMax: number;
@@ -168,7 +175,7 @@ export const MISS_CHANCE = 0.08;
 export const CRIT_CHANCE = 0.15;
 export const CRIT_MULT = 1.6;
 export const GUARD_MULT = 0.5;
-export const CHAIN_MULT = 2.0;
+export const CHAIN_MULT = 1.4;
 export const AILMENT_TURNS_DEFAULT = 3;
 export const EN_REGEN_PER_TURN = 6;
 
