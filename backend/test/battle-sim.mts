@@ -90,6 +90,17 @@ const UNTRAINED: BaseStats = { hp: 0,   en: 0,  atk: 0,  def: 0,  int: 0,  spd: 
 //   Rookie hpenSum base   = 530 → +470 room = 400 hp + 70 en
 const TRAINED:   BaseStats = { hp: 400, en: 70, atk: 80, def: 80, int: 90, spd: 80 };
 
+function isDamageSkill(skill: Skill): boolean {
+  if (Array.isArray(skill.actions) && skill.actions.length > 0) {
+    for (const raw of skill.actions) {
+      const a = raw as { kind?: string };
+      if (a?.kind === 'deal_damage' || a?.kind === 'drain') return true;
+    }
+    return false;
+  }
+  return skill.power > 0;
+}
+
 function pickAction(battle: Battle, side: BattleSide): Action | null {
   const active = battle.turnQueue[battle.turnCursor];
   if (active === undefined || active.side !== side) return null;
@@ -101,9 +112,10 @@ function pickAction(battle: Battle, side: BattleSide): Action | null {
 
   const affordable = unit.skills
     .filter((s) => s.energyCost > 0 && s.energyCost <= unit.en)
-    .filter((s) => (unit.skillCooldowns?.[s.id] ?? 0) === 0)
-    .sort((a, b) => b.energyCost - a.energyCost);
-  const best = affordable[0];
+    .filter((s) => (unit.skillCooldowns?.[s.id] ?? 0) === 0);
+  const damageSkills = affordable.filter(isDamageSkill).sort((a, b) => b.energyCost - a.energyCost);
+  const fallback = affordable.sort((a, b) => b.energyCost - a.energyCost);
+  const best = damageSkills[0] ?? fallback[0];
   if (best !== undefined) {
     return { type: 'skill', unitId: unit.id, skillId: best.id, targetId: enemy.id };
   }
