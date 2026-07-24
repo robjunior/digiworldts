@@ -1,4 +1,4 @@
-import type { Attribute, Skill, Stage } from '@digiworld/shared/digimon';
+import type { Attribute, Element, Skill, Stage } from '@digiworld/shared/digimon';
 
 import { apiFetch } from './api';
 
@@ -117,17 +117,35 @@ export type LearnedSkillEntry = {
   readonly source: 'current' | 'history';
 };
 
+export type CatalogSkillMeta = {
+  readonly id: string;
+  readonly name: string;
+  readonly name_pt: string;
+  readonly description: string | null;
+  readonly description_pt: string | null;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly cooldown: number;
+  readonly stage: Stage;
+  readonly slot_role: string | null;
+  readonly tier_2: boolean;
+  readonly upgrade_of: string | null;
+};
+
 export type MonSkillsResponse = {
   readonly monId: string;
   readonly currentCatalogId: string;
   readonly currentStage: Stage;
   readonly currentName: string;
+  readonly currentElement: Element;
   readonly history: readonly string[];
   readonly learnedSkills: readonly LearnedSkillEntry[];
+  readonly catalogPool: readonly CatalogSkillMeta[];
   readonly equipped: readonly string[];
   readonly groupings: {
     readonly fromCurrent: readonly string[];
     readonly fromHistory: readonly string[];
+    readonly fromCatalog: readonly string[];
   };
   readonly maxEquipped: number;
 };
@@ -136,6 +154,10 @@ export type SetMonSkillsResponse = {
   readonly ok: true;
   readonly equipped: readonly string[];
 };
+
+export function isCatalogSkillId(id: string): boolean {
+  return id.startsWith('sk-');
+}
 
 export function getMonSkills(monId: string): Promise<MonSkillsResponse> {
   return apiFetch<MonSkillsResponse>(`/api/roster/${encodeURIComponent(monId)}/skills`);
