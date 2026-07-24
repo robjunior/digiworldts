@@ -24,6 +24,8 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleForLevel, scaleStatsForLevel } from '../digimon/element.js';
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
+import type { Action as DSLAction } from '../skills/dsl.js';
+import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
   CAPTURE_ANALYZED_MULT,
@@ -317,7 +319,8 @@ export type ApplyErrorCode =
   | 'skill-invalid'
   | 'no-energy'
   | 'battle-over'
-  | 'item-invalid';
+  | 'item-invalid'
+  | 'silenced';
 
 export type ApplyResult =
   | { ok: true; battle: Battle; events: BattleEvent[] }
@@ -442,7 +445,7 @@ export function applyAction(
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
   }
 
-  const target = unitBy(battle, action.targetId);
+  let target = unitBy(battle, action.targetId);
   if (!target || target.side !== opponentOf(actingSide) || target.hp <= 0) {
     return { ok: false, error: 'invalid target', code: 'target-invalid' };
   }
@@ -547,16 +550,33 @@ export function applyAction(
   if (action.type === 'skill') {
     const s = actor.skills.find((sk) => sk.id === action.skillId);
     if (!s) return { ok: false, error: 'unknown skill', code: 'skill-invalid' };
+    if (actor.ailments.some((a) => a.kind === 'silence')) {
+      return { ok: false, error: 'silenced', code: 'silenced' };
+    }
     if (actor.en < s.energyCost) return { ok: false, error: 'not enough energy', code: 'no-energy' };
     skill = s;
   } else {
     skill = { id: 'basic', name: 'Attack', element: actor.element, energyCost: 0, power: 100 };
   }
 
+  if (actor.ailments.some((a) => a.kind === 'confusion') && Math.random() < 0.5) {
+    const allies = battle.units.filter((u) => u.side === actor.side && u.hp > 0 && u.id !== actor.id);
+    if (allies.length > 0) {
+      target = allies[Math.floor(Math.random() * allies.length)]!;
+    }
+  }
+
   actor.en = clamp(actor.en - skill.energyCost, 0, actor.enMax);
 
+  if (skill.actions !== undefined && skill.actions.length > 0) {
+    executeDSL(battle, actor, skill.actions as DSLAction[], target, skill.name, actingSide);
+    tickActorAilments(battle, actor);
+    advanceTurnQueue(battle);
+    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
+  }
+
   const now = Date.now();
-  const missed = Math.random() < MISS_CHANCE;
+  const missed = rollMiss(actor, target);
   if (missed) {
     pushEvent(battle, {
       at: now,
@@ -595,14 +615,15 @@ export function applyAction(
     // damage:HP ratio across L1–L99 with a single source of truth for the growth curve.
     const scaledSkillPower = scaleForLevel(skill.power, actor.level);
     const baseDamage = attackStat * 0.4 + scaledSkillPower;
-    const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
+    const defMitigation = 1 - clamp(effectiveDef(target) / (effectiveDef(target) + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
     const rate = typeof battle.damageRate === 'number' && battle.damageRate > 0 ? battle.damageRate : 1.0;
-    const dmg = resMult === 0 ? 0 : Math.max(
+    const dmgRaw = resMult === 0 ? 0 : Math.max(
       1,
       Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
     );
+    const dmg = applyDamageWithBuffs(target, dmgRaw);
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
     target.guarding = false;
 
@@ -712,6 +733,7 @@ function tickActorAilments(battle: Battle, unit: BattleUnit): void {
     let damage = 0;
     if (a.kind === 'burn') damage = Math.max(1, Math.round(unit.hpMax * 0.06));
     else if (a.kind === 'poison') damage = Math.max(1, Math.round(unit.hpMax * 0.05));
+    else if (a.kind === 'curse') damage = Math.max(1, Math.round(unit.hpMax * 0.05));
     if (damage > 0 && unit.hp > 0) {
       unit.hp = clamp(unit.hp - damage, 0, unit.hpMax);
       pushEvent(battle, { at: now, round: battle.round, type: 'ailment-tick', unit: unit.id, kind: a.kind, damage });
@@ -727,6 +749,7 @@ function tickActorAilments(battle: Battle, unit: BattleUnit): void {
     }
   }
   unit.ailments = kept;
+  tickActorBuffs(unit);
 }
 
 /**
