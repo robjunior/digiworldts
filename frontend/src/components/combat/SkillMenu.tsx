@@ -1,6 +1,9 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 import type { Element, Skill } from '@digiworld/shared/digimon';
 
+import { useLocale } from '../../hooks/useLocale';
+import { localizedDescription, localizedName } from '../../lib/locale';
+
 type SkillMenuProps = {
   readonly unit: FriendlyUnitView;
   readonly target: EnemyUnitView | null;
@@ -32,14 +35,17 @@ function SkillRow({ skill, unit, target, onSkill }: {
 }): JSX.Element {
   const disabled = target === null || skill.energyCost > unit.en;
   const affinityCue = target ? affinity(skill.element, target) : 'none';
+  const locale = useLocale();
+  const name = localizedName(skill, locale);
+  const description = localizedDescription(skill, locale) ?? `${skill.element} attack · ${skill.power} power`;
 
   return (
     <button className="skill-row" type="button" role="menuitem" disabled={disabled} onClick={() => target && onSkill(skill.id, target.id)} data-od-id={`skill-${skill.id}`}>
       <span className="stack" style={{ gap: '2px' }}>
         <span className="s-name">
-          {skill.name} <AffinityCue cue={affinityCue} />
+          {name} <AffinityCue cue={affinityCue} />
         </span>
-        <span className="s-desc">{skill.description ?? `${skill.element} attack · ${skill.power} power`}</span>
+        <span className="s-desc">{description}</span>
       </span>
       <span className="s-cost">{skill.energyCost} EN</span>
     </button>
