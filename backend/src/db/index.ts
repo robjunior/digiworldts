@@ -79,6 +79,7 @@ export type UserRow = {
   disabled: 0 | 1;
   onboarding_completed_at: number | null;
   mmr: number;
+  locale_pref: string | null;
 };
 
 export type SessionRow = {
