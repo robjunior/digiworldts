@@ -33,6 +33,10 @@
     "./nursery": {
       "types": "./dist/nursery.d.ts",
       "import": "./dist/nursery.js"
+    },
+    "./world": {
+      "types": "./dist/world.d.ts",
+      "import": "./dist/world.js"
     }
   },
   "files": ["dist"],

@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
+import { ARENA_FILES, BIOMES } from '@digiworld/shared/world';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
@@ -10,6 +11,7 @@ import { getCluster } from '../cluster/index.js';
 import { getGameSettings, updateGameSettings } from './engine.js';
 
 const SCENE_DEFAULTS_PATH = resolve(config.paths.dataDir, 'scene-defaults.json');
+const BIOME_SCENES_PATH = resolve(config.paths.dataDir, 'biome-scenes.json');
 
 const ARENA_KEYS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light'] as const;
 
@@ -56,6 +58,14 @@ const ArenaSettingsZ = z.object({
 const PerArenaSceneDefaultsZ = z.partialRecord(z.enum(ARENA_KEYS), ArenaSettingsZ);
 type PerArenaSceneDefaults = Partial<z.infer<typeof PerArenaSceneDefaultsZ>>;
 
+const BiomeSceneConfigZ = z.object({
+  file: z.enum(ARENA_FILES),
+  settings: ArenaSettingsZ,
+}).strict();
+
+const PerBiomeSceneDefaultsZ = z.partialRecord(z.enum(BIOMES), BiomeSceneConfigZ);
+type PerBiomeSceneDefaults = Partial<z.infer<typeof PerBiomeSceneDefaultsZ>>;
+
 async function readSceneDefaults(): Promise<PerArenaSceneDefaults> {
   if (!existsSync(SCENE_DEFAULTS_PATH)) return {};
   try {
@@ -71,6 +81,23 @@ async function readSceneDefaults(): Promise<PerArenaSceneDefaults> {
 async function writeSceneDefaults(next: PerArenaSceneDefaults): Promise<void> {
   await mkdir(dirname(SCENE_DEFAULTS_PATH), { recursive: true });
   await writeFile(SCENE_DEFAULTS_PATH, JSON.stringify(next, null, 2), 'utf8');
+}
+
+async function readBiomeScenes(): Promise<PerBiomeSceneDefaults> {
+  if (!existsSync(BIOME_SCENES_PATH)) return {};
+  try {
+    const raw = await readFile(BIOME_SCENES_PATH, 'utf8');
+    const json = JSON.parse(raw) as unknown;
+    const parsed = PerBiomeSceneDefaultsZ.safeParse(json);
+    return parsed.success ? (parsed.data as PerBiomeSceneDefaults) : {};
+  } catch {
+    return {};
+  }
+}
+
+async function writeBiomeScenes(next: PerBiomeSceneDefaults): Promise<void> {
+  await mkdir(dirname(BIOME_SCENES_PATH), { recursive: true });
+  await writeFile(BIOME_SCENES_PATH, JSON.stringify(next, null, 2), 'utf8');
 }
 
 export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
@@ -130,5 +157,28 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
       totalKeys: Object.values(parsed.data).reduce<number>((n, v) => n + (v ? Object.keys(v).length : 0), 0),
     });
     return reply.send({ ok: true, defaults: parsed.data });
+  });
+
+  app.get('/api/scene/biomes', async (req, reply) => {
+    await requireAuth(req, reply);
+    const biomes = await readBiomeScenes();
+    return reply.send({ biomes });
+  });
+
+  app.post('/api/admin/biome-scenes', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = PerBiomeSceneDefaultsZ.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
+    }
+    await writeBiomeScenes(parsed.data);
+    const cluster = await getCluster();
+    const at = Date.now();
+    await cluster.publish('biome:scenes:updated', JSON.stringify({ at }));
+    log.info('admin.biome.scenes.update', {
+      adminId: admin.id,
+      biomes: Object.keys(parsed.data),
+    });
+    return reply.send({ ok: true, biomes: parsed.data });
   });
 };
