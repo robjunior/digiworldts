@@ -14,7 +14,7 @@
  *   - Provides `parseActions` / `stringifyActions` helpers for DB round-trip
  */
 import { z } from 'zod';
-import { AILMENTS, ELEMENTS, MAX_ENERGY } from '../digimon/types.js';
+import { AILMENTS, BUFF_KINDS, ELEMENTS, MAX_ENERGY } from '../digimon/types.js';
 
 // ---------------------------------------------------------------------------
 // Target patterns — resolved to concrete units at cast time by the engine.
@@ -84,7 +84,12 @@ export type Action =
   | { kind: 'restore_en'; target: Target; amount: number }
   | { kind: 'shift_initiative'; target: Target; delta: number }
   | { kind: 'schedule'; delay: number; action: Action }
-  | { kind: 'conditional'; if: Condition; then: Action[]; else?: Action[] | undefined };
+  | { kind: 'conditional'; if: Condition; then: Action[]; else?: Action[] | undefined }
+  | { kind: 'drain'; target: Target; damage: Amount; heal_pct: number; element?: (typeof ELEMENTS)[number] | undefined }
+  | { kind: 'apply_buff'; target: Target; buff: (typeof BUFF_KINDS)[number]; amount: number; turns: number }
+  | { kind: 'cleanse'; target: Target; ailment?: (typeof AILMENTS)[number] | undefined }
+  | { kind: 'dispel'; target: Target; buff?: (typeof BUFF_KINDS)[number] | undefined }
+  | { kind: 'extra_turn'; target: Target };
 
 export const ActionSchema: z.ZodType<Action> = z.lazy(() =>
   z.discriminatedUnion('kind', [
@@ -139,6 +144,34 @@ export const ActionSchema: z.ZodType<Action> = z.lazy(() =>
       if: ConditionSchema,
       then: z.array(ActionSchema).min(1).max(20),
       else: z.array(ActionSchema).max(20).optional(),
+    }),
+    z.object({
+      kind: z.literal('drain'),
+      target: TargetSchema,
+      damage: AmountSchema,
+      heal_pct: z.number().min(0).max(2),
+      element: z.enum(ELEMENTS).optional(),
+    }),
+    z.object({
+      kind: z.literal('apply_buff'),
+      target: TargetSchema,
+      buff: z.enum(BUFF_KINDS),
+      amount: z.number().int().min(0).max(9999),
+      turns: z.number().int().min(1).max(20),
+    }),
+    z.object({
+      kind: z.literal('cleanse'),
+      target: TargetSchema,
+      ailment: z.enum(AILMENTS).optional(),
+    }),
+    z.object({
+      kind: z.literal('dispel'),
+      target: TargetSchema,
+      buff: z.enum(BUFF_KINDS).optional(),
+    }),
+    z.object({
+      kind: z.literal('extra_turn'),
+      target: TargetSchema,
     }),
   ]),
 );

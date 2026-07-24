@@ -54,6 +54,8 @@ export type Skill = {
   power: number;
   effect?: SkillEffect;
   description?: string;
+  /** DSL actions_json parsed. Loose at shared boundary; backend casts to Action[] after Zod. Non-empty = DSL path. */
+  actions?: unknown[];
 };
 
 export type Assets = {

@@ -189,6 +189,11 @@ export const CHAIN_MULT = 1.4;
 export const AILMENT_TURNS_DEFAULT = 3;
 export const EN_REGEN_PER_TURN = 6;
 
+export const BASE_HIT_PCT = 92;
+export const MIN_HIT_PCT = 20;
+export const MAX_HIT_PCT = 98;
+export const BLIND_ACCURACY_PENALTY = 30;
+
 export const CAPTURE_BASE = 0.15;
 export const CAPTURE_HP_FACTOR = 0.75;
 export const CAPTURE_RARE_MULT = 0.5;
