@@ -16,6 +16,8 @@
     "test:migrator": "tsx test/migrator-smoke.mts",
     "test:features": "tsx test/features-smoke.mts",
     "test:battle-sim": "tsx test/battle-sim.mts",
+    "test:battle-combo": "tsx test/battle-combo.mts",
+    "test:dsl-runtime": "tsx test/dsl-runtime.mts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2"
   },
   "dependencies": {
