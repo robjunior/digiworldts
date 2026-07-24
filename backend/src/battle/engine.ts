@@ -22,7 +22,7 @@
  */
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
-import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleStatsForLevel } from '../digimon/element.js';
+import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleForLevel, scaleStatsForLevel } from '../digimon/element.js';
 import { PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -587,7 +587,13 @@ export function applyAction(
         (prev.attribute === actor.attribute && ATTRS_TRIANGLE_ELIGIBLE.has(actor.attribute)));
     const chainMult = chained ? CHAIN_MULT : 1;
     const attackStat = skill.element === 'null' ? actor.atk : actor.int;
-    const baseDamage = attackStat * 0.4 + skill.power;
+    // Scale skill.power by the same level factor as HP/atk (element.ts:scaleForLevel).
+    // Without this, skill.power stays a fixed 100–400 catalog constant while HP scales
+    // 5.14× by L70 — the "~20-hit Mega TTK" balance drift documented in README's
+    // "Recently addressed" section. Using scaleForLevel(power, level) preserves the exact
+    // damage:HP ratio across L1–L99 with a single source of truth for the growth curve.
+    const scaledSkillPower = scaleForLevel(skill.power, actor.level);
+    const baseDamage = attackStat * 0.4 + scaledSkillPower;
     const defMitigation = 1 - clamp(target.def / (target.def + 400), 0, 0.65);
     const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
