@@ -72,6 +72,52 @@ export async function getDefaultEquippedForStage(element: Element, stage: Stage)
   return ordered.slice(0, cap);
 }
 
+export type CatalogSkillMeta = {
+  id: string;
+  name: string;
+  name_pt: string;
+  description: string | null;
+  description_pt: string | null;
+  element: Element;
+  energyCost: number;
+  cooldown: number;
+  stage: Stage;
+  slot_role: string | null;
+  tier_2: boolean;
+  upgrade_of: string | null;
+};
+
+export async function getLearnedPoolMeta(element: Element, stage: Stage): Promise<CatalogSkillMeta[]> {
+  const currentOrd = STAGE_ORDINAL[stage];
+  const rows = await q<SkillCatalogRow>(SQL_SELECT_POOL_BY_ELEMENT, element);
+  const filtered = rows.filter((r) => r.stage !== null && STAGE_ORDINAL[r.stage as Stage] <= currentOrd);
+  filtered.sort((a, b) => {
+    const stageDiff = STAGE_ORDINAL[b.stage as Stage] - STAGE_ORDINAL[a.stage as Stage];
+    if (stageDiff !== 0) return stageDiff;
+    const roleA = a.slot_role ? (SLOT_ROLE_ORDINAL[a.slot_role] ?? 99) : 99;
+    const roleB = b.slot_role ? (SLOT_ROLE_ORDINAL[b.slot_role] ?? 99) : 99;
+    return roleA - roleB;
+  });
+  return filtered.map(rowToMeta);
+}
+
+function rowToMeta(row: SkillCatalogRow): CatalogSkillMeta {
+  return {
+    id: row.id,
+    name: row.name,
+    name_pt: row.name_pt,
+    description: row.description || null,
+    description_pt: row.description_pt,
+    element: row.element as Element,
+    energyCost: row.energy_cost,
+    cooldown: row.cooldown,
+    stage: row.stage as Stage,
+    slot_role: row.slot_role,
+    tier_2: row.tier_2 === 1,
+    upgrade_of: row.upgrade_of,
+  };
+}
+
 /**
  * Batch-fetch catalog skills by id and materialize as Skill objects.
  * `.actions` is populated so the engine's DSL runtime path fires
