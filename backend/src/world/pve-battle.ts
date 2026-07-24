@@ -13,6 +13,7 @@ import { scaleStatsForLevel } from '../digimon/element.js';
 import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type MatchOutcome } from '../progression/xp.js';
 import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
+import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemDrop, type WildMon } from './engine.js';
@@ -31,9 +32,9 @@ const SQL_INSERT_MON = `
       (id, user_id, catalog_id, nickname,
        level, xp,
        hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus,
-       mood, status, slot_index,
+       mood, status, slot_index, equipped_skill_ids,
        created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?)
+  VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?, ?)
 `;
 const SQL_UPSERT_INVENTORY = `
   INSERT INTO player_inventory (user_id, item_id, qty, updated_at)
@@ -494,12 +495,17 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
       if (wildUnit && wildUnit.wildInfo) {
         const monId = newId('mon');
         const now = Date.now();
+        const tpl = findTemplate(loadCatalog(), wildUnit.wildInfo.catalogId);
+        const equippedJson = tpl
+          ? JSON.stringify(await getDefaultEquippedForStage(tpl.element, tpl.stage))
+          : '[]';
         await run(SQL_INSERT_MON, [
           monId,
           userId,
           wildUnit.wildInfo.catalogId,
           wildUnit.name,
           wildUnit.level,
+          equippedJson,
           now,
           now,
         ]);

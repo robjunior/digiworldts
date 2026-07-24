@@ -7,6 +7,8 @@ import {
   type OnboardingConfigRow,
   type OnboardingTeamRow,
 } from '../db/index.js';
+import { getDefaultEquippedForStage } from '../skills/pool.js';
+import type { Element, Stage } from '@digiworld/shared/digimon';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 
@@ -47,9 +49,9 @@ const SQL_INSERT_MON = `
       (id, user_id, catalog_id, nickname,
        level, xp,
        hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus,
-       mood, status, slot_index,
+       mood, status, slot_index, equipped_skill_ids,
        created_at, updated_at)
-  VALUES (?, ?, ?, ?, 5, 0, 0, 0, 0, 0, 0, 0, 50, 'party', ?, ?, ?)
+  VALUES (?, ?, ?, ?, 5, 0, 0, 0, 0, 0, 0, 0, 50, 'party', ?, ?, ?, ?)
 `;
 
 const DEFAULT_INTRO_DIALOGUE =
@@ -349,7 +351,8 @@ export async function completeOnboarding(userId: string, teamId: string): Promis
       if (!summary) continue;
       const monId = newId('mon');
       monIds.push(monId);
-      await t.run(SQL_INSERT_MON, [monId, userId, catalogId, summary.name, i, now, now]);
+      const equippedJson = JSON.stringify(await getDefaultEquippedForStage(summary.element as Element, summary.stage as Stage));
+      await t.run(SQL_INSERT_MON, [monId, userId, catalogId, summary.name, i, equippedJson, now, now]);
     }
     const marked = await t.run(SQL_MARK_ONBOARDING_DONE, [now, now, userId]);
     if (marked.changes === 0) {
