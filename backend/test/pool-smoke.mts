@@ -11,7 +11,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { seedSkillsCatalogV2 } from '../src/skills/seed-catalog.ts';
 import { ALL_SKILL_SEEDS } from '../src/skills/seeds/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
-import { getDefaultEquippedForStage, getLearnedPoolIds, isCatalogSkillId, resolveCatalogSkills } from '../src/skills/pool.ts';
+import { getDefaultEquippedForStage, getLearnedPoolIds, getLearnedPoolMeta, isCatalogSkillId, resolveCatalogSkills } from '../src/skills/pool.ts';
 import { EQUIPPED_SLOTS_PER_STAGE } from '@digiworld/shared/digimon';
 
 const DB_PATH = process.env.DB_PATH!;
@@ -150,6 +150,39 @@ check(
   'every default is in the learned pool (would pass PUT validation)',
   fireMegaDefaults.every((id) => inLearnedPool.has(id)),
 );
+
+console.log(`\n=== getLearnedPoolMeta returns rich metadata (name_pt, slot_role, tier_2, etc.) ===`);
+const fireChampionMeta = await getLearnedPoolMeta('fire', 'Champion');
+check('fire Champion meta length = 12', fireChampionMeta.length === 12, `got ${fireChampionMeta.length}`);
+check(
+  'first meta entry is Champion tier primary_attack',
+  fireChampionMeta[0]?.stage === 'Champion' && fireChampionMeta[0]?.slot_role === 'primary_attack',
+  `got stage=${fireChampionMeta[0]?.stage} role=${fireChampionMeta[0]?.slot_role}`,
+);
+check(
+  'every meta entry has name_pt populated',
+  fireChampionMeta.every((m) => m.name_pt && m.name_pt.length > 0),
+);
+check(
+  'every meta entry has element=fire',
+  fireChampionMeta.every((m) => m.element === 'fire'),
+);
+check(
+  'every meta entry has non-null slot_role',
+  fireChampionMeta.every((m) => m.slot_role !== null),
+);
+check(
+  'tier_2 field is boolean (not 0/1)',
+  fireChampionMeta.every((m) => typeof m.tier_2 === 'boolean'),
+);
+check(
+  'meta sort order matches getLearnedPoolIds',
+  JSON.stringify(fireChampionMeta.map((m) => m.id)) === JSON.stringify(fireChampion),
+);
+const megaMeta = await getLearnedPoolMeta('fire', 'Mega');
+check('fire Mega meta length = 24', megaMeta.length === 24);
+const megaChainEntries = megaMeta.filter((m) => m.upgrade_of !== null);
+check('some Mega entries have upgrade_of populated (chain skills)', megaChainEntries.length > 0, `got ${megaChainEntries.length} chained`);
 
 console.log(`\n=== resolveCatalogSkills ===`);
 const resolved = await resolveCatalogSkills(fireRookie);

@@ -28,7 +28,7 @@ import { loadCatalog } from '../digimon/xml.js';
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
-import { getLearnedPoolIds, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
+import { getDefaultEquippedForStage, getLearnedPoolIds, getLearnedPoolMeta, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
 
 // ============================================================================
@@ -439,22 +439,27 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const fromHistory = learnedSkills.filter((e) => e.source === 'history').map((e) => e.key);
     const rawEquipped = parseJsonStringArray(row.equipped_skill_ids);
     const learnedKeys = new Set(learnedSkills.map((e) => e.key));
+    const catalogPool = await getLearnedPoolMeta(currentTpl.element, currentTpl.stage);
+    const catalogPoolIds = new Set(catalogPool.map((s) => s.id));
     const normalizedEquipped = rawEquipped
-      .map((entry) => normalizeEquippedKey(entry, row.catalog_id))
-      .filter((key) => learnedKeys.has(key));
+      .map((entry) => (isCatalogSkillId(entry) ? entry : normalizeEquippedKey(entry, row.catalog_id)))
+      .filter((key) => (isCatalogSkillId(key) ? catalogPoolIds.has(key) : learnedKeys.has(key)));
     const equipCap = EQUIPPED_SLOTS_PER_STAGE[currentTpl.stage] ?? SKILLS_PER_DIGIMON;
     const equipped = normalizedEquipped.length > 0
       ? normalizedEquipped
       : currentTpl.skillPool.slice(0, equipCap).map((s) => skillKey(currentTpl.id, s.id));
+    const fromCatalog = catalogPool.map((s) => s.id);
     return reply.send({
       monId: row.id,
       currentCatalogId: row.catalog_id,
       currentStage: currentTpl.stage,
       currentName: currentTpl.name,
+      currentElement: currentTpl.element,
       history: historyIds,
       learnedSkills,
+      catalogPool,
       equipped,
-      groupings: { fromCurrent, fromHistory },
+      groupings: { fromCurrent, fromHistory, fromCatalog },
       maxEquipped: equipCap,
     });
   });
