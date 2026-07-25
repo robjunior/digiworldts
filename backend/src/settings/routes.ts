@@ -17,6 +17,9 @@ const ARENA_KEYS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'f
 const ARENA_FILENAME_RE = /^[a-zA-Z0-9_-]+\.glb$/;
 const ARENAS_CHANNEL = 'arenas:updated';
 const GLB_MAGIC_LE = 0x46546c67;
+const PNG_MAGIC_1 = 0x474e5089;
+const PNG_MAGIC_2 = 0x0a1a0a0d;
+const THUMB_MAX_BYTES = 4 * 1024 * 1024;
 
 const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
@@ -317,9 +320,62 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
       return reply.code(404).send({ error: 'not-found', message: `${file} not found` });
     }
     await unlink(target);
+    const thumbPath = join(config.paths.arenasDir, `${file.replace(/\.glb$/, '')}.png`);
+    if (existsSync(thumbPath)) {
+      try { await unlink(thumbPath); } catch { }
+    }
     const cluster = await getCluster();
     await cluster.publish(ARENAS_CHANNEL, JSON.stringify({ at: Date.now() }));
     log.info('admin.arena.delete', { adminId: admin.id, file });
     return reply.send({ ok: true, file });
+  });
+
+  app.post<{ Params: { file: string } }>('/api/admin/arenas/:file/thumbnail', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const file = req.params.file;
+    if (!ARENA_FILENAME_RE.test(file)) {
+      return reply.code(400).send({
+        error: 'bad-filename',
+        message: `filename must match ${ARENA_FILENAME_RE.source}`,
+      });
+    }
+    const glbPath = join(config.paths.arenasDir, file);
+    if (!existsSync(glbPath)) {
+      return reply.code(404).send({ error: 'not-found', message: `${file} not found; upload the .glb first` });
+    }
+    let data;
+    try {
+      data = await req.file();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'multipart parse error';
+      return reply.code(413).send({ error: 'file-too-large', message });
+    }
+    if (!data) {
+      return reply.code(400).send({ error: 'no-file', message: 'multipart form must include a file field' });
+    }
+    let buf: Buffer;
+    try {
+      buf = await data.toBuffer();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'read error';
+      return reply.code(413).send({ error: 'file-too-large', message });
+    }
+    if (buf.length > THUMB_MAX_BYTES) {
+      return reply.code(413).send({ error: 'file-too-large', message: `thumbnail must be ≤ ${THUMB_MAX_BYTES} bytes` });
+    }
+    if (buf.length < 8 || buf.readUInt32LE(0) !== PNG_MAGIC_1 || buf.readUInt32LE(4) !== PNG_MAGIC_2) {
+      return reply.code(400).send({ error: 'invalid-png', message: 'file does not start with PNG signature' });
+    }
+    const thumbPath = join(config.paths.arenasDir, `${file.replace(/\.glb$/, '')}.png`);
+    await writeFile(thumbPath, buf);
+    const st = await stat(thumbPath);
+    const cluster = await getCluster();
+    await cluster.publish(ARENAS_CHANNEL, JSON.stringify({ at: Date.now() }));
+    log.info('admin.arena.thumbnail.upload', { adminId: admin.id, file, size: buf.length });
+    return reply.send({
+      ok: true,
+      file,
+      thumb: { url: `/assets/arenas/${file.replace(/\.glb$/, '')}.png`, mtime: Math.floor(st.mtimeMs) },
+    });
   });
 };
