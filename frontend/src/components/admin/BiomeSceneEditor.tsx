@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch, ApiError } from '../../lib/api';
-import { deleteArena, getArenas, uploadArena, uploadArenaThumbnail, type ArenaFileMeta } from '../../lib/api-admin';
+import { deleteArena, getArenas, renameArena, uploadArena, uploadArenaThumbnail, type ArenaFileMeta } from '../../lib/api-admin';
 import { generateArenaThumbnail } from '../../lib/arena-thumbnail';
 import { getBiomeScenes, invalidateArenaVersionsCache, replaceBiomeScenesCache } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
@@ -40,6 +40,7 @@ const BIOME_DEFAULT_FILE: Record<Biome, ArenaFile> = {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 type UploadStatus = 'idle' | 'uploading' | 'thumbnailing' | 'ok' | 'error';
 type DeleteStatus = 'idle' | 'deleting';
+type RenameStatus = 'idle' | 'renaming';
 
 const FALLBACK_ARENAS: readonly ArenaFileMeta[] = ARENA_FILES.map((file) => ({ file, size: 0, mtime: 0 }));
 
@@ -98,7 +99,10 @@ export function BiomeSceneEditor(): JSX.Element {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<DeleteStatus>('idle');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [renameStatus, setRenameStatus] = useState<RenameStatus>('idle');
+  const [renameError, setRenameError] = useState<string | null>(null);
   const arenasUpdatedAt = useWsStore((s) => s.arenasUpdatedAt);
+  const biomeScenesUpdatedAt = useWsStore((s) => s.biomeScenesUpdatedAt);
 
   const refreshArenas = async (): Promise<void> => {
     setArenasRefreshing(true);
@@ -131,6 +135,15 @@ export function BiomeSceneEditor(): JSX.Element {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [arenasUpdatedAt]);
+
+  useEffect(() => {
+    if (biomeScenesUpdatedAt === 0) return;
+    let cancelled = false;
+    void getBiomeScenes(true)
+      .then((data) => { if (!cancelled) setConfig(data); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [biomeScenesUpdatedAt]);
 
   const inUseByFile = useMemo<Record<string, string[]>>(() => {
     const out: Record<string, string[]> = {};
@@ -188,6 +201,26 @@ export function BiomeSceneEditor(): JSX.Element {
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'delete failed');
       setDeleteStatus('idle');
+    }
+  };
+
+  const handleRename = async (oldFile: string): Promise<void> => {
+    const raw = window.prompt(`Rename ${oldFile} to:`, oldFile);
+    if (raw === null) return;
+    const newFile = raw.trim();
+    if (newFile === '' || newFile === oldFile) return;
+    setRenameStatus('renaming');
+    setRenameError(null);
+    try {
+      const res = await renameArena(oldFile, newFile);
+      if (res.cascaded) {
+        const fresh = await getBiomeScenes(true);
+        setConfig(fresh);
+      }
+      setRenameStatus('idle');
+    } catch (err) {
+      setRenameError(err instanceof Error ? err.message : 'rename failed');
+      setRenameStatus('idle');
     }
   };
 
@@ -348,6 +381,9 @@ export function BiomeSceneEditor(): JSX.Element {
               {deleteError !== null ? (
                 <span className="biome-arena-upload-error">Delete failed: {deleteError}</span>
               ) : null}
+              {renameError !== null ? (
+                <span className="biome-arena-upload-error">Rename failed: {renameError}</span>
+              ) : null}
             </div>
 
             <div className="biome-arena-grid" role="listbox" aria-label="Arena file">
@@ -386,6 +422,16 @@ export function BiomeSceneEditor(): JSX.Element {
                       <span>{formatBytes(size)}</span>
                       <span>{formatRelative(mtime)}</span>
                     </span>
+                    <button
+                      type="button"
+                      className="biome-arena-tile-rename"
+                      onClick={(e) => { e.stopPropagation(); void handleRename(file); }}
+                      disabled={renameStatus === 'renaming'}
+                      aria-label={`Rename ${file}`}
+                      title={`Rename ${file}`}
+                    >
+                      ✎
+                    </button>
                     {isInUse ? (
                       <span className="biome-arena-tile-inuse" title={`used by ${usedBy.join(', ')}`}>
                         in use · {usedBy.length}

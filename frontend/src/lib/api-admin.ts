@@ -349,6 +349,21 @@ export function deleteArena(file: string): Promise<{ readonly ok: true; readonly
   );
 }
 
+export type RenameArenaResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+  readonly cascaded: boolean;
+};
+
+export function renameArena(file: string, newFile: string): Promise<RenameArenaResponse> {
+  return apiFetch<RenameArenaResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}`,
+    { method: 'PATCH', body: { newFile } },
+  );
+}
+
 export type LootEntryView = {
   readonly id: string;
   readonly itemId: string;
