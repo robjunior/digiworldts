@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { dirname, resolve, join } from 'node:path';
 import { z } from 'zod';
 import { ARENA_FILES, BIOMES } from '@digiworld/shared/world';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
@@ -111,6 +111,22 @@ async function listArenaFiles(): Promise<string[]> {
   }
 }
 
+type ArenaFileMeta = { file: string; size: number; mtime: number };
+
+async function listArenaFilesWithMeta(): Promise<ArenaFileMeta[]> {
+  const files = await listArenaFiles();
+  const out: ArenaFileMeta[] = [];
+  for (const file of files) {
+    try {
+      const st = await stat(join(config.paths.arenasDir, file));
+      out.push({ file, size: st.size, mtime: Math.floor(st.mtimeMs) });
+    } catch {
+      continue;
+    }
+  }
+  return out;
+}
+
 export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
   app.get('/api/admin/game-settings', async (req, reply) => {
     await requireAdmin(req, reply);
@@ -178,8 +194,14 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
 
   app.get('/api/admin/arenas', async (req, reply) => {
     await requireAdmin(req, reply);
-    const arenas = await listArenaFiles();
+    const arenas = await listArenaFilesWithMeta();
     return reply.send({ arenas });
+  });
+
+  app.get('/api/arenas', async (req, reply) => {
+    await requireAuth(req, reply);
+    const arenas = await listArenaFilesWithMeta();
+    return reply.send({ arenas: arenas.map(({ file, mtime }) => ({ file, mtime })) });
   });
 
   app.post('/api/admin/biome-scenes', async (req, reply) => {

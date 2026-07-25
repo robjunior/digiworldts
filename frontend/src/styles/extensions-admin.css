@@ -935,6 +935,69 @@
 .biome-editor-arena-opt.is-active { border-color: var(--signal); color: var(--signal); background: color-mix(in oklab, var(--signal) 8%, var(--bg)); }
 .biome-editor-arena-opt input[type="radio"] { accent-color: var(--signal); }
 
+.biome-arena-refresh {
+  margin-left: var(--sp-2);
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.biome-arena-refresh:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.biome-arena-refresh:disabled { opacity: .4; cursor: not-allowed; }
+
+.biome-arena-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  margin-top: var(--sp-2);
+}
+
+.biome-arena-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.biome-arena-tile:hover { border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.biome-arena-tile.is-active {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+  box-shadow: 0 0 0 1px var(--signal) inset;
+}
+.biome-arena-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  word-break: break-all;
+  line-height: 1.2;
+}
+.biome-arena-tile-meta {
+  display: inline-flex;
+  gap: 8px;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.biome-arena-tile.is-active .biome-arena-tile-meta { color: color-mix(in oklab, var(--signal) 65%, var(--muted)); }
+
 .biome-editor-spawn-add {
   margin-bottom: var(--sp-2);
 }

@@ -2,7 +2,7 @@ import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/b
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import { create } from 'zustand';
 
-import { invalidateBiomeScenesCache, invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+import { invalidateArenaVersionsCache, invalidateBiomeScenesCache, invalidateSceneDefaultsCache } from '../lib/scene-defaults';
 
 type ChatMessage = {
   readonly from: string;
@@ -139,6 +139,7 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'biome-scenes-updated':
         invalidateBiomeScenesCache();
+        invalidateArenaVersionsCache();
         return;
       case 'error':
         return;
