@@ -756,6 +756,54 @@ body:has(.combat3d-shell) {
   50% { box-shadow: 0 0 8px color-mix(in oklab, #4ac8ff 45%, transparent); }
 }
 
+.c3d-buff-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.c3d-buff-group {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.c3d-buff-group[data-side="you"] { align-items: flex-end; }
+.c3d-buff-group[data-side="opp"] { align-items: flex-start; }
+
+.c3d-buff {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px 2px 4px;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  border: 1px solid var(--hairline);
+  border-left-width: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 3px) 100%, 3px 100%);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 20%, transparent);
+  animation: c3dAilmentIn .3s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.c3d-buff-icon { font-size: 12px; line-height: 1; }
+.c3d-buff-tl { color: var(--muted); font-size: 9px; }
+
+.c3d-buff--up { border-left-color: #4ade80; color: #4ade80; }
+.c3d-buff--down { border-left-color: #f87171; color: #f87171; }
+.c3d-buff--shield { border-left-color: #38bdf8; color: #38bdf8; }
+.c3d-buff--gold { border-left-color: var(--gold); color: var(--gold); }
+
 .c3d-enemy-hp {
   position: absolute;
   top: 0;
@@ -797,24 +845,57 @@ body:has(.combat3d-shell) {
 }
 
 .c3d-float {
+  --float-rot: -10deg;
   position: absolute;
-  transform: translate(-50%, 0);
-  font-size: 22px;
-  font-weight: 800;
+  font-family: sans-serif;
+  font-size: 30px;
+  font-weight: 900;
   font-variant-numeric: tabular-nums;
-  color: var(--ink);
-  text-shadow: 0 1px 0 var(--bg), 0 0 6px var(--bg);
+  color: #ffffff;
+  /* Pixel-perfect text stroke fallback for non-webkit */
+  text-shadow: 2px 0 #000, -2px 0 #000, 0 2px #000, 0 -2px #000, 0 4px 6px rgba(0,0,0,0.5);
+  -webkit-text-stroke: 2px #000;
   animation: c3dFloatUp .9s ease-out forwards;
 }
 
-.c3d-float--crit { color: var(--gold); font-size: 28px; }
-.c3d-float--resist { color: var(--muted); font-size: 18px; }
-.c3d-float--miss { color: var(--muted); font-size: 16px; }
+.c3d-float--crit { 
+  --float-rot: -15deg;
+  color: #ffd700;
+  font-size: 44px; 
+}
+
+.c3d-float--miss { 
+  color: #aaaaaa;
+  font-size: 24px; 
+  font-style: italic;
+}
+
+.c3d-float--resist { 
+  color: #aaaaaa; 
+}
+
+.c3d-float--combo {
+  --float-rot: -6deg;
+  color: #ff00ff;
+  font-size: 36px;
+  font-style: italic;
+  -webkit-text-stroke: 3px #000;
+  text-shadow: 3px 0 #000, -3px 0 #000, 0 3px #000, 0 -3px #000, 0 4px 10px rgba(0,0,0,0.8);
+  animation: c3dComboFloat 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  z-index: 10;
+}
 
 @keyframes c3dFloatUp {
-  0% { opacity: 0; transform: translate(-50%, 0) scale(.8); }
-  15% { opacity: 1; transform: translate(-50%, -8px) scale(1.1); }
-  100% { opacity: 0; transform: translate(-50%, -44px) scale(1); }
+  0% { opacity: 0; transform: translate(-50%, 0) rotate(var(--float-rot)) scale(.8); }
+  15% { opacity: 1; transform: translate(-50%, -8px) rotate(var(--float-rot)) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -44px) rotate(var(--float-rot)) scale(1); }
+}
+
+@keyframes c3dComboFloat {
+  0% { opacity: 0; transform: translate(-50%, 0) rotate(var(--float-rot)) scale(0.5); }
+  15% { opacity: 1; transform: translate(-50%, -15px) rotate(var(--float-rot)) scale(1.2); }
+  85% { opacity: 1; transform: translate(-50%, -25px) rotate(var(--float-rot)) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -40px) rotate(var(--float-rot)) scale(1); }
 }
 
 .c3d-toast {

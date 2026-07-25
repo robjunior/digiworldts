@@ -1,5 +1,5 @@
-import type { Action, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
-import type { Ailment } from '@digiworld/shared/digimon';
+import type { Action, ActiveBuff, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import type { Ailment, BuffKind } from '@digiworld/shared/digimon';
 import type { WSClientMessage } from '@digiworld/shared/ws';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -47,7 +47,7 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
   return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
-type Floater3D = { readonly id: string; readonly text: string; readonly kind: 'dmg' | 'crit' | 'miss' | 'resist'; readonly x: number; readonly y: number };
+type Floater3D = { readonly id: string; readonly text: string; readonly kind: 'dmg' | 'crit' | 'miss' | 'resist' | 'combo'; readonly x: number; readonly y: number };
 
 export function Combat3DBody(): JSX.Element | null {
   const { send, readyState } = useWebSocket();
@@ -72,6 +72,7 @@ export function Combat3DBody(): JSX.Element | null {
   const cmdRef = useRef<HTMLDivElement | null>(null);
   const logBodyRef = useRef<HTMLDivElement | null>(null);
   const enemyPlaybackRef = useRef<{ queue: BattleView['log']; timer: number | null }>({ queue: [], timer: null });
+  const chainCountRef = useRef<Map<UnitId, { count: number; lastAt: number }>>(new Map());
 
   useEffect(() => {
     const node = cmdRef.current;
@@ -138,8 +139,8 @@ export function Combat3DBody(): JSX.Element | null {
     const pos = handle.screenPositionOf(targetId);
     if (pos === null) return;
     const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: pos.y - 20 }]);
-    window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), 900);
+    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: kind === 'combo' ? pos.y - 40 : pos.y - 20 }]);
+    window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), kind === 'combo' ? 1200 : 900);
   }, []);
 
   const playActionEvent = useCallback((event: BattleView['log'][number]): void => {
@@ -149,10 +150,23 @@ export function Combat3DBody(): JSX.Element | null {
     if (targetId === undefined || targetId === null) return;
     const yourSide = activeBattle?.yourSide ?? 'a';
     const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
+    
     if (damage !== undefined) {
+      if (event.cue === 'chain') {
+        const now = Date.now();
+        const chainState = chainCountRef.current.get(targetId);
+        /* Chain counter resets if it's been more than 2s since the last hit on this target */
+        const count = (chainState && (now - chainState.lastAt < 2000)) ? chainState.count + 1 : 2;
+        chainCountRef.current.set(targetId, { count, lastAt: now });
+        spawnFloater(targetId, `COMBO ×${count}`, 'combo');
+      } else {
+        chainCountRef.current.delete(targetId);
+      }
+      
       const kind: Floater3D['kind'] = event.cue === 'crit' ? 'crit' : event.cue === 'miss' ? 'miss' : event.cue === 'resist' ? 'resist' : 'dmg';
       spawnFloater(targetId, damage > 0 ? String(damage) : event.cue === 'miss' ? 'MISS' : event.cue === 'resist' ? 'RESIST' : '0', kind);
     }
+    
     if (!actorIsFriendly && isAnimatedElement(event.skillElement) && (damage ?? 0) > 0) {
       sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId);
     }
@@ -287,6 +301,7 @@ export function Combat3DBody(): JSX.Element | null {
 
       <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
 
+      <BuffBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
       <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
 
       <div className={`c3d-turn ${activeBattle.yourTurn ? 'is-your' : 'is-opp'}`} role="status">
@@ -474,6 +489,102 @@ const AILMENT_ICON: Record<Ailment, string> = {
   confusion: '💫',
   charm: '💘',
 };
+
+const BUFF_ICON: Record<BuffKind, string> = {
+  shield_absorb: '🛡',
+  damage_reduction: '🪨',
+  invulnerable: '✨',
+  atk_up: '⬆',
+  atk_down: '⬇',
+  def_up: '⬆',
+  def_down: '⬇',
+  spd_up: '⬆',
+  spd_down: '⬇',
+  int_up: '⬆',
+  int_down: '⬇',
+  accuracy_up: '🎯⬆',
+  accuracy_down: '🎯⬇',
+  evasion_up: '💨⬆',
+  evasion_down: '💨⬇',
+  crit_up: '💥',
+};
+
+const BuffBadgesLayer = memo(function BuffBadgesLayer({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
+  const units = useMemo(() => {
+    const withBuffs: Array<{ id: UnitId; side: 'you' | 'opp'; buffs: readonly ActiveBuff[] }> = [];
+    for (const u of battle.friendly) {
+      if (u.activeBuffs && u.activeBuffs.length > 0 && !u.down) withBuffs.push({ id: u.id, side: 'you', buffs: u.activeBuffs });
+    }
+    for (const u of battle.enemy) {
+      const buffs = (u as unknown as { activeBuffs?: readonly ActiveBuff[] }).activeBuffs;
+      if (buffs && buffs.length > 0 && !u.down) withBuffs.push({ id: u.id, side: 'opp', buffs });
+    }
+    return withBuffs;
+  }, [battle.friendly, battle.enemy]);
+  const groupRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    let rafId = 0;
+    const tick = (): void => {
+      const scene = sceneRef.current;
+      if (scene !== null) {
+        for (const [unitId, node] of groupRefs.current.entries()) {
+          const pos = scene.screenPositionOf(unitId);
+          if (pos !== null) {
+            const side = node.dataset['side'];
+            const offsetX = side === 'you' ? -48 : 20;
+            // Position slightly above ailments (-24px for ailments, so -52px for buffs)
+            node.style.transform = `translate3d(${pos.x + offsetX}px, ${pos.y - 52}px, 0)`;
+            node.style.opacity = '1';
+          } else {
+            node.style.opacity = '0';
+          }
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [sceneRef]);
+
+  useEffect(() => {
+    const keep = new Set(units.map((u) => u.id));
+    for (const id of Array.from(groupRefs.current.keys())) {
+      if (!keep.has(id)) groupRefs.current.delete(id);
+    }
+  }, [units]);
+
+  return (
+    <div className="c3d-buff-layer" aria-hidden="true">
+      {units.map((unit) => (
+        <div
+          key={unit.id}
+          ref={(el) => {
+            if (el === null) groupRefs.current.delete(unit.id);
+            else groupRefs.current.set(unit.id, el);
+          }}
+          data-side={unit.side}
+          className="c3d-buff-group"
+        >
+          {unit.buffs.map((b, i) => {
+            const up = b.kind.endsWith('_up');
+            const down = b.kind.endsWith('_down');
+            const styleKind = up ? 'up' : down ? 'down' : b.kind === 'shield_absorb' ? 'shield' : 'gold';
+            return (
+              <span
+                key={`${b.kind}-${i}`}
+                className={`c3d-buff c3d-buff--${styleKind}`}
+              >
+                <span className="c3d-buff-icon" aria-hidden="true">{BUFF_ICON[b.kind]}</span>
+                <span className="c3d-buff-tl">{b.remainingTurns}</span>
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+});
 
 const AILMENT_LABEL: Record<Ailment, string> = {
   burn: 'Burned',
