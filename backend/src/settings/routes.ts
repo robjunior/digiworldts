@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { z } from 'zod';
@@ -15,6 +15,8 @@ const BIOME_SCENES_PATH = resolve(config.paths.dataDir, 'biome-scenes.json');
 
 const ARENA_KEYS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light'] as const;
 const ARENA_FILENAME_RE = /^[a-zA-Z0-9_-]+\.glb$/;
+const ARENAS_CHANNEL = 'arenas:updated';
+const GLB_MAGIC_LE = 0x46546c67;
 
 const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
@@ -225,5 +227,86 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
       biomes: Object.keys(parsed.data),
     });
     return reply.send({ ok: true, biomes: parsed.data });
+  });
+
+  app.post('/api/admin/arenas', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    let data;
+    try {
+      data = await req.file();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'multipart parse error';
+      return reply.code(413).send({ error: 'file-too-large', message });
+    }
+    if (!data) {
+      return reply.code(400).send({ error: 'no-file', message: 'multipart form must include a file field' });
+    }
+    const filename = data.filename;
+    if (!filename || !ARENA_FILENAME_RE.test(filename)) {
+      return reply.code(400).send({
+        error: 'bad-filename',
+        message: `filename must match ${ARENA_FILENAME_RE.source}`,
+      });
+    }
+    let buf: Buffer;
+    try {
+      buf = await data.toBuffer();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'file read error';
+      return reply.code(413).send({ error: 'file-too-large', message });
+    }
+    if (buf.length < 12 || buf.readUInt32LE(0) !== GLB_MAGIC_LE) {
+      return reply.code(400).send({
+        error: 'invalid-glb',
+        message: 'file does not start with GLB magic bytes ("glTF")',
+      });
+    }
+    const overwrite = (req.query as { overwrite?: string }).overwrite === '1';
+    const target = join(config.paths.arenasDir, filename);
+    if (existsSync(target) && !overwrite) {
+      return reply.code(409).send({
+        error: 'file-exists',
+        message: `${filename} already exists; pass ?overwrite=1 to replace`,
+        file: filename,
+      });
+    }
+    await mkdir(config.paths.arenasDir, { recursive: true });
+    await writeFile(target, buf);
+    const st = await stat(target);
+    const cluster = await getCluster();
+    await cluster.publish(ARENAS_CHANNEL, JSON.stringify({ at: Date.now() }));
+    log.info('admin.arena.upload', { adminId: admin.id, file: filename, size: buf.length, overwrite });
+    return reply.send({ ok: true, file: filename, size: st.size, mtime: Math.floor(st.mtimeMs) });
+  });
+
+  app.delete<{ Params: { file: string } }>('/api/admin/arenas/:file', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const file = req.params.file;
+    if (!ARENA_FILENAME_RE.test(file)) {
+      return reply.code(400).send({
+        error: 'bad-filename',
+        message: `filename must match ${ARENA_FILENAME_RE.source}`,
+      });
+    }
+    const biomes = await readBiomeScenes();
+    const usedBy = Object.entries(biomes)
+      .filter(([, cfg]) => cfg?.file === file)
+      .map(([biome]) => biome);
+    if (usedBy.length > 0) {
+      return reply.code(409).send({
+        error: 'in-use',
+        message: `arena '${file}' is used by ${usedBy.length} biome(s): ${usedBy.join(', ')}`,
+        biomes: usedBy,
+      });
+    }
+    const target = join(config.paths.arenasDir, file);
+    if (!existsSync(target)) {
+      return reply.code(404).send({ error: 'not-found', message: `${file} not found` });
+    }
+    await unlink(target);
+    const cluster = await getCluster();
+    await cluster.publish(ARENAS_CHANNEL, JSON.stringify({ at: Date.now() }));
+    log.info('admin.arena.delete', { adminId: admin.id, file });
+    return reply.send({ ok: true, file });
   });
 };

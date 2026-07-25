@@ -104,7 +104,7 @@ export async function apiFetch<T>(path: string, init: JsonInit = {}): Promise<T>
   const headers = new Headers(initHeaders);
   const body = encodeBody(rawBody);
 
-  if (body !== undefined && !headers.has('Content-Type')) {
+  if (body !== undefined && !headers.has('Content-Type') && !(body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 

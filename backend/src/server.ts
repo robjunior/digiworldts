@@ -19,6 +19,7 @@
 import Fastify, { type FastifyError } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -144,6 +145,11 @@ async function main(): Promise<void> {
   }
   await app.register(fastifyWebsocket, {
     options: { maxPayload: 32 * 1024 },
+  });
+
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 4 },
+    preservePath: true,
   });
 
   await app.register(fastifyStatic, {
