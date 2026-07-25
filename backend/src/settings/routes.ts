@@ -113,7 +113,12 @@ async function listArenaFiles(): Promise<string[]> {
   }
 }
 
-type ArenaFileMeta = { file: string; size: number; mtime: number };
+type ArenaFileMeta = {
+  file: string;
+  size: number;
+  mtime: number;
+  thumb?: { url: string; mtime: number };
+};
 
 async function listArenaFilesWithMeta(): Promise<ArenaFileMeta[]> {
   const files = await listArenaFiles();
@@ -121,7 +126,15 @@ async function listArenaFilesWithMeta(): Promise<ArenaFileMeta[]> {
   for (const file of files) {
     try {
       const st = await stat(join(config.paths.arenasDir, file));
-      out.push({ file, size: st.size, mtime: Math.floor(st.mtimeMs) });
+      const entry: ArenaFileMeta = { file, size: st.size, mtime: Math.floor(st.mtimeMs) };
+      const basename = file.replace(/\.glb$/, '');
+      const thumbPath = join(config.paths.arenasDir, `${basename}.png`);
+      try {
+        const ts = await stat(thumbPath);
+        entry.thumb = { url: `/assets/arenas/${basename}.png`, mtime: Math.floor(ts.mtimeMs) };
+      } catch {
+      }
+      out.push(entry);
     } catch {
       continue;
     }

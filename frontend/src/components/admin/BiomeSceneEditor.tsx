@@ -340,17 +340,18 @@ export function BiomeSceneEditor(): JSX.Element {
             </div>
 
             <div className="biome-arena-grid" role="listbox" aria-label="Arena file">
-              {availableArenas.map(({ file, size, mtime }) => {
+              {availableArenas.map(({ file, size, mtime, thumb }) => {
                 const isActive = file === current.file;
                 const usedBy = inUseByFile[file] ?? [];
                 const isInUse = usedBy.length > 0;
+                const hasThumb = thumb !== undefined;
                 return (
                   <div
                     key={file}
                     role="option"
                     aria-selected={isActive}
                     tabIndex={0}
-                    className={`biome-arena-tile${isActive ? ' is-active' : ''}${isInUse ? ' is-in-use' : ''}`}
+                    className={`biome-arena-tile${isActive ? ' is-active' : ''}${isInUse ? ' is-in-use' : ''}${hasThumb ? ' has-thumb' : ''}`}
                     onClick={() => updateFile(file as ArenaFile)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -360,6 +361,15 @@ export function BiomeSceneEditor(): JSX.Element {
                     }}
                     title={file}
                   >
+                    {hasThumb ? (
+                      <img
+                        className="biome-arena-tile-thumb"
+                        src={`${thumb.url}?v=${thumb.mtime}`}
+                        alt=""
+                        aria-hidden="true"
+                        loading="lazy"
+                      />
+                    ) : null}
                     <span className="biome-arena-tile-name">{file}</span>
                     <span className="biome-arena-tile-meta">
                       <span>{formatBytes(size)}</span>

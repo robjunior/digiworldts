@@ -298,6 +298,10 @@ export type ArenaFileMeta = {
   readonly file: string;
   readonly size: number;
   readonly mtime: number;
+  readonly thumb?: {
+    readonly url: string;
+    readonly mtime: number;
+  };
 };
 
 export function getArenas(): Promise<{ readonly arenas: readonly ArenaFileMeta[] }> {
