@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch } from '../../lib/api';
+import { getArenas } from '../../lib/api-admin';
 import { getBiomeScenes, replaceBiomeScenesCache } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
@@ -61,11 +62,15 @@ export function BiomeSceneEditor(): JSX.Element {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [availableArenas, setAvailableArenas] = useState<readonly string[]>(ARENA_FILES);
 
   useEffect(() => {
     let cancelled = false;
     void getBiomeScenes(true)
       .then((data) => { if (!cancelled) setConfig(data); })
+      .catch(() => {});
+    void getArenas()
+      .then((res) => { if (!cancelled && res.arenas.length > 0) setAvailableArenas(res.arenas); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -189,12 +194,12 @@ export function BiomeSceneEditor(): JSX.Element {
               value={current.file}
               onChange={(e) => updateFile(e.currentTarget.value as ArenaFile)}
             >
-              {ARENA_FILES.map((file) => (
+              {availableArenas.map((file) => (
                 <option key={file} value={file}>{file}</option>
               ))}
             </select>
             <p className="biome-editor-hint">
-              The .glb rendered when combat happens in this biome.
+              The .glb rendered when combat happens in this biome. List refreshes from the server on load — drop new files into <code>frontend/public/assets/arenas/</code> to add options.
             </p>
           </fieldset>
 
