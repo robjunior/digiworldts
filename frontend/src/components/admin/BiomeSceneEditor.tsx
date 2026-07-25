@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch } from '../../lib/api';
-import { getArenas } from '../../lib/api-admin';
-import { getBiomeScenes, replaceBiomeScenesCache } from '../../lib/scene-defaults';
+import { getArenas, type ArenaFileMeta } from '../../lib/api-admin';
+import { getBiomeScenes, invalidateArenaVersionsCache, replaceBiomeScenesCache } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
@@ -37,6 +37,32 @@ const BIOME_DEFAULT_FILE: Record<Biome, ArenaFile> = {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
+const FALLBACK_ARENAS: readonly ArenaFileMeta[] = ARENA_FILES.map((file) => ({ file, size: 0, mtime: 0 }));
+
+function formatBytes(n: number): string {
+  if (n <= 0) return '—';
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRelative(mtimeMs: number): string {
+  if (mtimeMs <= 0) return '—';
+  const diff = Date.now() - mtimeMs;
+  if (diff < 0) return 'just now';
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
 function formatSettings(settings: Record<string, unknown>): string {
   return JSON.stringify(settings, null, 2);
 }
@@ -62,7 +88,20 @@ export function BiomeSceneEditor(): JSX.Element {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [availableArenas, setAvailableArenas] = useState<readonly string[]>(ARENA_FILES);
+  const [availableArenas, setAvailableArenas] = useState<readonly ArenaFileMeta[]>(FALLBACK_ARENAS);
+  const [arenasRefreshing, setArenasRefreshing] = useState<boolean>(false);
+
+  const refreshArenas = async (): Promise<void> => {
+    setArenasRefreshing(true);
+    try {
+      const res = await getArenas();
+      if (res.arenas.length > 0) setAvailableArenas(res.arenas);
+      invalidateArenaVersionsCache();
+    } catch {
+    } finally {
+      setArenasRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +126,10 @@ export function BiomeSceneEditor(): JSX.Element {
   const configuredCount = Object.keys(config).length;
 
   const arenaKey = useMemo(() => current.file.replace(/\.glb$/, ''), [current.file]);
+  const currentVersion = useMemo<number | undefined>(() => {
+    const match = availableArenas.find((a) => a.file === current.file);
+    return match !== undefined && match.mtime > 0 ? match.mtime : undefined;
+  }, [availableArenas, current.file]);
   const previewSettings = useMemo<SceneSettings>(() => {
     const parsed = parseSettings(settingsDraft);
     return (parsed.ok ? parsed.value : current.settings) as unknown as SceneSettings;
@@ -189,17 +232,42 @@ export function BiomeSceneEditor(): JSX.Element {
           </div>
 
           <fieldset className="biome-editor-fieldset">
-            <legend>Arena file</legend>
-            <select
-              value={current.file}
-              onChange={(e) => updateFile(e.currentTarget.value as ArenaFile)}
-            >
-              {availableArenas.map((file) => (
-                <option key={file} value={file}>{file}</option>
-              ))}
-            </select>
+            <legend>
+              Arena file
+              <button
+                type="button"
+                className="biome-arena-refresh"
+                onClick={() => { void refreshArenas(); }}
+                disabled={arenasRefreshing}
+                title="Re-scan frontend/public/assets/arenas/ for new or updated .glb files"
+              >
+                {arenasRefreshing ? 'Refreshing…' : 'Refresh'}
+              </button>
+            </legend>
+            <div className="biome-arena-grid" role="listbox" aria-label="Arena file">
+              {availableArenas.map(({ file, size, mtime }) => {
+                const isActive = file === current.file;
+                return (
+                  <button
+                    key={file}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    className={`biome-arena-tile${isActive ? ' is-active' : ''}`}
+                    onClick={() => updateFile(file as ArenaFile)}
+                    title={file}
+                  >
+                    <span className="biome-arena-tile-name">{file}</span>
+                    <span className="biome-arena-tile-meta">
+                      <span>{formatBytes(size)}</span>
+                      <span>{formatRelative(mtime)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
             <p className="biome-editor-hint">
-              The .glb rendered when combat happens in this biome. List refreshes from the server on load — drop new files into <code>frontend/public/assets/arenas/</code> to add options.
+              The .glb rendered when combat happens in this biome. Drop new files into <code>frontend/public/assets/arenas/</code> then click <b>Refresh</b> — cache-busted by mtime, so a fresh preview loads without a hard refresh.
             </p>
           </fieldset>
 
@@ -243,7 +311,7 @@ export function BiomeSceneEditor(): JSX.Element {
             <h4>Live preview</h4>
             <span className="biome-editor-preview-key">{arenaKey}.glb</span>
           </div>
-          <ScenePreview arenaKey={arenaKey} settings={previewSettings} />
+          <ScenePreview arenaKey={arenaKey} version={currentVersion} settings={previewSettings} />
           <p className="biome-editor-hint">
             Updates as you switch biomes, pick a different arena file, or edit the atmospherics JSON. Nothing is saved until you click <b>Save biome scenes</b>.
           </p>

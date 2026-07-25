@@ -747,6 +747,9 @@ export class SceneManager {
 
   async loadArenaModel(url: string): Promise<void> {
     if (this.disposedFlag) return;
+    if (this.currentArenaUrl !== null && this.currentArenaUrl !== url) {
+      THREE.Cache.remove(this.currentArenaUrl);
+    }
     const loader = new GLTFLoader();
     const gltf = await loader.loadAsync(url);
     if (this.disposedFlag) return;

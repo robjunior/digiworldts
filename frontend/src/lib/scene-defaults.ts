@@ -80,3 +80,33 @@ export function invalidateBiomeScenesCache(): void {
   biomeCacheAt = 0;
 }
 
+export type ArenaVersions = Record<string, number>;
+
+let arenaCache: Promise<ArenaVersions> | null = null;
+let arenaCacheAt = 0;
+
+export function getArenaVersions(force = false): Promise<ArenaVersions> {
+  const now = Date.now();
+  if (force || arenaCache === null || now - arenaCacheAt > TTL_MS) {
+    arenaCacheAt = now;
+    arenaCache = apiFetch<{ arenas: readonly { file: string; mtime: number }[] }>('/api/arenas')
+      .then((body) => {
+        const map: ArenaVersions = {};
+        for (const entry of body.arenas) map[entry.file] = entry.mtime;
+        return map;
+      })
+      .catch(() => ({}));
+  }
+  return arenaCache;
+}
+
+export function invalidateArenaVersionsCache(): void {
+  arenaCache = null;
+  arenaCacheAt = 0;
+}
+
+export function arenaUrl(file: string, versions: ArenaVersions): string {
+  const v = versions[file];
+  return v === undefined ? `/assets/arenas/${file}` : `/assets/arenas/${file}?v=${v}`;
+}
+

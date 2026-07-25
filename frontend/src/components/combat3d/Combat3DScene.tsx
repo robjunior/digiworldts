@@ -5,7 +5,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { getBiomeScenes, getSceneDefaults } from '../../lib/scene-defaults';
+import { arenaUrl, getArenaVersions, getBiomeScenes, getSceneDefaults, type ArenaVersions } from '../../lib/scene-defaults';
 import { useAuth } from '../../hooks/useAuth';
 
 const ARENA_MODEL_BY_KEY: Readonly<Record<string, string>> = {
@@ -144,15 +144,19 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
   const biome = useMemo(() => pickBiome(battle), [battle]);
   const [biomeScenes, setBiomeScenes] = useState<PerBiomeSceneDefaults>({});
+  const [arenaVersions, setArenaVersions] = useState<ArenaVersions>({});
   useEffect(() => {
     let cancelled = false;
     void getBiomeScenes(true).then((next) => { if (!cancelled) setBiomeScenes(next); }).catch(() => {});
+    void getArenaVersions(true).then((next) => { if (!cancelled) setArenaVersions(next); }).catch(() => {});
     return () => { cancelled = true; };
   }, [biome]);
   const biomeConfig = biomeScenes[biome];
   const arenaModelUrl = biomeConfig?.file !== undefined
-    ? `/assets/arenas/${biomeConfig.file}`
-    : ARENA_MODEL_BY_KEY[arenaKey];
+    ? arenaUrl(biomeConfig.file, arenaVersions)
+    : arenaVersions[`${arenaKey}.glb`] !== undefined
+      ? arenaUrl(`${arenaKey}.glb`, arenaVersions)
+      : ARENA_MODEL_BY_KEY[arenaKey];
 
   useEffect(() => {
     const manager = sceneRef.current;
