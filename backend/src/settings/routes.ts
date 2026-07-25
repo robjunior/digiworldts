@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { readFile, writeFile, mkdir, readdir, stat, unlink } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, stat, unlink, rename } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { z } from 'zod';
@@ -376,6 +376,76 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
       ok: true,
       file,
       thumb: { url: `/assets/arenas/${file.replace(/\.glb$/, '')}.png`, mtime: Math.floor(st.mtimeMs) },
+    });
+  });
+
+  app.patch<{ Params: { file: string }; Body: { newFile?: unknown } }>('/api/admin/arenas/:file', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const oldFile = req.params.file;
+    const body = req.body ?? {};
+    const newFile = body.newFile;
+    if (!ARENA_FILENAME_RE.test(oldFile)) {
+      return reply.code(400).send({
+        error: 'bad-filename',
+        message: `source filename must match ${ARENA_FILENAME_RE.source}`,
+      });
+    }
+    if (typeof newFile !== 'string' || !ARENA_FILENAME_RE.test(newFile)) {
+      return reply.code(400).send({
+        error: 'bad-filename',
+        message: `newFile must match ${ARENA_FILENAME_RE.source}`,
+      });
+    }
+    if (oldFile === newFile) {
+      return reply.code(400).send({ error: 'no-change', message: 'newFile must differ from source' });
+    }
+    const oldPath = join(config.paths.arenasDir, oldFile);
+    const newPath = join(config.paths.arenasDir, newFile);
+    if (!existsSync(oldPath)) {
+      return reply.code(404).send({ error: 'not-found', message: `${oldFile} not found` });
+    }
+    if (existsSync(newPath)) {
+      return reply.code(409).send({
+        error: 'target-exists',
+        message: `${newFile} already exists on disk`,
+        file: newFile,
+      });
+    }
+    await rename(oldPath, newPath);
+    const oldPng = join(config.paths.arenasDir, `${oldFile.replace(/\.glb$/, '')}.png`);
+    const newPng = join(config.paths.arenasDir, `${newFile.replace(/\.glb$/, '')}.png`);
+    if (existsSync(newPng)) {
+      try { await unlink(newPng); } catch { }
+    }
+    if (existsSync(oldPng)) {
+      try { await rename(oldPng, newPng); } catch { }
+    }
+    const biomes = await readBiomeScenes();
+    let cascaded = false;
+    const nextBiomes: PerBiomeSceneDefaults = { ...biomes };
+    for (const [biome, cfg] of Object.entries(biomes)) {
+      if (cfg?.file === oldFile) {
+        (nextBiomes as Record<string, unknown>)[biome] = { ...cfg, file: newFile };
+        cascaded = true;
+      }
+    }
+    if (cascaded) {
+      await writeBiomeScenes(nextBiomes);
+    }
+    const cluster = await getCluster();
+    const at = Date.now();
+    await cluster.publish(ARENAS_CHANNEL, JSON.stringify({ at }));
+    if (cascaded) {
+      await cluster.publish('biome:scenes:updated', JSON.stringify({ at }));
+    }
+    const st2 = await stat(newPath);
+    log.info('admin.arena.rename', { adminId: admin.id, oldFile, newFile, cascaded });
+    return reply.send({
+      ok: true,
+      file: newFile,
+      size: st2.size,
+      mtime: Math.floor(st2.mtimeMs),
+      cascaded,
     });
   });
 };
