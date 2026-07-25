@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch } from '../../lib/api';
 import { getBiomeScenes, replaceBiomeScenesCache } from '../../lib/scene-defaults';
+import type { SceneSettings } from '../../scene3d/scene';
+import { ScenePreview } from './ScenePreview';
 
 const BIOME_LABEL: Record<Biome, string> = {
   desert: 'Ember Wastes',
@@ -78,6 +80,12 @@ export function BiomeSceneEditor(): JSX.Element {
   }, [selectedBiome, current.settings]);
 
   const configuredCount = Object.keys(config).length;
+
+  const arenaKey = useMemo(() => current.file.replace(/\.glb$/, ''), [current.file]);
+  const previewSettings = useMemo<SceneSettings>(() => {
+    const parsed = parseSettings(settingsDraft);
+    return (parsed.ok ? parsed.value : current.settings) as unknown as SceneSettings;
+  }, [settingsDraft, current.settings]);
 
   const updateFile = (file: ArenaFile): void => {
     setConfig((prev) => ({ ...prev, [selectedBiome]: { ...current, file } }));
@@ -224,6 +232,17 @@ export function BiomeSceneEditor(): JSX.Element {
             ) : null}
           </div>
         </section>
+
+        <aside className="biome-editor-preview-col" aria-label="Live scene preview">
+          <div className="biome-editor-preview-head">
+            <h4>Live preview</h4>
+            <span className="biome-editor-preview-key">{arenaKey}.glb</span>
+          </div>
+          <ScenePreview arenaKey={arenaKey} settings={previewSettings} />
+          <p className="biome-editor-hint">
+            Updates as you switch biomes, pick a different arena file, or edit the atmospherics JSON. Nothing is saved until you click <b>Save biome scenes</b>.
+          </p>
+        </aside>
       </div>
     </div>
   );
