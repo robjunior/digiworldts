@@ -1202,12 +1202,16 @@ export class SceneManager {
     this.rafId = requestAnimationFrame(tick);
   }
 
+  renderOnce(): void {
+    if (this.disposedFlag) return;
+    this.renderer.render(this.scene, this.camera);
+  }
+
   stopLoop(): void {
     if (this.rafId !== 0) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
-    }
-  }
+    }  }
 
   private readonly projectScratch = new THREE.Vector3();
 

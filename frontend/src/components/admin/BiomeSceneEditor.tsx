@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch, ApiError } from '../../lib/api';
-import { deleteArena, getArenas, uploadArena, type ArenaFileMeta } from '../../lib/api-admin';
+import { deleteArena, getArenas, uploadArena, uploadArenaThumbnail, type ArenaFileMeta } from '../../lib/api-admin';
+import { generateArenaThumbnail } from '../../lib/arena-thumbnail';
 import { getBiomeScenes, invalidateArenaVersionsCache, replaceBiomeScenesCache } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
 import { useWsStore } from '../../state/wsStore';
@@ -37,7 +38,7 @@ const BIOME_DEFAULT_FILE: Record<Biome, ArenaFile> = {
 };
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type UploadStatus = 'idle' | 'uploading' | 'ok' | 'error';
+type UploadStatus = 'idle' | 'uploading' | 'thumbnailing' | 'ok' | 'error';
 type DeleteStatus = 'idle' | 'deleting';
 
 const FALLBACK_ARENAS: readonly ArenaFileMeta[] = ARENA_FILES.map((file) => ({ file, size: 0, mtime: 0 }));
@@ -147,7 +148,15 @@ export function BiomeSceneEditor(): JSX.Element {
     setUploadStatus('uploading');
     setUploadError(null);
     const tryUpload = async (overwrite: boolean): Promise<void> => {
-      await uploadArena(file, overwrite);
+      const res = await uploadArena(file, overwrite);
+      setUploadStatus('thumbnailing');
+      try {
+        const arenaKey = res.file.replace(/\.glb$/, '');
+        const png = await generateArenaThumbnail(file, arenaKey);
+        await uploadArenaThumbnail(res.file, png);
+      } catch (thumbErr) {
+        console.warn('arena.thumbnail.generate.fail', thumbErr);
+      }
       setUploadStatus('ok');
       window.setTimeout(() => setUploadStatus((s) => (s === 'ok' ? 'idle' : s)), 1500);
     };
@@ -314,11 +323,11 @@ export function BiomeSceneEditor(): JSX.Element {
             </legend>
 
             <div className="biome-arena-uploader">
-              <label className={`biome-arena-upload-btn${uploadStatus === 'uploading' ? ' is-uploading' : ''}${uploadStatus === 'ok' ? ' is-ok' : ''}`}>
+              <label className={`biome-arena-upload-btn${uploadStatus === 'uploading' || uploadStatus === 'thumbnailing' ? ' is-uploading' : ''}${uploadStatus === 'ok' ? ' is-ok' : ''}`}>
                 <input
                   type="file"
                   accept=".glb,model/gltf-binary"
-                  disabled={uploadStatus === 'uploading'}
+                  disabled={uploadStatus === 'uploading' || uploadStatus === 'thumbnailing'}
                   onChange={(e) => {
                     const f = e.currentTarget.files?.[0];
                     if (f) void handleUpload(f);
@@ -327,9 +336,11 @@ export function BiomeSceneEditor(): JSX.Element {
                 />
                 {uploadStatus === 'uploading'
                   ? 'Uploading…'
-                  : uploadStatus === 'ok'
-                    ? 'Uploaded ✓'
-                    : '+ Upload .glb'}
+                  : uploadStatus === 'thumbnailing'
+                    ? 'Generating thumbnail…'
+                    : uploadStatus === 'ok'
+                      ? 'Uploaded ✓'
+                      : '+ Upload .glb'}
               </label>
               {uploadError !== null ? (
                 <span className="biome-arena-upload-error">Upload failed: {uploadError}</span>

@@ -324,6 +324,24 @@ export function uploadArena(file: File, overwrite: boolean): Promise<UploadArena
   });
 }
 
+export type UploadThumbnailResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly thumb: {
+    readonly url: string;
+    readonly mtime: number;
+  };
+};
+
+export function uploadArenaThumbnail(file: string, png: Blob): Promise<UploadThumbnailResponse> {
+  const fd = new FormData();
+  fd.append('file', png, `${file.replace(/\.glb$/, '')}.png`);
+  return apiFetch<UploadThumbnailResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}/thumbnail`,
+    { method: 'POST', body: fd },
+  );
+}
+
 export function deleteArena(file: string): Promise<{ readonly ok: true; readonly file: string }> {
   return apiFetch<{ readonly ok: true; readonly file: string }>(
     `/api/admin/arenas/${encodeURIComponent(file)}`,
