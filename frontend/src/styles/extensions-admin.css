@@ -972,21 +972,25 @@
   border: 1px solid var(--hairline);
   cursor: pointer;
   text-align: left;
+  position: relative;
   transition: border-color .15s, color .15s, background .15s;
 }
 .biome-arena-tile:hover { border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.biome-arena-tile:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
 .biome-arena-tile.is-active {
   border-color: var(--signal);
   color: var(--signal);
   background: color-mix(in oklab, var(--signal) 10%, var(--bg));
   box-shadow: 0 0 0 1px var(--signal) inset;
 }
+.biome-arena-tile.is-in-use { padding-bottom: 22px; }
 .biome-arena-tile-name {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: -.01em;
   word-break: break-all;
   line-height: 1.2;
+  padding-right: 18px;
 }
 .biome-arena-tile-meta {
   display: inline-flex;
@@ -997,6 +1001,111 @@
   text-transform: uppercase;
 }
 .biome-arena-tile.is-active .biome-arena-tile-meta { color: color-mix(in oklab, var(--signal) 65%, var(--muted)); }
+
+.biome-arena-tile-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 14px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, border-color .12s, color .12s, background .12s;
+}
+.biome-arena-tile:hover .biome-arena-tile-delete,
+.biome-arena-tile:focus-within .biome-arena-tile-delete { opacity: 1; }
+.biome-arena-tile-delete:hover:not(:disabled) {
+  color: #ff5252;
+  border-color: #ff5252;
+  background: color-mix(in oklab, #ff5252 12%, transparent);
+}
+.biome-arena-tile-delete:disabled { opacity: .3; cursor: not-allowed; }
+
+.biome-arena-tile-inuse {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  padding: 1px 5px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid color-mix(in oklab, var(--gold) 45%, var(--hairline));
+  background: color-mix(in oklab, var(--gold) 8%, transparent);
+  pointer-events: none;
+}
+.biome-arena-tile.is-active .biome-arena-tile-inuse {
+  color: var(--signal);
+  border-color: color-mix(in oklab, var(--signal) 45%, var(--hairline));
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+}
+
+.biome-arena-uploader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: var(--sp-2);
+  margin-bottom: 4px;
+}
+
+.biome-arena-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px dashed var(--hairline);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.biome-arena-upload-btn input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.biome-arena-upload-btn:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+  border-style: solid;
+  background: color-mix(in oklab, var(--signal) 8%, transparent);
+}
+.biome-arena-upload-btn.is-uploading {
+  color: var(--muted);
+  border-style: solid;
+  cursor: progress;
+}
+.biome-arena-upload-btn.is-ok {
+  color: var(--signal);
+  border-color: var(--signal);
+  border-style: solid;
+}
+
+.biome-arena-upload-error {
+  font-size: 10px;
+  color: #ff5252;
+  letter-spacing: .02em;
+  word-break: break-word;
+}
 
 .biome-editor-spawn-add {
   margin-bottom: var(--sp-2);

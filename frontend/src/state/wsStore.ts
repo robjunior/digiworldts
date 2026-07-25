@@ -34,6 +34,7 @@ type WsState = {
   readonly battleEvents: BattleEvent[];
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
+  readonly arenasUpdatedAt: number;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
@@ -53,6 +54,7 @@ const initialState = {
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
+  arenasUpdatedAt: 0,
 } satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -140,6 +142,10 @@ export const useWsStore = create<WsState>((set) => ({
       case 'biome-scenes-updated':
         invalidateBiomeScenesCache();
         invalidateArenaVersionsCache();
+        return;
+      case 'arenas-updated':
+        invalidateArenaVersionsCache();
+        set({ arenasUpdatedAt: msg.at });
         return;
       case 'error':
         return;

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
-import { apiFetch } from '../../lib/api';
-import { getArenas, type ArenaFileMeta } from '../../lib/api-admin';
+import { apiFetch, ApiError } from '../../lib/api';
+import { deleteArena, getArenas, uploadArena, type ArenaFileMeta } from '../../lib/api-admin';
 import { getBiomeScenes, invalidateArenaVersionsCache, replaceBiomeScenesCache } from '../../lib/scene-defaults';
 import type { SceneSettings } from '../../scene3d/scene';
+import { useWsStore } from '../../state/wsStore';
 import { ScenePreview } from './ScenePreview';
 
 const BIOME_LABEL: Record<Biome, string> = {
@@ -36,6 +37,8 @@ const BIOME_DEFAULT_FILE: Record<Biome, ArenaFile> = {
 };
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type UploadStatus = 'idle' | 'uploading' | 'ok' | 'error';
+type DeleteStatus = 'idle' | 'deleting';
 
 const FALLBACK_ARENAS: readonly ArenaFileMeta[] = ARENA_FILES.map((file) => ({ file, size: 0, mtime: 0 }));
 
@@ -90,6 +93,11 @@ export function BiomeSceneEditor(): JSX.Element {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [availableArenas, setAvailableArenas] = useState<readonly ArenaFileMeta[]>(FALLBACK_ARENAS);
   const [arenasRefreshing, setArenasRefreshing] = useState<boolean>(false);
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<DeleteStatus>('idle');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const arenasUpdatedAt = useWsStore((s) => s.arenasUpdatedAt);
 
   const refreshArenas = async (): Promise<void> => {
     setArenasRefreshing(true);
@@ -113,6 +121,66 @@ export function BiomeSceneEditor(): JSX.Element {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (arenasUpdatedAt === 0) return;
+    let cancelled = false;
+    void getArenas()
+      .then((res) => { if (!cancelled && res.arenas.length > 0) setAvailableArenas(res.arenas); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [arenasUpdatedAt]);
+
+  const inUseByFile = useMemo<Record<string, string[]>>(() => {
+    const out: Record<string, string[]> = {};
+    for (const [biome, cfg] of Object.entries(config)) {
+      const f = cfg?.file;
+      if (f === undefined) continue;
+      const arr = out[f] ?? [];
+      arr.push(biome);
+      out[f] = arr;
+    }
+    return out;
+  }, [config]);
+
+  const handleUpload = async (file: File): Promise<void> => {
+    setUploadStatus('uploading');
+    setUploadError(null);
+    const tryUpload = async (overwrite: boolean): Promise<void> => {
+      await uploadArena(file, overwrite);
+      setUploadStatus('ok');
+      window.setTimeout(() => setUploadStatus((s) => (s === 'ok' ? 'idle' : s)), 1500);
+    };
+    try {
+      await tryUpload(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const yes = window.confirm(`${file.name} already exists on the server. Overwrite it?`);
+        if (!yes) { setUploadStatus('idle'); return; }
+        try { await tryUpload(true); return; } catch (err2) {
+          setUploadStatus('error');
+          setUploadError(err2 instanceof Error ? err2.message : 'upload failed');
+          return;
+        }
+      }
+      setUploadStatus('error');
+      setUploadError(err instanceof Error ? err.message : 'upload failed');
+    }
+  };
+
+  const handleDelete = async (file: string): Promise<void> => {
+    if (!window.confirm(`Delete ${file}? This removes the file from disk permanently.`)) return;
+    setDeleteStatus('deleting');
+    setDeleteError(null);
+    try {
+      await deleteArena(file);
+      setAvailableArenas((prev) => prev.filter((a) => a.file !== file));
+      setDeleteStatus('idle');
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'delete failed');
+      setDeleteStatus('idle');
+    }
+  };
 
   const current: BiomeSceneConfig = useMemo(() => (
     config[selectedBiome] ?? { file: BIOME_DEFAULT_FILE[selectedBiome], settings: {} }
@@ -244,17 +312,52 @@ export function BiomeSceneEditor(): JSX.Element {
                 {arenasRefreshing ? 'Refreshing…' : 'Refresh'}
               </button>
             </legend>
+
+            <div className="biome-arena-uploader">
+              <label className={`biome-arena-upload-btn${uploadStatus === 'uploading' ? ' is-uploading' : ''}${uploadStatus === 'ok' ? ' is-ok' : ''}`}>
+                <input
+                  type="file"
+                  accept=".glb,model/gltf-binary"
+                  disabled={uploadStatus === 'uploading'}
+                  onChange={(e) => {
+                    const f = e.currentTarget.files?.[0];
+                    if (f) void handleUpload(f);
+                    e.currentTarget.value = '';
+                  }}
+                />
+                {uploadStatus === 'uploading'
+                  ? 'Uploading…'
+                  : uploadStatus === 'ok'
+                    ? 'Uploaded ✓'
+                    : '+ Upload .glb'}
+              </label>
+              {uploadError !== null ? (
+                <span className="biome-arena-upload-error">Upload failed: {uploadError}</span>
+              ) : null}
+              {deleteError !== null ? (
+                <span className="biome-arena-upload-error">Delete failed: {deleteError}</span>
+              ) : null}
+            </div>
+
             <div className="biome-arena-grid" role="listbox" aria-label="Arena file">
               {availableArenas.map(({ file, size, mtime }) => {
                 const isActive = file === current.file;
+                const usedBy = inUseByFile[file] ?? [];
+                const isInUse = usedBy.length > 0;
                 return (
-                  <button
+                  <div
                     key={file}
-                    type="button"
                     role="option"
                     aria-selected={isActive}
-                    className={`biome-arena-tile${isActive ? ' is-active' : ''}`}
+                    tabIndex={0}
+                    className={`biome-arena-tile${isActive ? ' is-active' : ''}${isInUse ? ' is-in-use' : ''}`}
                     onClick={() => updateFile(file as ArenaFile)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        updateFile(file as ArenaFile);
+                      }
+                    }}
                     title={file}
                   >
                     <span className="biome-arena-tile-name">{file}</span>
@@ -262,12 +365,28 @@ export function BiomeSceneEditor(): JSX.Element {
                       <span>{formatBytes(size)}</span>
                       <span>{formatRelative(mtime)}</span>
                     </span>
-                  </button>
+                    {isInUse ? (
+                      <span className="biome-arena-tile-inuse" title={`used by ${usedBy.join(', ')}`}>
+                        in use · {usedBy.length}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="biome-arena-tile-delete"
+                        onClick={(e) => { e.stopPropagation(); void handleDelete(file); }}
+                        disabled={deleteStatus === 'deleting'}
+                        aria-label={`Delete ${file}`}
+                        title={`Delete ${file}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
             <p className="biome-editor-hint">
-              The .glb rendered when combat happens in this biome. Drop new files into <code>frontend/public/assets/arenas/</code> then click <b>Refresh</b> — cache-busted by mtime, so a fresh preview loads without a hard refresh.
+              Upload directly or drop files into <code>frontend/public/assets/arenas/</code> then click <b>Refresh</b>. Tiles in use by a biome show an <b>in use</b> badge and can't be deleted — remove them from that biome first.
             </p>
           </fieldset>
 
