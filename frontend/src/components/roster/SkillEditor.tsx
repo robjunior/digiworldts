@@ -42,6 +42,7 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [elementFilter, setElementFilter] = useState<ElementFilter>('all');
   const [attributeFilter, setAttributeFilter] = useState<AttributeFilter>('all');
+  const [catalogStageFilter, setCatalogStageFilter] = useState<StageFilter>('all');
   const draggingKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -99,7 +100,6 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const anyFilterActive =
     activeStageFilter !== 'all' || activeElementFilter !== 'all' || activeAttributeFilter !== 'all';
 
-  const [catalogStageFilter, setCatalogStageFilter] = useState<StageFilter>('all');
   const catalogCountByStage = new Map<string, number>();
   for (const entry of data.catalogPool) {
     catalogCountByStage.set(entry.stage, (catalogCountByStage.get(entry.stage) ?? 0) + 1);
