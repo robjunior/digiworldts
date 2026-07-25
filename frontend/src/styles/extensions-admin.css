@@ -826,7 +826,7 @@
 
 .biome-editor-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px 1fr 380px;
   gap: var(--sp-4);
   align-items: flex-start;
 }
@@ -1044,6 +1044,48 @@
 @media (max-width: 960px) {
   .biome-editor-layout { grid-template-columns: 1fr; }
   .biome-editor-list { max-height: 200px; }
+  .biome-editor-preview-col { max-width: 100%; }
+}
+
+.biome-editor-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+  border: 1px solid var(--hairline);
+  position: sticky;
+  top: var(--sp-3);
+}
+
+.biome-editor-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.biome-editor-preview-head h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.biome-editor-preview-key {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--hairline) 30%, transparent);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.biome-editor-preview-col .scene-admin-preview {
+  aspect-ratio: 4 / 3;
+  min-height: 260px;
 }
 
 
