@@ -294,6 +294,10 @@ export function getCatalogSkills(): Promise<{ readonly skills: readonly CatalogS
   return apiFetch<{ readonly skills: readonly CatalogSkillMeta[] }>('/api/admin/skills-catalog');
 }
 
+export function getArenas(): Promise<{ readonly arenas: readonly string[] }> {
+  return apiFetch<{ readonly arenas: readonly string[] }>('/api/admin/arenas');
+}
+
 export type LootEntryView = {
   readonly id: string;
   readonly itemId: string;

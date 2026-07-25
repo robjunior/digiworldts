@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
@@ -14,6 +14,7 @@ const SCENE_DEFAULTS_PATH = resolve(config.paths.dataDir, 'scene-defaults.json')
 const BIOME_SCENES_PATH = resolve(config.paths.dataDir, 'biome-scenes.json');
 
 const ARENA_KEYS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light'] as const;
+const ARENA_FILENAME_RE = /^[a-zA-Z0-9_-]+\.glb$/;
 
 const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
@@ -59,7 +60,7 @@ const PerArenaSceneDefaultsZ = z.partialRecord(z.enum(ARENA_KEYS), ArenaSettings
 type PerArenaSceneDefaults = Partial<z.infer<typeof PerArenaSceneDefaultsZ>>;
 
 const BiomeSceneConfigZ = z.object({
-  file: z.enum(ARENA_FILES),
+  file: z.string().regex(ARENA_FILENAME_RE, 'file must be a safe .glb filename'),
   settings: ArenaSettingsZ,
 }).strict();
 
@@ -98,6 +99,16 @@ async function readBiomeScenes(): Promise<PerBiomeSceneDefaults> {
 async function writeBiomeScenes(next: PerBiomeSceneDefaults): Promise<void> {
   await mkdir(dirname(BIOME_SCENES_PATH), { recursive: true });
   await writeFile(BIOME_SCENES_PATH, JSON.stringify(next, null, 2), 'utf8');
+}
+
+async function listArenaFiles(): Promise<string[]> {
+  if (!existsSync(config.paths.arenasDir)) return [];
+  try {
+    const entries = await readdir(config.paths.arenasDir);
+    return entries.filter((name) => ARENA_FILENAME_RE.test(name)).sort();
+  } catch {
+    return [];
+  }
 }
 
 export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
@@ -165,11 +176,23 @@ export const gameSettingsPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({ biomes });
   });
 
+  app.get('/api/admin/arenas', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const arenas = await listArenaFiles();
+    return reply.send({ arenas });
+  });
+
   app.post('/api/admin/biome-scenes', async (req, reply) => {
     const admin = await requireAdmin(req, reply);
     const parsed = PerBiomeSceneDefaultsZ.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
+    }
+    const available = new Set(await listArenaFiles());
+    for (const [biome, cfg] of Object.entries(parsed.data)) {
+      if (cfg && !available.has(cfg.file)) {
+        return reply.code(400).send({ error: 'invalid-arena-file', message: `arena file '${cfg.file}' not found in ${config.paths.arenasDir}`, biome });
+      }
     }
     await writeBiomeScenes(parsed.data);
     const cluster = await getCluster();
