@@ -11,8 +11,6 @@ import '../styles/extensions-lobby.css';
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const LAST_MATCH_QUERY_KEY = ['last-match'] as const;
 
-const sprite = (sp: string) => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
-
 function normalizeOutcome(outcome: LastMatchSummary['outcome']): 'win' | 'loss' | 'draw' | 'fled' {
   switch (outcome) {
     case 'win_a':
@@ -128,7 +126,7 @@ export function Lobby(): JSX.Element {
 
                 return (
                   <div key={p.id} className="pcard" aria-label={`${nickname}, Level ${p.level}, HP ${hp} of ${hpMax}`}>
-                    <span className="sp"><img src={sprite(species)} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} /></span>
+                    <span className="sp"><img src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} /></span>
                     <div>
                       <div className="pn">{nickname}</div>
                       <div className="pl">Lv {p.level} · {species}</div>
