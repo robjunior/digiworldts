@@ -1,4 +1,3 @@
-import { AppNav, NavStat } from '../components/AppNav';
 import { useAuth } from '../hooks/useAuth';
 import { fmtRelative } from '../lib/format';
 import { useWsStore } from '../state/wsStore';
@@ -12,18 +11,12 @@ export function Home(): JSX.Element {
   if (user === null) {
     return (
       <div className="app-shell">
-        <AppNav />
       </div>
     );
   }
 
   return (
     <div className="app-shell">
-      <AppNav>
-        <NavStat tone="nature" label="Online" value={presenceCount} />
-        <NavStat tone="battle" label="Matches" value={welcome?.activeMatches ?? 0} />
-        <NavStat tone={queue.status === 'waiting' ? 'gold' : queue.status === 'matched' ? 'nature' : 'muted'} label="Queue" value={queue.status} />
-      </AppNav>
       <main className="app-main">
         <section className="card">
           <div className="card-inner stack">

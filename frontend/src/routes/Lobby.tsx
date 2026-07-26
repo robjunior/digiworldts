@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { AppNav } from '../components/AppNav';
 
 import { PageStrip } from '../components/common/PageStrip';
 import { BattleStrip } from '../components/lobby/BattleStrip';
@@ -36,7 +35,6 @@ export function Lobby(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav />
       <main className="app-main" data-od-id="lobby-main">
         <PageStrip
           name="Lobby"

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { AppNav } from '../components/AppNav';
 import { Combat3DBody } from '../components/combat3d/Combat3DBody';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
@@ -250,7 +249,6 @@ export function World(): JSX.Element {
 
   return (
     <div className="world-page" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
-      <AppNav />
       <div className="world-scene-wrap">
         <canvas ref={canvasRef} className="world-canvas" aria-label="World biome map" />
         <div className={facingRight ? 'world-player is-facing-right' : 'world-player'} aria-hidden="true">

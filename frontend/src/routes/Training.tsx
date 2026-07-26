@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { PageStrip } from '../components/common/PageStrip';
@@ -69,7 +68,6 @@ export function Training(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav />
       <main className="app-main">
         <PageStrip
           name="Training"

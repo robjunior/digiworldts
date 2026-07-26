@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { PageStrip } from '../components/common/PageStrip';
 import { getRoster } from '../lib/api';
 import {
@@ -91,11 +90,6 @@ export function Adventure(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav>
-        <NavStat tone="meat" label="Meat" value={farm.balances.Meat.toLocaleString()} />
-        <NavStat tone="bits" label="Bits" value={farm.balances.Bits.toLocaleString()} />
-        <NavStat tone="data" label="Data" value={farm.balances.Data.toLocaleString()} />
-      </AppNav>
       <main className="app-main adventure-main">
         <PageStrip
           name="Adventure"

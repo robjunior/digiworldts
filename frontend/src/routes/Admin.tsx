@@ -1,6 +1,5 @@
 import { useState } from 'react';
 
-import { AppNav } from '../components/AppNav';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { BiomeSceneEditor } from '../components/admin/BiomeSceneEditor';
@@ -39,7 +38,6 @@ export function Admin(): JSX.Element {
     return (
       <AdminGuard>
         <div className="app-shell combat3d-shell">
-          <AppNav />
           <main className="app-main combat3d-main">
             <SceneSettingsAdmin />
           </main>
@@ -51,7 +49,6 @@ export function Admin(): JSX.Element {
   return (
     <AdminGuard>
       <div className="app-shell admin-shell">
-        <AppNav />
         <main className="app-main admin-main">
           <PageStrip
             name="Admin"

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 
-import { AppNav } from '../components/AppNav';
 import { PageStrip } from '../components/common/PageStrip';
 import { DigdexDetailModal } from '../components/digdex/DigdexDetailModal';
 import { DigdexHive } from '../components/digdex/DigdexHive';
@@ -60,7 +59,6 @@ export function Digdex(): JSX.Element {
 
   return (
     <div className="app-shell digdex-shell">
-      <AppNav />
       <main className="app-main digdex-main">
         <PageStrip
           name="Digdex"

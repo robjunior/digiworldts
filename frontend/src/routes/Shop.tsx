@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { DigiCredits } from '../components/common/DigiCredits';
@@ -52,10 +51,6 @@ export function Shop(): JSX.Element {
 
   return (
     <div className="app-shell shop-shell">
-      <AppNav>
-        <NavStat tone="credits" label="Credits" value={credits.toLocaleString()} />
-        <NavStat tone="signal" label="Inventory" value={inventory.reduce((sum, i) => sum + i.qty, 0)} />
-      </AppNav>
       <main className="app-main">
         <PageStrip
           name="Shop"

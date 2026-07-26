@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { PageStrip } from '../components/common/PageStrip';
@@ -125,10 +124,6 @@ export function Roster(): JSX.Element {
 
   return (
     <div className="app-shell roster-shell">
-      <AppNav>
-        <NavStat tone="signal" label="Owned" value={roster.length} />
-        <NavStat tone="nature" label="Party" value={`${roster.filter((mon) => mon.status === 'party').length}/3`} />
-      </AppNav>
       <main className="app-main">
         <PageStrip
           name="Roster"

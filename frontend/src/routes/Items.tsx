@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { AppNav } from '../components/AppNav';
 import { PageStrip } from '../components/common/PageStrip';
 import { getItems } from '../lib/api-shop';
 
@@ -13,7 +12,6 @@ export function Items(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav />
       <main className="app-main">
         <PageStrip
           name="Items"
