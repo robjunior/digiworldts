@@ -1,0 +1,700 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Market</title>
+<style>
+/* =========================================================================
+   DIGIWORLD MARKET — desktop app. Persona 5 theme (shared with all screens):
+     Canvas #0a0a0c · Panel #141418 · Ink #f4f1ea · Muted #8a877f
+     Hairline #2a2a30 · Signal/Battle acid-red #e6001f
+   Radius 0 — angular cyberpunk notch on flat surfaces. Inter, tabular-nums.
+   Single desktop view: no vertical page scroll; filters dock left, listing
+   grid scrolls internally, detail docks right.
+   Data mirrors src/market/routes.ts — MarketListingView: nickname/level/xp/
+   mood/statBonus(6)/price(DigiCredits, min 10)/seller.displayName/isMine/
+   template(stage,element). Filters: stage/element/level/price/search/sort
+   (newest|price_asc|price_desc|level_desc). Buy (credits-gated, no self-buy),
+   Cancel own listing, List a resting mon.
+   ITEMS TAB is a user-directed extension — the backend market lists Digimon
+   only. Item listings reuse the same {price, seller} shape over real item ids
+    (itm-heal / revive / buff / chip / provision / xp-boost) with a qty field.
+   Element/item tints derived via color-mix off Signal/Ink/muted — no new hex.
+   ========================================================================= */
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  --credits:color-mix(in oklab,var(--signal) 70%,var(--ink));
+  /* element tints — acid-red family on ink; pale mixes lean to --ink not #fff
+     so full-strength card rails stay in-theme instead of washing to pastel */
+  --el-fire:var(--signal);
+  --el-water:color-mix(in oklab,var(--signal) 58%,var(--ink));
+  --el-plant:color-mix(in oklab,var(--signal) 44%,var(--muted));
+  --el-electricity:color-mix(in oklab,var(--signal) 74%,var(--ink));
+  --el-wind:color-mix(in oklab,var(--signal) 30%,var(--ink));
+  --el-ice:color-mix(in oklab,var(--signal) 40%,var(--ink));
+  --el-steel:color-mix(in oklab,var(--muted) 62%,var(--ink));
+  --el-dark:color-mix(in oklab,var(--signal) 55%,var(--bg));
+  --el-light:color-mix(in oklab,var(--ink) 70%,var(--signal));
+  --el-null:var(--muted);
+  /* item category tints — same discipline */
+  --it-heal:var(--signal);
+  --it-revive:color-mix(in oklab,var(--signal) 66%,var(--ink));
+  --it-buff:color-mix(in oklab,var(--signal) 44%,var(--muted));
+  --it-chip:color-mix(in oklab,var(--muted) 60%,var(--ink));
+  --it-ration:color-mix(in oklab,var(--signal) 40%,var(--ink));
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+input,select{font:inherit;color:inherit}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+
+/* ---- sidebar nav (shared) --------------------------------------------- */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* ---- main -------------------------------------------------------------- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+
+/* market top bar: tabs + credits */
+.mbar{flex:0 0 auto;display:flex;align-items:center;gap:0;padding:10px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.tabs{display:flex;gap:6px}
+.tab{display:flex;align-items:center;gap:8px;padding:9px 15px;clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);background:var(--bg);transition:.12s}
+.tab svg{width:15px;height:15px}
+.tab .cnt{font:700 9px/1 var(--font);color:var(--muted)}
+.tab:hover{color:var(--ink);border-color:var(--muted)}
+.tab.on{background:var(--signal);color:#fff;border-color:var(--signal)}
+.tab.on .cnt{color:color-mix(in oklab,#fff 80%,var(--signal))}
+.mbar .wallet{margin-left:auto;display:grid;grid-template-columns:30px auto;gap:10px;align-items:center}
+.mbar .wallet .ic{width:30px;height:30px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--credits)}
+.mbar .wallet .ic svg{width:17px;height:17px}
+.mbar .wallet .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mbar .wallet .v{font:800 18px/1 var(--font);margin-top:3px}
+.mbar .listbtn{margin-left:16px;padding:10px 15px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);display:flex;align-items:center;gap:7px;transition:.12s}
+.mbar .listbtn:hover{border-color:var(--signal);color:var(--signal)}
+.mbar .listbtn svg{width:13px;height:13px}
+
+/* ---- content: filters | grid ------------------------------------------ */
+.stage{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:212px 1fr;gap:0}
+@media (max-width:900px){.stage{grid-template-columns:1fr}.filters{display:none}}
+
+/* filters rail */
+.filters{border-right:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:16px 14px;gap:16px;scrollbar-width:thin}
+.filters::-webkit-scrollbar{width:8px}.filters::-webkit-scrollbar-thumb{background:var(--hair)}
+.fgroup .fl{font:700 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.search{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 10px}
+.search svg{width:14px;height:14px;color:var(--muted);flex:0 0 14px}
+.search input{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink);font:600 12px/1 var(--font)}
+.search input::placeholder{color:var(--muted)}
+.fsel{width:100%;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:9px 10px;color:var(--ink);font:700 11px/1 var(--font);letter-spacing:.02em;outline:none}
+.fsel:focus{border-color:var(--muted)}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.fnum{width:100%;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 9px;color:var(--ink);font:700 11px/1 var(--font);outline:none;-moz-appearance:textfield}
+.fnum::-webkit-outer-spin-button,.fnum::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.fnum::placeholder{color:var(--muted)}
+.clearchip{padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px;transition:.12s}
+.clearchip:hover{color:var(--ink);border-color:var(--muted)}
+.clearchip[hidden]{display:none}
+.clearchip svg{width:12px;height:12px}
+.mine-toggle{display:flex;align-items:center;justify-content:space-between;font:700 10px/1 var(--font);letter-spacing:.04em;color:var(--muted);cursor:pointer;padding:2px}
+.mine-toggle .sw{width:32px;height:18px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);position:relative;transition:.12s}
+.mine-toggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:var(--muted);transition:.12s}
+.mine-toggle.on{color:var(--ink)}
+.mine-toggle.on .sw{border-color:var(--signal)}
+.mine-toggle.on .sw::after{left:16px;background:var(--signal)}
+
+/* grid */
+.gridwrap{min-width:0;min-height:0;display:flex;flex-direction:column}
+.gridhead{flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:14px 24px 10px}
+.gridhead .gt{font:800 11px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.gridhead .gt b{color:var(--ink)}
+.gridhead .sort{margin-left:auto;display:flex;align-items:center;gap:8px}
+.gridhead .sort label{font:700 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.gridhead .sort select{background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:7px 9px;color:var(--ink);font:700 10px/1 var(--font);outline:none}
+.grid{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));grid-auto-rows:min-content;gap:14px;padding:4px 24px 26px;scrollbar-width:thin}
+.grid::-webkit-scrollbar{width:10px}.grid::-webkit-scrollbar-thumb{background:var(--hair)}
+
+/* listing card (shared shell) */
+.card{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);position:relative;display:flex;flex-direction:column;padding:14px;gap:11px}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:color-mix(in oklab,var(--ac,var(--signal)) 55%,var(--hair))}
+.card.mine::after{content:"YOURS";position:absolute;top:10px;right:12px;font:800 7px/1 var(--font);letter-spacing:.1em;color:var(--muted);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:3px 5px}
+.chead{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}
+.chead .art{width:52px;height:52px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.chead .art img{width:46px;height:46px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.chead .art svg{width:26px;height:26px}
+.chead .nm{font:800 14px/1.05 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:16ch}
+.chead .sub{font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:6px}
+.chead .sub .dot{width:7px;height:7px;background:var(--ac,var(--muted))}
+/* stat bonus grid (digimon) */
+.statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px 7px;text-align:center}
+.stat .sk{font:700 7px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.stat .sv{font:800 12px/1 var(--font);margin-top:4px}
+.stat .sv.pos{color:color-mix(in oklab,var(--signal) 62%,var(--ink))}
+/* item body */
+.idesc{font:600 11px/1.4 var(--font);color:var(--muted)}
+.iqty{display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:5px 8px;align-self:flex-start}
+.iqty .qd{width:6px;height:6px;background:var(--ac,var(--muted))}
+/* card foot: price + seller + action, pinned to bottom */
+.cfoot{margin-top:auto;display:flex;flex-direction:column;gap:9px;padding-top:2px}
+.priced{display:flex;align-items:center;justify-content:space-between}
+.priced .pw{display:flex;align-items:center;gap:6px;font:800 16px/1 var(--font)}
+.priced .pw svg{width:14px;height:14px;color:var(--credits)}
+.priced .seller{font:700 9px/1 var(--font);letter-spacing:.04em;color:var(--muted);text-align:right;max-width:12ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.priced .seller b{color:var(--ink);font-weight:800}
+.buybtn{width:100%;padding:11px;background:var(--signal);color:#fff;clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;transition:.12s}
+.buybtn:hover:not(:disabled){background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.buybtn:disabled{opacity:.4;cursor:not-allowed;background:var(--bg);border:1px solid var(--hair);color:var(--muted)}
+.cancelbtn{width:100%;padding:11px;background:var(--bg);border:1px solid var(--hair);color:var(--muted);clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;transition:.12s}
+.cancelbtn:hover{border-color:var(--battle);color:var(--battle)}
+.needhint{font:700 9px/1.3 var(--font);letter-spacing:.02em;color:var(--battle);text-align:center;min-height:11px}
+.gridempty{grid-column:1/-1;padding:60px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}
+.gridempty svg{width:36px;height:36px;color:var(--hair);margin-bottom:12px}
+
+/* ---- list drawer ------------------------------------------------------- */
+.drawer{position:fixed;inset:0;z-index:60;display:none}
+.drawer.open{display:block}
+.scrim{position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 66%,transparent)}
+.dpanel{position:absolute;right:0;top:0;bottom:0;width:420px;max-width:94vw;background:var(--panel);border-left:1px solid var(--hair);display:flex;flex-direction:column;box-shadow:-20px 0 50px color-mix(in oklab,var(--bg) 70%,transparent)}
+.dhead{padding:20px 22px 16px;border-bottom:1px solid var(--hair);display:flex;align-items:flex-start;gap:12px;position:relative}
+.dhead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+.dhead .dk{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--signal);margin-bottom:8px}
+.dhead h2{font:800 22px/1 var(--font);letter-spacing:-.01em}
+.dclose{margin-left:auto;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.dclose:hover{color:var(--ink);border-color:var(--muted)}
+.dbody{flex:1 1 auto;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin}
+.dbody::-webkit-scrollbar{width:8px}.dbody::-webkit-scrollbar-thumb{background:var(--hair)}
+.field .flabel{display:flex;justify-content:space-between;align-items:baseline;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.field .flabel b{color:var(--ink);font-size:12px;letter-spacing:0}
+.sellpick{display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;scrollbar-width:thin}
+.sellpick::-webkit-scrollbar{width:8px}.sellpick::-webkit-scrollbar-thumb{background:var(--hair)}
+.sp{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);text-align:left;transition:.12s}
+.sp:hover{border-color:var(--muted)}
+.sp.on{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.sp .sps{width:34px;height:34px;display:grid;place-items:center}
+.sp .sps img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.sp .spn{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sp .spsub{font:700 8px/1 var(--font);letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.priceinput{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 13px}
+.priceinput svg{width:16px;height:16px;color:var(--credits);flex:0 0 16px}
+.priceinput input{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink);font:800 16px/1 var(--font);font-variant-numeric:tabular-nums}
+.dfoot{flex:0 0 auto;border-top:1px solid var(--hair);padding:14px 22px;display:flex;align-items:center;gap:12px}
+.dfoot .dhint{flex:1;font-size:10.5px;color:var(--muted);line-height:1.4}
+.dfoot .dhint.warn{color:var(--battle)}
+.dfoot .btn{padding:11px 18px;clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;background:var(--signal);color:#fff;transition:.12s;white-space:nowrap}
+.dfoot .btn:hover:not(:disabled){background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.dfoot .btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---- toast ------------------------------------------------------------- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Market</div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <button class="navbtn" data-nav="factory" aria-label="Factory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory
+      </button>
+      <button class="navbtn" data-nav="adventure" aria-label="Adventure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure
+      </button>
+      <button class="navbtn" data-nav="nursery" aria-label="Nursery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery
+      </button>
+      <button class="navbtn" data-nav="training" aria-label="Training">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6.5 6.5l11 11"/><path d="M4 9l-1.5-1.5 2-2L6 7M15 18l1.5 1.5 2-2L17 15"/><path d="M9 4l2 2M18 13l2 2M4 15l2 2M13 6l2 2"/></svg>Training
+      </button>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <button class="navbtn" aria-current="page" data-nav="market" aria-label="The Market">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16l-1.2 4.5H5.2L4 7z"/><path d="M5.2 11.5V19h13.6v-7.5"/><path d="M4 7l1-3h14l1 3"/></svg>The Market
+      </button>
+      <button class="navbtn" data-nav="digidex" aria-label="DigiDex">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>DigiDex
+      </button>
+      <button class="navbtn" data-nav="roster" aria-label="Roster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster
+      </button>
+      <button class="navbtn" data-nav="world" aria-label="The World">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World
+      </button>
+      <button class="navbtn" data-nav="arena" aria-label="The Arena">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena
+      </button>
+
+      <div class="spring">
+        <div class="hud">
+          <div class="pill">Tamer Lv <b>22</b></div>
+          <div class="pill">Credits <b id="hud-credits">—</b></div>
+          <div class="pill">Your listings <b id="hud-mine">—</b></div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" data-od-id="market-main" tabindex="-1">
+      <div class="mbar" data-od-id="market-bar">
+        <div class="tabs" id="tabs">
+          <button class="tab on" data-tab="digimon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="9" r="4"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>
+            Digimon <span class="cnt" id="tab-digi-ct">—</span>
+          </button>
+          <button class="tab" data-tab="items">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></svg>
+            Items <span class="cnt" id="tab-item-ct">—</span>
+          </button>
+        </div>
+        <div class="wallet">
+          <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg></span>
+          <span><span class="k">DigiCredits</span><span class="v" id="wallet-v">—</span></span>
+        </div>
+        <button class="listbtn" id="list-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>List Digimon
+        </button>
+      </div>
+
+      <div class="stage">
+        <aside class="filters" data-od-id="market-filters">
+          <div class="fgroup">
+            <div class="fl">Search</div>
+            <label class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="q" placeholder="Name…" aria-label="Search listings" autocomplete="off">
+            </label>
+          </div>
+          <div class="fgroup" id="cat-group">
+            <div class="fl" id="cat-label">Stage</div>
+            <select class="fsel" id="f-cat"></select>
+          </div>
+          <div class="fgroup" id="el-group">
+            <div class="fl">Element</div>
+            <select class="fsel" id="f-el"></select>
+          </div>
+          <div class="fgroup" id="level-group">
+            <div class="fl">Level range</div>
+            <div class="frow">
+              <input class="fnum" id="f-minlvl" type="number" min="1" max="99" placeholder="Min" aria-label="Min level">
+              <input class="fnum" id="f-maxlvl" type="number" min="1" max="99" placeholder="Max" aria-label="Max level">
+            </div>
+          </div>
+          <div class="fgroup">
+            <div class="fl">Price range</div>
+            <div class="frow">
+              <input class="fnum" id="f-minprice" type="number" min="0" placeholder="Min" aria-label="Min price">
+              <input class="fnum" id="f-maxprice" type="number" min="0" placeholder="Max" aria-label="Max price">
+            </div>
+          </div>
+          <div class="fgroup">
+            <button class="mine-toggle" id="mine-toggle" role="switch" aria-checked="false">
+              <span>My listings only</span><span class="sw"></span>
+            </button>
+          </div>
+          <button class="clearchip" id="clear-btn" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>Clear filters
+          </button>
+        </aside>
+
+        <div class="gridwrap">
+          <div class="gridhead">
+            <span class="gt"><b id="shown-n">0</b> listing<span id="plural">s</span></span>
+            <div class="sort">
+              <label for="sort">Sort</label>
+              <select id="sort">
+                <option value="newest">Newest</option>
+                <option value="price_asc">Price ↑</option>
+                <option value="price_desc">Price ↓</option>
+                <option value="level_desc">Level ↓</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid" id="grid" data-od-id="market-grid"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- list drawer -->
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="scrim" id="scrim"></div>
+  <div class="dpanel">
+    <div class="dhead">
+      <div><div class="dk">Sell on the Market</div><h2 id="drawer-title">List a Digimon</h2></div>
+      <button class="dclose" id="drawer-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="dbody" id="drawer-body"></div>
+    <div class="dfoot">
+      <span class="dhint" id="drawer-hint"></span>
+      <button class="btn" id="sell-btn" disabled>List</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============ data mirrors src/market/routes.ts (Digimon) + user-directed
+   items extension over real item ids ==================================== */
+const ELEMENTS=['fire','water','plant','electricity','wind','ice','steel','dark','light','null'];
+const STAGES=['Rookie','Champion','Ultimate','Mega'];
+const CREDITS_ICON='<circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/>';
+const MIN_PRICE=10;
+
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+const $=(s,r=document)=>r.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+
+/* item catalog — real item ids, grouped by category, with monoline icons */
+const ITEM_DEFS={
+  'itm-heal-small':{name:'Small Heal Kit',cat:'heal',desc:'Restores a chunk of HP to one ally.',icon:'<path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/><path d="M12 8v6M9 11h6"/>'},
+  'itm-heal-large':{name:'Large Heal Kit',cat:'heal',desc:'Big single-target HP restore.',icon:'<path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/><path d="M12 7v8M8 11h8"/>'},
+  'itm-status-cure':{name:'Status Cure',cat:'heal',desc:'Clears one ailment.',icon:'<circle cx="12" cy="12" r="8"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>'},
+  'itm-energy-drink':{name:'Energy Drink',cat:'heal',desc:'Restores EN mid-battle.',icon:'<path d="M8 3h8l-1 5H9L8 3z"/><path d="M9 8h6v11a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2V8z"/>'},
+  'itm-digi-revive':{name:'Digi-Revive',cat:'revive',desc:'Revives a KO\u2019d Digimon to full.',icon:'<path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v6l4-2"/>'},
+  'itm-atk-buff':{name:'Power Chip',cat:'buff',desc:'Permanent +ATK combat mod.',icon:'<path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/>'},
+  'itm-def-buff':{name:'Guard Chip',cat:'buff',desc:'Permanent +DEF combat mod.',icon:'<path d="M12 3l7 3v6c0 4-3 6.5-7 9-4-2.5-7-5-7-9V6z"/>'},
+  'itm-xp-boost':{name:'XP Boost',cat:'buff',desc:'Doubles XP gain for a session.',icon:'<path d="M4 18l6-8 4 4 6-8"/><path d="M16 6h4v4"/>'},
+  'itm-digi-chip-champion':{name:'Champion Chip',cat:'chip',desc:'Evolution catalyst — Champion tier.',icon:'<rect x="6" y="6" width="12" height="12"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>'},
+  'itm-digi-chip-ultimate':{name:'Ultimate Chip',cat:'chip',desc:'Evolution catalyst — Ultimate tier.',icon:'<rect x="6" y="6" width="12" height="12"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/><circle cx="12" cy="12" r="2.5"/>'},
+  'itm-digi-chip-mega':{name:'Mega Chip',cat:'chip',desc:'Evolution catalyst — Mega tier.',icon:'<rect x="6" y="6" width="12" height="12"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/><path d="M10 10l4 4M14 10l-4 4"/>'},
+  'itm-provision':{name:'Provision',cat:'ration',desc:'Expedition ration for adventures.',icon:'<path d="M5 8h14v11H5z"/><path d="M5 8l2-4h10l2 4"/><path d="M9 12h6"/>'},
+};
+const ITEM_CATS={heal:'Healing',revive:'Revive',buff:'Combat mod',chip:'Evolution chip',ration:'Ration'};
+
+/* ---- mock state -------------------------------------------------------- */
+const ME='You';
+const state={
+  credits:4820,
+  tab:'digimon',
+  filters:{ q:'', cat:'', el:'', minLvl:'', maxLvl:'', minPrice:'', maxPrice:'', mine:false, sort:'newest' },
+  // Digimon listings (MarketListingView shape)
+  digimon:[
+    { listingId:'mkt-1', species:'Greymon',      nickname:'Blaze',   level:31, stage:'Champion', el:'fire',        mood:74, bonus:{hp:120,en:40,atk:88,def:52,int:20,spd:44}, price:9800,  seller:'Kaito',  mine:false, listedAt:9 },
+    { listingId:'mkt-2', species:'Garurumon',    nickname:'Frost',   level:29, stage:'Champion', el:'ice',         mood:66, bonus:{hp:96,en:60,atk:64,def:70,int:30,spd:80},  price:8400,  seller:'Mei',    mine:false, listedAt:8 },
+    { listingId:'mkt-3', species:'Angewomon',    nickname:'Seraph',  level:44, stage:'Ultimate', el:'light',       mood:88, bonus:{hp:150,en:120,atk:70,def:64,int:130,spd:60}, price:24500, seller:'Rin',    mine:false, listedAt:7 },
+    { listingId:'mkt-4', species:'Tentomon',     nickname:'Spark',   level:14, stage:'Rookie',   el:'electricity', mood:52, bonus:{hp:24,en:18,atk:12,def:16,int:22,spd:14},  price:1200,  seller:'You',    mine:true,  listedAt:6 },
+    { listingId:'mkt-5', species:'MetalGreymon', nickname:'Titan',   level:48, stage:'Ultimate', el:'steel',       mood:70, bonus:{hp:200,en:80,atk:140,def:110,int:40,spd:52}, price:31000, seller:'Kaito',  mine:false, listedAt:5 },
+    { listingId:'mkt-6', species:'Palmon',       nickname:'Thorn',   level:12, stage:'Rookie',   el:'plant',       mood:60, bonus:{hp:20,en:14,atk:10,def:12,int:18,spd:10},  price:900,   seller:'Sora',   mine:false, listedAt:4 },
+    { listingId:'mkt-7', species:'WarGreymon',   nickname:'Apex',    level:60, stage:'Mega',      el:'fire',        mood:92, bonus:{hp:300,en:150,atk:220,def:160,int:90,spd:120}, price:98000, seller:'Rin',    mine:false, listedAt:3 },
+    { listingId:'mkt-8', species:'Gomamon',      nickname:'Tusk',    level:18, stage:'Rookie',   el:'water',       mood:44, bonus:{hp:40,en:22,atk:20,def:30,int:16,spd:22},  price:1600,  seller:'Mei',    mine:false, listedAt:2 },
+  ],
+  // Item listings (user-directed extension) — {itemId, qty, price, seller}
+  items:[
+    { listingId:'itl-1', itemId:'itm-heal-small',   qty:12, price:80,   seller:'Sora',  mine:false, listedAt:9 },
+    { listingId:'itl-2', itemId:'itm-digi-revive',  qty:3,  price:1400, seller:'Kaito', mine:false, listedAt:8 },
+    { listingId:'itl-3', itemId:'itm-atk-buff',     qty:5,  price:650,  seller:'You',   mine:true,  listedAt:7 },
+    { listingId:'itl-4', itemId:'itm-xp-boost',     qty:2,  price:920,  seller:'Rin',   mine:false, listedAt:6 },
+    { listingId:'itl-5', itemId:'itm-digi-chip-mega', qty:1, price:12500, seller:'Mei', mine:false, listedAt:5 },
+    { listingId:'itl-6', itemId:'itm-provision',    qty:40, price:180,  seller:'Sora',  mine:false, listedAt:4 },
+    { listingId:'itl-7', itemId:'itm-status-cure',  qty:8,  price:120,  seller:'Kaito', mine:false, listedAt:3 },
+    { listingId:'itl-8', itemId:'itm-digi-chip-champion', qty:2, price:3200, seller:'Rin', mine:false, listedAt:2 },
+  ],
+  // your resting mons available to list
+  sellableMons:[
+    { monId:'r1', species:'Biyomon', nickname:'Ember', level:18, stage:'Rookie', el:'fire' },
+    { monId:'r2', species:'Elecmon', nickname:'Volt',  level:19, stage:'Rookie', el:'electricity' },
+    { monId:'r3', species:'Gabumon', nickname:'Chill', level:22, stage:'Champion', el:'ice' },
+  ],
+};
+
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ---- filtering --------------------------------------------------------- */
+function activeList(){ return state.tab==='digimon'?state.digimon:state.items; }
+function itemName(id){ return ITEM_DEFS[id]?.name||id; }
+function passes(x){
+  const f=state.filters;
+  if(f.mine && !x.mine) return false;
+  if(f.q){
+    const name=state.tab==='digimon'?x.nickname:itemName(x.itemId);
+    if(!name.toLowerCase().includes(f.q.toLowerCase())) return false;
+  }
+  if(state.tab==='digimon'){
+    if(f.cat && x.stage!==f.cat) return false;
+    if(f.el && x.el!==f.el) return false;
+    if(f.minLvl && x.level<+f.minLvl) return false;
+    if(f.maxLvl && x.level>+f.maxLvl) return false;
+  } else {
+    if(f.cat && ITEM_DEFS[x.itemId]?.cat!==f.cat) return false;
+  }
+  if(f.minPrice && x.price<+f.minPrice) return false;
+  if(f.maxPrice && x.price>+f.maxPrice) return false;
+  return true;
+}
+function sortList(list){
+  const s=state.filters.sort;
+  const a=list.slice();
+  if(s==='price_asc') a.sort((x,y)=>x.price-y.price);
+  else if(s==='price_desc') a.sort((x,y)=>y.price-x.price);
+  else if(s==='level_desc') a.sort((x,y)=>(y.level||0)-(x.level||0));
+  else a.sort((x,y)=>y.listedAt-x.listedAt);
+  return a;
+}
+function filtersActive(){
+  const f=state.filters;
+  return !!(f.q||f.cat||f.el||f.minLvl||f.maxLvl||f.minPrice||f.maxPrice||f.mine);
+}
+
+/* ---- cards ------------------------------------------------------------- */
+function digimonCard(x){
+  const affordable=state.credits>=x.price;
+  const b=x.bonus;
+  const cells=[['HP',b.hp],['EN',b.en],['ATK',b.atk],['DEF',b.def],['INT',b.int],['SPD',b.spd]]
+    .map(([k,v])=>`<div class="stat"><div class="sk">${k}</div><div class="sv ${v>0?'pos':''}">+${v}</div></div>`).join('');
+  const action = x.mine
+    ? `<button class="cancelbtn" data-cancel="${x.listingId}">Cancel listing</button>`
+    : `<button class="buybtn" data-buy="${x.listingId}" ${affordable?'':'disabled'}>Buy${affordable?'':' — need more'}</button>
+       <div class="needhint">${affordable?'':`Need ${fmt(x.price-state.credits)} more DigiCredits`}</div>`;
+  return `<article class="card ${x.mine?'mine':''}" style="--ac:var(--el-${x.el})" data-listing="${x.listingId}" aria-label="${x.nickname}, Level ${x.level} ${x.stage}, ${fmt(x.price)} DigiCredits">
+    <div class="chead">
+      <span class="art"><img src="${sprite(x.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+      <div><div class="nm">${x.nickname}</div><div class="sub"><span class="dot"></span>${x.el} · Lv ${x.level} · ${x.stage}</div></div>
+    </div>
+    <div class="statgrid">${cells}</div>
+    <div class="cfoot">
+      <div class="priced">
+        <span class="pw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${CREDITS_ICON}</svg>${fmt(x.price)}</span>
+        <span class="seller">by <b>${x.seller}</b></span>
+      </div>
+      ${action}
+    </div>
+  </article>`;
+}
+function itemCard(x){
+  const def=ITEM_DEFS[x.itemId]||{name:x.itemId,cat:'ration',desc:'',icon:''};
+  const affordable=state.credits>=x.price;
+  const action = x.mine
+    ? `<button class="cancelbtn" data-cancel="${x.listingId}">Cancel listing</button>`
+    : `<button class="buybtn" data-buy="${x.listingId}" ${affordable?'':'disabled'}>Buy${affordable?'':' — need more'}</button>
+       <div class="needhint">${affordable?'':`Need ${fmt(x.price-state.credits)} more DigiCredits`}</div>`;
+  return `<article class="card ${x.mine?'mine':''}" style="--ac:var(--it-${def.cat})" data-listing="${x.listingId}" aria-label="${def.name}, ${x.qty} in stock, ${fmt(x.price)} DigiCredits">
+    <div class="chead">
+      <span class="art"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">${def.icon}</svg></span>
+      <div><div class="nm">${def.name}</div><div class="sub"><span class="dot"></span>${ITEM_CATS[def.cat]||def.cat}</div></div>
+    </div>
+    <div class="idesc">${def.desc}</div>
+    <span class="iqty"><span class="qd"></span>${x.qty} in stock</span>
+    <div class="cfoot">
+      <div class="priced">
+        <span class="pw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${CREDITS_ICON}</svg>${fmt(x.price)}</span>
+        <span class="seller">by <b>${x.seller}</b></span>
+      </div>
+      ${action}
+    </div>
+  </article>`;
+}
+function renderGrid(){
+  const list=sortList(activeList().filter(passes));
+  const grid=$('#grid');
+  $('#shown-n').textContent=list.length;
+  $('#plural').textContent=list.length===1?'':'s';
+  if(!list.length){
+    grid.innerHTML=`<div class="gridempty">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h16l-1.2 4.5H5.2L4 7z"/><path d="M5.2 11.5V19h13.6v-7.5"/></svg>
+      <div>No ${state.tab==='digimon'?'Digimon':'items'} match these filters.<br>${filtersActive()?'Try clearing a filter above.':'Check back soon — the market refreshes constantly.'}</div>
+    </div>`;
+    return;
+  }
+  grid.innerHTML=list.map(state.tab==='digimon'?digimonCard:itemCard).join('');
+}
+
+/* ---- filter UI --------------------------------------------------------- */
+function renderCatFilter(){
+  const sel=$('#f-cat'), label=$('#cat-label');
+  const src=activeList();
+  if(state.tab==='digimon'){
+    label.textContent='Stage';
+    const opts=[['','All stages']].concat(STAGES.map(s=>[s,s]));
+    sel.innerHTML=opts.map(([v,l])=>{const ct=v?src.filter(x=>x.stage===v).length:src.length;return `<option value="${v}">${l} (${ct})</option>`;}).join('');
+    $('#el-group').style.display='';
+    $('#level-group').style.display='';
+    const es=$('#f-el');
+    const eopts=[['','All elements']].concat(ELEMENTS.map(e=>[e,e]));
+    es.innerHTML=eopts.map(([v,l])=>{const ct=v?src.filter(x=>x.el===v).length:src.length;return `<option value="${v}">${l}${v?` (${ct})`:''}</option>`;}).join('');
+  } else {
+    label.textContent='Category';
+    const cats=Object.keys(ITEM_CATS);
+    const opts=[['','All items']].concat(cats.map(c=>[c,ITEM_CATS[c]]));
+    sel.innerHTML=opts.map(([v,l])=>{const ct=v?src.filter(x=>ITEM_DEFS[x.itemId]?.cat===v).length:src.length;return `<option value="${v}">${l} (${ct})</option>`;}).join('');
+    $('#el-group').style.display='none';
+    $('#level-group').style.display='none';
+  }
+  sel.value=state.filters.cat;
+}
+function syncClear(){ $('#clear-btn').hidden=!filtersActive(); }
+function clearFilters(){
+  state.filters={...state.filters,q:'',cat:'',el:'',minLvl:'',maxLvl:'',minPrice:'',maxPrice:'',mine:false};
+  $('#q').value='';$('#f-el').value='';$('#f-minlvl').value='';$('#f-maxlvl').value='';$('#f-minprice').value='';$('#f-maxprice').value='';
+  $('#mine-toggle').classList.remove('on');$('#mine-toggle').setAttribute('aria-checked','false');
+  renderCatFilter(); syncClear(); renderGrid();
+}
+
+/* ---- stats / hud ------------------------------------------------------- */
+function paint(){
+  $('#wallet-v').textContent=fmt(state.credits);
+  $('#hud-credits').textContent=fmt(state.credits);
+  $('#tab-digi-ct').textContent=state.digimon.length;
+  $('#tab-item-ct').textContent=state.items.length;
+  const mine=state.digimon.filter(x=>x.mine).length+state.items.filter(x=>x.mine).length;
+  $('#hud-mine').textContent=mine;
+  $('#list-btn').innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>List ${state.tab==='digimon'?'Digimon':'item'}`;
+}
+
+/* ---- actions ----------------------------------------------------------- */
+function buyListing(id){
+  const list=activeList(); const x=list.find(l=>l.listingId===id);
+  if(!x||x.mine) return;
+  if(state.credits<x.price){ toast('Not enough DigiCredits'); return; }
+  state.credits-=x.price;
+  const idx=list.indexOf(x); list.splice(idx,1);
+  const label=state.tab==='digimon'?x.nickname:itemName(x.itemId);
+  paint(); renderCatFilter(); renderGrid();
+  toast(`Bought ${label} for ${fmt(x.price)} DigiCredits`);
+}
+function cancelListing(id){
+  const list=activeList(); const x=list.find(l=>l.listingId===id);
+  if(!x||!x.mine) return;
+  const idx=list.indexOf(x); list.splice(idx,1);
+  const label=state.tab==='digimon'?x.nickname:itemName(x.itemId);
+  paint(); renderCatFilter(); renderGrid();
+  toast(`Delisted ${label} — returned to your inventory`);
+}
+
+/* ---- list drawer ------------------------------------------------------- */
+let draft=null; // {monId, price}
+function openDrawer(){
+  draft={ monId:state.sellableMons[0]?.monId||null, price:'' };
+  renderDrawerBody(); $('#drawer').classList.add('open'); $('#drawer-close').focus();
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); draft=null; }
+function renderDrawerBody(){
+  const body=$('#drawer-body');
+  if(!state.sellableMons.length){
+    body.innerHTML=`<div class="gridempty" style="padding:30px 10px">No resting Digimon to list. Party members and training mons can't be sold.</div>`;
+    updateSellBtn(); return;
+  }
+  const picks=state.sellableMons.map(m=>`<button class="sp ${draft.monId===m.monId?'on':''}" data-pickmon="${m.monId}">
+      <span class="sps"><img src="${sprite(m.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+      <div><div class="spn">${m.nickname}</div><div class="spsub">${m.species} · Lv ${m.level} · ${m.stage}</div></div>
+    </button>`).join('');
+  body.innerHTML=`
+    <div class="field">
+      <div class="flabel"><span>Choose a Digimon</span><b>${state.sellableMons.length} resting</b></div>
+      <div class="sellpick">${picks}</div>
+    </div>
+    <div class="field">
+      <div class="flabel"><span>Asking price</span><b>min ${MIN_PRICE}</b></div>
+      <label class="priceinput">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${CREDITS_ICON}</svg>
+        <input type="number" id="price-in" min="${MIN_PRICE}" placeholder="0" value="${draft.price}" inputmode="numeric" aria-label="Asking price in DigiCredits">
+      </label>
+    </div>`;
+  updateSellBtn();
+}
+function updateSellBtn(){
+  const btn=$('#sell-btn'), hint=$('#drawer-hint');
+  if(!draft||!draft.monId){ btn.disabled=true; hint.textContent='No resting Digimon available to sell.'; hint.className='dhint warn'; return; }
+  const p=+draft.price;
+  const ok=Number.isFinite(p)&&p>=MIN_PRICE;
+  btn.disabled=!ok;
+  if(!draft.price){ hint.textContent=`Set a price of at least ${MIN_PRICE} DigiCredits.`; hint.className='dhint'; }
+  else if(!ok){ hint.textContent=`Minimum price is ${MIN_PRICE} DigiCredits.`; hint.className='dhint warn'; }
+  else { const m=state.sellableMons.find(x=>x.monId===draft.monId); hint.textContent=`List ${m?.nickname} for ${fmt(p)} DigiCredits.`; hint.className='dhint'; }
+}
+function submitListing(){
+  if(!draft||!draft.monId) return;
+  const p=+draft.price;
+  if(!Number.isFinite(p)||p<MIN_PRICE){ toast(`Minimum price is ${MIN_PRICE}`); return; }
+  const m=state.sellableMons.find(x=>x.monId===draft.monId); if(!m) return;
+  state.digimon.unshift({
+    listingId:'mkt-'+Date.now(), species:m.species, nickname:m.nickname, level:m.level, stage:m.stage, el:m.el,
+    mood:60, bonus:{hp:0,en:0,atk:0,def:0,int:0,spd:0}, price:p, seller:ME, mine:true, listedAt:Date.now()/1000,
+  });
+  state.sellableMons=state.sellableMons.filter(x=>x.monId!==draft.monId);
+  const nm=m.nickname;
+  closeDrawer();
+  state.tab='digimon';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.tab==='digimon'));
+  renderCatFilter(); paint(); renderGrid();
+  toast(`${nm} listed for ${fmt(p)} DigiCredits`);
+}
+
+/* ---- events ------------------------------------------------------------ */
+$('#tabs').addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab]'); if(!t) return;
+  state.tab=t.dataset.tab;
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  state.filters.cat=''; state.filters.el=''; state.filters.minLvl=''; state.filters.maxLvl='';
+  renderCatFilter(); syncClear(); paint(); renderGrid();
+});
+$('#q').addEventListener('input',e=>{state.filters.q=e.target.value.trim();syncClear();renderGrid();});
+$('#f-cat').addEventListener('change',e=>{state.filters.cat=e.target.value;syncClear();renderGrid();});
+$('#f-el').addEventListener('change',e=>{state.filters.el=e.target.value;syncClear();renderGrid();});
+['f-minlvl','f-maxlvl','f-minprice','f-maxprice'].forEach(id=>{
+  $('#'+id).addEventListener('input',e=>{
+    const key={'f-minlvl':'minLvl','f-maxlvl':'maxLvl','f-minprice':'minPrice','f-maxprice':'maxPrice'}[id];
+    state.filters[key]=e.target.value;syncClear();renderGrid();
+  });
+});
+$('#mine-toggle').addEventListener('click',()=>{
+  state.filters.mine=!state.filters.mine;
+  const t=$('#mine-toggle');t.classList.toggle('on',state.filters.mine);t.setAttribute('aria-checked',String(state.filters.mine));
+  syncClear();renderGrid();
+});
+$('#sort').addEventListener('change',e=>{state.filters.sort=e.target.value;renderGrid();});
+$('#clear-btn').addEventListener('click',clearFilters);
+$('#grid').addEventListener('click',e=>{
+  const b=e.target.closest('[data-buy]'); if(b){ buyListing(b.dataset.buy); return; }
+  const c=e.target.closest('[data-cancel]'); if(c){ cancelListing(c.dataset.cancel); return; }
+});
+$('#list-btn').addEventListener('click',openDrawer);
+$('#drawer').addEventListener('click',e=>{
+  if(e.target.closest('#drawer-close')||e.target.id==='scrim'){ closeDrawer(); return; }
+  const pm=e.target.closest('[data-pickmon]'); if(pm){ draft.monId=pm.dataset.pickmon; renderDrawerBody(); return; }
+});
+$('#drawer-body').addEventListener('input',e=>{ if(e.target.id==='price-in'){ draft.price=e.target.value; updateSellBtn(); } });
+$('#sell-btn').addEventListener('click',submitListing);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#drawer').classList.contains('open')) closeDrawer(); });
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.navbtn').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');
+}));
+
+renderCatFilter(); syncClear(); paint(); renderGrid();
+</script>
+</body>
+</html>
