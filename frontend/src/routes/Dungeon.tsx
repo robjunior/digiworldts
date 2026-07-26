@@ -7,8 +7,10 @@ import {
   defeatEncounter,
   getDungeon,
   moveInDungeon,
+  startEncounter,
 } from '../lib/api-dungeon';
 import type { DungeonEncounter, DungeonItem, DungeonTile } from '@digiworld/shared';
+import { useWsStore } from '../state/wsStore';
 
 import '../styles/extensions-dungeon.css';
 
@@ -22,6 +24,7 @@ export function Dungeon(): JSX.Element {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const handleServerMessage = useWsStore((state) => state.handleServerMessage);
 
   useEffect(() => {
     if (!id) {
@@ -97,6 +100,22 @@ export function Dungeon(): JSX.Element {
       setActiveEncounterId(null);
       pushLog(`Encounter defeated!`, 'hit');
       flashToast('Enemies defeated.');
+    },
+  });
+
+  const startEncounterMutation = useMutation({
+    mutationFn: async (encId: string) => {
+      if (!id) throw new Error('No dungeon id');
+      return startEncounter(id, encId);
+    },
+    onSuccess: ({ battle }, encId) => {
+      if (!id) return;
+      handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
+      sessionStorage.setItem('dungeon-return', JSON.stringify({ dungeonId: id, encounterId: encId }));
+      navigate('/combat');
+    },
+    onError: (err: Error) => {
+      flashToast(err.message || 'Could not start battle.');
     },
   });
 
@@ -246,11 +265,22 @@ export function Dungeon(): JSX.Element {
               <button
                 type="button"
                 className="ebtn"
-                onClick={() => defeatMutation.mutate(activeEncounter.id)}
-                disabled={defeatMutation.isPending}
+                onClick={() => startEncounterMutation.mutate(activeEncounter.id)}
+                disabled={startEncounterMutation.isPending}
               >
-                {defeatMutation.isPending ? 'Fighting...' : 'Fight (Simulate)'}
+                {startEncounterMutation.isPending ? 'Entering...' : 'Enter Battle'}
               </button>
+              {import.meta.env.DEV ? (
+                <button
+                  type="button"
+                  className="ebtn"
+                  style={{ marginTop: 8, opacity: 0.7 }}
+                  onClick={() => defeatMutation.mutate(activeEncounter.id)}
+                  disabled={defeatMutation.isPending}
+                >
+                  {defeatMutation.isPending ? 'Advancing...' : 'Debug: mark defeated'}
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
