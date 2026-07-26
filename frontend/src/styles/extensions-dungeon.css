@@ -261,16 +261,17 @@
 
 /* Grid view replacement for canvas */
 .dungeon-page .view .dgrid {
-  position: absolute; inset: 0;
+  position: absolute; inset: 40px;
+  margin: auto;
   display: grid;
-  padding: 40px;
+  grid-template-columns: repeat(var(--dw, 1), 1fr);
+  grid-template-rows: repeat(var(--dh, 1), 1fr);
+  aspect-ratio: var(--dw, 1) / var(--dh, 1);
+  max-width: 100%;
+  max-height: 100%;
   box-sizing: border-box;
-  align-content: center;
-  justify-content: center;
-  grid-auto-rows: 1fr;
 }
 .dungeon-page .view .dcell {
-  aspect-ratio: 1;
   background: color-mix(in oklab, var(--el) 5%, transparent);
   border: 1px solid color-mix(in oklab, var(--el) 10%, transparent);
   position: relative;
