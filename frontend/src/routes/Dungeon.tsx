@@ -177,6 +177,7 @@ export function Dungeon(): JSX.Element {
     for (let x = 0; x < dungeon.width; x++) {
       const isWalkable = tilesSet.has(`${x},${y}`);
       const isPlayer = run.currentX === x && run.currentY === y;
+      const isAdjacent = !isPlayer && isWalkable && (Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1);
       
       const encounterAt = encounters.find((e) => e.x === x && e.y === y);
       const isUndefeatedEncounter = encounterAt && !run.defeatedEncounters.includes(encounterAt.id);
@@ -186,9 +187,13 @@ export function Dungeon(): JSX.Element {
 
       let cellClass = 'dcell';
       if (!isWalkable) cellClass += ' wall';
-      else if (isPlayer) cellClass += ' player';
-      else if (isUndefeatedEncounter) cellClass += ' enc';
-      else if (isUncollectedItem) cellClass += ' item';
+      else {
+        cellClass += ' walk';
+        if (isPlayer) cellClass += ' player';
+        else if (isUndefeatedEncounter) cellClass += ' enc';
+        else if (isUncollectedItem) cellClass += ' item';
+        if (isAdjacent) cellClass += ' adj';
+      }
 
       gridCells.push(
         <div
