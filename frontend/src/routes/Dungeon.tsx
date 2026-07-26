@@ -232,9 +232,11 @@ export function Dungeon(): JSX.Element {
 
         <div className="view">
           <div className="dgrid" style={{ 
+            '--dw': dungeon.width,
+            '--dh': dungeon.height,
             gridTemplateColumns: `repeat(${dungeon.width}, 1fr)`,
-            gridTemplateRows: `repeat(${dungeon.height}, 1fr)` 
-          }}>
+            gridTemplateRows: `repeat(${dungeon.height}, 1fr)`,
+          } as CSSProperties}>
             {gridCells}
           </div>
         </div>
