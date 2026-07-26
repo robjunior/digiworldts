@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
 import {
   buyFactory,
@@ -16,7 +15,7 @@ import {
   type PlayerFactoryView,
   type RecipeView,
 } from '../lib/api-farm';
-import '../styles/extensions-farm.css';
+import '../styles/extensions-factory.css';
 
 const FARM_QUERY_KEY = ['farm'] as const;
 const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;
@@ -31,6 +30,9 @@ export function Factory(): JSX.Element {
   const [now, setNow] = useState<number>(() => Date.now());
   const [selectedFactoryId, setSelectedFactoryId] = useState<string | null>(null);
   const [countByRecipe, setCountByRecipe] = useState<Record<string, number>>({});
+  
+  // New state for Drawer
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const farmQuery = useQuery({ queryKey: FARM_QUERY_KEY, queryFn: getFarm });
   const pageQuery = useQuery({ queryKey: RECIPES_QUERY_KEY, queryFn: getFarmRecipes, refetchInterval: 15_000 });
@@ -64,6 +66,23 @@ export function Factory(): JSX.Element {
     const id = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(id);
   }, []);
+  
+  // Clear notice after delay for toast animation
+  useEffect(() => {
+    if (!notice) return;
+    const t = window.setTimeout(() => setNotice(''), 1900);
+    return () => window.clearTimeout(t);
+  }, [notice]);
+
+  // Handle Escape key for drawer
+  useEffect(() => {
+    if (!isDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsDrawerOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isDrawerOpen]);
 
   const buyMutation = useMutation({
     mutationFn: buyFactory,
@@ -114,343 +133,326 @@ export function Factory(): JSX.Element {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: FARM_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: RECIPES_QUERY_KEY });
-      const speedPct = result.factory.craftSpeedPct;
-      setNotice(
-        `${result.factory.name} upgraded to Lv ${result.factory.level} — crafts ${speedPct > 0 ? `${speedPct}% faster` : 'at base speed'}`,
-      );
+      setNotice(`${result.factory.name} upgraded to Lv ${result.factory.level}`);
     },
     onError: (error) => setNotice(error instanceof Error ? error.message : 'upgrade failed'),
     onSettled: () => setPendingUpgradeFactoryId(null),
   });
 
   const totalQueued = owned.reduce((s, f) => s + f.queue.length, 0);
+  const totalReady = owned.reduce((a,f) => a + f.queue.filter(j => j.readyToCollect).length, 0);
+  const totalCrafting = owned.reduce((a,f) => a + f.queue.filter(j => j.isActive && !j.readyToCollect).length, 0);
+  
+  let nextMs = Number.POSITIVE_INFINITY;
+  owned.forEach(f => f.queue.forEach(j => {
+    if(j.isActive && !j.readyToCollect && j.finishesAt !== null){
+      const rem = Math.max(0, j.finishesAt - now);
+      if(rem < nextMs) nextMs = rem;
+    }
+  }));
+  const nextTxt = totalReady > 0 ? 'now' : (nextMs === Number.POSITIVE_INFINITY ? '—' : formatDuration(nextMs));
 
   return (
     <div className="app-shell">
-      <main className="app-main factory-main">
-        <PageStrip
-          name="Factory"
-          tone="action"
-          metrics={[
-            { label: <><b>{owned.length}</b> factories</> },
-            { label: <><b>{totalQueued}</b> queued</> },
-            { label: <>up to <b>8h</b> per queue</>, className: 'muted' },
-          ]}
-          actions={<span className="muted">Buy factories to unlock item categories. Queue items on each.</span>}
-        />
-        {farmQuery.error instanceof Error ? <div className="farm-alert" role="alert">{farmQuery.error.message}</div> : null}
-        <div className="farm-alert" role="status" aria-live="polite">{notice}</div>
+      <main className="app-main factory-page">
+        <div className="balbar" data-od-id="resource-balance">
+          <div className="bal" data-res="meat">
+            <span className="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/><path d="M9 9c1-1 4-1 5 0"/></svg>
+            </span>
+            <span className="col"><span className="k">Meat</span><span className="v">{farm.balances.Meat.toLocaleString()}</span></span>
+          </div>
+          <div className="bal" data-res="bits">
+            <span className="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M4 8h4V4M20 8h-4V4M4 16h4v4M20 16h-4v4"/><rect x="8" y="8" width="8" height="8"/></svg>
+            </span>
+            <span className="col"><span className="k">Bits</span><span className="v">{farm.balances.Bits.toLocaleString()}</span></span>
+          </div>
+          <div className="bal" data-res="data">
+            <span className="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6"/><path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3"/></svg>
+            </span>
+            <span className="col"><span className="k">Data</span><span className="v">{farm.balances.Data.toLocaleString()}</span></span>
+          </div>
+          <div className="bal" data-res="credits">
+            <span className="ic">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg>
+            </span>
+            <span className="col"><span className="k">Credits</span><span className="v">{farm.credits.toLocaleString()}</span></span>
+          </div>
+          <div className="strip-title">
+            <div className="k">Factory Row</div>
+            <div className="s">{totalReady > 0 ? `${totalReady} ready to collect` : `${totalCrafting} crafting`}</div>
+          </div>
+        </div>
 
-        <div className="factory-layout">
-          <aside className="factory-sidebar" aria-label="Factories">
-            <h3 className="factory-sidebar-header">Your factories</h3>
-            {owned.length === 0 && !pageQuery.isPending ? (
-              <p className="muted factory-sidebar-empty">No factories yet.</p>
-            ) : null}
-            <ul className="factory-sidebar-list">
-              {owned.map((f) => {
-                const active = f.queue.find((j) => j.isActive);
+        <div className="scroll">
+          <div className="ovw" data-od-id="factory-overview">
+            <div className="stat">
+              <div className="k">Factories</div>
+              <div className="v">{owned.length}<small>/4</small></div>
+            </div>
+            <div className="stat">
+              <div className="k">Crafting</div>
+              <div className="v">{totalCrafting}</div>
+            </div>
+            <div className={`stat ${totalReady > 0 ? 'hot' : ''}`}>
+              <div className="k">Ready to collect</div>
+              <div className="v">{totalReady}</div>
+            </div>
+            <div className="stat">
+              <div className="k">Next ready</div>
+              <div className="v">{nextTxt}</div>
+            </div>
+          </div>
+
+          <div className="fac-sec">
+            <h3 className="stitle">Your Factories <span className="cnt">{owned.length}/4 built</span></h3>
+            <div className="fgrid rail" data-od-id="factory-grid">
+              {owned.map(f => {
+                const maxed = f.level >= f.maxLevel;
+                const canAfford = farm.credits >= f.upgradeCost;
+                const activeCount = f.queue.filter(j => j.isActive || j.readyToCollect).length;
+                const usedMs = queueUsedMs(f.queue, now);
+                const capPct = queueMaxMs > 0 ? (usedMs / queueMaxMs) * 100 : 0;
+                const groups = groupQueue(f.queue);
+                const upgradeRowPending = pendingUpgradeFactoryId === f.id && upgradeFactoryMutation.isPending;
+                
                 return (
-                  <li key={f.id}>
-                    <button
-                      type="button"
-                      className={`factory-sidebar-item factory-sidebar-item--${f.type}${selectedFactoryId === f.id ? ' is-active' : ''}`}
-                      onClick={() => setSelectedFactoryId(f.id)}
-                    >
-                      <div className="factory-sidebar-item-head">
-                        <b className="factory-sidebar-item-name">{f.name}</b>
-                        <span className={`factory-type-badge factory-type-badge--${f.type}`}>{f.type}</span>
-                        <span className="factory-lvl-badge" title={`Level ${f.level} / ${f.maxLevel} — crafts ${f.craftSpeedPct}% faster`}>Lv {f.level}</span>
+                  <article key={f.id} className="fcard" data-fac={f.type} aria-label={`${f.name}, level ${f.level} of ${f.maxLevel}, ${activeCount} active jobs`}>
+                    <div className="fhead">
+                      <span className="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><FacIcon type={f.type} /></svg></span>
+                      <div><div className="nm">{f.name}</div><div className="desc">{f.description}</div></div>
+                      <div className="lvbadge"><div className="lk">Level</div><div className="lv">{f.level}<small>/{f.maxLevel}</small></div></div>
+                    </div>
+                    <div className="fspeed">
+                      <span>Craft speed bonus <b className="spd">+{f.craftSpeedPct}%</b></span>
+                      <span>{activeCount}/{f.queue.length} jobs running</span>
+                    </div>
+                    <div className="queue">
+                      <div className="qhead">
+                        <span>Crafting queue</span>
+                        <span className={`qcap ${capPct >= 100 ? 'full' : ''}`}>
+                          <b>{formatDuration(usedMs)}</b> / {formatDuration(queueMaxMs)} queued
+                        </span>
                       </div>
-                      <div className="factory-sidebar-item-meta muted">
-                        {f.queue.length === 0
-                          ? 'Idle'
-                          : `${f.queue.length} · ${formatDuration(f.queueTotalMs)}`}
-                        {active ? (
-                          <span className="factory-sidebar-item-active"> · {active.itemName}</span>
-                        ) : null}
+                      <div className={`qmeter ${capPct >= 100 ? 'full' : ''}`} role="progressbar" aria-valuenow={Math.round(capPct)} aria-valuemin={0} aria-valuemax={100} aria-label="Queue time used">
+                        <i style={{ width: `${Math.min(100, capPct)}%` }} />
                       </div>
-                    </button>
-                  </li>
+                      <div className="qjobs">
+                        {f.queue.length === 0 ? (
+                          <div className="qempty">Idle — pick a recipe to start crafting.</div>
+                        ) : (
+                          f.queue.map(j => {
+                            if (j.isActive || j.readyToCollect) {
+                              const ready = j.readyToCollect;
+                              const progressPct = j.startedAt !== null ? Math.min(100, Math.max(0, ((now - j.startedAt) / j.durationMs) * 100)) : 0;
+                              return (
+                                <div key={j.id} className={`job ${ready ? 'ready' : ''}`} data-job={j.id}>
+                                  <div className="jn">
+                                    <div className="jt">{j.itemName}</div>
+                                    <div className="jbar"><span className="jfill" style={{ width: `${ready ? 100 : progressPct}%` }} /></div>
+                                  </div>
+                                  <div className="jmeta">
+                                    {ready ? (
+                                      <>
+                                        <span className="rc">READY</span>
+                                        <button className="collectbtn" onClick={() => cancelMutation.mutate(j.id)}>Collect</button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <span>{Math.round(progressPct)}%</span>
+                                        <button className="cancelbtn" disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate(j.id)}>Cancel</button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })
+                        )}
+                        {/* Queued groups */}
+                        {groups.filter(g => !g.hasActive && !g.hasReady).map(g => (
+                          <div key={g.itemName} className="job qgroup" data-qgroup={g.itemName}>
+                            <div className="jn">
+                              <div className="jt">{g.itemName} {g.count > 1 ? <span className="xn">×{g.count}</span> : null}</div>
+                              <div className="jbar queued"><span className="jfill" style={{ width: '0%' }} /></div>
+                            </div>
+                            <div className="jmeta">
+                              <span>Queued</span>
+                              <button className="cancelbtn" disabled={cancelMutation.isPending} onClick={() => cancelMutation.mutate(g.jobs[g.jobs.length - 1]!.id)}>Cancel</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="ffoot-wrap">
+                      <div className="ffoot" data-fac={f.type} style={{ borderTop: '1px solid var(--hair)', gridTemplateColumns: '1fr auto' }}>
+                        <button className="btn primary" onClick={() => { setSelectedFactoryId(f.id); setIsDrawerOpen(true); }}>Craft item</button>
+                        {maxed ? (
+                          <span className="maxtag">Max level</span>
+                        ) : (
+                          <button className="btn ghost" disabled={!canAfford || upgradeRowPending} title={canAfford ? '' : 'Not enough Credits'} onClick={() => upgradeFactoryMutation.mutate(f.id)}>
+                            {upgradeRowPending ? 'Upgrading...' : `Upgrade · ${f.upgradeCost.toLocaleString()}`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </article>
                 );
               })}
-            </ul>
-            {available.length > 0 ? (
-              <>
-                <h4 className="factory-sidebar-subheader">Buy new</h4>
-                <ul className="factory-sidebar-list">
-                  {available.map((meta) => {
-                    const canAfford =
-                      farm.balances.Meat >= meta.cost.meat &&
-                      farm.balances.Bits >= meta.cost.bits &&
-                      farm.balances.Data >= meta.cost.data;
-                    const rowPending = pendingFactoryType === meta.id && buyMutation.isPending;
-                    return (
-                      <li key={meta.id}>
-                        <div className={`factory-buy-card factory-buy-card--${meta.id}`}>
-                          <div className="factory-buy-head">
-                            <b>{meta.name}</b>
-                            <span className={`factory-type-badge factory-type-badge--${meta.id}`}>{meta.id}</span>
-                          </div>
-                          <p className="factory-buy-desc muted">{meta.description}</p>
-                          <div className="factory-buy-costs">
-                            {meta.cost.meat > 0 ? <span className="ps-res ps-res--meat"><span className="ps-dot" />{meta.cost.meat}</span> : null}
-                            {meta.cost.bits > 0 ? <span className="ps-res ps-res--bits"><span className="ps-dot" />{meta.cost.bits}</span> : null}
-                            {meta.cost.data > 0 ? <span className="ps-res ps-res--data"><span className="ps-dot" />{meta.cost.data}</span> : null}
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn--sm"
-                            disabled={!canAfford || rowPending}
-                            onClick={() => buyMutation.mutate(meta.id)}
-                          >
-                            {rowPending ? 'Buying…' : canAfford ? 'Buy' : 'Insufficient'}
-                          </button>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            ) : null}
-          </aside>
+            </div>
+          </div>
 
-          <section className="factory-content" aria-label="Selected factory">
-            {selectedFactory === null ? (
-              <p className="muted factory-content-empty">Select or buy a factory to start crafting.</p>
-            ) : (
-              <FactoryContent
-                factory={selectedFactory}
-                recipes={filteredRecipes}
-                balances={farm.balances}
-                queueMaxMs={queueMaxMs}
-                now={now}
-                isPremium={isPremium}
-                pendingRecipeId={pendingRecipeId}
-                queueBusy={queueMutation.isPending}
-                cancelBusy={cancelMutation.isPending}
-                upgradePending={pendingUpgradeFactoryId === selectedFactory.id && upgradeFactoryMutation.isPending}
-                countByRecipe={countByRecipe}
-                onCountChange={(recipeId, count) =>
-                  setCountByRecipe((prev) => ({ ...prev, [recipeId]: count }))
-                }
-                onQueue={(recipeId, count, auto) =>
-                  queueMutation.mutate({
-                    factoryId: selectedFactory.id,
-                    recipeId,
-                    ...(count > 1 ? { count } : {}),
-                    ...(auto === true ? { auto: true } : {}),
-                  })
-                }
-                onCancel={(jobId) => cancelMutation.mutate(jobId)}
-                onUpgrade={() => upgradeFactoryMutation.mutate(selectedFactory.id)}
-              />
-            )}
-          </section>
+          <div className="buy-sec">
+            <h3 className="stitle">Available Factories</h3>
+            <div className="buygrid rail" data-od-id="factory-buy-grid">
+              {available.length === 0 ? (
+                <div style={{ color: 'var(--muted)', fontSize: '13px', padding: '8px' }}>
+                  All factory types built. Your industrial base is complete.
+                </div>
+              ) : (
+                available.map(a => {
+                  const afford = farm.balances.Meat >= a.cost.meat && farm.balances.Bits >= a.cost.bits && farm.balances.Data >= a.cost.data;
+                  const rowPending = pendingFactoryType === a.id && buyMutation.isPending;
+                  return (
+                    <article key={a.id} className="buycard" data-fac={a.id}>
+                      <div className="bh">
+                        <span className="bbadge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><FacIcon type={a.id} /></svg></span>
+                        <div className="bn">{a.name}</div>
+                      </div>
+                      <div className="bd">{a.description}</div>
+                      <div className="costs">
+                        {a.cost.meat > 0 ? (
+                          <span className={`cchip ${farm.balances.Meat < a.cost.meat ? 'short' : ''}`} data-res="meat">
+                            <span className="cd" />{a.cost.meat} Meat
+                          </span>
+                        ) : null}
+                        {a.cost.bits > 0 ? (
+                          <span className={`cchip ${farm.balances.Bits < a.cost.bits ? 'short' : ''}`} data-res="bits">
+                            <span className="cd" />{a.cost.bits} Bits
+                          </span>
+                        ) : null}
+                        {a.cost.data > 0 ? (
+                          <span className={`cchip ${farm.balances.Data < a.cost.data ? 'short' : ''}`} data-res="data">
+                            <span className="cd" />{a.cost.data} Data
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="brow">
+                        <span style={{ fontSize: '11px', color: 'var(--muted)' }}>
+                          {afford ? 'Ready to build' : 'Not enough resources'}
+                        </span>
+                        <button className="btn primary" disabled={!afford || rowPending} onClick={() => buyMutation.mutate(a.id)}>
+                          {rowPending ? 'Building...' : 'Build factory'}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })
+              )}
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Drawer */}
+      <div className={`drawer factory-drawer ${isDrawerOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+        <div className="scrim" onClick={() => setIsDrawerOpen(false)} />
+        {selectedFactory && (
+          <div className="panel" data-fac={selectedFactory.type}>
+            <div className="dhead">
+              <div>
+                <div className="dk">{selectedFactory.name} · Recipes</div>
+                <h2 id="drawer-title">Factory</h2>
+              </div>
+              <button className="dclose" aria-label="Close recipes" onClick={() => setIsDrawerOpen(false)}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M6 6l12 12M18 6L6 18"/></svg>
+              </button>
+            </div>
+            <div className="dlist">
+              {filteredRecipes.map(r => {
+                const missing = [
+                  farm.balances.Meat < r.meatCost ? 'Meat' : null,
+                  farm.balances.Bits < r.bitsCost ? 'Bits' : null,
+                  farm.balances.Data < r.dataCost ? 'Data' : null,
+                ].filter(Boolean) as string[];
+                
+                const usedMs = queueUsedMs(selectedFactory.queue, now);
+                const effectiveMs = Math.max(1, Math.round(r.craftTimeMs * selectedFactory.craftTimeMultiplier));
+                const overflows = usedMs + effectiveMs > queueMaxMs;
+                const canCraft = missing.length === 0 && !overflows;
+                
+                const timeMax = Math.max(0, Math.floor((queueMaxMs - usedMs) / effectiveMs));
+                const affordCount = maxAffordableCount(r, farm.balances);
+                const maxN = Math.max(1, Math.min(timeMax, affordCount, 99));
+                
+                const rawCount = countByRecipe[r.id] ?? 1;
+                const count = Math.max(1, Math.min(maxN, rawCount));
+                const rowPending = pendingRecipeId === r.id && queueMutation.isPending;
+                
+                const hint = missing.length > 0 ? `Need more ${missing.join(', ')}` : overflows ? `Queue full — ${formatDuration(queueMaxMs)} cap` : '';
+                
+                return (
+                  <div key={r.id} className="recipe" data-recipe={r.id}>
+                    <div className="rtop">
+                      <div><div className="rn">{r.itemName}</div><div className="rd">{r.itemDescription}</div></div>
+                      <div className="rtime">{formatDuration(effectiveMs)}</div>
+                    </div>
+                    <div className="costs">
+                      {r.meatCost === 0 && r.bitsCost === 0 && r.dataCost === 0 ? (
+                        <span className="cchip"><span className="cd" />Free</span>
+                      ) : (
+                        <>
+                          {r.meatCost > 0 && <span className={`cchip ${farm.balances.Meat < r.meatCost ? 'short' : ''}`} data-res="meat"><span className="cd" />{r.meatCost} Meat</span>}
+                          {r.bitsCost > 0 && <span className={`cchip ${farm.balances.Bits < r.bitsCost ? 'short' : ''}`} data-res="bits"><span className="cd" />{r.bitsCost} Bits</span>}
+                          {r.dataCost > 0 && <span className={`cchip ${farm.balances.Data < r.dataCost ? 'short' : ''}`} data-res="data"><span className="cd" />{r.dataCost} Data</span>}
+                        </>
+                      )}
+                    </div>
+                    <div className="ract">
+                      <span className="rhint" hidden={canCraft}>{hint}</span>
+                      <div className="qty" hidden={!canCraft}>
+                        <button className="qbtn" onClick={() => setCountByRecipe(prev => ({...prev, [r.id]: count - 1}))} disabled={count <= 1}>−</button>
+                        <input className="qin" type="number" inputMode="numeric" min={1} max={maxN} value={count} readOnly />
+                        <button className="qbtn" onClick={() => setCountByRecipe(prev => ({...prev, [r.id]: count + 1}))} disabled={count >= maxN}>+</button>
+                      </div>
+                      <button 
+                        className="craftbtn" 
+                        disabled={!canCraft || rowPending} 
+                        onClick={() => queueMutation.mutate({ factoryId: selectedFactory.id, recipeId: r.id, count })}
+                      >
+                        {rowPending ? 'Queuing...' : 'Queue craft'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      <div className={`toast factory-toast ${notice ? 'show' : ''}`} role="status" aria-live="polite">{notice}</div>
     </div>
   );
 }
 
-function FactoryContent({
-  factory,
-  recipes,
-  balances,
-  queueMaxMs,
-  now,
-  isPremium,
-  pendingRecipeId,
-  queueBusy,
-  cancelBusy,
-  upgradePending,
-  countByRecipe,
-  onCountChange,
-  onQueue,
-  onCancel,
-  onUpgrade,
-}: {
-  readonly factory: PlayerFactoryView;
-  readonly recipes: readonly RecipeView[];
-  readonly balances: Record<'Meat' | 'Bits' | 'Data', number>;
-  readonly queueMaxMs: number;
-  readonly now: number;
-  readonly isPremium: boolean;
-  readonly pendingRecipeId: string | null;
-  readonly queueBusy: boolean;
-  readonly cancelBusy: boolean;
-  readonly upgradePending: boolean;
-  readonly countByRecipe: Record<string, number>;
-  readonly onCountChange: (recipeId: string, count: number) => void;
-  readonly onQueue: (recipeId: string, count: number, auto?: boolean) => void;
-  readonly onCancel: (jobId: string) => void;
-  readonly onUpgrade: () => void;
-}): JSX.Element {
-  const queuePct = Math.min(100, (factory.queueTotalMs / queueMaxMs) * 100);
-  const queueGroups = groupQueue(factory.queue);
-  const atMaxLevel = !factory.canUpgrade;
-  const canAffordUpgrade = balances.Bits >= factory.upgradeCost;
-  const nextSpeedPct =
-    factory.nextCraftTimeMultiplier !== null
-      ? Math.round((1 / factory.nextCraftTimeMultiplier - 1) * 100)
-      : factory.craftSpeedPct;
-  const upgradeLabel = upgradePending
-    ? 'Upgrading…'
-    : atMaxLevel
-    ? `Max Lv ${factory.maxLevel}`
-    : !canAffordUpgrade
-    ? `Need ${factory.upgradeCost.toLocaleString()} Bits`
-    : `Upgrade → Lv ${factory.level + 1}`;
-  return (
-    <>
-      <header className="factory-content-head">
-        <div>
-          <h2 className="factory-content-title">
-            {factory.name}
-            <span className="factory-lvl-badge factory-lvl-badge--head" title={`Level ${factory.level} / ${factory.maxLevel}`}>Lv {factory.level}</span>
-          </h2>
-          <p className="factory-content-desc muted">{factory.description}</p>
-        </div>
-        <div className="factory-content-meta">
-          <div className="factory-upgrade" aria-label="Factory level upgrade">
-            <div className="factory-upgrade-line">
-              <b>Craft speed</b>
-              <span className="factory-upgrade-speed">
-                {factory.craftSpeedPct > 0 ? `+${factory.craftSpeedPct}%` : 'base'}
-                {!atMaxLevel && nextSpeedPct !== factory.craftSpeedPct ? (
-                  <span className="muted"> → +{nextSpeedPct}%</span>
-                ) : null}
-              </span>
-            </div>
-            <button
-              type="button"
-              className="btn btn--tertiary btn--sm factory-upgrade-btn"
-              disabled={upgradePending || atMaxLevel || !canAffordUpgrade}
-              onClick={onUpgrade}
-              title={atMaxLevel ? 'Factory at max level' : `Upgrade costs ${factory.upgradeCost.toLocaleString()} Bits`}
-            >
-              {upgradeLabel}
-              {!atMaxLevel && canAffordUpgrade && !upgradePending ? (
-                <span className="factory-upgrade-cost">{factory.upgradeCost.toLocaleString()} <b>Bits</b></span>
-              ) : null}
-            </button>
-          </div>
-          <div className="factory-queue-cap">
-            <div className="factory-queue-cap-lbl">
-              Queue <b>{formatDuration(factory.queueTotalMs)}</b> / {formatDuration(queueMaxMs)}
-            </div>
-            <div className="factory-queue-cap-bar" role="progressbar" aria-valuenow={Math.round(queuePct)} aria-valuemin={0} aria-valuemax={100}>
-              <div className="factory-queue-cap-fill" style={{ width: `${queuePct}%` }} />
-            </div>
-          </div>
-        </div>
-      </header>
+function queueUsedMs(queue: readonly CraftingJobView[], now: number): number {
+  return queue.reduce((a, j) => {
+    if (j.readyToCollect) return a;
+    const rem = j.isActive && j.finishesAt !== null ? Math.max(0, j.finishesAt - now) : j.durationMs;
+    return a + rem;
+  }, 0);
+}
 
-      <section className="factory-queue" aria-label="Queue">
-        <h3 className="factory-section-h">Queue ({factory.queue.length})</h3>
-        {queueGroups.length === 0 ? (
-          <p className="muted">Nothing crafting — pick a recipe below.</p>
-        ) : (
-          <ol className="factory-queue-list">
-            {queueGroups.map((group) => (
-              <QueueRow key={group.jobs[0]!.id} group={group} now={now} disabled={cancelBusy} onCancel={onCancel} />
-            ))}
-          </ol>
-        )}
-      </section>
-
-      <section className="factory-recipes" aria-label="Recipes">
-        <h3 className="factory-section-h">Recipes for {factory.name}</h3>
-        {recipes.length === 0 ? (
-          <p className="muted">No recipes for this factory.</p>
-        ) : (
-          <ul className="recipe-list">
-            {recipes.map((recipe) => {
-              const rowPending = pendingRecipeId === recipe.id && queueBusy;
-              const effectiveMs = Math.max(1, Math.round(recipe.craftTimeMs * factory.craftTimeMultiplier));
-              const affordCount = maxAffordableCount(recipe, balances);
-              const roomCount = effectiveMs > 0 ? Math.floor(factory.queueRemainingCapMs / effectiveMs) : 0;
-              const maxCount = Math.max(0, Math.min(affordCount, roomCount, 100));
-              const rawCount = countByRecipe[recipe.id] ?? 1;
-              const count = maxCount === 0 ? 1 : Math.max(1, Math.min(maxCount, rawCount));
-              const queueFull = roomCount === 0;
-              const disabled = !recipe.canCraft || queueFull || rowPending || maxCount === 0;
-              const buttonLabel = rowPending
-                ? 'Queuing…'
-                : queueFull
-                ? 'Queue full'
-                : !recipe.canCraft
-                ? 'Need resources'
-                : count > 1
-                ? `Queue ×${count}`
-                : 'Queue';
-              return (
-                <li key={recipe.id} className={`recipe-list-row${disabled && !rowPending ? ' recipe-list-row--locked' : ''}`}>
-                  <div className="recipe-list-name">
-                    <b>{recipe.itemName}</b>
-                    <p className="muted">{recipe.itemDescription}</p>
-                  </div>
-                  <div className="recipe-list-costs">
-                    {recipe.meatCost > 0 ? <span className="ps-res ps-res--meat" title="Meat"><span className="ps-dot" />{recipe.meatCost}</span> : null}
-                    {recipe.bitsCost > 0 ? <span className="ps-res ps-res--bits" title="Bits"><span className="ps-dot" />{recipe.bitsCost}</span> : null}
-                    {recipe.dataCost > 0 ? <span className="ps-res ps-res--data" title="Data"><span className="ps-dot" />{recipe.dataCost}</span> : null}
-                  </div>
-                  <div className="recipe-list-time" title={factory.craftSpeedPct > 0 ? `Base ${formatDuration(recipe.craftTimeMs)} — ${factory.craftSpeedPct}% faster at Lv ${factory.level}` : undefined}>
-                    {formatDuration(effectiveMs)}
-                    {factory.craftSpeedPct > 0 ? <span className="recipe-list-time-orig muted"> ({formatDuration(recipe.craftTimeMs)})</span> : null}
-                  </div>
-                  <div className="recipe-qty-stepper" aria-label={`Amount of ${recipe.itemName} to queue`}>
-                    <button
-                      type="button"
-                      className="qty-btn"
-                      disabled={disabled || count <= 1}
-                      onClick={() => onCountChange(recipe.id, count - 1)}
-                      aria-label="Decrease amount"
-                    >
-                      −
-                    </button>
-                    <span className="qty-value" aria-live="polite">{count}</span>
-                    <button
-                      type="button"
-                      className="qty-btn"
-                      disabled={disabled || count >= maxCount}
-                      onClick={() => onCountChange(recipe.id, Math.min(maxCount, count + 1))}
-                      aria-label="Increase amount"
-                      title={maxCount === count ? (queueFull ? 'Queue is full' : 'Not enough resources for more') : undefined}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <div className="recipe-list-actions">
-                    <button
-                      type="button"
-                      className="btn btn--sm"
-                      disabled={disabled}
-                      onClick={() => onQueue(recipe.id, count)}
-                      title={queueFull ? 'Queue full (8h max)' : undefined}
-                    >
-                      {buttonLabel}
-                    </button>
-                    {isPremium ? (
-                      <button
-                        type="button"
-                        className="btn btn--sm btn--premium"
-                        disabled={disabled}
-                        onClick={() => onQueue(recipe.id, count, true)}
-                        title="Premium: auto-refill when queue empties, until resources deplete"
-                      >
-                        Auto ∞
-                      </button>
-                    ) : null}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </>
-  );
+function FacIcon({ type }: { type: string }) {
+  if (type === 'med') return <><path d="M12 4v16M4 12h16" strokeWidth="2.4"/><rect x="4" y="4" width="16" height="16" rx="0"/></>;
+  if (type === 'chip') return <><rect x="6" y="6" width="12" height="12"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></>;
+  if (type === 'rare') return <><path d="M12 3l3 5 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1 3-5z"/></>;
+  if (type === 'pantry') return <><path d="M5 8h14v11H5z"/><path d="M5 8l2-4h10l2 4"/><path d="M9 12h6"/></>;
+  return null;
 }
 
 type QueueGroup = {
@@ -460,8 +462,7 @@ type QueueGroup = {
   readonly count: number;
   readonly hasAuto: boolean;
   readonly hasActive: boolean;
-  readonly activeJob: CraftingJobView | null;
-  readonly durationMsPerUnit: number;
+  readonly hasReady: boolean;
 };
 
 function groupQueue(queue: readonly CraftingJobView[]): readonly QueueGroup[] {
@@ -472,6 +473,7 @@ function groupQueue(queue: readonly CraftingJobView[]): readonly QueueGroup[] {
     hasAuto: boolean;
   }> = [];
   for (const job of queue) {
+    if (job.isActive || job.readyToCollect) continue; // we only group pending jobs
     const last = groups[groups.length - 1];
     if (last && last.recipeId === job.recipeId && last.hasAuto === job.isAuto) {
       last.jobs.push(job);
@@ -479,19 +481,15 @@ function groupQueue(queue: readonly CraftingJobView[]): readonly QueueGroup[] {
       groups.push({ jobs: [job], recipeId: job.recipeId, itemName: job.itemName, hasAuto: job.isAuto });
     }
   }
-  return groups.map((g) => {
-    const active = g.jobs.find((j) => j.isActive) ?? null;
-    return {
-      jobs: g.jobs,
-      recipeId: g.recipeId,
-      itemName: g.itemName,
-      count: g.jobs.length,
-      hasAuto: g.hasAuto,
-      hasActive: active !== null,
-      activeJob: active,
-      durationMsPerUnit: g.jobs[0]!.durationMs,
-    };
-  });
+  return groups.map((g) => ({
+    jobs: g.jobs,
+    recipeId: g.recipeId,
+    itemName: g.itemName,
+    count: g.jobs.length,
+    hasAuto: g.hasAuto,
+    hasActive: false,
+    hasReady: false,
+  }));
 }
 
 function maxAffordableCount(recipe: RecipeView, balances: Record<'Meat' | 'Bits' | 'Data', number>): number {
@@ -502,61 +500,6 @@ function maxAffordableCount(recipe: RecipeView, balances: Record<'Meat' | 'Bits'
   ];
   const min = Math.min(...perResource);
   return Number.isFinite(min) ? min : 999;
-}
-
-function QueueRow({
-  group,
-  now,
-  disabled,
-  onCancel,
-}: {
-  readonly group: QueueGroup;
-  readonly now: number;
-  readonly disabled: boolean;
-  readonly onCancel: (jobId: string) => void;
-}): JSX.Element {
-  const active = group.activeJob;
-  const remainingActiveMs =
-    active !== null && active.finishesAt !== null ? Math.max(0, active.finishesAt - now) : group.durationMsPerUnit;
-  const progressPct =
-    active !== null && active.startedAt !== null
-      ? Math.min(100, Math.max(0, ((now - active.startedAt) / active.durationMs) * 100))
-      : 0;
-  const waitingUnits = group.count - (active !== null ? 1 : 0);
-  const remainingGroupMs = (active !== null ? remainingActiveMs : 0) + waitingUnits * group.durationMsPerUnit;
-  const lastJobId = group.jobs[group.jobs.length - 1]!.id;
-  return (
-    <li className={`queue-item${active !== null ? ' is-active' : ''}${group.hasAuto ? ' is-auto' : ''}`}>
-      <div className="queue-item-head">
-        <span className="queue-item-name">
-          <b>{group.itemName}</b>
-          {group.count > 1 ? <span className="queue-item-qty">×{group.count}</span> : null}
-          {group.hasAuto ? <span className="queue-item-auto">AUTO</span> : null}
-        </span>
-        <span className="queue-item-timer">
-          {active !== null
-            ? group.count > 1
-              ? `${formatCountdown(remainingActiveMs)}  ·  ${formatDuration(remainingGroupMs)} total`
-              : formatCountdown(remainingActiveMs)
-            : `~${formatDuration(remainingGroupMs)} wait`}
-        </span>
-      </div>
-      {active !== null ? (
-        <div className="queue-item-progress">
-          <div className="queue-item-progress-fill" style={{ width: `${progressPct}%` }} />
-        </div>
-      ) : null}
-      <button
-        type="button"
-        className="btn btn--secondary btn--sm queue-item-cancel"
-        disabled={disabled}
-        onClick={() => onCancel(lastJobId)}
-        title={group.count > 1 ? 'Cancel one from the end of this group (refunds resources)' : 'Cancel + refund'}
-      >
-        {group.count > 1 ? `Cancel 1 of ${group.count}` : 'Cancel'}
-      </button>
-    </li>
-  );
 }
 
 const emptyFarm: FarmView = {
@@ -574,13 +517,4 @@ function formatDuration(ms: number): string {
   if (min === 0) return `${sec}s`;
   if (sec === 0) return `${min}m`;
   return `${min}m ${sec}s`;
-}
-
-function formatCountdown(ms: number): string {
-  const totalSec = Math.max(0, Math.ceil(ms / 1000));
-  const hr = Math.floor(totalSec / 3600);
-  const min = Math.floor((totalSec % 3600) / 60);
-  const sec = totalSec % 60;
-  if (hr > 0) return `${hr}:${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  return `${String(min).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
