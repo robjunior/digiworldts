@@ -76,7 +76,7 @@ export function Lobby(): JSX.Element {
   }
 
   return (
-    <main className="main" data-od-id="lobby-main" tabIndex={-1}>
+    <div className="lobby-main-inner" data-od-id="lobby-main" style={{ display: 'contents' }}>
       {/* matchmaking strip */}
       <section className="mmstrip" data-od-id="matchmaking-strip">
         <div className="mm-left">
@@ -226,6 +226,6 @@ export function Lobby(): JSX.Element {
           </form>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
