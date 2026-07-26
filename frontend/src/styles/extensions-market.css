@@ -1,75 +1,214 @@
-.tabs { display:flex; gap:4px; margin: 16px 0 20px; border-bottom:1px solid var(--hairline); padding: 0 4px; }
-.tab { background:transparent; border:none; font-family:inherit; font-size:13px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding: 10px 16px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .15s, border-color .15s; }
-.tab:hover { color: var(--ink); }
-.tab.is-active { color: var(--ink); border-bottom-color: var(--signal); }
-.tab-panel.hidden { display:none; }
+/* =========================================================================
+   DIGIWORLD MARKET — desktop app. Persona 5 theme (shared with all screens):
+     Canvas #0a0a0c · Panel #141418 · Ink #f4f1ea · Muted #8a877f
+     Hairline #2a2a30 · Signal/Battle acid-red #e6001f
+   Radius 0 — angular cyberpunk notch on flat surfaces. Inter, tabular-nums.
+   Single desktop view: no vertical page scroll; filters dock left, listing
+   grid scrolls internally, detail docks right.
+   Data mirrors src/market/routes.ts — MarketListingView: nickname/level/xp/
+   mood/statBonus(6)/price(DigiCredits, min 10)/seller.displayName/isMine/
+   template(stage,element). Filters: stage/element/level/price/search/sort
+   (newest|price_asc|price_desc|level_desc). Buy (credits-gated, no self-buy),
+   Cancel own listing, List a resting mon.
+   ITEMS TAB is a user-directed extension — the backend market lists Digimon
+   only. Item listings reuse the same {price, seller} shape over real item ids
+    (itm-heal / revive / buff / chip / provision / xp-boost) with a qty field.
+   Element/item tints derived via color-mix off Signal/Ink/muted — no new hex.
+   ========================================================================= */
+.market-page {
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  --credits:color-mix(in oklab,var(--signal) 70%,var(--ink));
+  /* element tints — acid-red family on ink; pale mixes lean to --ink not #fff
+     so full-strength card rails stay in-theme instead of washing to pastel */
+  --el-fire:var(--signal);
+  --el-water:color-mix(in oklab,var(--signal) 58%,var(--ink));
+  --el-plant:color-mix(in oklab,var(--signal) 44%,var(--muted));
+  --el-electricity:color-mix(in oklab,var(--signal) 74%,var(--ink));
+  --el-wind:color-mix(in oklab,var(--signal) 30%,var(--ink));
+  --el-ice:color-mix(in oklab,var(--signal) 40%,var(--ink));
+  --el-steel:color-mix(in oklab,var(--muted) 62%,var(--ink));
+  --el-dark:color-mix(in oklab,var(--signal) 55%,var(--bg));
+  --el-light:color-mix(in oklab,var(--ink) 70%,var(--signal));
+  --el-null:var(--muted);
+  /* item category tints — same discipline */
+  --it-heal:var(--signal);
+  --it-revive:color-mix(in oklab,var(--signal) 66%,var(--ink));
+  --it-buff:color-mix(in oklab,var(--signal) 44%,var(--muted));
+  --it-chip:color-mix(in oklab,var(--muted) 60%,var(--ink));
+  --it-ration:color-mix(in oklab,var(--signal) 40%,var(--ink));
+}
 
-.filter-bar { display:grid; grid-template-columns: 2fr 1fr 1fr 90px 90px 110px 110px 1fr; gap:8px; margin-bottom:20px; }
-.filter-bar input, .filter-bar select { background:var(--bg); border:1px solid var(--hairline); color:var(--ink); font-family:inherit; font-size:12px; padding:8px 10px; transition:border-color .15s; }
-.filter-bar input:focus, .filter-bar select:focus { outline:none; border-color:var(--signal); }
-@media (max-width: 1100px) { .filter-bar { grid-template-columns: 1fr 1fr 1fr 1fr; } }
-@media (max-width: 640px) { .filter-bar { grid-template-columns: 1fr 1fr; } }
+html,
 
-.listing-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:14px; }
-.listing-card { background: var(--bg); border:1px solid var(--hairline); display:flex; flex-direction:column; position:relative; transition: border-color .2s, transform .2s; clip-path: polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); }
-.listing-card[data-element="fire"] { --el: var(--el-fire); }
-.listing-card[data-element="water"] { --el: var(--el-water); }
-.listing-card[data-element="nature"] { --el: var(--el-nature); }
-.listing-card[data-element="electric"] { --el: var(--el-electric); }
-.listing-card[data-element="neutral"] { --el: var(--el-neutral); }
-.listing-card:hover { border-color: color-mix(in oklab, var(--el, var(--signal)) 60%, var(--hairline)); transform: translateY(-2px); }
-.listing-card.is-mine { border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline)); }
-.listing-card.is-mine::before { content: "MINE"; position: absolute; top: 6px; right: 6px; z-index: 3; font-size: 9px; font-weight: 700; letter-spacing: .1em; padding: 2px 6px; background: var(--gold); color: #111; }
-.listing-card .rail { height: 3px; background: var(--el, var(--signal)); }
-.listing-card .portrait { position:relative; aspect-ratio: 4/3; display:grid; place-items:center; background: color-mix(in oklab, var(--el, var(--signal)) 6%, var(--panel)); overflow:hidden; }
-.listing-card .portrait img { width: 70%; height: 70%; object-fit: contain; }
-.listing-card .body { padding: 12px; display:flex; flex-direction:column; gap:6px; }
-.listing-card .name-row { display:flex; justify-content:space-between; align-items:baseline; gap:6px; }
-.listing-card .name { font-weight:600; font-size:14px; letter-spacing:-.01em; }
-.listing-card .lvl { font-size:10px; padding:2px 6px; background:var(--panel); border:1px solid var(--hairline); font-weight:600; letter-spacing:.04em; }
-.listing-card .sub { font-size:10px; color: var(--muted); letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; }
-.listing-card .sub .el-tag { color: var(--el, var(--signal)); font-weight:600; }
-.listing-card .seller { font-size:10px; color: var(--muted); }
-.listing-card .seller b { color: var(--ink); font-weight:600; }
-.listing-card .price-row { display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid var(--hairline); margin-top:2px; }
-.listing-card .price { font-size:15px; font-weight:700; color: var(--gold); font-variant-numeric: tabular-nums; }
-.listing-card .price::before { content: "◆ "; font-size:11px; }
-.listing-card .card-btn { background: var(--signal); border:1px solid var(--signal); color:#fff; font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:6px 12px; cursor:pointer; transition:filter .15s; clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); }
-.listing-card .card-btn:hover:not(:disabled) { filter: brightness(1.12); }
-.listing-card .card-btn:disabled { opacity: .5; cursor: not-allowed; }
-.listing-card .card-btn.danger { background: var(--battle); border-color: var(--battle); }
-.listing-card .status-badge { position:absolute; top:8px; left:8px; z-index:3; font-size:9px; font-weight:700; letter-spacing:.1em; padding:2px 6px; background: var(--muted); color:#fff; }
-.listing-card .status-badge.sold { background: var(--el-nature); }
-.listing-card .status-badge.canceled { background: var(--muted); }
+.market-page button {font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+.market-page input, .market-page select {font:inherit;color:inherit}
 
-.pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin: 20px 0 40px; flex-wrap:wrap; }
-.pagination .info { font-size:12px; color: var(--muted); margin-right:16px; }
-.pagination button { background:var(--bg); border:1px solid var(--hairline); color:var(--muted); padding:6px 12px; cursor:pointer; font-size:12px; font-weight:600; font-family:inherit; transition: all .2s; clip-path: polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); }
-.pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
-.pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.pagination button:disabled { opacity: .4; cursor: not-allowed; }
 
-.empty { padding: 48px 24px; text-align:center; color:var(--muted); font-size:13px; background: var(--panel); border:1px solid var(--hairline); }
-.market-grid-empty { grid-column:1/-1; }
-.market-sell-copy { margin: 0 0 16px; font-size:12px; color:var(--muted); }
-.market-card-note { font-size:10px; color:var(--muted); letter-spacing:.06em; text-transform:uppercase; }
-.market-status { margin: 0 4px 16px; padding: 10px 12px; background: color-mix(in oklab, var(--signal) 8%, var(--bg)); border: 1px solid color-mix(in oklab, var(--signal) 32%, var(--hairline)); color: var(--ink); font-size: 12px; }
-.market-status.is-error { background: color-mix(in oklab, var(--battle) 8%, var(--bg)); border-color: color-mix(in oklab, var(--battle) 32%, var(--hairline)); color: var(--battle); }
 
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); display:none; place-items:center; z-index:100; padding:24px; }
-.modal-overlay.show { display:grid; }
-.modal-card { background:var(--bg); border:1px solid var(--hairline); width:100%; max-width:420px; padding:20px 24px 24px; clip-path: polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); }
-.modal-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--hairline); }
-.modal-header h3 { margin:0; font-size:16px; font-weight:600; }
-.modal-close { background:none; border:none; color:var(--muted); font-size:24px; cursor:pointer; padding:0 4px; line-height:1; }
-.modal-close:hover { color: var(--ink); }
-#sell-summary { display:grid; grid-template-columns: 80px 1fr; gap:12px; align-items:center; margin-bottom:16px; padding:12px; background:var(--panel); }
-#sell-summary img { width:80px; height:80px; object-fit:contain; }
-#sell-summary .name { font-size:15px; font-weight:600; margin-bottom:4px; }
-#sell-summary .meta { font-size:11px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
-#sell-price { width:100%; background:var(--bg); border:1px solid var(--hairline); padding:10px 12px; font-family:inherit; font-size:16px; font-weight:600; font-variant-numeric: tabular-nums; }
-#sell-price:focus { outline:none; border-color: var(--signal); }
-.price-label { display:block; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin: 12px 0 4px; }
-.price-hint { font-size:10px; color:var(--muted); margin: 4px 0 16px; }
-.market-dialog-copy { margin:0 0 16px; font-size:13px; color:var(--muted); line-height:1.5; }
-.market-dialog-actions { display:flex; justify-content:flex-end; gap:10px; }
+
+
+
+
+
+
+.
+
+/* ---- sidebar nav (shared) --------------------------------------------- */
+
+
+.market-page .navbtn {display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s}
+.market-page .navbtn svg {width:18px;height:18px}
+.market-page .navbtn:hover {color:var(--ink);background:var(--bg)}
+.market-page .navbtn[aria-current="page"] {background:var(--signal);color:#fff;border-color:var(--signal)}
+
+
+
+
+
+/* ---- main -------------------------------------------------------------- */
+.market-page .main {display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+
+/* market top bar: tabs + credits */
+.market-page .mbar {flex:0 0 auto;display:flex;align-items:center;gap:0;padding:10px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.market-page .tabs {display:flex;gap:6px}
+.market-page .tab {display:flex;align-items:center;gap:8px;padding:9px 15px;clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);background:var(--bg);transition:.12s}
+.market-page .tab svg {width:15px;height:15px}
+.market-page .tab .cnt {font:700 9px/1 var(--font);color:var(--muted)}
+.market-page .tab:hover {color:var(--ink);border-color:var(--muted)}
+.market-page .tab.on {background:var(--signal);color:#fff;border-color:var(--signal)}
+.market-page .tab.on .cnt {color:color-mix(in oklab,#fff 80%,var(--signal))}
+.market-page .mbar .wallet {margin-left:auto;display:grid;grid-template-columns:30px auto;gap:10px;align-items:center}
+.market-page .mbar .wallet .ic {width:30px;height:30px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--credits)}
+.market-page .mbar .wallet .ic svg {width:17px;height:17px}
+.market-page .mbar .wallet .k {font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.market-page .mbar .wallet .v {font:800 18px/1 var(--font);margin-top:3px}
+.market-page .mbar .listbtn {margin-left:16px;padding:10px 15px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--ink);display:flex;align-items:center;gap:7px;transition:.12s}
+.market-page .mbar .listbtn:hover {border-color:var(--signal);color:var(--signal)}
+.market-page .mbar .listbtn svg {width:13px;height:13px}
+
+/* ---- content: filters | grid ------------------------------------------ */
+.market-page .stage {flex:1 1 auto;min-height:0;display:grid;grid-template-columns:212px 1fr;gap:0}
+@media (max-width:900px){.market-page .stage{grid-template-columns:1fr}.filters{display:none}}
+
+/* filters rail */
+.market-page .filters {border-right:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:16px 14px;gap:16px;scrollbar-width:thin}
+.market-page .filters::-webkit-scrollbar {width:8px}.filters::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .fgroup .fl {font:700 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.market-page .search {display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 10px}
+.market-page .search svg {width:14px;height:14px;color:var(--muted);flex:0 0 14px}
+.market-page .search input {flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink);font:600 12px/1 var(--font)}
+.market-page .search input::placeholder {color:var(--muted)}
+.market-page .fsel {width:100%;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:9px 10px;color:var(--ink);font:700 11px/1 var(--font);letter-spacing:.02em;outline:none}
+.market-page .fsel:focus {border-color:var(--muted)}
+.market-page .frow {display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.market-page .fnum {width:100%;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 9px;color:var(--ink);font:700 11px/1 var(--font);outline:none;-moz-appearance:textfield}
+.market-page .fnum::-webkit-outer-spin-button, .market-page .fnum::-webkit-inner-spin-button {-webkit-appearance:none;margin:0}
+.market-page .fnum::placeholder {color:var(--muted)}
+.market-page .clearchip {padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px;transition:.12s}
+.market-page .clearchip:hover {color:var(--ink);border-color:var(--muted)}
+.market-page .clearchip[hidden] {display:none}
+.market-page .clearchip svg {width:12px;height:12px}
+.market-page .mine-toggle {display:flex;align-items:center;justify-content:space-between;font:700 10px/1 var(--font);letter-spacing:.04em;color:var(--muted);cursor:pointer;padding:2px}
+.market-page .mine-toggle .sw {width:32px;height:18px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);position:relative;transition:.12s}
+.market-page .mine-toggle .sw::after {content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:var(--muted);transition:.12s}
+.market-page .mine-toggle.on {color:var(--ink)}
+.market-page .mine-toggle.on .sw {border-color:var(--signal)}
+.market-page .mine-toggle.on .sw::after {left:16px;background:var(--signal)}
+
+/* grid */
+.market-page .gridwrap {min-width:0;min-height:0;display:flex;flex-direction:column}
+.market-page .gridhead {flex:0 0 auto;display:flex;align-items:center;gap:12px;padding:14px 24px 10px}
+.market-page .gridhead .gt {font:800 11px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.market-page .gridhead .gt b {color:var(--ink)}
+.market-page .gridhead .sort {margin-left:auto;display:flex;align-items:center;gap:8px}
+.market-page .gridhead .sort label {font:700 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.market-page .gridhead .sort select {background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:7px 9px;color:var(--ink);font:700 10px/1 var(--font);outline:none}
+.market-page .grid {flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));grid-auto-rows:min-content;gap:14px;padding:4px 24px 26px;scrollbar-width:thin}
+.market-page .grid::-webkit-scrollbar {width:10px}.grid::-webkit-scrollbar-thumb{background:var(--hair)}
+
+/* listing card (shared shell) */
+.market-page .card {background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);position:relative;display:flex;flex-direction:column;padding:14px;gap:11px}
+.market-page .card::before {content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:color-mix(in oklab,var(--ac,var(--signal)) 55%,var(--hair))}
+.market-page .card.mine::after {content:"YOURS";position:absolute;top:10px;right:12px;font:800 7px/1 var(--font);letter-spacing:.1em;color:var(--muted);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:3px 5px}
+.market-page .chead {display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}
+.market-page .chead .art {width:52px;height:52px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.market-page .chead .art img {width:46px;height:46px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.market-page .chead .art svg {width:26px;height:26px}
+.market-page .chead .nm {font:800 14px/1.05 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:16ch}
+.market-page .chead .sub {font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:6px}
+.market-page .chead .sub .dot {width:7px;height:7px;background:var(--ac,var(--muted))}
+/* stat bonus grid (digimon) */
+.market-page .statgrid {display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.market-page .stat {background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px 7px;text-align:center}
+.market-page .stat .sk {font:700 7px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.market-page .stat .sv {font:800 12px/1 var(--font);margin-top:4px}
+.market-page .stat .sv.pos {color:color-mix(in oklab,var(--signal) 62%,var(--ink))}
+/* item body */
+.market-page .idesc {font:600 11px/1.4 var(--font);color:var(--muted)}
+.market-page .iqty {display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--ink);background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:5px 8px;align-self:flex-start}
+.market-page .iqty .qd {width:6px;height:6px;background:var(--ac,var(--muted))}
+/* card foot: price + seller + action, pinned to bottom */
+.market-page .cfoot {margin-top:auto;display:flex;flex-direction:column;gap:9px;padding-top:2px}
+.market-page .priced {display:flex;align-items:center;justify-content:space-between}
+.market-page .priced .pw {display:flex;align-items:center;gap:6px;font:800 16px/1 var(--font)}
+.market-page .priced .pw svg {width:14px;height:14px;color:var(--credits)}
+.market-page .priced .seller {font:700 9px/1 var(--font);letter-spacing:.04em;color:var(--muted);text-align:right;max-width:12ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-page .priced .seller b {color:var(--ink);font-weight:800}
+.market-page .buybtn {width:100%;padding:11px;background:var(--signal);color:#fff;clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;transition:.12s}
+.market-page .buybtn:hover:not(:disabled) {background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.market-page .buybtn:disabled {opacity:.4;cursor:not-allowed;background:var(--bg);border:1px solid var(--hair);color:var(--muted)}
+.market-page .cancelbtn {width:100%;padding:11px;background:var(--bg);border:1px solid var(--hair);color:var(--muted);clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;transition:.12s}
+.market-page .cancelbtn:hover {border-color:var(--battle);color:var(--battle)}
+.market-page .needhint {font:700 9px/1.3 var(--font);letter-spacing:.02em;color:var(--battle);text-align:center;min-height:11px}
+.market-page .gridempty {grid-column:1/-1;padding:60px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}
+.market-page .gridempty svg {width:36px;height:36px;color:var(--hair);margin-bottom:12px}
+
+/* ---- list drawer ------------------------------------------------------- */
+.market-page .drawer {position:fixed;inset:0;z-index:60;display:none}
+.market-page .drawer.open {display:block}
+.market-page .scrim {position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 66%,transparent)}
+.market-page .dpanel {position:absolute;right:0;top:0;bottom:0;width:420px;max-width:94vw;background:var(--panel);border-left:1px solid var(--hair);display:flex;flex-direction:column;box-shadow:-20px 0 50px color-mix(in oklab,var(--bg) 70%,transparent)}
+.market-page .dhead {padding:20px 22px 16px;border-bottom:1px solid var(--hair);display:flex;align-items:flex-start;gap:12px;position:relative}
+.market-page .dhead::before {content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+.market-page .dhead .dk {font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--signal);margin-bottom:8px}
+.market-page .dhead h2 {font:800 22px/1 var(--font);letter-spacing:-.01em}
+.market-page .dclose {margin-left:auto;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.market-page .dclose:hover {color:var(--ink);border-color:var(--muted)}
+.market-page .dbody {flex:1 1 auto;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin}
+.market-page .dbody::-webkit-scrollbar {width:8px}.dbody::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .field .flabel {display:flex;justify-content:space-between;align-items:baseline;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.market-page .field .flabel b {color:var(--ink);font-size:12px;letter-spacing:0}
+.market-page .sellpick {display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;scrollbar-width:thin}
+.market-page .sellpick::-webkit-scrollbar {width:8px}.sellpick::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .sp {display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);text-align:left;transition:.12s}
+.market-page .sp:hover {border-color:var(--muted)}
+.market-page .sp.on {border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.market-page .sp .sps {width:34px;height:34px;display:grid;place-items:center}
+.market-page .sp .sps img {width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.market-page .sp .spn {font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-page .sp .spsub {font:700 8px/1 var(--font);letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.market-page .priceinput {display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 13px}
+.market-page .priceinput svg {width:16px;height:16px;color:var(--credits);flex:0 0 16px}
+.market-page .priceinput input {flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink);font:800 16px/1 var(--font);font-variant-numeric:tabular-nums}
+.market-page .dfoot {flex:0 0 auto;border-top:1px solid var(--hair);padding:14px 22px;display:flex;align-items:center;gap:12px}
+.market-page .dfoot .dhint {flex:1;font-size:10.5px;color:var(--muted);line-height:1.4}
+.market-page .dfoot .dhint.warn {color:var(--battle)}
+.market-page .dfoot .btn {padding:11px 18px;clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;background:var(--signal);color:#fff;transition:.12s;white-space:nowrap}
+.market-page .dfoot .btn:hover:not(:disabled) {background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.market-page .dfoot .btn:disabled {opacity:.4;cursor:not-allowed}
+
+/* ---- toast ------------------------------------------------------------- */
+.market-page .toast {position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.market-page .toast.show {opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){}
+/* Legacy pagination restored for functionality */
+.market-page .pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin: 20px 0 40px; flex-wrap:wrap; grid-column:1/-1; }
+.market-page .pagination .info { font-size:12px; color: var(--muted); margin-right:16px; }
+.market-page .pagination button { background:var(--bg); border:1px solid var(--hair); color:var(--muted); padding:6px 12px; cursor:pointer; font-size:12px; font-weight:600; font-family:inherit; transition: all .2s; clip-path: polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); }
+.market-page .pagination button:hover:not(:disabled) { border-color: var(--ink); color: var(--ink); }
+.market-page .pagination button.active { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.market-page .pagination button:disabled { opacity: .4; cursor: not-allowed; }
