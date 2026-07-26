@@ -1,8 +1,4 @@
-.admin-shell .app-main.admin-main {
-  max-width: 1440px;
-}
-
-.admin-layout {
+.admin-body {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: var(--sp-4);
@@ -354,7 +350,7 @@
 }
 
 @media (max-width: 960px) {
-  .admin-layout,
+  .admin-body,
   .admin-two-column {
     grid-template-columns: 1fr;
   }
