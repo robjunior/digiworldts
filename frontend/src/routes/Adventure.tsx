@@ -1,16 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { PageStrip } from '../components/common/PageStrip';
 import { getRoster } from '../lib/api';
 import {
   collectAdventure,
   getAdventure,
   startAdventure,
-  type AdventureMemberView,
   type AdventurePageView,
   type AdventureReport,
   type AdventureView,
+  type AdventureConfigView,
 } from '../lib/api-adventure';
 import { getFarm, type FarmView } from '../lib/api-farm';
 import type { RosterView } from '../lib/api';
@@ -35,6 +34,12 @@ export function Adventure(): JSX.Element {
     const id = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(''), 3000);
+    return () => clearTimeout(t);
+  }, [notice]);
 
   const page = adventureQuery.data ?? null;
   const active = page?.active ?? null;
@@ -88,53 +93,384 @@ export function Adventure(): JSX.Element {
     onError: (error) => setNotice(error instanceof Error ? error.message : 'collect failed'),
   });
 
+  function handleTogglePick(monId: string) {
+    const slotIndex = selectedIds.indexOf(monId);
+    if (slotIndex >= 0) {
+      const next = [...selectedIds];
+      next[slotIndex] = null;
+      setSelectedIds(next);
+    } else {
+      const emptyIdx = selectedIds.indexOf(null);
+      if (emptyIdx >= 0) {
+        const next = [...selectedIds];
+        next[emptyIdx] = monId;
+        setSelectedIds(next);
+      } else {
+        setNotice(`Party is full (${config.partySize}). Deselect one first.`);
+      }
+    }
+  }
+
+  const filled = selectedIds.filter((id) => id !== null).length;
+  const enoughProv = provisionsOwned >= provisionsNeeded;
+  const canStart = filled === config.partySize && enoughProv;
+
+  let hint, warn = false;
+  if (filled < config.partySize) {
+    hint = <>Pick <b>{config.partySize - filled}</b> more Digimon to embark.</>;
+  } else if (!enoughProv) {
+    hint = <>Need <b>{provisionsNeeded}</b> provisions — you have <b>{provisionsOwned}</b>. Craft more in the Pantry.</>;
+    warn = true;
+  } else {
+    hint = <>Ready — <b>{provisionsNeeded}</b> provisions for a <b>{hours}h</b> run.</>;
+  }
+
+  const displayRoster = roster.filter((m) => m.status === 'resting' && m.listedAt === null && typeof m.slot !== 'number');
+
+  const meatBal = farm.balances.Meat ?? 0;
+  const bitsBal = farm.balances.Bits ?? 0;
+  const dataBal = farm.balances.Data ?? 0;
+  const creditsBal = farm.credits ?? 0;
+
   return (
-    <div className="app-shell">
-      <main className="app-main adventure-main">
-        <PageStrip
-          name="Adventure"
-          tone="reward"
-          metrics={[
-            { label: <><b>{provisionsOwned}</b> provisions</> },
-            { label: <><b>{eligibleMons.length}</b> ready to send</> },
-            { label: <>up to <b>{config.maxHours}h</b> per trip</>, className: 'muted' },
-          ]}
-          actions={<span className="muted">Send 3 Digimon out to loot resources, credits, and XP.</span>}
-        />
-        <div className="farm-alert" role="status" aria-live="polite">{notice}</div>
-        {active !== null ? (
-          <ActiveAdventurePanel
-            adventure={active}
-            now={now}
-            collectBusy={collectMutation.isPending}
-            onCollect={() => collectMutation.mutate()}
-          />
-        ) : (
-          <IdleAdventurePanel
-            selectedIds={selectedIds}
-            onSelect={(slot, monId) => {
-              const next = selectedIds.slice();
-              next[slot] = monId;
-              setSelectedIds(next);
-            }}
-            hours={hours}
-            onHoursChange={setHours}
-            eligibleMons={eligibleMons}
-            provisionsOwned={provisionsOwned}
-            provisionsNeeded={provisionsNeeded}
-            config={config}
-            startBusy={startMutation.isPending}
-            onStart={() => {
-              const monIds = selectedIds.filter((id): id is string => id !== null);
-              startMutation.mutate({ monIds, hours });
-            }}
-          />
-        )}
-        {lastCollected !== null && lastCollected.report !== null ? (
-          <ReportCard adventure={lastCollected} report={lastCollected.report} />
-        ) : null}
-      </main>
+    <div className="adv-page">
+      <div className="balbar" id="balbar">
+        <div className="bal" data-res="meat">
+          <span className="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z" />
+              <path d="M9 9c1-1 4-1 5 0" />
+            </svg>
+          </span>
+          <span className="col"><span className="k">Meat</span><span className="v">{meatBal.toLocaleString('en-US')}</span></span>
+        </div>
+        <div className="bal" data-res="bits">
+          <span className="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M4 8h4V4M20 8h-4V4M4 16h4v4M20 16h-4v4" />
+              <rect x="8" y="8" width="8" height="8" />
+            </svg>
+          </span>
+          <span className="col"><span className="k">Bits</span><span className="v">{bitsBal.toLocaleString('en-US')}</span></span>
+        </div>
+        <div className="bal" data-res="data">
+          <span className="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <ellipse cx="12" cy="6" rx="7" ry="3" />
+              <path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6" />
+              <path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3" />
+            </svg>
+          </span>
+          <span className="col"><span className="k">Data</span><span className="v">{dataBal.toLocaleString('en-US')}</span></span>
+        </div>
+        <div className="bal" data-res="credits">
+          <span className="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5" />
+            </svg>
+          </span>
+          <span className="col"><span className="k">Credits</span><span className="v">{creditsBal.toLocaleString('en-US')}</span></span>
+        </div>
+        <div className="bal" data-res="provisions">
+          <span className="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+              <path d="M5 8h14v11H5z" />
+              <path d="M5 8l2-4h10l2 4" />
+              <path d="M9 12h6" />
+            </svg>
+          </span>
+          <span className="col"><span className="k">Provisions</span><span className="v">{provisionsOwned.toLocaleString('en-US')}</span></span>
+        </div>
+        <div className="strip-title">
+          <div className="k">Expeditions</div>
+          <div className="s">{active ? '1 in the field' : 'idle · ready to send'}</div>
+        </div>
+      </div>
+
+      <div className="scroll">
+        <div className="col left">
+          <div className="lstack">
+            <h3 className="stitle">Send an expedition</h3>
+            <div className="panelbox">
+              <div className="pinner">
+                <div className="rlabel">Pick your party — {config.partySize} resting Digimon</div>
+                <div className="party">
+                  {displayRoster.map((mon) => {
+                    const isDowned = mon.reviveAt !== null && mon.reviveAt > now;
+                    const isPicked = selectedIds.includes(mon.id);
+                    return (
+                      <div
+                        key={mon.id}
+                        className={`mon ${isPicked ? 'picked' : ''} ${isDowned ? 'downed' : ''} ${!isDowned ? 'picker' : ''}`}
+                        onClick={() => {
+                          if (!isDowned) handleTogglePick(mon.id);
+                        }}
+                      >
+                        <span className="pick-ic">
+                          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3">
+                            <path d="M5 12l4 4 10-10" />
+                          </svg>
+                        </span>
+                        {isDowned && <span className="ko">Downed</span>}
+                        <span className="spr">
+                          <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
+                        </span>
+                        <span className="nick">{mon.nickname}</span>
+                        <span className="sub">
+                          Lv {mon.level} · <span className="st">{mon.template?.stage ?? '?'}</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="field">
+                  <div className="flabel">
+                    <span>Expedition length</span>
+                    <b>{hours}h</b>
+                  </div>
+                  <input
+                    type="range"
+                    min={config.minHours}
+                    max={config.maxHours}
+                    step="1"
+                    value={hours}
+                    onChange={(e) => setHours(Number(e.target.value))}
+                    aria-label="Expedition length in hours"
+                  />
+                </div>
+
+                <div className="previewgrid">
+                  <div className={`pv ${provisionsNeeded > provisionsOwned ? 'short' : ''}`}>
+                    <div className="k">Provisions</div>
+                    <div className="v">{provisionsNeeded}</div>
+                  </div>
+                  <div className="pv">
+                    <div className="k">Encounters</div>
+                    <div className="v">~{Math.round(hours * config.encountersPerHour)}</div>
+                  </div>
+                  <div className="pv">
+                    <div className="k">Returns in</div>
+                    <div className="v">{hours}h</div>
+                  </div>
+                </div>
+              </div>
+              <div className="afoot">
+                <span className={`ahint ${warn ? 'warn' : ''}`}>{hint}</span>
+                <button
+                  className="btn primary"
+                  disabled={!canStart || startMutation.isPending}
+                  onClick={() => {
+                    const monIds = selectedIds.filter((id): id is string => id !== null);
+                    startMutation.mutate({ monIds, hours });
+                  }}
+                >
+                  Embark
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div className="lstack">
+            <h3 className="stitle">
+              Active Expeditions <span className="cnt">{active ? 1 : 0}</span>
+            </h3>
+            <div className="panelbox">
+              <div className="pinner">
+                <div className="explist">
+                  {active ? (
+                    <ActiveExpCard
+                      active={active}
+                      now={now}
+                      config={config}
+                      onCollect={() => collectMutation.mutate()}
+                      isCollecting={collectMutation.isPending}
+                    />
+                  ) : (
+                    <div className="exp-empty">
+                      No expeditions in the field. Pick a party above and Embark — every run you send appears here with its
+                      own countdown, and you can send as many as you like.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col right">
+          <h3 className="stitle">Last Report</h3>
+          <div className="panelbox">
+            <div className="pinner">
+              <ReportPanel report={lastCollected?.report ?? null} adventure={lastCollected} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className={`toast ${notice ? 'show' : ''}`} id="toast" role="status" aria-live="polite">
+        {notice}
+      </div>
     </div>
+  );
+}
+
+function ActiveExpCard({
+  active,
+  now,
+  config,
+  onCollect,
+  isCollecting,
+}: {
+  readonly active: AdventureView;
+  readonly now: number;
+  readonly config: AdventureConfigView;
+  readonly onCollect: () => void;
+  readonly isCollecting: boolean;
+}): JSX.Element {
+  const total = active.distanceMs;
+  const remainingMs = Math.max(0, active.finishesAt - now);
+  const done = total - remainingMs;
+  const pct = total > 0 ? Math.min(100, (done / total) * 100) : 100;
+  const h = Math.max(1, Math.round(active.distanceMs / 3600000));
+  const ready = active.ready || remainingMs === 0;
+
+  return (
+    <div className={`exp-card ${ready ? 'ready' : ''}`}>
+      <div className="ehead">
+        <span className="emini">
+          {active.party.map((p) => (
+            <img key={p.monId} src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" loading="lazy" />
+          ))}
+        </span>
+        <span className="enames">
+          {active.party.map((p) => p.nickname).join(' · ')}
+          <span className="esub">
+            {h}h run · {active.provisionsSpent} prov · ~{Math.round(h * config.encountersPerHour)} enc
+          </span>
+        </span>
+        <span className={`eclock ${ready ? 'ready' : ''}`}>{ready ? 'READY' : formatClock(remainingMs)}</span>
+      </div>
+      <div className="epbar">
+        <i style={{ width: `${pct}%` }} />
+      </div>
+      <div className="efoot">
+        {ready ? (
+          <>
+            <span className="eh">
+              Back at the gate — <b>collect</b> to bank loot &amp; XP.
+            </span>
+            <button className="btn primary sm" onClick={onCollect} disabled={isCollecting}>
+              Collect
+            </button>
+          </>
+        ) : (
+          <>
+            <span className="eh">Out in the field — rewards roll in on return.</span>
+            <button className="btn ghost sm" disabled>
+              Away…
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ReportPanel({
+  report,
+  adventure,
+}: {
+  readonly report: AdventureReport | null;
+  readonly adventure: AdventureView | null;
+}): JSX.Element {
+  if (!report || !adventure) {
+    return (
+      <div className="rep-empty">
+        No expeditions yet. Send a party into the field, and their battle report — loot, XP, and any KOs — lands here
+        when they return.
+      </div>
+    );
+  }
+
+  const h = Math.max(1, Math.round(adventure.distanceMs / 3600000));
+  const encCount = report.wins + report.losses;
+
+  return (
+    <>
+      <div className="wl">
+        <div className="b wins">
+          <div className="k">Wins</div>
+          <div className="v">{report.wins}</div>
+        </div>
+        <div className="b loss">
+          <div className="k">Losses</div>
+          <div className="v">{report.losses}</div>
+        </div>
+      </div>
+      <div className="rlabel">
+        {h}h run · {encCount} encounters
+      </div>
+      <div className="rlabel">Loot banked</div>
+      <div className="loot">
+        {report.totals.meat > 0 && (
+          <span className="lchip" data-res="meat">
+            <span className="cd" />
+            {report.totals.meat.toLocaleString('en-US')} <span className="u">Meat</span>
+          </span>
+        )}
+        {report.totals.bits > 0 && (
+          <span className="lchip" data-res="bits">
+            <span className="cd" />
+            {report.totals.bits.toLocaleString('en-US')} <span className="u">Bits</span>
+          </span>
+        )}
+        {report.totals.data > 0 && (
+          <span className="lchip" data-res="data">
+            <span className="cd" />
+            {report.totals.data.toLocaleString('en-US')} <span className="u">Data</span>
+          </span>
+        )}
+        {report.totals.credits > 0 && (
+          <span className="lchip" data-res="credits">
+            <span className="cd" />
+            {report.totals.credits.toLocaleString('en-US')} <span className="u">Credits</span>
+          </span>
+        )}
+        {report.totals.meat === 0 &&
+          report.totals.bits === 0 &&
+          report.totals.data === 0 &&
+          report.totals.credits === 0 && <span className="rep-empty">No loot this run.</span>}
+      </div>
+      <div className="rlabel">Experience</div>
+      {report.xpDeltas.map((x) => {
+        const mon = adventure.party.find((p) => p.monId === x.monId);
+        return (
+          <div className="xprow" key={x.monId}>
+            <span className="xspr">
+              <img src={`/assets/digimon/${mon?.catalogId}/dot.gif`} alt="" loading="lazy" />
+            </span>
+            <span className="xn">{mon?.nickname ?? x.monId}</span>
+            <span className="xg">
+              +{x.xpGained.toLocaleString('en-US')} XP
+              {x.gainedLevels > 0 && <span className="lvup">Lv {x.levelAfter}</span>}
+            </span>
+          </div>
+        );
+      })}
+      {report.koedMonIds.length > 0 && (
+        <div className="koline">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+          </svg>
+          {report.koedMonIds
+            .map((id) => adventure.party.find((p) => p.monId === id)?.nickname ?? id)
+            .join(', ')}{' '}
+          knocked out — recovering (30m)
+        </div>
+      )}
+    </>
   );
 }
 
@@ -152,257 +488,7 @@ const emptyFarm: FarmView = {
   buildings: [],
 };
 
-function IdleAdventurePanel({
-  selectedIds,
-  onSelect,
-  hours,
-  onHoursChange,
-  eligibleMons,
-  provisionsOwned,
-  provisionsNeeded,
-  config,
-  startBusy,
-  onStart,
-}: {
-  readonly selectedIds: readonly (string | null)[];
-  readonly onSelect: (slot: number, monId: string | null) => void;
-  readonly hours: number;
-  readonly onHoursChange: (h: number) => void;
-  readonly eligibleMons: readonly RosterView[];
-  readonly provisionsOwned: number;
-  readonly provisionsNeeded: number;
-  readonly config: AdventurePageView['config'];
-  readonly startBusy: boolean;
-  readonly onStart: () => void;
-}): JSX.Element {
-  const filled = selectedIds.filter((id) => id !== null).length;
-  const usedIds = new Set(selectedIds.filter((id): id is string => id !== null));
-  const canStart = filled === config.partySize && provisionsOwned >= provisionsNeeded && !startBusy;
-  const insufficientProvisions = provisionsOwned < provisionsNeeded;
-  const encounters = Math.max(1, Math.round(hours * config.encountersPerHour));
-  return (
-    <section className="adv-idle" aria-label="Plan adventure">
-      <div className="adv-idle-cols">
-        <div className="adv-slot-col" aria-label="Expedition party">
-          <h3 className="adv-h">Party <span className="muted">({filled}/{config.partySize})</span></h3>
-          <div className="adv-slots">
-            {[0, 1, 2].map((slot) => {
-              const monId = selectedIds[slot] ?? null;
-              const mon = monId ? eligibleMons.find((m) => m.id === monId) : null;
-              return (
-                <div key={slot} className={`adv-slot ${mon ? 'is-filled' : 'is-empty'}`}>
-                  {mon ? (
-                    <>
-                      <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
-                      <span className="adv-slot-name">{mon.nickname}</span>
-                      <span className="adv-slot-sub muted">Lv {mon.level} · {mon.template?.stage ?? '?'}</span>
-                      <button type="button" className="adv-slot-clear" aria-label={`Remove ${mon.nickname} from slot ${slot + 1}`} onClick={() => onSelect(slot, null)}>✕</button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="adv-slot-empty-mark">—</div>
-                      <span className="adv-slot-sub muted">Slot {slot + 1}</span>
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <h4 className="adv-h adv-h--sub">Roster</h4>
-          {eligibleMons.length === 0 ? (
-            <p className="muted">No Digimon available. Only resting mons (not in party / not training / not adventuring / not listed / not downed) can join an expedition.</p>
-          ) : (
-            <ul className="adv-roster-list" aria-label="Eligible Digimon">
-              {eligibleMons.map((mon) => {
-                const selected = usedIds.has(mon.id);
-                return (
-                  <li key={mon.id}>
-                    <button
-                      type="button"
-                      className={`adv-roster-chip ${selected ? 'is-selected' : ''}`}
-                      onClick={() => {
-                        if (selected) {
-                          const slotIndex = selectedIds.findIndex((id) => id === mon.id);
-                          if (slotIndex >= 0) onSelect(slotIndex, null);
-                          return;
-                        }
-                        const emptyIdx = selectedIds.findIndex((id) => id === null);
-                        if (emptyIdx >= 0) onSelect(emptyIdx, mon.id);
-                      }}
-                    >
-                      <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
-                      <span>
-                        <b>{mon.nickname}</b>
-                        <span className="muted"> · Lv {mon.level}</span>
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-        <aside className="adv-plan-col" aria-label="Trip parameters">
-          <h3 className="adv-h">Distance</h3>
-          <div className="adv-slider-block">
-            <input
-              type="range"
-              min={config.minHours}
-              max={config.maxHours}
-              step={1}
-              value={hours}
-              onChange={(event) => onHoursChange(Number(event.target.value))}
-              aria-label={`Adventure duration: ${hours} hour${hours === 1 ? '' : 's'}`}
-            />
-            <div className="adv-slider-value">
-              <b>{hours}h</b>
-              <span className="muted">~{encounters} encounter{encounters === 1 ? '' : 's'}</span>
-            </div>
-          </div>
-          <dl className="adv-cost">
-            <div className="adv-cost-row">
-              <dt>Provisions needed</dt>
-              <dd className={insufficientProvisions ? 'adv-cost-bad' : ''}>
-                <b>{provisionsNeeded}</b>
-                <span className="muted"> / {provisionsOwned} owned</span>
-              </dd>
-            </div>
-            <div className="adv-cost-row">
-              <dt>Rate</dt>
-              <dd className="muted">{config.provisionsPerHour} per hour</dd>
-            </div>
-            <div className="adv-cost-row">
-              <dt>Rewards scale with</dt>
-              <dd className="muted">distance × wild level</dd>
-            </div>
-          </dl>
-          <button
-            type="button"
-            className="btn adv-start-btn"
-            disabled={!canStart}
-            onClick={onStart}
-            title={!canStart ? (filled < config.partySize ? `Fill all ${config.partySize} party slots` : insufficientProvisions ? `Need ${provisionsNeeded - provisionsOwned} more Provisions — craft them in the Pantry` : undefined) : undefined}
-          >
-            {startBusy ? 'Sending…' : insufficientProvisions ? `Need ${provisionsNeeded - provisionsOwned} more Provisions` : filled < config.partySize ? `Fill ${config.partySize - filled} more slot${config.partySize - filled === 1 ? '' : 's'}` : `Send party (${hours}h)`}
-          </button>
-        </aside>
-      </div>
-    </section>
-  );
-}
-
-function ActiveAdventurePanel({
-  adventure,
-  now,
-  collectBusy,
-  onCollect,
-}: {
-  readonly adventure: AdventureView;
-  readonly now: number;
-  readonly collectBusy: boolean;
-  readonly onCollect: () => void;
-}): JSX.Element {
-  const elapsed = Math.max(0, now - adventure.startedAt);
-  const pct = Math.min(100, Math.max(0, (elapsed / adventure.distanceMs) * 100));
-  const remainingMs = Math.max(0, adventure.finishesAt - now);
-  const ready = adventure.ready || remainingMs === 0;
-  return (
-    <section className="adv-active" aria-label="Active adventure">
-      <header className="adv-active-head">
-        <div>
-          <h2 className="adv-active-title">
-            {ready ? 'Party ready to be debriefed' : 'Party in the field'}
-          </h2>
-          <p className="muted adv-active-sub">
-            {ready ? 'Collect the report to award XP and loot.' : `Returning in ${formatCountdown(remainingMs)}. Elapsed ${formatDuration(elapsed)} of ${formatDuration(adventure.distanceMs)}.`}
-          </p>
-        </div>
-        <button
-          type="button"
-          className={`btn ${ready ? 'btn--primary' : 'btn--secondary'} adv-collect-btn`}
-          disabled={!ready || collectBusy}
-          onClick={onCollect}
-        >
-          {collectBusy ? 'Collecting…' : ready ? 'Collect report' : formatCountdown(remainingMs)}
-        </button>
-      </header>
-      <div className="adv-progress" role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-        <div className="adv-progress-fill" style={{ width: `${pct}%` }} />
-      </div>
-      <ul className="adv-active-party" aria-label="Party members">
-        {adventure.party.map((member) => (
-          <li key={member.monId}>
-            <PartyChip member={member} />
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function PartyChip({ member }: { readonly member: AdventureMemberView }): JSX.Element {
-  return (
-    <div className="adv-mon-chip">
-      <img src={`/assets/digimon/${member.catalogId}/dot.gif`} alt="" loading="lazy" />
-      <div>
-        <b>{member.nickname}</b>
-        <span className="muted"> · Lv {member.level} · {member.stage}</span>
-      </div>
-    </div>
-  );
-}
-
-function ReportCard({ adventure, report }: { readonly adventure: AdventureView; readonly report: AdventureReport }): JSX.Element {
-  const xpByMon = new Map(report.xpDeltas.map((d) => [d.monId, d] as const));
-  const koedSet = new Set(report.koedMonIds);
-  return (
-    <section className="adv-report" aria-label="Last adventure report">
-      <header className="adv-report-head">
-        <h3 className="adv-h">Last expedition</h3>
-        <span className="muted">
-          <b>{report.encounters.length}</b> encounter{report.encounters.length === 1 ? '' : 's'} · <b>{report.wins}</b> win{report.wins === 1 ? '' : 's'} · <b>{report.losses}</b> loss{report.losses === 1 ? '' : 'es'}
-        </span>
-      </header>
-      <div className="adv-report-totals">
-        {report.totals.meat > 0 ? <span className="ps-res ps-res--meat" title="Meat"><span className="ps-dot" />{report.totals.meat}</span> : null}
-        {report.totals.bits > 0 ? <span className="ps-res ps-res--bits" title="Bits"><span className="ps-dot" />{report.totals.bits}</span> : null}
-        {report.totals.data > 0 ? <span className="ps-res ps-res--data" title="Data"><span className="ps-dot" />{report.totals.data}</span> : null}
-        {report.totals.credits > 0 ? <span className="adv-report-credits">+{report.totals.credits} DGC</span> : null}
-      </div>
-      <ul className="adv-report-party" aria-label="Party outcomes">
-        {adventure.party.map((member) => {
-          const xp = xpByMon.get(member.monId);
-          const koed = koedSet.has(member.monId);
-          return (
-            <li key={member.monId} className={koed ? 'is-koed' : ''}>
-              <img src={`/assets/digimon/${member.catalogId}/dot.gif`} alt="" loading="lazy" />
-              <div className="adv-report-mon-info">
-                <b>{member.nickname}</b>
-                <span className="muted"> · Lv {xp?.levelAfter ?? member.level}</span>
-                {xp && xp.gainedLevels > 0 ? <span className="adv-report-level-up">+{xp.gainedLevels} Lv</span> : null}
-                {koed ? <span className="adv-report-ko">KO'd — recovering</span> : null}
-              </div>
-              <span className="adv-report-xp">+{xp?.xpGained ?? 0} XP</span>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-function formatDuration(ms: number): string {
-  const totalSec = Math.max(0, Math.round(ms / 1000));
-  const hr = Math.floor(totalSec / 3600);
-  const min = Math.floor((totalSec % 3600) / 60);
-  const sec = totalSec % 60;
-  if (hr > 0) return min === 0 ? `${hr}h` : `${hr}h ${min}m`;
-  if (min === 0) return `${sec}s`;
-  if (sec === 0) return `${min}m`;
-  return `${min}m ${sec}s`;
-}
-
-function formatCountdown(ms: number): string {
+function formatClock(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
   const hr = Math.floor(totalSec / 3600);
   const min = Math.floor((totalSec % 3600) / 60);
