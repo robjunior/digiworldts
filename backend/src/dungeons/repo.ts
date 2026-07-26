@@ -122,6 +122,16 @@ export async function getDungeonView(id: string): Promise<DungeonView | null> {
   return { dungeon, tiles: await listTiles(id), encounters: await listEncounters(id), items: await listItems(id) };
 }
 
+export async function getEncounter(dungeonId: string, encId: string): Promise<DungeonEncounter | null> {
+  const row = await one<EncounterRow>(SQL_GET_ENCOUNTER, dungeonId, encId);
+  return row ? encounterFromRow(row) : null;
+}
+
+export async function getRun(userId: string, dungeonId: string): Promise<UserDungeonRun | null> {
+  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  return row ? runFromRow(row) : null;
+}
+
 export async function createDungeon(input: Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>): Promise<Dungeon> {
   const now = Date.now();
   const dungeon: Dungeon = { ...input, id: newId('dun'), createdAt: now, updatedAt: now };

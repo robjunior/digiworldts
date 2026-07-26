@@ -77,6 +77,11 @@ function bitsForWin(defeated: readonly { level: number }[]): number {
 }
 
 const activeByUser = new Map<string, Battle>();
+const dungeonContext = new Map<string, { readonly dungeonId: string; readonly encounterId: string }>();
+
+export function setPveDungeonContext(userId: string, dungeonId: string, encounterId: string): void {
+  dungeonContext.set(userId, { dungeonId, encounterId });
+}
 
 function decodeItemEffect(payloadJson: string): ItemEffect | null {
   let payload: Record<string, unknown>;
@@ -215,7 +220,17 @@ export function getPveBattleView(userId: string): BattleView | null {
 }
 
 export function abandonPveBattle(userId: string): boolean {
+  dungeonContext.delete(userId);
   return activeByUser.delete(userId);
+}
+
+async function markWonDungeonEncounter(userId: string, battle: Battle): Promise<void> {
+  if (battle.outcome !== 'win_a' && battle.outcome !== 'captured_a') return;
+  const ctx = dungeonContext.get(userId);
+  if (!ctx) return;
+  const { defeatEncounter } = await import('../dungeons/repo.js');
+  await defeatEncounter(userId, ctx.dungeonId, ctx.encounterId);
+  log.info('dungeon.encounter.won', { userId, dungeonId: ctx.dungeonId, encounterId: ctx.encounterId });
 }
 
 export type XpAward = {
@@ -512,13 +527,19 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
         });
       }
     }
-    const rewards = await awardPveBattleRewards(userId, battle);
-    xpAwards = rewards.xpAwards;
-    itemDrops = rewards.itemDrops;
-    speciesAwards = rewards.speciesAwards;
-    creditsGained = rewards.creditsGained;
-    bitsGained = rewards.bitsGained;
-    activeByUser.delete(userId);
+    const dungeonWinPromise = markWonDungeonEncounter(userId, battle);
+    try {
+      const rewards = await awardPveBattleRewards(userId, battle);
+      xpAwards = rewards.xpAwards;
+      itemDrops = rewards.itemDrops;
+      speciesAwards = rewards.speciesAwards;
+      creditsGained = rewards.creditsGained;
+      bitsGained = rewards.bitsGained;
+      await dungeonWinPromise;
+    } finally {
+      dungeonContext.delete(userId);
+      activeByUser.delete(userId);
+    }
   }
 
   const response: ActResult = {

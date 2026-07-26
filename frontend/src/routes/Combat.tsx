@@ -2,12 +2,14 @@ import { Link } from 'react-router';
 
 import { Combat3DBody } from '../components/combat3d/Combat3DBody';
 import { useCombatBattle } from '../hooks/useCombatBattle';
+import { useDungeonReturn } from '../hooks/useDungeonReturn';
 import { useWsStore } from '../state/wsStore';
 import '../styles/extensions-combat3d.css';
 
 export function Combat(): JSX.Element {
   const activeBattle = useWsStore((state) => state.activeBattle);
   const { loadError, startEncounter } = useCombatBattle(true);
+  useDungeonReturn();
 
   if (activeBattle === null) {
     return (

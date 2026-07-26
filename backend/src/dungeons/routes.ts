@@ -10,6 +10,8 @@ import {
   deleteDungeon,
   deleteEncounter,
   deleteItem,
+  getEncounter,
+  getRun,
   getDungeonView,
   listDungeons,
   moveRun,
@@ -29,6 +31,9 @@ import {
   UpdateDungeonInputSchema,
   UpdateEncounterInputSchema,
 } from './validation.js';
+import { loadCatalog, findTemplate } from '../digimon/xml.js';
+import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
+import type { WildMon } from '../world/engine.js';
 
 export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/dungeons', async (req, reply) => {
@@ -153,6 +158,45 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const run = await defeatEncounter(user.id, req.params.id, req.params.encId);
     if (!run) return reply.code(404).send({ error: 'not-found' });
     return reply.send({ run });
+  });
+
+  app.post<{ Params: { id: string; encId: string } }>('/api/dungeon/:id/encounter/:encId/start', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const run = await getRun(user.id, req.params.id);
+    if (!run) return reply.code(404).send({ error: 'not-found' });
+    const encounter = await getEncounter(req.params.id, req.params.encId);
+    if (!encounter) return reply.code(404).send({ error: 'not-found' });
+    if (run.defeatedEncounters.includes(encounter.id)) {
+      return reply.code(409).send({ error: 'encounter-already-defeated' });
+    }
+
+    const catalog = loadCatalog();
+    const wilds: WildMon[] = encounter.digimon.flatMap((mon) => {
+      const template = findTemplate(catalog, mon.catalogId);
+      if (!template) return [];
+      return [{
+        catalogId: mon.catalogId,
+        name: mon.nickname ?? template.name,
+        element: template.element,
+        stage: template.stage,
+        level: mon.level,
+        portrait: template.assets.portrait,
+        rare: encounter.difficulty === 'elite' || encounter.difficulty === 'boss',
+      }];
+    });
+    if (wilds.length !== encounter.digimon.length) return reply.code(500).send({ error: 'catalog-missing' });
+
+    const started = await startPveBattleFromEncounter(user.id, wilds);
+    if (!started.ok) {
+      if (started.error === 'party-invalid') {
+        return reply.code(409).send({ error: 'party-invalid', message: 'Assign 3 alive Digimon to your party first.' });
+      }
+      if (started.error === 'catalog-missing') return reply.code(500).send({ error: 'catalog-missing' });
+      if (started.error === 'battle-in-progress') return reply.code(409).send({ error: 'battle-in-progress' });
+      return reply.code(500).send({ error: 'internal error' });
+    }
+    setPveDungeonContext(user.id, req.params.id, req.params.encId);
+    return reply.send({ battle: started.view });
   });
 
   app.post<{ Params: { id: string } }>('/api/dungeon/:id/complete', async (req, reply) => {

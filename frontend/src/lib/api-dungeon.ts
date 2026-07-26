@@ -1,4 +1,5 @@
 import type {
+  BattleView,
   DungeonRunView,
   DungeonMoveResponse,
   DungeonCompleteResponse,
@@ -18,6 +19,12 @@ export async function moveInDungeon(id: string, x: number, y: number): Promise<D
 
 export async function defeatEncounter(id: string, encId: string): Promise<{ run: DungeonRunView['run'] }> {
   return apiFetch<{ run: DungeonRunView['run'] }>(`/api/dungeon/${id}/encounter/${encId}/defeat`, {
+    method: 'POST',
+  });
+}
+
+export async function startEncounter(id: string, encId: string): Promise<{ battle: BattleView }> {
+  return apiFetch<{ battle: BattleView }>(`/api/dungeon/${id}/encounter/${encId}/start`, {
     method: 'POST',
   });
 }
