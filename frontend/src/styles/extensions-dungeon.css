@@ -120,6 +120,10 @@
   background: var(--panel); border-left: 1px solid var(--hair);
   display: flex; flex-direction: column;
   min-height: 0; overflow: hidden;
+  position: static;
+  height: auto;
+  transform: none;
+  transition: none;
 }
 .dungeon-page .rail .rhead {
   flex: 0 0 auto; padding: 16px 18px 13px; border-bottom: 1px solid var(--hair);
