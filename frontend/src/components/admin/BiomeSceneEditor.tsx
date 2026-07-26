@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 
 import { BIOMES, ARENA_FILES, type ArenaFile, type Biome, type BiomeSceneConfig, type PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { apiFetch, ApiError } from '../../lib/api';
@@ -38,9 +38,25 @@ const BIOME_DEFAULT_FILE: Record<Biome, ArenaFile> = {
 };
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type UploadStatus = 'idle' | 'uploading' | 'thumbnailing' | 'ok' | 'error';
+type UploadStatus = 'idle' | 'uploading' | 'thumbnailing' | 'ok' | 'error' | 'thumbnail-failed';
 type DeleteStatus = 'idle' | 'deleting';
 type RenameStatus = 'idle' | 'renaming';
+
+const MAX_GLB_BYTES = 25 * 1024 * 1024;
+const GLB_FILENAME_RE = /^[a-zA-Z0-9_-]+\.glb$/;
+
+function validateGlbFile(file: File): string | null {
+  if (!GLB_FILENAME_RE.test(file.name)) {
+    return `Filename must match ${GLB_FILENAME_RE.source} — got "${file.name}"`;
+  }
+  if (file.size > MAX_GLB_BYTES) {
+    return `File is ${(file.size / 1024 / 1024).toFixed(1)} MB, max is ${MAX_GLB_BYTES / 1024 / 1024} MB`;
+  }
+  if (file.size < 12) {
+    return `File is only ${file.size} B — too small to be a valid GLB (needs a 12-byte header at minimum)`;
+  }
+  return null;
+}
 
 const FALLBACK_ARENAS: readonly ArenaFileMeta[] = ARENA_FILES.map((file) => ({ file, size: 0, mtime: 0 }));
 
@@ -101,6 +117,10 @@ export function BiomeSceneEditor(): JSX.Element {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<RenameStatus>('idle');
   const [renameError, setRenameError] = useState<string | null>(null);
+  const [pendingOverwrite, setPendingOverwrite] = useState<File | null>(null);
+  const [pendingThumbnailFor, setPendingThumbnailFor] = useState<{ file: File; name: string } | null>(null);
+  const [thumbnailErr, setThumbnailErr] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const arenasUpdatedAt = useWsStore((s) => s.arenasUpdatedAt);
   const biomeScenesUpdatedAt = useWsStore((s) => s.biomeScenesUpdatedAt);
 
@@ -157,37 +177,92 @@ export function BiomeSceneEditor(): JSX.Element {
     return out;
   }, [config]);
 
-  const handleUpload = async (file: File): Promise<void> => {
+  const handleUpload = async (file: File, overwrite: boolean = false): Promise<void> => {
+    const validationErr = validateGlbFile(file);
+    if (validationErr !== null) {
+      setUploadStatus('error');
+      setUploadError(validationErr);
+      return;
+    }
+    setPendingOverwrite(null);
+    setPendingThumbnailFor(null);
+    setThumbnailErr(null);
     setUploadStatus('uploading');
     setUploadError(null);
-    const tryUpload = async (overwrite: boolean): Promise<void> => {
+    try {
       const res = await uploadArena(file, overwrite);
       setUploadStatus('thumbnailing');
       try {
         const arenaKey = res.file.replace(/\.glb$/, '');
         const png = await generateArenaThumbnail(file, arenaKey);
         await uploadArenaThumbnail(res.file, png);
+        setUploadStatus('ok');
+        window.setTimeout(() => setUploadStatus((s) => (s === 'ok' ? 'idle' : s)), 1500);
       } catch (thumbErr) {
+        const msg = thumbErr instanceof Error ? thumbErr.message : 'thumbnail generation failed';
         console.warn('arena.thumbnail.generate.fail', thumbErr);
+        setThumbnailErr(msg);
+        setPendingThumbnailFor({ file, name: res.file });
+        setUploadStatus('thumbnail-failed');
       }
-      setUploadStatus('ok');
-      window.setTimeout(() => setUploadStatus((s) => (s === 'ok' ? 'idle' : s)), 1500);
-    };
-    try {
-      await tryUpload(false);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
-        const yes = window.confirm(`${file.name} already exists on the server. Overwrite it?`);
-        if (!yes) { setUploadStatus('idle'); return; }
-        try { await tryUpload(true); return; } catch (err2) {
-          setUploadStatus('error');
-          setUploadError(err2 instanceof Error ? err2.message : 'upload failed');
-          return;
-        }
+        setPendingOverwrite(file);
+        setUploadStatus('idle');
+        return;
       }
       setUploadStatus('error');
       setUploadError(err instanceof Error ? err.message : 'upload failed');
     }
+  };
+
+  const retryThumbnail = async (): Promise<void> => {
+    if (pendingThumbnailFor === null) return;
+    const { file, name } = pendingThumbnailFor;
+    setUploadStatus('thumbnailing');
+    setThumbnailErr(null);
+    try {
+      const arenaKey = name.replace(/\.glb$/, '');
+      const png = await generateArenaThumbnail(file, arenaKey);
+      await uploadArenaThumbnail(name, png);
+      setPendingThumbnailFor(null);
+      setUploadStatus('ok');
+      window.setTimeout(() => setUploadStatus((s) => (s === 'ok' ? 'idle' : s)), 1500);
+    } catch (err) {
+      setThumbnailErr(err instanceof Error ? err.message : 'thumbnail generation failed');
+      setUploadStatus('thumbnail-failed');
+    }
+  };
+
+  const skipThumbnail = (): void => {
+    setPendingThumbnailFor(null);
+    setThumbnailErr(null);
+    setUploadStatus('idle');
+  };
+
+  const cancelOverwrite = (): void => {
+    setPendingOverwrite(null);
+    setUploadStatus('idle');
+  };
+
+  const onDragEnter = (e: DragEvent<HTMLDivElement>): void => {
+    if (Array.from(e.dataTransfer.types).includes('Files')) {
+      e.preventDefault();
+      setIsDragging(true);
+    }
+  };
+  const onDragLeave = (e: DragEvent<HTMLDivElement>): void => {
+    if (e.currentTarget === e.target) setIsDragging(false);
+  };
+  const onDragOver = (e: DragEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+  const onDrop = (e: DragEvent<HTMLDivElement>): void => {
+    e.preventDefault();
+    setIsDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f !== undefined) void handleUpload(f);
   };
 
   const handleDelete = async (file: string): Promise<void> => {
@@ -355,34 +430,109 @@ export function BiomeSceneEditor(): JSX.Element {
               </button>
             </legend>
 
-            <div className="biome-arena-uploader">
-              <label className={`biome-arena-upload-btn${uploadStatus === 'uploading' || uploadStatus === 'thumbnailing' ? ' is-uploading' : ''}${uploadStatus === 'ok' ? ' is-ok' : ''}`}>
-                <input
-                  type="file"
-                  accept=".glb,model/gltf-binary"
-                  disabled={uploadStatus === 'uploading' || uploadStatus === 'thumbnailing'}
-                  onChange={(e) => {
-                    const f = e.currentTarget.files?.[0];
-                    if (f) void handleUpload(f);
-                    e.currentTarget.value = '';
-                  }}
-                />
-                {uploadStatus === 'uploading'
-                  ? 'Uploading…'
-                  : uploadStatus === 'thumbnailing'
-                    ? 'Generating thumbnail…'
-                    : uploadStatus === 'ok'
-                      ? 'Uploaded ✓'
-                      : '+ Upload .glb'}
-              </label>
+            <div
+              className={`biome-arena-uploader${isDragging ? ' is-drag-over' : ''}${uploadStatus === 'error' ? ' is-error' : ''}`}
+              onDragEnter={onDragEnter}
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
+            >
+              {pendingOverwrite !== null ? (
+                <div className="biome-arena-inline-prompt">
+                  <span><b>{pendingOverwrite.name}</b> already exists on the server.</span>
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-primary"
+                    onClick={() => { void handleUpload(pendingOverwrite, true); }}
+                  >
+                    Overwrite
+                  </button>
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-secondary"
+                    onClick={cancelOverwrite}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : uploadStatus === 'thumbnail-failed' ? (
+                <div className="biome-arena-inline-prompt is-warn">
+                  <span>
+                    Uploaded ✓ but thumbnail generation failed: <b>{thumbnailErr}</b>
+                  </span>
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-primary"
+                    onClick={() => { void retryThumbnail(); }}
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-secondary"
+                    onClick={skipThumbnail}
+                  >
+                    Skip
+                  </button>
+                </div>
+              ) : (
+                <label className={`biome-arena-upload-btn${uploadStatus === 'uploading' || uploadStatus === 'thumbnailing' ? ' is-uploading' : ''}${uploadStatus === 'ok' ? ' is-ok' : ''}${isDragging ? ' is-drag-hint' : ''}`}>
+                  <input
+                    type="file"
+                    accept=".glb,model/gltf-binary"
+                    disabled={uploadStatus === 'uploading' || uploadStatus === 'thumbnailing'}
+                    onChange={(e) => {
+                      const f = e.currentTarget.files?.[0];
+                      if (f !== undefined) void handleUpload(f);
+                      e.currentTarget.value = '';
+                    }}
+                  />
+                  {uploadStatus === 'uploading'
+                    ? 'Uploading…'
+                    : uploadStatus === 'thumbnailing'
+                      ? 'Generating thumbnail…'
+                      : uploadStatus === 'ok'
+                        ? 'Uploaded ✓'
+                        : isDragging
+                          ? '↓ Drop to upload'
+                          : '+ Upload .glb  (or drop here)'}
+                </label>
+              )}
               {uploadError !== null ? (
-                <span className="biome-arena-upload-error">Upload failed: {uploadError}</span>
+                <div className="biome-arena-upload-error">
+                  <b>Upload failed:</b> {uploadError}
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-secondary"
+                    onClick={() => { setUploadStatus('idle'); setUploadError(null); }}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               ) : null}
               {deleteError !== null ? (
-                <span className="biome-arena-upload-error">Delete failed: {deleteError}</span>
+                <div className="biome-arena-upload-error">
+                  <b>Delete failed:</b> {deleteError}
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-secondary"
+                    onClick={() => setDeleteError(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               ) : null}
               {renameError !== null ? (
-                <span className="biome-arena-upload-error">Rename failed: {renameError}</span>
+                <div className="biome-arena-upload-error">
+                  <b>Rename failed:</b> {renameError}
+                  <button
+                    type="button"
+                    className="biome-arena-prompt-secondary"
+                    onClick={() => setRenameError(null)}
+                  >
+                    Dismiss
+                  </button>
+                </div>
               ) : null}
             </div>
 

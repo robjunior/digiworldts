@@ -1109,17 +1109,29 @@
 .biome-arena-uploader {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
+  padding: 10px;
   margin-top: var(--sp-2);
   margin-bottom: 4px;
+  border: 1px dashed var(--hairline);
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  transition: border-color .15s, background .15s;
+}
+.biome-arena-uploader.is-drag-over {
+  border-color: var(--signal);
+  border-style: solid;
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+}
+.biome-arena-uploader.is-error {
+  border-color: #ff5252;
 }
 
 .biome-arena-upload-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-family: inherit;
   font-size: 10px;
   font-weight: 700;
@@ -1127,9 +1139,14 @@
   text-transform: uppercase;
   color: var(--muted);
   background: transparent;
-  border: 1px dashed var(--hairline);
+  border: 1px solid var(--hairline);
   cursor: pointer;
   transition: border-color .15s, color .15s, background .15s;
+}
+.biome-arena-uploader.is-drag-over .biome-arena-upload-btn {
+  color: var(--signal);
+  border-color: var(--signal);
+  background: transparent;
 }
 .biome-arena-upload-btn input[type="file"] {
   position: absolute;
@@ -1144,26 +1161,91 @@
 .biome-arena-upload-btn:hover {
   color: var(--signal);
   border-color: var(--signal);
-  border-style: solid;
   background: color-mix(in oklab, var(--signal) 8%, transparent);
 }
 .biome-arena-upload-btn.is-uploading {
   color: var(--muted);
-  border-style: solid;
   cursor: progress;
 }
 .biome-arena-upload-btn.is-ok {
   color: var(--signal);
   border-color: var(--signal);
-  border-style: solid;
+}
+
+.biome-arena-inline-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+  border: 1px solid var(--signal);
+}
+.biome-arena-inline-prompt.is-warn {
+  background: color-mix(in oklab, var(--gold) 10%, var(--bg));
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.biome-arena-inline-prompt > span { flex: 1 1 200px; word-break: break-word; }
+.biome-arena-inline-prompt > span b { color: var(--signal); }
+.biome-arena-inline-prompt.is-warn > span b { color: var(--gold); }
+
+.biome-arena-prompt-primary,
+.biome-arena-prompt-secondary {
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.biome-arena-prompt-primary {
+  color: var(--bg);
+  background: var(--signal);
+  border-color: var(--signal);
+}
+.biome-arena-prompt-primary:hover {
+  background: color-mix(in oklab, var(--signal) 82%, black);
+}
+.biome-arena-inline-prompt.is-warn .biome-arena-prompt-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.biome-arena-inline-prompt.is-warn .biome-arena-prompt-primary:hover {
+  background: color-mix(in oklab, var(--gold) 82%, black);
+}
+.biome-arena-prompt-secondary {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--hairline);
+}
+.biome-arena-prompt-secondary:hover {
+  color: var(--ink);
+  border-color: var(--muted);
 }
 
 .biome-arena-upload-error {
-  font-size: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 11px;
   color: #ff5252;
-  letter-spacing: .02em;
+  background: color-mix(in oklab, #ff5252 10%, var(--bg));
+  border: 1px solid #ff5252;
   word-break: break-word;
 }
+.biome-arena-upload-error > b { flex: 0 0 auto; }
+.biome-arena-upload-error > .biome-arena-prompt-secondary { margin-left: auto; color: #ff5252; border-color: #ff5252; }
+.biome-arena-upload-error > .biome-arena-prompt-secondary:hover { background: color-mix(in oklab, #ff5252 20%, transparent); color: #ff8080; }
 
 .biome-editor-spawn-add {
   margin-bottom: var(--sp-2);
