@@ -585,7 +585,7 @@ const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: Fri
   const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax : 0;
   const mono = (unit.name || '?').trim().charAt(0).toUpperCase();
   return (
-    <div className={`pcard ${active ? 'active' : ''} ${unit.down || unit.hp <= 0 ? 'ko' : ''}`} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
+    <div className={`pcard ${active ? 'active' : ''} ${unit.down || unit.hp <= 0 ? 'dead' : ''}`} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
       <div className="ph">
         <span className="spr-slot pspr" style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
           <span className="mono" aria-hidden="true">{mono}</span>
@@ -597,15 +597,19 @@ const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: Fri
         </div>
         <div className="stat guard-ic" style={{ marginLeft: 'auto', display: 'none' }} title="Guarding">🛡</div>
       </div>
-      <div className="sk hp">
-        <span className="sn">HP</span>
-        <div className="bar"><div className="stripe" style={{ width: `${hpPct * 100}%` }}></div></div>
-        <span className="ltx">{Math.max(0, unit.hp)}<span className="m">/{unit.hpMax}</span></span>
+      <div className="stat">
+        <span className="sk">HP</span>
+        <span className="bar hp" role="progressbar" aria-label={`${unit.name} HP`} aria-valuemin={0} aria-valuemax={unit.hpMax} aria-valuenow={Math.max(0, unit.hp)}>
+          <i style={{ width: `${hpPct * 100}%` }} />
+        </span>
+        <span className="sn">{Math.max(0, unit.hp)} / {unit.hpMax}</span>
       </div>
-      <div className="sk en-n">
-        <span className="sn">EN</span>
-        <div className="bar"><div className="stripe" style={{ width: `${enPct * 100}%` }}></div></div>
-        <span className="ltx">{Math.max(0, unit.en)}<span className="m">/{unit.enMax}</span></span>
+      <div className="stat">
+        <span className="sk">EN</span>
+        <span className="bar en">
+          <i style={{ width: `${enPct * 100}%` }} />
+        </span>
+        <span className="sn en-n">{Math.max(0, unit.en)}/{unit.enMax}</span>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+  flex-direction: row;
   overflow: hidden;
 }
 
@@ -19,6 +20,7 @@
   position: relative;
   overflow: hidden;
   display: flex;
+  flex-direction: row;
   background: radial-gradient(120% 100% at 50% 30%,
     color-mix(in oklab, var(--el) 8%, var(--bg)), var(--bg) 72%);
 }
@@ -26,18 +28,21 @@
 /* top strip */
 .dungeon-page .dstrip {
   position: absolute; top: 16px; left: 16px; z-index: 5;
-  display: flex; align-items: stretch;
+  display: flex;
+  flex-direction: row; align-items: stretch;
   background: var(--panel); border: 1px solid var(--hair);
   clip-path: var(--notch-sm-clip);
 }
 .dungeon-page .dstrip .dk {
   font: 800 9px/1 var(--font); letter-spacing: .18em; text-transform: uppercase;
-  color: var(--el); padding: 11px 14px; display: flex; align-items: center;
+  color: var(--el); padding: 11px 14px; display: flex;
+  flex-direction: row; align-items: center;
   border-right: 1px solid var(--hair);
 }
 .dungeon-page .dstrip .dv {
   font: 700 11px/1 var(--font); color: var(--muted); padding: 11px 14px;
-  display: flex; align-items: center; letter-spacing: .04em;
+  display: flex;
+  flex-direction: row; align-items: center; letter-spacing: .04em;
 }
 .dungeon-page .dstrip .dv b { color: var(--ink); font-weight: 800; margin-left: 5px; }
 .dungeon-page .dstrip .dv + .dv { border-left: 1px solid var(--hair); }
@@ -73,7 +78,8 @@
 .dungeon-page .mini .mh {
   font: 800 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 9px;
-  display: flex; justify-content: space-between; gap: 14px;
+  display: flex;
+  flex-direction: row; justify-content: space-between; gap: 14px;
 }
 .dungeon-page .mini .mh b { color: var(--ink); }
 .dungeon-page .mini canvas {
@@ -85,7 +91,8 @@
 .dungeon-page .controls {
   position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
   z-index: 4;
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex;
+  flex-direction: row; flex-direction: column; align-items: center; gap: 10px;
 }
 .dungeon-page .dpad {
   display: grid; grid-template-columns: repeat(3, 40px); grid-template-rows: repeat(2, 40px);
@@ -94,7 +101,8 @@
 .dungeon-page .dpad button {
   background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip);
   color: var(--ink); font: 800 15px/1 var(--font); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: row; align-items: center; justify-content: center;
   transition: border-color .1s, color .1s, background .1s;
 }
 .dungeon-page .dpad button:hover { border-color: var(--el); color: var(--el); }
@@ -118,7 +126,8 @@
 .dungeon-page .rail {
   flex: 0 0 300px;
   background: var(--panel); border-left: 1px solid var(--hair);
-  display: flex; flex-direction: column;
+  display: flex;
+  flex-direction: row; flex-direction: column;
   min-height: 0; overflow: hidden;
   position: static;
   height: auto;
@@ -139,14 +148,16 @@
 
 .dungeon-page .log {
   flex: 1 1 auto; min-height: 0; overflow-y: auto;
-  padding: 12px 14px; display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 14px; display: flex;
+  flex-direction: row; flex-direction: column; gap: 8px;
   scrollbar-width: thin;
 }
 .dungeon-page .log::-webkit-scrollbar { width: 8px; }
 .dungeon-page .log::-webkit-scrollbar-thumb { background: var(--hair); }
 
 .dungeon-page .lrow {
-  display: flex; gap: 10px; align-items: flex-start;
+  display: flex;
+  flex-direction: row; gap: 10px; align-items: flex-start;
   font: 600 11px/1.45 var(--font); color: var(--muted);
 }
 .dungeon-page .lrow .lt {
@@ -178,7 +189,8 @@
   font: 800 19px/1.05 var(--font); letter-spacing: -.01em; margin: 8px 0 3px;
 }
 .dungeon-page .ecard .emons {
-  display: flex; flex-direction: column; gap: 6px; margin: 12px 0 14px;
+  display: flex;
+  flex-direction: row; flex-direction: column; gap: 6px; margin: 12px 0 14px;
 }
 .dungeon-page .emon {
   display: grid; grid-template-columns: auto 1fr auto; align-items: center;
@@ -193,7 +205,8 @@
 }
 .dungeon-page .emon .esprite {
   width: 34px; height: 34px; margin-left: 11px; image-rendering: pixelated;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  flex-direction: row; align-items: center; justify-content: center;
   background: color-mix(in oklab, var(--el) 14%, var(--bg));
   font: 800 13px/1 var(--font); color: var(--el);
 }
@@ -244,3 +257,4 @@
     animation: none !important; transition: none !important;
   }
 }
+.dungeon-page { font-variant-numeric: tabular-nums; }

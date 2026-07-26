@@ -380,8 +380,8 @@ export function Dungeon(): JSX.Element {
   }), [elHex]);
 
   return (
-    <div className="dungeon-page" style={cssVars}>
-      <div className="stage" data-od-id="dungeon-stage">
+    <>
+      <div className="stage" data-od-id="dungeon-stage" style={cssVars}>
         <div className="dstrip">
           <span className="dk">{region.label}</span>
           <span className="dv">Element<b>{cap(region.element)}</b></span>
@@ -450,6 +450,6 @@ export function Dungeon(): JSX.Element {
       </aside>
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
-    </div>
+    </>
   );
 }

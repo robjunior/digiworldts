@@ -133,7 +133,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
         </div>
       </aside>
 
-      <main className="detail" id="detail" data-od-id="detail-panel" tabIndex={-1}>
+      <section className="detail" id="detail" data-od-id="detail-panel" tabIndex={-1}>
         {message && <div style={{ padding: '10px', background: 'var(--signal)', color: '#fff', textAlign: 'center' }}>{message}</div>}
         {selectedMon ? (
           <DetailPane 
@@ -145,7 +145,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
             actions={actions}
           />
         ) : null}
-      </main>
+      </section>
     </>
   );
 }

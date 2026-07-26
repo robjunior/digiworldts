@@ -85,7 +85,7 @@ export function Training(): JSX.Element {
   const stationsCount = view?.stations.length ?? 0;
 
   return (
-    <div className="training-page">
+    <>
       <div className="tbar" data-od-id="training-bar" id="tbar">
         <div className="tstat"><span className="k">Stations</span><span className="v">{activeCount}<small>/{stationsCount} busy</small></span></div>
         <div className="tstat"><span className="k">Bench</span><span className="v">{benchCount}<small> ready</small></span></div>
@@ -148,7 +148,7 @@ export function Training(): JSX.Element {
       />
       
       <div className={`toast ${notice ? 'show' : ''}`} id="toast" role="status" aria-live="polite">{notice}</div>
-    </div>
+    </>
   );
 }
 

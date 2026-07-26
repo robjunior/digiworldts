@@ -94,9 +94,8 @@ export function Market(): JSX.Element {
   const busy = buyMutation.isPending || cancelMutation.isPending || listMutation.isPending;
 
   return (
-    <div className="market-page">
-      <div className="main">
-        <div className="mbar">
+    <>
+      <div className="mbar">
           <MarketTabs activeTab={tab} onTab={setTab} />
           <MarketChrome credits={creditsQuery.data ?? 0}>
             <button className="listbtn" onClick={() => setTab('sell')}>
@@ -239,7 +238,6 @@ export function Market(): JSX.Element {
             )}
           </div>
         </div>
-      </div>
 
       <StatusToast notice={notice} error={error ?? queryError(browseQuery.error, mineQuery.error, sellRosterQuery.error)} />
 
@@ -252,7 +250,7 @@ export function Market(): JSX.Element {
         onSellPrice={(price) => setDialog((current) => (current.kind === 'sell' ? { ...current, price } : current))}
         onSell={(mon, price) => listMutation.mutate({ monId: mon.id, price })}
       />
-    </div>
+    </>
   );
 }
 

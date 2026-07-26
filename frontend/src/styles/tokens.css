@@ -190,7 +190,7 @@ a:hover { color: var(--signal); }
 .app-nav .nav-link:hover { color:var(--ink); }
 .app-nav .nav-right { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
 .app-nav .who b { color:var(--ink); }
-.app-main { padding: clamp(16px,4vw,32px) clamp(16px,5vw,40px) 40px; flex:1; max-width:1600px; width:100%; margin:0 auto; }
+.app-main { flex:1; width:100%; }
 .app-toast { position:fixed; bottom:16px; right:16px; padding:10px 16px; background:var(--ink); color:var(--bg); font-size:13px;
              clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); z-index:1000; opacity:0; transition:opacity .18s var(--ease); }
 .app-toast.is-open { opacity:1; }

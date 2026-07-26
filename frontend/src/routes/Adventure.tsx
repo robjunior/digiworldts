@@ -133,7 +133,7 @@ export function Adventure(): JSX.Element {
   const creditsBal = farm.credits ?? 0;
 
   return (
-    <div className="adv-page">
+    <>
       <div className="balbar" id="balbar">
         <div className="bal" data-res="meat">
           <span className="ic">
@@ -312,7 +312,7 @@ export function Adventure(): JSX.Element {
       <div className={`toast ${notice ? 'show' : ''}`} id="toast" role="status" aria-live="polite">
         {notice}
       </div>
-    </div>
+    </>
   );
 }
 

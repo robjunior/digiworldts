@@ -19,6 +19,7 @@
 .factory-page .bal:first-child { padding-left:0 }
 .factory-page .bal .ic { width:28px; height:28px; display:grid; place-items:center; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm); color:var(--res) }
 .factory-page .bal .ic svg { width:16px; height:16px }
+.factory-page .bal .col { display:flex; flex-direction:column; }
 .factory-page .bal .col .k { font:700 9px/1 var(--font); letter-spacing:.14em; text-transform:uppercase; color:var(--muted) }
 .factory-page .bal .col .v { font:800 18px/1.1 var(--font); margin-top:3px }
 .factory-page .bal[data-res="meat"] { --res:var(--meat) }
@@ -89,8 +90,8 @@
 .factory-page .job .collectbtn:hover { background:color-mix(in oklab,var(--signal) 88%,var(--ink)) }
 .factory-page .job .cancelbtn { padding:5px 9px; background:var(--bg); border:1px solid var(--hair); color:var(--muted); clip-path:var(--notch-sm); font:800 9px/1 var(--font); letter-spacing:.08em; text-transform:uppercase }
 .factory-page .job .cancelbtn:hover { border-color:var(--battle); color:var(--battle) }
-.factory-page .ffoot { border-top:1px solid var(--hair); padding:12px 18px; display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center }
-.factory-page .btn { padding:10px 14px; clip-path:var(--notch-sm); font:800 11px/1 var(--font); letter-spacing:.08em; text-transform:uppercase; border:1px solid transparent; transition:.12s }
+.factory-page .ffoot { border-top:1px solid var(--hair); padding:12px 14px; display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center }
+.factory-page .btn { padding:10px 12px; clip-path:var(--notch-sm); font:800 11px/1 var(--font); letter-spacing:.08em; text-transform:uppercase; border:1px solid transparent; transition:.12s; white-space:nowrap; }
 .factory-page .btn.primary { background:var(--signal); color:#fff }
 .factory-page .btn.primary:hover { background:color-mix(in oklab,var(--signal) 88%,var(--ink)) }
 .factory-page .btn.ghost { background:var(--bg); border-color:var(--hair); color:var(--ink) }
@@ -117,13 +118,13 @@
 .factory-drawer .recipe .rn { font:800 15px/1.1 var(--font) }
 .factory-drawer .recipe .rd { font-size:11.5px; color:var(--muted); margin-top:4px; max-width:40ch }
 .factory-drawer .recipe .rtime { font:800 11px/1 var(--font); color:var(--muted); white-space:nowrap }
-.factory-drawer .recipe .costs { display:flex; gap:8px; flex-wrap:wrap }
-.factory-drawer .cchip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm); font:700 11px/1 var(--font) }
-.factory-drawer .cchip .cd { width:8px; height:8px; background:var(--cc,var(--muted)) }
-.factory-drawer .cchip[data-res="meat"] { --cc:var(--meat) }
-.factory-drawer .cchip[data-res="bits"] { --cc:var(--bits) }
-.factory-drawer .cchip[data-res="data"] { --cc:var(--data) }
-.factory-drawer .cchip.short { border-color:var(--battle); color:var(--battle) }
+.factory-page .costs, .factory-drawer .recipe .costs { display:flex; gap:8px; flex-wrap:wrap }
+.factory-page .cchip, .factory-drawer .cchip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm); font:700 11px/1 var(--font) }
+.factory-page .cchip .cd, .factory-drawer .cchip .cd { width:8px; height:8px; background:var(--cc,var(--muted)) }
+.factory-page .cchip[data-res="meat"], .factory-drawer .cchip[data-res="meat"] { --cc:var(--meat) }
+.factory-page .cchip[data-res="bits"], .factory-drawer .cchip[data-res="bits"] { --cc:var(--bits) }
+.factory-page .cchip[data-res="data"], .factory-drawer .cchip[data-res="data"] { --cc:var(--data) }
+.factory-page .cchip.short, .factory-drawer .cchip.short { border-color:var(--battle); color:var(--battle) }
 .factory-drawer .recipe .ract { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center }
 .factory-drawer .recipe .rhint { font-size:11px; color:var(--battle); min-height:13px }
 .factory-drawer .recipe .rhint[hidden] { display:none }
@@ -134,7 +135,7 @@
 .factory-drawer .qty .qin { width:40px; height:30px; text-align:center; background:none; border:0; border-left:1px solid var(--hair); border-right:1px solid var(--hair); color:var(--ink); font:800 12px/1 var(--font); font-variant-numeric:tabular-nums; -moz-appearance:textfield }
 .factory-drawer .qty .qin::-webkit-outer-spin-button, .factory-drawer .qty .qin::-webkit-inner-spin-button { -webkit-appearance:none; margin:0 }
 .factory-drawer .qty .qin:focus { outline:none; background:color-mix(in oklab,var(--signal) 14%,transparent) }
-.factory-drawer .craftbtn { padding:9px 16px; background:var(--signal); color:#fff; clip-path:var(--notch-sm); font:800 11px/1 var(--font); letter-spacing:.08em; text-transform:uppercase }
+.factory-drawer .craftbtn { padding:9px 16px; background:var(--signal); color:#fff; clip-path:var(--notch-sm); font:800 11px/1 var(--font); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; }
 .factory-drawer .craftbtn:hover { background:color-mix(in oklab,var(--signal) 88%,var(--ink)) }
 .factory-drawer .craftbtn:disabled { opacity:.4; cursor:not-allowed; background:var(--muted) }
 .factory-page .buygrid { display:flex; gap:16px }
