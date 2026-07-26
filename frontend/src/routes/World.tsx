@@ -296,7 +296,7 @@ export function World(): JSX.Element {
   return (
     <>
       <div className="stage" data-od-id="globe-stage">
-        <canvas ref={canvasRef} id="globe" aria-label="3D world globe"></canvas>
+        <canvas ref={canvasRef} className="world-canvas" id="globe" aria-label="3D world globe"></canvas>
         
         {webGLFailed && (
           <div className="stage-fallback show" id="globe-fallback" role="img" aria-label="3D globe unavailable — regions still selectable">
