@@ -11,9 +11,14 @@ type ItemsMenuProps = {
   readonly friendly: readonly FriendlyUnitView[];
   readonly onUseItem: (itemId: string, targetId: UnitId) => void;
   readonly onBack: () => void;
+  readonly setHelp: (h: string) => void;
 };
 
-export function ItemsMenu({ actor, friendly, onUseItem, onBack }: ItemsMenuProps): JSX.Element {
+const IC = {
+  cursor: '<path d="M5 4l14 8-14 8z"/>',
+};
+
+export function ItemsMenu({ actor, friendly, onUseItem, onBack, setHelp }: ItemsMenuProps): JSX.Element {
   const query = useQuery({ queryKey: INVENTORY_QUERY_KEY, queryFn: getItems, staleTime: 0 });
   const items = (query.data?.items ?? []).filter((i) => i.qty > 0);
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId>(actor.id);
@@ -28,11 +33,16 @@ export function ItemsMenu({ actor, friendly, onUseItem, onBack }: ItemsMenuProps
 
   return (
     <>
-      <div className="skill-menu" role="menu" data-od-id="item-menu">
+      <div className="chead"><span className="sect">Items</span><span className="cnt">{items.length}</span></div>
+      <div className="rows">
+        <button className="mrow back" type="button" onClick={onBack} onMouseEnter={() => setHelp('Return to the command menu.')}>
+          <span className="cur"><svg viewBox="0 0 24 24" fill="currentColor" dangerouslySetInnerHTML={{ __html: IC.cursor }} /></span>
+          <span className="mnm">‹ Back</span>
+        </button>
         {query.isPending ? (
-          <div className="item-menu-empty">Loading inventory…</div>
+          <div className="mrow disabled" style={{ cursor: 'default' }}><span className="cur"></span><span className="mnm">Loading inventory…</span></div>
         ) : items.length === 0 ? (
-          <div className="item-menu-empty">No usable items. Earn drops from PVE or craft at the farm.</div>
+          <div className="mrow disabled" style={{ cursor: 'default' }}><span className="cur"></span><span className="mnm">No usable items.</span></div>
         ) : (
           items.map((item) => (
             <ItemRow
@@ -42,51 +52,51 @@ export function ItemsMenu({ actor, friendly, onUseItem, onBack }: ItemsMenuProps
               qty={item.qty}
               description={item.description}
               onClick={() => onUseItem(item.itemId, target.id)}
+              setHelp={setHelp}
+              targetName={target.name}
             />
           ))
         )}
       </div>
-      <div className="item-targets" role="radiogroup" aria-label="Target">
+      <div className="chead" style={{ marginTop: '8px' }}><span className="sect">Target: {target.name}</span></div>
+      <div className="rows" style={{ maxHeight: '100px' }}>
         {friendly.map((unit) => {
           const active = unit.id === selectedTargetId;
           return (
             <button
               key={unit.id}
               type="button"
-              role="radio"
-              aria-checked={active}
-              className={`item-target${active ? ' is-selected' : ''}${unit.down ? ' is-down' : ''}`}
+              className={`mrow ${active ? 'sel' : ''} ${unit.down ? 'disabled' : ''}`}
               onClick={() => setSelectedTargetId(unit.id)}
-              title={`Target ${unit.name} — HP ${unit.hp}/${unit.hpMax}`}
+              onMouseEnter={() => setHelp(`Select ${unit.name} as target.`)}
             >
-              <span className="it-name">{unit.name}</span>
-              <span className="it-hp">{unit.hp}/{unit.hpMax}</span>
+              <span className="cur"><svg viewBox="0 0 24 24" fill="currentColor" dangerouslySetInnerHTML={{ __html: IC.cursor }} /></span>
+              <span className="mnm">{unit.name}</span>
+              <span className="mtag">HP</span>
+              <span className="men">{unit.hp}/{unit.hpMax}</span>
             </button>
           );
         })}
-      </div>
-      <div className="row" style={{ gap: '8px' }}>
-        <button className="btn btn--secondary btn--sm" type="button" onClick={onBack}>Back</button>
-        <span className="target-hint">Target: {target.name}</span>
       </div>
     </>
   );
 }
 
-function ItemRow({ itemId, name, qty, description, onClick }: {
+function ItemRow({ itemId, name, qty, description, onClick, setHelp, targetName }: {
   readonly itemId: string;
   readonly name: string;
   readonly qty: number;
   readonly description: string;
   readonly onClick: () => void;
+  readonly setHelp: (h: string) => void;
+  readonly targetName: string;
 }): JSX.Element {
   return (
-    <button className="skill-row" type="button" role="menuitem" onClick={onClick} data-od-id={`item-${itemId}`}>
-      <span className="stack" style={{ gap: '2px' }}>
-        <span className="s-name">{name}</span>
-        <span className="s-desc">{description}</span>
-      </span>
-      <span className="s-cost">×{qty}</span>
+    <button className="mrow" type="button" onClick={onClick} onMouseEnter={() => setHelp(`Use on ${targetName}: ${description}`)}>
+      <span className="cur"><svg viewBox="0 0 24 24" fill="currentColor" dangerouslySetInnerHTML={{ __html: IC.cursor }} /></span>
+      <span className="mnm">{name}</span>
+      <span className="mtag">Item</span>
+      <span className="men">×{qty}</span>
     </button>
   );
 }
