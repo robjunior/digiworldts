@@ -1,166 +1,1397 @@
-.nextq .qi{width:36px;height:36px;position:relative;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font-size:36px}
-.nextq .qi.you{border-color:color-mix(in oklab,var(--signal) 50%,var(--hair))}
-.nextq .qi.foe{border-color:color-mix(in oklab,var(--battle) 30%,var(--hair))}
-.nextq .qi.now{box-shadow:inset 0 0 0 1px var(--signal)}
-.nextq .qi img{width:31px;height:31px;object-fit:contain;image-rendering:pixelated}
-.nextq .qi .en{position:absolute;bottom:-2px;right:-2px;width:7px;height:7px;background:var(--el,var(--muted));clip-path:var(--notch-sm)}
+/* Combat 3D — full-bleed arena with floating notched overlay menus. */
 
-/* ---- top-left: side summaries + battle feed ---------------------------- */
-.side-badge{position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:10px;width:clamp(188px,15vw,224px);max-width:24vw}
-.sb{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:10px 13px;display:flex;align-items:center;justify-content:space-between}
-.sb .k{font:800 10px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.sb .pips{display:flex;gap:4px}
-.sb .pip{width:11px;height:11px;clip-path:var(--notch-sm);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
-.sb .pip.ko{opacity:.4}
-.sb .n{font:800 10px/1 var(--font);color:var(--ink)}
-.feed{background:color-mix(in oklab,var(--panel) 84%,transparent);border:1px solid var(--hair);clip-path:var(--notch);backdrop-filter:blur(3px);display:flex;flex-direction:column;max-height:250px}
-.feed h4{font:800 9px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:11px 14px 9px;border-bottom:1px solid var(--hair)}
-.feedbody{overflow-y:auto;padding:6px 0;scrollbar-width:thin;display:flex;flex-direction:column;gap:1px}
-.feedbody::-webkit-scrollbar{width:6px}.feedbody::-webkit-scrollbar-thumb{background:var(--hair)}
-.lg{display:grid;grid-template-columns:3px 14px 1fr;gap:8px;align-items:start;padding:5px 13px 5px 0;font:600 12px/1.35 var(--font);animation:lgin .3s ease}
-.lg .stripe{align-self:stretch;background:var(--cue,var(--hair))}
-.lg svg{width:12px;height:12px;margin-top:1px;color:var(--cue,var(--muted))}
-.lg .ltx b{color:var(--ink)}
-.lg .ltx .tag{margin-left:4px;font:800 7px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--cue,var(--muted))}
-.lg.crit,.lg.weak{--cue:var(--el-electricity)} .lg.resist,.lg.miss{--cue:var(--muted)}
-.lg.ko{--cue:var(--battle)} .lg.round{--cue:var(--signal)} .lg.guard{--cue:var(--el-water)}
-@keyframes lgin{0%{opacity:0;transform:translateX(-4px)}100%{opacity:1}}
+body:has(.combat3d-shell) {
+  height: 100%;
+  overflow: hidden;
+}
 
-/* ---- top-right: your team badge --------------------------------------- */
-.team-badge{position:absolute;top:16px;right:16px;z-index:3;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:10px 14px;text-align:right}
-.team-badge .k{font:800 10px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.team-badge .pips{display:flex;gap:4px;justify-content:flex-end;margin-top:6px}
-.team-badge .pip{width:11px;height:11px;clip-path:var(--notch-sm);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
-.team-badge .pip.ko{opacity:.4}
+.combat3d-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
-/* ---- right: enemy list rail ------------------------------------------- */
-.enemy-rail{position:absolute;right:16px;top:96px;z-index:3;display:flex;flex-direction:column;gap:8px;width:clamp(198px,16vw,240px);max-width:26vw}
-.erow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);border-left:0;padding:11px 14px 11px 0;position:relative;cursor:default;color:inherit;font:inherit;text-align:left;width:100%}
-.erow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--hair))}
-.erow .edot{width:11px;height:11px;margin-left:13px;background:var(--el,var(--muted));clip-path:var(--notch-sm)}
-.erow .enm{min-width:0;font:800 14px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.erow .enm .esub{display:block;font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
-.erow .ehp{font:800 12px/1 var(--font);color:var(--muted);white-space:nowrap}
-.erow .ehpbar{grid-column:1/-1;height:5px;margin:4px 13px 0 16px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
-.erow .ehpbar i{display:block;height:100%;background:var(--battle);width:100%;transition:width .4s ease}
-.erow.dead{opacity:.4;filter:grayscale(.7)}
-.erow.pick{cursor:pointer}
-.erow.pick:hover,.erow.pick.aim{border-color:var(--signal)}
-.erow.pick.aim::before{background:var(--signal)}
-.erow:focus-visible{outline:none;border-color:var(--signal)}
+.combat3d-main {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  flex: 1;
+}
 
-/* ---- bottom-left: party HP cards --------------------------------------- */
-.party-cards{position:absolute;left:16px;bottom:16px;z-index:3;display:flex;flex-direction:column;gap:8px;width:clamp(222px,17vw,262px);max-width:27vw}
-.pcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);position:relative;padding:12px 15px 13px;overflow:hidden}
-.pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--hair))}
-.pcard.active{border-color:var(--signal)}
-.pcard.active::before{background:var(--signal)}
-.pcard.dead{opacity:.42;filter:grayscale(.7)}
-.pcard .ph{display:flex;align-items:center;gap:11px;margin-bottom:9px}
-.pcard .pspr{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font-size:38px}
-.pcard .pspr img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated}
-.spr-slot{position:relative;display:grid;place-items:center;overflow:hidden;width:100%;height:100%}
-.spr-slot img{position:relative;z-index:2}
-.spr-slot .mono{position:absolute;inset:0;display:grid;place-items:center;font:800 0.62em/1 var(--font);color:var(--el,var(--muted));text-transform:uppercase;background:color-mix(in oklab,var(--el,var(--muted)) 16%,var(--bg));z-index:1}
-.spr-slot img[data-failed]{display:none}
-.pcard .pn{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
-.pcard .pn .nm{font:800 14px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pcard .pn .lv{font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-.pcard .guard-ic{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:2px 5px}
-.pcard .stat{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:5px}
-.pcard .stat .sk{font:800 9px/1 var(--font);letter-spacing:.08em;color:var(--muted);width:18px}
-.pcard .bar{background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
-.pcard .bar.hp{height:9px}.pcard .bar.en{height:4px}
-.pcard .bar i{display:block;height:100%;transition:width .4s ease}
-.pcard .bar.hp i{background:var(--hp)}
-.pcard .bar.en i{background:var(--en)}
-.pcard .sn{font:800 12px/1 var(--font);color:var(--ink);min-width:84px;text-align:right}
-.pcard .sn.en-n{font-size:10px;color:var(--muted);min-width:54px}
+.c3d-stage {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  background: transparent;
+  border: 0;
+  overflow: hidden;
+}
 
-/* ---- bottom-center: AUTO toggle --------------------------------------- */
-.auto-toggle{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:.12s}
-.auto-toggle:hover{border-color:var(--muted);color:var(--ink)}
-.auto-toggle .dot{width:8px;height:8px;background:var(--hair);clip-path:var(--notch-sm)}
-.auto-toggle.on{color:var(--ink);border-color:color-mix(in oklab,var(--signal) 50%,var(--hair))}
-.auto-toggle.on .dot{background:var(--signal)}
+.c3d-canvas-host {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 
-/* ---- bottom-right: command menu --------------------------------------- */
-.cmd{position:absolute;right:16px;bottom:16px;z-index:4;width:clamp(258px,19vw,300px);max-width:30vw}
-.cmd .chelp{background:color-mix(in oklab,var(--panel) 88%,transparent);border:1px solid var(--hair);border-bottom:0;clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px);padding:11px 15px;font:600 12.5px/1.45 var(--font);color:var(--ink);min-height:44px;backdrop-filter:blur(3px)}
-.cmd .chelp .htag{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--en);margin-right:8px}
-.cmd .chelp.muted{color:var(--muted)}
-.cmd .chead{display:flex;align-items:baseline;justify-content:space-between;padding:9px 13px 5px;background:var(--panel);border:1px solid var(--hair);border-bottom:0}
-.cmd .chead .sect{font:800 11px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.cmd .chead .cnt{font:800 11px/1 var(--font);color:var(--muted);letter-spacing:.08em}
-.cmd .rows{background:var(--panel);border:1px solid var(--hair);clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);padding:9px;display:flex;flex-direction:column;gap:7px;max-height:264px;overflow-y:auto;scrollbar-width:thin}
-.cmd .rows::-webkit-scrollbar{width:7px}.cmd .rows::-webkit-scrollbar-thumb{background:var(--hair)}
-.mrow{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 14px;cursor:pointer;color:inherit;font:inherit;text-align:left;transition:.1s;width:100%}
-.mrow .cur{width:18px;height:18px;display:grid;place-items:center;opacity:0}
-.mrow .cur svg{width:17px;height:17px;color:var(--signal)}
-.mrow .mnm{font:800 15px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mrow .mtag{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--el,var(--muted));border:1px solid color-mix(in oklab,var(--el,var(--hair)) 45%,var(--hair));clip-path:var(--notch-sm);padding:3px 5px}
-.mrow .men{font:800 11px/1 var(--font);color:var(--en);white-space:nowrap}
-.mrow .men.short{color:var(--muted);text-decoration:line-through}
-.mrow.sel{background:var(--ink);border-color:var(--ink)}
-.mrow.sel .mnm{color:var(--bg)}
-.mrow.sel .cur{opacity:1}
-.mrow.sel .mtag{color:var(--bg);border-color:color-mix(in oklab,var(--bg) 40%,var(--el,var(--hair)))}
-.mrow.sel .men{color:color-mix(in oklab,var(--en) 60%,var(--bg))}
-.mrow.disabled{cursor:not-allowed;opacity:.5}
-.mrow.back{grid-template-columns:20px 1fr;color:var(--muted)}
+.c3d-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
-/* ---- damage floaters projected over arena sprites --------------------- */
-.floater{position:absolute;transform:translate(-50%,-50%);font:800 24px/1 var(--font);letter-spacing:-.02em;pointer-events:none;z-index:5;text-shadow:0 2px 7px rgba(0,0,0,.75);animation:floatUp 1s ease-out forwards;white-space:nowrap}
-.floater.crit{font-size:32px;color:#fff}
-.floater.weak{color:var(--el-electricity)}
-.floater.resist{color:var(--muted);font-size:18px}
-.floater.miss{color:var(--muted);font-style:italic}
-@keyframes floatUp{0%{opacity:0;transform:translate(-50%,-40%)}15%{opacity:1}100%{opacity:0;transform:translate(-50%,-160%)}}
+.c3d-ov {
+  position: absolute;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm));
+  padding: 10px 12px;
+  z-index: 5;
+}
 
-/* ---- end card --------------------------------------------------------- */
-.scrim{position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 78%,transparent);display:none;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(2px)}
-.scrim.show{display:flex}
-.endcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);width:min(440px,92vw);padding:30px 30px 26px;position:relative}
-.endcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--signal)}
-.endcard.loss::before{background:color-mix(in oklab,var(--battle) 55%,var(--muted))}
-.endcard .eyebrow{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
-.endcard h2{font:800 40px/1 var(--font);letter-spacing:-.02em;margin:10px 0 4px}
-.endcard.win h2{color:var(--signal)}
-.endcard .esub{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:20px}
-.endcard .estats{display:flex;gap:22px;margin-bottom:24px}
-.endcard .estats .m .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.endcard .estats .m .v{font:800 22px/1 var(--font);margin-top:6px}
-.endcard .eact{display:flex;gap:10px}
-.cbtn{background:var(--bg);border:1px solid var(--hair);color:var(--ink);clip-path:var(--notch-sm);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:.12s}
-.cbtn:hover{border-color:var(--signal)}
-.cbtn.primary{background:var(--signal);color:#fff;border-color:var(--signal)}
-.cbtn.primary:hover{background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
-.cbtn.back{color:var(--muted)}
+.c3d-ov--tl {
+  top: 12px;
+  left: 12px;
+  animation: c3dEnterFromLeft .38s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 260ms;
+}
 
-/* ---- accessibility: SR-only live region + universal focus rings ------- */
-.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-:where(.mrow,.erow,.pcard-btn,.auto-toggle,.cbtn,.qi):focus-visible{outline:2px solid var(--signal);outline-offset:2px}
-.erow.pick:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+.c3d-ov--tr {
+  top: 12px;
+  right: 12px;
+  text-align: right;
+  animation: c3dEnterFromRight .38s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 260ms;
+}
 
-/* ---- clarity: single inline weakness marker (revealed by Analyse) ----- */
-.erow .wkm{margin-left:8px;color:var(--el-electricity);font-weight:800;letter-spacing:.04em}
+.c3d-ov-eyebrow {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
 
-/* ---- clarity: whose-turn emphasis on the status strip ----------------- */
-.tstrip{position:relative;transition:box-shadow .2s}
-.tstrip.is-you{box-shadow:inset 3px 0 0 var(--signal)}
-.tstrip.is-foe{box-shadow:inset 3px 0 0 color-mix(in oklab,var(--battle) 60%,var(--ink))}
-.tstrip.pulse{animation:turnpulse .5s ease}
-@keyframes turnpulse{0%{transform:scale(1)}45%{transform:scale(1.035)}100%{transform:scale(1)}}
-.tstrip .actor{position:relative}
-.tstrip .actor .arrow{color:var(--signal);margin-right:7px;font-size:11px}
+.c3d-side {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
 
-/* ---- clarity: turn-order queue position numbers + labels -------------- */
-.nextq .qi{position:relative}
-.nextq .qi.dim{opacity:.5}
+.c3d-side--tr {
+  justify-content: flex-end;
+}
 
-/* ---- polish: active party card + acting-enemy emphasis ---------------- */
-.pcard.active{box-shadow:0 0 0 1px var(--signal),0 6px 22px color-mix(in oklab,var(--signal) 14%,transparent)}
-.erow.acting{border-color:color-mix(in oklab,var(--battle) 55%,var(--hair))}
-.erow.acting::before{background:var(--battle)}
+.c3d-pip {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  background: var(--el, var(--muted));
+  clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+    calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs));
+  position: relative;
+}
 
-@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.floater{display:none}}
+.c3d-pip.is-ko {
+  background: var(--hairline);
+}
+
+.c3d-pip.is-ko::after {
+  content: "×";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.c3d-sub {
+  font-size: 10px;
+  color: var(--muted);
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-sub b { color: var(--ink); }
+
+.c3d-turn {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  padding: 6px 14px;
+  clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm));
+  z-index: 6;
+  animation: c3dEnterFromTop .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 340ms;
+}
+
+.c3d-turn .rnd {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-turn .rnd b { color: var(--ink); }
+
+.c3d-turn .who {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  color: var(--bg);
+  clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+    calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs));
+}
+
+.c3d-turn.is-your .who { background: var(--signal); }
+.c3d-turn.is-opp .who { background: var(--battle); }
+.c3d-turn .actor {
+  font-size: 13px;
+  font-weight: 600;
+  transition: color .3s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-order {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 6px 8px;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  z-index: 6;
+  animation: c3dEnterFromTop .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 420ms;
+}
+
+.c3d-order-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-right: 4px;
+  border-right: 1px solid var(--hairline);
+  margin-right: 2px;
+}
+
+.c3d-order-slot {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+  border: 1px solid var(--hairline);
+  border-left: 2px solid var(--el, var(--hairline));
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  transition: transform .25s cubic-bezier(.16, 1, .3, 1), border-color .25s, background .25s, opacity .25s;
+  animation: c3dOrderSlotIn .32s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.c3d-order-slot:nth-child(2) { animation-delay: 0ms; }
+.c3d-order-slot:nth-child(3) { animation-delay: 40ms; }
+.c3d-order-slot:nth-child(4) { animation-delay: 80ms; }
+.c3d-order-slot:nth-child(5) { animation-delay: 120ms; }
+.c3d-order-slot:nth-child(6) { animation-delay: 160ms; }
+.c3d-order-slot:nth-child(7) { animation-delay: 200ms; }
+.c3d-order-slot:nth-child(8) { animation-delay: 240ms; }
+.c3d-order-slot:nth-child(9) { animation-delay: 280ms; }
+.c3d-order-slot:nth-child(10) { animation-delay: 320ms; }
+.c3d-order-slot:nth-child(11) { animation-delay: 360ms; }
+
+.c3d-order-slot.is-yours { border-top-color: color-mix(in oklab, var(--signal) 40%, var(--hairline)); }
+.c3d-order-slot.is-opp { border-top-color: color-mix(in oklab, var(--battle) 40%, var(--hairline)); }
+
+.c3d-order-slot:not(.is-current) { opacity: .82; }
+.c3d-order-slot:not(.is-current):hover { transform: translateY(-1px); opacity: 1; }
+
+.c3d-order-slot.is-current {
+  transform: scale(1.18);
+  background: color-mix(in oklab, var(--signal) 12%, color-mix(in oklab, var(--bg) 70%, var(--panel)));
+  border-color: var(--signal);
+  border-left-color: var(--signal);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--signal) 35%, transparent), 0 2px 10px color-mix(in oklab, var(--signal) 25%, transparent);
+  z-index: 1;
+}
+
+.c3d-order-slot.is-current.is-opp {
+  background: color-mix(in oklab, var(--battle) 12%, color-mix(in oklab, var(--bg) 70%, var(--panel)));
+  border-color: var(--battle);
+  border-left-color: var(--battle);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--battle) 35%, transparent), 0 2px 10px color-mix(in oklab, var(--battle) 25%, transparent);
+}
+
+.c3d-order-mon {
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.c3d-order-slot.is-opp .c3d-order-mon { transform: scaleX(-1); }
+
+.c3d-order-caret {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--signal);
+}
+
+.c3d-order-slot.is-current.is-opp .c3d-order-caret { border-top-color: var(--battle); }
+
+@keyframes c3dOrderSlotIn {
+  from { opacity: 0; transform: translateY(-6px) scale(.9); }
+  to { opacity: .82; transform: none; }
+}
+
+@media (max-width: 900px) {
+  .c3d-order { top: 52px; padding: 4px 8px 4px 6px; gap: 4px; }
+  .c3d-order-slot { width: 24px; height: 24px; }
+  .c3d-order-mon { width: 18px; height: 18px; }
+  .c3d-order-label { font-size: 8px; }
+}
+
+.c3d-turn .rnd b,
+.c3d-turn .actor {
+  animation: c3dTurnActorPop .35s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes c3dTurnActorPop {
+  from { opacity: 0; transform: translateY(-2px); }
+  to { opacity: 1; transform: none; }
+}
+
+.c3d-unit-hp b {
+  transition: color .35s cubic-bezier(.16, 1, .3, 1), transform .28s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-target {
+  transform: translateY(0);
+  transition: border-color .18s cubic-bezier(.16, 1, .3, 1), transform .14s cubic-bezier(.16, 1, .3, 1), background .18s;
+}
+
+.c3d-target:hover:not(:disabled) {
+  border-color: var(--signal);
+  transform: translateY(-1px);
+}
+
+.c3d-target.is-active {
+  border-color: var(--battle);
+  background: color-mix(in oklab, var(--battle) 8%, color-mix(in oklab, var(--bg) 88%, transparent));
+}
+
+.c3d-enemy-hp-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  color: var(--ink);
+  text-align: center;
+  text-shadow: 0 1px 0 var(--bg), 0 0 5px var(--bg), 0 0 3px var(--bg);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  transition: color .3s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-enemy-hp.is-critical .c3d-enemy-hp-name {
+  color: var(--battle);
+}
+
+.c3d-party {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 220px;
+  z-index: 5;
+  animation: c3dEnterFromLeft .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 120ms;
+}
+
+.c3d-unit {
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  padding: 7px 9px;
+  clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm));
+  border-left: 3px solid var(--el, var(--hairline));
+  transition: border-left-color .3s cubic-bezier(.16, 1, .3, 1), background .3s;
+}
+
+.c3d-unit.is-active {
+  border-left-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 6%, color-mix(in oklab, var(--bg) 88%, transparent));
+}
+
+.c3d-unit-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.c3d-unit-name { font-size: 12px; font-weight: 600; }
+.c3d-unit-lv { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.c3d-unit-bar {
+  height: 6px;
+  background: var(--hairline);
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.c3d-unit-bar i {
+  display: block;
+  height: 100%;
+  background: var(--hp);
+  transform-origin: left;
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-unit-hp {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-unit-hp b {
+  color: var(--ink);
+  transition: color .35s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-unit-en {
+  height: 3px;
+  background: var(--hairline);
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.c3d-unit-en i {
+  display: block;
+  height: 100%;
+  background: var(--energy);
+  transform-origin: left;
+  transition: transform .5s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-log {
+  position: absolute;
+  left: 12px;
+  top: 88px;
+  width: 260px;
+  max-height: 46%;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--bg) 84%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
+    calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm));
+  z-index: 5;
+  animation: c3dEnterFromLeft .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 200ms;
+}
+
+.c3d-log-head {
+  padding: 7px 11px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.c3d-log-body {
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: calc(6 * 24px + 8px);
+}
+
+.c3d-log-line {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px;
+  align-items: start;
+  padding: 4px 7px;
+  font-size: 11px;
+  animation: c3dLogLineIn .28s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes c3dLogLineIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dPanelIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dPanelSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dEnterFromLeft {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dEnterFromRight {
+  from { opacity: 0; transform: translateX(40px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dEnterFromTop {
+  from { opacity: 0; transform: translate(-50%, -18px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.c3d-log-line .rd {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.c3d-log-line .txt { line-height: 1.3; }
+
+.c3d-log-line.crit { background: color-mix(in oklab, var(--gold) 8%, transparent); }
+.c3d-log-line.weak { background: color-mix(in oklab, var(--gold) 6%, transparent); }
+.c3d-log-line.ko { background: color-mix(in oklab, var(--battle) 8%, transparent); }
+.c3d-log-line.round-start { background: color-mix(in oklab, var(--signal) 6%, transparent); }
+
+.c3d-cmd {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 340px;
+  height: auto;
+  max-height: calc(100dvh - 100px);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--hairline);
+  padding: 14px;
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+  z-index: 6;
+  animation: c3dEnterFromRight .44s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 120ms;
+  overflow: hidden;
+  transition: border-color .18s;
+}
+
+.c3d-cmd[data-mode="skills"],
+.c3d-cmd[data-mode="target-skill"],
+.c3d-cmd[data-mode="items"] {
+  border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline));
+}
+
+.c3d-cmd > .command-panel {
+  height: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.c3d-cmd .skill-menu {
+  overflow: visible;
+  max-height: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.c3d-cmd .skill-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px 10px;
+}
+
+.c3d-cmd .skill-row .s-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+  max-height: calc(1.3em * 3);
+}
+
+.c3d-cmd .cbt-actions,
+.c3d-cmd .skill-menu,
+.c3d-cmd .item-menu,
+.c3d-cmd .await-banner {
+  animation: c3dModeIn .24s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.c3d-cmd [data-od-id="cmd-guard"],
+.c3d-cmd [data-od-id="cmd-analyse"] {
+  display: none;
+}
+
+.c3d-cmd .cbt-cmd,
+.c3d-cmd .btn {
+  transition: transform .12s cubic-bezier(.16, 1, .3, 1), background .18s, border-color .18s, opacity .18s;
+}
+
+.c3d-cmd .cbt-cmd:hover:not(:disabled),
+.c3d-cmd .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.c3d-cmd .cbt-cmd--flee {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--battle);
+  border: 1px solid color-mix(in oklab, var(--battle) 45%, var(--hairline));
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.c3d-cmd .cbt-cmd--flee:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--battle) 10%, transparent);
+  border-color: var(--battle);
+  color: var(--battle);
+  transform: translateY(-1px);
+}
+
+.c3d-cmd .cbt-cmd--flee:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--battle) 30%, transparent);
+}
+
+.c3d-cmd .cbt-cmd--flee::before {
+  content: '↩';
+  font-size: 13px;
+  line-height: 1;
+}
+
+@keyframes c3dModeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+.c3d-target-picker {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 260px;
+  z-index: 8;
+  animation: c3dEnterFromRight .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 200ms;
+}
+
+.c3d-target {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--hairline);
+  padding: 6px 10px;
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: left;
+  clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+    calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs));
+}
+
+.c3d-target:disabled { opacity: .5; cursor: not-allowed; }
+
+.c3d-target-el {
+  width: 12px;
+  height: 12px;
+  background: var(--el, var(--muted));
+  clip-path: polygon(var(--notch-xs) 0, 100% 0, 100% calc(100% - var(--notch-xs)),
+    calc(100% - var(--notch-xs)) 100%, 0 100%, 0 var(--notch-xs));
+}
+
+.c3d-target-name { font-weight: 600; }
+.c3d-target-hp { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 10px; }
+
+.c3d-floaters {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+
+.c3d-enemy-hp-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.c3d-ailment-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.c3d-ailment-group {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.c3d-ailment-group[data-side="you"] { align-items: flex-end; }
+.c3d-ailment-group[data-side="opp"] { align-items: flex-start; }
+
+.c3d-ailment {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px 2px 4px;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  border: 1px solid var(--hairline);
+  border-left-width: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 20%, transparent);
+  animation: c3dAilmentIn .3s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.c3d-ailment-icon { font-size: 12px; line-height: 1; }
+.c3d-ailment-tl { color: var(--muted); font-size: 9px; }
+
+.c3d-ailment--burn { border-left-color: #ff6b3d; color: #ff8a5c; }
+.c3d-ailment--poison { border-left-color: #a24bff; color: #b371ff; }
+.c3d-ailment--weaken { border-left-color: var(--muted); }
+.c3d-ailment--freeze { border-left-color: #4ac8ff; color: #6fd6ff; animation: c3dAilmentIn .3s cubic-bezier(.16, 1, .3, 1) both, c3dAilmentPulse 1.6s ease-in-out infinite; }
+.c3d-ailment--stun { border-left-color: var(--gold); color: var(--gold); }
+.c3d-ailment--sleep { border-left-color: var(--signal); color: var(--signal); opacity: .8; }
+
+@keyframes c3dAilmentIn {
+  from { opacity: 0; transform: translateX(-4px) scale(.85); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes c3dAilmentPulse {
+  0%, 100% { box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 20%, transparent); }
+  50% { box-shadow: 0 0 8px color-mix(in oklab, #4ac8ff 45%, transparent); }
+}
+
+.c3d-enemy-hp {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  transform: translate3d(-9999px, -9999px, 0);
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.c3d-enemy-hp-bar {
+  height: 9px;
+  background: color-mix(in oklab, var(--bg) 60%, var(--hairline));
+  border: 1px solid color-mix(in oklab, var(--ink) 20%, transparent);
+  overflow: hidden;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--ink) 20%, transparent);
+}
+
+.c3d-enemy-hp-fill {
+  display: block;
+  height: 100%;
+  background: var(--el, var(--battle));
+  transition: width .5s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-enemy-hp.is-critical .c3d-enemy-hp-fill {
+  background: var(--battle);
+  animation: c3dHpPulse 1s ease-in-out infinite;
+}
+
+@keyframes c3dHpPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+
+.c3d-float {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 22px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  text-shadow: 0 1px 0 var(--bg), 0 0 6px var(--bg);
+  animation: c3dFloatUp .9s ease-out forwards;
+}
+
+.c3d-float--crit { color: var(--gold); font-size: 28px; }
+.c3d-float--resist { color: var(--muted); font-size: 18px; }
+.c3d-float--miss { color: var(--muted); font-size: 16px; }
+
+@keyframes c3dFloatUp {
+  0% { opacity: 0; transform: translate(-50%, 0) scale(.8); }
+  15% { opacity: 1; transform: translate(-50%, -8px) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -44px) scale(1); }
+}
+
+.c3d-toast {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 12px;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  z-index: 40;
+}
+
+.c3d-toast.is-err { background: var(--battle); }
+
+.c3d-autobattle {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: color .18s, border-color .18s, background .18s, transform .12s cubic-bezier(.16, 1, .3, 1);
+  animation: c3dEnterFromTop .42s cubic-bezier(.16, 1, .3, 1) both;
+  animation-delay: 340ms;
+}
+
+.c3d-autobattle:hover {
+  color: var(--ink);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.c3d-autobattle.is-on {
+  color: var(--bg);
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+.c3d-autobattle-dot {
+  width: 8px;
+  height: 8px;
+  background: currentColor;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  animation: c3dAutobattlePulse 1.4s ease-in-out infinite;
+}
+
+.c3d-autobattle:not(.is-on) .c3d-autobattle-dot { animation: none; opacity: .5; }
+
+@keyframes c3dAutobattlePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+.c3d-ws {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  z-index: 3;
+}
+
+.c3d-ws--0 { background: var(--gold); }
+.c3d-ws--1 { background: var(--online); }
+.c3d-ws--2 { background: var(--gold); }
+.c3d-ws--3 { background: var(--battle); }
+
+.c3d-empty {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .c3d-log { display: none; }
+  .c3d-target-picker { bottom: 200px; }
+}
+
+@media (max-width: 720px) {
+  .c3d-party { width: 170px; }
+  .c3d-cmd, .c3d-target-picker { width: 240px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .c3d-unit-bar i, .c3d-unit-en i { transition: none; }
+  .c3d-float { animation-duration: .01ms; }
+}
+
+.end-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in oklab, var(--ink) 62%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: endCardBackdropIn .22s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.end-modal-content {
+  width: 100%;
+  max-width: 560px;
+  animation: endCardIn .32s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes endCardBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes endCardIn {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.end-card {
+  position: relative;
+  padding: 26px 28px 22px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.end-card.win { border-color: var(--signal); background: color-mix(in oklab, var(--signal) 6%, var(--panel)); }
+.end-card.loss { border-color: var(--battle); background: color-mix(in oklab, var(--battle) 6%, var(--panel)); }
+.end-card.draw { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 6%, var(--panel)); }
+
+.end-card-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: 0;
+  padding: 4px 10px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .18s;
+}
+.end-card-close:hover { color: var(--ink); }
+
+.end-card .outcome-pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  color: var(--ink);
+  border: 1px solid currentColor;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.end-card.win .outcome-pill { color: var(--signal); }
+.end-card.loss .outcome-pill { color: var(--battle); }
+.end-card.draw .outcome-pill { color: var(--gold); }
+
+.end-card .headline {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  margin: 0;
+  color: var(--ink);
+}
+
+.end-card .rewards {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.end-card .rewards .r { display: inline-flex; align-items: center; gap: 6px; }
+.end-card .rewards .r .k {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.end-card .cta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.end-card .cta-row a,
+.end-card .cta-row .btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-decoration: none;
+  color: var(--bg);
+  background: var(--signal);
+  border: 1px solid var(--signal);
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: transform .12s cubic-bezier(.16, 1, .3, 1), filter .18s;
+}
+.end-card .cta-row a:hover,
+.end-card .cta-row .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+
+.pve-results {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.pve-block { display: flex; flex-direction: column; gap: 8px; }
+.pve-block-k {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  align-self: flex-start;
+}
+
+.pve-loot-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pve-loot-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.pve-loot-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--gold);
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+}
+.pve-loot-qty { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.pve-xp-list { display: flex; flex-direction: column; gap: 8px; }
+.pve-xp-row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.pve-xp-row.is-defeated { opacity: .65; }
+.pve-xp-row.is-levelup { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 5%, var(--bg)); }
+
+.pve-xp-actor { display: flex; align-items: center; gap: 8px; }
+.pve-xp-portrait {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  padding: 2px;
+}
+.pve-xp-info { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.pve-xp-nick { font-size: 12px; font-weight: 600; color: var(--ink); }
+.pve-xp-lvl { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pve-xp-lvl b { color: var(--ink); }
+
+.pve-xp-progress { display: flex; align-items: center; gap: 8px; }
+.pve-xp-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.pve-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal), color-mix(in oklab, var(--signal) 60%, var(--gold)));
+  transition: width .1s linear;
+}
+.pve-xp-delta { font-size: 11px; font-variant-numeric: tabular-nums; }
+.pve-xp-win { color: var(--signal); }
+.pve-xp-loss { color: var(--battle); }
+.pve-xp-muted { color: var(--muted); }
+
+.pve-xp-lvlup { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.pve-lvlup-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  color: var(--bg);
+  background: var(--gold);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  animation: pveLvlUpPop .35s cubic-bezier(.16, 1, .3, 1) both;
+}
+.pve-lvlup-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+.pve-lvlup-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.pve-lvlup-stat.is-up { border-color: var(--signal); color: var(--signal); }
+.pve-lvlup-stat.is-down { border-color: var(--battle); color: var(--battle); }
+.pve-lvlup-stat-k { font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--muted); }
+.pve-lvlup-stat-new { font-size: 12px; color: var(--ink); }
+.pve-lvlup-stat.is-up .pve-lvlup-stat-new { color: var(--signal); }
+.pve-lvlup-stat.is-down .pve-lvlup-stat-new { color: var(--battle); }
+.pve-lvlup-stat-old { font-size: 9px; color: var(--muted); text-decoration: line-through; }
+.pve-lvlup-stat-old--same { text-decoration: none; opacity: .5; }
+
+@keyframes pveLvlUpPop {
+  from { opacity: 0; transform: scale(.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.c3d-admin-toggle {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  z-index: 7;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  transition: color .18s, border-color .18s, transform .12s cubic-bezier(.16, 1, .3, 1);
+}
+
+.c3d-admin-toggle:hover {
+  color: var(--ink);
+  border-color: var(--signal);
+  transform: translateY(-1px);
+}
+
+.c3d-admin-toggle > span[aria-hidden="true"] {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.c3d-admin-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 100;
+  width: 320px;
+  max-height: calc(100dvh - 24px);
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--bg) 94%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid color-mix(in oklab, var(--signal) 40%, var(--hairline));
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  animation: c3dEnterFromLeft .32s cubic-bezier(.16, 1, .3, 1) both;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
+}
+
+.c3d-admin-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 92%, transparent);
+}
+
+.c3d-admin-head h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.c3d-admin-actions {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.c3d-admin-reset {
+  padding: 3px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  transition: color .18s, border-color .18s;
+}
+
+.c3d-admin-reset:hover { color: var(--battle); border-color: var(--battle); }
+
+.c3d-admin-close {
+  background: none;
+  border: 0;
+  padding: 2px 6px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .18s;
+}
+
+.c3d-admin-close:hover { color: var(--ink); }
+
+.c3d-admin-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px 12px;
+}
+
+.c3d-admin-section {
+  border: 1px solid var(--hairline);
+  margin-bottom: 8px;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.c3d-admin-section > summary {
+  padding: 6px 10px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  background: color-mix(in oklab, var(--bg) 90%, transparent);
+  list-style: none;
+}
+
+.c3d-admin-section > summary::-webkit-details-marker { display: none; }
+
+.c3d-admin-section > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform .15s;
+}
+
+.c3d-admin-section[open] > summary::before { transform: rotate(90deg); }
+
+.c3d-admin-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+}
+
+.c3d-admin-row {
+  display: grid;
+  grid-template-columns: 78px 1fr 52px;
+  gap: 8px;
+  align-items: center;
+  font-size: 10px;
+  color: var(--ink);
+}
+
+.c3d-admin-label {
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: .04em;
+}
+
+.c3d-admin-value {
+  color: var(--ink);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c3d-admin-row input[type="range"] {
+  width: 100%;
+  accent-color: var(--signal);
+}
+
+.c3d-admin-row input[type="color"] {
+  width: 100%;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  cursor: pointer;
+}
+
+.c3d-admin-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--signal);
+  cursor: pointer;
+  justify-self: start;
+}
+
+.c3d-admin-row select {
+  width: 100%;
+  padding: 3px 6px;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.c3d-admin-row--toggle { grid-template-columns: 78px 1fr 52px; }
+.c3d-admin-row--color { grid-template-columns: 78px 1fr 68px; }
+
+@media (max-width: 900px) {
+  .c3d-admin-panel { width: 280px; }
+  .c3d-admin-row { grid-template-columns: 68px 1fr 46px; }
+}

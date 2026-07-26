@@ -281,131 +281,98 @@ export function Combat3DBody(): JSX.Element | null {
   const oppSide = yourSide === 'a' ? 'b' : 'a';
   const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
 
-  
   return (
-    <div className="stage" data-od-id="battle-stage">
+    <section className="c3d-stage" aria-label="Battle arena">
       <Combat3DScene ref={sceneRef} battle={activeBattle} />
-      
-      <div className="arena-fallback" id="arena-fallback" role="img" aria-label="3D arena unavailable — combat still playable">
-        <div className="box"><b>3D arena unavailable</b><br/>Your device blocked WebGL. Combat is still fully playable — use the command menu.</div>
+
+      <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
+
+      <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
+
+      <div className={`c3d-turn ${activeBattle.yourTurn ? 'is-your' : 'is-opp'}`} role="status">
+        <span className="rnd">Round <b>{activeBattle.round}</b></span>
+        <span className="who">{activeBattle.yourTurn ? 'Your turn' : 'Opponent'}</span>
+        <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
       </div>
 
-      <div className="overlay">
-        <div className="side-badge">
-          <div className="sb">
-            <span className="k">Wild Pack</span>
-            <span className="pips" id="pips-foe">
-              {activeBattle.enemy.map((u) => (
-                <span key={u.id} className={`pip ${u.hp <= 0 ? 'ko' : ''}`} style={{ '--el': `var(--el-${u.element})` } as React.CSSProperties} title={u.name} />
-              ))}
-            </span>
-          </div>
-          <aside className="feed" aria-label="Battle feed">
-            <h4>Battle Feed</h4>
-            <div className="feedbody" id="feedbody" role="log" aria-live="polite" aria-relevant="additions" ref={logBodyRef}>
-              {displayEvents.map((event, idx) => (
-                <div key={`log-${idx}-${event.at}`} className={`lg ${event.type === 'action' ? event.cue ?? '' : event.type}`}>
-                  <span className="stripe"></span>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                  <span className="ltx" dangerouslySetInnerHTML={{ __html: renderEventText(event, activeBattle) }} />
-                </div>
-              ))}
-            </div>
-          </aside>
-        </div>
+      <TurnOrderStrip battle={activeBattle} />
 
-        <div className="sr-only" id="sr-live" role="status" aria-live="assertive" aria-atomic="true"></div>
+      <TeamOverlay label="Your team" units={activeBattle.friendly} align="right" />
+      <TeamOverlay label={`vs ${oppSide.toUpperCase()}`} units={activeBattle.enemy} align="left" />
 
-        <div className="topbar">
-          <div className={`tstrip ${activeBattle.yourTurn ? 'is-you' : 'is-foe'}`} id="tstrip" role="status" aria-live="polite" aria-atomic="true">
-            <span className="rd" id="round-lbl">Round {activeBattle.round}</span>
-            <span className={`tt ${activeBattle.yourTurn ? 'you' : 'foe'}`} id="turn-tag">{activeBattle.yourTurn ? 'Your Turn' : 'Enemy Turn'}</span>
-            <span className="actor" id="actor-name">
-              {activeBattle.yourTurn ? <span className="arrow" aria-hidden="true">▶</span> : null}
-              {actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}
-            </span>
-          </div>
-          <TurnOrderStrip battle={activeBattle} />
-        </div>
-
-        <div className="team-badge">
-          <span className="k">Your Team</span>
-          <div className="pips" id="pips-you">
-            {activeBattle.friendly.map((u) => (
-              <span key={u.id} className={`pip ${u.hp <= 0 ? 'ko' : ''}`} style={{ '--el': `var(--el-${u.element})` } as React.CSSProperties} title={u.name} />
-            ))}
-          </div>
-        </div>
-
-        <div className="enemy-rail" id="enemy-rail" role="group" aria-label="Enemy Digimon">
-          {aliveEnemies.map((foe) => {
-            const pct = foe.hpMax > 0 ? Math.max(0, foe.hp) / foe.hpMax * 100 : 0;
-            const isActing = foe.id === activeBattle.currentTurnUnitId;
-            return (
-              <button
-                key={foe.id}
-                type="button"
-                className={`erow ${selectedTargetId === foe.id ? 'pick aim' : 'pick'} ${isActing ? 'acting' : ''}`}
-                onClick={() => setSelectedTargetId(foe.id)}
-                disabled={!canAct}
-                style={{ '--el': `var(--el-${foe.element})` } as React.CSSProperties}
-              >
-                <span className="edot" aria-hidden="true"></span>
-                <span className="enm">{foe.name}<span className="esub">{foe.element} · Lv {foe.level}</span></span>
-                <span className="ehp">{Math.max(0, foe.hp)}/{foe.hpMax}</span>
-                <span className="ehpbar"><i style={{ width: `${pct}%` }}></i></span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="party-cards" id="party-cards" role="group" aria-label="Your party">
-          {activeBattle.friendly.map((unit) => (
-            <PartyCard key={unit.id} unit={unit} active={unit.id === activeBattle.currentTurnUnitId && activeBattle.currentTurnBelongsToYou} />
-          ))}
-        </div>
-
-        {showAutobattle ? (
-          <button
-            type="button"
-            className={`auto-toggle ${autobattle ? 'on' : ''}`}
-            aria-pressed={autobattle}
-            onClick={() => setAutobattle((v) => !v)}
-            data-od-id="c3d-autobattle-toggle"
-          >
-            <span className="dot" aria-hidden="true" />
-            Auto: {autobattle ? 'ON' : 'OFF'}
-          </button>
-        ) : null}
-
-        <div className="cmd" data-od-id="command-menu" ref={cmdRef}>
-          <CommandPanel
-            mode={commandMode}
-            actor={actor}
-            target={selectedTarget}
-            friendly={activeBattle.friendly}
-            yourTurn={canAct}
-            pveMode={activeBattle.mode === 'pve'}
-            onMode={setCommandMode}
-            onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
-            onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
-            onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
-            onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
-            onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
-            onFlee={() => dispatchAction({ type: 'flee' })}
-          />
-        </div>
-      </div>
-
-      <div aria-hidden="true">
-        {floaters.map((f) => (
-          <div key={f.id} className={`floater ${f.kind}`} style={{ left: f.x, top: f.y }}>{f.text}</div>
+      <div className="c3d-party" role="list" aria-label="Your party status">
+        {activeBattle.friendly.map((unit) => (
+          <PartyCard key={unit.id} unit={unit} active={unit.id === activeBattle.currentTurnUnitId && activeBattle.currentTurnBelongsToYou} />
         ))}
       </div>
 
-      {loadError !== null ? <div className="c3d-toast is-err" style={{ position:'absolute', top:'10px', left:'50%', transform:'translateX(-50%)', background:'var(--battle)', color:'#fff', padding:'8px', zIndex:99 }}>{loadError}</div> : null}
+      <aside className="c3d-log" aria-label="Battle log">
+        <div className="c3d-log-head">Battle feed</div>
+        <div className="c3d-log-body" ref={logBodyRef}>
+          {displayEvents.slice(-30).map((event, idx) => (
+            <div key={`log-${idx}-${event.at}`} className={`c3d-log-line ${event.type === 'action' ? event.cue ?? '' : event.type}`}>
+              <span className="rd">R{event.type === 'round-start' ? event.round : (activeBattle.round)}</span>
+              <span className="txt">{renderEventText(event, activeBattle)}</span>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <div className={`c3d-cmd c3d-cmd--${commandMode}`} data-mode={commandMode} data-od-id="command-menu" ref={cmdRef}>
+        <CommandPanel
+          mode={commandMode}
+          actor={actor}
+          target={selectedTarget}
+          friendly={activeBattle.friendly}
+          yourTurn={canAct}
+          pveMode={activeBattle.mode === 'pve'}
+          onMode={setCommandMode}
+          onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
+          onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
+          onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
+          onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
+          onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
+          onFlee={() => dispatchAction({ type: 'flee' })}
+        />
+      </div>
+
+      <div className="c3d-target-picker" aria-label="Target selection">
+        {aliveEnemies.map((foe) => (
+          <button
+            key={foe.id}
+            type="button"
+            className={`c3d-target ${selectedTargetId === foe.id ? 'is-active' : ''}`}
+            onClick={() => setSelectedTargetId(foe.id)}
+            disabled={!canAct}
+            aria-pressed={selectedTargetId === foe.id}
+          >
+            <span className={`c3d-target-el pill--${foe.element}`} />
+            <span className="c3d-target-name">{foe.name}</span>
+            <span className="c3d-target-hp">{foe.hp}/{foe.hpMax}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="c3d-floaters" aria-hidden="true">
+        {floaters.map((f) => (
+          <div key={f.id} className={`c3d-float c3d-float--${f.kind}`} style={{ left: f.x, top: f.y }}>{f.text}</div>
+        ))}
+      </div>
+
+      {loadError !== null ? <div className="c3d-toast is-err">{loadError}</div> : null}
+
+      {showAutobattle ? (
+        <button
+          type="button"
+          className={`c3d-autobattle ${autobattle ? 'is-on' : ''}`}
+          aria-pressed={autobattle}
+          onClick={() => setAutobattle((v) => !v)}
+          data-od-id="c3d-autobattle-toggle"
+        >
+          <span className="c3d-autobattle-dot" aria-hidden="true" />
+          Auto: {autobattle ? 'ON' : 'OFF'}
+        </button>
+      ) : null}
 
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
@@ -415,10 +382,9 @@ export function Combat3DBody(): JSX.Element | null {
         />
       ) : null}
 
-      <span className={`c3d-ws c3d-ws--${readyState}`} aria-hidden="true" style={{ display: 'none' }} />
-    </div>
+      <span className={`c3d-ws c3d-ws--${readyState}`} aria-hidden="true" />
+    </section>
   );
-
 }
 
 const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
@@ -629,40 +595,21 @@ const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { re
   );
 });
 
-
 const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
-  const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax * 100 : 0;
-  const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax * 100 : 0;
-  const dead = unit.hp <= 0;
+  const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax : 0;
+  const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax : 0;
   return (
-    <div className={`pcard ${active ? 'active' : ''} ${dead ? 'dead' : ''}`} style={{ '--el': `var(--el-${unit.element})` } as React.CSSProperties}>
-      <div className="ph">
-        <span className="pspr">
-          <span className="spr-slot">
-            <span className="mono" aria-hidden="true">{unit.name.charAt(0).toUpperCase()}</span>
-            <img src={`/assets/digimon/${unit.templateId}/dot.gif`} alt={unit.name} />
-          </span>
-        </span>
-        <span className="pn">
-          <span className="nm">{unit.name}</span>
-          <span className="lv">Lv {unit.level}</span>
-        </span>
-        {/* unit.guarding not in unit view typically, assuming omitted or add condition */}
+    <div className={`c3d-unit ${active ? 'is-active' : ''}`} data-uid={unit.id} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
+      <div className="c3d-unit-top">
+        <span className="c3d-unit-name">{unit.name}</span>
+        <span className="c3d-unit-lv">Lv {unit.level}</span>
       </div>
-      <div className="stat">
-        <span className="sk">HP</span>
-        <span className="bar hp"><i style={{ width: `${hpPct}%` }}></i></span>
-        <span className="sn">{Math.max(0, unit.hp)} / {unit.hpMax}</span>
-      </div>
-      <div className="stat">
-        <span className="sk">EN</span>
-        <span className="bar en"><i style={{ width: `${enPct}%` }}></i></span>
-        <span className="sn en-n">{Math.max(0, unit.en)}/{unit.enMax}</span>
-      </div>
+      <div className="c3d-unit-bar"><i style={{ transform: `scaleX(${hpPct})` }} /></div>
+      <div className="c3d-unit-hp"><span>HP</span><span><b>{Math.max(0, unit.hp)}</b> / {unit.hpMax}</span></div>
+      <div className="c3d-unit-en"><i style={{ transform: `scaleX(${enPct})` }} /></div>
     </div>
   );
 });
-
 
 function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
   if (actor === null) return null;
@@ -682,7 +629,7 @@ function renderEventText(event: BattleView['log'][number], battle: BattleView): 
     const cue = event.cue ?? '';
     const target = event.targetId ? (battle.friendly.find((u) => u.id === event.targetId)?.name ?? battle.enemy.find((u) => u.id === event.targetId)?.name ?? event.targetId) : '';
     const damage = event.damage !== undefined ? ` ${event.damage}` : '';
-    return `<b>${event.actor ?? '?'}</b> → ${target}${damage !== '' ? ` — <b>${damage}</b>` : ''}`;
+    return `${event.actor ?? '?'} → ${target}${damage} ${cue}`.trim();
   }
   if (event.type === 'round-start') return `Round ${event.round}`;
   if (event.type === 'end') return `Match ended: ${event.outcome}`;

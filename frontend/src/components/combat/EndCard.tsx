@@ -38,50 +38,52 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   const isPve = battle.mode === 'pve';
   const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
 
-  
   const card = (
-    <div className={`endcard ${tone}`} data-od-id="end-card">
-      <div className="eyebrow">Battle Report</div>
-      <h2 id="end-title">{outcomeLabel(outcome, battle.yourSide)}</h2>
-      <div className="esub" id="end-sub">{headline(outcome, battle.yourSide, battle)}</div>
-      
-      <div className="estats" id="end-stats">
-        <div className="m"><span className="k">Rounds</span><span className="v">{battle.round}</span></div>
-        {!isPve ? (
+    <section className={`end-card ${tone}`} data-od-id="end-card">
+      {onClose ? (
+        <button className="end-card-close" type="button" onClick={onClose} aria-label="Close">×</button>
+      ) : null}
+      <span className="outcome-pill">{outcomeLabel(outcome, battle.yourSide)}</span>
+      <h2 className="headline">{headline(outcome, battle.yourSide, battle)}</h2>
+      <div className="rewards">
+        <div className="r"><span className="k">Rounds</span><span>{battle.round}</span></div>
+        {isPve ? null : (
           <>
-            <div className="m"><span className="k">Credits</span><span className="v">+{creditsFor(tone)}</span></div>
-            <div className="m"><span className="k">HP left</span><span className="v">{hpLeftPct}%</span></div>
+            <div className="r"><span className="k">Credits</span><span>+{creditsFor(tone)}</span></div>
+            <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div>
           </>
-        ) : null}
+        )}
         {battle.mode === 'pvp' && mmr !== null ? (
-          <div className="m" data-od-id="end-card-mmr">
+          <div className="r" data-od-id="end-card-mmr">
             <span className="k">MMR</span>
-            <span className="v">
-              {mmr.after} <span style={{ fontSize: '10px', color: 'var(--muted)' }}>({mmr.delta >= 0 ? '+' : ''}{mmr.delta})</span>
+            <span>
+              <span className="mmr-before">{mmr.before}</span>
+              <span className="mmr-arrow"> → </span>
+              <b className={`mmr-after mmr-${tone}`}>{mmr.after}</b>
+              <span className={`mmr-delta mmr-${tone}`}> ({mmr.delta >= 0 ? '+' : ''}{mmr.delta})</span>
             </span>
           </div>
         ) : null}
         {isPve && pveResults?.creditsGained !== undefined && pveResults.creditsGained > 0 ? (
-          <div className="m" data-od-id="end-card-pve-credits"><span className="k">Credits</span><span className="v">+{pveResults.creditsGained}</span></div>
+          <div className="r" data-od-id="end-card-pve-credits"><span className="k">Credits</span><span>+{pveResults.creditsGained}</span></div>
         ) : null}
         {isPve && pveResults?.bitsGained !== undefined && pveResults.bitsGained > 0 ? (
-          <div className="m" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span className="v">+{pveResults.bitsGained}</span></div>
+          <div className="r" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span>+{pveResults.bitsGained}</span></div>
         ) : null}
-        {isPve ? <div className="m"><span className="k">HP left</span><span className="v">{hpLeftPct}%</span></div> : null}
+        {isPve ? <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div> : null}
       </div>
-
       {isPve && pveResults ? <PveRewards results={pveResults} /> : null}
-
-      <div className="eact">
+      <div className="cta-row">
         {isPve ? (
-          <button type="button" className="cbtn primary" onClick={onClose} data-od-id="end-card-return-world">Return to World</button>
+          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-world">
+            Return to World
+          </button>
         ) : (
-          <Link className="cbtn primary" to="/lobby">Back to Menu</Link>
+          <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
         )}
       </div>
-    </div>
+    </section>
   );
-
 
   if (!onClose) return card;
 
@@ -92,8 +94,8 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   // Chromium is more forgiving here; Firefox enforces the spec strictly,
   // so escaping the subtree makes the modal render identically on both.
   return createPortal(
-    <div className="scrim show" onClick={onClose} role="dialog" aria-modal="true" aria-label="Battle results">
-      <div style={{ display: "contents" }}>
+    <div className="end-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Battle results">
+      <div className="end-modal-content" onClick={stopPropagation}>
         {card}
       </div>
     </div>,
