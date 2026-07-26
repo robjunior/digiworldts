@@ -123,22 +123,20 @@ export function Roster(): JSX.Element {
   };
 
   return (
-    <div className="roster-shell">
-      <main className="app-main roster-layout">
-        {roster.length === 0 ? (
-          <EmptyRoster busy={seedMutation.isPending} onSeed={() => seedMutation.mutate()} />
-        ) : (
-          <RosterList
-            roster={roster}
-            now={now}
-            activityByMon={activityByMon}
-            actions={actions}
-            templateById={templateById}
-            reverseGraph={reverseGraph}
-            message={message}
-          />
-        )}
-      </main>
+    <>
+      {roster.length === 0 ? (
+        <EmptyRoster busy={seedMutation.isPending} onSeed={() => seedMutation.mutate()} />
+      ) : (
+        <RosterList
+          roster={roster}
+          now={now}
+          activityByMon={activityByMon}
+          actions={actions}
+          templateById={templateById}
+          reverseGraph={reverseGraph}
+          message={message}
+        />
+      )}
       <EvolveDialog gate={evolutionGate} monName={evolveMon?.nickname ?? null} busy={evolveMutation.isPending} onClose={() => setEvolveMonId(null)} onEvolve={(targetCatalogId) => { if (evolveMonId) evolveMutation.mutate({ monId: evolveMonId, targetCatalogId }); }} />
       <RenameDialog mon={renameMon} busy={renameMutation.isPending} onClose={() => setRenameMon(null)} onSave={(nickname) => { if (renameMon) renameMutation.mutate({ monId: renameMon.id, nickname }); }} />
       <SubstitutionDialog
@@ -152,7 +150,7 @@ export function Roster(): JSX.Element {
           assignMutation.mutate({ monId: substituteFor.id, slot }, { onSuccess: () => setSubstituteFor(null) });
         }}
       />
-    </div>
+    </>
   );
 }
 

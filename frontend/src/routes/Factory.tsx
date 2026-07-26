@@ -153,9 +153,8 @@ export function Factory(): JSX.Element {
   const nextTxt = totalReady > 0 ? 'now' : (nextMs === Number.POSITIVE_INFINITY ? '—' : formatDuration(nextMs));
 
   return (
-    <div className="app-shell">
-      <main className="app-main factory-page">
-        <div className="balbar" data-od-id="resource-balance">
+    <>
+      <div className="balbar" data-od-id="resource-balance">
           <div className="bal" data-res="meat">
             <span className="ic">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/><path d="M9 9c1-1 4-1 5 0"/></svg>
@@ -355,7 +354,6 @@ export function Factory(): JSX.Element {
             </div>
           </div>
         </div>
-      </main>
 
       {/* Drawer */}
       <div className={`drawer factory-drawer ${isDrawerOpen ? 'open' : ''}`} role="dialog" aria-modal="true" aria-labelledby="drawer-title">
@@ -435,7 +433,7 @@ export function Factory(): JSX.Element {
       </div>
       
       <div className={`toast factory-toast ${notice ? 'show' : ''}`} role="status" aria-live="polite">{notice}</div>
-    </div>
+    </>
   );
 }
 

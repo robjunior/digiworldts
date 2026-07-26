@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 
-import { DigdexDetailModal } from '../components/digdex/DigdexDetailModal';
+import { DigdexDetail } from '../components/digdex/DigdexDetailModal';
 import { DigdexHive } from '../components/digdex/DigdexHive';
 import { getDigdex, type DigdexEntry } from '../lib/api-digdex';
 import '../styles/extensions-digdex.css';
@@ -10,12 +10,21 @@ import '../styles/extensions-digdex.css';
 const DIGDEX_QUERY_KEY = ['digdex'] as const;
 
 type Filter = 'all' | 'met' | 'unmet';
+type StageFilter = 'all' | 'Rookie' | 'Champion' | 'Ultimate' | 'Mega';
 type ElementFilter = Element | 'all';
 
 const FILTERS: readonly { readonly id: Filter; readonly label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'met', label: 'Met' },
   { id: 'unmet', label: 'Unmet' },
+];
+
+const STAGE_FILTERS: readonly { readonly id: StageFilter; readonly label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'Rookie', label: 'Rookie' },
+  { id: 'Champion', label: 'Champion' },
+  { id: 'Ultimate', label: 'Ultimate' },
+  { id: 'Mega', label: 'Mega' },
 ];
 
 const ELEMENT_FILTERS: readonly { readonly id: ElementFilter; readonly label: string }[] = [
@@ -27,6 +36,7 @@ export function Digdex(): JSX.Element {
   const query = useQuery({ queryKey: DIGDEX_QUERY_KEY, queryFn: getDigdex });
   const [filter, setFilter] = useState<Filter>('all');
   const [elementFilter, setElementFilter] = useState<ElementFilter>('all');
+  const [stageFilter, setStageFilter] = useState<StageFilter>('all');
   const [search, setSearch] = useState<string>('');
   const [selected, setSelected] = useState<DigdexEntry | null>(null);
 
@@ -40,11 +50,26 @@ export function Digdex(): JSX.Element {
     return map;
   }, [entries]);
 
+  const counts = useMemo(() => {
+    const met = entries.filter(e => e.met).length;
+    const unmet = entries.length - met;
+    const stages: Record<string, number> = { all: entries.length };
+    const els: Record<string, number> = { all: entries.length };
+    for (const e of entries) {
+      if (e.template) {
+        stages[e.template.stage] = (stages[e.template.stage] || 0) + 1;
+        els[e.template.element] = (els[e.template.element] || 0) + 1;
+      }
+    }
+    return { all: entries.length, met, unmet, stages, els };
+  }, [entries]);
+
   const visibleEntries = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return entries.filter((entry) => {
       if (filter === 'met' && !entry.met) return false;
       if (filter === 'unmet' && entry.met) return false;
+      if (stageFilter !== 'all' && entry.template?.stage !== stageFilter) return false;
       if (elementFilter !== 'all') {
         if (!entry.met || !entry.template || entry.template.element !== elementFilter) return false;
       }
@@ -54,15 +79,17 @@ export function Digdex(): JSX.Element {
       }
       return true;
     });
-  }, [entries, filter, elementFilter, search]);
+  }, [entries, filter, elementFilter, stageFilter, search]);
 
   return (
-    <div className="digdex-container">
+    <>
       <div className="dexbar">
         <div className="comp">
-          <div className="k">completion</div>
-          <div className="v">
-            {metCount} <small>/ {total}</small>
+          <div>
+            <div className="k">Field Guide</div>
+            <div className="v">
+              {metCount}<small>/{total} met</small>
+            </div>
           </div>
         </div>
         <div className="cmeter">
@@ -77,16 +104,34 @@ export function Digdex(): JSX.Element {
         <div className="filters">
           <div className="fgroup">
             <div className="fl">Search</div>
-            <div className="search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <label className="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+                <circle cx="11" cy="11" r="7"/>
+                <path d="M21 21l-4.3-4.3"/>
               </svg>
               <input
                 type="text"
-                placeholder="Name or ID"
+                placeholder="Name…"
                 value={search}
                 onChange={(event) => setSearch(event.currentTarget.value)}
+                autoComplete="off"
               />
+            </label>
+          </div>
+
+          <div className="fgroup">
+            <div className="fl">Stage</div>
+            <div className="seg">
+              {STAGE_FILTERS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={stageFilter === option.id ? 'on' : ''}
+                  onClick={() => setStageFilter(option.id)}
+                >
+                  {option.label} {option.id !== 'all' ? `(${counts.stages[option.id] || 0})` : ''}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -100,7 +145,7 @@ export function Digdex(): JSX.Element {
                   className={filter === option.id ? 'on' : ''}
                   onClick={() => setFilter(option.id)}
                 >
-                  {option.label}
+                  {option.label} ({counts[option.id]})
                 </button>
               ))}
             </div>
@@ -118,27 +163,27 @@ export function Digdex(): JSX.Element {
                   onClick={() => setElementFilter(option.id)}
                 >
                   {option.id !== 'all' && <div className="sw" />}
-                  <div className="av" style={option.id === 'all' ? { gridColumn: '1 / span 2' } : undefined}>
-                    {option.label}
-                  </div>
+                  <span>{option.label}</span>
+                  <span className="ct">{option.id === 'all' ? counts.all : (counts.els[option.id] || 0)}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          {(filter !== 'all' || elementFilter !== 'all' || search.length > 0) && (
+          {(filter !== 'all' || elementFilter !== 'all' || stageFilter !== 'all' || search.length > 0) && (
             <button
               className="clearchip"
               onClick={() => {
                 setFilter('all');
                 setElementFilter('all');
+                setStageFilter('all');
                 setSearch('');
               }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                <path d="M6 6l12 12M18 6L6 18" />
               </svg>
-              Clear Filters
+              Clear filters
             </button>
           )}
         </div>
@@ -167,27 +212,27 @@ export function Digdex(): JSX.Element {
           />
         )}
 
-        <aside className="detail">
-          <div className="dempty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4" />
-              <path d="M12 8h.01" />
-            </svg>
-            <br />
-            Select a Digimon to view details
-          </div>
-        </aside>
-
-        {selected && (
-          <DigdexDetailModal
+        {selected ? (
+          <DigdexDetail
             entry={selected}
             entriesById={entriesById}
             onClose={() => setSelected(null)}
             onSelect={setSelected}
           />
+        ) : (
+          <aside className="detail">
+            <div className="dempty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4" />
+                <path d="M12 8h.01" />
+              </svg>
+              <br />
+              Select a Digimon to view details
+            </div>
+          </aside>
         )}
       </div>
-    </div>
+    </>
   );
 }

@@ -37,7 +37,6 @@ function normalizeOutcome(outcome: LastMatchSummary['outcome']): 'win' | 'loss' 
 export function Lobby(): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
-  const presence = useWsStore((state) => state.presence);
   const presenceCount = useWsStore((state) => state.presenceCount);
   const chat = useWsStore((state) => state.chat);
   const queue = useWsStore((state) => state.queue);
@@ -76,7 +75,7 @@ export function Lobby(): JSX.Element {
   }
 
   return (
-    <div className="lobby-main-inner" data-od-id="lobby-main" style={{ display: 'contents' }}>
+    <>
       {/* matchmaking strip */}
       <section className="mmstrip" data-od-id="matchmaking-strip">
         <div className="mm-left">
@@ -145,7 +144,7 @@ export function Lobby(): JSX.Element {
           </div>
 
           {/* last match */}
-          <div className="lm-sec">
+          <div>
             <h3 className="stitle">Last Match</h3>
             <div id="lastmatch-wrap">
               {!lm ? (
@@ -156,35 +155,6 @@ export function Lobby(): JSX.Element {
                   <div className="vs">vs <b>{lm.opponent ?? 'Unknown'}</b></div>
                   <div className="rw">+{lm.rewards?.credits ?? 0} Bits · +{lm.rewards?.xp ?? 0} XP</div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* live matches */}
-          <div>
-            <h3 className="stitle">Live Matches <span className="n" id="matches-count">0 live</span></h3>
-            <div className="matches" id="matches" data-od-id="live-matches">
-              <div className="empty-line">No live matches right now.</div>
-            </div>
-          </div>
-
-          {/* presence */}
-          <div>
-            <h3 className="stitle">Online Now <span className="n" id="presence-count">{presenceCount} online</span></h3>
-            <div className="presence" id="presence" data-od-id="presence-list">
-              {presence.length === 0 ? (
-                <div className="empty-line">You're alone in the plaza — invite a friend or start a match.</div>
-              ) : (
-                presence.map((p) => {
-                  const isMe = p.userId === user?.id;
-                  return (
-                    <div key={p.userId} className={`pr ${isMe ? 'me' : ''}`}>
-                      <span className="dot"></span>
-                      <span className="nm">{p.displayName}{isMe ? ' (you)' : ''}</span>
-                      <span className="tag">{isMe ? 'Ready' : 'Online'}</span>
-                    </div>
-                  );
-                })
               )}
             </div>
           </div>
@@ -226,6 +196,6 @@ export function Lobby(): JSX.Element {
           </form>
         </aside>
       </div>
-    </div>
+    </>
   );
 }

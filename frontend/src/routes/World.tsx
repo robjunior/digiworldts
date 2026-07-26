@@ -248,8 +248,8 @@ export function World(): JSX.Element {
   }, [position?.biome.biome]);
 
   return (
-    <div className="world-page-layout" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
-      <div className="stage" data-od-id="globe-stage">
+    <>
+      <div className="stage" data-od-id="globe-stage" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
         <canvas ref={canvasRef} className="world-canvas" aria-label="World biome map" id="globe" />
         <div className={facingRight ? 'world-player is-facing-right' : 'world-player'} aria-hidden="true">
           {partyMons[2] != null ? <PlayerMon mon={partyMons[2]} slot="tail" /> : null}
@@ -295,7 +295,7 @@ export function World(): JSX.Element {
 
         <WorldObjectHint object={adjacentObject} />
       </aside>
-    </div>
+    </>
   );
 }
 

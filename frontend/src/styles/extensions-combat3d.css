@@ -31,7 +31,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .win{height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .titlebar{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--hair);z-index:30}
 .lights{display:flex;gap:7px}
-.lights i{width:11px;height:11px;background:var(--hair);clip-path:var(--notch-sm)}
+.lights i{width:11px;height:11px;background:var(--hair);clip-path:var(--notch-sm-clip)}
 .lights i:first-child{background:var(--signal)}
 .app-mark{font:800 14px/1 var(--font);letter-spacing:.02em}
 .app-mark .bit{color:var(--signal)}
@@ -42,36 +42,36 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 #arena{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
 .arena-fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:1;color:var(--muted);font:600 12px/1.5 var(--font);text-align:center;padding:24px}
 .arena-fallback.show{display:flex}
-.arena-fallback .box{max-width:340px;border:1px solid var(--hair);clip-path:var(--notch);padding:20px 22px;background:color-mix(in oklab,var(--panel) 80%,transparent)}
+.arena-fallback .box{max-width:340px;border:1px solid var(--hair);clip-path:var(--notch-clip);padding:20px 22px;background:color-mix(in oklab,var(--panel) 80%,transparent)}
 .arena-fallback b{color:var(--ink)}
 .overlay{position:absolute;inset:0;z-index:2;pointer-events:none}
 .overlay>*{pointer-events:auto}
 /* ---- top-center: ROUND / YOUR TURN strip + NEXT turn-order queue ------- */
 .topbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:11px;z-index:3;max-width:38vw}
-.tstrip{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);overflow:hidden}
+.tstrip{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);overflow:hidden}
 .tstrip .rd{font:800 10px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:11px 15px}
 .tstrip .tt{font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;padding:11px 15px}
 .tstrip .tt.you{background:var(--signal);color:#fff}
 .tstrip .tt.foe{background:color-mix(in oklab,var(--battle) 22%,var(--panel));color:var(--ink)}
 .tstrip .actor{font:800 15px/1 var(--font);color:var(--ink);padding:11px 16px}
-.nextq{display:flex;align-items:center;gap:11px;background:color-mix(in oklab,var(--panel) 86%,transparent);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 14px 8px 13px;backdrop-filter:blur(3px)}
+.nextq{display:flex;align-items:center;gap:11px;background:color-mix(in oklab,var(--panel) 86%,transparent);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:8px 14px 8px 13px;backdrop-filter:blur(3px)}
 .nextq .nl{font:800 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
-.nextq .qi{width:36px;height:36px;position:relative;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font-size:36px}
+.nextq .qi{width:36px;height:36px;position:relative;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font-size:36px}
 .nextq .qi.you{border-color:color-mix(in oklab,var(--signal) 50%,var(--hair))}
 .nextq .qi.foe{border-color:color-mix(in oklab,var(--battle) 30%,var(--hair))}
 .nextq .qi.now{box-shadow:inset 0 0 0 1px var(--signal)}
 .nextq .qi img{width:31px;height:31px;object-fit:contain;image-rendering:pixelated}
-.nextq .qi .en{position:absolute;bottom:-2px;right:-2px;width:7px;height:7px;background:var(--el,var(--muted));clip-path:var(--notch-sm)}
+.nextq .qi .en{position:absolute;bottom:-2px;right:-2px;width:7px;height:7px;background:var(--el,var(--muted));clip-path:var(--notch-sm-clip)}
 
 /* ---- top-left: side summaries + battle feed ---------------------------- */
 .side-badge{position:absolute;top:16px;left:16px;z-index:3;display:flex;flex-direction:column;gap:10px;width:clamp(188px,15vw,224px);max-width:24vw}
-.sb{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:10px 13px;display:flex;align-items:center;justify-content:space-between}
+.sb{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:10px 13px;display:flex;align-items:center;justify-content:space-between}
 .sb .k{font:800 10px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 .sb .pips{display:flex;gap:4px}
-.sb .pip{width:11px;height:11px;clip-path:var(--notch-sm);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
+.sb .pip{width:11px;height:11px;clip-path:var(--notch-sm-clip);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
 .sb .pip.ko{opacity:.4}
 .sb .n{font:800 10px/1 var(--font);color:var(--ink)}
-.feed{background:color-mix(in oklab,var(--panel) 84%,transparent);border:1px solid var(--hair);clip-path:var(--notch);backdrop-filter:blur(3px);display:flex;flex-direction:column;max-height:250px}
+.feed{background:color-mix(in oklab,var(--panel) 84%,transparent);border:1px solid var(--hair);clip-path:var(--notch-clip);backdrop-filter:blur(3px);display:flex;flex-direction:column;max-height:250px}
 .feed h4{font:800 9px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:11px 14px 9px;border-bottom:1px solid var(--hair)}
 .feedbody{overflow-y:auto;padding:6px 0;scrollbar-width:thin;display:flex;flex-direction:column;gap:1px}
 .feedbody::-webkit-scrollbar{width:6px}.feedbody::-webkit-scrollbar-thumb{background:var(--hair)}
@@ -85,17 +85,17 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 @keyframes lgin{0%{opacity:0;transform:translateX(-4px)}100%{opacity:1}}
 
 /* ---- top-right: your team badge --------------------------------------- */
-.team-badge{position:absolute;top:16px;right:16px;z-index:3;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:10px 14px;text-align:right}
+.team-badge{position:absolute;top:16px;right:16px;z-index:3;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:10px 14px;text-align:right}
 .team-badge .k{font:800 10px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 .team-badge .pips{display:flex;gap:4px;justify-content:flex-end;margin-top:6px}
-.team-badge .pip{width:11px;height:11px;clip-path:var(--notch-sm);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
+.team-badge .pip{width:11px;height:11px;clip-path:var(--notch-sm-clip);background:color-mix(in oklab,var(--el,var(--muted)) 26%,var(--panel));border:1px solid var(--el,var(--hair))}
 .team-badge .pip.ko{opacity:.4}
 
 /* ---- right: enemy list rail ------------------------------------------- */
 .enemy-rail{position:absolute;right:16px;top:96px;z-index:3;display:flex;flex-direction:column;gap:8px;width:clamp(198px,16vw,240px);max-width:26vw}
-.erow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);border-left:0;padding:11px 14px 11px 0;position:relative;cursor:default;color:inherit;font:inherit;text-align:left;width:100%}
+.erow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);border-left:0;padding:11px 14px 11px 0;position:relative;cursor:default;color:inherit;font:inherit;text-align:left;width:100%}
 .erow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--hair))}
-.erow .edot{width:11px;height:11px;margin-left:13px;background:var(--el,var(--muted));clip-path:var(--notch-sm)}
+.erow .edot{width:11px;height:11px;margin-left:13px;background:var(--el,var(--muted));clip-path:var(--notch-sm-clip)}
 .erow .enm{min-width:0;font:800 14px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .erow .enm .esub{display:block;font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:4px}
 .erow .ehp{font:800 12px/1 var(--font);color:var(--muted);white-space:nowrap}
@@ -108,13 +108,13 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .erow:focus-visible{outline:none;border-color:var(--signal)}
 /* ---- bottom-left: party HP cards --------------------------------------- */
 .party-cards{position:absolute;left:16px;bottom:16px;z-index:3;display:flex;flex-direction:column;gap:8px;width:clamp(222px,17vw,262px);max-width:27vw}
-.pcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);position:relative;padding:12px 15px 13px;overflow:hidden}
+.pcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);position:relative;padding:12px 15px 13px;overflow:hidden}
 .pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--hair))}
 .pcard.active{border-color:var(--signal)}
 .pcard.active::before{background:var(--signal)}
 .pcard.dead{opacity:.42;filter:grayscale(.7)}
 .pcard .ph{display:flex;align-items:center;gap:11px;margin-bottom:9px}
-.pcard .pspr{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font-size:38px}
+.pcard .pspr{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font-size:38px}
 .pcard .pspr img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated}
 /* always-visible monogram fallback when a sprite fails to load (CDN 404 etc.) */
 .spr-slot{position:relative;display:grid;place-items:center;overflow:hidden;width:100%;height:100%}
@@ -124,7 +124,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .pcard .pn{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
 .pcard .pn .nm{font:800 14px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pcard .pn .lv{font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
-.pcard .guard-ic{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:2px 5px}
+.pcard .guard-ic{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:2px 5px}
 .pcard .stat{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;margin-top:5px}
 .pcard .stat .sk{font:800 9px/1 var(--font);letter-spacing:.08em;color:var(--muted);width:18px}
 .pcard .bar{background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
@@ -136,9 +136,9 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .pcard .sn.en-n{font-size:10px;color:var(--muted);min-width:54px}
 
 /* ---- bottom-center: AUTO toggle --------------------------------------- */
-.auto-toggle{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:.12s}
+.auto-toggle{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:3;display:inline-flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:.12s}
 .auto-toggle:hover{border-color:var(--muted);color:var(--ink)}
-.auto-toggle .dot{width:8px;height:8px;background:var(--hair);clip-path:var(--notch-sm)}
+.auto-toggle .dot{width:8px;height:8px;background:var(--hair);clip-path:var(--notch-sm-clip)}
 .auto-toggle.on{color:var(--ink);border-color:color-mix(in oklab,var(--signal) 50%,var(--hair))}
 .auto-toggle.on .dot{background:var(--signal)}
 
@@ -152,11 +152,11 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .cmd .chead .cnt{font:800 11px/1 var(--font);color:var(--muted);letter-spacing:.08em}
 .cmd .rows{background:var(--panel);border:1px solid var(--hair);clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);padding:9px;display:flex;flex-direction:column;gap:7px;max-height:264px;overflow-y:auto;scrollbar-width:thin}
 .cmd .rows::-webkit-scrollbar{width:7px}.cmd .rows::-webkit-scrollbar-thumb{background:var(--hair)}
-.mrow{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:11px 14px;cursor:pointer;color:inherit;font:inherit;text-align:left;transition:.1s;width:100%}
+.mrow{display:grid;grid-template-columns:22px 1fr auto auto;align-items:center;gap:11px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:11px 14px;cursor:pointer;color:inherit;font:inherit;text-align:left;transition:.1s;width:100%}
 .mrow .cur{width:18px;height:18px;display:grid;place-items:center;opacity:0}
 .mrow .cur svg{width:17px;height:17px;color:var(--signal)}
 .mrow .mnm{font:800 15px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mrow .mtag{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--el,var(--muted));border:1px solid color-mix(in oklab,var(--el,var(--hair)) 45%,var(--hair));clip-path:var(--notch-sm);padding:3px 5px}
+.mrow .mtag{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--el,var(--muted));border:1px solid color-mix(in oklab,var(--el,var(--hair)) 45%,var(--hair));clip-path:var(--notch-sm-clip);padding:3px 5px}
 .mrow .men{font:800 11px/1 var(--font);color:var(--en);white-space:nowrap}
 .mrow .men.short{color:var(--muted);text-decoration:line-through}
 .mrow.sel{background:var(--ink);border-color:var(--ink)}
@@ -178,7 +178,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 /* ---- end card --------------------------------------------------------- */
 .scrim{position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 78%,transparent);display:none;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(2px)}
 .scrim.show{display:flex}
-.endcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);width:min(440px,92vw);padding:30px 30px 26px;position:relative}
+.endcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-clip);width:min(440px,92vw);padding:30px 30px 26px;position:relative}
 .endcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--signal)}
 .endcard.loss::before{background:color-mix(in oklab,var(--battle) 55%,var(--muted))}
 .endcard .eyebrow{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
@@ -189,7 +189,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .endcard .estats .m .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .endcard .estats .m .v{font:800 22px/1 var(--font);margin-top:6px}
 .endcard .eact{display:flex;gap:10px}
-.cbtn{background:var(--bg);border:1px solid var(--hair);color:var(--ink);clip-path:var(--notch-sm);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:.12s}
+.cbtn{background:var(--bg);border:1px solid var(--hair);color:var(--ink);clip-path:var(--notch-sm-clip);padding:11px 18px;font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:.12s}
 .cbtn:hover{border-color:var(--signal)}
 .cbtn.primary{background:var(--signal);color:#fff;border-color:var(--signal)}
 .cbtn.primary:hover{background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
