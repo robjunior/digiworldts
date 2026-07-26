@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { AppShell } from './components/AppShell';
 import { IntroTour } from './components/intro/IntroTour';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AUTH_ME_KEY } from './hooks/useAuth';
@@ -68,23 +69,25 @@ export function App(): JSX.Element {
           <Route path="/login" element={<Login />} />
           <Route path="/reset" element={<Reset />} />
           <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Home />} />
             <Route path="/intro" element={<Intro />} />
-            <Route path="/lobby" element={<Lobby />} />
-            <Route path="/combat" element={<Combat />} />
-            <Route path="/roster" element={<Roster />} />
-            <Route path="/farm" element={<Farm />} />
-            <Route path="/factory" element={<Factory />} />
-            <Route path="/adventure" element={<Adventure />} />
-            <Route path="/training" element={<Training />} />
-            <Route path="/shop" element={<Shop />} />
-            <Route path="/items" element={<Items />} />
-            <Route path="/market" element={<Market />} />
-            <Route path="/nursery" element={<Nursery />} />
-            <Route path="/world" element={<World />} />
-            <Route path="/digdex" element={<Digdex />} />
-            <Route path="/spectate" element={<Spectate />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route element={<AppShell />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/lobby" element={<Lobby />} />
+              <Route path="/combat" element={<Combat />} />
+              <Route path="/roster" element={<Roster />} />
+              <Route path="/farm" element={<Farm />} />
+              <Route path="/factory" element={<Factory />} />
+              <Route path="/adventure" element={<Adventure />} />
+              <Route path="/training" element={<Training />} />
+              <Route path="/shop" element={<Shop />} />
+              <Route path="/items" element={<Items />} />
+              <Route path="/market" element={<Market />} />
+              <Route path="/nursery" element={<Nursery />} />
+              <Route path="/world" element={<World />} />
+              <Route path="/digdex" element={<Digdex />} />
+              <Route path="/spectate" element={<Spectate />} />
+              <Route path="/admin" element={<Admin />} />
+            </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

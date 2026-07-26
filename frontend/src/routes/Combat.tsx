@@ -1,6 +1,5 @@
 import { Link } from 'react-router';
 
-import { AppNav } from '../components/AppNav';
 import { Combat3DBody } from '../components/combat3d/Combat3DBody';
 import { useCombatBattle } from '../hooks/useCombatBattle';
 import { useWsStore } from '../state/wsStore';
@@ -13,7 +12,6 @@ export function Combat(): JSX.Element {
   if (activeBattle === null) {
     return (
       <div className="app-shell combat3d-shell">
-        <AppNav />
         <main className="app-main combat3d-main">
           <div className="c3d-empty">
             <b>No active match — return to lobby to queue.</b>
@@ -31,7 +29,6 @@ export function Combat(): JSX.Element {
 
   return (
     <div className="app-shell combat3d-shell">
-      <AppNav />
       <main className="app-main combat3d-main" data-od-id="combat-main">
         <Combat3DBody />
       </main>

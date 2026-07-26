@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { useState } from 'react';
 
 import { DigiCredits } from '../components/common/DigiCredits';
@@ -53,12 +52,6 @@ export function Farm(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav>
-        <NavStat tone="meat" label="Meat" value={farm.balances.Meat.toLocaleString()} />
-        <NavStat tone="bits" label="Bits" value={farm.balances.Bits.toLocaleString()} />
-        <NavStat tone="data" label="Data" value={farm.balances.Data.toLocaleString()} />
-        <NavStat tone="credits" label="Credits" value={farm.credits.toLocaleString()} />
-      </AppNav>
       <main className="app-main">
         <PageStrip
           name="Farm"

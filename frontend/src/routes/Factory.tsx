@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -128,11 +127,6 @@ export function Factory(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AppNav>
-        <NavStat tone="meat" label="Meat" value={farm.balances.Meat.toLocaleString()} />
-        <NavStat tone="bits" label="Bits" value={farm.balances.Bits.toLocaleString()} />
-        <NavStat tone="data" label="Data" value={farm.balances.Data.toLocaleString()} />
-      </AppNav>
       <main className="app-main factory-main">
         <PageStrip
           name="Factory"
