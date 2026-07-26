@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Nursery</title>
+<style>
+/* =========================================================================
+   DIGIWORLD NURSERY — desktop app. Persona 5 theme (shared with lobby/roster/factory/adventure):
+     Canvas #0a0a0c · Panel #141418 · Ink #f4f1ea · Muted #8a877f
+     Hairline #2a2a30 · Signal/Battle acid-red #e6001f
+   Radius 0 — angular cyberpunk notch on all surfaces. Inter, tabular-nums.
+   Single desktop view: no vertical page scroll; two columns
+   (Care on the left, Hatchery + Pending on the right); inner regions scroll.
+   Data shape mirrors src/nursery/routes.ts + src/nursery/data.ts:
+     Care: NurseryMonView (mood 0-100, petsToday, canPet); pet +5 mood (3/day),
+           feed +8 mood (5 Meat). maxPetsPerDay 3.
+     Hatchery: SpeciesDataEntry (percent 0-100, kills); direct hatch needs 100%,
+           mix hatch = weighted roll by percent, zeroes ALL data. HATCH 3-min timer.
+     Pending: PendingHatchView (rookie + target, hatchAt, ready) -> collect a Rookie.
+   ========================================================================= */
+:root{
+  /* Persona 5 theme — acid red on ink (shared across all screens). */
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  /* resource tints derived from theme palette only (no new hex) */
+  --meat:color-mix(in oklab,var(--battle) 62%,var(--ink));
+  --data:color-mix(in oklab,var(--signal) 52%,var(--ink));
+  --good:color-mix(in oklab,var(--signal) 40%,#fff);
+  /* tier tints for species data (common/uncommon/rare) */
+  --common:var(--muted);
+  --uncommon:color-mix(in oklab,var(--signal) 55%,var(--ink));
+  --rare:color-mix(in oklab,var(--signal) 80%,#fff);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+
+/* ---- sidebar (matches roster/factory/adventure) ----------------------- */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* ---- main -------------------------------------------------------------- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+
+/* resource balance bar */
+.balbar{flex:0 0 auto;display:flex;align-items:center;gap:0;padding:14px 28px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.bal{display:grid;grid-template-columns:28px auto;gap:10px;align-items:center;padding:0 22px;border-right:1px solid var(--hair)}
+.bal:first-child{padding-left:0}
+.bal .ic{width:28px;height:28px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--res)}
+.bal .ic svg{width:16px;height:16px}
+.bal .col .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bal .col .v{font:800 18px/1.1 var(--font);margin-top:3px}
+.bal[data-res="meat"]{--res:var(--meat)}
+.bal[data-res="data"]{--res:var(--data)}
+.bal[data-res="mons"]{--res:var(--signal)}
+.balbar .strip-title{margin-left:auto;text-align:right}
+.balbar .strip-title .k{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.balbar .strip-title .s{font:600 12px/1 var(--font);color:var(--muted);margin-top:5px}
+
+/* ---- content: two columns, single view, no page scroll ---------------- */
+.scroll{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:1fr 400px;gap:22px;padding:22px 28px 22px}
+@media (max-width:1120px){.scroll{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.stitle{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.stitle::after{content:"";flex:1;height:1px;background:var(--hair)}
+.stitle .cnt{color:var(--ink);background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:3px 8px;font-size:10px;letter-spacing:.08em}
+
+/* ---- Care column: mon grid -------------------------------------------- */
+.caregrid{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));grid-auto-rows:min-content;gap:14px;padding-right:6px;scrollbar-width:thin}
+.caregrid::-webkit-scrollbar{width:8px}.caregrid::-webkit-scrollbar-thumb{background:var(--hair)}
+.carecard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:14px;display:flex;flex-direction:column;gap:11px;position:relative}
+.carecard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--mc,var(--signal))}
+.carecard[data-mood="high"]{--mc:var(--good)}
+.carecard[data-mood="mid"]{--mc:var(--signal)}
+.carecard[data-mood="low"]{--mc:var(--battle)}
+.carehead{display:grid;grid-template-columns:52px 1fr;gap:12px;align-items:center}
+.carehead .spr{width:52px;height:52px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.carehead .spr img{width:44px;height:44px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.carehead .nm{font:800 14px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carehead .sub{font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.moodrow{display:flex;flex-direction:column;gap:5px}
+.moodrow .ml{display:flex;justify-content:space-between;font:700 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.moodrow .ml b{color:var(--ink)}
+.moodbar{height:7px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
+.moodbar i{display:block;height:100%;background:var(--mc,var(--signal));width:0;transition:width .35s ease}
+.careacts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.cbtn{padding:8px 6px;clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--hair);background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center;gap:6px;transition:.12s}
+.cbtn svg{width:13px;height:13px}
+.cbtn.pet:hover:not(:disabled){border-color:var(--signal);color:var(--signal)}
+.cbtn.feed:hover:not(:disabled){border-color:var(--meat);color:var(--meat)}
+.cbtn:disabled{opacity:.4;cursor:not-allowed}
+.cbtn .cost{font-size:8px;color:var(--muted);letter-spacing:.04em}
+.petsdots{display:flex;gap:4px}
+.petsdots i{width:10px;height:4px;background:var(--hair);display:block}
+.petsdots i.on{background:var(--signal)}
+
+/* ---- right column stack: hatchery + pending --------------------------- */
+.rstack{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:16px}
+.rbox{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);display:flex;flex-direction:column;min-height:0;position:relative}
+.rbox::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+.rbox.hatchery{flex:1 1 auto}
+.rbox.pending{flex:0 0 auto;max-height:38%}
+.rbox .rh{padding:14px 16px 10px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--hair)}
+.rbox .rh .rt{font:800 11px/1 var(--font);letter-spacing:.18em;text-transform:uppercase}
+.rbox .rh .rc{margin-left:auto;font:700 10px/1 var(--font);color:var(--muted);letter-spacing:.06em}
+.rlist{overflow-y:auto;padding:12px 16px 14px;display:flex;flex-direction:column;gap:9px;min-height:0;scrollbar-width:thin}
+.rlist::-webkit-scrollbar{width:8px}.rlist::-webkit-scrollbar-thumb{background:var(--hair)}
+
+/* species data row */
+.drow{display:grid;grid-template-columns:34px 1fr auto;gap:11px;align-items:center;padding:9px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);--tc:var(--muted)}
+.drow[data-tier="common"]{--tc:var(--common)}
+.drow[data-tier="uncommon"]{--tc:var(--uncommon)}
+.drow[data-tier="rare"]{--tc:var(--rare)}
+.drow .dspr{width:34px;height:34px;display:grid;place-items:center}
+.drow .dspr img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.drow .dmid{min-width:0}
+.drow .dn{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:7px}
+.drow .dn .tier{font:800 8px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--tc);border:1px solid var(--tc);clip-path:var(--notch-sm);padding:2px 4px}
+.drow .dbar{height:5px;background:var(--panel);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden;margin-top:6px}
+.drow .dbar i{display:block;height:100%;background:var(--tc);width:0}
+.drow .dmeta{font:700 9px/1 var(--font);color:var(--muted);text-align:right;white-space:nowrap;display:flex;flex-direction:column;gap:5px;align-items:flex-end}
+.drow .dmeta .pc{font:800 12px/1 var(--font);color:var(--ink)}
+.drow .dmeta .pc.full{color:var(--good)}
+.hatchbtn{padding:6px 9px;background:var(--signal);color:#fff;clip-path:var(--notch-sm);font:800 8px/1 var(--font);letter-spacing:.08em;text-transform:uppercase}
+.hatchbtn:disabled{opacity:.35;cursor:not-allowed;background:var(--bg);border:1px solid var(--hair);color:var(--muted)}
+
+/* mix hatch foot */
+.mixfoot{flex:0 0 auto;border-top:1px solid var(--hair);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.mixfoot .mx{flex:1;font-size:10.5px;color:var(--muted);line-height:1.4}
+.mixfoot .mx b{color:var(--ink)}
+.btn{padding:10px 16px;clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:.12s;white-space:nowrap}
+.btn.primary{background:var(--signal);color:#fff}
+.btn.primary:hover:not(:disabled){background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.btn.ghost{background:var(--bg);border-color:var(--hair);color:var(--ink)}
+.btn.ghost:hover:not(:disabled){border-color:var(--muted)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* pending egg row */
+.egg{display:grid;grid-template-columns:38px 1fr auto;gap:11px;align-items:center;padding:9px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.egg .espr{width:38px;height:38px;display:grid;place-items:center;position:relative}
+.egg .espr img{width:34px;height:34px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.egg.ready .espr{animation:bob 1s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+.egg .emid{min-width:0}
+.egg .en{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.egg .esub{font:700 9px/1 var(--font);letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.egg .etime{font:800 13px/1 var(--font);color:var(--muted);white-space:nowrap}
+.egg.ready .etime{color:var(--good)}
+.collectbtn{padding:7px 11px;background:var(--signal);color:#fff;clip-path:var(--notch-sm);font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase}
+.rempty{color:var(--muted);font-size:11.5px;padding:8px 2px;line-height:1.5}
+
+/* ---- toast ------------------------------------------------------------- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important};.egg.ready .espr{animation:none}}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Nursery</div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <button class="navbtn" data-nav="factory" aria-label="Factory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory
+      </button>
+      <button class="navbtn" data-nav="adventure" aria-label="Adventure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure
+      </button>
+      <button class="navbtn" aria-current="page" data-nav="nursery" aria-label="Nursery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery
+      </button>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <button class="navbtn" data-nav="roster" aria-label="Roster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster
+      </button>
+      <button class="navbtn" data-nav="world" aria-label="The World">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World
+      </button>
+      <button class="navbtn" data-nav="arena" aria-label="The Arena">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena
+      </button>
+
+      <div class="spring">
+        <div class="hud">
+          <div class="pill">Tamer Lv <b>22</b></div>
+          <div class="pill">Meat <b id="hud-meat">—</b></div>
+          <div class="pill">Hatching <b id="hud-hatch">—</b></div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" data-od-id="nursery-main" tabindex="-1">
+      <div class="balbar" data-od-id="resource-balance" id="balbar"></div>
+
+      <div class="scroll">
+        <div class="col left">
+          <h3 class="stitle">Care <span class="cnt" id="care-count">—</span></h3>
+          <div class="caregrid" id="caregrid" data-od-id="care-grid"></div>
+        </div>
+
+        <div class="col right">
+          <h3 class="stitle">Hatchery</h3>
+          <div class="rstack">
+            <div class="rbox hatchery" data-od-id="hatchery">
+              <div class="rh"><span class="rt">Species Data</span><span class="rc" id="data-count">—</span></div>
+              <div class="rlist" id="datalist"></div>
+              <div class="mixfoot">
+                <div class="mx" id="mix-hint">—</div>
+                <button class="btn primary" id="mix-btn">Mix Hatch</button>
+              </div>
+            </div>
+            <div class="rbox pending" data-od-id="pending-hatches">
+              <div class="rh"><span class="rt">Incubating</span><span class="rc" id="pending-count">—</span></div>
+              <div class="rlist" id="pendinglist"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============ data shape mirrors src/nursery/routes.ts + data.ts ========= */
+const CFG = { maxPetsPerDay:3, petMoodDelta:5, feedMoodDelta:8, feedMeatCost:5, hatchDurationMs:3*60*1000, hatchLevel:5 };
+const MEAT_ICON='<path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/><path d="M9 9c1-1 4-1 5 0"/>';
+const DATA_ICON='<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6"/><path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3"/>';
+const MONS_ICON='<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/>';
+const PET_ICON='<path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/>';
+const FEED_ICON='<path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/>';
+
+// skullbot pixel-art "dot" sprite, keyed by species name
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+
+/* ---- server-authoritative-ish state ----------------------------------- */
+const state = {
+  meat: 60,
+  // Care: your unlisted roster mons with mood
+  mons: [
+    { id:'m1', species:'Agumon',   nickname:'Sparky',  level:24, mood:82, petsToday:1 },
+    { id:'m2', species:'Gabumon',  nickname:'Bubbles', level:22, mood:44, petsToday:0 },
+    { id:'m3', species:'Elecmon',  nickname:'Volt',    level:19, mood:18, petsToday:3 },
+    { id:'m4', species:'Palmon',   nickname:'Thorn',   level:20, mood:66, petsToday:2 },
+    { id:'m5', species:'Biyomon',  nickname:'Ember',   level:18, mood:95, petsToday:0 },
+    { id:'m6', species:'Gomamon',  nickname:'Tusk',    level:21, mood:53, petsToday:1 },
+  ],
+  // Hatchery: species Data collected from battles (percent 0-100)
+  data: [
+    { catalogId:'Greymon',    name:'Greymon',    stage:'Champion', tier:'uncommon', percent:100, kills:14 },
+    { catalogId:'Garurumon',  name:'Garurumon',  stage:'Champion', tier:'uncommon', percent:72,  kills:9 },
+    { catalogId:'Agumon',     name:'Agumon',     stage:'Rookie',   tier:'common',   percent:100, kills:31 },
+    { catalogId:'Angemon',    name:'Angemon',    stage:'Champion', tier:'uncommon', percent:40,  kills:5 },
+    { catalogId:'MetalGreymon',name:'MetalGreymon',stage:'Ultimate',tier:'rare',    percent:12,  kills:2 },
+    { catalogId:'Gabumon',    name:'Gabumon',    stage:'Rookie',   tier:'common',   percent:88,  kills:19 },
+  ],
+  // Pending: eggs incubating (3-min timer)
+  pending: [
+    { id:'h1', rookieName:'Agumon', rookieCatalogId:'Agumon', targetName:'Greymon', targetStage:'Champion', hatchAt:Date.now()+92*1000 },
+  ],
+};
+
+const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+const $=(s,r=document)=>r.querySelector(s);
+const fmt=n=>Math.round(n).toLocaleString('en-US');
+function moodBand(v){ return v>=70?'high':v>=35?'mid':'low'; }
+function fmtMMSS(ms){ const s=Math.max(0,Math.round(ms/1000)); const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; }
+
+/* ---- toast ---- */
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2000);}
+
+/* ---- balance bar ---- */
+function paintBalances(){
+  const cells=[
+    ['meat','Meat',state.meat,MEAT_ICON],
+    ['data','Data species',state.data.length,DATA_ICON],
+    ['mons','In care',state.mons.length,MONS_ICON],
+  ];
+  $('#balbar').innerHTML = cells.map(([res,k,v,ic])=>`
+    <div class="bal" data-res="${res}">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${ic}</svg></span>
+      <span class="col"><span class="k">${k}</span><span class="v" data-bal="${res}">${fmt(v)}</span></span>
+    </div>`).join('')
+    + `<div class="strip-title"><div class="k">Nursery</div><div class="s" id="nurseryline">—</div></div>`;
+}
+function updateMeatNum(){ const el=$('[data-bal="meat"]'); if(el) el.textContent=fmt(state.meat); const h=$('#hud-meat'); if(h) h.textContent=fmt(state.meat); }
+
+/* ---- Care column ---- */
+function careCardHTML(m){
+  const band=moodBand(m.mood);
+  const canPet=m.petsToday<CFG.maxPetsPerDay;
+  const canFeed=state.meat>=CFG.feedMeatCost;
+  const dots=Array.from({length:CFG.maxPetsPerDay},(_,i)=>`<i class="${i<m.petsToday?'on':''}"></i>`).join('');
+  return `<article class="carecard" data-mood="${band}" data-mon="${m.id}">
+    <div class="carehead">
+      <span class="spr"><img src="${sprite(m.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+      <div><div class="nm">${m.nickname}</div><div class="sub">${m.species} · Lv ${m.level}</div></div>
+    </div>
+    <div class="moodrow">
+      <div class="ml"><span>Mood</span><b>${Math.round(m.mood)}/100</b></div>
+      <div class="moodbar"><i style="width:${m.mood}%"></i></div>
+    </div>
+    <div class="petsdots" title="${m.petsToday}/${CFG.maxPetsPerDay} pets today">${dots}</div>
+    <div class="careacts">
+      <button class="cbtn pet" data-pet="${m.id}" ${canPet?'':'disabled'} title="${canPet?`Pet (+${CFG.petMoodDelta} mood)`:'Petted 3× today'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${PET_ICON}</svg>Pet
+      </button>
+      <button class="cbtn feed" data-feed="${m.id}" ${canFeed?'':'disabled'} title="${canFeed?`Feed (+${CFG.feedMoodDelta} mood)`:'Not enough Meat'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${FEED_ICON}</svg>Feed <span class="cost">${CFG.feedMeatCost}🍖</span>
+      </button>
+    </div>
+  </article>`;
+}
+function paintCare(){
+  $('#caregrid').innerHTML = state.mons.map(careCardHTML).join('');
+  $('#care-count').textContent = `${state.mons.length} in care`;
+  const low=state.mons.filter(m=>m.mood<35).length;
+  const nl=$('#nurseryline'); if(nl) nl.textContent = low>0?`${low} need attention`:'all content';
+}
+
+/* ---- Hatchery: species data ---- */
+function dataRowHTML(d){
+  const full=d.percent>=100;
+  return `<div class="drow" data-tier="${d.tier}" data-cat="${d.catalogId}">
+    <span class="dspr"><img src="${sprite(d.name)}" alt="" onerror="this.style.visibility='hidden'"></span>
+    <div class="dmid">
+      <div class="dn">${d.name} <span class="tier">${d.tier}</span></div>
+      <div class="dbar"><i style="width:${Math.min(100,d.percent)}%"></i></div>
+    </div>
+    <div class="dmeta">
+      <span class="pc ${full?'full':''}">${d.percent}%</span>
+      <button class="hatchbtn" data-hatch="${d.catalogId}" ${full?'':'disabled'} title="${full?'Hatch this species':'Needs 100% data'}">${full?'Hatch':`${d.kills} kills`}</button>
+    </div>
+  </div>`;
+}
+function paintData(){
+  const list=state.data.slice().sort((a,b)=>b.percent-a.percent||b.kills-a.kills);
+  $('#datalist').innerHTML = list.length ? list.map(dataRowHTML).join('') : `<div class="rempty">No species data yet. Defeat wild Digimon in Adventure to collect their data — 100% lets you hatch that exact species.</div>`;
+  $('#data-count').textContent = `${state.data.length} tracked`;
+  const totalWeight=state.data.reduce((s,d)=>s+d.percent,0);
+  const anyData=state.data.some(d=>d.percent>0);
+  const mh=$('#mix-hint');
+  if(mh) mh.innerHTML = anyData
+    ? `Roll a random Rookie weighted by data (<b>${totalWeight}</b> total). <b>Consumes all data.</b>`
+    : `No data to mix. Collect species data first.`;
+  const mb=$('#mix-btn'); if(mb) mb.disabled=!anyData;
+}
+
+/* ---- Pending eggs ---- */
+function eggHTML(p){
+  const now=Date.now();
+  const ready=p.hatchAt<=now;
+  const rem=Math.max(0,p.hatchAt-now);
+  return `<div class="egg ${ready?'ready':''}" data-egg="${p.id}">
+    <span class="espr"><img src="${sprite(p.rookieName)}" alt="" onerror="this.style.visibility='hidden'"></span>
+    <div class="emid">
+      <div class="en">${p.rookieName}</div>
+      <div class="esub">→ ${p.targetName} · ${p.targetStage}</div>
+    </div>
+    ${ready
+      ? `<button class="collectbtn" data-collect="${p.id}">Hatch!</button>`
+      : `<span class="etime" data-timer="${p.id}">${fmtMMSS(rem)}</span>`}
+  </div>`;
+}
+function paintPending(){
+  $('#pendinglist').innerHTML = state.pending.length
+    ? state.pending.map(eggHTML).join('')
+    : `<div class="rempty">No eggs incubating. Hatch a species from your data — eggs take 3 minutes, then collect a fresh Lv ${CFG.hatchLevel} Rookie.</div>`;
+  $('#pending-count').textContent = `${state.pending.length} egg${state.pending.length===1?'':'s'}`;
+  const active=state.pending.filter(p=>p.hatchAt>Date.now()).length;
+  const ready=state.pending.filter(p=>p.hatchAt<=Date.now()).length;
+  const h=$('#hud-hatch'); if(h) h.textContent = ready>0?`${ready} ready`:(active>0?`${active} egg${active===1?'':'s'}`:'—');
+}
+
+/* ---- actions ---- */
+function petMon(monId){
+  const m=state.mons.find(x=>x.id===monId); if(!m) return;
+  if(m.petsToday>=CFG.maxPetsPerDay){ toast(`Already petted ${CFG.maxPetsPerDay}× today. Come back tomorrow.`); return; }
+  m.mood=Math.max(0,Math.min(100,m.mood+CFG.petMoodDelta));
+  m.petsToday++;
+  paintCare();
+  toast(`Petted ${m.nickname} · +${CFG.petMoodDelta} mood`);
+}
+function feedMon(monId){
+  const m=state.mons.find(x=>x.id===monId); if(!m) return;
+  if(state.meat<CFG.feedMeatCost){ toast(`Not enough Meat. Need ${CFG.feedMeatCost} — collect from your Farm.`); return; }
+  state.meat-=CFG.feedMeatCost;
+  m.mood=Math.max(0,Math.min(100,m.mood+CFG.feedMoodDelta));
+  updateMeatNum(); paintCare();
+  toast(`Fed ${m.nickname} · +${CFG.feedMoodDelta} mood · −${CFG.feedMeatCost} Meat`);
+}
+function directHatch(catalogId){
+  const d=state.data.find(x=>x.catalogId===catalogId); if(!d) return;
+  if(d.percent<100){ toast(`${d.name} data not full (needs 100%)`); return; }
+  d.percent=0; // zero this species' data
+  addPending(d.name, d.catalogId, d.name, d.stage);
+  paintData(); paintPending();
+  toast(`${d.name} egg incubating — 3:00`);
+}
+function mixHatch(){
+  const entries=state.data.filter(d=>d.percent>0);
+  const totalWeight=entries.reduce((s,d)=>s+d.percent,0);
+  if(entries.length===0||totalWeight===0){ toast('No data to mix'); return; }
+  let roll=Math.random()*totalWeight; let picked=entries[entries.length-1];
+  for(const e of entries){ roll-=e.percent; if(roll<=0){ picked=e; break; } }
+  // mix zeroes ALL data
+  state.data.forEach(d=>d.percent=0);
+  addPending(picked.name, picked.catalogId, picked.name, picked.stage);
+  paintData(); paintPending();
+  toast(`Mixed roll → ${picked.name}! Egg incubating — 3:00`);
+}
+function addPending(rookieName, rookieCatalogId, targetName, targetStage){
+  state.pending.push({ id:'h'+Date.now(), rookieName, rookieCatalogId, targetName, targetStage, hatchAt:Date.now()+CFG.hatchDurationMs });
+}
+function collectEgg(hatchId){
+  const i=state.pending.findIndex(p=>p.id===hatchId); if(i<0) return;
+  const p=state.pending[i];
+  if(p.hatchAt>Date.now()){ toast('Not ready yet'); return; }
+  state.pending.splice(i,1);
+  // new Rookie joins care at mood 50
+  state.mons.push({ id:'m'+Date.now(), species:p.rookieName, nickname:p.rookieName, level:CFG.hatchLevel, mood:50, petsToday:0 });
+  paintPending(); paintCare(); paintBalances();
+  toast(`${p.rookieName} hatched! Joined your roster at Lv ${CFG.hatchLevel}`);
+}
+
+/* ---- event wiring (delegated) ---- */
+document.addEventListener('click',e=>{
+  const pt=e.target.closest('[data-pet]'); if(pt){ petMon(pt.dataset.pet); return; }
+  const fd=e.target.closest('[data-feed]'); if(fd){ feedMon(fd.dataset.feed); return; }
+  const hz=e.target.closest('[data-hatch]'); if(hz){ directHatch(hz.dataset.hatch); return; }
+  if(e.target.closest('#mix-btn')){ mixHatch(); return; }
+  const cl=e.target.closest('[data-collect]'); if(cl){ collectEgg(cl.dataset.collect); return; }
+});
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.navbtn').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');
+}));
+
+/* ---- egg countdown tick ---- */
+function tick(){
+  const now=Date.now();
+  let flip=false;
+  state.pending.forEach(p=>{
+    const el=$(`[data-timer="${p.id}"]`);
+    if(p.hatchAt<=now){ if(el){ flip=true; } }
+    else if(el){ el.textContent=fmtMMSS(p.hatchAt-now); }
+  });
+  if(flip){ paintPending(); } // a timer just hit 0 → re-render to show Hatch! button
+}
+
+paintBalances(); updateMeatNum(); paintCare(); paintData(); paintPending();
+if(!reduce) setInterval(tick,1000);
+</script>
+</body>
+</html>
