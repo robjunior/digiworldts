@@ -185,11 +185,23 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       tpl.stage as Stage,
       Math.max(0, wildMon.level - 1),
     );
+    if (wildMon.statOverride) {
+      const o = wildMon.statOverride;
+      if (o.hp !== undefined) wildBonus.hp += o.hp;
+      if (o.en !== undefined) wildBonus.en += o.en;
+      if (o.atk !== undefined) wildBonus.atk += o.atk;
+      if (o.def !== undefined) wildBonus.def += o.def;
+      if (o.int !== undefined) wildBonus.int += o.int;
+      if (o.spd !== undefined) wildBonus.spd += o.spd;
+    }
+    const memberTemplate = wildMon.skillsOverride
+      ? { ...tpl, skillPool: wildMon.skillsOverride.map((s, i) => ({ id: `enc-s${i}`, name: s.name, element: s.element, energyCost: s.cost, power: s.power, ...(s.description !== undefined ? { description: s.description } : {}) })) }
+      : tpl;
     wildParty.push({
       member: {
         monId: newId('wild'),
         templateId: wildMon.catalogId,
-        template: tpl,
+        template: memberTemplate,
         level: wildMon.level,
         nickname: wildMon.name,
         statBonus: wildBonus,
