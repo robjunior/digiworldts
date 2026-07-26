@@ -65,6 +65,15 @@ const ICON_ARENA: ReactNode = (
     <circle cx="12" cy="12" r="9" />
   </svg>
 );
+const ICON_DUNGEON: ReactNode = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+    <rect x="3" y="3" width="7" height="7" />
+    <rect x="14" y="3" width="7" height="7" />
+    <rect x="3" y="14" width="7" height="7" />
+    <rect x="14" y="14" width="7" height="7" />
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" />
+  </svg>
+);
 
 const TOWN: readonly NavEntry[] = [
   { to: '/factory',   label: 'Factory',    svg: ICON_FACTORY },
@@ -78,6 +87,7 @@ const BEYOND: readonly NavEntry[] = [
   { to: '/digdex',    label: 'DigiDex',    svg: ICON_DIGIDEX },
   { to: '/roster',    label: 'Roster',     svg: ICON_ROSTER },
   { to: '/world',     label: 'The World',  svg: ICON_WORLD },
+  { to: '/dungeon',   label: 'Dungeon',    svg: ICON_DUNGEON },
   { to: '/lobby',     label: 'The Arena',  svg: ICON_ARENA },
 ];
 
