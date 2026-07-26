@@ -9,57 +9,75 @@ type SidebarProps = {
 };
 
 export function NurserySidebar({ view, loading, busyMonId, onPet, onFeed }: SidebarProps): JSX.Element {
-  const meat = view?.meat ?? 0;
+  if (loading) {
+    return <div className="caregrid" id="caregrid" data-od-id="care-grid"><div className="rempty">Loading…</div></div>;
+  }
+  if (!view || view.mons.length === 0) {
+    return <div className="caregrid" id="caregrid" data-od-id="care-grid"><div className="rempty">No Digimon yet. Complete onboarding first.</div></div>;
+  }
 
   return (
-    <aside className="sidebar sidebar-right">
-      <div className="sidebar-header">
-        <div>
-          <div className="eyebrow">Nursery</div>
-          <h1>Care</h1>
-        </div>
-        <div className="meat-pill" id="meat-pill"><span className="dot" />MEAT <b id="meat-amount">{meat}</b></div>
-      </div>
-      <div className="mon-list" id="mon-list">
-        <SidebarContent view={view} loading={loading} busyMonId={busyMonId} onPet={onPet} onFeed={onFeed} />
-      </div>
-    </aside>
-  );
-}
-
-function SidebarContent(props: SidebarProps): JSX.Element {
-  if (props.loading) {
-    return <div className="empty-nursery">Loading…</div>;
-  }
-  if (props.view === null || props.view.mons.length === 0) {
-    return <div className="empty-nursery">No Digimon yet. Complete onboarding first.</div>;
-  }
-  const view = props.view;
-  return <>{view.mons.map((mon) => <NurseryMonRow key={mon.id} mon={mon} view={view} busy={props.busyMonId === mon.id} onPet={props.onPet} onFeed={props.onFeed} />)}</>;
-}
-
-function NurseryMonRow({ mon, view, busy, onPet, onFeed }: { readonly mon: NurseryMon; readonly view: NurseryView; readonly busy: boolean; readonly onPet: (mon: NurseryMon) => void; readonly onFeed: (mon: NurseryMon) => void }): JSX.Element {
-  const element = mon.template?.element ?? 'null';
-  const canFeed = view.meat >= view.feedMeatCost;
-  const petTitle = `+${view.petMoodDelta} mood · ${Math.max(0, view.maxPetsPerDay - mon.petsToday)} left today`;
-  const feedTitle = `Costs ${view.feedMeatCost} Meat · +${view.feedMoodDelta} mood`;
-
-  return (
-    <div className="mon-row" data-element={element} data-row={mon.id}>
-      <div className="thumb"><img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" onError={(event) => { event.currentTarget.style.opacity = '0.2'; }} /></div>
-      <div>
-        <div className="name"><span>{mon.nickname}</span><span className="lvl">Lv {mon.level}</span></div>
-        <div className="mood-track" title={`Mood ${mon.mood} / 100`}><div className="mood-fill" data-mood={moodBucket(mon.mood)} /></div>
-        <div className="meta-line"><span>Mood {mon.mood}</span><span>Pets {mon.petsToday}/{view.maxPetsPerDay}</span></div>
-        <div className="actions">
-          <button className="pet" type="button" disabled={!mon.canPet || busy} title={petTitle} onClick={() => onPet(mon)}>Pet</button>
-          <button className="feed" type="button" disabled={!canFeed || busy} title={feedTitle} onClick={() => onFeed(mon)}>Feed</button>
-        </div>
-      </div>
+    <div className="caregrid" id="caregrid" data-od-id="care-grid">
+      {view.mons.map((mon) => (
+        <NurseryMonCard key={mon.id} mon={mon} view={view} busy={busyMonId === mon.id} onPet={onPet} onFeed={onFeed} />
+      ))}
     </div>
   );
 }
 
-function moodBucket(mood: number): string {
-  return String(Math.max(0, Math.min(100, Math.round(mood / 5) * 5)));
+function NurseryMonCard({ mon, view, busy, onPet, onFeed }: { readonly mon: NurseryMon; readonly view: NurseryView; readonly busy: boolean; readonly onPet: (mon: NurseryMon) => void; readonly onFeed: (mon: NurseryMon) => void }): JSX.Element {
+  const canPet = mon.petsToday < view.maxPetsPerDay;
+  const canFeed = view.meat >= view.feedMeatCost;
+  
+  function moodBand(v: number): string {
+    return v >= 70 ? 'high' : v >= 35 ? 'mid' : 'low';
+  }
+  
+  const band = moodBand(mon.mood);
+  const dots = Array.from({ length: view.maxPetsPerDay }, (_, i) => (
+    <i key={i} className={i < mon.petsToday ? 'on' : ''} />
+  ));
+
+  return (
+    <article className="carecard" data-mood={band} data-mon={mon.id}>
+      <div className="carehead">
+        <span className="spr">
+          <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+        </span>
+        <div>
+          <div className="nm">{mon.nickname}</div>
+          <div className="sub">{mon.template?.name ?? mon.catalogId} · Lv {mon.level}</div>
+        </div>
+      </div>
+      <div className="moodrow">
+        <div className="ml"><span>Mood</span><b>{Math.round(mon.mood)}/100</b></div>
+        <div className="moodbar"><i style={{ width: `${mon.mood}%` }} /></div>
+      </div>
+      <div className="petsdots" title={`${mon.petsToday}/${view.maxPetsPerDay} pets today`}>{dots}</div>
+      <div className="careacts">
+        <button 
+          type="button"
+          className="cbtn pet" 
+          disabled={!canPet || busy} 
+          title={canPet ? `Pet (+${view.petMoodDelta} mood)` : `Petted ${view.maxPetsPerDay}× today`}
+          onClick={() => onPet(mon)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/>
+          </svg>Pet
+        </button>
+        <button 
+          type="button"
+          className="cbtn feed" 
+          disabled={!canFeed || busy} 
+          title={canFeed ? `Feed (+${view.feedMoodDelta} mood)` : 'Not enough Meat'}
+          onClick={() => onFeed(mon)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/>
+          </svg>Feed <span className="cost">{view.feedMeatCost}🍖</span>
+        </button>
+      </div>
+    </article>
+  );
 }

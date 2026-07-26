@@ -12,31 +12,26 @@ type NurseryDigitamaSidebarProps = {
   readonly onMix: () => void;
 };
 
-export function NurseryDigitamaSidebar({ entries, pending, loading, totalWeight, busyCatalogId, mixBusy, onHatch, onMix }: NurseryDigitamaSidebarProps): JSX.Element {
-  const readyCount = entries.filter((e) => e.percent >= 100).length;
-  const pendingCount = pending.length;
+export function NurseryDigitamaSidebar(props: NurseryDigitamaSidebarProps): JSX.Element {
+  const { entries, loading, totalWeight, busyCatalogId, mixBusy, onHatch, onMix } = props;
+  const anyData = entries.some(d => d.percent > 0);
+
   return (
-    <aside className="sidebar sidebar-left">
-      <div className="sidebar-header">
-        <div>
-          <div className="eyebrow">Nursery</div>
-          <h1>Digitama</h1>
-        </div>
-        <div className="digitama-header-badges">
-          {pendingCount > 0 ? <span className="digitama-badge digitama-badge-egg" title={`${pendingCount} egg${pendingCount > 1 ? 's' : ''} incubating`}>{pendingCount} EGG{pendingCount > 1 ? 'S' : ''}</span> : null}
-          {readyCount > 0 ? <span className="digitama-badge digitama-badge-ready" title={`${readyCount} species ready`}>{readyCount} READY</span> : null}
-        </div>
-      </div>
+    <>
       <DigitamaPool
         entries={entries}
-        pending={pending}
         loading={loading}
-        totalWeight={totalWeight}
         busyCatalogId={busyCatalogId}
-        mixBusy={mixBusy}
         onHatch={onHatch}
-        onMix={onMix}
       />
-    </aside>
+      <div className="mixfoot">
+        <div className="mx" id="mix-hint">
+          {anyData 
+            ? <>Roll a random Rookie weighted by data (<b>{totalWeight}</b> total). <b>Consumes all data.</b></>
+            : 'No data to mix. Collect species data first.'}
+        </div>
+        <button type="button" className="btn primary" id="mix-btn" disabled={!anyData || mixBusy} onClick={onMix}>Mix Hatch</button>
+      </div>
+    </>
   );
 }
