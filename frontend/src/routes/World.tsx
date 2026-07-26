@@ -248,29 +248,53 @@ export function World(): JSX.Element {
   }, [position?.biome.biome]);
 
   return (
-    <div className="world-page" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
-      <div className="world-scene-wrap">
-        <canvas ref={canvasRef} className="world-canvas" aria-label="World biome map" />
+    <div className="world-page-layout" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
+      <div className="stage" data-od-id="globe-stage">
+        <canvas ref={canvasRef} className="world-canvas" aria-label="World biome map" id="globe" />
         <div className={facingRight ? 'world-player is-facing-right' : 'world-player'} aria-hidden="true">
           {partyMons[2] != null ? <PlayerMon mon={partyMons[2]} slot="tail" /> : null}
           {partyMons[1] != null ? <PlayerMon mon={partyMons[1]} slot="mid" /> : null}
           <PlayerMon mon={partyMons[0] ?? null} slot="leader" />
         </div>
-      </div>
-      <div className="world-vignette" />
-      <WorldHud biome={position?.biome ?? null} partyRating={worldState?.partyRating ?? null} steps={worldState?.steps ?? null} onNavigateLobby={() => navigate('/lobby')} />
-      <WorldObjectHint object={adjacentObject} />
-      <TileInfoPanel position={position} focusedTile={focusedTile} />
-      <WorldDpad disabled={worldState?.battleActive ?? false} onMove={attemptMove} />
-      <EncounterModal encounter={encounter} message={notice ?? loadError} onDismiss={() => { setEncounter(null); setNotice(null); setLoadError(null); }} />
-      {overlayMounted ? (
-        <div className={`world-pve-overlay c3d-overlay-shell${overlayLeaving ? ' is-leaving' : ''}`} role="dialog" aria-modal="true" aria-label="Wild encounter">
-          <div className="world-pve-vignette" aria-hidden="true" />
-          <div className="world-pve-frame c3d-overlay-frame">
-            <Combat3DBody />
-          </div>
+        
+        <div className="stage-fallback" id="globe-fallback" role="img" aria-label="3D globe unavailable">
+          <div className="box"><b>Canvas failed</b><br/>Your device blocked WebGL.</div>
         </div>
-      ) : null}
+
+        <div className="overlay">
+          <WorldHud biome={position?.biome ?? null} partyRating={worldState?.partyRating ?? null} steps={worldState?.steps ?? null} onNavigateLobby={() => navigate('/lobby')} />
+          <WorldDpad disabled={worldState?.battleActive ?? false} onMove={attemptMove} />
+        </div>
+
+        <EncounterModal encounter={encounter} message={notice ?? loadError} onDismiss={() => { setEncounter(null); setNotice(null); setLoadError(null); }} />
+
+        {overlayMounted ? (
+          <div className={`world-pve-overlay c3d-overlay-shell${overlayLeaving ? ' is-leaving' : ''}`} role="dialog" aria-modal="true" aria-label="Wild encounter">
+            <div className="world-pve-vignette" aria-hidden="true" />
+            <div className="world-pve-frame c3d-overlay-frame">
+              <Combat3DBody />
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      <aside className="rail" data-od-id="region-rail">
+        <TileInfoPanel position={position} focusedTile={focusedTile} />
+        
+        <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
+          {worldObjects.length > 0 ? worldObjects.map(obj => (
+            <button key={obj.id} className="rrow sel" data-region={obj.id} role="option" aria-selected="true" style={{ '--el': 'var(--el-wind)' } as any}>
+              <span className="rdot"></span>
+              <span className="rnm">{obj.label ?? obj.kind}<span className="rsub">At {obj.x}, {obj.y}</span></span>
+              <span className="rdg">{obj.questId ? 'Quest' : 'Prop'}</span>
+            </button>
+          )) : (
+            <div className="rempty">No nearby objects.</div>
+          )}
+        </div>
+
+        <WorldObjectHint object={adjacentObject} />
+      </aside>
     </div>
   );
 }

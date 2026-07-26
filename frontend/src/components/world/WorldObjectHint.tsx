@@ -6,18 +6,30 @@ type WorldObjectHintProps = {
 
 export function WorldObjectHint({ object }: WorldObjectHintProps): JSX.Element | null {
   if (object === null) {
-    return null;
+    return (
+      <div className="rdetail" id="rdetail">
+        <div className="rempty">Explore to discover points of interest.</div>
+      </div>
+    );
   }
 
   const title = object.label ?? object.kind;
 
   return (
-    <section className="world-object-hint" aria-label="Nearby quest object">
-      <div className="world-object-hint__eyebrow">Adjacent signal</div>
-      <div className="world-object-hint__title">{title}</div>
-      <button className="world-object-hint__button" type="button" onClick={() => console.info('world.object.approach', { id: object.id, questId: object.questId })}>
+    <div className="rdetail" id="rdetail">
+      <div className="dk">Adjacent Signal</div>
+      <h3>{title}</h3>
+      <div className="dmeta" style={{ '--el': 'var(--el-light)' } as any}>
+        <span className="rchip"><span className="cx"></span>Object</span>
+      </div>
+      <div className="dblurb">You detected a {object.kind} nearby.</div>
+      <div className="dgauge">
+        <div className="gl"><span>Range</span><b>1 / 5</b></div>
+        <div className="gbar"><i style={{ width: '20%' }}></i></div>
+      </div>
+      <button className="dbtn" type="button" onClick={() => console.info('world.object.approach', { id: object.id, questId: object.questId })}>
         Approach
       </button>
-    </section>
+    </div>
   );
 }
