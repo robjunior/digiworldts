@@ -9,6 +9,7 @@ import {
   moveInDungeon,
   startEncounter,
 } from '../lib/api-dungeon';
+import { getRoster } from '../lib/api';
 import type { DungeonEncounter, DungeonItem, DungeonTile } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 
@@ -38,6 +39,12 @@ export function Dungeon(): JSX.Element {
     enabled: !!id,
     staleTime: 0,
   });
+
+  const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
+  const party = useMemo(() => {
+    const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
+    return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
+  }, [rosterQuery.data]);
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -190,7 +197,21 @@ export function Dungeon(): JSX.Element {
           onClick={() => {
             if (isWalkable && !isPlayer) handleCellClick(x, y);
           }}
-        />
+        >
+          {isPlayer && party.length > 0 && (
+            <div className="party-marker" aria-label="Your party">
+              {party.map((mon) => (
+                <img
+                  key={mon.id}
+                  className="party-sprite"
+                  src={`/assets/digimon/${mon.catalogId}/dot.gif`}
+                  alt={mon.nickname || mon.template?.name || 'party member'}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       );
     }
   }
