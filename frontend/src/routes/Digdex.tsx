@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 
-import { PageStrip } from '../components/common/PageStrip';
 import { DigdexDetailModal } from '../components/digdex/DigdexDetailModal';
 import { DigdexHive } from '../components/digdex/DigdexHive';
 import { getDigdex, type DigdexEntry } from '../lib/api-digdex';
@@ -58,73 +57,137 @@ export function Digdex(): JSX.Element {
   }, [entries, filter, elementFilter, search]);
 
   return (
-    <div className="app-shell digdex-shell">
-      <main className="app-main digdex-main">
-        <PageStrip
-          name="Digdex"
-          tone="action"
-          metrics={[
-            { label: <>bestiary &mdash; encounter Digimon to reveal them</>, className: 'muted' },
-            { label: <><b>{metCount}</b>/{total} met</> },
-          ]}
-        />
+    <div className="digdex-container">
+      <div className="dexbar">
+        <div className="comp">
+          <div className="k">completion</div>
+          <div className="v">
+            {metCount} <small>/ {total}</small>
+          </div>
+        </div>
+        <div className="cmeter">
+          <i style={{ width: `${(metCount / Math.max(1, total)) * 100}%` }} />
+        </div>
+        <div className="shown">
+          <b>{visibleEntries.length}</b> shown
+        </div>
+      </div>
 
-        <div className="digdex-header-row">
-          <input
-            className="input digdex-search"
-            type="search"
-            placeholder="search by name or id…"
-            value={search}
-            onChange={(event) => setSearch(event.currentTarget.value)}
+      <div className="stage">
+        <div className="filters">
+          <div className="fgroup">
+            <div className="fl">Search</div>
+            <div className="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Name or ID"
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+              />
+            </div>
+          </div>
+
+          <div className="fgroup">
+            <div className="fl">Status</div>
+            <div className="seg">
+              {FILTERS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={filter === option.id ? 'on' : ''}
+                  onClick={() => setFilter(option.id)}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="fgroup">
+            <div className="fl">Element</div>
+            <div className="elist">
+              {ELEMENT_FILTERS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  className={`elrow ${elementFilter === option.id ? 'on' : ''}`}
+                  style={option.id !== 'all' ? ({ '--ec': `var(--el-${option.id})` } as React.CSSProperties) : undefined}
+                  onClick={() => setElementFilter(option.id)}
+                >
+                  {option.id !== 'all' && <div className="sw" />}
+                  <div className="av" style={option.id === 'all' ? { gridColumn: '1 / span 2' } : undefined}>
+                    {option.label}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {(filter !== 'all' || elementFilter !== 'all' || search.length > 0) && (
+            <button
+              className="clearchip"
+              onClick={() => {
+                setFilter('all');
+                setElementFilter('all');
+                setSearch('');
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filters
+            </button>
+          )}
+        </div>
+
+        {query.isPending && (
+          <div className="grid-wrap">
+            <div className="gridempty">Loading Digdex…</div>
+          </div>
+        )}
+        {query.error && (
+          <div className="grid-wrap">
+            <div className="gridempty">Failed to load: {String(query.error)}</div>
+          </div>
+        )}
+        {!query.isPending && !query.error && visibleEntries.length === 0 && (
+          <div className="grid-wrap">
+            <div className="gridempty">No entries match your filter.</div>
+          </div>
+        )}
+        {!query.isPending && visibleEntries.length > 0 && (
+          <DigdexHive
+            entries={visibleEntries}
+            onSelect={setSelected}
+            {...(selected ? { selectedCatalogId: selected.catalogId } : {})}
+            {...(elementFilter !== 'all' ? { filterElement: elementFilter } : {})}
           />
-        </div>
+        )}
 
-        {query.isPending ? <div className="digdex-empty">Loading Digdex…</div> : null}
-        {query.error ? <div className="digdex-empty">Failed to load: {String(query.error)}</div> : null}
-        {!query.isPending && !query.error && visibleEntries.length === 0 ? (
-          <div className="digdex-empty">No entries match your filter.</div>
-        ) : null}
-        {!query.isPending && visibleEntries.length > 0 ? (
-          <DigdexHive entries={visibleEntries} onSelect={setSelected} />
-        ) : null}
-
-        <div className="digdex-island" role="toolbar" aria-label="Digdex filters">
-          <div className="digdex-island-group">
-            {FILTERS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={`digdex-pill${filter === option.id ? ' is-active' : ''}`}
-                onClick={() => setFilter(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
+        <aside className="detail">
+          <div className="dempty">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            <br />
+            Select a Digimon to view details
           </div>
-          <div className="digdex-island-sep" aria-hidden />
-          <div className="digdex-island-group digdex-island-scroll">
-            {ELEMENT_FILTERS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                className={`digdex-pill digdex-pill-element digdex-pill-${option.id}${elementFilter === option.id ? ' is-active' : ''}`}
-                onClick={() => setElementFilter(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        </aside>
 
-        {selected ? (
+        {selected && (
           <DigdexDetailModal
             entry={selected}
             entriesById={entriesById}
             onClose={() => setSelected(null)}
             onSelect={setSelected}
           />
-        ) : null}
-      </main>
+        )}
+      </div>
     </div>
   );
 }
