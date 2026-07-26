@@ -66,6 +66,7 @@ export type Dungeon = {
   readonly height: number;
   readonly spawnX: number;
   readonly spawnY: number;
+  readonly biomeRegion: string | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };

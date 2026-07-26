@@ -1,323 +1,387 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-import { Combat3DBody } from '../components/combat3d/Combat3DBody';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
+import * as THREE from 'three';
 
-import { EncounterModal } from '../components/world/EncounterModal';
-import { TileInfoPanel } from '../components/world/TileInfoPanel';
-import { WorldDpad } from '../components/world/WorldDpad';
-import { WorldHud } from '../components/world/WorldHud';
-import { WorldObjectHint } from '../components/world/WorldObjectHint';
+import { getWorldRegions } from '../lib/api-world';
+import type { WorldRegion } from '@digiworld/shared/world';
 import { useAuth } from '../hooks/useAuth';
-import { ApiError, getRoster, type RosterView } from '../lib/api';
-import { getBattleView } from '../lib/api';
-import { getWorldObjects, getWorldState, moveInWorld, type WorldDirection, type WorldEncounter, type WorldObject, type WorldPosition, type WorldState, type WorldTile } from '../lib/api-world';
-import { createWorldScene, type WorldScene } from '../lib/world-scene';
-import { useWsStore } from '../state/wsStore';
-import '../styles/extensions-combat3d.css';
 import '../styles/extensions-world.css';
 
-const KEY_DIRECTIONS: Readonly<Record<string, WorldDirection>> = {
-  w: 'up',
-  ArrowUp: 'up',
-  a: 'left',
-  ArrowLeft: 'left',
-  s: 'down',
-  ArrowDown: 'down',
-  d: 'right',
-  ArrowRight: 'right',
+const ELHEX: Record<string, number> = {
+  fire: 0xe6001f, water: 0x4aa3ff, plant: 0x3fbf6f, electricity: 0xe8c33a,
+  ice: 0x7ad0e6, earth: 0xb98a4a, steel: 0x9fb0bd, wind: 0x63d6c0,
+  light: 0xf2e39a, dark: 0xc03a4a, null: 0x8a877f
 };
 
-const MOVE_DEBOUNCE_MS = 140;
+const BLURB: Record<string, string> = {
+  desert: 'Heat-warped dunes where Virus-types thrive. Ember storms scour the ridgelines at dusk.',
+  forest: 'Dense canopy sheltering Vaccine-types. The deeper trails hide rarer species.',
+  lake: 'A glass-still basin. Data-types surface at the shallows; the depths run cold.',
+  storm: 'A permanent thunderhead. Free-types charge the air — high risk, high reward.',
+  tundra: 'Frostbitten spires. Slow encounters, but tundra-hardened mons hit hard.',
+  mountain: 'Sheer stone shelves. Earthbound giants guard the passes.',
+  foundry: 'Molten industrial ruins. Steel-types patrol the slag rivers.',
+  plateau: 'Wind-carved highlands. Fast, evasive fliers dominate the currents.',
+  prairie: 'Sunlit grassland. The calmest scouting run — gentle first encounters.',
+  swamp: 'Fog-drowned mire. Dark-types stalk the shallows; visibility is near zero.',
+  void: 'A tear in the map. The Static churns out anomalies. Enter only fully prepared.',
+};
+
+const elVar = (el: string) => `var(--el-${el})`;
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+function latLonToVec3(lat: number, lon: number, r: number) {
+  const phi = (90 - lat) * Math.PI / 180;
+  const theta = (lon + 180) * Math.PI / 180;
+  return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
+}
+
+function circlePts(r: number, seg: number, plane: 'xy' | 'xz') {
+  const pts = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = i / seg * Math.PI * 2;
+    if (plane === 'xz') pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
+    else pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
+  }
+  return pts;
+}
 
 export function World(): JSX.Element {
-  const { user } = useAuth();
+  useAuth();
   const navigate = useNavigate();
-  const handleServerMessage = useWsStore((state) => state.handleServerMessage);
-  const activeBattle = useWsStore((state) => state.activeBattle);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const sceneRef = useRef<WorldScene | null>(null);
-  const movingRef = useRef(false);
-  const debounceRef = useRef<number | null>(null);
-  const [worldState, setWorldState] = useState<WorldState | null>(null);
-  const [focusedTile, setFocusedTile] = useState<WorldTile | null>(null);
-  const [encounter, setEncounter] = useState<WorldEncounter | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [facingRight, setFacingRight] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
-  const worldObjectsQuery = useQuery({ queryKey: ['world-objects'] as const, queryFn: getWorldObjects, staleTime: 30_000 });
-  const worldObjects = worldObjectsQuery.data?.objects ?? [];
-  const battleOverlayVisible = activeBattle !== null && activeBattle.mode === 'pve';
-  const [overlayMounted, setOverlayMounted] = useState<boolean>(false);
-  const [overlayLeaving, setOverlayLeaving] = useState<boolean>(false);
-
+  
+  const { data: regions = [] } = useQuery({ 
+    queryKey: ['world-regions'], 
+    queryFn: getWorldRegions 
+  });
+  
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [hoveredIdx, setHoveredIdx] = useState<number>(-1);
+  const [autoSpin, setAutoSpin] = useState<boolean>(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const [webGLFailed, setWebGLFailed] = useState<boolean>(false);
+  const [hoverTip, setHoverTip] = useState<{ x: number, y: number, name: string, el: string, rawEl: string } | null>(null);
+  
+  const stateRef = useRef({
+    autoSpin,
+    selectedIdx,
+    hoveredIdx,
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+    rotX: 0.3,
+    rotY: 0,
+    camDist: 3.1,
+  });
+  
   useEffect(() => {
-    if (battleOverlayVisible) {
-      setOverlayMounted(true);
-      setOverlayLeaving(false);
-      return;
+    stateRef.current.autoSpin = autoSpin;
+    stateRef.current.selectedIdx = selectedIdx;
+    stateRef.current.hoveredIdx = hoveredIdx;
+  }, [autoSpin, selectedIdx, hoveredIdx]);
+  
+  const enterDungeon = useCallback((region: WorldRegion) => {
+    if (region.dungeonId) {
+      navigate('/dungeon/' + region.dungeonId);
+    } else {
+      console.log('Nav intent for un-linked region', region.label);
     }
-    if (!overlayMounted) return;
-    setOverlayLeaving(true);
-    const timer = window.setTimeout(() => {
-      setOverlayMounted(false);
-      setOverlayLeaving(false);
-    }, 320);
-    return () => window.clearTimeout(timer);
-  }, [battleOverlayVisible, overlayMounted]);
-  const partyMons = useMemo(() => {
-    const roster: readonly RosterView[] = rosterQuery.data?.roster ?? [];
-    const now = Date.now();
-    const alive = [0, 1, 2]
-      .map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot))
-      .filter((mon): mon is RosterView => mon !== undefined && !(mon.reviveAt !== null && mon.reviveAt > now));
-    return [alive[0] ?? null, alive[1] ?? null, alive[2] ?? null];
-  }, [rosterQuery.data]);
+  }, [navigate]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
+    if (!canvas) return;
+    
+    if (typeof THREE === 'undefined') {
+      setWebGLFailed(true);
       return;
     }
-    let scene: WorldScene | null = null;
-    let unsubscribe: (() => void) | null = null;
+    
+    let renderer: THREE.WebGLRenderer;
     try {
-      scene = createWorldScene(canvas, {
-        sphereRadius: 48,
-        borderDarken: 1.0,
-        ...(worldState ? { viewRadius: worldState.viewRadius } : {}),
-      });
-      sceneRef.current = scene;
-      unsubscribe = scene.subscribe((snapshot) => setFocusedTile(snapshot.tile));
-      if (worldState) {
-        scene.moveTo(worldState.position.tiles);
-      }
-      scene.setWorldObjects(worldObjects);
-    } catch (error) {
-      console.warn('world.webgl.unavailable', error instanceof Error ? error.message : String(error));
-    }
-    return () => {
-      unsubscribe?.();
-      scene?.dispose();
-      sceneRef.current = null;
-    };
-  }, [worldState?.viewRadius]);
-
-  useEffect(() => {
-    if (worldState) {
-      sceneRef.current?.moveTo(worldState.position.tiles);
-    }
-  }, [worldState]);
-
-  useEffect(() => {
-    if (activeBattle?.mode !== 'pve' || activeBattle.status !== 'ended') {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      if (!renderer.getContext()) throw new Error('No WebGL');
+    } catch (e) {
+      setWebGLFailed(true);
       return;
     }
-    let cancelled = false;
-    void getWorldState().then((state) => {
-      if (!cancelled) {
-        setWorldState(state);
-      }
-    }).catch(() => {
-      if (!cancelled) {
-        setWorldState((prev) => (prev ? { ...prev, battleActive: false } : prev));
-      }
+    
+    const w = canvas.clientWidth || 800;
+    const h = canvas.clientHeight || 600;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h, false);
+    
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+    camera.position.set(0, 0, stateRef.current.camDist);
+    const clock = new THREE.Clock();
+    const raycaster = new THREE.Raycaster();
+    
+    const globe = new THREE.Group();
+    scene.add(globe);
+    
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.985, 48, 32), new THREE.MeshBasicMaterial({ color: 0x0a0a0c }));
+    globe.add(core);
+    
+    const grid = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 36, 24)),
+      new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.34 })
+    );
+    globe.add(grid);
+    
+    const ringMat = new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.7 });
+    const eq = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePts(1.001, 64, 'xz')), ringMat);
+    globe.add(eq);
+    const mer = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePts(1.001, 64, 'xy')), ringMat);
+    globe.add(mer);
+    
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(1.08, 32, 24),
+      new THREE.MeshBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.05, side: THREE.BackSide }));
+    globe.add(glow);
+    
+    const nodeGroup = new THREE.Group();
+    globe.add(nodeGroup);
+    
+    type NodeMesh = { mesh: THREE.Mesh, ring: THREE.Mesh, data: WorldRegion, idx: number };
+    const nodeMeshes: NodeMesh[] = [];
+    
+    regions.forEach((b, i) => {
+      const pos = latLonToVec3(b.lat, b.lon, 1.0);
+      const col = ELHEX[b.element] || 0xe6001f;
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 12), new THREE.MeshBasicMaterial({ color: col }));
+      m.position.copy(pos);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.066, 20),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+      ring.position.copy(pos);
+      ring.lookAt(pos.clone().multiplyScalar(2));
+      const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos.clone(), pos.clone().multiplyScalar(1.12)]),
+        new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 }));
+      nodeGroup.add(m); nodeGroup.add(ring); nodeGroup.add(stem);
+      nodeMeshes.push({ mesh: m, ring, data: b, idx: i });
     });
-    return () => {
-      cancelled = true;
+    
+    const resizeGlobe = () => {
+      if (!canvas) return;
+      const rw = canvas.clientWidth || 800, rh = canvas.clientHeight || 600;
+      renderer.setSize(rw, rh, false);
+      camera.aspect = rw / rh;
+      camera.updateProjectionMatrix();
     };
-  }, [activeBattle]);
-
-  useEffect(() => {
-    sceneRef.current?.setWorldObjects(worldObjects);
-  }, [worldObjects]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getWorldState().then((state) => {
-      if (cancelled) {
-        return;
-      }
-      setWorldState(state);
-      setLoadError(null);
-      if (state.battleActive) {
-        void getBattleView().then((battle) => {
-          if (!cancelled) {
-            handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
-          }
-        }).catch((error: unknown) => {
-          if (error instanceof ApiError && (error.status === 404 || error.status === 400)) {
-            return;
-          }
-          if (error instanceof Error) {
-            setNotice(error.message);
-            return;
-          }
-          throw error;
-        });
-      }
-    }).catch((error: unknown) => {
-      if (error instanceof Error && !cancelled) {
-        setLoadError(error.message);
-        return;
-      }
-      throw error;
-    });
-    return () => {
-      cancelled = true;
+    window.addEventListener('resize', resizeGlobe);
+    
+    const ndc = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     };
-  }, [handleServerMessage]);
-
-  const attemptMove = useCallback((dir: WorldDirection): void => {
-    if (movingRef.current || worldState?.battleActive) {
-      return;
-    }
-    movingRef.current = true;
-    setFacingRight(dir === 'right' ? true : dir === 'left' ? false : facingRight);
-    void moveInWorld(dir).then((response) => {
-      setWorldState({
-        position: response.position,
-        partyRating: response.partyRating,
-        steps: response.steps,
-        viewRadius: worldState?.viewRadius ?? inferViewRadius(response.position),
-        battleActive: response.battle !== null,
+    
+    const pickHover = (e: PointerEvent) => {
+      raycaster.setFromCamera(ndc(e), camera);
+      const hits = raycaster.intersectObjects(nodeMeshes.map(n => n.mesh), false);
+      const firstHit = hits[0];
+      const newHovered = firstHit ? nodeMeshes.findIndex(n => n.mesh === firstHit.object) : -1;
+      setHoveredIdx(newHovered);
+      canvas.style.cursor = newHovered >= 0 ? 'pointer' : (stateRef.current.dragging ? 'grabbing' : 'grab');
+      
+      if (newHovered >= 0) {
+        const n = nodeMeshes[newHovered];
+        if (!n) return;
+        const v = n.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
+        if (v.z <= 1) {
+          const r = canvas.getBoundingClientRect();
+          setHoverTip({
+            x: r.left + (v.x * 0.5 + 0.5) * r.width,
+            y: r.top + (-v.y * 0.5 + 0.5) * r.height,
+            name: n.data.label,
+            el: cap(n.data.element) + ' · Danger ' + n.data.danger,
+            rawEl: n.data.element
+          });
+          return;
+        }
+      }
+      setHoverTip(null);
+    };
+    
+    const onPointerDown = (e: PointerEvent) => {
+      stateRef.current.dragging = true;
+      stateRef.current.lastX = e.clientX;
+      stateRef.current.lastY = e.clientY;
+      canvas.classList.add('drag');
+      canvas.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (stateRef.current.dragging) {
+        const dx = e.clientX - stateRef.current.lastX;
+        const dy = e.clientY - stateRef.current.lastY;
+        stateRef.current.lastX = e.clientX;
+        stateRef.current.lastY = e.clientY;
+        stateRef.current.rotY += dx * 0.006;
+        stateRef.current.rotX = Math.max(-1.2, Math.min(1.2, stateRef.current.rotX + dy * 0.006));
+      } else {
+        pickHover(e);
+      }
+    };
+    const onPointerUp = () => {
+      stateRef.current.dragging = false;
+      canvas.classList.remove('drag');
+    };
+    const onPointerLeave = () => {
+      stateRef.current.dragging = false;
+      setHoveredIdx(-1);
+      setHoverTip(null);
+      canvas.classList.remove('drag');
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      stateRef.current.camDist = Math.max(1.8, Math.min(5, stateRef.current.camDist + e.deltaY * 0.0016));
+    };
+    const onClick = () => {
+      if (stateRef.current.hoveredIdx >= 0) {
+        setSelectedIdx(stateRef.current.hoveredIdx);
+      }
+    };
+    
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointermove', onPointerMove);
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointerleave', onPointerLeave);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('click', onClick);
+    
+    let rafId: number;
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+      if (stateRef.current.autoSpin && !stateRef.current.dragging) {
+        stateRef.current.rotY += 0.0016;
+      }
+      globe.rotation.y = stateRef.current.rotY;
+      globe.rotation.x = stateRef.current.rotX;
+      camera.position.z = stateRef.current.camDist;
+      
+      const t = clock.getElapsedTime();
+      nodeMeshes.forEach((n, i) => {
+        const isSel = (i === stateRef.current.hoveredIdx || n.idx === stateRef.current.selectedIdx);
+        const s = isSel ? 1.35 + Math.sin(t * 4) * 0.12 : 1;
+        n.ring.scale.setScalar(s);
+        (n.ring.material as THREE.MeshBasicMaterial).opacity = isSel ? 1 : 0.7;
       });
-      setEncounter(response.encounter);
-      setNotice(response.battleStartError);
-      if (response.battle) {
-        handleServerMessage({ type: 'match', matchId: response.battle.id, view: response.battle });
-      }
-    }).catch((error: unknown) => {
-      if (error instanceof ApiError && error.status === 409) {
-        if (error.code === 'no-alive-party') {
-          setNotice(error.message || 'Assign at least one alive Digimon to your party before exploring.');
-        }
-        return;
-      }
-      if (error instanceof Error) {
-        setNotice(error.message);
-        return;
-      }
-      throw error;
-    }).finally(() => {
-      movingRef.current = false;
-    });
-  }, [facingRight, handleServerMessage, worldState]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        if (!worldState?.battleActive) {
-          navigate('/lobby');
-        }
-        return;
-      }
-      if (worldState?.battleActive || debounceRef.current !== null) {
-        return;
-      }
-      const dir = KEY_DIRECTIONS[event.key];
-      if (!dir) {
-        return;
-      }
-      debounceRef.current = window.setTimeout(() => {
-        debounceRef.current = null;
-      }, MOVE_DEBOUNCE_MS);
-      attemptMove(dir);
+      
+      renderer.render(scene, camera);
     };
-    document.addEventListener('keydown', onKeyDown);
+    animate();
+    
     return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (debounceRef.current !== null) {
-        window.clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
+      cancelAnimationFrame(rafId);
+      window.removeEventListener('resize', resizeGlobe);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('pointerup', onPointerUp);
+      canvas.removeEventListener('pointerleave', onPointerLeave);
+      canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('click', onClick);
+      
+      renderer.dispose();
+      globe.traverse((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.LineLoop || obj instanceof THREE.LineSegments) {
+          if (obj.geometry) obj.geometry.dispose();
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else if (obj.material) obj.material.dispose();
+        }
+      });
     };
-  }, [attemptMove, navigate, worldState?.battleActive]);
+  }, [regions]);
 
-  const position = worldState?.position ?? null;
-  const adjacentObject = useMemo(() => findAdjacentQuestObject(worldObjects, position), [position, worldObjects]);
-
-  useEffect(() => {
-    const key = position?.biome.biome ?? null;
-    if (key === null) return;
-    try {
-      window.localStorage.setItem('digiworld.current-biome', key);
-    } catch {}
-  }, [position?.biome.biome]);
+  const selectedRegion = selectedIdx !== null ? regions[selectedIdx] : null;
 
   return (
     <>
-      <div className="stage" data-od-id="globe-stage" style={{ backgroundColor: position?.biome.color ?? 'var(--bg)' }}>
-        <canvas ref={canvasRef} className="world-canvas" aria-label="World biome map" id="globe" />
-        <div className={facingRight ? 'world-player is-facing-right' : 'world-player'} aria-hidden="true">
-          {partyMons[2] != null ? <PlayerMon mon={partyMons[2]} slot="tail" /> : null}
-          {partyMons[1] != null ? <PlayerMon mon={partyMons[1]} slot="mid" /> : null}
-          <PlayerMon mon={partyMons[0] ?? null} slot="leader" />
-        </div>
+      <div className="stage" data-od-id="globe-stage">
+        <canvas ref={canvasRef} id="globe" aria-label="3D world globe"></canvas>
         
-        <div className="stage-fallback" id="globe-fallback" role="img" aria-label="3D globe unavailable">
-          <div className="box"><b>Canvas failed</b><br/>Your device blocked WebGL.</div>
-        </div>
+        {webGLFailed && (
+          <div className="stage-fallback show" id="globe-fallback" role="img" aria-label="3D globe unavailable — regions still selectable">
+            <div className="box"><b>3D globe unavailable</b><br/>Your device blocked WebGL. Pick a region from the list on the right to scout it.</div>
+          </div>
+        )}
 
         <div className="overlay">
-          <WorldHud biome={position?.biome ?? null} partyRating={worldState?.partyRating ?? null} steps={worldState?.steps ?? null} onNavigateLobby={() => navigate('/lobby')} />
-          <WorldDpad disabled={worldState?.battleActive ?? false} onMove={attemptMove} />
-        </div>
-
-        <EncounterModal encounter={encounter} message={notice ?? loadError} onDismiss={() => { setEncounter(null); setNotice(null); setLoadError(null); }} />
-
-        {overlayMounted ? (
-          <div className={`world-pve-overlay c3d-overlay-shell${overlayLeaving ? ' is-leaving' : ''}`} role="dialog" aria-modal="true" aria-label="Wild encounter">
-            <div className="world-pve-vignette" aria-hidden="true" />
-            <div className="world-pve-frame c3d-overlay-frame">
-              <Combat3DBody />
-            </div>
+          <div className="wstrip" data-od-id="world-strip">
+            <span className="wk">The World</span>
+            <span className="wv">Region<b id="strip-region">{selectedRegion ? selectedRegion.label : '—'}</b></span>
+            <span className="wv" style={{ borderLeft: '1px solid var(--hair)' }}>Element<b id="strip-el">{selectedRegion ? cap(selectedRegion.element) : '—'}</b></span>
           </div>
-        ) : null}
+          
+          <button 
+            className={`spin-toggle ${autoSpin ? 'on' : 'off'}`} 
+            id="spin-toggle" 
+            aria-pressed={autoSpin}
+            onClick={() => setAutoSpin(!autoSpin)}
+          >
+            <span className="dot"></span>Auto-spin: {autoSpin ? 'On' : 'Off'}
+          </button>
+          
+          <div className="whint">Drag to rotate · scroll to zoom · <b>click a node</b> to enter the dungeon</div>
+          
+          {hoverTip && (
+            <div className="rtip show" id="rtip" style={{ left: hoverTip.x, top: hoverTip.y, '--el': elVar(hoverTip.rawEl) } as React.CSSProperties}>
+              <span id="rtip-name">{hoverTip.name}</span>
+              <span className="re" id="rtip-el">{hoverTip.el}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <aside className="rail" data-od-id="region-rail">
-        <TileInfoPanel position={position} focusedTile={focusedTile} />
+        <div className="rhead">
+          <div className="rt">Regions</div>
+          <div className="rs"><b id="rail-count">{regions.length}</b> discovered · sorted by danger</div>
+        </div>
         
         <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
-          {worldObjects.length > 0 ? worldObjects.map(obj => (
-            <button key={obj.id} className="rrow sel" data-region={obj.id} role="option" aria-selected="true" style={{ '--el': 'var(--el-wind)' } as React.CSSProperties}>
-              <span className="rdot"></span>
-              <span className="rnm">{obj.label ?? obj.kind}<span className="rsub">At {obj.x}, {obj.y}</span></span>
-              <span className="rdg">{obj.questId ? 'Quest' : 'Prop'}</span>
-            </button>
-          )) : (
-            <div className="rempty">No nearby objects.</div>
+          {[...regions].sort((a, z) => z.danger - a.danger).map((b) => {
+            const i = regions.indexOf(b);
+            const isSel = selectedIdx === i;
+            return (
+              <button 
+                key={i}
+                className={`rrow ${isSel ? 'sel' : ''}`} 
+                data-region={i} 
+                role="option" 
+                aria-selected={isSel}
+                onClick={() => setSelectedIdx(i)}
+                style={{ '--el': elVar(b.element) } as React.CSSProperties}
+                aria-label={`${b.label}, ${b.element}, danger ${b.danger} of 5${b.scouted ? ', scouted' : ''}`}
+              >
+                <span className="rdot"></span>
+                <span className="rnm">{b.label}<span className="rsub">{cap(b.element)} · {cap(b.biome)}</span></span>
+                <span className="rdg">D{b.danger}{b.scouted ? ' ·✓' : ''}</span>
+              </button>
+            );
+          })}
+        </div>
+        
+        <div className="rdetail" id="rdetail">
+          {selectedRegion ? (
+            <>
+              <div className="dk">Selected Region</div>
+              <h3>{selectedRegion.label}</h3>
+              <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as React.CSSProperties}>
+                <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
+                <span className="rchip" style={{ '--el': 'var(--muted)' } as React.CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
+                {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as React.CSSProperties}><span className="cx"></span>Scouted</span>}
+              </div>
+              <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
+              <div className="dgauge">
+                <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
+                <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
+              </div>
+              <button className="dbtn" id="scout-btn" onClick={() => enterDungeon(selectedRegion)}>Enter Dungeon</button>
+            </>
+          ) : (
+            <div className="rempty">Select a region on the globe or list to scout it.</div>
           )}
         </div>
-
-        <WorldObjectHint object={adjacentObject} />
       </aside>
     </>
-  );
-}
-
-function findAdjacentQuestObject(objects: readonly WorldObject[], position: WorldPosition | null): WorldObject | null {
-  if (position === null) return null;
-  return objects.find((object) => (object.questId !== undefined || object.dungeonId !== undefined) && Math.abs(object.x - position.x) + Math.abs(object.y - position.y) <= 1) ?? null;
-}
-
-function inferViewRadius(position: WorldPosition): number {
-  const side = Math.sqrt(position.tiles.length);
-  return Number.isInteger(side) ? (side - 1) / 2 : 18;
-}
-
-function PlayerMon({ mon, slot }: { readonly mon: RosterView | null; readonly slot: 'leader' | 'mid' | 'tail' }): JSX.Element {
-  const dotUrl = mon?.template?.assets.dot ?? (mon !== null ? `/assets/digimon/${mon.catalogId}/dot.gif` : '/assets/digimon/skb-50/dot.gif');
-  const name = mon?.nickname ?? '';
-  return (
-    <img
-      className={`world-player__mon world-player__mon--${slot}`}
-      src={dotUrl}
-      alt={name}
-      data-slot={slot}
-    />
   );
 }

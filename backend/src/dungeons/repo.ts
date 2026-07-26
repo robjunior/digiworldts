@@ -16,7 +16,8 @@ import { asEncounterDigimon, EncounterDigimonSchema } from './validation.js';
 
 type DungeonRow = {
   readonly id: string; readonly world_object_id: string | null; readonly quest_id: string | null; readonly name: string; readonly description: string;
-  readonly biome: Dungeon['biome']; readonly width: number; readonly height: number; readonly spawn_x: number; readonly spawn_y: number; readonly created_at: number; readonly updated_at: number;
+  readonly biome: Dungeon['biome']; readonly width: number; readonly height: number; readonly spawn_x: number; readonly spawn_y: number;
+  readonly biome_region: string | null; readonly created_at: number; readonly updated_at: number;
 };
 type TileRow = { readonly x: number; readonly y: number };
 type EncounterRow = {
@@ -31,8 +32,8 @@ type RunRow = {
 
 const SQL_LIST_DUNGEONS = `SELECT * FROM dungeons ORDER BY created_at DESC`;
 const SQL_GET_DUNGEON = `SELECT * FROM dungeons WHERE id = ?`;
-const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, name, description, biome, width, height, spawn_x, spawn_y, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_DUNGEON = `DELETE FROM dungeons WHERE id = ?`;
 const SQL_LIST_TILES = `SELECT x, y FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_TILE = `SELECT x, y FROM dungeon_tiles WHERE dungeon_id = ? AND x = ? AND y = ?`;
@@ -78,7 +79,7 @@ function parseDigimon(value: string | readonly EncounterDigimon[]): readonly Enc
 }
 
 function dungeonFromRow(row: DungeonRow): Dungeon {
-  return { id: row.id, worldObjectId: row.world_object_id, questId: row.quest_id, name: row.name, description: row.description, biome: row.biome, width: row.width, height: row.height, spawnX: row.spawn_x, spawnY: row.spawn_y, createdAt: row.created_at, updatedAt: row.updated_at };
+  return { id: row.id, worldObjectId: row.world_object_id, questId: row.quest_id, name: row.name, description: row.description, biome: row.biome, width: row.width, height: row.height, spawnX: row.spawn_x, spawnY: row.spawn_y, biomeRegion: row.biome_region, createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
 function tileFromRow(row: TileRow): DungeonTile {
@@ -124,7 +125,7 @@ export async function getDungeonView(id: string): Promise<DungeonView | null> {
 export async function createDungeon(input: Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>): Promise<Dungeon> {
   const now = Date.now();
   const dungeon: Dungeon = { ...input, id: newId('dun'), createdAt: now, updatedAt: now };
-  await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, now, now);
+  await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion, now, now);
   return dungeon;
 }
 
@@ -142,10 +143,11 @@ export async function updateDungeon(id: string, input: UpdateDungeonInput): Prom
     height: input.height ?? existing.height,
     spawnX: input.spawnX ?? existing.spawnX,
     spawnY: input.spawnY ?? existing.spawnY,
+    biomeRegion: input.biomeRegion === undefined ? existing.biomeRegion : input.biomeRegion,
     createdAt: existing.createdAt,
     updatedAt: Date.now(),
   };
-  await run(SQL_UPDATE_DUNGEON, updated.worldObjectId, updated.questId, updated.name, updated.description, updated.biome, updated.width, updated.height, updated.spawnX, updated.spawnY, updated.updatedAt, id);
+  await run(SQL_UPDATE_DUNGEON, updated.worldObjectId, updated.questId, updated.name, updated.description, updated.biome, updated.width, updated.height, updated.spawnX, updated.spawnY, updated.biomeRegion, updated.updatedAt, id);
   return updated;
 }
 

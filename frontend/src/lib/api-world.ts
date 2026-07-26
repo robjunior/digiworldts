@@ -1,5 +1,6 @@
 import type { Action, BattleView } from '@digiworld/shared/battle';
 import type { Element, Stage } from '@digiworld/shared/digimon';
+import type { WorldRegion, WorldRegionsResponse } from '@digiworld/shared/world';
 
 import { ApiError, apiFetch } from './api';
 
@@ -183,4 +184,9 @@ export function actInWorldBattle(action: Action): Promise<WorldBattleActResponse
 
 export function getBiomes(): readonly WorldBiome[] {
   return WORLD_BIOMES;
+}
+
+export async function getWorldRegions(): Promise<readonly WorldRegion[]> {
+  const response = await apiFetch<WorldRegionsResponse>('/api/world/regions');
+  return response.regions;
 }
