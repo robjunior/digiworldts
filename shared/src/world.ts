@@ -35,3 +35,16 @@ export type BiomeSceneConfig = {
 };
 
 export type PerBiomeSceneDefaults = Partial<Record<Biome, BiomeSceneConfig>>;
+
+export type WorldRegion = {
+  readonly biome: Biome;
+  readonly label: string;
+  readonly element: string;
+  readonly danger: number;
+  readonly lat: number;
+  readonly lon: number;
+  readonly dungeonId: string | null;
+  readonly scouted: boolean;
+};
+
+export type WorldRegionsResponse = { readonly regions: readonly WorldRegion[] };

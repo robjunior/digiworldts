@@ -1,280 +1,168 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { Link } from 'react-router';
 
-import { getWorldState, moveInWorld, getWorldObjects, type WorldDirection, type WorldState, type WorldTile } from '../lib/api-world';
-import { listAdminWorldObjects, createAdminWorldObject, updateAdminWorldObject, deleteAdminWorldObject, listAdminDungeons } from '../lib/api-dungeon-admin';
-import { createWorldScene, type WorldScene } from '../lib/world-scene';
-import { useAuth } from '../hooks/useAuth';
-import type { WorldObject, WorldObjectKind } from '@digiworld/shared/quest';
-
+import { getWorldRegions } from '../lib/api-world';
+import { listAdminDungeons, updateAdminDungeon } from '../lib/api-dungeon-admin';
 import { AdminGuard } from '../components/admin/AdminGuard';
+import type { WorldRegion, Dungeon } from '@digiworld/shared';
 import '../styles/extensions-admin.css';
 
-const KEY_DIRECTIONS: Readonly<Record<string, WorldDirection>> = {
-  w: 'up',
-  ArrowUp: 'up',
-  a: 'left',
-  ArrowLeft: 'left',
-  s: 'down',
-  ArrowDown: 'down',
-  d: 'right',
-  ArrowRight: 'right',
-};
-
-const MOVE_DEBOUNCE_MS = 140;
-
-const KINDS: WorldObjectKind[] = ['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk'];
-
 export function AdminWorld(): JSX.Element {
-  const { user } = useAuth();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const sceneRef = useRef<WorldScene | null>(null);
-  const movingRef = useRef(false);
-  const debounceRef = useRef<number | null>(null);
 
-  const [worldState, setWorldState] = useState<WorldState | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{ x: number, y: number, isObject: boolean, objectId?: string | undefined } | null>(null);
-
-  const objectsQuery = useQuery({ queryKey: ['admin-world-objects'], queryFn: listAdminWorldObjects });
+  const regionsQuery = useQuery({ queryKey: ['admin-world-regions'], queryFn: getWorldRegions });
   const dungeonsQuery = useQuery({ queryKey: ['admin-dungeons'], queryFn: listAdminDungeons });
-  // We need /api/admin/quests to link quests, but we can use fetch for it if needed or create an api-quest function.
-  // Actually, we can just fetch it directly.
-  const questsQuery = useQuery({ queryKey: ['admin-quests'], queryFn: async () => {
-    const res = await fetch('/api/admin/quests');
-    if (!res.ok) throw new Error('Failed to fetch quests');
-    return res.json() as Promise<{ quests: any[] }>;
-  }});
 
-  const objects = objectsQuery.data?.objects ?? [];
+  const regions = useMemo(() => {
+    if (!regionsQuery.data) return [];
+    return [...regionsQuery.data].sort((a, b) => b.danger - a.danger);
+  }, [regionsQuery.data]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void getWorldState().then((state) => {
-      if (!cancelled) setWorldState(state);
-    });
-    return () => { cancelled = true; };
-  }, []);
+  const dungeons = dungeonsQuery.data?.dungeons ?? [];
 
-  const handleCanvasClick = useCallback((x: number, y: number, isObject: boolean, objectId?: string) => {
-    setSelectedLocation({ x, y, isObject, ...(objectId ? { objectId } : {}) });
-  }, []);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    let scene: WorldScene | null = null;
-    try {
-      scene = createWorldScene(canvas, {
-        sphereRadius: 48,
-        borderDarken: 1.0,
-        onClick: handleCanvasClick,
-        ...(worldState ? { viewRadius: worldState.viewRadius } : {}),
-      });
-      sceneRef.current = scene;
-      if (worldState) {
-        scene.moveTo(worldState.position.tiles);
-      }
-      scene.setWorldObjects(objects);
-    } catch (error) {
-      console.warn('world.webgl.unavailable', error);
-    }
-    return () => {
-      scene?.dispose();
-      sceneRef.current = null;
-    };
-  }, [worldState?.viewRadius, handleCanvasClick]);
-
-  useEffect(() => {
-    if (worldState) {
-      sceneRef.current?.moveTo(worldState.position.tiles);
-    }
-  }, [worldState]);
-
-  useEffect(() => {
-    sceneRef.current?.setWorldObjects(objects);
-  }, [objects]);
-
-  const attemptMove = useCallback((dir: WorldDirection): void => {
-    if (movingRef.current) return;
-    movingRef.current = true;
-    void moveInWorld(dir).then((response) => {
-      setWorldState({
-        position: response.position,
-        partyRating: response.partyRating,
-        steps: response.steps,
-        viewRadius: worldState?.viewRadius ?? 18,
-        battleActive: response.battle !== null,
-      });
-    }).catch(console.error).finally(() => {
-      movingRef.current = false;
-    });
-  }, [worldState]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (selectedLocation) return; // Don't move while dialog is open
-      const dir = KEY_DIRECTIONS[event.key];
-      if (!dir) return;
-      if (debounceRef.current !== null) return;
-      debounceRef.current = window.setTimeout(() => {
-        debounceRef.current = null;
-      }, MOVE_DEBOUNCE_MS);
-      attemptMove(dir);
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      if (debounceRef.current !== null) {
-        window.clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
-    };
-  }, [attemptMove, selectedLocation]);
-
-  const createMut = useMutation({
-    mutationFn: createAdminWorldObject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-world-objects'] });
-      setSelectedLocation(null);
-    }
-  });
-
-  const updateMut = useMutation({
-    mutationFn: ({ id, body }: { id: string, body: any }) => updateAdminWorldObject(id, body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-world-objects'] });
-      setSelectedLocation(null);
-    }
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: deleteAdminWorldObject,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-world-objects'] });
-      setSelectedLocation(null);
-    }
-  });
-
-  const createDungeonMut = useMutation({
-    mutationFn: async (worldObjectId: string) => {
-      const res = await fetch('/api/admin/dungeons', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'New Dungeon',
-          biome: 'null',
-          width: 10,
-          height: 10,
-          worldObjectId,
-        })
-      });
-      if (!res.ok) throw new Error('Failed');
-      return res.json();
+  const updateDungeonMut = useMutation({
+    mutationFn: async ({ dungeonId, biomeRegion }: { dungeonId: string, biomeRegion: string | null }) => {
+      return updateAdminDungeon(dungeonId, { biomeRegion });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-world-regions'] });
       queryClient.invalidateQueries({ queryKey: ['admin-dungeons'] });
+      setToast({ message: 'Region linked successfully!', type: 'success' });
+    },
+    onError: (err: any) => {
+      if (err.status === 409) {
+        setToast({ message: 'Conflict: Dungeon already linked to another region!', type: 'error' });
+      } else {
+        setToast({ message: 'Failed to link region', type: 'error' });
+      }
     }
   });
 
-  const selectedObj = useMemo(() => {
-    if (!selectedLocation?.objectId) return null;
-    return objects.find(o => o.id === selectedLocation.objectId) ?? null;
-  }, [selectedLocation, objects]);
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
-  const renderDialog = () => {
-    if (!selectedLocation) return null;
+  const [selectedDungeons, setSelectedDungeons] = useState<Record<string, string>>({});
 
-    if (!selectedLocation.isObject || !selectedObj) {
-      return (
-        <div className="admin-poi-dialog">
-          <h3>Create POI at {selectedLocation.x}, {selectedLocation.y}</h3>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            const label = fd.get('label') as string;
-            createMut.mutate({
-              x: selectedLocation.x,
-              y: selectedLocation.y,
-              kind: fd.get('kind') as WorldObjectKind,
-              scale: 1,
-              passable: fd.get('passable') === 'on',
-              ...(label ? { label } : {}),
-            });
-          }}>
-            <label>Kind <select name="kind">{KINDS.map(k => <option key={k} value={k}>{k}</option>)}</select></label>
-            <label>Label <input name="label" type="text" /></label>
-            <label><input name="passable" type="checkbox" /> Passable?</label>
-            <div className="admin-poi-actions">
-              <button type="submit" disabled={createMut.isPending}>Create</button>
-              <button type="button" onClick={() => setSelectedLocation(null)}>Cancel</button>
-            </div>
-          </form>
-        </div>
-      );
+  const handleSelectChange = (biome: string, val: string) => {
+    setSelectedDungeons(prev => ({ ...prev, [biome]: val }));
+    setToast(null);
+  };
+
+  const handleSave = async (region: WorldRegion) => {
+    const newDungeonId = selectedDungeons[region.biome] ?? '';
+    const oldDungeonId = region.dungeonId;
+
+    if (newDungeonId === oldDungeonId) return;
+
+    try {
+      if (oldDungeonId) {
+        await updateDungeonMut.mutateAsync({ dungeonId: oldDungeonId, biomeRegion: null });
+      }
+      if (newDungeonId) {
+        await updateDungeonMut.mutateAsync({ dungeonId: newDungeonId, biomeRegion: region.biome });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['admin-world-regions'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-dungeons'] });
+        setToast({ message: 'Region unlinked successfully!', type: 'success' });
+      }
+      
+      setSelectedDungeons(prev => {
+        const next = { ...prev };
+        delete next[region.biome];
+        return next;
+      });
+    } catch (e) {
     }
-
-    return (
-      <div className="admin-poi-dialog">
-        <h3>Edit POI {selectedObj.label || selectedObj.kind}</h3>
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          const fd = new FormData(e.currentTarget);
-          const label = fd.get('label') as string;
-          const questId = fd.get('questId') as string;
-          const dungeonId = fd.get('dungeonId') as string;
-          updateMut.mutate({
-            id: selectedObj.id,
-            body: {
-              kind: fd.get('kind') as WorldObjectKind,
-              passable: fd.get('passable') === 'on',
-              ...(label ? { label } : {}),
-              ...(questId ? { questId } : {}),
-              ...(dungeonId ? { dungeonId } : {}),
-            }
-          });
-        }}>
-          <label>Kind <select name="kind" defaultValue={selectedObj.kind}>{KINDS.map(k => <option key={k} value={k}>{k}</option>)}</select></label>
-          <label>Label <input name="label" type="text" defaultValue={selectedObj.label} /></label>
-          <label><input name="passable" type="checkbox" defaultChecked={selectedObj.passable} /> Passable?</label>
-          <label>Quest Link 
-            <select name="questId" defaultValue={selectedObj.questId ?? ''}>
-              <option value="">None</option>
-              {questsQuery.data?.quests.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}
-            </select>
-          </label>
-          <label>Dungeon Link
-            <select name="dungeonId" defaultValue={selectedObj.dungeonId ?? ''}>
-              <option value="">None</option>
-              {dungeonsQuery.data?.dungeons.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-            {!selectedObj.dungeonId && <button type="button" onClick={() => createDungeonMut.mutate(selectedObj.id)}>Create New Dungeon</button>}
-          </label>
-          <div className="admin-poi-actions">
-            <button type="submit" disabled={updateMut.isPending}>Save</button>
-            <button type="button" onClick={() => deleteMut.mutate(selectedObj.id)}>Delete</button>
-            <button type="button" onClick={() => setSelectedLocation(null)}>Close</button>
-          </div>
-        </form>
-      </div>
-    );
   };
 
   return (
     <AdminGuard>
-      <>
-        <header className="admin-world-header">
-          <h2>Admin World Editor</h2>
-          <p>Use WASD to move. Click to place or edit POIs.</p>
-          <button onClick={() => navigate('/admin')}>Back to Admin</button>
-        </header>
-        <div className="admin-world-view">
-          <canvas ref={canvasRef} className="world-canvas" style={{ background: '#111' }} />
-          {renderDialog()}
+      <main className="main admin-world-layout">
+        <div className="admin-world-header">
+          <div className="admin-world-header-text">
+            <h2>World Regions</h2>
+            <p>Link each region to a dungeon. One dungeon per region.</p>
+          </div>
+          <Link to="/admin" className="admin-world-nav">Back to Admin</Link>
         </div>
-      </>
+
+        {toast && (
+          <div className={`admin-message is-${toast.type}`}>
+            {toast.message}
+          </div>
+        )}
+
+        <div className="admin-region-table-wrapper">
+          <table className="admin-region-table">
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Region</th>
+                <th>Linked Dungeon</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {regions.map(region => {
+                const currentDungeonId = region.dungeonId ?? '';
+                const localDungeonId = selectedDungeons[region.biome];
+                const displayedDungeonId = localDungeonId !== undefined ? localDungeonId : currentDungeonId;
+                const isChanged = localDungeonId !== undefined && localDungeonId !== currentDungeonId;
+
+                return (
+                  <tr key={region.biome} className="admin-region-row">
+                    <td>
+                      <div className="region-tier-badge" data-danger={region.danger}>
+                        D{region.danger}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="region-label-cell">
+                        <strong>{region.label}</strong>
+                        <span>{region.element} · {region.biome}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <select 
+                        className="region-select"
+                        value={displayedDungeonId}
+                        onChange={(e) => handleSelectChange(region.biome, e.target.value)}
+                      >
+                        <option value="">— None —</option>
+                        {dungeons.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <div className={`region-scout-status ${region.scouted ? 'is-scouted' : 'is-unscouted'}`}>
+                        {region.scouted ? 'Scouted' : 'Unscouted'}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="region-actions-cell">
+                        <button 
+                          className="region-save-btn" 
+                          disabled={!isChanged || updateDungeonMut.isPending}
+                          onClick={() => handleSave(region)}
+                        >
+                          {updateDungeonMut.isPending ? 'Saving...' : 'Save'}
+                        </button>
+                        {currentDungeonId && (
+                          <Link to={`/admin/dungeons/${currentDungeonId}`} className="region-edit-link">
+                            Edit Dungeon
+                          </Link>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </AdminGuard>
   );
 }

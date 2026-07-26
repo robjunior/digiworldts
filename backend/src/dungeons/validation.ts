@@ -41,6 +41,7 @@ export const CreateDungeonInputSchema = z.object({
   spawnY: z.number().int().min(0).max(199).default(0),
   worldObjectId: OptionalNullableIdSchema,
   questId: OptionalNullableIdSchema,
+  biomeRegion: z.enum(BIOMES).nullable().optional(),
 });
 
 export const UpdateDungeonInputSchema = CreateDungeonInputSchema.partial();
@@ -126,5 +127,6 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     height: input.height,
     spawnX: input.spawnX,
     spawnY: input.spawnY,
+    biomeRegion: input.biomeRegion ?? null,
   };
 }

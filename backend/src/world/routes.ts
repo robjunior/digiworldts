@@ -2,8 +2,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import type { Action } from '../battle/types.js';
+import { q } from '../db/index.js';
 import { log } from '../util/log.js';
-import { biomeAt, BIOME_COLOR, BIOME_ELEMENT, BIOME_LABEL, tilesAround, type Biome } from './biomes.js';
+import { biomeAt, BIOME_COLOR, BIOME_COORDS, BIOME_DANGER, BIOME_ELEMENT, BIOME_LABEL, BIOMES, tilesAround, type Biome } from './biomes.js';
 import {
   currentBiome,
   getStepsTaken,
@@ -62,6 +63,35 @@ function positionView(pos: Position): {
 }
 
 export const worldPlugin: FastifyPluginAsync = async (app) => {
+  app.get('/api/world/regions', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    if (!user) return;
+    const rows = await q<{ biome_region: Biome; id: string }>(
+      `SELECT id, biome_region FROM dungeons WHERE biome_region IS NOT NULL`,
+    );
+    const dungeonByBiome = new Map<Biome, string>();
+    for (const r of rows) dungeonByBiome.set(r.biome_region, r.id);
+    const scoutedRows = await q<{ dungeon_id: string }>(
+      `SELECT dungeon_id FROM user_dungeon_runs WHERE user_id = ?`,
+      user.id,
+    );
+    const scoutedDungeonIds = new Set(scoutedRows.map((r) => r.dungeon_id));
+    const regions = BIOMES.map((biome) => {
+      const dungeonId = dungeonByBiome.get(biome) ?? null;
+      return {
+        biome,
+        label: BIOME_LABEL[biome],
+        element: BIOME_ELEMENT[biome],
+        danger: BIOME_DANGER[biome],
+        lat: BIOME_COORDS[biome].lat,
+        lon: BIOME_COORDS[biome].lon,
+        dungeonId,
+        scouted: dungeonId !== null && scoutedDungeonIds.has(dungeonId),
+      };
+    });
+    return reply.send({ regions });
+  });
+
   app.get('/api/world/state', async (req, reply) => {
     const user = await requireAuth(req, reply);
     if (!user.onboardingCompleted) {
