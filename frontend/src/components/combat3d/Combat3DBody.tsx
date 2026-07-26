@@ -282,97 +282,122 @@ export function Combat3DBody(): JSX.Element | null {
   const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
 
   return (
-    <section className="c3d-stage" aria-label="Battle arena">
+    <div className="stage" data-od-id="battle-stage">
       <Combat3DScene ref={sceneRef} battle={activeBattle} />
+      
+      <div className="arena-fallback" id="arena-fallback" role="img" aria-label="3D arena unavailable — combat still playable">
+        <div className="box"><b>3D arena unavailable</b><br/>Your device blocked WebGL. Combat is still fully playable — use the command menu.</div>
+      </div>
 
       <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
-
       <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
-
-      <div className={`c3d-turn ${activeBattle.yourTurn ? 'is-your' : 'is-opp'}`} role="status">
-        <span className="rnd">Round <b>{activeBattle.round}</b></span>
-        <span className="who">{activeBattle.yourTurn ? 'Your turn' : 'Opponent'}</span>
-        <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
-      </div>
-
-      <TurnOrderStrip battle={activeBattle} />
-
-      <TeamOverlay label="Your team" units={activeBattle.friendly} align="right" />
-      <TeamOverlay label={`vs ${oppSide.toUpperCase()}`} units={activeBattle.enemy} align="left" />
-
-      <div className="c3d-party" role="list" aria-label="Your party status">
-        {activeBattle.friendly.map((unit) => (
-          <PartyCard key={unit.id} unit={unit} active={unit.id === activeBattle.currentTurnUnitId && activeBattle.currentTurnBelongsToYou} />
-        ))}
-      </div>
-
-      <aside className="c3d-log" aria-label="Battle log">
-        <div className="c3d-log-head">Battle feed</div>
-        <div className="c3d-log-body" ref={logBodyRef}>
-          {displayEvents.slice(-30).map((event, idx) => (
-            <div key={`log-${idx}-${event.at}`} className={`c3d-log-line ${event.type === 'action' ? event.cue ?? '' : event.type}`}>
-              <span className="rd">R{event.type === 'round-start' ? event.round : (activeBattle.round)}</span>
-              <span className="txt">{renderEventText(event, activeBattle)}</span>
+      
+      <div className="overlay">
+        <div className="side-badge">
+          <div className="sb">
+            <span className="k">Wild Pack</span>
+            <span className="pips">
+              {activeBattle.enemy.map((e) => (
+                <span key={e.id} className={`pip ${e.down || e.hp <= 0 ? '' : 'alive'}`} title={e.name} />
+              ))}
+            </span>
+          </div>
+          <aside className="feed" aria-label="Battle feed">
+            <h4>Battle Feed</h4>
+            <div className="feedbody" role="log" aria-live="polite" aria-relevant="additions" ref={logBodyRef}>
+              {displayEvents.slice(-30).map((event, idx) => (
+                <div key={`log-${idx}-${event.at}`} className="mrow">
+                  <span className="rd">R{event.type === 'round-start' ? event.round : (activeBattle.round)}</span>
+                  <span className="men">{renderEventText(event, activeBattle)}</span>
+                </div>
+              ))}
             </div>
+          </aside>
+        </div>
+
+        <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
+
+        <div className="topbar">
+          <div className="tstrip" role="status" aria-live="polite" aria-atomic="true">
+            <span className="rd">Round {activeBattle.round}</span>
+            <span className={`tt ${activeBattle.yourTurn ? 'you' : ''}`}>{activeBattle.yourTurn ? 'Your Turn' : 'Opponent'}</span>
+            <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
+          </div>
+          <div className="nextq" role="list" aria-label="Turn order">
+            <span className="nl" aria-hidden="true">Next</span>
+            <span style={{display:'flex',gap:'11px'}}>
+              <TurnOrderStrip battle={activeBattle} />
+            </span>
+          </div>
+        </div>
+
+        <div className="team-badge">
+          <span className="k">Your Team</span>
+          <div className="pips">
+            {activeBattle.friendly.map((u) => (
+              <span key={u.id} className={`pip ${u.down || u.hp <= 0 ? '' : 'alive'}`} title={u.name} />
+            ))}
+          </div>
+        </div>
+
+        <div className="enemy-rail" role="group" aria-label="Enemy Digimon">
+          {aliveEnemies.map((foe) => (
+            <button
+              key={foe.id}
+              type="button"
+              className={`erow ${selectedTargetId === foe.id ? 'sel' : ''}`}
+              onClick={() => setSelectedTargetId(foe.id)}
+              disabled={!canAct}
+              aria-pressed={selectedTargetId === foe.id}
+            >
+              <span className="edot pill" style={{ ['--el' as string]: `var(--el-${foe.element})` }} />
+              <span className="enm">{foe.name}</span>
+              <span className="ehp">{foe.hp}/{foe.hpMax}</span>
+            </button>
           ))}
         </div>
-      </aside>
 
-      <div className={`c3d-cmd c3d-cmd--${commandMode}`} data-mode={commandMode} data-od-id="command-menu" ref={cmdRef}>
-        <CommandPanel
-          mode={commandMode}
-          actor={actor}
-          target={selectedTarget}
-          friendly={activeBattle.friendly}
-          yourTurn={canAct}
-          pveMode={activeBattle.mode === 'pve'}
-          onMode={setCommandMode}
-          onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
-          onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
-          onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
-          onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
-          onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
-          onFlee={() => dispatchAction({ type: 'flee' })}
-        />
-      </div>
+        <div className="party-cards" role="group" aria-label="Your party">
+          {activeBattle.friendly.map((unit) => (
+            <PartyCard key={unit.id} unit={unit} active={unit.id === activeBattle.currentTurnUnitId && activeBattle.currentTurnBelongsToYou} />
+          ))}
+        </div>
 
-      <div className="c3d-target-picker" aria-label="Target selection">
-        {aliveEnemies.map((foe) => (
+        {showAutobattle ? (
           <button
-            key={foe.id}
             type="button"
-            className={`c3d-target ${selectedTargetId === foe.id ? 'is-active' : ''}`}
-            onClick={() => setSelectedTargetId(foe.id)}
-            disabled={!canAct}
-            aria-pressed={selectedTargetId === foe.id}
+            className="auto-toggle"
+            aria-pressed={autobattle}
+            onClick={() => setAutobattle((v) => !v)}
           >
-            <span className={`c3d-target-el pill--${foe.element}`} />
-            <span className="c3d-target-name">{foe.name}</span>
-            <span className="c3d-target-hp">{foe.hp}/{foe.hpMax}</span>
+            <span className="dot" style={{ background: autobattle ? 'var(--signal)' : 'transparent' }}></span>Auto: {autobattle ? 'On' : 'Off'}
           </button>
-        ))}
+        ) : null}
+
+        <div className="cmd" data-od-id="command-menu" ref={cmdRef}>
+          <CommandPanel
+            mode={commandMode}
+            actor={actor}
+            target={selectedTarget}
+            friendly={activeBattle.friendly}
+            yourTurn={canAct}
+            pveMode={activeBattle.mode === 'pve'}
+            onMode={setCommandMode}
+            onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
+            onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
+            onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
+            onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
+            onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
+            onFlee={() => dispatchAction({ type: 'flee' })}
+          />
+        </div>
+
+        <div className="c3d-floaters" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+          {floaters.map((f) => (
+            <div key={f.id} className={`floater ${f.kind}`} style={{ left: f.x, top: f.y }}>{f.text}</div>
+          ))}
+        </div>
       </div>
-
-      <div className="c3d-floaters" aria-hidden="true">
-        {floaters.map((f) => (
-          <div key={f.id} className={`c3d-float c3d-float--${f.kind}`} style={{ left: f.x, top: f.y }}>{f.text}</div>
-        ))}
-      </div>
-
-      {loadError !== null ? <div className="c3d-toast is-err">{loadError}</div> : null}
-
-      {showAutobattle ? (
-        <button
-          type="button"
-          className={`c3d-autobattle ${autobattle ? 'is-on' : ''}`}
-          aria-pressed={autobattle}
-          onClick={() => setAutobattle((v) => !v)}
-          data-od-id="c3d-autobattle-toggle"
-        >
-          <span className="c3d-autobattle-dot" aria-hidden="true" />
-          Auto: {autobattle ? 'ON' : 'OFF'}
-        </button>
-      ) : null}
 
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
@@ -381,9 +406,9 @@ export function Combat3DBody(): JSX.Element | null {
           onClose={() => { setEndModalOpen(false); clearActiveBattle(); }}
         />
       ) : null}
-
-      <span className={`c3d-ws c3d-ws--${readyState}`} aria-hidden="true" />
-    </section>
+      
+      {loadError !== null ? <div className="box" style={{ position: 'absolute', zIndex: 50, top: '20px', left: '50%', transform: 'translateX(-50%)', color: 'var(--signal)' }}>{loadError}</div> : null}
+    </div>
   );
 }
 
@@ -431,7 +456,7 @@ const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }
   }, [units]);
 
   return (
-    <div className="c3d-ailment-layer" aria-hidden="true">
+    <div className="c3d-ailment-layer" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
       {units.map((unit) => (
         <div
           key={unit.id}
@@ -441,15 +466,17 @@ const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }
           }}
           data-side={unit.side}
           className="c3d-ailment-group"
+          style={{ position: 'absolute', top: 0, left: 0, display: 'flex', gap: '2px', opacity: 0 }}
         >
           {unit.ailments.map((a) => (
             <span
               key={a.kind}
-              className={`c3d-ailment c3d-ailment--${a.kind}`}
+              className={`tag`}
               title={`${AILMENT_LABEL[a.kind]} · ${a.turnsLeft} turn${a.turnsLeft === 1 ? '' : 's'} left`}
+              style={{ background: 'var(--panel)', border: '1px solid var(--hair)', padding: '2px 4px', fontSize: '10px' }}
             >
-              <span className="c3d-ailment-icon" aria-hidden="true">{AILMENT_ICON[a.kind]}</span>
-              <span className="c3d-ailment-tl">{a.turnsLeft}</span>
+              <span aria-hidden="true" style={{ marginRight: '4px' }}>{AILMENT_ICON[a.kind]}</span>
+              <span>{a.turnsLeft}</span>
             </span>
           ))}
         </div>
@@ -459,37 +486,11 @@ const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }
 });
 
 const AILMENT_ICON: Record<Ailment, string> = {
-  burn: '🔥',
-  poison: '☠',
-  weaken: '⬇',
-  freeze: '❄',
-  stun: '⚡',
-  sleep: '💤',
-  blind: '🙈',
-  silence: '∅',
-  root: '⚓',
-  petrify: '🗿',
-  curse: '💀',
-  corruption: '☣',
-  confusion: '💫',
-  charm: '💘',
+  burn: '🔥', poison: '☠', weaken: '⬇', freeze: '❄', stun: '⚡', sleep: '💤', blind: '🙈', silence: '∅', root: '⚓', petrify: '🗿', curse: '💀', corruption: '☣', confusion: '💫', charm: '💘',
 };
 
 const AILMENT_LABEL: Record<Ailment, string> = {
-  burn: 'Burned',
-  poison: 'Poisoned',
-  weaken: 'Weakened',
-  freeze: 'Frozen',
-  stun: 'Stunned',
-  sleep: 'Asleep',
-  blind: 'Blinded',
-  silence: 'Silenced',
-  root: 'Rooted',
-  petrify: 'Petrified',
-  curse: 'Cursed',
-  corruption: 'Corrupted',
-  confusion: 'Confused',
-  charm: 'Charmed',
+  burn: 'Burned', poison: 'Poisoned', weaken: 'Weakened', freeze: 'Frozen', stun: 'Stunned', sleep: 'Asleep', blind: 'Blinded', silence: 'Silenced', root: 'Rooted', petrify: 'Petrified', curse: 'Cursed', corruption: 'Corrupted', confusion: 'Confused', charm: 'Charmed',
 };
 
 const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battle: BattleView }): JSX.Element | null {
@@ -504,36 +505,21 @@ const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battl
     return null;
   };
   return (
-    <div className="c3d-order" role="list" aria-label="Upcoming turn order">
-      <span className="c3d-order-label">Next</span>
+    <>
       {upcoming.map((entry, idx) => {
         const meta = templateFor(entry.unitId);
         if (meta === null) return null;
         const isYours = entry.side === yourSide;
         const isCurrent = idx === 0;
-        const cls = ['c3d-order-slot', isYours ? 'is-yours' : 'is-opp', isCurrent ? 'is-current' : ''].filter(Boolean).join(' ');
+        const mono = (meta.name || '?').trim().charAt(0).toUpperCase();
         return (
-          <div key={`${entry.unitId}-${idx}`} className={cls} role="listitem" title={`${meta.name} · ${isYours ? 'you' : 'opp'}${isCurrent ? ' · current' : ''}`} style={{ ['--el' as string]: `var(--el-${meta.element})` }}>
-            <img className="c3d-order-mon" src={`/assets/digimon/${meta.templateId}/dot.gif`} alt={meta.name} loading="eager" />
-            {isCurrent ? <span className="c3d-order-caret" aria-hidden="true" /> : null}
-          </div>
+          <span key={`${entry.unitId}-${idx}`} className={`qi ${isCurrent ? 'cur' : ''} ${isYours ? 'yours' : 'opp'}`} style={{ ['--el' as string]: `var(--el-${meta.element})` }} title={`${meta.name}`}>
+            <span className="mono" aria-hidden="true">{mono}</span>
+            <img src={`/assets/digimon/${meta.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
+          </span>
         );
       })}
-    </div>
-  );
-});
-
-const TeamOverlay = memo(function TeamOverlay({ label, units, align }: { readonly label: string; readonly units: readonly { readonly id: string; readonly name: string; readonly down: boolean; readonly hp: number; readonly element: string }[]; readonly align: 'left' | 'right' }): JSX.Element {  const alive = units.filter((u) => !u.down && u.hp > 0).length;
-  return (
-    <div className={`c3d-ov c3d-ov--${align === 'left' ? 'tl' : 'tr'}`}>
-      <div className="c3d-ov-eyebrow">{label}</div>
-      <div className={`c3d-side ${align === 'right' ? 'c3d-side--tr' : ''}`}>
-        {units.map((u) => (
-          <span key={u.id} className={`c3d-pip pill--${u.element} ${u.down || u.hp <= 0 ? 'is-ko' : ''}`} title={u.name} />
-        ))}
-      </div>
-      <div className="c3d-sub"><b>{alive}</b>/{units.length} alive</div>
-    </div>
+    </>
   );
 });
 
@@ -570,10 +556,9 @@ const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { re
   }, [alive]);
 
   return (
-    <div className="c3d-enemy-hp-layer" aria-hidden="true">
+    <div className="c3d-enemy-hp-layer" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 }}>
       {alive.map((enemy) => {
         const pct = enemy.hpMax > 0 ? Math.max(0, enemy.hp) / enemy.hpMax * 100 : 0;
-        const critical = pct <= 25;
         return (
           <div
             key={enemy.id}
@@ -581,12 +566,12 @@ const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { re
               if (el === null) barRefs.current.delete(enemy.id);
               else barRefs.current.set(enemy.id, el);
             }}
-            className={`c3d-enemy-hp ${critical ? 'is-critical' : ''}`}
-            style={{ ['--el' as string]: `var(--el-${enemy.element})` }}
+            className="ehpbar"
+            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '120px', background: 'rgba(0,0,0,0.5)', padding: '4px', border: '1px solid var(--hair)', display: 'flex', flexDirection: 'column', gap: '2px' }}
           >
-            <div className="c3d-enemy-hp-name">{enemy.name}</div>
-            <div className="c3d-enemy-hp-bar">
-              <span className="c3d-enemy-hp-fill" style={{ width: `${pct}%` }} />
+            <div style={{ fontSize: '10px', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px #000' }}>{enemy.name}</div>
+            <div style={{ height: '4px', background: 'var(--panel)', width: '100%' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: 'var(--el-electricity)', transition: 'width 0.2s' }} />
             </div>
           </div>
         );
@@ -598,15 +583,30 @@ const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { re
 const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
   const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax : 0;
   const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax : 0;
+  const mono = (unit.name || '?').trim().charAt(0).toUpperCase();
   return (
-    <div className={`c3d-unit ${active ? 'is-active' : ''}`} data-uid={unit.id} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
-      <div className="c3d-unit-top">
-        <span className="c3d-unit-name">{unit.name}</span>
-        <span className="c3d-unit-lv">Lv {unit.level}</span>
+    <div className={`pcard ${active ? 'active' : ''} ${unit.down || unit.hp <= 0 ? 'ko' : ''}`} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
+      <div className="ph">
+        <span className="spr-slot pspr" style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
+          <span className="mono" aria-hidden="true">{mono}</span>
+          <img src={`/assets/digimon/${unit.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
+        </span>
+        <div className="pn">
+          <span className="nm">{unit.name}</span>
+          <span className="lv">Lv {unit.level}</span>
+        </div>
+        <div className="stat guard-ic" style={{ marginLeft: 'auto', display: 'none' }} title="Guarding">🛡</div>
       </div>
-      <div className="c3d-unit-bar"><i style={{ transform: `scaleX(${hpPct})` }} /></div>
-      <div className="c3d-unit-hp"><span>HP</span><span><b>{Math.max(0, unit.hp)}</b> / {unit.hpMax}</span></div>
-      <div className="c3d-unit-en"><i style={{ transform: `scaleX(${enPct})` }} /></div>
+      <div className="sk hp">
+        <span className="sn">HP</span>
+        <div className="bar"><div className="stripe" style={{ width: `${hpPct * 100}%` }}></div></div>
+        <span className="ltx">{Math.max(0, unit.hp)}<span className="m">/{unit.hpMax}</span></span>
+      </div>
+      <div className="sk en-n">
+        <span className="sn">EN</span>
+        <div className="bar"><div className="stripe" style={{ width: `${enPct * 100}%` }}></div></div>
+        <span className="ltx">{Math.max(0, unit.en)}<span className="m">/{unit.enMax}</span></span>
+      </div>
     </div>
   );
 });
