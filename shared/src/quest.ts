@@ -75,6 +75,7 @@ export type WorldObject = {
   readonly scale: number;
   readonly tint?: string;
   readonly questId?: string;
+  readonly dungeonId?: string;
   readonly passable: boolean;
   readonly label?: string;
   readonly createdAt: number;

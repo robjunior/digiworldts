@@ -63,6 +63,8 @@ export function Admin(): JSX.Element {
               {ADMIN_TABS.map((tab) => (
                 <button key={tab.id} className={`admin-nav-item${activeTab === tab.id ? ' is-active' : ''}`} type="button" onClick={() => setActiveTab(tab.id)}>{tab.label}</button>
               ))}
+              <div className="admin-nav-divider" />
+              <button className="admin-nav-item" type="button" onClick={() => window.location.href = '/admin/world'}>World Map Editor</button>
             </aside>
             <section className="admin-content" aria-live="polite">
               <AdminTabPanel tab={activeTab} />

@@ -61,6 +61,9 @@ function pageLabelFor(pathname: string): string {
 function pageScopeFor(pathname: string): string {
   const exact = PAGE_SCOPE[pathname];
   if (exact !== undefined) return exact;
+  if (pathname.startsWith('/dungeon/')) return 'dungeon-page';
+  if (pathname.startsWith('/admin/dungeons/')) return 'admin-dungeon-layout';
+  if (pathname === '/admin/world') return 'admin-world-layout';
   return '';
 }
 
