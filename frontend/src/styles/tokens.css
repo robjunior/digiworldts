@@ -1,84 +1,137 @@
 /* ============================================================
-   DigiWorld — Design tokens
-   Extracted from base/{combat,farm,examples-roster-grid}.html.
-   Palette is closed: use ONLY these color literals across the app.
+   DigiWorld — Design tokens (Persona 5 acid-red theme)
+
+   Target: base/new layout/*.html mockups (all 8 pages).
+   Fase 1 of the frontend visual refactor: full palette + font
+   flip, plus the derived semantic tokens each mockup declares
+   (element/stat/resource/tier tints).
+
+   Migration policy:
+   - Persona 5 palette is authoritative — unmigrated routes will
+     render dark red on ink immediately (better than mixing themes
+     mid-flight).
+   - --notch stays a number (10px) so the 37 existing
+     `polygon(var(--notch) 0, …)` callsites keep working during
+     Fase 3-4h; new callsites use `clip-path: var(--notch-clip)`
+     which matches the mockups literally.
+   - Legacy names (--hairline, --gold, --el-nature, --el-electric,
+     --el-neutral) alias to their new counterparts, so no page
+     goes dark on token names alone.
    ============================================================ */
 
 :root {
-  /* Core palette */
-  --bg:        #ffffff;
-  --panel:     #f7f8fa;
-  --ink:       #111111;
-  --muted:     #6b7280;
-  --hairline:  #d9dee7;
+  /* -- Core palette (identical across all 8 mockups) ----- */
+  --bg:     #0a0a0c;
+  --panel:  #141418;
+  --ink:    #f4f1ea;
+  --muted:  #8a877f;
+  --hair:   #2a2a30;
+  --signal: #e6001f;
+  --battle: #e6001f;
 
-  /* Signals (reserved, sparing) */
-  --signal:    #1677ff;
-  --battle:    #e0384a;
-  --gold:      #c8a24a;
-  --goldenrod: #daa520;
+  /* -- Backward-compat aliases -------------------------- */
+  --hairline:  var(--hair);
+  --gold:      var(--signal);
+  --goldenrod: var(--signal);
 
-  /* Element sub-palette (creature typing) */
-  --el-fire:     #e0384a;
-  --el-water:    #1677ff;
-  --el-nature:   #2f9e57;
-  --el-electric: #c8a24a;
-  --el-neutral:  #6b7280;
+  /* -- Resource tints (adventure/factory/nursery) ------- */
+  --meat:    color-mix(in oklab, var(--battle) 62%, var(--ink));
+  --bits:    var(--signal);
+  --data:    color-mix(in oklab, var(--signal) 52%, var(--ink));
+  --credits: color-mix(in oklab, var(--battle) 46%, var(--ink));
+  --good:    color-mix(in oklab, var(--signal) 40%, #fff);
+  --win:     color-mix(in oklab, var(--signal) 40%, #fff);
 
-  /* Shape */
-  --notch: 10px;
-  --notch-sm: 5px;
-  --notch-xs: 3px;
-  --radius: 0;
+  /* -- Element tints (11-element taxonomy) -------------- */
+  --el-fire:        var(--signal);
+  --el-water:       color-mix(in oklab, var(--signal) 58%, var(--ink));
+  --el-plant:       color-mix(in oklab, var(--signal) 44%, var(--muted));
+  --el-electricity: color-mix(in oklab, var(--signal) 74%, var(--ink));
+  --el-wind:        color-mix(in oklab, var(--signal) 28%, var(--ink));
+  --el-ice:         color-mix(in oklab, var(--signal) 20%, #fff);
+  --el-earth:       color-mix(in oklab, var(--muted) 68%, var(--ink));
+  --el-steel:       color-mix(in oklab, var(--muted) 82%, #fff);
+  --el-light:       color-mix(in oklab, var(--signal) 30%, #fff);
+  --el-dark:        color-mix(in oklab, var(--signal) 40%, #000);
+  --el-null:        var(--muted);
 
-  /* Type */
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  /* Legacy element aliases (98 callsites across extensions-*.css) */
+  --el-nature:   var(--el-plant);
+  --el-electric: var(--el-electricity);
+  --el-neutral:  var(--el-null);
 
-  /* Spacing (8px baseline) */
-  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+  /* -- Combat gauges (HP/EN readable-on-signal) --------- */
+  --hp: color-mix(in oklab, var(--ink) 34%, #39d353);
+  --en: color-mix(in oklab, var(--ink) 30%, #e8b53a);
 
-  /* Motion */
-  --ease: cubic-bezier(.16, 1, .3, 1);
+  /* -- Stat tints (training/nursery) -------------------- */
+  --st-hp:  var(--signal);
+  --st-en:  color-mix(in oklab, var(--signal) 62%, #fff);
+  --st-atk: color-mix(in oklab, var(--signal) 80%, var(--ink));
+  --st-def: color-mix(in oklab, var(--muted) 62%, var(--ink));
+  --st-int: color-mix(in oklab, var(--signal) 48%, var(--muted));
+  --st-spd: color-mix(in oklab, var(--signal) 68%, #fff);
 
-  /* Semantic combat roles */
-  --hp:      var(--battle);
-  --energy:  var(--signal);
-  --atb:     var(--signal);
-  --crit:    var(--gold);
-  --miss:    var(--muted);
-  --resist:  var(--muted);
-  --enemy:   var(--battle);
-  --ally:    var(--signal);
-  --lock:    var(--gold);
+  /* -- Tier tints --------------------------------------- */
+  --common:   var(--muted);
+  --uncommon: var(--good);
+  --rare:     var(--signal);
 
-  /* Status ailments */
-  --status-burn:   var(--el-fire);
-  --status-poison: var(--el-nature);
-  --status-weaken: var(--muted);
-  --status-freeze: var(--el-water);
-
-  /* Economy roles */
-  --res-meat:   var(--el-fire);
-  --res-bits:   var(--signal);
-  --res-data:   var(--el-nature);
-  --credits:    var(--gold);
-  --danger:     var(--battle);
-  --streak:     var(--gold);
-
-  /* Loot rarity */
+  /* -- Loot rarity (legacy — same scale as tier) -------- */
   --rarity-common:    var(--muted);
-  --rarity-uncommon:  var(--el-nature);
+  --rarity-uncommon:  var(--good);
   --rarity-rare:      var(--signal);
-  --rarity-epic:      var(--gold);
+  --rarity-epic:      var(--signal);
   --rarity-legendary: var(--battle);
 
-  /* Social */
-  --online:  var(--el-nature);
-  --offline: var(--muted);
-  --premium: var(--gold);
-  --claim-done:  var(--el-nature);
+  /* -- Semantic combat roles (legacy) ------------------- */
+  --energy: var(--en);
+  --atb:    var(--signal);
+  --crit:   var(--good);
+  --miss:   var(--muted);
+  --resist: var(--muted);
+  --enemy:  var(--battle);
+  --ally:   var(--signal);
+  --lock:   var(--good);
+
+  /* -- Status ailments (legacy) ------------------------- */
+  --status-burn:   var(--el-fire);
+  --status-poison: var(--el-plant);
+  --status-weaken: var(--muted);
+  --status-freeze: var(--el-ice);
+
+  /* -- Economy (legacy) --------------------------------- */
+  --res-meat: var(--meat);
+  --res-bits: var(--bits);
+  --res-data: var(--data);
+  --danger:   var(--battle);
+  --streak:   var(--good);
+
+  /* -- Social (legacy) ---------------------------------- */
+  --online:      var(--good);
+  --offline:     var(--muted);
+  --premium:     var(--good);
+  --claim-done:  var(--good);
   --claim-next:  var(--signal);
-  --claim-todo:  var(--hairline);
+  --claim-todo:  var(--hair);
+
+  /* -- Type --------------------------------------------- */
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+
+  /* -- Shape -------------------------------------------- */
+  --notch:    10px;
+  --notch-sm: 6px;
+  --notch-xs: 3px;
+  --notch-clip:    polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  --notch-sm-clip: polygon(6px 0,  100% 0, 100% calc(100% - 6px),  calc(100% - 6px)  100%, 0 100%, 0 6px);
+  --notch-xs-clip: polygon(3px 0,  100% 0, 100% calc(100% - 3px),  calc(100% - 3px)  100%, 0 100%, 0 3px);
+  --radius: 0;
+
+  /* -- Spacing (8px baseline) --------------------------- */
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+
+  /* -- Motion (mockup eases) ---------------------------- */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -91,12 +144,24 @@ html, body {
   font-family: var(--font);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
 }
 
 a { color: inherit; text-decoration: none; }
 a:hover { color: var(--signal); }
 
-/* Notch utilities */
+/* Notch utility classes — keep the polygon(var(--notch) 0, …) form
+   because 37 existing callsites also use it and would otherwise
+   have to migrate in Fase 1. New callsites can prefer the
+   `clip-path: var(--notch-clip)` polygon vars directly. */
 .notch    { clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
               calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch)); }
 .notch-sm { clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)),
@@ -113,15 +178,15 @@ a:hover { color: var(--signal); }
 .tabular { font-variant-numeric: tabular-nums; }
 .mono    { font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; }
 
-/* App shell */
+/* Legacy app shell (Fase 2 replaces with 44px titlebar + 220px sidebar) */
 .app-shell { min-height:100vh; display:flex; flex-direction:column; }
 .app-nav   { display:flex; align-items:center; gap:16px; padding:14px clamp(16px,4vw,32px);
-             border-bottom:1px solid var(--hairline); background:var(--bg); position:sticky; top:0; z-index:10; }
+             border-bottom:1px solid var(--hair); background:var(--bg); position:sticky; top:0; z-index:10; }
 .app-nav .brand { font-size:15px; font-weight:600; letter-spacing:-.01em; margin-right:8px; }
 .app-nav .brand b { color:var(--signal); }
 .app-nav .nav-link { font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:6px 10px;
                      clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px); }
-.app-nav .nav-link.is-active { color:var(--ink); background:var(--panel); }
+.app-nav .nav-link.is-active { color:#fff; background:var(--signal); }
 .app-nav .nav-link:hover { color:var(--ink); }
 .app-nav .nav-right { margin-left:auto; display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
 .app-nav .who b { color:var(--ink); }
