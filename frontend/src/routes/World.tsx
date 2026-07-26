@@ -283,7 +283,7 @@ export function World(): JSX.Element {
         
         <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
           {worldObjects.length > 0 ? worldObjects.map(obj => (
-            <button key={obj.id} className="rrow sel" data-region={obj.id} role="option" aria-selected="true" style={{ '--el': 'var(--el-wind)' } as any}>
+            <button key={obj.id} className="rrow sel" data-region={obj.id} role="option" aria-selected="true" style={{ '--el': 'var(--el-wind)' } as React.CSSProperties}>
               <span className="rdot"></span>
               <span className="rnm">{obj.label ?? obj.kind}<span className="rsub">At {obj.x}, {obj.y}</span></span>
               <span className="rdg">{obj.questId ? 'Quest' : 'Prop'}</span>
@@ -300,10 +300,8 @@ export function World(): JSX.Element {
 }
 
 function findAdjacentQuestObject(objects: readonly WorldObject[], position: WorldPosition | null): WorldObject | null {
-  if (position === null) {
-    return null;
-  }
-  return objects.find((object) => object.questId !== undefined && Math.abs(object.x - position.x) + Math.abs(object.y - position.y) <= 1) ?? null;
+  if (position === null) return null;
+  return objects.find((object) => (object.questId !== undefined || object.dungeonId !== undefined) && Math.abs(object.x - position.x) + Math.abs(object.y - position.y) <= 1) ?? null;
 }
 
 function inferViewRadius(position: WorldPosition): number {

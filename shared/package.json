@@ -37,6 +37,10 @@
     "./world": {
       "types": "./dist/world.d.ts",
       "import": "./dist/world.js"
+    },
+    "./dungeon": {
+      "types": "./dist/dungeon.d.ts",
+      "import": "./dist/dungeon.js"
     }
   },
   "files": ["dist"],

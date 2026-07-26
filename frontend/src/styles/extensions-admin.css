@@ -1046,3 +1046,138 @@
   .biome-editor-list { max-height: 200px; }
 }
 
+/* Admin World */
+.admin-world-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.admin-world-header {
+  padding: 16px;
+  background: var(--bg-alt, #222);
+  border-bottom: 2px solid var(--border, #444);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.admin-world-view {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+.admin-poi-dialog {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 320px;
+  background: var(--bg, #111);
+  border: 2px solid var(--primary, #d00);
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+.admin-poi-dialog form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-poi-dialog label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.admin-poi-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Admin Dungeon */
+.admin-dungeon-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+.admin-dungeon-header {
+  padding: 16px;
+  background: var(--bg-alt, #222);
+  border-bottom: 2px solid var(--border, #444);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.admin-dungeon-header .layer-picker button {
+  margin: 0 4px;
+  padding: 4px 12px;
+  border: 1px solid var(--border, #444);
+  background: transparent;
+  color: var(--text, #fff);
+  cursor: pointer;
+}
+.admin-dungeon-header .layer-picker button.is-active {
+  background: var(--primary, #d00);
+  border-color: var(--primary, #d00);
+}
+.admin-dungeon-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+.admin-dungeon-grid-wrapper {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  background: #000;
+}
+.dungeon-cell {
+  width: 32px;
+  height: 32px;
+  border: 1px dashed #333;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+}
+.dungeon-cell:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.dungeon-cell.is-walkable {
+  background: #222;
+  border: 1px solid #555;
+}
+.dungeon-cell.is-selected {
+  border: 2px solid var(--primary, #d00);
+}
+.admin-dungeon-sidebar {
+  width: 360px;
+  background: var(--bg-alt, #222);
+  border-left: 2px solid var(--border, #444);
+  padding: 16px;
+  overflow-y: auto;
+}
+.admin-editor-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-editor-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.admin-editor-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.editor-sub-panel {
+  border: 1px solid #444;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
