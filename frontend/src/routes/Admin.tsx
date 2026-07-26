@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router';
 
 
 import { AdminGuard } from '../components/admin/AdminGuard';
@@ -32,46 +33,44 @@ type AdminTab = (typeof ADMIN_TABS)[number]['id'];
 
 export function Admin(): JSX.Element {
   const { user, logout } = useAuth();
+  const _nav = useNavigate();
+  void _nav;
+  void user;
+  void logout;
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
 
   if (activeTab === 'scene') {
     return (
       <AdminGuard>
-        <div className="app-shell combat3d-shell">
-          <main className="app-main combat3d-main">
-            <SceneSettingsAdmin />
-          </main>
-        </div>
+        <SceneSettingsAdmin />
       </AdminGuard>
     );
   }
 
   return (
     <AdminGuard>
-      <div className="app-shell admin-shell">
-        <main className="app-main admin-main">
-          <PageStrip
-            name="Admin"
-            tone="action"
-            metrics={[
-              { label: <>catalog, users, scraped data &amp; shop ops</>, className: 'muted' },
-              { label: <><b>{activeTab}</b> tab</> },
-            ]}
-          />
-          <div className="admin-layout">
-            <aside className="admin-sidebar-left" aria-label="Admin sections">
-              {ADMIN_TABS.map((tab) => (
-                <button key={tab.id} className={`admin-nav-item${activeTab === tab.id ? ' is-active' : ''}`} type="button" onClick={() => setActiveTab(tab.id)}>{tab.label}</button>
-              ))}
-              <div className="admin-nav-divider" />
-              <button className="admin-nav-item" type="button" onClick={() => window.location.href = '/admin/world'}>World Map Editor</button>
-            </aside>
-            <section className="admin-content" aria-live="polite">
-              <AdminTabPanel tab={activeTab} />
-            </section>
-          </div>
-        </main>
-      </div>
+      <>
+        <PageStrip
+          name="Admin"
+          tone="action"
+          metrics={[
+            { label: <>catalog, users, scraped data &amp; shop ops</>, className: 'muted' },
+            { label: <><b>{activeTab}</b> tab</> },
+          ]}
+        />
+        <div className="admin-body">
+          <aside className="admin-sidebar-left" aria-label="Admin sections">
+            {ADMIN_TABS.map((tab) => (
+              <button key={tab.id} className={`admin-nav-item${activeTab === tab.id ? ' is-active' : ''}`} type="button" onClick={() => setActiveTab(tab.id)}>{tab.label}</button>
+            ))}
+            <div className="admin-nav-divider" />
+            <Link to="/admin/world" className="admin-nav-item">World Map Editor</Link>
+          </aside>
+          <section className="admin-content" aria-live="polite">
+            <AdminTabPanel tab={activeTab} />
+          </section>
+        </div>
+      </>
     </AdminGuard>
   );
 }
