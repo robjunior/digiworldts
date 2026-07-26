@@ -132,6 +132,8 @@ export type WildMon = {
   level: number;
   portrait: string;
   rare: boolean;
+  statOverride?: { hp?: number; en?: number; atk?: number; def?: number; int?: number; spd?: number };
+  skillsOverride?: readonly { name: string; element: Element; cost: number; power: number; description?: string }[];
 };
 
 export type ItemDrop = { itemId: string; name: string; qty: number };

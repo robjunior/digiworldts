@@ -182,6 +182,8 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
         level: mon.level,
         portrait: template.assets.portrait,
         rare: encounter.difficulty === 'elite' || encounter.difficulty === 'boss',
+        ...(mon.statOverride ? { statOverride: mon.statOverride } : {}),
+        ...(mon.skillsOverride ? { skillsOverride: mon.skillsOverride } : {}),
       }];
     });
     if (wilds.length !== encounter.digimon.length) return reply.code(500).send({ error: 'catalog-missing' });
