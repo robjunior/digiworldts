@@ -70,10 +70,10 @@ export function App(): JSX.Element {
           <Route path="/reset" element={<Reset />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/intro" element={<Intro />} />
+            <Route path="/combat" element={<Combat />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
               <Route path="/lobby" element={<Lobby />} />
-              <Route path="/combat" element={<Combat />} />
               <Route path="/roster" element={<Roster />} />
               <Route path="/farm" element={<Farm />} />
               <Route path="/factory" element={<Factory />} />
