@@ -1704,6 +1704,51 @@
   text-transform: uppercase;
 }
 
+.random-encounter-editor .random-toggle {
+  align-items: center;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  flex-direction: row;
+  justify-content: space-between;
+  padding: var(--sp-2);
+}
+
+.random-encounter-editor .random-toggle input { width: auto; }
+
+.random-range-grid {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.random-elements {
+  border: 1px solid var(--hairline);
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-2);
+}
+
+.random-elements legend {
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.random-elements > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+
+.random-elements button.is-active {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--bg);
+}
+
 @media (max-width: 900px) {
   .admin-dungeon-grid-full { width: min(calc(100% - 24px), calc(100vh - 80px)); }
   .admin-dungeon-floating-panel { left: 12px; right: 12px; top: 12px; width: auto; max-height: 44%; }

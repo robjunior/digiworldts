@@ -15,6 +15,7 @@ import {
   deleteItem,
   deleteWarp,
   getEncounter,
+  getDungeon,
   getRun,
   getDungeonView,
   listDungeons,
@@ -36,15 +37,18 @@ import {
   CreateItemInputSchema,
   CreateWarpInputSchema,
   MoveInputSchema,
+  StartRandomEncounterInputSchema,
   TilesInputSchema,
   UpdateDungeonInputSchema,
   UpdateDoorInputSchema,
   UpdateEncounterInputSchema,
   UpdateWarpInputSchema,
+  asEncounterDigimon,
 } from './validation.js';
 import { loadCatalog, findTemplate } from '../digimon/xml.js';
 import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
 import type { WildMon } from '../world/engine.js';
+import { randomEncounterMatchesDungeonConfig } from './random.js';
 
 export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/dungeons', async (req, reply) => {
@@ -230,7 +234,7 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'blocked') return reply.code(400).send({ error: 'not-walkable' });
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}) });
+    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}) });
     return reply.code(500).send({ error: 'internal error' });
   });
 
@@ -288,6 +292,45 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
       return reply.code(500).send({ error: 'internal error' });
     }
     setPveDungeonContext(user.id, req.params.id, req.params.encId);
+    return reply.send({ battle: started.view });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dungeon/:id/random-encounter/start', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const run = await getRun(user.id, req.params.id);
+    if (!run) return reply.code(404).send({ error: 'not-found' });
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'not-found' });
+    const parsed = StartRandomEncounterInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-random-encounter', details: parsed.error.issues });
+    const catalog = loadCatalog();
+    const digimon = parsed.data.digimon.map(asEncounterDigimon);
+    if (!dungeon.randomEncountersEnabled || !randomEncounterMatchesDungeonConfig(dungeon, catalog, digimon)) {
+      return reply.code(400).send({ error: 'invalid-random-encounter' });
+    }
+    const wilds: WildMon[] = digimon.flatMap((mon) => {
+      const template = findTemplate(catalog, mon.catalogId);
+      if (!template) return [];
+      return [{
+        catalogId: mon.catalogId,
+        name: mon.nickname ?? template.name,
+        element: template.element,
+        stage: template.stage,
+        level: mon.level,
+        portrait: template.assets.portrait,
+        rare: false,
+        ...(mon.statOverride ? { statOverride: mon.statOverride } : {}),
+        ...(mon.skillsOverride ? { skillsOverride: mon.skillsOverride } : {}),
+      }];
+    });
+    if (wilds.length !== digimon.length) return reply.code(500).send({ error: 'catalog-missing' });
+    const started = await startPveBattleFromEncounter(user.id, wilds);
+    if (!started.ok) {
+      if (started.error === 'party-invalid') return reply.code(409).send({ error: 'party-invalid', message: 'Assign 3 alive Digimon to your party first.' });
+      if (started.error === 'catalog-missing') return reply.code(500).send({ error: 'catalog-missing' });
+      if (started.error === 'battle-in-progress') return reply.code(409).send({ error: 'battle-in-progress' });
+      return reply.code(500).send({ error: 'internal error' });
+    }
     return reply.send({ battle: started.view });
   });
 

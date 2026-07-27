@@ -238,6 +238,14 @@
   background: none; color: var(--muted); border-color: var(--hair); margin-top: 8px;
 }
 .dungeon-page .ebtn.ghost:hover { color: var(--ink); border-color: var(--muted); filter: none; }
+.dungeon-page .wild-card { --el: var(--el-electric); }
+.dungeon-page .ebtn.secondary {
+  background: none;
+  border-color: var(--hair);
+  color: var(--muted);
+  margin-top: 8px;
+}
+.dungeon-page .ebtn.secondary:hover { border-color: var(--el); color: var(--el); filter: none; }
 
 /* toast (scoped under .dungeon-page so it doesn't leak globally) */
 .dungeon-page .toast {
