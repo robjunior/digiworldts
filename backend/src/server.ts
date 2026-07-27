@@ -197,6 +197,7 @@ async function main(): Promise<void> {
       url: req.url,
       status: error.statusCode ?? 500,
       err: error.message,
+      stack: error.stack,
     });
     if (reply.sent) return;
     const status = error.statusCode ?? 500;
