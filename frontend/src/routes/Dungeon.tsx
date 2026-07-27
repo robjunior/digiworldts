@@ -8,9 +8,11 @@ import {
   getDungeon,
   moveInDungeon,
   startEncounter,
+  unlockDungeonDoor,
 } from '../lib/api-dungeon';
 import { getRoster } from '../lib/api';
-import type { DungeonEncounter, DungeonItem, DungeonTile } from '@digiworld/shared';
+import { getShop } from '../lib/api-shop';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 
 import '../styles/extensions-dungeon.css';
@@ -20,6 +22,8 @@ type LogEntry = {
   readonly cls: '' | 'hit' | 'item';
   readonly step: number;
 };
+
+type PendingUnlock = { readonly doorId: string; readonly keyItemId: string };
 
 export function Dungeon(): JSX.Element {
   const { id } = useParams();
@@ -41,6 +45,7 @@ export function Dungeon(): JSX.Element {
   });
 
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
+  const shopQuery = useQuery({ queryKey: ['shop'] as const, queryFn: getShop, staleTime: 15_000 });
   const party = useMemo(() => {
     const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
     return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
@@ -50,6 +55,7 @@ export function Dungeon(): JSX.Element {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
+  const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [stepCount, setStepCount] = useState(0);
 
   const flashToast = useCallback((message: string): void => {
@@ -72,6 +78,13 @@ export function Dungeon(): JSX.Element {
     },
     onSuccess: (res, { x, y }) => {
       setStepCount((s) => s + 1);
+      if (res.blockedByDoorId) {
+        const door = data?.doors.find((entry) => entry.id === res.blockedByDoorId);
+        setPendingUnlock({ doorId: res.blockedByDoorId, keyItemId: door?.keyItemId ?? '' });
+        pushLog(`Locked door at ${x}, ${y}.`, 'hit');
+        return;
+      }
+      setPendingUnlock(null);
       pushLog(`Moved to ${x}, ${y}.`, '');
       queryClient.setQueryData(['dungeon', id], (old: any) => {
         if (!old) return old;
@@ -88,9 +101,30 @@ export function Dungeon(): JSX.Element {
         pushLog(`Ambushed by enemies!`, 'hit');
         setActiveEncounterId(res.triggeredEncounterId);
       }
+      if (Object.hasOwn(res, 'warpToDungeonId')) {
+        navigate(res.warpToDungeonId === null ? '/world' : `/dungeon/${res.warpToDungeonId}`);
+      }
     },
     onError: (err: any) => {
       flashToast(err.message || 'Cannot move there.');
+    },
+  });
+
+  const unlockMutation = useMutation({
+    mutationFn: async (doorId: string) => {
+      if (!id) throw new Error('No dungeon id');
+      return unlockDungeonDoor(id, doorId);
+    },
+    onSuccess: ({ view }) => {
+      queryClient.setQueryData(['dungeon', id], view);
+      queryClient.invalidateQueries({ queryKey: ['shop'] });
+      queryClient.invalidateQueries({ queryKey: ['roster'] });
+      setPendingUnlock(null);
+      pushLog('Door unlocked.', 'item');
+      flashToast('Door unlocked.');
+    },
+    onError: (err: Error) => {
+      flashToast(err.message || 'Could not unlock door.');
     },
   });
 
@@ -158,16 +192,54 @@ export function Dungeon(): JSX.Element {
     moveMutation.mutate({ x, y });
   };
 
+  useEffect(() => {
+    if (!data) return;
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (activeEncounterId) return;
+      if (data.run.completedAt) return;
+      if (moveMutation.isPending) return;
+
+      let dx = 0;
+      let dy = 0;
+      switch (e.key) {
+        case 'w': case 'W': case 'ArrowUp':    dy = -1; break;
+        case 's': case 'S': case 'ArrowDown':  dy =  1; break;
+        case 'a': case 'A': case 'ArrowLeft':  dx = -1; break;
+        case 'd': case 'D': case 'ArrowRight': dx =  1; break;
+        default: return;
+      }
+      e.preventDefault();
+
+      const nx = data.run.currentX + dx;
+      const ny = data.run.currentY + dy;
+      const tileKey = `${nx},${ny}`;
+      const walkable = data.tiles.some((t) => `${t.x},${t.y}` === tileKey);
+      if (!walkable) return;
+
+      moveMutation.mutate({ x: nx, y: ny });
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [data, activeEncounterId, moveMutation]);
+
   if (isLoading || !data) {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, encounters, items } = data;
+  const { dungeon, run, tiles, encounters, items, doors } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
   // Determine active encounter object
   const activeEncounter = activeEncounterId ? encounters.find((e) => e.id === activeEncounterId) : null;
+  const pendingDoor = pendingUnlock ? doors.find((door) => door.id === pendingUnlock.doorId) ?? null : null;
+  const pendingKeyItemId = pendingDoor?.keyItemId ?? pendingUnlock?.keyItemId ?? '';
+  const keyInventory = shopQuery.data?.inventory.find((entry) => entry.itemId === pendingKeyItemId) ?? null;
+  const keyItem = shopQuery.data?.products.find((entry) => entry.id === pendingKeyItemId) ?? null;
+  const keyName = keyInventory?.name ?? keyItem?.name ?? pendingKeyItemId;
+  const canUnlock = (keyInventory?.qty ?? 0) >= 1;
 
   // Build grid map
   const gridCells = [];
@@ -184,6 +256,8 @@ export function Dungeon(): JSX.Element {
       
       const itemAt = items.find((i) => i.x === x && i.y === y);
       const isUncollectedItem = itemAt && !run.collectedItems.includes(itemAt.id);
+      const doorAt = doors.find((door) => door.x === x && door.y === y);
+      const isLockedDoor = doorAt ? !run.unlockedDoors.includes(doorAt.id) : false;
 
       let cellClass = 'dcell';
       if (!isWalkable) cellClass += ' wall';
@@ -192,6 +266,7 @@ export function Dungeon(): JSX.Element {
         if (isPlayer) cellClass += ' player';
         else if (isUndefeatedEncounter) cellClass += ' enc';
         else if (isUncollectedItem) cellClass += ' item';
+        if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
         if (isAdjacent) cellClass += ' adj';
       }
 
@@ -216,6 +291,7 @@ export function Dungeon(): JSX.Element {
               ))}
             </div>
           )}
+          {doorAt && !isPlayer ? <span className="door-marker">D</span> : null}
         </div>
       );
     }
@@ -236,6 +312,13 @@ export function Dungeon(): JSX.Element {
         </Link>
 
         <div className="view">
+          {pendingDoor ? (
+            <div className="door-unlock-prompt" role="status" aria-live="polite">
+              <div><b>{pendingDoor.label ?? 'Locked door'}</b><span>Requires: {keyName}</span></div>
+              <button type="button" onClick={() => unlockMutation.mutate(pendingDoor.id)} disabled={!canUnlock || unlockMutation.isPending}>{unlockMutation.isPending ? 'Unlocking...' : 'Unlock'}</button>
+              {!canUnlock ? <span className="door-unlock-missing">You need a {keyName}.</span> : null}
+            </div>
+          ) : null}
           <div className="dgrid" style={{ 
             '--dw': dungeon.width,
             '--dh': dungeon.height,

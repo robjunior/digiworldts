@@ -1,5 +1,5 @@
-import type { Dungeon, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind } from '@digiworld/shared';
-import { ApiError, apiFetch } from './api';
+import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind } from '@digiworld/shared';
+import { apiFetch } from './api';
 
 export async function listAdminDungeons(): Promise<DungeonListResponse> {
   return apiFetch<DungeonListResponse>('/api/admin/dungeons');
@@ -69,11 +69,43 @@ export async function deleteAdminItem(id: string, itemId: string): Promise<{ ok:
   });
 }
 
+export async function createAdminWarp(id: string, body: { x: number; y: number; targetDungeonId?: string | null; label?: string | null }): Promise<DungeonView> {
+  return apiFetch<DungeonView>(`/api/admin/dungeons/${id}/warps`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function updateAdminWarp(id: string, warpId: string, body: Partial<Pick<DungeonWarp, 'targetDungeonId' | 'label'>>): Promise<DungeonView> {
+  return apiFetch<DungeonView>(`/api/admin/dungeons/${id}/warps/${warpId}`, {
+    method: 'PUT',
+    body,
+  });
+}
+
+export async function deleteAdminWarp(id: string, warpId: string): Promise<DungeonView> {
+  return apiFetch<DungeonView>(`/api/admin/dungeons/${id}/warps/${warpId}`, {
+    method: 'DELETE',
+  });
+}
+
+export function createAdminDoor(dungeonId: string, body: { readonly x: number; readonly y: number; readonly keyItemId: string; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/doors`, { method: 'POST', body });
+}
+
+export function updateAdminDoor(dungeonId: string, doorId: string, body: Partial<Pick<DungeonDoor, 'x' | 'y' | 'keyItemId' | 'label'>>): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/doors/${doorId}`, { method: 'PUT', body });
+}
+
+export function deleteAdminDoor(dungeonId: string, doorId: string): Promise<{ readonly ok: boolean }> {
+  return apiFetch<{ readonly ok: boolean }>(`/api/admin/dungeons/${dungeonId}/doors/${doorId}`, { method: 'DELETE' });
+}
+
 export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> {
   return apiFetch<WorldObjectListResponse>('/api/world/objects'); // this is what World uses
 }
 
-export async function createAdminWorldObject(body: { x: number; y: number; kind: WorldObjectKind; scale: number; passable: boolean; label?: string; tint?: string; questId?: string; dungeonId?: string }): Promise<{ object: WorldObject }> {
+export async function createAdminWorldObject(body: { x: number; y: number; lat: number; lon: number; kind: WorldObjectKind; scale: number; passable: boolean; label?: string; tint?: string; questId?: string; dungeonId?: string }): Promise<{ object: WorldObject }> {
   return apiFetch<{ object: WorldObject }>('/api/admin/world-objects', {
     method: 'POST',
     body,

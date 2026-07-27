@@ -5,11 +5,15 @@ import {
   completeRun,
   createDungeon,
   createEncounter,
+  createDoor,
   createItem,
+  createWarp,
   defeatEncounter,
   deleteDungeon,
+  deleteDoor,
   deleteEncounter,
   deleteItem,
+  deleteWarp,
   getEncounter,
   getRun,
   getDungeonView,
@@ -18,18 +22,25 @@ import {
   replaceTiles,
   resetRun,
   startOrGetRun,
+  unlockDoor,
+  updateDoor,
   updateDungeon,
   updateEncounter,
+  updateWarp,
 } from './repo.js';
 import {
   asCreateDungeonPayload,
   CreateDungeonInputSchema,
+  DoorInputSchema,
   CreateEncounterInputSchema,
   CreateItemInputSchema,
+  CreateWarpInputSchema,
   MoveInputSchema,
   TilesInputSchema,
   UpdateDungeonInputSchema,
+  UpdateDoorInputSchema,
   UpdateEncounterInputSchema,
+  UpdateWarpInputSchema,
 } from './validation.js';
 import { loadCatalog, findTemplate } from '../digimon/xml.js';
 import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
@@ -134,6 +145,75 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     return reply.send({ ok: true });
   });
 
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/warps', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = CreateWarpInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-warp', details: parsed.error.issues });
+    const warp = await createWarp(req.params.id, parsed.data);
+    if (warp === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (warp === 'conflict') return reply.code(409).send({ error: 'warp-position-conflict' });
+    log.info('admin.dungeon.warp.create', { adminId: admin.id, dungeonId: req.params.id, id: warp.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.code(201).send(view);
+  });
+
+  app.put<{ Params: { id: string; warpId: string } }>('/api/admin/dungeons/:id/warps/:warpId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = UpdateWarpInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-warp', details: parsed.error.issues });
+    const warp = await updateWarp(req.params.id, req.params.warpId, parsed.data);
+    if (warp === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.warp.update', { adminId: admin.id, dungeonId: req.params.id, id: warp.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send(view);
+  });
+
+  app.delete<{ Params: { id: string; warpId: string } }>('/api/admin/dungeons/:id/warps/:warpId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const deleted = await deleteWarp(req.params.id, req.params.warpId);
+    if (!deleted) return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.warp.delete', { adminId: admin.id, dungeonId: req.params.id, id: req.params.warpId });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send(view);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/doors', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = DoorInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-door', details: parsed.error.issues });
+    const door = await createDoor(req.params.id, parsed.data);
+    if (door === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (door === 'conflict') return reply.code(409).send({ error: 'door-position-conflict' });
+    log.info('admin.dungeon.door.create', { adminId: admin.id, dungeonId: req.params.id, id: door.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.code(201).send({ view });
+  });
+
+  app.put<{ Params: { id: string; doorId: string } }>('/api/admin/dungeons/:id/doors/:doorId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = UpdateDoorInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-door', details: parsed.error.issues });
+    const door = await updateDoor(req.params.id, req.params.doorId, parsed.data);
+    if (door === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (door === 'conflict') return reply.code(409).send({ error: 'door-position-conflict' });
+    log.info('admin.dungeon.door.update', { adminId: admin.id, dungeonId: req.params.id, id: door.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ view });
+  });
+
+  app.delete<{ Params: { id: string; doorId: string } }>('/api/admin/dungeons/:id/doors/:doorId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const deleted = await deleteDoor(req.params.id, req.params.doorId);
+    if (!deleted) return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.door.delete', { adminId: admin.id, dungeonId: req.params.id, id: req.params.doorId });
+    return reply.send({ ok: true });
+  });
+
   app.get<{ Params: { id: string } }>('/api/dungeon/:id', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const view = await startOrGetRun(user.id, req.params.id);
@@ -149,8 +229,18 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'not-found') return reply.code(404).send({ error: 'not-found' });
     if (moved.kind === 'blocked') return reply.code(400).send({ error: 'not-walkable' });
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId });
+    if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
+    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}) });
     return reply.code(500).send({ error: 'internal error' });
+  });
+
+  app.post<{ Params: { id: string; doorId: string } }>('/api/dungeons/:id/doors/:doorId/unlock', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const unlocked = await unlockDoor(user.id, req.params.id, req.params.doorId);
+    if (unlocked.ok) return reply.send({ view: unlocked.view });
+    if (unlocked.error === 'missing-key') return reply.code(400).send({ error: 'missing-key', keyItemId: unlocked.keyItemId });
+    if (unlocked.error === 'no-run') return reply.code(404).send({ error: 'no-run' });
+    return reply.code(404).send({ error: 'not-found' });
   });
 
   app.post<{ Params: { id: string; encId: string } }>('/api/dungeon/:id/encounter/:encId/defeat', async (req, reply) => {

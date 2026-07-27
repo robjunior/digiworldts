@@ -72,6 +72,27 @@ export const CreateItemInputSchema = z.object({
   qty: z.number().int().min(1).max(999_999).default(1),
 });
 
+export const CreateWarpInputSchema = z.object({
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  targetDungeonId: IdSchema.nullable().optional(),
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+});
+
+export const UpdateWarpInputSchema = z.object({
+  targetDungeonId: IdSchema.nullable().optional(),
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+});
+
+export const DoorInputSchema = z.object({
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  keyItemId: IdSchema,
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+});
+
+export const UpdateDoorInputSchema = DoorInputSchema.partial();
+
 export const MoveInputSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),
@@ -83,6 +104,10 @@ export type TileInput = z.infer<typeof TileSchema>;
 export type CreateEncounterInput = z.infer<typeof CreateEncounterInputSchema>;
 export type UpdateEncounterInput = z.infer<typeof UpdateEncounterInputSchema>;
 export type CreateItemInput = z.infer<typeof CreateItemInputSchema>;
+export type CreateWarpInput = z.infer<typeof CreateWarpInputSchema>;
+export type UpdateWarpInput = z.infer<typeof UpdateWarpInputSchema>;
+export type DoorInput = z.infer<typeof DoorInputSchema>;
+export type UpdateDoorInput = z.infer<typeof UpdateDoorInputSchema>;
 export type MoveInput = z.infer<typeof MoveInputSchema>;
 
 export function asStatOverride(input: z.infer<typeof EncounterStatOverrideSchema>): EncounterStatOverride {

@@ -71,6 +71,8 @@ export type WorldObject = {
   readonly id: string;
   readonly x: number;
   readonly y: number;
+  readonly lat: number;
+  readonly lon: number;
   readonly kind: WorldObjectKind;
   readonly scale: number;
   readonly tint?: string;

@@ -378,6 +378,28 @@ export type AdventureRow = {
   created_at: number;
 };
 
+export type DungeonWarpRow = {
+  id: string;
+  dungeon_id: string;
+  x: number;
+  y: number;
+  target_dungeon_id: string | null;
+  label: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type DungeonDoorRow = {
+  id: string;
+  dungeon_id: string;
+  x: number;
+  y: number;
+  key_item_id: string;
+  label: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
 // ============================================================================
 // Lazy prepared-statement helper. Statements bind to the current db handle;
 // we prepare on first use to avoid open-before-ready hazards during tests.
