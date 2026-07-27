@@ -1047,8 +1047,7 @@
   flex-direction: column;
   gap: var(--sp-4);
   padding: var(--sp-4);
-  max-width: 1000px;
-  margin: 0 auto;
+  min-height: 0;
 }
 
 .admin-world-header {
@@ -1099,6 +1098,145 @@
 .admin-world-nav:hover {
   background: var(--panel);
   color: var(--ink);
+}
+
+.admin-world-map-shell {
+  position: relative;
+  min-height: 60dvh;
+  border: 1px solid color-mix(in oklab, var(--signal) 18%, var(--hairline));
+  background:
+    radial-gradient(circle at 18% 15%, color-mix(in oklab, var(--signal) 10%, transparent), transparent 34%),
+    linear-gradient(135deg, color-mix(in oklab, var(--bg) 84%, black), color-mix(in oklab, var(--panel) 70%, black));
+  padding: var(--sp-4);
+  overflow: hidden;
+  clip-path: var(--notch);
+}
+
+.admin-world-globe-canvas-host {
+  position: relative;
+  height: 60dvh;
+  min-height: 520px;
+  margin-right: min(390px, 34vw);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 48%, color-mix(in oklab, var(--signal) 9%, transparent), transparent 29%),
+    radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--battle) 7%, transparent), transparent 44%),
+    color-mix(in oklab, var(--bg) 88%, black);
+  border: 1px solid color-mix(in oklab, var(--signal) 16%, var(--hairline));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, white 5%, transparent), 0 24px 80px color-mix(in oklab, black 28%, transparent);
+  clip-path: var(--notch-sm);
+}
+
+.admin-world-globe-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.admin-world-globe-canvas.drag {
+  cursor: grabbing;
+}
+
+.admin-world-globe-hint {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  padding: 7px 10px;
+  background: color-mix(in oklab, var(--panel) 86%, transparent);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+
+.admin-world-globe-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--bg) 88%, black);
+  color: var(--battle);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.world-tile {
+  border: 1px solid color-mix(in oklab, black 22%, transparent);
+  cursor: crosshair;
+  padding: 0;
+  transition: filter .12s, outline-color .12s, transform .12s;
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
+
+.world-tile:hover {
+  filter: brightness(1.22) saturate(1.12);
+  outline: 1px solid var(--signal);
+  z-index: 2;
+}
+
+.world-dup-badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 10px;
+  height: 10px;
+  display: grid;
+  place-items: center;
+  font: 800 8px/1 var(--font);
+  color: #fff;
+  background: var(--battle);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.world-clean-dups {
+  display: block;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 9px 12px;
+  background: color-mix(in oklab, var(--battle) 82%, var(--ink));
+  color: #fff;
+  border: 1px solid var(--battle);
+  font: 800 10px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  clip-path: var(--notch-sm);
+  transition: .12s;
+}
+.world-clean-dups:hover:not(:disabled) { background: var(--battle); }
+.world-clean-dups:disabled { opacity: .6; cursor: default; }
+
+.admin-world-floating-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 360px;
+  max-height: calc(100% - 32px);
+  overflow-y: auto;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid var(--hairline);
+  clip-path: var(--notch);
+  padding: 14px;
+  z-index: 6;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 18px 60px color-mix(in oklab, black 28%, transparent);
+}
+
+.admin-region-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
 }
 
 .admin-region-table-wrapper {
@@ -1262,92 +1400,313 @@
   color: var(--signal);
 }
 
-/* Admin Dungeon */
-.admin-dungeon-layout {
+.admin-quests-layout {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  gap: var(--sp-3);
 }
-.admin-dungeon-header {
-  padding: 16px;
-  background: var(--bg-alt, #222);
-  border-bottom: 2px solid var(--border, #444);
+
+.admin-quest-editor {
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
 }
-.admin-dungeon-header .layer-picker button {
-  margin: 0 4px;
-  padding: 4px 12px;
-  border: 1px solid var(--border, #444);
-  background: transparent;
-  color: var(--text, #fff);
+
+.admin-quest-editor textarea,
+.admin-quest-editor input,
+.admin-quest-editor select,
+.admin-quest-editor button,
+.admin-quests-table button,
+.admin-section-actions button,
+.admin-actions-cell button {
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 7px 9px;
+}
+
+.admin-quest-editor textarea {
+  min-height: 92px;
+  resize: vertical;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  line-height: 1.45;
+}
+
+.admin-quest-editor .field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.admin-quest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.admin-quest-actions button,
+.admin-section-actions button,
+.admin-actions-cell button {
   cursor: pointer;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
-.admin-dungeon-header .layer-picker button.is-active {
-  background: var(--primary, #d00);
-  border-color: var(--primary, #d00);
+
+.admin-quest-actions button[type="submit"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--bg);
 }
-.admin-dungeon-body {
-  display: flex;
-  flex: 1;
+
+.admin-quest-actions button:hover:not(:disabled),
+.admin-section-actions button:hover:not(:disabled),
+.admin-actions-cell button:hover:not(:disabled) {
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.admin-quests-table td {
+  vertical-align: top;
+}
+
+.admin-dungeon-layout {
+  position: relative;
   overflow: hidden;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, color-mix(in oklab, var(--signal) 12%, transparent), transparent 32%),
+    linear-gradient(135deg, color-mix(in oklab, var(--bg) 82%, black), color-mix(in oklab, var(--panel) 68%, black));
 }
-.admin-dungeon-grid-wrapper {
-  flex: 1;
+
+.admin-dungeon-grid-full {
+  display: grid;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  margin: auto;
   overflow: auto;
-  padding: 16px;
-  background: #000;
+  border: 1px solid color-mix(in oklab, var(--signal) 24%, var(--hairline));
+  background: color-mix(in oklab, var(--bg) 88%, black);
+  box-shadow: 0 24px 80px color-mix(in oklab, black 34%, transparent);
+  padding: 8px;
+  gap: 2px;
 }
+
 .dungeon-cell {
-  width: 32px;
-  height: 32px;
-  border: 1px dashed #333;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 12px;
-  font-weight: bold;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 1px dashed color-mix(in oklab, var(--muted) 20%, transparent);
+  background: color-mix(in oklab, var(--bg) 62%, black);
+  color: var(--ink);
+  cursor: crosshair;
+  font-family: var(--font);
+  transition: filter .12s, border-color .12s, background .12s;
 }
-.dungeon-cell:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
+
+.dungeon-cell.tool-encounters,
+.dungeon-cell.tool-items { cursor: pointer; }
+
+.dungeon-cell:hover { filter: brightness(1.18); border-color: color-mix(in oklab, var(--signal) 42%, var(--hairline)); }
+
 .dungeon-cell.is-walkable {
-  background: #222;
-  border: 1px solid #555;
+  background:
+    linear-gradient(135deg, color-mix(in oklab, var(--panel) 92%, var(--signal)), color-mix(in oklab, var(--bg) 80%, var(--el-nature)));
+  border: 1px solid color-mix(in oklab, var(--signal) 20%, var(--hairline));
 }
+
 .dungeon-cell.is-selected {
-  border: 2px solid var(--primary, #d00);
+  outline: 3px solid var(--signal);
+  outline-offset: -3px;
 }
-.admin-dungeon-sidebar {
-  width: 360px;
-  background: var(--bg-alt, #222);
-  border-left: 2px solid var(--border, #444);
-  padding: 16px;
+
+.dungeon-cell.is-preview {
+  outline: 1px dashed var(--signal);
+  background: color-mix(in oklab, var(--signal) 20%, transparent);
+}
+
+.mk-stack {
+  position: absolute;
+  inset: 2px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: min-content;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.mk {
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border: 1px solid currentColor;
+  background: color-mix(in oklab, var(--bg) 76%, transparent);
+  font-size: 9px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.mk-spawn { color: var(--battle); }
+.mk-encounter { color: var(--el-fire); }
+.mk-item { color: var(--gold); }
+.mk-warp { color: var(--signal); }
+.mk-door { color: var(--gold); background: color-mix(in oklab, var(--gold) 16%, var(--bg)); }
+
+.admin-dungeon-floating-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 340px;
+  max-height: calc(100% - 32px);
   overflow-y: auto;
+  background: color-mix(in oklab, var(--panel) 91%, transparent);
+  border: 1px solid var(--hairline);
+  clip-path: var(--notch);
+  padding: 14px;
+  z-index: 5;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  box-shadow: 0 18px 60px color-mix(in oklab, black 28%, transparent);
 }
+
+.admin-dungeon-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.admin-dungeon-panel-head h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  letter-spacing: -.01em;
+}
+
+.admin-dungeon-panel-head span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.tool-picker,
+.subtool-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--sp-3);
+}
+
+.tool-picker button,
+.subtool-picker button,
+.admin-editor-panel button,
+.admin-editor-panel input,
+.admin-editor-panel select {
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 7px 9px;
+}
+
+.tool-picker button,
+.subtool-picker button,
+.admin-editor-panel button { cursor: pointer; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.tool-picker button.is-active,
+.subtool-picker button.is-active { background: var(--signal); border-color: var(--signal); color: var(--bg); }
+
+.subtool-picker .erase-toggle { margin-left: auto; }
+.subtool-picker .erase-toggle.is-active {
+  background: transparent;
+  color: var(--signal);
+  border-color: var(--signal);
+  box-shadow: inset 0 0 0 2px var(--signal);
+}
+
+.admin-poi-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
 .admin-editor-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
 }
+
+.admin-editor-panel h3,
+.admin-editor-panel h4,
+.admin-editor-panel p { margin: 0; }
+
+.admin-editor-panel p { color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+.admin-editor-panel input,
+.admin-editor-panel select { width: 100%; }
+
+.admin-editor-panel button:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+
+.admin-editor-panel button:disabled { cursor: not-allowed; opacity: .45; }
+
+.admin-editor-panel button[type="submit"] { background: var(--signal); color: var(--bg); border-color: var(--signal); }
+
+.admin-editor-panel button[type="submit"]:hover:not(:disabled) { color: var(--bg); filter: brightness(1.1); }
+
+.admin-editor-panel button[type="button"]:last-child:not(:only-child) { border-color: color-mix(in oklab, var(--battle) 35%, var(--hairline)); }
+
+.admin-editor-panel button[type="button"]:last-child:not(:only-child):hover:not(:disabled) { color: var(--battle); border-color: var(--battle); }
+
+.editor-sub-panel {
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 76%, transparent);
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
 .admin-editor-panel form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--sp-3);
 }
+
 .admin-editor-panel label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--sp-1);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
 }
-.editor-sub-panel {
-  border: 1px solid #444;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+
+@media (max-width: 900px) {
+  .admin-dungeon-grid-full { width: min(calc(100% - 24px), calc(100vh - 80px)); }
+  .admin-dungeon-floating-panel { left: 12px; right: 12px; top: 12px; width: auto; max-height: 44%; }
+  .admin-world-globe-canvas-host { margin-right: 0; min-height: 420px; }
+  .admin-world-floating-panel { left: 12px; right: 12px; top: 12px; width: auto; max-height: 48%; }
 }

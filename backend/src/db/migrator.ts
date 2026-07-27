@@ -98,6 +98,15 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
       applied.push(m.version);
       log.info('db.migration.applied', { version: m.version, filename: m.filename });
     } catch (err) {
+      if (await canMarkDuplicateColumnMigration(adapter, m, err)) {
+        await adapter.run(
+          `INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`,
+          [m.version, Date.now()],
+        );
+        skipped.push(m.version);
+        log.info('db.migration.already-in-baseline', { version: m.version, filename: m.filename });
+        continue;
+      }
       const recheck = await adapter.one<{ version: string }>(
         `SELECT version FROM schema_versions WHERE version = ?`,
         [m.version],
@@ -120,4 +129,24 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
     log.info('db.migrator.done', { applied: applied.length, skipped: skipped.length });
   }
   return { applied, skipped };
+}
+
+async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Migration, err: unknown): Promise<boolean> {
+  if (migration.version !== '009_world_objects_lat_lon') return false;
+  if (!isDuplicateColumnError(err)) return false;
+  if (adapter.kind === 'sqlite') {
+    const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(world_objects)`);
+    const names = new Set(columns.map((column) => column.name));
+    return names.has('lat') && names.has('lon');
+  }
+  const columns = await adapter.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'world_objects' AND column_name IN ('lat', 'lon')`,
+  );
+  return columns.length === 2;
+}
+
+function isDuplicateColumnError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message.toLowerCase();
+  return message.includes('duplicate column') || message.includes('already exists');
 }

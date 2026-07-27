@@ -37,6 +37,9 @@ export function applyColumnMigrations(handle: DatabaseHandle): void {
   addMissingColumns(handle, 'shop_items', [
     ['class', `TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item'))`],
   ]);
+  addMissingColumns(handle, 'user_dungeon_runs', [
+    ['unlocked_doors', `TEXT NOT NULL DEFAULT '[]'`],
+  ]);
 }
 
 function addMissingColumns(handle: DatabaseHandle, table: string, columns: ReadonlyArray<readonly [string, string]>): void {

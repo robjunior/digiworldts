@@ -22,10 +22,13 @@ type WorldObjectRow = {
   readonly id: string;
   readonly x: number;
   readonly y: number;
+  readonly lat: number;
+  readonly lon: number;
   readonly kind: WorldObject['kind'];
   readonly scale: number;
   readonly tint: string | null;
   readonly quest_id: string | null;
+  readonly dungeon_id: string | null;
   readonly passable: 0 | 1;
   readonly label: string | null;
   readonly created_at: number;
@@ -45,10 +48,13 @@ type ProgressRow = {
 type WorldObjectInput = {
   readonly x: number;
   readonly y: number;
+  readonly lat: number;
+  readonly lon: number;
   readonly kind: WorldObject['kind'];
   readonly scale: number;
   readonly tint?: string;
   readonly questId?: string;
+  readonly dungeonId?: string;
   readonly passable: boolean;
   readonly label?: string;
 };
@@ -69,8 +75,8 @@ const SQL_LIST_AVAILABLE_QUESTS = `
 `;
 const SQL_LIST_WORLD_OBJECTS = `SELECT * FROM world_objects ORDER BY created_at DESC`;
 const SQL_GET_WORLD_OBJECT = `SELECT * FROM world_objects WHERE id = ?`;
-const SQL_INSERT_WORLD_OBJECT = `INSERT INTO world_objects (id, x, y, kind, scale, tint, quest_id, passable, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_WORLD_OBJECT = `UPDATE world_objects SET x = ?, y = ?, kind = ?, scale = ?, tint = ?, quest_id = ?, passable = ?, label = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_WORLD_OBJECT = `INSERT INTO world_objects (id, x, y, lat, lon, kind, scale, tint, quest_id, dungeon_id, passable, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_WORLD_OBJECT = `UPDATE world_objects SET x = ?, y = ?, lat = ?, lon = ?, kind = ?, scale = ?, tint = ?, quest_id = ?, dungeon_id = ?, passable = ?, label = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_WORLD_OBJECT = `DELETE FROM world_objects WHERE id = ?`;
 const SQL_BLOCKING_WORLD_OBJECT_AT = `SELECT * FROM world_objects WHERE x = ? AND y = ? AND passable = 0 LIMIT 1`;
 const SQL_ADJACENT_QUEST = `
@@ -113,6 +119,8 @@ function worldObjectFromRow(row: WorldObjectRow): WorldObject {
     id: row.id,
     x: row.x,
     y: row.y,
+    lat: row.lat,
+    lon: row.lon,
     kind: row.kind,
     scale: row.scale,
     passable: row.passable === 1,
@@ -120,6 +128,7 @@ function worldObjectFromRow(row: WorldObjectRow): WorldObject {
     updatedAt: row.updated_at,
     ...(row.tint !== null ? { tint: row.tint } : {}),
     ...(row.quest_id !== null ? { questId: row.quest_id } : {}),
+    ...(row.dungeon_id !== null ? { dungeonId: row.dungeon_id } : {}),
     ...(row.label !== null ? { label: row.label } : {}),
   };
 }
@@ -228,7 +237,7 @@ export async function getWorldObject(id: string): Promise<WorldObject | null> {
 export async function createWorldObject(input: WorldObjectInput): Promise<WorldObject> {
   const now = Date.now();
   const object: WorldObject = { ...input, id: newId('obj'), createdAt: now, updatedAt: now };
-  await run(SQL_INSERT_WORLD_OBJECT, object.id, object.x, object.y, object.kind, object.scale, object.tint ?? null, object.questId ?? null, object.passable ? 1 : 0, object.label ?? null, now, now);
+  await run(SQL_INSERT_WORLD_OBJECT, object.id, object.x, object.y, object.lat, object.lon, object.kind, object.scale, object.tint ?? null, object.questId ?? null, object.dungeonId ?? null, object.passable ? 1 : 0, object.label ?? null, now, now);
   return object;
 }
 
@@ -236,7 +245,7 @@ export async function updateWorldObject(id: string, input: WorldObjectInput): Pr
   const existing = await getWorldObject(id);
   if (!existing) return null;
   const now = Date.now();
-  const result = await run(SQL_UPDATE_WORLD_OBJECT, input.x, input.y, input.kind, input.scale, input.tint ?? null, input.questId ?? null, input.passable ? 1 : 0, input.label ?? null, now, id);
+  const result = await run(SQL_UPDATE_WORLD_OBJECT, input.x, input.y, input.lat, input.lon, input.kind, input.scale, input.tint ?? null, input.questId ?? null, input.dungeonId ?? null, input.passable ? 1 : 0, input.label ?? null, now, id);
   if (result.changes === 0) return null;
   return { ...input, id, createdAt: existing.createdAt, updatedAt: now };
 }

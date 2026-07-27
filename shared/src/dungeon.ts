@@ -55,6 +55,28 @@ export type DungeonItem = {
   readonly createdAt: number;
 };
 
+export type DungeonWarp = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly targetDungeonId: string | null;
+  readonly label: string | null;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type DungeonDoor = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly keyItemId: string;
+  readonly label: string | null;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
 export type Dungeon = {
   readonly id: string;
   readonly worldObjectId: string | null;
@@ -76,6 +98,8 @@ export type DungeonView = {
   readonly tiles: readonly DungeonTile[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
+  readonly warps: readonly DungeonWarp[];
+  readonly doors: readonly DungeonDoor[];
 };
 
 export type UserDungeonRun = {
@@ -85,6 +109,7 @@ export type UserDungeonRun = {
   readonly currentY: number;
   readonly defeatedEncounters: readonly string[];
   readonly collectedItems: readonly string[];
+  readonly unlockedDoors: readonly string[];
   readonly startedAt: number;
   readonly completedAt: number | null;
 };
@@ -95,8 +120,9 @@ export type DungeonRunView = {
   readonly tiles: readonly DungeonTile[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
+  readonly doors: readonly DungeonDoor[];
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
-export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null };
+export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null };
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };

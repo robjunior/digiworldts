@@ -40,3 +40,7 @@ export async function resetDungeon(id: string): Promise<{ run: DungeonRunView['r
     method: 'POST',
   });
 }
+
+export function unlockDungeonDoor(dungeonId: string, doorId: string): Promise<{ readonly view: DungeonRunView }> {
+  return apiFetch<{ readonly view: DungeonRunView }>(`/api/dungeons/${dungeonId}/doors/${doorId}/unlock`, { method: 'POST' });
+}

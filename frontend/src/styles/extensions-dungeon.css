@@ -315,10 +315,87 @@
   background: color-mix(in oklab, var(--el) 40%, var(--bg));
   border-color: color-mix(in oklab, var(--el) 70%, var(--panel));
 }
+.dungeon-page .view .dcell.is-door.is-locked {
+  background: color-mix(in oklab, var(--battle) 28%, var(--bg));
+  border-color: color-mix(in oklab, var(--battle) 72%, var(--panel));
+}
+.dungeon-page .view .dcell.is-door.is-unlocked {
+  background: color-mix(in oklab, var(--muted) 20%, var(--bg));
+  border-color: color-mix(in oklab, var(--muted) 44%, var(--panel));
+}
+.dungeon-page .view .door-marker {
+  position: absolute;
+  inset: auto 4px 4px auto;
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  border: 1px solid currentColor;
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  color: var(--battle);
+  font: 900 10px/1 var(--font);
+  pointer-events: none;
+}
+.dungeon-page .view .dcell.is-unlocked .door-marker { color: var(--muted); }
 .dungeon-page .view .dcell.adj:hover,
 .dungeon-page .view .dcell.walk:not(.player):hover {
   background: color-mix(in oklab, var(--signal) 32%, var(--bg));
   border-color: var(--signal);
+}
+
+.dungeon-page .door-unlock-prompt {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  min-width: min(440px, calc(100% - 48px));
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--gold) 54%, var(--hair));
+  clip-path: var(--notch-sm-clip);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 16px 44px color-mix(in oklab, black 30%, transparent);
+}
+.dungeon-page .door-unlock-prompt div {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.dungeon-page .door-unlock-prompt b {
+  font: 900 11px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.dungeon-page .door-unlock-prompt span {
+  font: 700 10px/1.2 var(--font);
+  color: var(--muted);
+}
+.dungeon-page .door-unlock-prompt button {
+  flex: 0 0 auto;
+  border: 1px solid var(--gold);
+  background: var(--gold);
+  color: var(--bg);
+  clip-path: var(--notch-sm-clip);
+  cursor: pointer;
+  font: 900 10px/1 var(--font);
+  letter-spacing: .12em;
+  padding: 10px 14px;
+  text-transform: uppercase;
+}
+.dungeon-page .door-unlock-prompt button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+.dungeon-page .door-unlock-prompt .door-unlock-missing {
+  color: var(--battle);
 }
 
 .dungeon-page .view .party-marker {

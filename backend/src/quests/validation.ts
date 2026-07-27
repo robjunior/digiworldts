@@ -71,10 +71,13 @@ export const QuestImportSchema = QuestInputSchema.extend({
 export const WorldObjectInputSchema = z.object({
   x: z.number().int().min(-1_000_000).max(1_000_000),
   y: z.number().int().min(-1_000_000).max(1_000_000),
+  lat: z.number().min(-90).max(90),
+  lon: z.number().min(-180).max(180),
   kind: z.enum(['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk']),
   scale: z.number().min(0.5).max(2).default(1),
   tint: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   questId: z.string().min(1).max(80).optional(),
+  dungeonId: z.string().min(1).max(80).optional(),
   passable: z.boolean().default(false),
   label: z.string().trim().min(1).max(120).optional(),
 });
@@ -146,11 +149,14 @@ export function asWorldObjectPayload(input: WorldObjectInput): Omit<WorldObject,
   return {
     x: input.x,
     y: input.y,
+    lat: input.lat,
+    lon: input.lon,
     kind: input.kind,
     scale: input.scale,
     passable: input.passable,
     ...(input.tint !== undefined ? { tint: input.tint } : {}),
     ...(input.questId !== undefined ? { questId: input.questId } : {}),
+    ...(input.dungeonId !== undefined ? { dungeonId: input.dungeonId } : {}),
     ...(input.label !== undefined ? { label: input.label } : {}),
   };
 }
