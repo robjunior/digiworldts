@@ -40,15 +40,22 @@ export function applyColumnMigrations(handle: DatabaseHandle): void {
   addMissingColumns(handle, 'user_dungeon_runs', [
     ['unlocked_doors', `TEXT NOT NULL DEFAULT '[]'`],
   ]);
+  addMissingColumns(handle, 'dungeons', [
+    ['random_encounters_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+    ['random_encounter_rate', 'REAL NOT NULL DEFAULT 0.12'],
+    ['random_min_level', 'INTEGER NOT NULL DEFAULT 1'],
+    ['random_max_level', 'INTEGER NOT NULL DEFAULT 5'],
+    ['random_max_stage', `TEXT NOT NULL DEFAULT 'Rookie'`],
+    ['random_min_party_size', 'INTEGER NOT NULL DEFAULT 1'],
+    ['random_max_party_size', 'INTEGER NOT NULL DEFAULT 1'],
+    ['random_allowed_elements', 'TEXT'],
+  ]);
 }
 
 function addMissingColumns(handle: DatabaseHandle, table: string, columns: ReadonlyArray<readonly [string, string]>): void {
-  const existing = new Set(
-    handle
-      .prepare<[], { name: string }>(`PRAGMA table_info(${table})`)
-      .all()
-      .map((c) => c.name),
-  );
+  const tableInfo = handle.prepare<[], { name: string }>(`PRAGMA table_info(${table})`).all();
+  if (tableInfo.length === 0) return;
+  const existing = new Set(tableInfo.map((c) => c.name));
   for (const [name, def] of columns) {
     if (!existing.has(name)) {
       handle.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${def}`);

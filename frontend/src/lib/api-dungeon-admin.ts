@@ -1,11 +1,21 @@
 import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind } from '@digiworld/shared';
 import { apiFetch } from './api';
 
+type AdminDungeonRandomFields = Pick<Dungeon, 'randomEncountersEnabled' | 'randomEncounterRate' | 'randomMinLevel' | 'randomMaxLevel' | 'randomMaxStage' | 'randomMinPartySize' | 'randomMaxPartySize' | 'randomAllowedElements'>;
+
+export type AdminDungeonCreateBody = Pick<Dungeon, 'name' | 'biome' | 'width' | 'height'> & Partial<Pick<Dungeon, 'description' | 'spawnX' | 'spawnY'>> & Partial<AdminDungeonRandomFields> & {
+  readonly biomeRegion?: Dungeon['biomeRegion'];
+  readonly worldObjectId?: string | null;
+  readonly questId?: string | null;
+};
+
+export type AdminDungeonUpdateBody = Partial<Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>>;
+
 export async function listAdminDungeons(): Promise<DungeonListResponse> {
   return apiFetch<DungeonListResponse>('/api/admin/dungeons');
 }
 
-export async function createAdminDungeon(body: { name: string; description?: string; biome: string; width: number; height: number; spawnX?: number; spawnY?: number; worldObjectId?: string; questId?: string }): Promise<{ dungeon: Dungeon }> {
+export async function createAdminDungeon(body: AdminDungeonCreateBody): Promise<{ dungeon: Dungeon }> {
   return apiFetch<{ dungeon: Dungeon }>('/api/admin/dungeons', {
     method: 'POST',
     body,
@@ -16,7 +26,7 @@ export async function getAdminDungeon(id: string): Promise<DungeonView> {
   return apiFetch<DungeonView>(`/api/admin/dungeons/${id}`);
 }
 
-export async function updateAdminDungeon(id: string, body: Partial<Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>>): Promise<{ dungeon: Dungeon }> {
+export async function updateAdminDungeon(id: string, body: AdminDungeonUpdateBody): Promise<{ dungeon: Dungeon }> {
   return apiFetch<{ dungeon: Dungeon }>(`/api/admin/dungeons/${id}`, {
     method: 'PUT',
     body,

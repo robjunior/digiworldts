@@ -1,4 +1,4 @@
-import type { Element } from './digimon.js';
+import type { Element, Stage } from './digimon.js';
 import type { Biome } from './world.js';
 
 export type EncounterDifficulty = 'easy' | 'normal' | 'elite' | 'boss';
@@ -89,6 +89,14 @@ export type Dungeon = {
   readonly spawnX: number;
   readonly spawnY: number;
   readonly biomeRegion: string | null;
+  readonly randomEncountersEnabled: boolean;
+  readonly randomEncounterRate: number;
+  readonly randomMinLevel: number;
+  readonly randomMaxLevel: number;
+  readonly randomMaxStage: Stage;
+  readonly randomMinPartySize: number;
+  readonly randomMaxPartySize: number;
+  readonly randomAllowedElements: readonly Element[] | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -124,5 +132,5 @@ export type DungeonRunView = {
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
-export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null };
+export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null };
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };

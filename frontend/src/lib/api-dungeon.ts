@@ -3,6 +3,7 @@ import type {
   DungeonRunView,
   DungeonMoveResponse,
   DungeonCompleteResponse,
+  EncounterDigimon,
 } from '@digiworld/shared';
 import { apiFetch } from './api';
 
@@ -26,6 +27,13 @@ export async function defeatEncounter(id: string, encId: string): Promise<{ run:
 export async function startEncounter(id: string, encId: string): Promise<{ battle: BattleView }> {
   return apiFetch<{ battle: BattleView }>(`/api/dungeon/${id}/encounter/${encId}/start`, {
     method: 'POST',
+  });
+}
+
+export async function startRandomEncounter(id: string, digimon: readonly EncounterDigimon[]): Promise<{ battle: BattleView }> {
+  return apiFetch<{ battle: BattleView }>(`/api/dungeon/${id}/random-encounter/start`, {
+    method: 'POST',
+    body: { digimon },
   });
 }
 

@@ -132,8 +132,9 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
 }
 
 async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Migration, err: unknown): Promise<boolean> {
-  if (migration.version !== '009_world_objects_lat_lon') return false;
   if (!isDuplicateColumnError(err)) return false;
+  if (migration.version === '011_dungeon_random_encounters') return hasDungeonRandomEncounterColumns(adapter);
+  if (migration.version !== '009_world_objects_lat_lon') return false;
   if (adapter.kind === 'sqlite') {
     const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(world_objects)`);
     const names = new Set(columns.map((column) => column.name));
@@ -143,6 +144,29 @@ async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Mi
     `SELECT column_name FROM information_schema.columns WHERE table_name = 'world_objects' AND column_name IN ('lat', 'lon')`,
   );
   return columns.length === 2;
+}
+
+async function hasDungeonRandomEncounterColumns(adapter: DbAdapter): Promise<boolean> {
+  const expected = new Set([
+    'random_encounters_enabled',
+    'random_encounter_rate',
+    'random_min_level',
+    'random_max_level',
+    'random_max_stage',
+    'random_min_party_size',
+    'random_max_party_size',
+    'random_allowed_elements',
+  ]);
+  if (adapter.kind === 'sqlite') {
+    const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(dungeons)`);
+    const names = new Set(columns.map((column) => column.name));
+    return [...expected].every((name) => names.has(name));
+  }
+  const columns = await adapter.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'dungeons' AND column_name LIKE 'random_%'`,
+  );
+  const names = new Set(columns.map((column) => column.column_name));
+  return [...expected].every((name) => names.has(name));
 }
 
 function isDuplicateColumnError(err: unknown): boolean {

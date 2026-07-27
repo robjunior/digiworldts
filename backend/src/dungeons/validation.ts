@@ -1,10 +1,30 @@
 import type { Dungeon, EncounterDigimon, EncounterSkillOverride, EncounterStatOverride } from '@digiworld/shared';
-import { ELEMENTS } from '@digiworld/shared/digimon';
+import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { BIOMES } from '@digiworld/shared/world';
 import { z } from 'zod';
 
 const IdSchema = z.string().trim().min(1).max(80);
 const OptionalNullableIdSchema = IdSchema.nullable().optional();
+const RandomAllowedElementsSchema = z.array(z.enum(ELEMENTS)).max(ELEMENTS.length).nullable();
+const RandomEncounterSettingsShape = {
+  randomEncountersEnabled: z.boolean().default(false),
+  randomEncounterRate: z.number().min(0).max(1).default(0.12),
+  randomMinLevel: z.number().int().min(1).max(999).default(1),
+  randomMaxLevel: z.number().int().min(1).max(999).default(5),
+  randomMaxStage: z.enum(STAGES).default('Rookie'),
+  randomMinPartySize: z.number().int().min(1).max(3).default(1),
+  randomMaxPartySize: z.number().int().min(1).max(3).default(1),
+  randomAllowedElements: RandomAllowedElementsSchema.default(null),
+} as const;
+
+function refineRandomEncounterSettings(input: { readonly randomMinLevel?: number | undefined; readonly randomMaxLevel?: number | undefined; readonly randomMinPartySize?: number | undefined; readonly randomMaxPartySize?: number | undefined }, ctx: z.RefinementCtx): void {
+  if (input.randomMinLevel !== undefined && input.randomMaxLevel !== undefined && input.randomMaxLevel < input.randomMinLevel) {
+    ctx.addIssue({ code: 'custom', path: ['randomMaxLevel'], message: 'randomMaxLevel must be >= randomMinLevel' });
+  }
+  if (input.randomMinPartySize !== undefined && input.randomMaxPartySize !== undefined && input.randomMaxPartySize < input.randomMinPartySize) {
+    ctx.addIssue({ code: 'custom', path: ['randomMaxPartySize'], message: 'randomMaxPartySize must be >= randomMinPartySize' });
+  }
+}
 
 export const EncounterStatOverrideSchema = z.object({
   hp: z.number().int().min(0).max(9_999_999).optional(),
@@ -42,9 +62,29 @@ export const CreateDungeonInputSchema = z.object({
   worldObjectId: OptionalNullableIdSchema,
   questId: OptionalNullableIdSchema,
   biomeRegion: z.enum(BIOMES).nullable().optional(),
-});
+  ...RandomEncounterSettingsShape,
+}).superRefine(refineRandomEncounterSettings);
 
-export const UpdateDungeonInputSchema = CreateDungeonInputSchema.partial();
+export const UpdateDungeonInputSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().trim().max(2_000).optional(),
+  biome: z.union([z.enum(BIOMES), z.literal('null')]).optional(),
+  width: z.number().int().min(1).max(200).optional(),
+  height: z.number().int().min(1).max(200).optional(),
+  spawnX: z.number().int().min(0).max(199).optional(),
+  spawnY: z.number().int().min(0).max(199).optional(),
+  worldObjectId: OptionalNullableIdSchema,
+  questId: OptionalNullableIdSchema,
+  biomeRegion: z.enum(BIOMES).nullable().optional(),
+  randomEncountersEnabled: z.boolean().optional(),
+  randomEncounterRate: z.number().min(0).max(1).optional(),
+  randomMinLevel: z.number().int().min(1).max(999).optional(),
+  randomMaxLevel: z.number().int().min(1).max(999).optional(),
+  randomMaxStage: z.enum(STAGES).optional(),
+  randomMinPartySize: z.number().int().min(1).max(3).optional(),
+  randomMaxPartySize: z.number().int().min(1).max(3).optional(),
+  randomAllowedElements: RandomAllowedElementsSchema.optional(),
+}).superRefine(refineRandomEncounterSettings);
 
 export const TileSchema = z.object({
   x: z.number().int().min(0).max(199),
@@ -98,6 +138,10 @@ export const MoveInputSchema = z.object({
   y: z.number().int().min(0).max(199),
 });
 
+export const StartRandomEncounterInputSchema = z.object({
+  digimon: z.array(EncounterDigimonSchema).min(1).max(3),
+});
+
 export type CreateDungeonInput = z.infer<typeof CreateDungeonInputSchema>;
 export type UpdateDungeonInput = z.infer<typeof UpdateDungeonInputSchema>;
 export type TileInput = z.infer<typeof TileSchema>;
@@ -109,6 +153,7 @@ export type UpdateWarpInput = z.infer<typeof UpdateWarpInputSchema>;
 export type DoorInput = z.infer<typeof DoorInputSchema>;
 export type UpdateDoorInput = z.infer<typeof UpdateDoorInputSchema>;
 export type MoveInput = z.infer<typeof MoveInputSchema>;
+export type StartRandomEncounterInput = z.infer<typeof StartRandomEncounterInputSchema>;
 
 export function asStatOverride(input: z.infer<typeof EncounterStatOverrideSchema>): EncounterStatOverride {
   return {
@@ -153,5 +198,13 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     spawnX: input.spawnX,
     spawnY: input.spawnY,
     biomeRegion: input.biomeRegion ?? null,
+    randomEncountersEnabled: input.randomEncountersEnabled,
+    randomEncounterRate: input.randomEncounterRate,
+    randomMinLevel: input.randomMinLevel,
+    randomMaxLevel: input.randomMaxLevel,
+    randomMaxStage: input.randomMaxStage,
+    randomMinPartySize: input.randomMinPartySize,
+    randomMaxPartySize: input.randomMaxPartySize,
+    randomAllowedElements: input.randomAllowedElements,
   };
 }

@@ -8,11 +8,12 @@ import {
   getDungeon,
   moveInDungeon,
   startEncounter,
+  startRandomEncounter,
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
 import { getRoster } from '../lib/api';
 import { getShop } from '../lib/api-shop';
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 
 import '../styles/extensions-dungeon.css';
@@ -55,6 +56,7 @@ export function Dungeon(): JSX.Element {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
+  const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [stepCount, setStepCount] = useState(0);
 
@@ -85,8 +87,9 @@ export function Dungeon(): JSX.Element {
         return;
       }
       setPendingUnlock(null);
+      setActiveRandomEncounter(null);
       pushLog(`Moved to ${x}, ${y}.`, '');
-      queryClient.setQueryData(['dungeon', id], (old: any) => {
+      queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
         if (!old) return old;
         return { ...old, run: res.run };
       });
@@ -101,11 +104,15 @@ export function Dungeon(): JSX.Element {
         pushLog(`Ambushed by enemies!`, 'hit');
         setActiveEncounterId(res.triggeredEncounterId);
       }
+      if (res.randomEncounter) {
+        pushLog(`Wild encounter!`, 'hit');
+        setActiveRandomEncounter(res.randomEncounter);
+      }
       if (Object.hasOwn(res, 'warpToDungeonId')) {
         navigate(res.warpToDungeonId === null ? '/world' : `/dungeon/${res.warpToDungeonId}`);
       }
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       flashToast(err.message || 'Cannot move there.');
     },
   });
@@ -134,7 +141,7 @@ export function Dungeon(): JSX.Element {
       return defeatEncounter(id, encId);
     },
     onSuccess: (res) => {
-      queryClient.setQueryData(['dungeon', id], (old: any) => {
+      queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
         if (!old) return old;
         return { ...old, run: res.run };
       });
@@ -160,6 +167,23 @@ export function Dungeon(): JSX.Element {
     },
   });
 
+  const startRandomEncounterMutation = useMutation({
+    mutationFn: async (digimon: readonly EncounterDigimon[]) => {
+      if (!id) throw new Error('No dungeon id');
+      return startRandomEncounter(id, digimon);
+    },
+    onSuccess: ({ battle }) => {
+      if (!id) return;
+      handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
+      sessionStorage.setItem('dungeon-return', JSON.stringify({ dungeonId: id, encounterId: null, kind: 'random' }));
+      setActiveRandomEncounter(null);
+      navigate('/combat');
+    },
+    onError: (err: Error) => {
+      flashToast(err.message || 'Could not start wild battle.');
+    },
+  });
+
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!id) throw new Error('No dungeon id');
@@ -173,7 +197,7 @@ export function Dungeon(): JSX.Element {
   });
 
   const handleCellClick = (x: number, y: number) => {
-    if (activeEncounterId) {
+    if (activeEncounterId || activeRandomEncounter) {
       flashToast('Resolve the encounter first.');
       return;
     }
@@ -197,7 +221,7 @@ export function Dungeon(): JSX.Element {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (activeEncounterId) return;
+      if (activeEncounterId || activeRandomEncounter) return;
       if (data.run.completedAt) return;
       if (moveMutation.isPending) return;
 
@@ -222,7 +246,7 @@ export function Dungeon(): JSX.Element {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [data, activeEncounterId, moveMutation]);
+  }, [data, activeEncounterId, activeRandomEncounter, moveMutation]);
 
   if (isLoading || !data) {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
@@ -359,8 +383,26 @@ export function Dungeon(): JSX.Element {
             </div>
           ))}
         </div>
-        <div className={`enc${activeEncounter ? '' : ' empty'}`}>
+        <div className={`enc${activeEncounter || activeRandomEncounter ? '' : ' empty'}`}>
           <div className="idle">Walk the grid. Encounters surface here.</div>
+          {activeRandomEncounter ? (
+            <div className="ecard wild-card">
+              <div className="ek">wild · Random Encounter</div>
+              <h3>Wild encounter!</h3>
+              <div className="emons">
+                {activeRandomEncounter.map((mon, index) => (
+                  <div key={`${mon.catalogId}-${index}`} className="emon">
+                    <span className="esprite" aria-hidden="true">{mon.catalogId.charAt(0).toUpperCase()}</span>
+                    <span className="enm">{mon.nickname || mon.catalogId}<span className="elv">Lv {mon.level}</span></span>
+                  </div>
+                ))}
+              </div>
+              <button type="button" className="ebtn" onClick={() => startRandomEncounterMutation.mutate(activeRandomEncounter)} disabled={startRandomEncounterMutation.isPending}>
+                {startRandomEncounterMutation.isPending ? 'Entering...' : 'Start Battle'}
+              </button>
+              <button type="button" className="ebtn secondary" onClick={() => setActiveRandomEncounter(null)} disabled={startRandomEncounterMutation.isPending}>Back away</button>
+            </div>
+          ) : null}
           {activeEncounter ? (
             <div className="ecard">
               <div className="ek">{activeEncounter.difficulty} · Encounter</div>

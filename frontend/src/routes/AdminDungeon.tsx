@@ -2,19 +2,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties, FormEvent, MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonView, DungeonWarp, EncounterDigimon } from '@digiworld/shared';
-import type { TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Dungeon, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonView, DungeonWarp, EncounterDigimon } from '@digiworld/shared';
+import { ELEMENTS, STAGES, type Element, type Stage, type TemplateDigimon } from '@digiworld/shared/digimon';
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { getCatalog, getShopItems, type ShopItemView } from '../lib/api-admin';
 import { createAdminDoor, createAdminEncounter, createAdminItem, createAdminWarp, deleteAdminDoor, deleteAdminEncounter, deleteAdminItem, deleteAdminWarp, getAdminDungeon, listAdminDungeons, putAdminDungeonTiles, updateAdminDoor, updateAdminDungeon, updateAdminEncounter, updateAdminWarp } from '../lib/api-dungeon-admin';
 import '../styles/extensions-admin.css';
 
-type Tool = 'PATH' | 'SPAWN' | 'ENCOUNTERS' | 'ITEMS' | 'WARPS' | 'DOORS';
+type Tool = 'PATH' | 'SPAWN' | 'ENCOUNTERS' | 'ITEMS' | 'WARPS' | 'DOORS' | 'RANDOM';
 type PathTool = 'PAINT' | 'LINE' | 'RECTANGLE';
 type Cell = { readonly x: number; readonly y: number };
 type Difficulty = DungeonEncounter['difficulty'];
 
-const TOOLS: readonly Tool[] = ['PATH', 'SPAWN', 'ENCOUNTERS', 'ITEMS', 'WARPS', 'DOORS'] as const;
+const TOOLS: readonly Tool[] = ['PATH', 'SPAWN', 'ENCOUNTERS', 'ITEMS', 'WARPS', 'DOORS', 'RANDOM'] as const;
 const PATH_TOOLS: readonly PathTool[] = ['PAINT', 'LINE', 'RECTANGLE'] as const;
 const ADMIN_DUNGEON_QUERY = (id: string): readonly string[] => ['admin-dungeon', id] as const;
 
@@ -240,6 +240,7 @@ export function AdminDungeon(): JSX.Element {
           <ToolContext
             dungeonId={dungeonId}
             tool={tool}
+            dungeon={dungeon}
             pathTool={pathTool}
             selectedCell={selectedCell}
             pendingStart={pendingStart}
@@ -259,8 +260,9 @@ export function AdminDungeon(): JSX.Element {
   );
 }
 
-function ToolContext({ dungeonId, tool, pathTool, selectedCell, pendingStart, isWalkable, encounter, item, warp, door, catalog, dungeons, shopItems }: { readonly dungeonId: string; readonly tool: Tool; readonly pathTool: PathTool; readonly selectedCell: Cell | null; readonly pendingStart: Cell | null; readonly isWalkable: boolean; readonly encounter?: DungeonEncounter | undefined; readonly item?: DungeonItem | undefined; readonly warp?: DungeonWarp | undefined; readonly door?: DungeonDoor | undefined; readonly catalog: readonly TemplateDigimon[]; readonly dungeons: readonly { readonly id: string; readonly name: string }[]; readonly shopItems: readonly ShopItemView[] }): JSX.Element {
+function ToolContext({ dungeonId, tool, dungeon, pathTool, selectedCell, pendingStart, isWalkable, encounter, item, warp, door, catalog, dungeons, shopItems }: { readonly dungeonId: string; readonly tool: Tool; readonly dungeon: Dungeon; readonly pathTool: PathTool; readonly selectedCell: Cell | null; readonly pendingStart: Cell | null; readonly isWalkable: boolean; readonly encounter?: DungeonEncounter | undefined; readonly item?: DungeonItem | undefined; readonly warp?: DungeonWarp | undefined; readonly door?: DungeonDoor | undefined; readonly catalog: readonly TemplateDigimon[]; readonly dungeons: readonly { readonly id: string; readonly name: string }[]; readonly shopItems: readonly ShopItemView[] }): JSX.Element {
   if (tool === 'PATH') return <div className="admin-editor-panel"><h3>Path drawing</h3><p className="muted">{pathTool === 'LINE' || pathTool === 'RECTANGLE' ? pendingStart ? `Choose an end cell from ${pendingStart.x}, ${pendingStart.y}. Escape or right-click cancels.` : 'Click a start cell.' : 'Drag across cells to paint the path layer.'}</p></div>;
+  if (tool === 'RANDOM') return <RandomEncountersEditor dungeonId={dungeonId} dungeon={dungeon} />;
   if (!selectedCell) return <div className="admin-editor-panel"><h3>{tool}</h3><p className="muted">Select a walkable cell.</p></div>;
   if (!isWalkable) return <div className="admin-editor-panel"><h3>Cell {selectedCell.x}, {selectedCell.y}</h3><p className="muted">This tile is not walkable.</p></div>;
   if (tool === 'SPAWN') return <div className="admin-editor-panel"><h3>Spawn moved</h3><p className="muted">Click any walkable cell to place the red S badge.</p></div>;
@@ -268,6 +270,38 @@ function ToolContext({ dungeonId, tool, pathTool, selectedCell, pendingStart, is
   if (tool === 'ITEMS') return <ItemEditor dungeonId={dungeonId} x={selectedCell.x} y={selectedCell.y} {...(item ? { item } : {})} />;
   if (tool === 'WARPS') return <WarpEditor dungeonId={dungeonId} x={selectedCell.x} y={selectedCell.y} dungeons={dungeons.filter((dungeon) => dungeon.id !== dungeonId)} {...(warp ? { warp } : {})} />;
   return <DoorEditor dungeonId={dungeonId} x={selectedCell.x} y={selectedCell.y} shopItems={shopItems} {...(door ? { door } : {})} />;
+}
+
+function RandomEncountersEditor({ dungeonId, dungeon }: { readonly dungeonId: string; readonly dungeon: Dungeon }): JSX.Element {
+  const queryClient = useQueryClient();
+  const updateMut = useMutation({
+    mutationFn: (body: Pick<Dungeon, 'randomEncountersEnabled' | 'randomEncounterRate' | 'randomMinLevel' | 'randomMaxLevel' | 'randomMaxStage' | 'randomMinPartySize' | 'randomMaxPartySize' | 'randomAllowedElements'>) => updateAdminDungeon(dungeonId, body),
+    onSuccess: ({ dungeon: updated }) => queryClient.setQueryData<DungeonView>(ADMIN_DUNGEON_QUERY(dungeonId), (old) => old ? { ...old, dungeon: updated } : old),
+  });
+  const [enabled, setEnabled] = useState(dungeon.randomEncountersEnabled);
+  const [allowedElements, setAllowedElements] = useState<readonly Element[]>(dungeon.randomAllowedElements ?? []);
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const minLevel = toPositiveInt(form.get('randomMinLevel'), 1);
+    const maxLevel = Math.max(minLevel, toPositiveInt(form.get('randomMaxLevel'), 5));
+    const minPartySize = clamp(toPositiveInt(form.get('randomMinPartySize'), 1), 1, 3);
+    const maxPartySize = clamp(Math.max(minPartySize, toPositiveInt(form.get('randomMaxPartySize'), 1)), 1, 3);
+    updateMut.mutate({
+      randomEncountersEnabled: enabled,
+      randomEncounterRate: clamp(toFloat(form.get('randomEncounterRate'), 0.12), 0, 1),
+      randomMinLevel: minLevel,
+      randomMaxLevel: maxLevel,
+      randomMaxStage: toStage(form.get('randomMaxStage')),
+      randomMinPartySize: minPartySize,
+      randomMaxPartySize: maxPartySize,
+      randomAllowedElements: allowedElements.length > 0 ? allowedElements : null,
+    });
+  };
+  const toggleElement = (element: Element): void => {
+    setAllowedElements((current) => current.includes(element) ? current.filter((entry) => entry !== element) : [...current, element]);
+  };
+  return <div className="admin-editor-panel random-encounter-editor"><h3>Random encounters</h3><p className="muted">Dungeon-wide wild rolls. Static encounters, warps, and locked doors still take priority.</p><form onSubmit={submit}><label className="random-toggle"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Enabled <b>{enabled ? 'ON' : 'OFF'}</b></label><label>Encounter rate<input name="randomEncounterRate" type="number" min="0" max="1" step="0.01" defaultValue={dungeon.randomEncounterRate} /></label><div className="random-range-grid"><label>Min level<input name="randomMinLevel" type="number" min="1" max="999" defaultValue={dungeon.randomMinLevel} /></label><label>Max level<input name="randomMaxLevel" type="number" min="1" max="999" defaultValue={dungeon.randomMaxLevel} /></label></div><label>Max stage<select name="randomMaxStage" defaultValue={dungeon.randomMaxStage}>{STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}</select></label><div className="random-range-grid"><label>Min party<input name="randomMinPartySize" type="number" min="1" max="3" defaultValue={dungeon.randomMinPartySize} /></label><label>Max party<input name="randomMaxPartySize" type="number" min="1" max="3" defaultValue={dungeon.randomMaxPartySize} /></label></div><fieldset className="random-elements"><legend>Allowed elements</legend><p className="muted">None selected means all elements.</p><div>{ELEMENTS.map((element) => <button key={element} type="button" className={allowedElements.includes(element) ? 'is-active' : ''} onClick={() => toggleElement(element)}>{element}</button>)}</div></fieldset><div className="admin-poi-actions"><button type="submit" disabled={updateMut.isPending}>{updateMut.isPending ? 'Saving...' : 'Save random settings'}</button>{updateMut.isSuccess ? <span className="muted">Saved.</span> : null}</div></form></div>;
 }
 
 function EncounterEditor({ dungeonId, x, y, encounter, catalog }: { readonly dungeonId: string; readonly x: number; readonly y: number; readonly encounter?: DungeonEncounter; readonly catalog: readonly TemplateDigimon[] }): JSX.Element {
@@ -349,4 +383,8 @@ function bresenhamLine(a: Cell, b: Cell): readonly Cell[] { const cells: Cell[] 
 function replaceAt<T>(items: readonly T[], index: number, value: T): T[] { return items.map((entry, entryIndex) => entryIndex === index ? value : entry); }
 function toOptionalText(value: FormDataEntryValue | null): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
 function toDifficulty(value: FormDataEntryValue | null): Difficulty { return value === 'easy' || value === 'normal' || value === 'elite' || value === 'boss' ? value : 'normal'; }
+function toStage(value: FormDataEntryValue | null): Stage { return typeof value === 'string' && STAGES.includes(value as Stage) ? value as Stage : 'Rookie'; }
+function toPositiveInt(value: FormDataEntryValue | null, fallback: number): number { const parsed = typeof value === 'string' ? Number.parseInt(value, 10) : Number.NaN; return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback; }
+function toFloat(value: FormDataEntryValue | null, fallback: number): number { const parsed = typeof value === 'string' ? Number.parseFloat(value) : Number.NaN; return Number.isFinite(parsed) ? parsed : fallback; }
+function clamp(value: number, min: number, max: number): number { return Math.min(max, Math.max(min, value)); }
 function assertNever(value: never): never { throw new Error(`Unhandled value: ${String(value)}`); }
