@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import type { CSSProperties, ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 
+import {
+  AdminCogIcon,
+  AdminDotIcon,
+  AdventureIcon,
+  ArenaIcon,
+  BackIcon,
+  DigidexIcon,
+  DungeonIcon,
+  FactoryIcon,
+  FarmIcon,
+  MarketIcon,
+  NurseryIcon,
+  RosterIcon,
+  TrainingIcon,
+  WorldIcon,
+} from './common/icons';
 import { useAuth } from '../hooks/useAuth';
 import { getFarm } from '../lib/api-farm';
 import { getRoster } from '../lib/api';
@@ -74,96 +90,20 @@ function pageScopeFor(pathname: string): string {
   return '';
 }
 
-const ICON_FACTORY: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M3 20V10l5 3V10l5 3V6l6 4v10z" />
-    <path d="M7 20v-4M12 20v-4M17 20v-4" />
-  </svg>
-);
-const ICON_FARM: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M4 20v-6a8 8 0 0 1 16 0v6" />
-    <path d="M4 20h16M9 20v-4a3 3 0 0 1 6 0v4M12 6V3" />
-  </svg>
-);
-const ICON_ADVENTURE: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z" />
-    <path d="M9.5 12l1.8 1.8L15 10" />
-  </svg>
-);
-const ICON_NURSERY: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z" />
-  </svg>
-);
-const ICON_TRAINING: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M6.5 6.5l11 11" />
-    <path d="M4 9l-1.5-1.5 2-2L6 7M15 18l1.5 1.5 2-2L17 15" />
-    <path d="M9 4l2 2M18 13l2 2M4 15l2 2M13 6l2 2" />
-  </svg>
-);
-const ICON_MARKET: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M4 7h16l-1.2 4.5H5.2L4 7z" />
-    <path d="M5.2 11.5V19h13.6v-7.5" />
-    <path d="M4 7l1-3h14l1 3" />
-  </svg>
-);
-const ICON_DIGIDEX: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
-    <path d="M12 3v18M4 7.5l8 4.5 8-4.5" />
-  </svg>
-);
-const ICON_ROSTER: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <circle cx="9" cy="8" r="3.2" />
-    <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-    <path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5" />
-  </svg>
-);
-const ICON_WORLD: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z" />
-  </svg>
-);
-const ICON_ARENA: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z" />
-    <circle cx="12" cy="12" r="9" />
-  </svg>
-);
-const ICON_DUNGEON: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <rect x="3" y="3" width="7" height="7" />
-    <rect x="14" y="3" width="7" height="7" />
-    <rect x="3" y="14" width="7" height="7" />
-    <rect x="14" y="14" width="7" height="7" />
-    <circle cx="12" cy="12" r="1.4" fill="currentColor" />
-  </svg>
-);
-
-const ICON_ADMIN_DOT: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <circle cx="12" cy="12" r="3.5" />
-    <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
-  </svg>
-);
-const ICON_ADMIN_COG: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 3v3M12 18v3M4.2 7.5l2.6 1.5M17.2 15l2.6 1.5M19.8 7.5 17.2 9M6.8 15l-2.6 1.5" />
-  </svg>
-);
-const ICON_BACK: ReactNode = (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-    <path d="M10 6 4 12l6 6" />
-    <path d="M5 12h15" />
-  </svg>
-);
+const ICON_FACTORY: ReactNode = <FactoryIcon />;
+const ICON_FARM: ReactNode = <FarmIcon />;
+const ICON_ADVENTURE: ReactNode = <AdventureIcon />;
+const ICON_NURSERY: ReactNode = <NurseryIcon />;
+const ICON_TRAINING: ReactNode = <TrainingIcon />;
+const ICON_MARKET: ReactNode = <MarketIcon />;
+const ICON_DIGIDEX: ReactNode = <DigidexIcon />;
+const ICON_ROSTER: ReactNode = <RosterIcon />;
+const ICON_WORLD: ReactNode = <WorldIcon />;
+const ICON_ARENA: ReactNode = <ArenaIcon />;
+const ICON_DUNGEON: ReactNode = <DungeonIcon />;
+const ICON_ADMIN_DOT: ReactNode = <AdminDotIcon />;
+const ICON_ADMIN_COG: ReactNode = <AdminCogIcon />;
+const ICON_BACK: ReactNode = <BackIcon />;
 
 const TOWN: readonly NavEntry[] = [
   { to: '/factory',   label: 'Factory',    svg: ICON_FACTORY },

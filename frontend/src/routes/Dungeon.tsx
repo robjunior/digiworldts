@@ -15,15 +15,13 @@ import { getShop } from '../lib/api-shop';
 import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 
+import { DungeonGrid } from '../components/dungeon/DungeonGrid';
+import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
+import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
+import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
+import { DungeonStrip } from '../components/dungeon/DungeonStrip';
+import type { LogEntry, PendingUnlock } from '../components/dungeon/types';
 import '../styles/extensions-dungeon.css';
-
-type LogEntry = {
-  readonly text: string;
-  readonly cls: '' | 'hit' | 'item';
-  readonly step: number;
-};
-
-type PendingUnlock = { readonly doorId: string; readonly keyItemId: string };
 
 export function Dungeon(): JSX.Element {
   const { id } = useParams();
@@ -247,7 +245,7 @@ export function Dungeon(): JSX.Element {
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
   // Determine active encounter object
-  const activeEncounter = activeEncounterId ? encounters.find((e) => e.id === activeEncounterId) : null;
+  const activeEncounter = activeEncounterId ? (encounters.find((e) => e.id === activeEncounterId) ?? null) : null;
   const pendingDoor = pendingUnlock ? doors.find((door) => door.id === pendingUnlock.doorId) ?? null : null;
   const pendingKeyItemId = pendingDoor?.keyItemId ?? pendingUnlock?.keyItemId ?? '';
   const keyInventory = shopQuery.data?.inventory.find((entry) => entry.itemId === pendingKeyItemId) ?? null;
@@ -255,92 +253,35 @@ export function Dungeon(): JSX.Element {
   const keyName = keyInventory?.name ?? keyItem?.name ?? pendingKeyItemId;
   const canUnlock = (keyInventory?.qty ?? 0) >= 1;
 
-  // Build grid map
-  const gridCells = [];
-  const tilesSet = new Set(tiles.map((t) => `${t.x},${t.y}`));
-
-  for (let y = 0; y < dungeon.height; y++) {
-    for (let x = 0; x < dungeon.width; x++) {
-      const isWalkable = tilesSet.has(`${x},${y}`);
-      const isPlayer = run.currentX === x && run.currentY === y;
-      const isAdjacent = !isPlayer && isWalkable && (Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1);
-      
-      const encounterAt = encounters.find((e) => e.x === x && e.y === y);
-      const isUndefeatedEncounter = encounterAt && !run.defeatedEncounters.includes(encounterAt.id);
-      
-      const itemAt = items.find((i) => i.x === x && i.y === y);
-      const isUncollectedItem = itemAt && !run.collectedItems.includes(itemAt.id);
-      const doorAt = doors.find((door) => door.x === x && door.y === y);
-      const isLockedDoor = doorAt ? !run.unlockedDoors.includes(doorAt.id) : false;
-
-      let cellClass = 'dcell';
-      if (!isWalkable) cellClass += ' wall';
-      else {
-        cellClass += ' walk';
-        if (isPlayer) cellClass += ' player';
-        else if (isUndefeatedEncounter) cellClass += ' enc';
-        else if (isUncollectedItem) cellClass += ' item';
-        if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
-        if (isAdjacent) cellClass += ' adj';
-      }
-
-      gridCells.push(
-        <div
-          key={`${x},${y}`}
-          className={cellClass}
-          onClick={() => {
-            if (isWalkable && !isPlayer) handleCellClick(x, y);
-          }}
-        >
-          {isPlayer && party.length > 0 && (
-            <div className="party-marker" aria-label="Your party">
-              {party.map((mon) => (
-                <img
-                  key={mon.id}
-                  className="party-sprite"
-                  src={`/assets/digimon/${mon.catalogId}/dot.gif`}
-                  alt={mon.nickname || mon.template?.name || 'party member'}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-                />
-              ))}
-            </div>
-          )}
-          {doorAt && !isPlayer ? <span className="door-marker">D</span> : null}
-        </div>
-      );
-    }
-  }
-
   return (
     <>
       <div className="stage" data-od-id="dungeon-stage" style={{ '--el': 'var(--el-light)' } as CSSProperties}>
-        <div className="dstrip">
-          <span className="dk">{dungeon.name}</span>
-          <span className="dv">Tile<b>{run.currentX}, {run.currentY}</b></span>
-        </div>
-        <Link to="/world" className="leave" aria-label="Leave dungeon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M14 5l-7 7 7 7M20 12H7" />
-          </svg>
-          Leave
-        </Link>
+        <DungeonStrip
+          dungeonName={dungeon.name}
+          currentX={run.currentX}
+          currentY={run.currentY}
+        />
 
         <div className="view">
           {pendingDoor ? (
-            <div className="door-unlock-prompt" role="status" aria-live="polite">
-              <div><b>{pendingDoor.label ?? 'Locked door'}</b><span>Requires: {keyName}</span></div>
-              <button type="button" onClick={() => unlockMutation.mutate(pendingDoor.id)} disabled={!canUnlock || unlockMutation.isPending}>{unlockMutation.isPending ? 'Unlocking...' : 'Unlock'}</button>
-              {!canUnlock ? <span className="door-unlock-missing">You need a {keyName}.</span> : null}
-            </div>
+            <DungeonDoorPrompt
+              pendingDoor={pendingDoor}
+              keyName={keyName}
+              canUnlock={canUnlock}
+              isUnlocking={unlockMutation.isPending}
+              onUnlock={(doorId) => unlockMutation.mutate(doorId)}
+            />
           ) : null}
-          <div className="dgrid" style={{ 
-            '--dw': dungeon.width,
-            '--dh': dungeon.height,
-            gridTemplateColumns: `repeat(${dungeon.width}, 1fr)`,
-            gridTemplateRows: `repeat(${dungeon.height}, 1fr)`,
-          } as CSSProperties}>
-            {gridCells}
-          </div>
+          <DungeonGrid
+            dungeon={dungeon}
+            run={run}
+            tiles={tiles}
+            encounters={encounters}
+            items={items}
+            doors={doors}
+            party={party}
+            onCellClick={handleCellClick}
+          />
         </div>
 
         <div className="controls">
@@ -351,70 +292,28 @@ export function Dungeon(): JSX.Element {
       </div>
 
       <aside className="rail" data-od-id="run-rail">
-        <div className="rhead">
-          <div className="rt">Run Log</div>
-          <div className="rs"><b>{dungeon.name}</b> · Steps {stepCount} · Encounters {run.defeatedEncounters.length}/{encounters.length}</div>
-          {!isComplete && allEncountersDefeated && (
-            <button
-              className="ebtn"
-              style={{ marginTop: 10 }}
-              onClick={() => completeMutation.mutate()}
-              disabled={completeMutation.isPending}
-            >
-              Complete Dungeon
-            </button>
-          )}
-        </div>
-        <div className="log" role="log" aria-live="polite">
-          {logs.map((row, i) => (
-            <div key={i} className={`lrow${row.cls ? ` ${row.cls}` : ''}`}>
-              <span className="lt">{String(row.step).padStart(2, '0')}</span>
-              <span className="lx">{row.text}</span>
-            </div>
-          ))}
-        </div>
+        <DungeonRunLog
+          dungeonName={dungeon.name}
+          stepCount={stepCount}
+          defeatedCount={run.defeatedEncounters.length}
+          totalEncounters={encounters.length}
+          isComplete={isComplete}
+          allEncountersDefeated={allEncountersDefeated}
+          isCompleting={completeMutation.isPending}
+          onComplete={() => completeMutation.mutate()}
+          logs={logs}
+        />
         <div className={`enc${activeEncounter || activeRandomEncounter ? '' : ' empty'}`}>
           <div className="idle">Walk the grid. Encounters surface here.</div>
-          {activeRandomEncounter ? (
-            <div className="ecard wild-card">
-              <div className="ek">wild · Random Encounter</div>
-              <h3>Wild encounter!</h3>
-              <div className="emons">
-                {activeRandomEncounter.map((mon, index) => (
-                  <div key={`${mon.catalogId}-${index}`} className="emon">
-                    <span className="esprite" aria-hidden="true">{mon.catalogId.charAt(0).toUpperCase()}</span>
-                    <span className="enm">{mon.nickname || mon.catalogId}<span className="elv">Lv {mon.level}</span></span>
-                  </div>
-                ))}
-              </div>
-              <button type="button" className="ebtn" onClick={() => startRandomEncounterMutation.mutate(activeRandomEncounter)} disabled={startRandomEncounterMutation.isPending}>
-                {startRandomEncounterMutation.isPending ? 'Entering...' : 'Start Battle'}
-              </button>
-              <button type="button" className="ebtn secondary" onClick={() => setActiveRandomEncounter(null)} disabled={startRandomEncounterMutation.isPending}>Back away</button>
-            </div>
-          ) : null}
-          {activeEncounter ? (
-            <div className="ecard">
-              <div className="ek">{activeEncounter.difficulty} · Encounter</div>
-              <h3>{activeEncounter.label || 'Wild Digimon'}</h3>
-              <div className="emons">
-                {activeEncounter.digimon.map((m, i) => (
-                  <div key={i} className="emon">
-                    <span className="esprite" aria-hidden="true">{m.catalogId.charAt(0).toUpperCase()}</span>
-                    <span className="enm">{m.nickname || m.catalogId}<span className="elv">Lv {m.level}</span></span>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="ebtn"
-                onClick={() => startEncounterMutation.mutate(activeEncounter.id)}
-                disabled={startEncounterMutation.isPending}
-              >
-                {startEncounterMutation.isPending ? 'Entering...' : 'Enter Battle'}
-              </button>
-            </div>
-          ) : null}
+          <DungeonEncounterCard
+            activeEncounter={activeEncounter}
+            activeRandomEncounter={activeRandomEncounter}
+            isStartingRandom={startRandomEncounterMutation.isPending}
+            isStartingEncounter={startEncounterMutation.isPending}
+            onStartRandom={(mon) => startRandomEncounterMutation.mutate(mon)}
+            onCancelRandom={() => setActiveRandomEncounter(null)}
+            onStartEncounter={(encId) => startEncounterMutation.mutate(encId)}
+          />
         </div>
       </aside>
 

@@ -1,60 +1,23 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
-import * as THREE from 'three';
 
-import { QuestPane } from '../components/world/QuestPane';
 import { getWorldRegions } from '../lib/api-world';
 import { acceptQuest, claimQuest, getQuests } from '../lib/api-quests';
-import type { WorldRegion } from '@digiworld/shared/world';
-import type { Biome } from '@digiworld/shared/world';
+import type { WorldRegion, Biome } from '@digiworld/shared/world';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/extensions-world.css';
 
-const ELHEX: Record<string, number> = {
-  fire: 0xe6001f, water: 0x4aa3ff, plant: 0x3fbf6f, electricity: 0xe8c33a,
-  ice: 0x7ad0e6, earth: 0xb98a4a, steel: 0x9fb0bd, wind: 0x63d6c0,
-  light: 0xf2e39a, dark: 0xc03a4a, null: 0x8a877f
-};
-
-const BLURB: Record<string, string> = {
-  desert: 'Heat-warped dunes where Virus-types thrive. Ember storms scour the ridgelines at dusk.',
-  forest: 'Dense canopy sheltering Vaccine-types. The deeper trails hide rarer species.',
-  lake: 'A glass-still basin. Data-types surface at the shallows; the depths run cold.',
-  storm: 'A permanent thunderhead. Free-types charge the air — high risk, high reward.',
-  tundra: 'Frostbitten spires. Slow encounters, but tundra-hardened mons hit hard.',
-  mountain: 'Sheer stone shelves. Earthbound giants guard the passes.',
-  foundry: 'Molten industrial ruins. Steel-types patrol the slag rivers.',
-  plateau: 'Wind-carved highlands. Fast, evasive fliers dominate the currents.',
-  prairie: 'Sunlit grassland. The calmest scouting run — gentle first encounters.',
-  swamp: 'Fog-drowned mire. Dark-types stalk the shallows; visibility is near zero.',
-  void: 'A tear in the map. The Static churns out anomalies. Enter only fully prepared.',
-};
-
-const elVar = (el: string) => `var(--el-${el})`;
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-
-function latLonToVec3(lat: number, lon: number, r: number) {
-  const phi = (90 - lat) * Math.PI / 180;
-  const theta = (lon + 180) * Math.PI / 180;
-  return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
-}
-
-function circlePts(r: number, seg: number, plane: 'xy' | 'xz') {
-  const pts = [];
-  for (let i = 0; i <= seg; i++) {
-    const a = i / seg * Math.PI * 2;
-    if (plane === 'xz') pts.push(new THREE.Vector3(Math.cos(a) * r, 0, Math.sin(a) * r));
-    else pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
-  }
-  return pts;
-}
+import { WorldGlobe } from '../components/world/WorldGlobe';
+import { WorldStrip } from '../components/world/WorldStrip';
+import { WorldHoverTip } from '../components/world/WorldHoverTip';
+import type { WorldHoverTipData } from '../components/world/WorldHoverTip';
+import { RegionRail } from '../components/world/RegionRail';
 
 export function World(): JSX.Element {
   useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   
   const { data: regionsRaw = [] } = useQuery({
     queryKey: ['world-regions'],
@@ -69,7 +32,7 @@ export function World(): JSX.Element {
   const [hoveredIdx, setHoveredIdx] = useState<number>(-1);
   const [autoSpin, setAutoSpin] = useState<boolean>(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [webGLFailed, setWebGLFailed] = useState<boolean>(false);
-  const [hoverTip, setHoverTip] = useState<{ x: number, y: number, name: string, el: string, rawEl: string } | null>(null);
+  const [hoverTip, setHoverTip] = useState<WorldHoverTipData | null>(null);
   const [pendingQuestIds, setPendingQuestIds] = useState<ReadonlySet<string>>(() => new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
@@ -127,24 +90,6 @@ export function World(): JSX.Element {
     }
   }, [regions]);
   
-  const stateRef = useRef({
-    autoSpin,
-    selectedIdx,
-    hoveredIdx,
-    dragging: false,
-    lastX: 0,
-    lastY: 0,
-    rotX: 0.3,
-    rotY: 0,
-    camDist: 3.1,
-  });
-  
-  useEffect(() => {
-    stateRef.current.autoSpin = autoSpin;
-    stateRef.current.selectedIdx = selectedIdx;
-    stateRef.current.hoveredIdx = hoveredIdx;
-  }, [autoSpin, selectedIdx, hoveredIdx]);
-  
   const enterDungeon = useCallback((region: WorldRegion) => {
     if (region.dungeonId) {
       navigate('/dungeon/' + region.dungeonId);
@@ -153,214 +98,30 @@ export function World(): JSX.Element {
     }
   }, [navigate]);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    if (typeof THREE === 'undefined') {
-      setWebGLFailed(true);
-      return;
-    }
-    
-    let renderer: THREE.WebGLRenderer;
-    try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-      if (!renderer.getContext()) throw new Error('No WebGL');
-    } catch (e) {
-      setWebGLFailed(true);
-      return;
-    }
-    
-    const w = canvas.clientWidth || 800;
-    const h = canvas.clientHeight || 600;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(w, h, false);
-    
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
-    camera.position.set(0, 0, stateRef.current.camDist);
-    const clock = new THREE.Clock();
-    const raycaster = new THREE.Raycaster();
-    
-    const globe = new THREE.Group();
-    scene.add(globe);
-    
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.985, 48, 32), new THREE.MeshBasicMaterial({ color: 0x0a0a0c }));
-    globe.add(core);
-    
-    const grid = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 36, 24)),
-      new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.34 })
-    );
-    globe.add(grid);
-    
-    const ringMat = new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.7 });
-    const eq = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePts(1.001, 64, 'xz')), ringMat);
-    globe.add(eq);
-    const mer = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(circlePts(1.001, 64, 'xy')), ringMat);
-    globe.add(mer);
-    
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(1.08, 32, 24),
-      new THREE.MeshBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.05, side: THREE.BackSide }));
-    globe.add(glow);
-    
-    const nodeGroup = new THREE.Group();
-    globe.add(nodeGroup);
-    
-    type NodeMesh = { mesh: THREE.Mesh, ring: THREE.Mesh, data: WorldRegion, idx: number };
-    const nodeMeshes: NodeMesh[] = [];
-    
-    regions.forEach((b, i) => {
-      const pos = latLonToVec3(b.lat, b.lon, 1.0);
-      const col = ELHEX[b.element] || 0xe6001f;
-      const m = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 12), new THREE.MeshBasicMaterial({ color: col }));
-      m.position.copy(pos);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(0.05, 0.066, 20),
-        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
-      ring.position.copy(pos);
-      ring.lookAt(pos.clone().multiplyScalar(2));
-      const stem = new THREE.Line(new THREE.BufferGeometry().setFromPoints([pos.clone(), pos.clone().multiplyScalar(1.12)]),
-        new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 }));
-      nodeGroup.add(m); nodeGroup.add(ring); nodeGroup.add(stem);
-      nodeMeshes.push({ mesh: m, ring, data: b, idx: i });
-    });
-    
-    const resizeGlobe = () => {
-      if (!canvas) return;
-      const rw = canvas.clientWidth || 800, rh = canvas.clientHeight || 600;
-      renderer.setSize(rw, rh, false);
-      camera.aspect = rw / rh;
-      camera.updateProjectionMatrix();
-    };
-    window.addEventListener('resize', resizeGlobe);
-    
-    const ndc = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect();
-      return new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
-    };
-    
-    const pickHover = (e: PointerEvent) => {
-      raycaster.setFromCamera(ndc(e), camera);
-      const hits = raycaster.intersectObjects(nodeMeshes.map(n => n.mesh), false);
-      const firstHit = hits[0];
-      const newHovered = firstHit ? nodeMeshes.findIndex(n => n.mesh === firstHit.object) : -1;
-      setHoveredIdx(newHovered);
-      canvas.style.cursor = newHovered >= 0 ? 'pointer' : (stateRef.current.dragging ? 'grabbing' : 'grab');
-      
-      if (newHovered >= 0) {
-        const n = nodeMeshes[newHovered];
-        if (!n) return;
-        const v = n.mesh.getWorldPosition(new THREE.Vector3()).project(camera);
-        if (v.z <= 1) {
-          const r = canvas.getBoundingClientRect();
-          setHoverTip({
-            x: r.left + (v.x * 0.5 + 0.5) * r.width,
-            y: r.top + (-v.y * 0.5 + 0.5) * r.height,
-            name: n.data.label,
-            el: cap(n.data.element) + ' · Danger ' + n.data.danger,
-            rawEl: n.data.element
-          });
-          return;
-        }
-      }
-      setHoverTip(null);
-    };
-    
-    const onPointerDown = (e: PointerEvent) => {
-      stateRef.current.dragging = true;
-      stateRef.current.lastX = e.clientX;
-      stateRef.current.lastY = e.clientY;
-      canvas.classList.add('drag');
-      canvas.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (stateRef.current.dragging) {
-        const dx = e.clientX - stateRef.current.lastX;
-        const dy = e.clientY - stateRef.current.lastY;
-        stateRef.current.lastX = e.clientX;
-        stateRef.current.lastY = e.clientY;
-        stateRef.current.rotY += dx * 0.006;
-        stateRef.current.rotX = Math.max(-1.2, Math.min(1.2, stateRef.current.rotX + dy * 0.006));
-      } else {
-        pickHover(e);
-      }
-    };
-    const onPointerUp = () => {
-      stateRef.current.dragging = false;
-      canvas.classList.remove('drag');
-    };
-    const onPointerLeave = () => {
-      stateRef.current.dragging = false;
-      setHoveredIdx(-1);
-      setHoverTip(null);
-      canvas.classList.remove('drag');
-    };
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      stateRef.current.camDist = Math.max(1.8, Math.min(5, stateRef.current.camDist + e.deltaY * 0.0016));
-    };
-    const onClick = () => {
-      if (stateRef.current.hoveredIdx >= 0) {
-        setSelectedIdx(stateRef.current.hoveredIdx);
-      }
-    };
-    
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointerleave', onPointerLeave);
-    canvas.addEventListener('wheel', onWheel, { passive: false });
-    canvas.addEventListener('click', onClick);
-    
-    let rafId: number;
-    const animate = () => {
-      rafId = requestAnimationFrame(animate);
-      if (stateRef.current.autoSpin && !stateRef.current.dragging) {
-        stateRef.current.rotY += 0.0016;
-      }
-      globe.rotation.y = stateRef.current.rotY;
-      globe.rotation.x = stateRef.current.rotX;
-      camera.position.z = stateRef.current.camDist;
-      
-      const t = clock.getElapsedTime();
-      nodeMeshes.forEach((n, i) => {
-        const isSel = (i === stateRef.current.hoveredIdx || n.idx === stateRef.current.selectedIdx);
-        const s = isSel ? 1.35 + Math.sin(t * 4) * 0.12 : 1;
-        n.ring.scale.setScalar(s);
-        (n.ring.material as THREE.MeshBasicMaterial).opacity = isSel ? 1 : 0.7;
-      });
-      
-      renderer.render(scene, camera);
-    };
-    animate();
-    
-    return () => {
-      cancelAnimationFrame(rafId);
-      window.removeEventListener('resize', resizeGlobe);
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerup', onPointerUp);
-      canvas.removeEventListener('pointerleave', onPointerLeave);
-      canvas.removeEventListener('wheel', onWheel);
-      canvas.removeEventListener('click', onClick);
-      
-      renderer.dispose();
-      globe.traverse((obj) => {
-        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.LineLoop || obj instanceof THREE.LineSegments) {
-          if (obj.geometry) obj.geometry.dispose();
-          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
-          else if (obj.material) obj.material.dispose();
-        }
-      });
-    };
-  }, [regions]);
+  const handleHoverChange = useCallback((idx: number) => setHoveredIdx(idx), []);
+  const handleSelect = useCallback((idx: number) => setSelectedIdx(idx), []);
+  const handleHoverTip = useCallback((tip: WorldHoverTipData | null) => setHoverTip(tip), []);
+  const handleFailWebGL = useCallback(() => setWebGLFailed(true), []);
+  const handleToggleAutoSpin = useCallback(() => setAutoSpin(prev => !prev), []);
+  const handleTabChange = useCallback((newTab: 'regions' | 'quests') => setTab(newTab), []);
+  const handleAcceptQuest = useCallback((id: string) => acceptMutation.mutate(id), [acceptMutation]);
+  const handleClaimQuest = useCallback((id: string) => claimMutation.mutate(id), [claimMutation]);
 
-  const selectedRegion = selectedIdx !== null ? regions[selectedIdx] : null;
+  const selectedRegion = selectedIdx !== null ? (regions[selectedIdx] ?? null) : null;
 
   return (
     <>
       <div className="stage" data-od-id="globe-stage">
-        <canvas ref={canvasRef} className="world-canvas" id="globe" aria-label="3D world globe"></canvas>
+        <WorldGlobe
+          regions={regions}
+          autoSpin={autoSpin}
+          selectedIdx={selectedIdx}
+          hoveredIdx={hoveredIdx}
+          onHoverChange={handleHoverChange}
+          onSelect={handleSelect}
+          onHoverTip={handleHoverTip}
+          onFailWebGL={handleFailWebGL}
+        />
         
         {webGLFailed && (
           <div className="stage-fallback show" id="globe-fallback" role="img" aria-label="3D globe unavailable — regions still selectable">
@@ -369,119 +130,29 @@ export function World(): JSX.Element {
         )}
 
         <div className="overlay">
-          <div className="wstrip" data-od-id="world-strip">
-            <span className="wk">The World</span>
-            <span className="wv">Region<b id="strip-region">{selectedRegion ? selectedRegion.label : '—'}</b></span>
-            <span className="wv" style={{ borderLeft: '1px solid var(--hair)' }}>Element<b id="strip-el">{selectedRegion ? cap(selectedRegion.element) : '—'}</b></span>
-          </div>
-          
-          <button 
-            className={`spin-toggle ${autoSpin ? 'on' : 'off'}`} 
-            id="spin-toggle" 
-            aria-pressed={autoSpin}
-            onClick={() => setAutoSpin(!autoSpin)}
-          >
-            <span className="dot"></span>Auto-spin: {autoSpin ? 'On' : 'Off'}
-          </button>
-          
-          <div className="whint">Drag to rotate · scroll to zoom · <b>click a node</b> to enter the dungeon</div>
-          
-          {hoverTip && (
-            <div className="rtip show" id="rtip" style={{ left: hoverTip.x, top: hoverTip.y, '--el': elVar(hoverTip.rawEl) } as React.CSSProperties}>
-              <span id="rtip-name">{hoverTip.name}</span>
-              <span className="re" id="rtip-el">{hoverTip.el}</span>
-            </div>
-          )}
+          <WorldStrip
+            selectedRegion={selectedRegion}
+            autoSpin={autoSpin}
+            onToggleAutoSpin={handleToggleAutoSpin}
+          />
+          <WorldHoverTip tip={hoverTip} />
         </div>
       </div>
 
-      <aside className="rail" data-od-id="region-rail">
-        <div className="rtabs" role="tablist" aria-label="Regions and Quests">
-          <button
-            type="button"
-            className="rtab"
-            role="tab"
-            aria-selected={tab === 'regions'}
-            onClick={() => setTab('regions')}
-          >
-            Regions <span className="tcount">{regions.length}</span>
-          </button>
-          <button
-            type="button"
-            className="rtab"
-            role="tab"
-            aria-selected={tab === 'quests'}
-            onClick={() => setTab('quests')}
-          >
-            Quests <span className="tcount">{quests.length}</span>
-          </button>
-        </div>
-
-        <div className={`rpane${tab === 'regions' ? ' show' : ''}`} role="tabpanel" aria-label="Regions" hidden={tab !== 'regions'}>
-          <div className="rhead">
-            <div className="rt">Regions</div>
-            <div className="rs"><b id="rail-count">{regions.length}</b> discovered · sorted by danger</div>
-          </div>
-          
-          <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
-            {[...regions].sort((a, z) => z.danger - a.danger).map((b) => {
-              const i = regions.indexOf(b);
-              const isSel = selectedIdx === i;
-              return (
-                <button 
-                  key={i}
-                  className={`rrow ${isSel ? 'sel' : ''}`} 
-                  data-region={i} 
-                  role="option" 
-                  aria-selected={isSel}
-                  onClick={() => setSelectedIdx(i)}
-                  style={{ '--el': elVar(b.element) } as React.CSSProperties}
-                  aria-label={`${b.label}, ${b.element}, danger ${b.danger} of 5${b.scouted ? ', scouted' : ''}`}
-                >
-                  <span className="rdot"></span>
-                  <span className="rnm">{b.label}<span className="rsub">{cap(b.element)} · {cap(b.biome)}</span></span>
-                  <span className="rdg">D{b.danger}{b.scouted ? ' ·✓' : ''}</span>
-                </button>
-              );
-            })}
-          </div>
-          
-          <div className="rdetail" id="rdetail">
-            {selectedRegion ? (
-              <>
-                <div className="dk">Selected Region</div>
-                <h3>{selectedRegion.label}</h3>
-                <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as React.CSSProperties}>
-                  <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
-                  <span className="rchip" style={{ '--el': 'var(--muted)' } as React.CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
-                  {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as React.CSSProperties}><span className="cx"></span>Scouted</span>}
-                </div>
-                <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
-                <div className="dgauge">
-                  <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
-                  <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
-                </div>
-                <button className="dbtn" id="scout-btn" onClick={() => enterDungeon(selectedRegion)}>Enter Dungeon</button>
-              </>
-            ) : (
-              <div className="rempty">Select a region on the globe or list to scout it.</div>
-            )}
-          </div>
-        </div>
-
-        <div className={`rpane${tab === 'quests' ? ' show' : ''}`} role="tabpanel" aria-label="Quests" hidden={tab !== 'quests'}>
-          <QuestPane
-            quests={quests}
-            regions={regions}
-            loading={questsQuery.isPending}
-            pendingIds={pendingQuestIds}
-            onAreaClick={selectBiome}
-            onLocate={selectBiome}
-            onAccept={(id) => acceptMutation.mutate(id)}
-            onClaim={(id) => claimMutation.mutate(id)}
-          />
-        </div>
-      </aside>
+      <RegionRail
+        regions={regions}
+        quests={quests}
+        selectedIdx={selectedIdx}
+        tab={tab}
+        pendingQuestIds={pendingQuestIds}
+        loadingQuests={questsQuery.isPending}
+        onTabChange={handleTabChange}
+        onSelectIdx={handleSelect}
+        onEnterDungeon={enterDungeon}
+        onSelectBiome={selectBiome}
+        onAcceptQuest={handleAcceptQuest}
+        onClaimQuest={handleClaimQuest}
+      />
     </>
   );
 }

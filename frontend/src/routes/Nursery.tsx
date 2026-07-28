@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 
+import { BalBar, ResourceBal } from '../components/common/BalBar';
+import { SectionHead } from '../components/common/SectionHead';
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
 import { NurseryDigitamaSidebar } from '../components/nursery/NurseryDigitamaSidebar';
 import { NurserySidebar } from '../components/nursery/NurserySidebar';
@@ -97,61 +99,24 @@ export function Nursery(): JSX.Element {
   const totalWeight = dataQuery.data?.totalWeight ?? 0;
   const error = queryError(nurseryQuery.error, careMutation.error, hatchMutation.error, mixMutation.error, collectMutation.error, dataQuery.error, pendingQuery.error);
 
+  const nurserySubtitle = view
+    ? view.mons.filter((m) => m.mood < 35).length > 0
+      ? `${view.mons.filter((m) => m.mood < 35).length} need attention`
+      : 'all content'
+    : '—';
+
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
       <>
-        <div className="balbar" data-od-id="resource-balance" id="balbar">
-          <div className="bal" data-res="meat">
-            <div className="ic">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M12 3c4 0 7 3 7 7 0 5-4 9-7 11-3-2-7-6-7-11 0-4 3-7 7-7z"/>
-                <path d="M9 9c1-1 4-1 5 0"/>
-              </svg>
-            </div>
-            <div className="col">
-              <div className="k">Meat</div>
-              <div className="v" id="hud-meat">{view?.meat ?? '—'}</div>
-            </div>
-          </div>
-          <div className="bal" data-res="data">
-            <div className="ic">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <ellipse cx="12" cy="6" rx="7" ry="3"/>
-                <path d="M5 6v12c0 1.6 3.1 3 7 3s7-1.4 7-3V6"/>
-                <path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3"/>
-              </svg>
-            </div>
-            <div className="col">
-              <div className="k">Data species</div>
-              <div className="v">{dataEntries.length}</div>
-            </div>
-          </div>
-          <div className="bal" data-res="mons">
-            <div className="ic">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="9" cy="8" r="3.2"/>
-                <path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/>
-                <path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/>
-              </svg>
-            </div>
-            <div className="col">
-              <div className="k">In care</div>
-              <div className="v">{view?.mons.length ?? 0}</div>
-            </div>
-          </div>
-          <div className="strip-title">
-            <div className="k">Nursery</div>
-            <div className="s" id="nurseryline">
-              {view ? (view.mons.filter(m => m.mood < 35).length > 0 ? `${view.mons.filter(m => m.mood < 35).length} need attention` : 'all content') : '—'}
-            </div>
-          </div>
-        </div>
+        <BalBar title="Nursery" subtitle={nurserySubtitle} odId="resource-balance">
+          <ResourceBal resource="meat" label="Meat" value={view?.meat ?? '—'} />
+          <ResourceBal resource="dataspecies" label="Data species" value={dataEntries.length} />
+          <ResourceBal resource="mons" label="In care" value={view?.mons.length ?? 0} />
+        </BalBar>
 
         <div className="scroll">
           <div className="col left">
-            <h3 className="stitle">
-              Care <span className="cnt" id="care-count">{view?.mons ? `${view.mons.length} in care` : '—'}</span>
-            </h3>
+            <SectionHead title="Care" count={view?.mons ? `${view.mons.length} in care` : '—'} />
             <NurserySidebar
               view={view}
               loading={nurseryQuery.isPending}
@@ -162,7 +127,7 @@ export function Nursery(): JSX.Element {
           </div>
 
           <div className="col right">
-            <h3 className="stitle">Hatchery</h3>
+            <SectionHead title="Hatchery" />
             <div className="rstack">
               <div className="rbox hatchery" data-od-id="hatchery">
                 <div className="rh">

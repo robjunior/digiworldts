@@ -1,8 +1,7 @@
 import type { Action, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
-import type { Ailment } from '@digiworld/shared/digimon';
 import type { WSClientMessage } from '@digiworld/shared/ws';
 import { useQueryClient } from '@tanstack/react-query';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
 import { CommandPanel, type CommandMode } from '../combat/CommandPanel';
@@ -13,6 +12,15 @@ import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
 import { isAnimatedElement } from '../../scene3d/attack-runners/types';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
+
+import { AilmentBadgesLayer } from './AilmentBadgesLayer';
+import { EnemyHealthBars } from './EnemyHealthBars';
+import { PartyCard } from './PartyCard';
+import { BattleFeed } from './BattleFeed';
+import { EnemyRail } from './EnemyRail';
+import { Floaters, type Floater3D } from './Floaters';
+import { AutobattleToggle } from './AutobattleToggle';
+import { SideBadge, TeamBadge, TopBar } from './SideAndTopBadges';
 
 const ATTACK_PROPAGATION_MS = 700;
 const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
@@ -47,7 +55,18 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
   return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
-type Floater3D = { readonly id: string; readonly text: string; readonly kind: 'dmg' | 'crit' | 'miss' | 'resist'; readonly x: number; readonly y: number };
+function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
+  if (actor === null) return null;
+  if (action.type === 'skill') {
+    const skill = actor.skills.find((s) => s.id === action.skillId);
+    if (skill && isAnimatedElement(skill.element)) return { sourceId: actor.id, targetId: action.targetId, element: skill.element };
+    return null;
+  }
+  if (action.type === 'fight' && isAnimatedElement(actor.element)) {
+    return { sourceId: actor.id, targetId: action.targetId, element: actor.element };
+  }
+  return null;
+}
 
 export function Combat3DBody(): JSX.Element | null {
   const { send, readyState } = useWebSocket();
@@ -70,7 +89,6 @@ export function Combat3DBody(): JSX.Element | null {
   const dispatchPendingRef = useRef<boolean>(false);
   const autobattleKeyRef = useRef<string | null>(null);
   const cmdRef = useRef<HTMLDivElement | null>(null);
-  const logBodyRef = useRef<HTMLDivElement | null>(null);
   const enemyPlaybackRef = useRef<{ queue: BattleView['log']; timer: number | null }>({ queue: [], timer: null });
 
   useEffect(() => {
@@ -93,12 +111,6 @@ export function Combat3DBody(): JSX.Element | null {
   }, [autobattle]);
 
   const displayEvents = battleEvents.length > 0 ? battleEvents : activeBattle?.log ?? [];
-
-  useEffect(() => {
-    const el = logBodyRef.current;
-    if (el === null) return;
-    el.scrollTop = el.scrollHeight;
-  }, [displayEvents.length]);
 
   const actor = useMemo<FriendlyUnitView | null>(() => {
     if (!activeBattle) return null;
@@ -278,8 +290,6 @@ export function Combat3DBody(): JSX.Element | null {
   if (activeBattle === null) return null;
 
   const canAct = activeBattle.yourTurn && actor !== null && !actor.down && activeBattle.status === 'active';
-  const yourSide = activeBattle.yourSide;
-  const oppSide = yourSide === 'a' ? 'b' : 'a';
   const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
 
   return (
@@ -295,68 +305,22 @@ export function Combat3DBody(): JSX.Element | null {
       
       <div className="overlay">
         <div className="side-badge">
-          <div className="sb">
-            <span className="k">Wild Pack</span>
-            <span className="pips">
-              {activeBattle.enemy.map((e) => (
-                <span key={e.id} className={`pip ${e.down || e.hp <= 0 ? '' : 'alive'}`} title={e.name} />
-              ))}
-            </span>
-          </div>
-          <aside className="feed" aria-label="Battle feed">
-            <h4>Battle Feed</h4>
-            <div className="feedbody" role="log" aria-live="polite" aria-relevant="additions" ref={logBodyRef}>
-              {displayEvents.slice(-30).map((event, idx) => (
-                <div key={`log-${idx}-${event.at}`} className="mrow">
-                  <span className="rd">R{event.type === 'round-start' ? event.round : (activeBattle.round)}</span>
-                  <span className="men">{renderEventText(event, activeBattle)}</span>
-                </div>
-              ))}
-            </div>
-          </aside>
+          <SideBadge battle={activeBattle} />
+          <BattleFeed events={displayEvents} battle={activeBattle} />
         </div>
 
         <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
 
-        <div className="topbar">
-          <div className="tstrip" role="status" aria-live="polite" aria-atomic="true">
-            <span className="rd">Round {activeBattle.round}</span>
-            <span className={`tt ${activeBattle.yourTurn ? 'you' : ''}`}>{activeBattle.yourTurn ? 'Your Turn' : 'Opponent'}</span>
-            <span className="actor">{actor?.name ?? activeBattle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
-          </div>
-          <div className="nextq" role="list" aria-label="Turn order">
-            <span className="nl" aria-hidden="true">Next</span>
-            <span style={{display:'flex',gap:'11px'}}>
-              <TurnOrderStrip battle={activeBattle} />
-            </span>
-          </div>
-        </div>
+        <TopBar battle={activeBattle} actor={actor} />
 
-        <div className="team-badge">
-          <span className="k">Your Team</span>
-          <div className="pips">
-            {activeBattle.friendly.map((u) => (
-              <span key={u.id} className={`pip ${u.down || u.hp <= 0 ? '' : 'alive'}`} title={u.name} />
-            ))}
-          </div>
-        </div>
+        <TeamBadge friendly={activeBattle.friendly} />
 
-        <div className="enemy-rail" role="group" aria-label="Enemy Digimon">
-          {aliveEnemies.map((foe) => (
-            <button
-              key={foe.id}
-              type="button"
-              className={`erow ${selectedTargetId === foe.id ? 'sel' : ''}`}
-              onClick={() => setSelectedTargetId(foe.id)}
-              disabled={!canAct}
-              aria-pressed={selectedTargetId === foe.id}
-            >
-              <span className="edot pill" style={{ ['--el' as string]: `var(--el-${foe.element})` }} />
-              <span className="enm">{foe.name}</span>
-              <span className="ehp">{foe.hp}/{foe.hpMax}</span>
-            </button>
-          ))}
-        </div>
+        <EnemyRail
+          aliveEnemies={aliveEnemies}
+          selectedTargetId={selectedTargetId}
+          canAct={canAct}
+          onSelect={setSelectedTargetId}
+        />
 
         <div className="party-cards" role="group" aria-label="Your party">
           {activeBattle.friendly.map((unit) => (
@@ -365,14 +329,7 @@ export function Combat3DBody(): JSX.Element | null {
         </div>
 
         {showAutobattle ? (
-          <button
-            type="button"
-            className="auto-toggle"
-            aria-pressed={autobattle}
-            onClick={() => setAutobattle((v) => !v)}
-          >
-            <span className="dot" style={{ background: autobattle ? 'var(--signal)' : 'transparent' }}></span>Auto: {autobattle ? 'On' : 'Off'}
-          </button>
+          <AutobattleToggle on={autobattle} onToggle={() => setAutobattle((v) => !v)} />
         ) : null}
 
         <div className="cmd" data-od-id="command-menu" ref={cmdRef}>
@@ -393,11 +350,7 @@ export function Combat3DBody(): JSX.Element | null {
           />
         </div>
 
-        <div className="c3d-floaters" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
-          {floaters.map((f) => (
-            <div key={f.id} className={`floater ${f.kind}`} style={{ left: f.x, top: f.y }}>{f.text}</div>
-          ))}
-        </div>
+        <Floaters floaters={floaters} />
       </div>
 
       {activeBattle.status === 'ended' && endModalOpen ? (
@@ -411,232 +364,4 @@ export function Combat3DBody(): JSX.Element | null {
       {loadError !== null ? <div className="box" style={{ position: 'absolute', zIndex: 50, top: '20px', left: '50%', transform: 'translateX(-50%)', color: 'var(--signal)' }}>{loadError}</div> : null}
     </div>
   );
-}
-
-const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
-  const units = useMemo(() => {
-    const withAilments: Array<{ id: UnitId; side: 'you' | 'opp'; ailments: readonly { kind: Ailment; turnsLeft: number }[] }> = [];
-    for (const u of battle.friendly) {
-      if (u.ailments.length > 0 && !u.down) withAilments.push({ id: u.id, side: 'you', ailments: u.ailments });
-    }
-    for (const u of battle.enemy) {
-      if (u.ailments.length > 0 && !u.down) withAilments.push({ id: u.id, side: 'opp', ailments: u.ailments });
-    }
-    return withAilments;
-  }, [battle.friendly, battle.enemy]);
-  const groupRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
-
-  useEffect(() => {
-    let rafId = 0;
-    const tick = (): void => {
-      const scene = sceneRef.current;
-      if (scene !== null) {
-        for (const [unitId, node] of groupRefs.current.entries()) {
-          const pos = scene.screenPositionOf(unitId);
-          if (pos !== null) {
-            const side = node.dataset['side'];
-            const offsetX = side === 'you' ? -48 : 20;
-            node.style.transform = `translate3d(${pos.x + offsetX}px, ${pos.y - 24}px, 0)`;
-            node.style.opacity = '1';
-          } else {
-            node.style.opacity = '0';
-          }
-        }
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [sceneRef]);
-
-  useEffect(() => {
-    const keep = new Set(units.map((u) => u.id));
-    for (const id of Array.from(groupRefs.current.keys())) {
-      if (!keep.has(id)) groupRefs.current.delete(id);
-    }
-  }, [units]);
-
-  return (
-    <div className="c3d-ailment-layer" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
-      {units.map((unit) => (
-        <div
-          key={unit.id}
-          ref={(el) => {
-            if (el === null) groupRefs.current.delete(unit.id);
-            else groupRefs.current.set(unit.id, el);
-          }}
-          data-side={unit.side}
-          className="c3d-ailment-group"
-          style={{ position: 'absolute', top: 0, left: 0, display: 'flex', gap: '2px', opacity: 0 }}
-        >
-          {unit.ailments.map((a) => (
-            <span
-              key={a.kind}
-              className={`tag`}
-              title={`${AILMENT_LABEL[a.kind]} · ${a.turnsLeft} turn${a.turnsLeft === 1 ? '' : 's'} left`}
-              style={{ background: 'var(--panel)', border: '1px solid var(--hair)', padding: '2px 4px', fontSize: '10px' }}
-            >
-              <span aria-hidden="true" style={{ marginRight: '4px' }}>{AILMENT_ICON[a.kind]}</span>
-              <span>{a.turnsLeft}</span>
-            </span>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-});
-
-const AILMENT_ICON: Record<Ailment, string> = {
-  burn: '🔥', poison: '☠', weaken: '⬇', freeze: '❄', stun: '⚡', sleep: '💤', blind: '🙈', silence: '∅', root: '⚓', petrify: '🗿', curse: '💀', corruption: '☣', confusion: '💫', charm: '💘',
-};
-
-const AILMENT_LABEL: Record<Ailment, string> = {
-  burn: 'Burned', poison: 'Poisoned', weaken: 'Weakened', freeze: 'Frozen', stun: 'Stunned', sleep: 'Asleep', blind: 'Blinded', silence: 'Silenced', root: 'Rooted', petrify: 'Petrified', curse: 'Cursed', corruption: 'Corrupted', confusion: 'Confused', charm: 'Charmed',
-};
-
-const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battle: BattleView }): JSX.Element | null {
-  const upcoming = battle.upcomingTurns ?? [];
-  if (upcoming.length === 0) return null;
-  const yourSide = battle.yourSide;
-  const templateFor = (unitId: string): { templateId: string; name: string; element: string } | null => {
-    const friendly = battle.friendly.find((u) => u.id === unitId);
-    if (friendly) return { templateId: friendly.templateId, name: friendly.name, element: friendly.element };
-    const enemy = battle.enemy.find((u) => u.id === unitId);
-    if (enemy) return { templateId: enemy.templateId, name: enemy.name, element: enemy.element };
-    return null;
-  };
-  return (
-    <>
-      {upcoming.map((entry, idx) => {
-        const meta = templateFor(entry.unitId);
-        if (meta === null) return null;
-        const isYours = entry.side === yourSide;
-        const isCurrent = idx === 0;
-        const mono = (meta.name || '?').trim().charAt(0).toUpperCase();
-        return (
-          <span key={`${entry.unitId}-${idx}`} className={`qi ${isCurrent ? 'cur' : ''} ${isYours ? 'yours' : 'opp'}`} style={{ ['--el' as string]: `var(--el-${meta.element})` }} title={`${meta.name}`}>
-            <span className="mono" aria-hidden="true">{mono}</span>
-            <img src={`/assets/digimon/${meta.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
-          </span>
-        );
-      })}
-    </>
-  );
-});
-
-const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
-  const alive = battle.enemy.filter((e) => !e.down && e.hp > 0);
-  const barRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
-
-  useEffect(() => {
-    let rafId = 0;
-    const tick = (): void => {
-      const scene = sceneRef.current;
-      if (scene !== null) {
-        for (const [unitId, bar] of barRefs.current.entries()) {
-          const pos = scene.screenPositionOf(unitId);
-          if (pos !== null) {
-            bar.style.transform = `translate3d(${pos.x - 60}px, ${pos.y + 34}px, 0)`;
-            bar.style.opacity = '1';
-          } else {
-            bar.style.opacity = '0';
-          }
-        }
-      }
-      rafId = requestAnimationFrame(tick);
-    };
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [sceneRef]);
-
-  useEffect(() => {
-    const keep = new Set(alive.map((e) => e.id));
-    for (const id of Array.from(barRefs.current.keys())) {
-      if (!keep.has(id)) barRefs.current.delete(id);
-    }
-  }, [alive]);
-
-  return (
-    <div className="c3d-enemy-hp-layer" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5 }}>
-      {alive.map((enemy) => {
-        const pct = enemy.hpMax > 0 ? Math.max(0, enemy.hp) / enemy.hpMax * 100 : 0;
-        return (
-          <div
-            key={enemy.id}
-            ref={(el) => {
-              if (el === null) barRefs.current.delete(enemy.id);
-              else barRefs.current.set(enemy.id, el);
-            }}
-            className="ehpbar"
-            style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '120px', background: 'rgba(0,0,0,0.5)', padding: '4px', border: '1px solid var(--hair)', display: 'flex', flexDirection: 'column', gap: '2px' }}
-          >
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px #000' }}>{enemy.name}</div>
-            <div style={{ height: '4px', background: 'var(--panel)', width: '100%' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: 'var(--el-electricity)', transition: 'width 0.2s' }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-});
-
-const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
-  const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax : 0;
-  const enPct = unit.enMax > 0 ? Math.max(0, unit.en) / unit.enMax : 0;
-  const mono = (unit.name || '?').trim().charAt(0).toUpperCase();
-  return (
-    <div className={`pcard ${active ? 'active' : ''} ${unit.down || unit.hp <= 0 ? 'dead' : ''}`} style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
-      <div className="ph">
-        <span className="spr-slot pspr" style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
-          <span className="mono" aria-hidden="true">{mono}</span>
-          <img src={`/assets/digimon/${unit.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
-        </span>
-        <div className="pn">
-          <span className="nm">{unit.name}</span>
-          <span className="lv">Lv {unit.level}</span>
-        </div>
-        <div className="stat guard-ic" style={{ marginLeft: 'auto', display: 'none' }} title="Guarding">🛡</div>
-      </div>
-      <div className="stat">
-        <span className="sk">HP</span>
-        <span className="bar hp" role="progressbar" aria-label={`${unit.name} HP`} aria-valuemin={0} aria-valuemax={unit.hpMax} aria-valuenow={Math.max(0, unit.hp)}>
-          <i style={{ width: `${hpPct * 100}%` }} />
-        </span>
-        <span className="sn">{Math.max(0, unit.hp)} / {unit.hpMax}</span>
-      </div>
-      <div className="stat">
-        <span className="sk">EN</span>
-        <span className="bar en">
-          <i style={{ width: `${enPct * 100}%` }} />
-        </span>
-        <span className="sn en-n">{Math.max(0, unit.en)}/{unit.enMax}</span>
-      </div>
-    </div>
-  );
-});
-
-function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
-  if (actor === null) return null;
-  if (action.type === 'skill') {
-    const skill = actor.skills.find((s) => s.id === action.skillId);
-    if (skill && isAnimatedElement(skill.element)) return { sourceId: actor.id, targetId: action.targetId, element: skill.element };
-    return null;
-  }
-  if (action.type === 'fight' && isAnimatedElement(actor.element)) {
-    return { sourceId: actor.id, targetId: action.targetId, element: actor.element };
-  }
-  return null;
-}
-
-function renderEventText(event: BattleView['log'][number], battle: BattleView): string {
-  if (event.type === 'action') {
-    const cue = event.cue ?? '';
-    const target = event.targetId ? (battle.friendly.find((u) => u.id === event.targetId)?.name ?? battle.enemy.find((u) => u.id === event.targetId)?.name ?? event.targetId) : '';
-    const damage = event.damage !== undefined ? ` ${event.damage}` : '';
-    return `${event.actor ?? '?'} → ${target}${damage} ${cue}`.trim();
-  }
-  if (event.type === 'round-start') return `Round ${event.round}`;
-  if (event.type === 'end') return `Match ended: ${event.outcome}`;
-  return event.type;
 }
