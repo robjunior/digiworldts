@@ -56,9 +56,9 @@ export function Digdex(): JSX.Element {
     const stages: Record<string, number> = { all: entries.length };
     const els: Record<string, number> = { all: entries.length };
     for (const e of entries) {
+      els[e.element] = (els[e.element] || 0) + 1;
       if (e.template) {
         stages[e.template.stage] = (stages[e.template.stage] || 0) + 1;
-        els[e.template.element] = (els[e.template.element] || 0) + 1;
       }
     }
     return { all: entries.length, met, unmet, stages, els };
@@ -70,9 +70,7 @@ export function Digdex(): JSX.Element {
       if (filter === 'met' && !entry.met) return false;
       if (filter === 'unmet' && entry.met) return false;
       if (stageFilter !== 'all' && entry.template?.stage !== stageFilter) return false;
-      if (elementFilter !== 'all') {
-        if (!entry.met || !entry.template || entry.template.element !== elementFilter) return false;
-      }
+      if (elementFilter !== 'all' && entry.element !== elementFilter) return false;
       if (needle.length > 0) {
         const name = entry.template?.name.toLowerCase() ?? '';
         if (!name.includes(needle) && !entry.catalogId.toLowerCase().includes(needle)) return false;
