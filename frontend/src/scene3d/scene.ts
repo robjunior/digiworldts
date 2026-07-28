@@ -449,6 +449,8 @@ export class SceneManager {
   private currentArenaUrl: string | null = null;
   private currentArenaKey: string | null = null;
   private readonly heightFogUniforms = { fogHeight: { value: 2.0 } };
+  private lastAppliedPatch: Partial<SceneSettings> = {};
+  private applyingReplayFromAtmosphere = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -576,6 +578,14 @@ export class SceneManager {
       mat.color.setHex(atmosphere.dustColor);
       mat.opacity = atmosphere.dustOpacity;
       mat.needsUpdate = true;
+    }
+    if (Object.keys(this.lastAppliedPatch).length > 0) {
+      this.applyingReplayFromAtmosphere = true;
+      try {
+        this.applySettings(this.lastAppliedPatch);
+      } finally {
+        this.applyingReplayFromAtmosphere = false;
+      }
     }
   }
 
@@ -948,7 +958,7 @@ export class SceneManager {
   float rayLength = distance(vFogWorldPosition, fogOrigin);
   float c1 = exp(fogDensity * (fogHeight - cameraPosition.y));
   float rayY = fogDirection.y;
-  float c2 = c1 * (exp(fogDensity * rayY * rayLength) - 1.0) / (rayY + 0.0001);
+  float c2 = c1 * (1.0 - exp(-fogDensity * rayY * rayLength)) / (rayY + 0.0001);
   float fogFactor = clamp(1.0 - exp(-c2), 0.0, 1.0);
   gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, fogFactor);
 #endif`,
@@ -1087,6 +1097,13 @@ export class SceneManager {
       this.ringsGroup.position.y = this.currentArenaOffsetY;
       for (const sprite of this.sprites.values()) {
         sprite.setArenaBaselineY(this.currentArenaOffsetY);
+      }
+    }
+    if (!this.applyingReplayFromAtmosphere) {
+      for (const key of Object.keys(patch) as (keyof SceneSettings)[]) {
+        if (patch[key] !== undefined) {
+          (this.lastAppliedPatch as Record<string, unknown>)[key] = patch[key];
+        }
       }
     }
   }
