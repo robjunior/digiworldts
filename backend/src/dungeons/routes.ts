@@ -222,6 +222,13 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const user = await requireAuth(req, reply);
     const view = await startOrGetRun(user.id, req.params.id);
     if (!view) return reply.code(404).send({ error: 'not-found' });
+    const biome = view.dungeon.biomeRegion;
+    if (biome !== null) {
+      const { bumpTravelObjectives } = await import('../quests/repo.js');
+      bumpTravelObjectives(user.id, biome as import('@digiworld/shared/world').Biome).catch((err) => {
+        log.warn('quests.travel.bump.failed', { userId: user.id, biome, err: err instanceof Error ? err.message : String(err) });
+      });
+    }
     return reply.send(view);
   });
 

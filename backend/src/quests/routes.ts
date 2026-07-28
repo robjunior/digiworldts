@@ -1,8 +1,12 @@
 import type { FastifyPluginAsync } from 'fastify';
+import type { WorldObject } from '@digiworld/shared/quest';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import { partyRating } from '../world/engine.js';
+import { updateDungeon } from '../dungeons/repo.js';
 import {
+  acceptQuest,
+  claimQuest,
   createQuest,
   createWorldObject,
   deleteQuest,
@@ -12,12 +16,29 @@ import {
   importQuest,
   listAvailableQuests,
   listQuests,
+  listQuestsForUser,
   listWorldObjects,
   startQuest,
   updateQuest,
   updateWorldObject,
 } from './repo.js';
 import { asImportPayload, asQuestPayload, asWorldObjectPayload, QuestImportSchema, QuestInputSchema, WorldObjectInputSchema } from './validation.js';
+
+async function propagateEncounterSpecToDungeon(object: WorldObject): Promise<void> {
+  if (!object.dungeonId) return;
+  const hasSpec = (object.elements && object.elements.length > 0) || object.minLevel !== undefined || object.maxLevel !== undefined;
+  if (!hasSpec) return;
+  const patch: Parameters<typeof updateDungeon>[1] = {};
+  if (object.elements && object.elements.length > 0) patch.randomAllowedElements = [...object.elements];
+  if (object.minLevel !== undefined) patch.randomMinLevel = object.minLevel;
+  if (object.maxLevel !== undefined) patch.randomMaxLevel = object.maxLevel;
+  if (object.elements && object.elements.length > 0) patch.randomEncountersEnabled = true;
+  try {
+    await updateDungeon(object.dungeonId, patch);
+  } catch (err) {
+    log.warn('admin.worldObject.dungeonPropagate.failed', { objectId: object.id, dungeonId: object.dungeonId, err: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/quests', async (req, reply) => {
@@ -81,11 +102,34 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     return reply.send({ quests: await listAvailableQuests(user.id, rating.meanLevel) });
   });
 
+  app.get('/api/quests', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const rating = await partyRating(user.id);
+    return reply.send({ quests: await listQuestsForUser(user.id, rating.meanLevel) });
+  });
+
   app.post<{ Params: { id: string } }>('/api/quests/:id/start', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const result = await startQuest(user.id, req.params.id);
     if (!result) return reply.code(404).send({ error: 'not-found' });
     return reply.code(201).send(result);
+  });
+
+  app.post<{ Params: { id: string } }>('/api/quests/:id/accept', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const rating = await partyRating(user.id);
+    const quest = await acceptQuest(user.id, req.params.id, rating.meanLevel);
+    if (!quest) return reply.code(404).send({ error: 'not-found-or-locked' });
+    log.info('quest.accept', { userId: user.id, questId: req.params.id });
+    return reply.code(201).send({ quest });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/quests/:id/claim', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await claimQuest(user.id, req.params.id);
+    if (!result.ok) return reply.code(409).send({ error: 'not-completed-or-already-claimed' });
+    log.info('quest.claim', { userId: user.id, questId: req.params.id, creditsGranted: result.creditsGranted, itemsGranted: result.itemsGranted.length });
+    return reply.send({ ok: true, creditsGranted: result.creditsGranted, itemsGranted: result.itemsGranted });
   });
 
   app.get('/api/world/objects', async (req, reply) => {
@@ -105,6 +149,7 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const parsed = WorldObjectInputSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-world-object', details: parsed.error.issues });
     const object = await createWorldObject(asWorldObjectPayload(parsed.data));
+    await propagateEncounterSpecToDungeon(object);
     log.info('admin.worldObject.create', { adminId: admin.id, id: object.id, x: object.x, y: object.y });
     return reply.code(201).send({ object });
   });
@@ -115,6 +160,7 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-world-object', details: parsed.error.issues });
     const object = await updateWorldObject(req.params.id, asWorldObjectPayload(parsed.data));
     if (!object) return reply.code(404).send({ error: 'not-found' });
+    await propagateEncounterSpecToDungeon(object);
     log.info('admin.worldObject.update', { adminId: admin.id, id: object.id });
     return reply.send({ object });
   });
