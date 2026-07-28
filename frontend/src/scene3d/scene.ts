@@ -1082,7 +1082,10 @@ export class SceneManager {
       // alone would leave them at fixed world Y ≈ 0.37 while the arena floor
       // moves up/down — sprites appear to sink through the floor. Mirror the
       // arena Y offset onto every sprite's baseline so admin position edits
-      // move the whole play field together.
+      // move the whole play field together. The team-side rings live on their
+      // own ringsGroup at world Y ≈ 0.03 — sprites stand on them, so the rings
+      // must ride the same offset or sprites float above / sink through them.
+      this.ringsGroup.position.y = this.currentArenaOffsetY;
       for (const sprite of this.sprites.values()) {
         sprite.setArenaBaselineY(this.currentArenaOffsetY);
       }
