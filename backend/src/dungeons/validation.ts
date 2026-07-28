@@ -97,12 +97,19 @@ export const TilesInputSchema = z.object({
   tiles: z.array(TileSchema).max(20_000),
 });
 
+export const EncounterLootSchema = z.object({
+  itemId: IdSchema,
+  qty: z.number().int().min(1).max(999_999),
+  chance: z.number().min(0).max(1),
+});
+
 export const CreateEncounterInputSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),
   label: z.string().trim().min(1).max(120).nullable().optional(),
   difficulty: z.enum(['easy', 'normal', 'elite', 'boss']).default('normal'),
   digimon: z.array(EncounterDigimonSchema).min(1).max(6),
+  loots: z.array(EncounterLootSchema).max(32).optional(),
 });
 
 export const UpdateEncounterInputSchema = CreateEncounterInputSchema.partial();

@@ -28,6 +28,17 @@ export type EncounterDigimon = {
   readonly skillsOverride?: readonly EncounterSkillOverride[];
 };
 
+/**
+ * Boss loot entry — one row per shop item the boss can drop.
+ * Each entry rolls independently on `chance` (0..1). `chance === 1` = guaranteed.
+ * `qty` is fixed per drop (no min/max spread — use multiple entries if needed).
+ */
+export type EncounterLoot = {
+  readonly itemId: string;
+  readonly qty: number;
+  readonly chance: number;
+};
+
 export type DungeonTile = {
   readonly x: number;
   readonly y: number;
@@ -41,7 +52,12 @@ export type DungeonEncounter = {
   readonly label: string | null;
   readonly difficulty: EncounterDifficulty;
   readonly digimon: readonly EncounterDigimon[];
+  /**
+   * Deprecated single-item reward. Preserved for read-back of legacy encounters
+   * created before `loots` shipped. New encounters emit `loots` and leave this null.
+   */
   readonly rewardItemId: string | null;
+  readonly loots: readonly EncounterLoot[];
   readonly createdAt: number;
   readonly updatedAt: number;
 };
