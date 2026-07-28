@@ -25,9 +25,10 @@ import { one, q, run, tx, type RosterRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { loadCatalog } from '../digimon/xml.js';
-import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type TemplateDigimon } from '../digimon/types.js';
+import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type StagePools, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
+import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
 
 // ============================================================================
@@ -71,7 +72,7 @@ function skillKey(templateId: string, skillId: string): string {
   return `${templateId}:${skillId}`;
 }
 
-export function learnedSkillsFor(currentTpl: TemplateDigimon, historyIds: readonly string[], catalog: readonly TemplateDigimon[]): LearnedSkillEntry[] {
+export function learnedSkillsFor(currentTpl: TemplateDigimon, historyIds: readonly string[], catalog: readonly TemplateDigimon[], resolver: SkillsCatalogResolver): LearnedSkillEntry[] {
   const templateById = new Map(catalog.map((t) => [t.id, t] as const));
   const seen = new Set<string>();
   const out: LearnedSkillEntry[] = [];
@@ -82,7 +83,7 @@ export function learnedSkillsFor(currentTpl: TemplateDigimon, historyIds: readon
       seen.add(key);
       out.push({
         key,
-        skill: s,
+        skill: resolveSkillFromCatalog(s, resolver),
         sourceTemplateId: tpl.id,
         sourceTemplateName: tpl.name,
         sourceStage: tpl.stage,
@@ -123,8 +124,20 @@ export type RosterView = {
   listedAt: number | null;
   evolutionHistory: string[];
   equippedSkillIds: string[] | null;
+  stagePools: StagePools | null;
   template: TemplateDigimon | null;
 };
+
+function parseStagePools(raw: string | null): StagePools | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return parsed as StagePools;
+  } catch {
+    return null;
+  }
+}
 
 function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView {
   const stage = template?.stage ?? 'Rookie';
@@ -152,6 +165,7 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
     listedAt: row.listed_at,
     evolutionHistory: parseJsonStringArray(row.evolution_history),
     equippedSkillIds: equippedRaw.length > 0 ? equippedRaw : null,
+    stagePools: parseStagePools(row.stage_pools),
     template,
   };
 }
@@ -247,7 +261,8 @@ export async function loadPartyLoadout(userId: string): Promise<Loadout | { erro
     };
     if (equippedIds.length > 0) {
       const historyIds = parseJsonStringArray(row.evolution_history);
-      const learned = learnedSkillsFor(template, historyIds, catalog.digimons);
+      const resolver = await getSkillsCatalogResolver();
+      const learned = learnedSkillsFor(template, historyIds, catalog.digimons, resolver);
       const learnedByKey = new Map(learned.map((e) => [e.key, e.skill] as const));
       const resolved = equippedIds
         .map((entry) => normalizeEquippedKey(entry, template.id))
@@ -429,7 +444,8 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const currentTpl = catalog.digimons.find((t) => t.id === row.catalog_id);
     if (!currentTpl) return reply.code(500).send({ error: 'template missing' });
     const historyIds = parseJsonStringArray(row.evolution_history);
-    const learnedSkills = learnedSkillsFor(currentTpl, historyIds, catalog.digimons);
+    const skillsResolver = await getSkillsCatalogResolver();
+    const learnedSkills = learnedSkillsFor(currentTpl, historyIds, catalog.digimons, skillsResolver);
     const fromCurrent = learnedSkills.filter((e) => e.source === 'current').map((e) => e.key);
     const fromHistory = learnedSkills.filter((e) => e.source === 'history').map((e) => e.key);
     const rawEquipped = parseJsonStringArray(row.equipped_skill_ids);
@@ -469,7 +485,8 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       return reply.code(400).send({ error: 'too-many-skills-for-stage', stage: currentTpl.stage, maxEquipped: equipCap });
     }
     const historyIds = parseJsonStringArray(row.evolution_history);
-    const learned = learnedSkillsFor(currentTpl, historyIds, catalog.digimons);
+    const skillsResolver = await getSkillsCatalogResolver();
+    const learned = learnedSkillsFor(currentTpl, historyIds, catalog.digimons, skillsResolver);
     const learnedKeys = new Set(learned.map((e) => e.key));
     const normalized = skillIds.map((entry) => normalizeEquippedKey(entry, row.catalog_id));
     const unique = Array.from(new Set(normalized));
