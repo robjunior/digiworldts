@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import type { WorldRegion } from '@digiworld/shared/world';
+import type { WorldObject } from '../../lib/api-world';
 import type { WorldHoverTipData } from './WorldHoverTip';
 
 const ELHEX: Record<string, number> = {
@@ -29,6 +30,7 @@ function circlePts(r: number, seg: number, plane: 'xy' | 'xz') {
 
 type WorldGlobeProps = {
   readonly regions: readonly WorldRegion[];
+  readonly worldObjects?: readonly WorldObject[];
   readonly autoSpin: boolean;
   readonly selectedIdx: number | null;
   readonly hoveredIdx: number;
@@ -40,6 +42,7 @@ type WorldGlobeProps = {
 
 export function WorldGlobe({
   regions,
+  worldObjects,
   autoSpin,
   selectedIdx,
   hoveredIdx,
@@ -138,6 +141,25 @@ export function WorldGlobe({
         new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.6 }));
       nodeGroup.add(m); nodeGroup.add(ring); nodeGroup.add(stem);
       nodeMeshes.push({ mesh: m, ring, data: b, idx: i });
+    });
+    
+    (worldObjects ?? []).forEach((obj) => {
+      const pos = latLonToVec3(obj.lat, obj.lon, 1.0);
+      const colorHex = obj.tint ?? '#c8b48a';
+      const col = parseInt(colorHex.replace('#', ''), 16);
+      const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(0.024, 10, 10),
+        new THREE.MeshBasicMaterial({ color: col })
+      );
+      marker.position.copy(pos);
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.038, 0.05, 16),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.6, side: THREE.DoubleSide })
+      );
+      ring.position.copy(pos);
+      ring.lookAt(pos.clone().multiplyScalar(2));
+      nodeGroup.add(marker);
+      nodeGroup.add(ring);
     });
     
     const resizeGlobe = () => {
@@ -272,7 +294,7 @@ export function WorldGlobe({
         }
       });
     };
-  }, [regions, onFailWebGL, onHoverChange, onHoverTip, onSelect]);
+  }, [regions, worldObjects, onFailWebGL, onHoverChange, onHoverTip, onSelect]);
 
   return <canvas ref={canvasRef} className="world-canvas" id="globe" aria-label="3D world globe"></canvas>;
 }
