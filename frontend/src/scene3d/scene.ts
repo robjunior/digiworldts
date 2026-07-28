@@ -11,12 +11,11 @@ export type SpriteInit = SpriteRigConfig;
 function forceTransparencyIfAlpha(mat: THREE.Material): void {
   if (!('map' in mat) && !('alphaMap' in mat)) return;
   const m = mat as THREE.MeshStandardMaterial;
+  if (m.transparent) return;
   const hasAlphaMap = m.alphaMap !== null && m.alphaMap !== undefined;
   const mapHasAlpha = m.map !== null && m.map !== undefined && m.map.format === THREE.RGBAFormat;
   if (!hasAlphaMap && !mapHasAlpha) return;
-  if (!m.transparent) m.transparent = true;
   if (m.alphaTest === 0) m.alphaTest = 0.5;
-  m.depthWrite = false;
   m.needsUpdate = true;
 }
 
