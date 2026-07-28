@@ -1,17 +1,21 @@
 import { useState, useMemo } from 'react';
 
 import type { TemplateDigimon, Element } from '@digiworld/shared/digimon';
-import { ELEMENTS, ATTRIBUTES } from '@digiworld/shared/digimon';
+import { ELEMENTS, ATTRIBUTES, STAGE_COMBAT_POOL, STAGE_HPEN_POOL } from '@digiworld/shared/digimon';
 
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
-import { formatRemaining, isDowned, totalStats, xpPct } from './types';
+import { formatRemaining, isDowned, totalStats, trainingProgress, xpPct } from './types';
+import { PartyPicker } from './PartyPicker';
 import { SkillEditor } from './SkillEditor';
 import { ResistanceChart } from './ResistanceChart';
 
 const ATTR_TO_EL: Record<string, Element> = { Virus: 'fire', Data: 'water', Vaccine: 'plant', Free: 'electricity', Variable: 'wind' };
 const el = (r: RosterMon) => ATTR_TO_EL[r.template?.attribute ?? 'Free'] ?? 'null';
 
-const STAT_MAX: Record<string, number> = { hp: 1400, en: 41, atk: 260, def: 200, int: 160, spd: 160 };
+const STAT_TO_POOL: Record<string, 'combat' | 'hpen'> = {
+  hp: 'hpen', en: 'hpen',
+  atk: 'combat', def: 'combat', int: 'combat', spd: 'combat',
+};
 
 type RosterListProps = {
   readonly roster: readonly RosterMon[];
@@ -60,7 +64,17 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
 
   return (
     <>
-      <aside className="master" data-od-id="master-list">
+      <aside className="master" data-od-id="master-list"
+        onDragOver={(event) => { if (event.dataTransfer.types.includes('application/x-roster-slot')) event.preventDefault(); }}
+        onDrop={(event) => {
+          const slotStr = event.dataTransfer.getData('application/x-roster-slot');
+          if (!slotStr) return;
+          event.preventDefault();
+          const slot = Number(slotStr);
+          if (Number.isFinite(slot) && slot >= 0 && slot < 3) actions.onRemoveSlot(slot);
+        }}
+      >
+        <PartyPicker roster={roster} now={now} actions={actions} />
         <div className="mhead">
           <div className="kick">Digivice Registry</div>
           <h1>Your Roster</h1>
@@ -118,6 +132,12 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
                   tabIndex={0}
                   aria-selected={selectedMon?.id === r.id}
                   onClick={() => handleSelect(r.id)}
+                  draggable={typeof r.slot !== 'number' && !isDowned(r, now)}
+                  onDragStart={(event) => {
+                    if (typeof r.slot === 'number' || isDowned(r, now)) { event.preventDefault(); return; }
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', r.id);
+                  }}
                 >
                   <span className="mug"><img src={`/assets/digimon/${r.catalogId}/dot.gif`} alt="" onError={(ev) => (ev.currentTarget.style.visibility = 'hidden')} /></span>
                   <span className="who">
@@ -155,8 +175,11 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
   const template = templateById.get(r.catalogId);
   const stage = template?.stage ?? 'Unknown';
   const attribute = template?.attribute ?? 'Unknown';
-  
+
   const stats = totalStats(r);
+  const training = trainingProgress(r);
+  const combatCap = training?.combat.cap ?? STAGE_COMBAT_POOL[stage as keyof typeof STAGE_COMBAT_POOL] ?? 700;
+  const hpenCap = training?.hpen.cap ?? STAGE_HPEN_POOL[stage as keyof typeof STAGE_HPEN_POOL] ?? 1000;
   const order = [
     { k: 'hp', l: 'HP' }, { k: 'en', l: 'EN' }, { k: 'atk', l: 'ATK' },
     { k: 'def', l: 'DEF' }, { k: 'int', l: 'INT' }, { k: 'spd', l: 'SPD' }
@@ -199,17 +222,31 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
 
       <div className="tabwrap">
         <div className={`tabpanel ${activeTab === 'stats' ? 'is-on' : ''}`} data-panel="stats" role="tabpanel" hidden={activeTab !== 'stats'}>
-          <h3 className="stitle">Stats</h3>
+          <h3 className="stitle">
+            Stats
+            {training !== null ? (
+              <span className="stage-training">
+                <span className="stt-lbl">Stage training</span>
+                <span className={`stt-pct${training.overallPct >= 100 ? ' is-max' : ''}`}>{training.overallPct}%</span>
+                <span className="stt-detail">
+                  CMB {training.combat.filled}/{training.combat.cap} · HP·EN {training.hpen.filled}/{training.hpen.cap}
+                </span>
+              </span>
+            ) : null}
+          </h3>
           <div className="stats statcols">
             {order.map(({ k, l }) => {
               const v = stats[k as keyof typeof stats];
               const bo = (r.statBonus as any)?.[k] ?? 0;
-              const max = STAT_MAX[k] ?? 1000;
-              const pct = Math.min(100, Math.round((v / max) * 100));
+              const pool = STAT_TO_POOL[k] ?? 'combat';
+              const cap = pool === 'hpen' ? hpenCap : combatCap;
+              const pct = cap === 0 ? 0 : Math.min(100, Math.round((bo / cap) * 100));
               return (
-                <div key={k} className={`stat ${k}`}>
+                <div key={k} className={`stat ${k}`} data-pool={pool}>
                   <span className="sl">{l}</span>
-                  <span className="track"><span className="fill" data-w={pct} style={{ width: `${pct}%` }}></span></span>
+                  <span className="track" title={`${l} bonus ${bo}/${cap} (${pool} pool for ${stage} stage)`}>
+                    <span className={`fill${pct >= 100 ? ' is-max' : ''}`} data-w={pct} style={{ width: `${pct}%` }}></span>
+                  </span>
                   <span className="sv">{v}{bo ? <span className="bo">+{bo}</span> : ''}</span>
                 </div>
               );

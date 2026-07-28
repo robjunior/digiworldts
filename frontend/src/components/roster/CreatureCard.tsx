@@ -1,8 +1,9 @@
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
-import { elementStyle, formatRemaining, isDowned, moodInfo, percentStyle, totalStats, xpPct } from './types';
+import { elementStyle, formatRemaining, isDowned, moodInfo, percentStyle, totalStats, trainingProgress, xpPct } from './types';
 
 export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }: { readonly mon: RosterMon; readonly now: number; readonly activityByMon: ActivityByMon; readonly actions: RosterActions; readonly onTouchAssign: (monId: string) => void }): JSX.Element {
   const stats = totalStats(mon);
+  const training = trainingProgress(mon);
   const mood = moodInfo(mon);
   const downed = isDowned(mon, now);
   const activity = activityByMon.get(mon.id) ?? null;
@@ -31,6 +32,7 @@ export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }
           <div className="xp-track" title={`XP ${Math.max(0, mon.xp - mon.xpFloor)} / ${Math.max(1, mon.xpNext - mon.xpFloor)}`}>
             <div className={`xp-fill ${mon.xpNext <= mon.xpFloor ? 'is-max' : ''}`} style={percentStyle(xpPct(mon))} />
           </div>
+          {training !== null ? <TrainingBars training={training} /> : null}
         </div>
         <div className="art">
           <div className="tile"><img src={mon.template?.assets.portrait ?? ''} alt={mon.nickname} loading="lazy" /></div>
@@ -51,6 +53,28 @@ export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }
         </div>
       </div>
     </article>
+  );
+}
+
+function TrainingBars({ training }: { readonly training: ReturnType<typeof trainingProgress> }): JSX.Element | null {
+  if (training === null) return null;
+  return (
+    <div className="training-bars" title={`Trained ${training.overallPct}% for stage ${training.stage}`}>
+      <div className="training-row" data-pool="combat">
+        <span className="training-label">CMB</span>
+        <div className="training-track">
+          <i className="training-fill" style={percentStyle(training.combat.pct)} />
+        </div>
+        <span className="training-count">{training.combat.filled}/{training.combat.cap}</span>
+      </div>
+      <div className="training-row" data-pool="hpen">
+        <span className="training-label">HP·EN</span>
+        <div className="training-track">
+          <i className="training-fill" style={percentStyle(training.hpen.pct)} />
+        </div>
+        <span className="training-count">{training.hpen.filled}/{training.hpen.cap}</span>
+      </div>
+    </div>
   );
 }
 
