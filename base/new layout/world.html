@@ -129,6 +129,67 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .dbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .rempty{padding:20px 18px;color:var(--muted);font:600 12px/1.6 var(--font)}
 
+/* ---- rail tabs: Regions <-> Quests ---- */
+.rtabs{flex:0 0 auto;display:flex;border-bottom:1px solid var(--hair)}
+.rtab{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);font:800 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;padding:13px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.12s}
+.rtab .tcount{font:800 9px/1 var(--font);color:var(--muted);background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:3px 5px}
+.rtab:hover{color:var(--ink)}
+.rtab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--signal)}
+.rtab[aria-selected="true"] .tcount{color:#fff;background:var(--signal);border-color:var(--signal)}
+.rtab:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
+.rpane{flex:1 1 auto;min-height:0;display:none;flex-direction:column;overflow:hidden}
+.rpane.show{display:flex}
+
+/* ---- quests list ---- */
+.qlist{flex:1 1 auto;min-height:0;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;scrollbar-width:thin}
+.qlist::-webkit-scrollbar{width:8px}.qlist::-webkit-scrollbar-thumb{background:var(--hair)}
+.qcard{background:var(--bg);border:1px solid var(--hair);border-left:0;clip-path:var(--notch-sm);padding:12px 13px 12px 0;position:relative}
+.qcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--qc,var(--hair))}
+.qcard.is-active{--qc:var(--signal)}
+.qcard.is-available{--qc:var(--muted)}
+.qcard.is-completed{--qc:color-mix(in oklab,var(--signal) 40%,#3fbf6f)}
+.qcard.is-locked{--qc:var(--hair);opacity:.62}
+.qcard>*{margin-left:13px}
+.qhd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.qnm{min-width:0;font:800 13px/1.2 var(--font);letter-spacing:-.01em}
+.qnm .qk{display:block;font:700 8px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.qstate{flex:0 0 auto;font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;padding:5px 8px;clip-path:var(--notch-sm);border:1px solid var(--qc,var(--hair));color:var(--qc,var(--muted));white-space:nowrap}
+.qcard.is-active .qstate,.qcard.is-completed .qstate{color:#fff;background:var(--qc);border-color:var(--qc)}
+.qdesc{font:600 11.5px/1.55 var(--font);color:var(--muted);margin-bottom:10px}
+/* inline clickable area token inside the description — borderless link style */
+.qarea{display:inline;font:inherit;font-weight:800;letter-spacing:.01em;color:var(--ael,var(--signal));background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in oklab,var(--ael,var(--signal)) 45%,transparent);text-underline-offset:2px;text-decoration-thickness:1px;transition:.1s}
+.qarea:hover{text-decoration-color:var(--ael,var(--signal))}
+.qarea:focus-visible{outline:2px solid var(--ael,var(--signal));outline-offset:2px;border-radius:0}
+/* per-objective rows */
+.qobj{display:flex;flex-direction:column;gap:7px;margin-bottom:11px}
+.qo{display:grid;grid-template-columns:16px 1fr auto;align-items:center;gap:9px;font:600 11px/1.3 var(--font);color:var(--ink)}
+.qo .qtick{width:16px;height:16px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.qo.done .qtick{background:color-mix(in oklab,var(--signal) 40%,#3fbf6f);border-color:transparent;color:#fff}
+.qo.done .qtxt{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--hair)}
+.qo .qtick svg{width:11px;height:11px}
+.qo .qtxt{min-width:0}
+.qo .qtxt .qarea{margin:0 1px}
+.qo .qn{font:800 10px/1 var(--font);color:var(--muted);letter-spacing:.02em;white-space:nowrap}
+.qo.done .qn{color:color-mix(in oklab,var(--signal) 40%,#3fbf6f)}
+/* progress bar */
+.qprog{margin-bottom:11px}
+.qprog .pl{display:flex;justify-content:space-between;font:700 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.qprog .pl b{color:var(--ink)}
+.qprog .pbar{height:5px;background:var(--panel);border:1px solid var(--hair);clip-path:polygon(3px 0,100% 0,100% 100%,0 100%);overflow:hidden}
+.qprog .pbar i{display:block;height:100%;background:var(--qc,var(--signal));transition:width .4s ease}
+/* reward + action row */
+.qfoot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-right:13px}
+.qrew{font:700 9px/1.3 var(--font);letter-spacing:.02em;color:var(--muted)}
+.qrew b{color:var(--ink);font-weight:800}
+.qbtn{flex:0 0 auto;background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm);padding:9px 13px;font:800 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:.12s}
+.qbtn:hover{background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.qbtn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.qbtn.ghost{background:none;color:var(--muted);border-color:var(--hair)}
+.qbtn.ghost:hover{color:var(--ink);border-color:var(--muted);background:none}
+.qbtn:disabled{background:var(--panel);color:var(--muted);border-color:var(--hair);cursor:default}
+.qlock{display:flex;align-items:center;gap:7px;font:700 9px/1.3 var(--font);color:var(--muted);margin-right:13px}
+.qlock svg{width:12px;height:12px;flex:0 0 12px}
+
 /* ---- toast ---- */
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -195,12 +256,27 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
     </div>
 
     <aside class="rail" data-od-id="region-rail">
-      <div class="rhead">
-        <div class="rt">Regions</div>
-        <div class="rs"><b id="rail-count">11</b> discovered · sorted by danger</div>
+      <div class="rtabs" role="tablist" aria-label="Regions and Quests">
+        <button class="rtab" id="tab-regions" role="tab" aria-selected="true" aria-controls="pane-regions" data-tab="regions">Regions <span class="tcount" id="tc-regions">11</span></button>
+        <button class="rtab" id="tab-quests" role="tab" aria-selected="false" aria-controls="pane-quests" data-tab="quests">Quests <span class="tcount" id="tc-quests">0</span></button>
       </div>
-      <div class="rlist" id="rlist" role="listbox" aria-label="World regions"></div>
-      <div class="rdetail" id="rdetail"><div class="rempty">Select a region on the globe or list to scout it.</div></div>
+
+      <div class="rpane show" id="pane-regions" role="tabpanel" aria-labelledby="tab-regions">
+        <div class="rhead">
+          <div class="rt">Regions</div>
+          <div class="rs"><b id="rail-count">11</b> discovered · sorted by danger</div>
+        </div>
+        <div class="rlist" id="rlist" role="listbox" aria-label="World regions"></div>
+        <div class="rdetail" id="rdetail"><div class="rempty">Select a region on the globe or list to scout it.</div></div>
+      </div>
+
+      <div class="rpane" id="pane-quests" role="tabpanel" aria-labelledby="tab-quests" hidden>
+        <div class="rhead">
+          <div class="rt">Quests</div>
+          <div class="rs"><b id="q-active-count">0</b> active · click an <b>area</b> in a quest to find it on the globe</div>
+        </div>
+        <div class="qlist" id="qlist" aria-label="Quest log"></div>
+      </div>
     </aside>
   </div>
 </div>
@@ -231,8 +307,55 @@ const elVar = el => `var(--el-${el})`;
 const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
 const $ = (s,r=document)=>r.querySelector(s);
 const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+const BIOME_IX = Object.fromEntries(BIOMES.map((b,i)=>[b.biome,i]));  // biome id -> BIOMES index
 
-let state = { selected:null, scouted:new Set(), autoSpin:!reduce };
+let state = { selected:null, scouted:new Set(), autoSpin:!reduce, tab:'regions' };
+
+/* ================= quests (UI-side, grounded in world/move + rollEncounter) ===
+   Objective kinds mirror the real loop: kind:'travel' = reach a biome (the
+   clickable area), kind:'defeat' = beat N mons of an element in a biome,
+   multi-step = an ordered chain of those. States: active | available |
+   completed | locked. Each objective names its area via [[biome]] tokens that
+   render as clickable chips selecting + focusing that node on the globe. */
+const QUESTS = [
+  { id:'q-embers', title:'Embers on the Ridge', giver:'Tamer Guild', state:'active',
+    objectives:[
+      {kind:'travel', area:'desert', text:'Travel to [[desert]] and survey the dune line', done:true},
+      {kind:'defeat', area:'desert', el:'fire', text:'Defeat [[desert]] Fire-types', have:2, need:5, done:false},
+    ],
+    reward:'320 XP · 140 DigiCredits' },
+  { id:'q-basin', title:'Still Waters', giver:'Nursery', state:'active',
+    objectives:[
+      {kind:'defeat', area:'lake', el:'water', text:'Analyse [[lake]] Water-types', have:3, need:3, done:true},
+      {kind:'travel', area:'forest', text:'Carry the sample to [[forest]]', done:false},
+    ],
+    reward:'260 XP · Water Data +20%' },
+  { id:'q-highwind', title:'Chasing the Highwind', giver:'The World', state:'available',
+    objectives:[
+      {kind:'travel', area:'plateau', text:'Reach the currents of [[plateau]]', done:false},
+      {kind:'defeat', area:'plateau', el:'wind', text:'Down 4 Wind-types over [[plateau]]', have:0, need:4, done:false},
+    ],
+    reward:'410 XP · 200 DigiCredits' },
+  { id:'q-circuit', title:'The Long Circuit', giver:'Tamer Guild', state:'available',
+    objectives:[
+      {kind:'travel', area:'storm', text:'Enter [[storm]] under the thunderhead', done:false},
+      {kind:'defeat', area:'storm', el:'electricity', text:'Beat 6 Electric-types in [[storm]]', have:0, need:6, done:false},
+      {kind:'travel', area:'foundry', text:'Deliver the charge to [[foundry]]', done:false},
+    ],
+    reward:'560 XP · Rare Chip' },
+  { id:'q-firstscout', title:'First Scout', giver:'Tamer Guild', state:'completed',
+    objectives:[
+      {kind:'travel', area:'prairie', text:'Scout the calm of [[prairie]]', done:true},
+    ],
+    reward:'120 XP · claimed' },
+  { id:'q-static', title:'Into the Static', giver:'???', state:'locked',
+    lockHint:'Reach Tamer Lv 30 to unlock',
+    objectives:[
+      {kind:'travel', area:'void', text:'Breach [[void]] — the tear in the map', done:false},
+    ],
+    reward:'1200 XP · ??? ' },
+];
+const QSTATE_LABEL = {active:'Active',available:'Available',completed:'Completed',locked:'Locked'};
 
 let toastT;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2000);}
@@ -244,6 +367,8 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show'
 let renderer=null,scene=null,camera=null,globe=null,nodeGroup=null,raycaster=null,clock=null;
 const nodeMeshes=[];           // {mesh, ring, data, worldPos}
 let dragging=false,lastX=0,lastY=0,rotX=0.3,rotY=0,camDist=3.1,hovered=-1;
+/* smooth focus tween: when set, animate() eases rotX/rotY/camDist toward these */
+let focusTween=null;   // {rotX,rotY,camDist} targets
 
 function latLonToVec3(lat,lon,r){
   const phi=(90-lat)*Math.PI/180, theta=(lon+180)*Math.PI/180;
@@ -325,7 +450,15 @@ function resizeGlobe(){ if(!renderer)return; const c=$('#globe');const w=c.clien
 function animate(){
   if(!renderer)return;
   requestAnimationFrame(animate);
-  if(state.autoSpin && !dragging) rotY += 0.0016;
+  // smooth focus tween takes precedence over auto-spin; eases toward target
+  if(focusTween){
+    rotX += (focusTween.rotX-rotX)*0.12;
+    rotY += (focusTween.rotY-rotY)*0.12;
+    camDist += (focusTween.camDist-camDist)*0.12;
+    if(Math.abs(focusTween.rotX-rotX)<0.002 && Math.abs(focusTween.rotY-rotY)<0.002 && Math.abs(focusTween.camDist-camDist)<0.01){
+      rotX=focusTween.rotX; rotY=focusTween.rotY; camDist=focusTween.camDist; focusTween=null;
+    }
+  } else if(state.autoSpin && !dragging){ rotY += 0.0016; }
   globe.rotation.y=rotY; globe.rotation.x=rotX;
   camera.position.z=camDist;
   // node ring pulse + face camera
@@ -448,13 +581,115 @@ function enterDungeon(i){
 /* Explore/scout maps to the real world/move -> rollEncounter flow: entering a
    region descends into its grid dungeon (dungeon.html) where steps roll encounters. */
 
+/* ================= globe focus: spin + zoom to a node =====================
+   Rotate the globe so node i faces the camera (+Z) and pull the camera in.
+   Solved from latLonToVec3's inverse: the node sits at rotation rotY=-theta
+   (theta from lon) and rotX from lat, so it lands on the +Z axis facing us. */
+function focusNode(i){
+  const b=BIOMES[i]; if(!b) return;
+  if(!renderer){ return; } // no WebGL: selection still works, just no camera move
+  const theta=(b.lon+180)*Math.PI/180;
+  const targetRotY=-theta - Math.PI/2;     // bring node's meridian to face +Z
+  const targetRotX=Math.max(-1.2,Math.min(1.2, b.lat*Math.PI/180)); // tilt toward its latitude
+  // pick the closest coterminal rotY so we take the short way around
+  let ty=targetRotY; while(ty-rotY>Math.PI) ty-=2*Math.PI; while(ty-rotY<-Math.PI) ty+=2*Math.PI;
+  if(reduce){ rotX=targetRotX; rotY=ty; camDist=2.15; focusTween=null; }  // snap, no motion
+  else { focusTween={rotX:targetRotX, rotY:ty, camDist:2.15}; }
+}
+/* select a region AND fly the globe to it (used by quest area chips) */
+function selectAndFocus(i){
+  if(i==null||i<0) return;
+  selectRegion(i);
+  focusNode(i);
+  const row=$(`.rrow[data-region="${i}"]`); if(row) row.scrollIntoView({block:'nearest'});
+}
+
+/* ================= quests render =====================
+   [[biome]] tokens in objective text become clickable area chips that
+   selectAndFocus() the node. Progress bar = done objectives / total. */
+function areaChip(biomeId){
+  const ix=BIOME_IX[biomeId]; const b=BIOMES[ix];
+  if(!b) return biomeId;
+  return `<button class="qarea" type="button" data-area="${ix}" style="--ael:${elVar(b.element)}"
+    aria-label="Go to ${b.label} on the globe">${b.label}</button>`;
+}
+const areaTokens = txt => txt.replace(/\[\[(\w+)\]\]/g, (_,id)=>areaChip(id));
+function questProgress(q){
+  const total=q.objectives.length, done=q.objectives.filter(o=>o.done).length;
+  return {done,total,pct: total? Math.round(done/total*100):0};
+}
+const tickSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>';
+const lockSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+function questCard(q){
+  const {done,total,pct}=questProgress(q);
+  const objs=q.objectives.map(o=>{
+    const n = o.kind==='defeat' ? `${o.have}/${o.need}` : (o.done?'✓':'—');
+    return `<div class="qo ${o.done?'done':''}">
+      <span class="qtick">${o.done?tickSVG:''}</span>
+      <span class="qtxt">${areaTokens(o.text)}</span>
+      <span class="qn">${n}</span>
+    </div>`;
+  }).join('');
+  let footer;
+  if(q.state==='locked'){
+    footer=`<div class="qlock">${lockSVG}<span>${q.lockHint||'Locked'}</span></div>`;
+  } else if(q.state==='completed'){
+    footer=`<div class="qfoot"><span class="qrew"><b>Reward:</b> ${q.reward}</span>
+      <button class="qbtn" data-quest="${q.id}" data-act="claim">Claim</button></div>`;
+  } else if(q.state==='available'){
+    footer=`<div class="qfoot"><span class="qrew"><b>Reward:</b> ${q.reward}</span>
+      <button class="qbtn" data-quest="${q.id}" data-act="accept">Accept</button></div>`;
+  } else { // active
+    const first=q.objectives.find(o=>!o.done)||q.objectives[0];
+    footer=`<div class="qfoot"><span class="qrew"><b>Reward:</b> ${q.reward}</span>
+      <button class="qbtn ghost" data-area="${BIOME_IX[first.area]}" data-act="track">Locate</button></div>`;
+  }
+  return `<article class="qcard is-${q.state}" data-od-id="quest-${q.id}">
+    <div class="qhd">
+      <span class="qnm">${q.title}<span class="qk">${q.giver}</span></span>
+      <span class="qstate">${QSTATE_LABEL[q.state]}</span>
+    </div>
+    <div class="qobj">${objs}</div>
+    ${q.state!=='locked'&&q.state!=='available'?`<div class="qprog"><div class="pl"><span>Progress</span><b>${done}/${total}</b></div>
+      <div class="pbar"><i style="width:${pct}%"></i></div></div>`:''}
+    ${footer}
+  </article>`;
+}
+function paintQuests(){
+  const order={active:0,available:1,completed:2,locked:3};
+  const sorted=[...QUESTS].sort((a,b)=>order[a.state]-order[b.state]);
+  $('#qlist').innerHTML=sorted.map(questCard).join('');
+  const active=QUESTS.filter(q=>q.state==='active').length;
+  $('#q-active-count').textContent=active;
+  $('#tc-quests').textContent=QUESTS.length;
+  $('#tc-regions').textContent=BIOMES.length;
+}
+
+/* ---- rail tab switching ---- */
+function switchTab(name){
+  state.tab=name;
+  document.querySelectorAll('.rtab').forEach(t=>t.setAttribute('aria-selected', t.dataset.tab===name?'true':'false'));
+  document.querySelectorAll('.rpane').forEach(p=>{
+    const on=p.id===`pane-${name}`;
+    p.classList.toggle('show',on); if(on) p.removeAttribute('hidden'); else p.setAttribute('hidden','');
+  });
+}
+
 /* ---- input wiring (rail + keyboard) ---- */
 document.addEventListener('click',e=>{
+  const tab=e.target.closest('.rtab'); if(tab){ switchTab(tab.dataset.tab); return; }
+  const area=e.target.closest('[data-area]'); if(area){ selectAndFocus(parseInt(area.dataset.area,10)); return; }
+  const qbtn=e.target.closest('.qbtn[data-act]'); if(qbtn && !qbtn.dataset.area){ handleQuestAction(qbtn); return; }
   const row=e.target.closest('.rrow[data-region]');
   if(row){ selectRegion(parseInt(row.dataset.region,10)); return; }
   if(e.target.closest('#scout-btn')){ if(state.selected!=null) enterDungeon(state.selected); return; }
   if(e.target.closest('#spin-toggle')){ toggleSpin(); return; }
 });
+function handleQuestAction(btn){
+  const q=QUESTS.find(x=>x.id===btn.dataset.quest); if(!q) return;
+  if(btn.dataset.act==='accept'){ q.state='active'; paintQuests(); toast(`Accepted “${q.title}”.`); }
+  else if(btn.dataset.act==='claim'){ q.state='completed'; btn.disabled=true; btn.textContent='Claimed'; toast(`Reward claimed — ${q.reward}.`); }
+}
 function toggleSpin(){
   state.autoSpin=!state.autoSpin;
   const b=$('#spin-toggle');
@@ -477,7 +712,7 @@ document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
 }));
 
 /* ---- boot ---- */
-paintRail(); paintDetail(); initGlobe();
+paintRail(); paintDetail(); paintQuests(); initGlobe();
 </script>
 </body>
 </html>
