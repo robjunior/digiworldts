@@ -1,10 +1,10 @@
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { ARENA_MODEL_BY_KEY } from '../../scene3d/arena-urls';
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
 import { getSceneDefaults } from '../../lib/scene-defaults';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -91,7 +91,20 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
-  const arenaModelUrl = ARENA_MODEL_BY_KEY[arenaKey];
+  const [arenaModelUrl, setArenaModelUrl] = useState<string | undefined>(() => ARENA_MODEL_BY_KEY[arenaKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSceneDefaults(false).then((all) => {
+      if (cancelled) return;
+      const chosen = all[arenaKey]?.modelFile;
+      const picked = typeof chosen === 'string' && chosen !== '' ? getArenaUrl(chosen) : undefined;
+      setArenaModelUrl(picked ?? ARENA_MODEL_BY_KEY[arenaKey]);
+    }).catch(() => {
+      if (!cancelled) setArenaModelUrl(ARENA_MODEL_BY_KEY[arenaKey]);
+    });
+    return () => { cancelled = true; };
+  }, [arenaKey]);
 
   useEffect(() => {
     const manager = sceneRef.current;

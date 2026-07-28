@@ -55,6 +55,7 @@ const ArenaSettingsZ = z.object({
   arenaOffsetX: z.number().min(-100).max(100).optional(),
   arenaOffsetY: z.number().min(-100).max(100).optional(),
   arenaOffsetZ: z.number().min(-100).max(100).optional(),
+  modelFile: z.string().trim().min(1).max(200).optional(),
 }).strict();
 
 const PerArenaSceneDefaultsZ = z.partialRecord(z.enum(ARENA_KEYS), ArenaSettingsZ);

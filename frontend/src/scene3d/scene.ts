@@ -46,6 +46,11 @@ export type SceneSettings = {
   camDist: number;
   camLookAtY: number;
   camFrustum: number;
+  /** Filename picked by the admin scene editor (e.g. "my_scene.glb"). Persisted
+   *  with the rest of the per-arena settings and consumed by Combat3DScene when
+   *  choosing the arena mesh URL. SceneManager.applySettings ignores this field —
+   *  it's a selector, not a runtime scene property. */
+  modelFile?: string;
 };
 
 const FRUSTUM = 4.5;
