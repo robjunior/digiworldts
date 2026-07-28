@@ -58,7 +58,7 @@ export function RegionRail({
           aria-selected={tab === 'regions'}
           onClick={() => onTabChange('regions')}
         >
-          Regions <span className="tcount">{regions.length}</span>
+          Regions <span className="tcount">{regions.length + worldObjects.length}</span>
         </button>
         <button
           type="button"
@@ -74,7 +74,7 @@ export function RegionRail({
       <div className={`rpane${tab === 'regions' ? ' show' : ''}`} role="tabpanel" aria-label="Regions" hidden={tab !== 'regions'}>
         <div className="rhead">
           <div className="rt">Regions</div>
-          <div className="rs"><b id="rail-count">{regions.length}</b> discovered · sorted by danger</div>
+          <div className="rs"><b id="rail-count">{regions.length + worldObjects.length}</b> discovered</div>
         </div>
         
         <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
@@ -83,7 +83,7 @@ export function RegionRail({
             const isSel = selectedIdx === i;
             return (
               <button 
-                key={i}
+                key={`r-${i}`}
                 className={`rrow ${isSel ? 'sel' : ''}`} 
                 data-region={i} 
                 role="option" 
@@ -98,36 +98,25 @@ export function RegionRail({
               </button>
             );
           })}
+          {worldObjects.map((obj) => {
+            const isSel = selectedLandmarkId === obj.id;
+            const label = obj.label && obj.label.trim().length > 0 ? obj.label : `Unnamed ${obj.kind}`;
+            return (
+              <button
+                key={`l-${obj.id}`}
+                className={`rrow ${isSel ? 'sel' : ''}`}
+                role="option"
+                aria-selected={isSel}
+                onClick={() => onSelectLandmark(obj.id)}
+                style={{ '--el': obj.tint ?? '#c8b48a' } as CSSProperties}
+                aria-label={`${label}, ${obj.kind}, at ${obj.lat.toFixed(1)}° ${obj.lon.toFixed(1)}°`}
+              >
+                <span className="rdot"></span>
+                <span className="rnm">{label}<span className="rsub">{cap(obj.kind)} · {obj.lat.toFixed(1)}°, {obj.lon.toFixed(1)}°</span></span>
+              </button>
+            );
+          })}
         </div>
-
-        {worldObjects.length > 0 ? (
-          <>
-            <div className="rhead">
-              <div className="rt">Landmarks</div>
-              <div className="rs"><b>{worldObjects.length}</b> placed by admin</div>
-            </div>
-            <div className="rlist" role="listbox" aria-label="Admin-placed world landmarks">
-              {worldObjects.map((obj) => {
-                const isSel = selectedLandmarkId === obj.id;
-                const label = obj.label && obj.label.trim().length > 0 ? obj.label : `Unnamed ${obj.kind}`;
-                return (
-                  <button
-                    key={obj.id}
-                    className={`rrow ${isSel ? 'sel' : ''}`}
-                    role="option"
-                    aria-selected={isSel}
-                    onClick={() => onSelectLandmark(obj.id)}
-                    style={{ '--el': obj.tint ?? '#c8b48a' } as CSSProperties}
-                    aria-label={`${label}, ${obj.kind}, at ${obj.lat.toFixed(1)}° ${obj.lon.toFixed(1)}°`}
-                  >
-                    <span className="rdot"></span>
-                    <span className="rnm">{label}<span className="rsub">{cap(obj.kind)} · {obj.lat.toFixed(1)}°, {obj.lon.toFixed(1)}°</span></span>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
 
         <RegionDetail selectedRegion={selectedRegion} onEnterDungeon={onEnterDungeon} />
       </div>
