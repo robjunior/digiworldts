@@ -1,4 +1,4 @@
-import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind } from '@digiworld/shared';
+import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind, EncounterLoot } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
 import { apiFetch } from './api';
 
@@ -48,7 +48,7 @@ export async function putAdminDungeonTiles(id: string, tiles: readonly { x: numb
   });
 }
 
-export async function createAdminEncounter(id: string, body: { x: number; y: number; label?: string; difficulty?: 'easy' | 'normal' | 'elite' | 'boss'; digimon: readonly EncounterDigimon[] }): Promise<{ encounter: DungeonEncounter }> {
+export async function createAdminEncounter(id: string, body: { x: number; y: number; label?: string; difficulty?: 'easy' | 'normal' | 'elite' | 'boss'; digimon: readonly EncounterDigimon[]; loots: readonly EncounterLoot[] }): Promise<{ encounter: DungeonEncounter }> {
   return apiFetch<{ encounter: DungeonEncounter }>(`/api/admin/dungeons/${id}/encounters`, {
     method: 'POST',
     body,

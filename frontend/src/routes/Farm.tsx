@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type CSSProperties, type ReactNode } from 'react';
 
+import { BalBar, ResourceBal } from '../components/common/BalBar';
+import { ResourceIcon } from '../components/common/ResourceIcon';
+import { DownArrowIcon, UpArrowIcon } from '../components/common/icons';
 import { useAuth } from '../hooks/useAuth';
 import {
   collectFarmAll,
@@ -24,27 +27,6 @@ const RES_VAR: Record<string, string> = {
   Meat: 'var(--meat)',
   Bits: 'var(--bits)',
   Data: 'var(--data)',
-};
-
-const RES_ICON: Record<string, ReactNode> = {
-  Meat: (
-    <>
-      <path d="M14 3c3 0 5 2 5 5 0 2-1 3-2 4l-6 6c-1 1-2 2-4 2a3 3 0 0 1-3-3c0-2 1-3 2-4l6-6c1-1 2-2 4-2z" />
-      <path d="M6 15l-2 2M9 18l-2 2" />
-    </>
-  ),
-  Bits: (
-    <>
-      <rect x="6" y="6" width="12" height="12" rx="1" />
-      <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3" />
-    </>
-  ),
-  Data: (
-    <>
-      <ellipse cx="12" cy="5" rx="7" ry="3" />
-      <path d="M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3" />
-    </>
-  ),
 };
 
 const emptyFarm: FarmView = {
@@ -122,39 +104,16 @@ export function Farm(): JSX.Element {
   }
 
   const isAllPending = collectAllMutation.isPending;
+  const subtitle = `+${fmt(rateMeat + rateBits + rateData)}/hr${readyCount > 0 ? ` · ${readyCount} ready` : ''}`;
 
   return (
     <>
-      <div className="balbar" data-od-id="resource-balance">
-        <div className="bal" data-res="meat">
-          <span className="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Meat}</svg>
-          </span>
-          <span className="col"><span className="k">Meat</span><span className="v">{fmt(farm.balances.Meat)}</span></span>
-        </div>
-        <div className="bal" data-res="bits">
-          <span className="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Bits}</svg>
-          </span>
-          <span className="col"><span className="k">Bits</span><span className="v">{fmt(farm.balances.Bits)}</span></span>
-        </div>
-        <div className="bal" data-res="data">
-          <span className="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Data}</svg>
-          </span>
-          <span className="col"><span className="k">Data</span><span className="v">{fmt(farm.balances.Data)}</span></span>
-        </div>
-        <div className="bal" data-res="credits">
-          <span className="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg>
-          </span>
-          <span className="col"><span className="k">Credits</span><span className="v">{fmt(farm.credits)}</span></span>
-        </div>
-        <div className="strip-title">
-          <div className="k">Farm Yield</div>
-          <div className="s">+{fmt(rateMeat + rateBits + rateData)}/hr {readyCount > 0 ? `· ${readyCount} ready` : ''}</div>
-        </div>
-      </div>
+      <BalBar title="Farm Yield" subtitle={subtitle} odId="resource-balance">
+        <ResourceBal resource="meat" label="Meat" value={farm.balances.Meat} format={fmt} />
+        <ResourceBal resource="bits" label="Bits" value={farm.balances.Bits} format={fmt} />
+        <ResourceBal resource="data" label="Data" value={farm.balances.Data} format={fmt} />
+        <ResourceBal resource="credits" label="Credits" value={farm.credits} format={fmt} />
+      </BalBar>
 
       <div className="mhead">
         <h1>Production Buildings</h1>
@@ -168,9 +127,9 @@ export function Farm(): JSX.Element {
           disabled={readyCount <= 0 || isAllPending}
           onClick={() => collectAllMutation.mutate()}
         >
-          <svg className="cai" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-            <path d="M12 3v14M6 11l6 6 6-6" strokeLinecap="square" strokeLinejoin="miter" />
-          </svg>
+          <span className="cai" aria-hidden="true">
+            <DownArrowIcon />
+          </span>
           <span>Collect all{totalCollectable > 0 ? ` · ${fmt(totalCollectable)}` : ''}</span>
         </button>
       </div>
@@ -220,6 +179,7 @@ function BuildingCard({
   const full = prod >= b.capacity - 0.5; // Handle float math imprecision
   const collectable = Math.floor(prod);
   const canAfford = bits >= b.upgradeCost;
+  const resourceKind = b.resource.toLowerCase() as 'meat' | 'bits' | 'data';
 
   let hintNode: ReactNode = null;
   let hintClass = 'thint';
@@ -252,9 +212,7 @@ function BuildingCard({
     >
       <div className="thead">
         <span className="ticon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-            {RES_ICON[b.resource]}
-          </svg>
+          <ResourceIcon kind={resourceKind} />
         </span>
         <span className="tnm">
           <span className="tn">{b.kind}</span>
@@ -294,9 +252,9 @@ function BuildingCard({
           disabled={!canAfford || isPending}
           onClick={onUpgrade}
         >
-          <svg className="bicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 19V5M5 12l7-7 7 7" />
-          </svg>
+          <span className="bicon" aria-hidden="true">
+            <UpArrowIcon />
+          </span>
           Upgrade &middot; <span className="bn">{fmt(b.upgradeCost)}</span>
         </button>
       </div>

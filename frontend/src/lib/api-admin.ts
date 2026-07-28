@@ -58,6 +58,7 @@ export type ShopItemView = {
   readonly class: ShopItemClass;
   readonly payload: Record<string, unknown>;
   readonly enabled: boolean;
+  readonly isQuestItem?: boolean;
   readonly createdAt: number;
 };
 
@@ -69,6 +70,7 @@ export type ShopItemInput = {
   readonly class: ShopItemClass;
   readonly payload?: Record<string, unknown>;
   readonly enabled?: boolean;
+  readonly isQuestItem?: boolean;
 };
 
 export type UserListEntry = {
