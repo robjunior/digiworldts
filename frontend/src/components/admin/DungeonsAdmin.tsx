@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 
-import { BIOMES, type Biome } from '@digiworld/shared';
+import { BIOMES, type Biome, type Dungeon } from '@digiworld/shared';
 
 import { createAdminDungeon, deleteAdminDungeon, listAdminDungeons } from '../../lib/api-dungeon-admin';
 import { AdminSection, ErrorText, Field } from './AdminShared';
@@ -18,6 +18,7 @@ type DraftDungeon = {
   height: number;
   spawnX: number;
   spawnY: number;
+  parentId: string;
 };
 
 const EMPTY_DRAFT: DraftDungeon = {
@@ -28,7 +29,43 @@ const EMPTY_DRAFT: DraftDungeon = {
   height: 8,
   spawnX: 0,
   spawnY: 0,
+  parentId: '',
 };
+
+type OrderedDungeon = { readonly dungeon: Dungeon; readonly depth: number };
+
+function orderByHierarchy(dungeons: readonly Dungeon[]): OrderedDungeon[] {
+  const byParent = new Map<string | null, Dungeon[]>();
+  for (const dungeon of dungeons) {
+    const key = dungeon.parentId;
+    const bucket = byParent.get(key) ?? [];
+    bucket.push(dungeon);
+    byParent.set(key, bucket);
+  }
+  for (const bucket of byParent.values()) bucket.sort((a, b) => a.name.localeCompare(b.name));
+  const known = new Set(dungeons.map((d) => d.id));
+  const result: OrderedDungeon[] = [];
+  const seen = new Set<string>();
+  const walk = (parentId: string | null, depth: number): void => {
+    const children = byParent.get(parentId) ?? [];
+    for (const dungeon of children) {
+      if (seen.has(dungeon.id)) continue;
+      seen.add(dungeon.id);
+      result.push({ dungeon, depth });
+      walk(dungeon.id, depth + 1);
+    }
+  };
+  walk(null, 0);
+  for (const dungeon of dungeons) {
+    if (seen.has(dungeon.id)) continue;
+    if (dungeon.parentId !== null && !known.has(dungeon.parentId)) {
+      seen.add(dungeon.id);
+      result.push({ dungeon, depth: 0 });
+      walk(dungeon.id, 1);
+    }
+  }
+  return result;
+}
 
 export function DungeonsAdmin(): JSX.Element {
   const navigate = useNavigate();
@@ -52,6 +89,8 @@ export function DungeonsAdmin(): JSX.Element {
   });
 
   const dungeons = dungeonsQuery.data?.dungeons ?? [];
+  const ordered = useMemo(() => orderByHierarchy(dungeons), [dungeons]);
+  const nameById = useMemo(() => new Map(dungeons.map((d) => [d.id, d.name])), [dungeons]);
 
   const submit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -66,6 +105,7 @@ export function DungeonsAdmin(): JSX.Element {
       spawnX: draft.spawnX,
       spawnY: draft.spawnY,
       ...(description ? { description } : {}),
+      ...(draft.parentId ? { parentId: draft.parentId } : {}),
     });
   };
 
@@ -77,7 +117,7 @@ export function DungeonsAdmin(): JSX.Element {
   return (
     <AdminSection
       title="Dungeons"
-      lede="Create and manage dungeons. Each dungeon has a grid of walkable tiles plus encounters and item drops placed on specific tiles."
+      lede="Create and manage dungeons. Each dungeon has a grid of walkable tiles plus encounters and item drops placed on specific tiles. Nest dungeons under a parent to keep multi-stage arcs grouped in the list."
       actions={
         <button type="button" className="btn btn--primary btn--sm" onClick={() => setCreating(true)} disabled={creating}>
           + New Dungeon
@@ -96,6 +136,14 @@ export function DungeonsAdmin(): JSX.Element {
               <select value={draft.biome} onChange={(e) => setDraft({ ...draft, biome: e.target.value as Biome })}>
                 {BIOMES.map((b) => (
                   <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Parent">
+              <select value={draft.parentId} onChange={(e) => setDraft({ ...draft, parentId: e.target.value })}>
+                <option value="">— Root (no parent) —</option>
+                {dungeons.map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
             </Field>
@@ -127,7 +175,7 @@ export function DungeonsAdmin(): JSX.Element {
       ) : null}
 
       <div className="admin-scroll">
-        <table className="admin-table">
+        <table className="admin-table admin-dungeons-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -139,14 +187,20 @@ export function DungeonsAdmin(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {dungeons.length === 0 ? (
+            {ordered.length === 0 ? (
               <tr><td colSpan={6} className="muted">No dungeons yet. Click <b>+ New Dungeon</b> to create one.</td></tr>
             ) : (
-              dungeons.map((d) => (
-                <tr key={d.id}>
+              ordered.map(({ dungeon: d, depth }) => (
+                <tr key={d.id} className={depth > 0 ? 'is-child' : ''} data-depth={depth}>
                   <td>
-                    <b>{d.name}</b>
-                    {d.description ? <><br /><span className="muted">{d.description}</span></> : null}
+                    <div className="dungeon-name-cell" style={{ paddingLeft: `${depth * 20}px` }}>
+                      {depth > 0 ? <span className="dungeon-tree-branch" aria-hidden="true">└─</span> : null}
+                      <div className="dungeon-name-text">
+                        <b>{d.name}</b>
+                        {d.parentId && nameById.has(d.parentId) ? <span className="muted dungeon-parent-hint"> · child of {nameById.get(d.parentId)}</span> : null}
+                        {d.description ? <><br /><span className="muted">{d.description}</span></> : null}
+                      </div>
+                    </div>
                   </td>
                   <td><span className="badge">{d.biome}</span></td>
                   <td>{d.width} × {d.height}</td>

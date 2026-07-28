@@ -1,4 +1,5 @@
 import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind } from '@digiworld/shared';
+import type { Element } from '@digiworld/shared/digimon';
 import { apiFetch } from './api';
 
 type AdminDungeonRandomFields = Pick<Dungeon, 'randomEncountersEnabled' | 'randomEncounterRate' | 'randomMinLevel' | 'randomMaxLevel' | 'randomMaxStage' | 'randomMinPartySize' | 'randomMaxPartySize' | 'randomAllowedElements'>;
@@ -7,6 +8,7 @@ export type AdminDungeonCreateBody = Pick<Dungeon, 'name' | 'biome' | 'width' | 
   readonly biomeRegion?: Dungeon['biomeRegion'];
   readonly worldObjectId?: string | null;
   readonly questId?: string | null;
+  readonly parentId?: string | null;
 };
 
 export type AdminDungeonUpdateBody = Partial<Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>>;
@@ -115,7 +117,7 @@ export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> 
   return apiFetch<WorldObjectListResponse>('/api/world/objects'); // this is what World uses
 }
 
-export async function createAdminWorldObject(body: { x: number; y: number; lat: number; lon: number; kind: WorldObjectKind; scale: number; passable: boolean; label?: string; tint?: string; questId?: string; dungeonId?: string }): Promise<{ object: WorldObject }> {
+export async function createAdminWorldObject(body: { x: number; y: number; lat: number; lon: number; kind: WorldObjectKind; scale: number; passable: boolean; label?: string; tint?: string; questId?: string; dungeonId?: string; elements?: readonly Element[]; minLevel?: number; maxLevel?: number }): Promise<{ object: WorldObject }> {
   return apiFetch<{ object: WorldObject }>('/api/admin/world-objects', {
     method: 'POST',
     body,
