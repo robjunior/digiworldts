@@ -1,9 +1,10 @@
-import type { TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Element, TemplateDigimon } from '@digiworld/shared/digimon';
 
 import { apiFetch } from './api';
 
 export type DigdexEntry = {
   readonly catalogId: string;
+  readonly element: Element;
   readonly met: boolean;
   readonly template: TemplateDigimon | null;
 };

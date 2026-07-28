@@ -199,168 +199,75 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
     if (existingIndex >= 0) clearSlot(existingIndex);
   };
 
+  
   return (
-    <div className="skill-editor">
-      <div className="skill-editor-header">
-        <div className="hdr-title">
-          <h3>Skill loadout</h3>
-          <span className="hdr-sub">Drag or click to equip up to <b>{data.maxEquipped}</b> — currently <b>{chosenKeys.size}</b>/{data.maxEquipped}</span>
-        </div>
-        <div className="hdr-actions">
-          <button className="btn btn--secondary btn--sm" type="button" onClick={reset} disabled={!dirty || mutation.isPending}>Reset</button>
-          <button className="btn btn--sm" type="button" onClick={save} disabled={!canSave || mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save loadout'}</button>
-        </div>
+    <>
+      <div className="skillhead">
+        <span className="lbl">Skills — Equipped</span>
+        <button 
+          className="navbtn" 
+          style={{ marginLeft: '12px', padding: '2px 8px', fontSize: '10px' }} 
+          onClick={save} 
+          disabled={!canSave || mutation.isPending}
+        >
+          {mutation.isPending ? 'Saving...' : (dirty ? 'Save changes' : 'Saved')}
+        </button>
+        <span className={`slots ${currentSlots.filter(s => s !== null).length >= data.maxEquipped ? 'full' : ''}`} id="slotcount">
+          {currentSlots.filter(s => s !== null).length} / {data.maxEquipped} slots
+        </span>
       </div>
-      {message !== null ? <div className={`skill-editor-msg is-${message.tone}`}>{message.text}</div> : null}
-
-      <div className="skill-editor-cols">
-        <div className="skill-editor-col skill-editor-col--left">
-          <div className="skill-filters">
-            <div className="skill-filter" role="tablist" aria-label="Filter skills by stage">
-              <span className="skill-filter-label">Stage</span>
-              <button
-                type="button"
-                role="tab"
-                className={`skill-filter-btn ${activeStageFilter === 'all' ? 'is-active' : ''}`}
-                aria-selected={activeStageFilter === 'all'}
-                onClick={() => setStageFilter('all')}
-              >
-                All <span className="filter-count">{data.learnedSkills.length}</span>
-              </button>
-              {availableStages.map((stage) => (
-                <button
-                  key={stage}
-                  type="button"
-                  role="tab"
-                  className={`skill-filter-btn ${activeStageFilter === stage ? 'is-active' : ''}`}
-                  aria-selected={activeStageFilter === stage}
-                  data-stage={stage.toLowerCase()}
-                  onClick={() => setStageFilter(stage)}
-                >
-                  {stage} <span className="filter-count">{countByStage.get(stage) ?? 0}</span>
-                </button>
-              ))}
-            </div>
-            {availableElements.length > 0 ? (
-              <div className="skill-filter" role="tablist" aria-label="Filter skills by element">
-                <span className="skill-filter-label">Element</span>
-                <button
-                  type="button"
-                  role="tab"
-                  className={`skill-filter-btn ${activeElementFilter === 'all' ? 'is-active' : ''}`}
-                  aria-selected={activeElementFilter === 'all'}
-                  onClick={() => setElementFilter('all')}
-                >
-                  All
-                </button>
-                {availableElements.map((element) => (
-                  <button
-                    key={element}
-                    type="button"
-                    role="tab"
-                    className={`skill-filter-btn skill-filter-btn--el ${activeElementFilter === element ? 'is-active' : ''}`}
-                    aria-selected={activeElementFilter === element}
-                    data-element={element}
-                    style={{ ['--fchip' as string]: `var(--el-${element})` }}
-                    onClick={() => setElementFilter(element)}
-                  >
-                    {element} <span className="filter-count">{countByElement.get(element) ?? 0}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {availableAttributes.length > 0 ? (
-              <div className="skill-filter" role="tablist" aria-label="Filter skills by source Digimon attribute">
-                <span className="skill-filter-label">Type</span>
-                <button
-                  type="button"
-                  role="tab"
-                  className={`skill-filter-btn ${activeAttributeFilter === 'all' ? 'is-active' : ''}`}
-                  aria-selected={activeAttributeFilter === 'all'}
-                  onClick={() => setAttributeFilter('all')}
-                >
-                  All
-                </button>
-                {availableAttributes.map((attribute) => (
-                  <button
-                    key={attribute}
-                    type="button"
-                    role="tab"
-                    className={`skill-filter-btn skill-filter-btn--attr ${activeAttributeFilter === attribute ? 'is-active' : ''}`}
-                    aria-selected={activeAttributeFilter === attribute}
-                    data-attribute={attribute.toLowerCase()}
-                    onClick={() => setAttributeFilter(attribute)}
-                  >
-                    {attribute} <span className="filter-count">{countByAttribute.get(attribute) ?? 0}</span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <div
-            className={`skill-pool ${poolDragOver ? 'is-dropzone' : ''}`}
-            onDragOver={handlePoolDragOver}
-            onDragLeave={() => setPoolDragOver(false)}
-            onDrop={handlePoolDrop}
-          >
-            {visibleEntries.length === 0 ? (
-              <div className="skill-group-empty">
-                {anyFilterActive ? 'No skills match the current filters.' : 'No learned skills yet.'}
-              </div>
-            ) : (
-              <div className="skill-grid">
-                {visibleEntries.map((entry) => {
-                  const equipped = chosenKeys.has(entry.key);
-                  return (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      className={`skill-chip ${equipped ? 'is-equipped' : ''}`}
-                      draggable
-                      onDragStart={handleDragStart(entry.key)}
-                      onDragEnd={handleDragEnd}
-                      onClick={() => equipToFirstFree(entry.key)}
-                      data-element={entry.skill.element}
-                      title={entry.skill.description ?? entry.skill.name}
-                    >
-                      {equipped ? <span className="chip-equipped-badge">Equipped</span> : null}
-                      <span className="chip-head">
-                        <span className="chip-name">{entry.skill.name}</span>
-                        <span className="chip-power">PWR {entry.skill.power}</span>
-                      </span>
-                      <span className="chip-meta">
-                        <span className="chip-el" style={{ color: `var(--el-${entry.skill.element})` }}>{entry.skill.element}</span>
-                        <span className="chip-en">EN {entry.skill.energyCost}</span>
-                        <span className="chip-from">{entry.sourceStage}{entry.source === 'history' ? ` · ${entry.sourceTemplateName}` : ''}</span>
-                      </span>
-                      {entry.skill.description ? <span className="chip-desc">{entry.skill.description}</span> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="skill-editor-col skill-editor-col--right">
-          <div className="slot-column" aria-label="Equipped skill slots">
-            {currentSlots.map((key, index) => (
-              <SkillSlotBox
-                key={index}
-                index={index}
-                entry={key !== null ? skillByKey.get(key) ?? null : null}
-                isDragOver={dragOverIndex === index}
-                onDragOver={handleSlotDragOver(index)}
-                onDragLeave={() => setDragOverIndex((prev) => (prev === index ? null : prev))}
-                onDrop={handleSlotDrop(index)}
-                onDragStart={key !== null ? handleDragStart(key) : undefined}
-                onDragEnd={handleDragEnd}
-                onClear={() => clearSlot(index)}
-              />
-            ))}
-          </div>
-        </div>
+      
+      <div className="skfilter" id="skfilter" role="group" aria-label="Filter skills by type">
+        <button className={`skchip ${activeElementFilter === 'all' ? 'is-on' : ''}`} aria-pressed={activeElementFilter === 'all'} onClick={() => setElementFilter('all')}>All</button>
+        <button className={`skchip ${(activeElementFilter as string) === 'attack' ? 'is-on' : ''}`} aria-pressed={(activeElementFilter as string) === 'attack'} onClick={() => setElementFilter('attack' as any)}>Attack</button>
+        <button className={`skchip ${(activeElementFilter as string) === 'support' ? 'is-on' : ''}`} aria-pressed={(activeElementFilter as string) === 'support'} onClick={() => setElementFilter('support' as any)}>Support</button>
       </div>
-    </div>
+
+      <div className="skrow" id="skgrid">
+        {data.learnedSkills.filter(entry => {
+          if ((activeElementFilter as string) === 'attack') return entry.skill.power > 0;
+          if ((activeElementFilter as string) === 'support') return entry.skill.power === 0;
+          return true;
+        }).map(entry => {
+          const isEquipped = currentSlots.includes(entry.key);
+          return (
+            <button 
+              key={entry.key}
+              className={`sk ${isEquipped ? 'equipped' : ''}`} 
+              data-skill={entry.key}
+              onClick={() => {
+                if (isEquipped) {
+                  const idx = currentSlots.indexOf(entry.key);
+                  clearSlot(idx);
+                } else {
+                  equipToFirstFree(entry.key);
+                }
+              }}
+              style={{ ['--skel' as string]: `var(--el-${entry.skill.element})` }}
+            >
+              <div className="ic">
+                {/* Fallback to simple circle SVG since we don't have EL_ICONS mapped here */}
+                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" /></svg>
+              </div>
+              <div className="body">
+                <span className="nm">
+                  {entry.skill.name}
+                  {isEquipped && <span className="eqtag">Equipped</span>}
+                </span>
+                <span className="ds">{entry.skill.description || '—'}</span>
+              </div>
+              <span className="cost">
+                <span className="en">EN {entry.skill.energyCost}</span>
+                <span className="pw">{entry.skill.power > 0 ? `${entry.skill.power} PWR` : '—'}</span>
+              </span>
+            </button>
+          );
+        })}
+        {data.learnedSkills.length === 0 && <div className="skempty">No skills in this pool.</div>}
+      </div>
+      <div className="skhint" id="skhint" aria-live="polite">
+        {message ? message.text : 'Click to equip or remove skills.'}
+      </div>
+    </>
   );
 }

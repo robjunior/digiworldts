@@ -1,505 +1,79 @@
-/* ============================================================================
- * Farm building city (Meat / Bits / Data producers) — unchanged from base.
- * ========================================================================== */
-.sec-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; flex-wrap:wrap; }
-.sec-head h2 { font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0; }
-.collect-all { display:inline-flex; align-items:center; gap:10px; }
-.collect-all .ready-note { font-size:11px; color:var(--muted); font-weight:600; }
-.collect-all .ready-note b { color:var(--signal); }
-.city { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; }
-.bld--meat { --rc: var(--res-meat); }
-.bld--bits { --rc: var(--res-bits); }
-.bld--data { --rc: var(--res-data); }
-.farm-alert { min-height:18px; margin:0 0 12px; color:var(--muted); font-size:12px; }
-.farm-alert[role="alert"] { color:var(--battle); }
-.bld .fill i { width: var(--pct); }
-@media (max-width:860px) { .city { grid-template-columns:repeat(2, 1fr); } }
-@media (max-width:520px) { .city { grid-template-columns:1fr; } }
+/* ===================================================================
+   DigiWorld — Farm / City: resource-generating buildings that accrue
+   Meat / Bits / Data over time.
+   Scoped to .farm-page
+   =================================================================== */
 
-/* ============================================================================
- * Factory page (multi-factory queue system)
- *
- * Layout: left sidebar (owned factories + buy new) + main content
- * (selected factory queue + filtered recipe list).
- * ========================================================================== */
+.farm-page .balbar { flex:0 0 auto; display:flex; align-items:center; gap:0; padding:14px 28px; border-bottom:1px solid var(--hair); background:var(--panel); }
+.farm-page .bal { display:grid; grid-template-columns:28px auto; gap:10px; align-items:center; padding:0 22px; border-right:1px solid var(--hair); }
+.farm-page .bal:first-child { padding-left:0; }
+.farm-page .bal .ic { width:28px; height:28px; display:grid; place-items:center; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm); color:var(--res); }
+.farm-page .bal .ic svg { width:16px; height:16px; }
+.farm-page .bal .col { display:flex; flex-direction:column; }
+.farm-page .bal .col .k { font:700 9px/1 var(--font); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+.farm-page .bal .col .v { font:800 18px/1.1 var(--font); margin-top:3px; font-variant-numeric:tabular-nums; }
+.farm-page .bal[data-res="meat"] { --res:var(--meat); }
+.farm-page .bal[data-res="bits"] { --res:var(--bits); }
+.farm-page .bal[data-res="data"] { --res:var(--data); }
+.farm-page .bal[data-res="credits"] { --res:var(--credits); }
+.farm-page .balbar .strip-title { margin-left:auto; text-align:right; padding-left:22px; }
+.farm-page .balbar .strip-title .k { font:800 10px/1 var(--font); letter-spacing:.22em; text-transform:uppercase; color:var(--signal); }
+.farm-page .balbar .strip-title .s { font:600 12px/1 var(--font); color:var(--muted); margin-top:5px; font-variant-numeric:tabular-nums; }
 
-.factory-main { display: flex; flex-direction: column; }
+.farm-page .mhead { flex:0 0 auto; display:flex; align-items:baseline; gap:12px; padding:16px 22px 12px; }
+.farm-page .mhead h1 { font:800 11px/1 var(--font); letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin:0; }
+.farm-page .mhead .sub { font:600 11px/1 var(--font); color:var(--muted); }
+.farm-page .mhead .sub b { color:var(--ink); }
+.farm-page .mhead .collect-all { margin-left:auto; display:inline-flex; align-items:center; gap:8px; height:30px; background:var(--signal); color:#fff; border:1px solid var(--signal); clip-path:var(--notch-sm); padding:0 14px; font:800 10px/1 var(--font); letter-spacing:.14em; text-transform:uppercase; cursor:pointer; transition:.12s; font-variant-numeric:tabular-nums; }
+.farm-page .mhead .collect-all .cai { width:13px; height:13px; flex:0 0 13px; }
+.farm-page .mhead .collect-all:hover:not(:disabled) { background:color-mix(in oklab, var(--signal) 86%, var(--ink)); box-shadow:0 0 0 1px color-mix(in oklab, var(--signal) 60%, #fff); }
+.farm-page .mhead .collect-all:disabled { background:var(--panel); color:var(--muted); border-color:var(--hair); cursor:default; }
+.farm-page .mhead .collect-all:focus-visible { outline:2px solid var(--ink); outline-offset:2px; }
 
-.factory-layout {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 20px;
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .factory-layout { grid-template-columns: 1fr; }
-}
+/* building grid */
+.farm-page .grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 4px 22px 22px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; align-content: start; scrollbar-width: thin; }
+.farm-page .grid::-webkit-scrollbar { width: 9px; }
+.farm-page .grid::-webkit-scrollbar-thumb { background: var(--hair); }
 
-/* ---- Sidebar ---- */
+.farm-page .tile { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch); position: relative; overflow: hidden; }
+.farm-page .tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--r, var(--hair)); }
+.farm-page .tile .thead { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 15px 16px 13px 18px; }
+.farm-page .ticon { width: 40px; height: 40px; display: grid; place-items: center; background: color-mix(in oklab, var(--r, var(--signal)) 14%, var(--bg)); clip-path: var(--notch-sm); color: var(--r, var(--ink)); }
+.farm-page .ticon svg { width: 22px; height: 22px; }
+.farm-page .tnm { min-width: 0; }
+.farm-page .tnm .tn { font: 800 14px/1.1 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.farm-page .tnm .tr { font: 700 8px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 5px; display: block; }
+.farm-page .tnm .tr b { color: var(--r, var(--ink)); font-weight: 800; }
+.farm-page .tlvl { font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 6px 9px; white-space: nowrap; }
 
-.factory-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 14px;
-  background: var(--panel);
-  border: 1px solid var(--hairline);
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  min-height: 320px;
-}
-.factory-sidebar-header,
-.factory-sidebar-subheader {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0;
-  padding-bottom: 4px;
-  border-bottom: 1px solid var(--hairline);
-}
-.factory-sidebar-subheader { margin-top: 8px; }
-.factory-sidebar-empty { font-size: 12px; padding: 4px 0; }
-.factory-sidebar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+/* production meter */
+.farm-page .tmeter { padding: 2px 16px 14px 18px; }
+.farm-page .tmeter .ml { display: flex; justify-content: space-between; align-items: baseline; font: 700 8px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+.farm-page .tmeter .ml .mv { color: var(--ink); font: 800 12px/1 var(--font); letter-spacing: 0; }
+.farm-page .tmeter .ml .mv .mcap { color: var(--muted); font-weight: 700; }
+.farm-page .tmeter .mbar { height: 8px; background: var(--bg); border: 1px solid var(--hair); clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%); overflow: hidden; }
+.farm-page .tmeter .mbar i { display: block; height: 100%; width: 0; background: var(--r, var(--signal)); transition: width .5s linear; }
+.farm-page .tmeter.is-full .mbar i { background: color-mix(in oklab, var(--r, var(--signal)) 70%, #fff); }
+.farm-page .tmeter .mfull { font: 800 8px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--r, var(--signal)); margin-top: 7px; height: 8px; opacity: 0; }
+.farm-page .tmeter.is-full .mfull { opacity: 1; }
 
-.factory-sidebar-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  background: color-mix(in oklab, var(--bg) 55%, transparent);
-  border: 1px solid var(--hairline);
-  border-left: 3px solid transparent;
-  color: var(--ink);
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  transition: background 0.12s, border-color 0.12s;
-}
-.factory-sidebar-item:hover {
-  background: color-mix(in oklab, var(--panel) 90%, var(--signal) 10%);
-}
-.factory-sidebar-item.is-active {
-  background: color-mix(in oklab, var(--signal) 12%, var(--panel));
-  border-left-color: var(--signal);
-}
-.factory-sidebar-item--med { --ftc: var(--res-meat); }
-.factory-sidebar-item--chip { --ftc: var(--res-data); }
-.factory-sidebar-item--rare { --ftc: var(--gold); }
-.factory-sidebar-item--pantry { --ftc: var(--el-nature); }
-.factory-sidebar-item.is-active.factory-sidebar-item--med    { border-left-color: var(--res-meat); background: color-mix(in oklab, var(--res-meat) 12%, var(--panel)); }
-.factory-sidebar-item.is-active.factory-sidebar-item--chip   { border-left-color: var(--res-data); background: color-mix(in oklab, var(--res-data) 12%, var(--panel)); }
-.factory-sidebar-item.is-active.factory-sidebar-item--rare   { border-left-color: var(--gold);     background: color-mix(in oklab, var(--gold) 12%, var(--panel)); }
-.factory-sidebar-item.is-active.factory-sidebar-item--pantry { border-left-color: var(--el-nature); background: color-mix(in oklab, var(--el-nature) 12%, var(--panel)); }
+/* actions */
+.farm-page .tfoot { margin-top: auto; display: flex; gap: 8px; padding: 0 16px 16px 18px; }
+.farm-page .tbtn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 11px 10px; font: 800 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; background: var(--bg); color: var(--ink); transition: .12s; }
+.farm-page .tbtn .bn { font-variant-numeric: tabular-nums; }
+.farm-page .tbtn:hover:not(:disabled) { border-color: var(--r, var(--signal)); }
+.farm-page .tbtn:focus-visible { outline: 2px solid var(--r, var(--signal)); outline-offset: 2px; }
+.farm-page .tbtn.collect { background: color-mix(in oklab, var(--r, var(--signal)) 16%, var(--bg)); border-color: color-mix(in oklab, var(--r, var(--signal)) 40%, var(--hair)); color: var(--r, var(--ink)); }
+.farm-page .tbtn.collect:hover:not(:disabled) { background: color-mix(in oklab, var(--r, var(--signal)) 26%, var(--bg)); }
+.farm-page .tbtn:disabled { color: var(--muted); cursor: default; background: var(--panel); border-color: var(--hair); }
+.farm-page .tbtn .bicon { width: 13px; height: 13px; }
 
-.factory-sidebar-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.factory-sidebar-item-name {
-  font-size: 12px;
-  color: var(--ink);
-}
-.factory-sidebar-item-meta {
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-.factory-sidebar-item-active {
-  color: var(--signal);
-  font-weight: 600;
-}
+/* fixed-height hint slot so every tile aligns regardless of upgrade affordability */
+.farm-page .thint { flex: 0 0 auto; height: 14px; padding: 0 16px 12px 18px; font: 700 9px/1 var(--font); letter-spacing: .04em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.farm-page .thint.warn { color: color-mix(in oklab, var(--battle) 70%, var(--ink)); }
+.farm-page .thint .hdot { width: 5px; height: 5px; background: currentColor; clip-path: var(--notch-sm); flex: 0 0 5px; }
 
-/* Factory type badge (colored pill) */
-.factory-type-badge {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 1px 6px;
-  border: 1px solid currentColor;
-  color: var(--ftc, var(--muted));
-  background: color-mix(in oklab, var(--ftc, var(--muted)) 10%, transparent);
-}
-.factory-type-badge--med    { --ftc: var(--res-meat); }
-.factory-type-badge--chip   { --ftc: var(--res-data); }
-.factory-type-badge--rare   { --ftc: var(--gold); }
-.factory-type-badge--pantry { --ftc: var(--el-nature); }
+/* notice */
+.farm-page .farm-notice { font: 700 12px/1 var(--font); color: var(--muted); padding: 12px 22px 0; }
 
-/* Buy card (for factory types the user does not own) */
-.factory-buy-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  background: color-mix(in oklab, var(--bg) 40%, transparent);
-  border: 1px dashed var(--hairline);
-}
-.factory-buy-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 12px;
-}
-.factory-buy-desc { font-size: 11px; margin: 0; }
-.factory-buy-costs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  align-items: center;
-  font-size: 11px;
-}
-.factory-buy-card .btn { margin-top: 2px; align-self: flex-start; }
-
-/* ---- Main content ---- */
-
-.factory-content {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-width: 0;
-}
-.factory-content-empty { padding: 40px; text-align: center; }
-
-.factory-content-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 14px 16px;
-  background: var(--panel);
-  border: 1px solid var(--hairline);
-  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  flex-wrap: wrap;
-}
-.factory-content-title { margin: 0; font-size: 16px; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
-.factory-content-desc { margin: 4px 0 0; font-size: 11px; }
-.factory-content-meta { min-width: 240px; display: flex; flex-direction: column; gap: 10px; }
-
-/* ---- Factory level + upgrade ---- */
-.factory-lvl-badge {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  padding: 1px 6px;
-  border: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--panel) 60%, transparent);
-  color: var(--ink);
-  border-radius: 2px;
-}
-.factory-lvl-badge--head {
-  font-size: 11px;
-  color: var(--signal);
-  border-color: color-mix(in oklab, var(--signal) 60%, var(--hairline));
-  background: color-mix(in oklab, var(--signal) 12%, transparent);
-}
-
-.factory-upgrade {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px;
-  border: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--bg) 40%, transparent);
-}
-.factory-upgrade-line {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.factory-upgrade-line b { color: var(--ink); font-weight: 700; font-size: 10px; }
-.factory-upgrade-speed {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--signal);
-  text-transform: none;
-  letter-spacing: 0;
-}
-.factory-upgrade-speed .muted { color: var(--muted); font-weight: 600; }
-.factory-upgrade-btn {
-  width: 100%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.factory-upgrade-cost {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: var(--res-bits);
-  font-weight: 700;
-}
-.factory-upgrade-cost b { color: var(--res-bits); font-weight: 700; font-size: 10px; letter-spacing: 0.04em; }
-
-.recipe-list-time-orig {
-  font-size: 10px;
-  margin-left: 4px;
-}
-
-.factory-queue-cap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.factory-queue-cap-lbl {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.factory-queue-cap-lbl b { color: var(--ink); font-weight: 700; }
-.factory-queue-cap-bar {
-  height: 6px;
-  background: color-mix(in oklab, var(--bg) 70%, transparent);
-  border: 1px solid var(--hairline);
-  position: relative;
-  overflow: hidden;
-}
-.factory-queue-cap-fill {
-  height: 100%;
-  background: linear-gradient(90deg,
-    color-mix(in oklab, var(--signal) 45%, transparent) 0%,
-    var(--signal) 100%);
-  transition: width 0.35s linear;
-}
-
-.factory-section-h {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin: 0 0 8px;
-}
-
-/* ---- Queue list ---- */
-
-.factory-queue-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  counter-reset: qi;
-}
-.queue-item {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 8px 12px;
-  align-items: center;
-  padding: 10px 12px;
-  background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%);
-  border: 1px solid var(--hairline);
-  counter-increment: qi;
-}
-.queue-item::before {
-  content: counter(qi);
-  grid-column: 1 / 3;
-  grid-row: 0;
-  display: none;
-}
-.queue-item.is-active {
-  border-left: 3px solid var(--signal);
-  padding-left: 10px;
-  background: color-mix(in oklab, var(--signal) 6%, var(--panel));
-}
-.queue-item.is-auto { border-right: 3px solid var(--gold); }
-.queue-item-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  grid-column: 1;
-}
-.queue-item-name {
-  font-size: 12px;
-  color: var(--ink);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.queue-item-auto {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--gold);
-  border: 1px solid var(--gold);
-  background: color-mix(in oklab, var(--gold) 10%, transparent);
-  padding: 1px 5px;
-}
-.queue-item-timer {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--muted);
-}
-.queue-item.is-active .queue-item-timer { color: var(--signal); font-weight: 700; }
-.queue-item-progress {
-  grid-column: 1 / 3;
-  height: 4px;
-  background: color-mix(in oklab, var(--bg) 70%, transparent);
-  border: 1px solid var(--hairline);
-  overflow: hidden;
-}
-.queue-item-progress-fill {
-  height: 100%;
-  background: var(--signal);
-  transition: width 0.35s linear;
-}
-.queue-item-cancel {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-}
-
-/* ---- Recipe list ---- */
-
-.recipe-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.recipe-list-row {
-  display: grid;
-  grid-template-columns: 1fr auto auto auto auto;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 12px;
-  background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%);
-  border: 1px solid var(--hairline);
-  transition: background 0.12s;
-}
-.recipe-list-row:hover { background: color-mix(in oklab, var(--panel) 80%, var(--signal) 8%); }
-.recipe-list-row--locked { opacity: 0.55; }
-.recipe-list-row--locked:hover { background: color-mix(in oklab, var(--panel) 92%, var(--bg) 8%); }
-
-.recipe-list-name b {
-  font-size: 12px;
-  color: var(--ink);
-}
-.recipe-list-name p {
-  font-size: 11px;
-  margin: 2px 0 0;
-}
-.recipe-list-costs {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 11px;
-}
-.recipe-list-time {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: var(--muted);
-  padding: 2px 8px;
-  border: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--bg) 60%, transparent);
-  min-width: 44px;
-  text-align: center;
-}
-.recipe-list-actions {
-  display: flex;
-  gap: 6px;
-}
-
-/* Quantity stepper (per-recipe amount to queue) */
-.recipe-qty-stepper {
-  display: inline-flex;
-  align-items: stretch;
-  gap: 0;
-  border: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--bg) 55%, transparent);
-  height: 26px;
-}
-.recipe-qty-stepper .qty-btn {
-  width: 22px;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.12s, color 0.12s;
-}
-.recipe-qty-stepper .qty-btn:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--signal) 20%, transparent);
-}
-.recipe-qty-stepper .qty-btn:disabled {
-  color: var(--muted);
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-.recipe-qty-stepper .qty-value {
-  min-width: 28px;
-  padding: 0 2px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  border-left: 1px solid var(--hairline);
-  border-right: 1px solid var(--hairline);
-  background: color-mix(in oklab, var(--panel) 60%, transparent);
-}
-
-/* Queue-item ×N badge (rendered when a group has count > 1) */
-.queue-item-qty {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 1px 6px;
-  border: 1px solid var(--signal);
-  color: var(--signal);
-  background: color-mix(in oklab, var(--signal) 12%, transparent);
-}
-
-/* Premium action button (Auto ∞) — distinguishes from primary queue button */
-.btn.btn--premium {
-  color: var(--gold);
-  border-color: var(--gold);
-  background: color-mix(in oklab, var(--gold) 10%, transparent);
-}
-.btn.btn--premium:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--gold) 22%, transparent);
-}
-
-@media (max-width: 720px) {
-  .recipe-list-row {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      "name    time"
-      "costs   stepper"
-      "actions actions";
-    row-gap: 8px;
-  }
-  .recipe-list-name    { grid-area: name; }
-  .recipe-list-time    { grid-area: time; }
-  .recipe-list-costs   { grid-area: costs; }
-  .recipe-qty-stepper  { grid-area: stepper; justify-self: end; }
-  .recipe-list-actions { grid-area: actions; justify-content: flex-end; }
-}
+@media (prefers-reduced-motion: reduce) { .farm-page * { animation: none !important; transition: none !important; } }

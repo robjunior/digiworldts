@@ -40,6 +40,7 @@ import {
   updateSkill,
   type SkillError,
 } from '../skills/catalog.js';
+import { invalidateSkillsCatalogResolver } from '../skills/resolve.js';
 import {
   createShopItem,
   deleteShopItem,
@@ -600,6 +601,7 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const admin = await requireAdmin(req, reply);
     const result = await createSkill(req.body);
     if (!result.ok) return reply.code(statusForSkillError(result.error)).send({ error: result.error, details: result.details });
+    invalidateSkillsCatalogResolver();
     log.info('admin.skill.create', { adminId: admin.id, id: result.skill.id, name: result.skill.name, actions: result.skill.actions.length });
     return reply.code(201).send(result);
   });
@@ -608,6 +610,7 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const admin = await requireAdmin(req, reply);
     const result = await updateSkill(req.params.id, req.body);
     if (!result.ok) return reply.code(statusForSkillError(result.error)).send({ error: result.error, details: result.details });
+    invalidateSkillsCatalogResolver();
     log.info('admin.skill.update', { adminId: admin.id, id: result.skill.id });
     return reply.send(result);
   });
@@ -616,6 +619,7 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const admin = await requireAdmin(req, reply);
     const result = await deleteSkill(req.params.id);
     if (!result.ok) return reply.code(statusForSkillError(result.error)).send({ error: result.error });
+    invalidateSkillsCatalogResolver();
     log.info('admin.skill.delete', { adminId: admin.id, id: req.params.id });
     return reply.send(result);
   });

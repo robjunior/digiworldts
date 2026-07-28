@@ -46,6 +46,11 @@ export type SceneSettings = {
   camDist: number;
   camLookAtY: number;
   camFrustum: number;
+  /** Filename picked by the admin scene editor (e.g. "my_scene.glb"). Persisted
+   *  with the rest of the per-arena settings and consumed by Combat3DScene when
+   *  choosing the arena mesh URL. SceneManager.applySettings ignores this field —
+   *  it's a selector, not a runtime scene property. */
+  modelFile?: string;
 };
 
 const FRUSTUM = 4.5;
@@ -435,8 +440,8 @@ export class SceneManager {
   private readonly heightFogUniforms = { fogHeight: { value: 2.0 } };
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    this.renderer.setClearColor(0x000000, 0);
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    this.renderer.setClearColor(0x0b1220, 1);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -803,24 +808,30 @@ export class SceneManager {
   }
 
   private detectPlayFloorY(root: THREE.Object3D): number {
-    const meshBox = new THREE.Box3();
-    let bestArea = 0;
-    let bestFloorY = 0;
-    root.traverse((obj) => {
-      if (!(obj instanceof THREE.Mesh)) return;
-      meshBox.setFromObject(obj);
-      const spanX = meshBox.max.x - meshBox.min.x;
-      const spanZ = meshBox.max.z - meshBox.min.z;
-      const spanY = meshBox.max.y - meshBox.min.y;
-      if (spanY > 1.5) return;
-      if (meshBox.max.y > 3.5) return;
-      const area = spanX * spanZ;
-      if (area > bestArea) {
-        bestArea = area;
-        bestFloorY = meshBox.max.y;
-      }
-    });
-    return bestFloorY;
+    // Raycast down at each of the 6 sprite spawn positions and take the median
+    // top-hit. Replaces the earlier "widest short mesh wins" heuristic that
+    // picked the fire arena's lava river over the bridge deck above it.
+    const meshes: THREE.Mesh[] = [];
+    root.traverse((obj) => { if (obj instanceof THREE.Mesh) meshes.push(obj); });
+    if (meshes.length === 0) return 0;
+    const spawns: readonly THREE.Vector3[] = [
+      slotWorldPosition('you', 0), slotWorldPosition('you', 1), slotWorldPosition('you', 2),
+      slotWorldPosition('opp', 0), slotWorldPosition('opp', 1), slotWorldPosition('opp', 2),
+    ];
+    const raycaster = new THREE.Raycaster();
+    const downward = new THREE.Vector3(0, -1, 0);
+    const floorYs: number[] = [];
+    for (const spawn of spawns) {
+      raycaster.set(new THREE.Vector3(spawn.x, 20, spawn.z), downward);
+      const hits = raycaster.intersectObjects(meshes, false);
+      // hits[] is sorted by distance from origin; find the first surface
+      // below Y=3.5 to skip roofs/ceilings on domed arenas.
+      const topmost = hits.find((h) => h.point.y <= 3.5);
+      if (topmost) floorYs.push(topmost.point.y);
+    }
+    if (floorYs.length === 0) return 0;
+    const sorted = [...floorYs].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)] ?? 0;
   }
 
   private disposeArenaChildren(): void {

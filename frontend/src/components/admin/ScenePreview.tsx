@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 
 type ScenePreviewProps = {
@@ -58,8 +59,11 @@ export function ScenePreview({ arenaKey, settings }: ScenePreviewProps): JSX.Ele
     const manager = managerRef.current;
     if (manager === null) return;
     manager.clearArenaModel();
-    void manager.loadArenaModelWithAtmosphere(`/assets/arenas/${arenaKey}.glb`, arenaKey).catch(() => {});
-  }, [arenaKey]);
+    const picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
+    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+    if (url === undefined) return;
+    void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
+  }, [arenaKey, settings.modelFile]);
 
   useEffect(() => {
     managerRef.current?.applySettings(settings);

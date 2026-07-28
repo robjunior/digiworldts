@@ -6,6 +6,7 @@ import { BrowserRouter } from 'react-router';
 import './styles/tokens.css';
 import './styles/components.css';
 import './styles/extensions.css';
+import './styles/app-shell.css';
 
 import { App } from './App';
 import { AuthProvider } from './hooks/useAuth';

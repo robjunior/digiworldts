@@ -1,0 +1,9 @@
+Drop your .glb arena files here.
+
+Naming convention (Vite fingerprints them automatically):
+  plant.glb  steel.glb  water.glb  rock.glb  dark.glb  fire.glb
+  ice.glb    field.glb  null.glb   wind.glb  light.glb
+
+The filename before .glb must match one of the 11 element keys above.
+The build produces content-hashed URLs (e.g. fire-Ax7Kf2.glb) so
+browsers get fresh bytes on every content change - no cache hell.

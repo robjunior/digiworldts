@@ -1,6 +1,6 @@
 import type { AuthMeResponse, LoginBody, PublicUser, RegisterBody } from '@digiworld/shared/auth';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, type ReactNode, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'react';
 
 import { ApiError, authLogin, authLogout, authMe, authRegister } from '../lib/api';
 import { useWsStore } from '../state/wsStore';
@@ -64,6 +64,13 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): JS
 
   const user = meQuery.data?.user ?? null;
   const status = getStatus(meQuery.isPending, user, meQuery.error);
+
+  useEffect(() => {
+    if (meQuery.error instanceof ApiError && meQuery.error.status === 401 && meQuery.data?.user !== undefined) {
+      queryClient.setQueryData<AuthMeResponse | null>(AUTH_ME_KEY, null);
+      resetWs();
+    }
+  }, [meQuery.error, meQuery.data, queryClient, resetWs]);
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -96,11 +103,11 @@ export function useAuth(): AuthContextValue {
 }
 
 function getStatus(isPending: boolean, user: PublicUser | null, error: Error | null): AuthStatus {
-  if (user !== null) {
-    return 'authed';
-  }
   if (error instanceof ApiError && error.status === 401) {
     return 'anon';
+  }
+  if (user !== null) {
+    return 'authed';
   }
   if (isPending) {
     return 'loading';

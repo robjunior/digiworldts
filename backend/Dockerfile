@@ -27,10 +27,13 @@ RUN pnpm --filter @digiworld/shared build \
 
 # Drop root: the `node` user ships with node:24-slim (uid 1000). Any file-write
 # primitive (e.g. from the catalog verifier or shop payload) now lands as a
-# non-root uid, limiting blast radius. Data/asset volumes must be writable by
-# uid 1000 — the compose file's named volumes are created empty and owned by
-# whichever container first writes, so this works out of the box.
-RUN mkdir -p /app/backend/data /app/backend/data/cache /app/backend/public/assets/digimon \
+# non-root uid, limiting blast radius. Every named volume in docker-compose.yml
+# must have its mount target pre-created here and chowned to node — Docker seeds
+# an empty named volume with the mount target's ownership + permissions on FIRST
+# mount, so a missing mkdir means Docker synthesizes the path as root:root and
+# every write from the running backend fails with EACCES. Volumes: assetdata
+# (public/assets/digimon), scrapecache (data/cache), scenedata (data/scenes).
+RUN mkdir -p /app/backend/data /app/backend/data/cache /app/backend/data/scenes /app/backend/public/assets/digimon \
  && chown -R node:node /app
 
 USER node

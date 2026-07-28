@@ -67,11 +67,11 @@ export type FarmView = {
   buildings: BuildingView[];
 };
 
-const SQL_SELECT_BUILDINGS = `SELECT * FROM farm_buildings WHERE user_id = ? ORDER BY created_at`;
-const SQL_SELECT_BUILDING = `SELECT * FROM farm_buildings WHERE id = ? AND user_id = ?`;
-const SQL_INSERT_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, resource, level, rate_per_hour, capacity, produced, last_touch, upgrade_cost, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_CHECKPOINT = `UPDATE farm_buildings SET produced = ?, last_touch = ? WHERE id = ?`;
+const SQL_SELECT_BUILDINGS = `SELECT * FROM farm_buildings WHERE user_id = ? AND building_type = 'resource_generator' ORDER BY created_at`;
+const SQL_SELECT_BUILDING = `SELECT * FROM farm_buildings WHERE id = ? AND user_id = ? AND building_type = 'resource_generator'`;
+const SQL_INSERT_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, building_type, resource, level, rate_per_hour, capacity, produced, last_touch, upgrade_cost, created_at)
+     VALUES (?, ?, ?, 'resource_generator', ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_CHECKPOINT = `UPDATE farm_buildings SET produced = ?, last_touch = ? WHERE id = ? AND last_touch = ?`;
 const SQL_UPDATE_UPGRADE = `UPDATE farm_buildings SET level = ?, rate_per_hour = ?, capacity = ?, upgrade_cost = ?, produced = ?, last_touch = ? WHERE id = ?`;
 const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
 const SQL_SELECT_RESOURCES = `SELECT * FROM resources WHERE user_id = ?`;
@@ -195,8 +195,9 @@ export async function collectBuilding(userId: string, buildingId: string): Promi
     return { gained: [], view: await readFarm(userId) };
   }
   await tx(async (t) => {
+    const cas = await t.run(SQL_UPDATE_CHECKPOINT, [0, now, buildingId, row.last_touch]);
+    if (cas.changes === 0) throw new Error('farm-collect-race');
     await t.run(SQL_UPSERT_RESOURCE, [userId, row.resource, produced, now]);
-    await t.run(SQL_UPDATE_CHECKPOINT, [0, now, buildingId]);
   });
   return { gained: [{ resource: row.resource, amount: produced }], view: await readFarm(userId) };
 }
@@ -209,8 +210,9 @@ export async function collectAllBuildings(userId: string): Promise<CollectResult
     for (const row of rows) {
       const produced = Math.floor(computeProduced(row, now));
       if (produced <= 0) continue;
+      const cas = await t.run(SQL_UPDATE_CHECKPOINT, [0, now, row.id, row.last_touch]);
+      if (cas.changes === 0) throw new Error('farm-collect-race');
       gained[row.resource] += produced;
-      await t.run(SQL_UPDATE_CHECKPOINT, [0, now, row.id]);
     }
     for (const res of ['Meat', 'Bits', 'Data'] as const) {
       if (gained[res] > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, res, gained[res], now]);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { apiFetch } from '../../lib/api';
 import { getSceneDefaults, replaceSceneDefaultsCache, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
+import { ARENA_FILE_LIST } from '../../scene3d/arena-urls';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
@@ -373,6 +374,36 @@ export function SceneSettingsAdmin(): JSX.Element {
           </button>
         </div>
       </header>
+
+      <section className="scene-admin-model-picker">
+        <label className="scene-admin-model-picker-label">
+          <span>Model file</span>
+          <select
+            value={settings.modelFile ?? ''}
+            onChange={(e) => {
+              const next = e.currentTarget.value;
+              if (next === '') {
+                setOverride((prev) => {
+                  const arenaOverride = { ...(prev[previewArena] ?? {}) } as Record<string, unknown>;
+                  delete arenaOverride.modelFile;
+                  return { ...prev, [previewArena]: arenaOverride as Partial<SceneSettings> };
+                });
+              } else {
+                patch({ modelFile: next });
+              }
+            }}
+          >
+            <option value="">— use default ({previewArena}.glb) —</option>
+            {ARENA_FILE_LIST.map((filename) => (
+              <option key={filename} value={filename}>{filename}</option>
+            ))}
+          </select>
+        </label>
+        <p className="scene-admin-note">
+          Any <code>.glb</code> in <code>frontend/src/assets/arenas/</code> — filename doesn't matter.
+          Picks the mesh loaded for the <b>{previewArena}</b> arena in combat.
+        </p>
+      </section>
 
       <section className="scene-admin-presets">
         <h3>Presets</h3>

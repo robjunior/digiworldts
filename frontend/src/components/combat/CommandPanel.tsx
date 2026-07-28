@@ -25,29 +25,39 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
   const { mode, actor, target, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onGuard, onAnalyze, onUseItem, onFlee } = props;
 
   if (!yourTurn) {
-    return <div className="command-panel" aria-live="polite"><div className="await-banner">Waiting for <b>{target?.name ?? 'opponent'}</b>…</div></div>;
+    return (
+      <>
+        <div className="chelp muted"><span className="htag">Wait</span><span>Waiting for {target?.name ?? 'opponent'}…</span></div>
+        <div className="chead"><span className="sect">Wait</span></div>
+        <div className="rows"></div>
+      </>
+    );
   }
   if (actor === null || actor.down) {
-    return <div className="command-panel" aria-live="polite"><div className="await-banner">No unit ready.</div></div>;
+    return (
+      <>
+        <div className="chelp muted"><span className="htag">Wait</span><span>No unit ready.</span></div>
+        <div className="chead"><span className="sect">Wait</span></div>
+        <div className="rows"></div>
+      </>
+    );
   }
 
   return (
-    <div className="command-panel" aria-live="polite" data-od-id="command-panel">
-      <PanelContent
-        mode={mode}
-        actor={actor}
-        target={target}
-        friendly={friendly}
-        pveMode={pveMode}
-        onMode={onMode}
-        onFight={onFight}
-        onSkill={onSkill}
-        onGuard={onGuard}
-        onAnalyze={onAnalyze}
-        onUseItem={onUseItem}
-        onFlee={onFlee}
-      />
-    </div>
+    <PanelContent
+      mode={mode}
+      actor={actor}
+      target={target}
+      friendly={friendly}
+      pveMode={pveMode}
+      onMode={onMode}
+      onFight={onFight}
+      onSkill={onSkill}
+      onGuard={onGuard}
+      onAnalyze={onAnalyze}
+      onUseItem={onUseItem}
+      onFlee={onFlee}
+    />
   );
 }
 
@@ -86,7 +96,13 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
       return <SkillMenu unit={actor} target={target} onSkill={onSkill} onBack={() => onMode('menu')} />;
     default:
       mode satisfies never;
-      return <div className="await-banner">Unknown command.</div>;
+      return (
+        <>
+          <div className="chelp muted"><span className="htag">Error</span><span>Unknown command.</span></div>
+          <div className="chead"><span className="sect">Error</span></div>
+          <div className="rows"></div>
+        </>
+      );
   }
 }
 
@@ -101,29 +117,36 @@ function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onF
 }): JSX.Element {
   const targetReady = target !== null;
   return (
-    <div className="cbt-actions" role="group" aria-label="Choose an action">
-      <button className="cbt-cmd" type="button" disabled={!targetReady} onClick={() => target && onFight(target.id)} data-od-id="cmd-fight" title={target ? `Attack ${target.name}` : 'No target'}>Fight</button>
-      <button className="cbt-cmd cbt-cmd--guard" type="button" onClick={() => onMode('skills')} data-od-id="cmd-skills" style={{ background: 'var(--signal)', color: 'var(--bg)' }}>Skills</button>
-      <button className="cbt-cmd cbt-cmd--guard" type="button" onClick={onGuard} data-od-id="cmd-guard">Guard</button>
-      <button className="cbt-cmd cbt-cmd--analyse" type="button" disabled={!targetReady} onClick={onAnalyze} data-od-id="cmd-analyse">Analyse</button>
-      {pveMode ? <button className="cbt-cmd cbt-cmd--item" type="button" onClick={() => onMode('items')} data-od-id="cmd-item">Item</button> : null}
-      <button className="cbt-cmd cbt-cmd--flee" type="button" onClick={onFlee} data-od-id="cmd-flee">Flee</button>
-    </div>
-  );
-}
-
-function ConfirmAction({ label, target, onCancel, onConfirm }: {
-  readonly label: string;
-  readonly target: EnemyUnitView | null;
-  readonly onCancel: () => void;
-  readonly onConfirm: (targetId: UnitId) => void;
-}): JSX.Element {
-  return (
     <>
-      <div className="await-banner"><b>{label}</b> on <b>{target?.name ?? '—'}</b>. Click another enemy to switch target.</div>
-      <div className="row" style={{ gap: '8px' }}>
-        <button className="btn btn--secondary btn--sm" type="button" onClick={onCancel}>Cancel</button>
-        <button className="btn btn--sm" type="button" disabled={target === null} onClick={() => target && onConfirm(target.id)}>Confirm</button>
+      <div className="chelp"><span className="htag">Help</span><span>Select an action.</span></div>
+      <div className="chead"><span className="sect">Command</span></div>
+      <div className="rows">
+        <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={() => target && onFight(target.id)}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Fight</div>
+        </button>
+        <button className="mrow" type="button" onClick={() => onMode('skills')}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Skills</div>
+        </button>
+        <button className="mrow" type="button" onClick={onGuard}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Guard</div>
+        </button>
+        <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={onAnalyze}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Analyze</div>
+        </button>
+        {pveMode ? (
+          <button className="mrow" type="button" onClick={() => onMode('items')}>
+            <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+            <div className="mnm">Item</div>
+          </button>
+        ) : null}
+        <button className="mrow" type="button" onClick={onFlee}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Flee</div>
+        </button>
       </div>
     </>
   );

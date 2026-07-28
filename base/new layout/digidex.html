@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — DigiDex</title>
+<style>
+/* =========================================================================
+   DIGIWORLD DIGIDEX — desktop app. Persona 5 theme (shared with all screens):
+     Canvas #0a0a0c · Panel #141418 · Ink #f4f1ea · Muted #8a877f
+     Hairline #2a2a30 · Signal/Battle acid-red #e6001f
+   Radius 0 — angular cyberpunk notch on flat surfaces. Inter, tabular-nums.
+   Single desktop view: no vertical page scroll; the grid scrolls internally,
+   filters dock left, detail docks right.
+   Data mirrors src/dex/routes.ts: DigdexEntry (met/unmet fog-of-war — unmet
+   renders a '?' hex, no name/stats leak). All 228 real catalog species,
+   grouped into element sectors, stage-ordered (Rookie→Champion→Ultimate→Mega)
+   within each. Element tints derived via color-mix off Signal/Ink/muted — no
+   new hex. Affinity WEAK/RESIST wheel from digimon/element.ts.
+   ========================================================================= */
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  /* all 11 element tints derived from Signal/Ink/muted — zero new hex */
+  --el-fire:var(--signal);
+  --el-water:color-mix(in oklab,var(--signal) 40%,#fff);
+  --el-plant:color-mix(in oklab,var(--signal) 44%,var(--muted));
+  --el-electricity:color-mix(in oklab,var(--signal) 72%,#fff);
+  --el-wind:color-mix(in oklab,var(--signal) 28%,var(--ink));
+  --el-ice:color-mix(in oklab,var(--signal) 20%,#fff);
+  --el-steel:color-mix(in oklab,var(--muted) 70%,var(--ink));
+  --el-dark:color-mix(in oklab,var(--signal) 55%,var(--bg));
+  --el-light:color-mix(in oklab,var(--ink) 78%,var(--signal));
+  --el-earth:color-mix(in oklab,var(--signal) 34%,var(--muted));
+  --el-null:var(--muted);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+input,select{font:inherit;color:inherit}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+
+/* ---- sidebar nav (shared) --------------------------------------------- */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* ---- main -------------------------------------------------------------- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+
+/* completion strip */
+.dexbar{flex:0 0 auto;display:flex;align-items:center;gap:22px;padding:12px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.dexbar .comp{display:grid;grid-template-columns:auto auto;gap:14px;align-items:center}
+.dexbar .comp .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.dexbar .comp .v{font:800 20px/1 var(--font)}
+.dexbar .comp .v small{font-size:12px;color:var(--muted);font-weight:700}
+.dexbar .cmeter{width:160px;height:6px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
+.dexbar .cmeter i{display:block;height:100%;background:var(--signal);width:0;transition:width .4s ease}
+.dexbar .shown{margin-left:auto;font:700 11px/1 var(--font);letter-spacing:.06em;color:var(--muted)}
+.dexbar .shown b{color:var(--ink);font-weight:800}
+
+/* ---- content: filters | grid | detail --------------------------------- */
+.stage{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:212px 1fr 320px;gap:0}
+@media (max-width:1180px){.stage{grid-template-columns:190px 1fr}.detail{display:none}}
+
+/* filters rail */
+.filters{border-right:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:16px 14px;gap:16px;scrollbar-width:thin}
+.filters::-webkit-scrollbar{width:8px}.filters::-webkit-scrollbar-thumb{background:var(--hair)}
+.fgroup .fl{font:700 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.search{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 10px}
+.search svg{width:14px;height:14px;color:var(--muted);flex:0 0 14px}
+.search input{flex:1;min-width:0;background:none;border:0;outline:none;color:var(--ink);font:600 12px/1 var(--font)}
+.search input::placeholder{color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{padding:6px 9px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 9px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);transition:.12s}
+.seg button:hover{color:var(--ink);border-color:var(--muted)}
+.seg button.on{background:var(--signal);border-color:var(--signal);color:#fff}
+.elist{display:flex;flex-direction:column;gap:3px}
+.elrow{display:grid;grid-template-columns:12px 1fr auto;gap:9px;align-items:center;padding:7px 8px;clip-path:var(--notch-sm);font:700 10px/1 var(--font);letter-spacing:.06em;text-transform:capitalize;color:var(--muted);border:1px solid transparent;transition:.12s;text-align:left;width:100%}
+.elrow .sw{width:12px;height:12px;background:var(--ec);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.elrow .ct{font:700 9px/1 var(--font);color:var(--muted);font-variant-numeric:tabular-nums}
+.elrow:hover{color:var(--ink);background:var(--bg)}
+.elrow.on{color:var(--ink);border-color:var(--ec);background:color-mix(in oklab,var(--ec) 12%,var(--bg))}
+.elrow.on .ct{color:var(--ink)}
+.clearchip{padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:center;gap:7px;transition:.12s}
+.clearchip:hover{color:var(--ink);border-color:var(--muted)}
+.clearchip[hidden]{display:none}
+.clearchip svg{width:12px;height:12px}
+
+/* grid canvas */
+.grid-wrap{min-width:0;min-height:0;overflow-y:auto;padding:18px 20px 26px;scrollbar-width:thin}
+.grid-wrap::-webkit-scrollbar{width:10px}.grid-wrap::-webkit-scrollbar-thumb{background:var(--hair)}
+.elsec{margin-bottom:22px}
+.elsec:last-child{margin-bottom:0}
+.elsec .eh{display:flex;align-items:center;gap:11px;margin-bottom:12px;position:sticky;top:-18px;background:var(--bg);padding:6px 0;z-index:2}
+.elsec .eh .dot{width:11px;height:11px;background:var(--ec);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.elsec .eh .nm{font:800 12px/1 var(--font);letter-spacing:.14em;text-transform:uppercase}
+.elsec .eh .ct{font:700 10px/1 var(--font);color:var(--muted)}
+.elsec .eh::after{content:"";flex:1;height:1px;background:var(--hair)}
+/* hex tile grid */
+.hexgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:9px}
+.tile{--ec:var(--muted);position:relative;aspect-ratio:1;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:5px 4px;transition:border-color .12s,background .12s}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ec)}
+.tile:hover,.tile.sel{border-color:var(--ec);background:color-mix(in oklab,var(--ec) 14%,var(--panel))}
+.tile .spr{width:42px;height:42px;display:grid;place-items:center}
+.tile .spr img{width:42px;height:42px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.tile .nm{font:700 8px/1.05 var(--font);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em}
+.tile .stg{position:absolute;top:4px;right:5px;font:800 7px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.tile.unmet{background:var(--bg)}
+.tile.unmet::before{background:var(--hair)}
+.tile.unmet .spr{color:var(--muted)}
+.tile.unmet .q{font:800 20px/1 var(--font);color:var(--muted)}
+.tile.unmet .nm{color:var(--muted);letter-spacing:.2em}
+.gridempty{padding:60px 20px;text-align:center;color:var(--muted);font-size:13px;line-height:1.6}
+
+/* ---- detail dock ------------------------------------------------------- */
+.detail{border-left:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow-y:auto;scrollbar-width:thin}
+.detail::-webkit-scrollbar{width:8px}.detail::-webkit-scrollbar-thumb{background:var(--hair)}
+.dhead{padding:20px 20px 16px;border-bottom:1px solid var(--hair);position:relative}
+.dhead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--ec,var(--signal))}
+.dhead .dk{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--ec,var(--muted));margin-bottom:10px}
+.dspr{width:96px;height:96px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);display:grid;place-items:center;margin-bottom:12px}
+.dspr img{width:82px;height:82px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.dspr .qq{font:800 38px/1 var(--font);color:var(--muted)}
+.dhead h2{font:800 21px/1.05 var(--font);letter-spacing:-.01em}
+.dhead .dnum{font:700 10px/1 var(--font);color:var(--muted);letter-spacing:.1em;margin-top:6px}
+.dmeta{padding:16px 20px;display:flex;flex-direction:column;gap:11px;border-bottom:1px solid var(--hair)}
+.mrow{display:flex;justify-content:space-between;align-items:center;font:700 11px/1 var(--font)}
+.mrow .mk{color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-size:9px}
+.mrow .mv{font-weight:800;text-transform:capitalize}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.04em;text-transform:capitalize}
+.chip .cd{width:8px;height:8px;background:var(--ec,var(--muted))}
+.metpill{font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;padding:4px 7px;clip-path:var(--notch-sm)}
+.metpill.met{background:var(--signal);color:#fff}
+.metpill.unmet{background:var(--bg);border:1px solid var(--hair);color:var(--muted)}
+.daff{padding:16px 20px}
+.daff .dlk{font:700 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.affrow{display:flex;align-items:center;gap:9px;margin-bottom:9px;font:700 11px/1 var(--font)}
+.affrow .tag{font:800 8px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;padding:4px 6px;clip-path:var(--notch-sm);flex:0 0 auto}
+.affrow .tag.weak{background:var(--signal);color:#fff}
+.affrow .tag.resist{background:var(--bg);border:1px solid var(--hair);color:var(--muted)}
+.affrow .av{color:var(--ink);text-transform:capitalize}
+.affrow .none{color:var(--muted);font-weight:700}
+.dempty{padding:44px 24px;text-align:center;color:var(--muted);font-size:12.5px;line-height:1.6}
+.dempty svg{width:34px;height:34px;color:var(--hair);margin-bottom:12px}
+
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · DigiDex</div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <button class="navbtn" data-nav="factory" aria-label="Factory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory
+      </button>
+      <button class="navbtn" data-nav="adventure" aria-label="Adventure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure
+      </button>
+      <button class="navbtn" data-nav="nursery" aria-label="Nursery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery
+      </button>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <button class="navbtn" aria-current="page" data-nav="digidex" aria-label="DigiDex">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>DigiDex
+      </button>
+      <button class="navbtn" data-nav="roster" aria-label="Roster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster
+      </button>
+      <button class="navbtn" data-nav="world" aria-label="The World">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World
+      </button>
+      <button class="navbtn" data-nav="arena" aria-label="The Arena">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena
+      </button>
+
+      <div class="spring">
+        <div class="hud">
+          <div class="pill">Tamer Lv <b>22</b></div>
+          <div class="pill">Seen <b id="hud-seen">—</b></div>
+          <div class="pill">Complete <b id="hud-pct">—</b></div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" data-od-id="digidex-main" tabindex="-1">
+      <div class="dexbar" data-od-id="dex-bar">
+        <div class="comp">
+          <div><div class="k">Field Guide</div><div class="v"><span id="met-n">0</span><small>/<span id="tot-n">0</span> met</small></div></div>
+          <div class="cmeter"><i id="comp-fill"></i></div>
+        </div>
+        <div class="shown"><b id="shown-n">0</b> shown</div>
+      </div>
+
+      <div class="stage">
+        <aside class="filters" data-od-id="dex-filters">
+          <div class="fgroup">
+            <div class="fl">Search</div>
+            <label class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="q" placeholder="Name…" aria-label="Search by name" autocomplete="off">
+            </label>
+          </div>
+          <div class="fgroup">
+            <div class="fl">Stage</div>
+            <div class="seg" id="stage-seg"></div>
+          </div>
+          <div class="fgroup">
+            <div class="fl">Status</div>
+            <div class="seg" id="met-seg"></div>
+          </div>
+          <div class="fgroup">
+            <div class="fl">Element</div>
+            <div class="elist" id="el-list"></div>
+          </div>
+          <button class="clearchip" id="clear-btn" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>Clear filters
+          </button>
+        </aside>
+
+        <div class="grid-wrap" id="grid-wrap" data-od-id="dex-grid"></div>
+
+        <aside class="detail" id="detail" data-od-id="detail-panel"></aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ============ data mirrors src/dex/routes.ts + real 228-species catalog === */
+const SPECIES=[{"n":"ExTyrannomon","s":"Ultimate","a":"Vaccine","e":"dark","t":"Puppet","m":1},{"n":"Lunamon","s":"Rookie","a":"Data","e":"water","t":"Mammal","m":1},{"n":"Lekismon","s":"Champion","a":"Data","e":"water","t":"Beast Man","m":0},{"n":"Crescemon","s":"Ultimate","a":"Data","e":"ice","t":"Wizard","m":1},{"n":"Minervamon","s":"Mega","a":"Virus","e":"steel","t":"Deity","m":0},{"n":"Agumon","s":"Rookie","a":"Vaccine","e":"fire","t":"Reptile","m":1},{"n":"ToyAgumon","s":"Rookie","a":"Vaccine","e":"fire","t":"Puppet","m":1},{"n":"Meramon","s":"Champion","a":"Data","e":"fire","t":"Fire","m":1},{"n":"Guilmon","s":"Rookie","a":"Virus","e":"fire","t":"Reptile","m":1},{"n":"Coronamon","s":"Rookie","a":"Vaccine","e":"fire","t":"Beast","m":1},{"n":"Gomamon","s":"Rookie","a":"Vaccine","e":"water","t":"Sea Beast","m":1},{"n":"Palmon","s":"Rookie","a":"Data","e":"plant","t":"Vegetation","m":1},{"n":"Tentomon","s":"Rookie","a":"Vaccine","e":"electricity","t":"Insectoid","m":1},{"n":"Terriermon","s":"Rookie","a":"Vaccine","e":"wind","t":"Beast","m":1},{"n":"Gabumon","s":"Rookie","a":"Data","e":"ice","t":"Reptile","m":1},{"n":"BaoHuckmon","s":"Champion","a":"Data","e":"fire","t":"Dinosaur","m":1},{"n":"Birdramon","s":"Champion","a":"Vaccine","e":"fire","t":"Giant Bird","m":0},{"n":"Blimpmon","s":"Champion","a":"Data","e":"wind","t":"Machine","m":0},{"n":"Coredramon (Green)","s":"Champion","a":"Virus","e":"fire","t":"Dragon","m":1},{"n":"Deputymon","s":"Champion","a":"Vaccine","e":"light","t":"Mutant","m":1},{"n":"Drimogemon","s":"Champion","a":"Data","e":"earth","t":"Beast","m":0},{"n":"ExVeemon","s":"Champion","a":"Free","e":"wind","t":"Mythical Dragon","m":1},{"n":"Firamon","s":"Champion","a":"Vaccine","e":"fire","t":"Beast","m":0},{"n":"Frigimon","s":"Champion","a":"Vaccine","e":"ice","t":"Ice-Snow","m":1},{"n":"Gargomon","s":"Champion","a":"Vaccine","e":"steel","t":"Beast Man","m":1},{"n":"Garurumon","s":"Champion","a":"Vaccine","e":"ice","t":"Beast","m":1},{"n":"Gawappamon","s":"Champion","a":"Data","e":"water","t":"Android","m":1},{"n":"GeoGreymon","s":"Champion","a":"Vaccine","e":"fire","t":"Dinosaur","m":0},{"n":"Geremon","s":"Champion","a":"Virus","e":"null","t":"Mollusk","m":1},{"n":"Greymon","s":"Champion","a":"Vaccine","e":"fire","t":"Dinosaur","m":1},{"n":"Greymon (Blue)","s":"Champion","a":"Virus","e":"fire","t":"Dinosaur","m":0},{"n":"Growlmon","s":"Champion","a":"Virus","e":"fire","t":"Dark Dragon","m":1},{"n":"Hyogamon","s":"Champion","a":"Virus","e":"ice","t":"Ice-Snow","m":1},{"n":"IceDevimon","s":"Champion","a":"Virus","e":"ice","t":"Dark Angel","m":1},{"n":"Ikkakumon","s":"Champion","a":"Vaccine","e":"water","t":"Sea Beast","m":1},{"n":"Kabuterimon","s":"Champion","a":"Vaccine","e":"electricity","t":"Insectoid","m":1},{"n":"Kurisarimon","s":"Champion","a":"Unknown","e":"dark","t":"Unidentified","m":0},{"n":"Kuwagamon","s":"Champion","a":"Virus","e":"electricity","t":"Insectoid","m":1},{"n":"Kyubimon","s":"Champion","a":"Data","e":"fire","t":"Mysterious Beast","m":1},{"n":"Mojyamon","s":"Champion","a":"Vaccine","e":"ice","t":"Rare Animal","m":1},{"n":"Numemon","s":"Champion","a":"Virus","e":"null","t":"Mollusk","m":1},{"n":"PlatinumSukamon","s":"Champion","a":"Virus","e":"steel","t":"Mutant","m":1},{"n":"Raptordramon","s":"Champion","a":"Vaccine","e":"steel","t":"Android","m":0},{"n":"Raremon","s":"Champion","a":"Virus","e":"dark","t":"Undead","m":0},{"n":"Snimon","s":"Champion","a":"Vaccine","e":"wind","t":"Insectoid","m":1},{"n":"Sunflowmon","s":"Champion","a":"Data","e":"plant","t":"Vegetation","m":1},{"n":"Tankmon","s":"Champion","a":"Data","e":"steel","t":"Android","m":1},{"n":"Togemon","s":"Champion","a":"Data","e":"plant","t":"Vegetation","m":0},{"n":"Tyrannomon","s":"Champion","a":"Data","e":"fire","t":"Dinosaur","m":0},{"n":"Vegiemon","s":"Champion","a":"Virus","e":"plant","t":"Carnivorous Vegetation","m":1},{"n":"Waspmon","s":"Champion","a":"Virus","e":"electricity","t":"Android","m":0},{"n":"Woodmon","s":"Champion","a":"Virus","e":"plant","t":"Vegetation","m":1},{"n":"BigMamemon","s":"Ultimate","a":"Data","e":"steel","t":"Mutant","m":0},{"n":"GroundLocomon","s":"Mega","a":"Data","e":"steel","t":"Machine","m":0},{"n":"PlatinumNumemon","s":"Mega","a":"Virus","e":"fire","t":"Mutant","m":1},{"n":"PrinceMamemon","s":"Mega","a":"Data","e":"null","t":"Mutant","m":0},{"n":"Angewomon","s":"Ultimate","a":"Vaccine","e":"light","t":"High Angel","m":1},{"n":"Arukenimon","s":"Ultimate","a":"Virus","e":"plant","t":"Dark Beast","m":0},{"n":"BlackKingNumemon","s":"Ultimate","a":"Virus","e":"dark","t":"Mollusk","m":0},{"n":"BlueMeramon","s":"Ultimate","a":"Virus","e":"ice","t":"Fire","m":0},{"n":"Brachiomon","s":"Ultimate","a":"Data","e":"water","t":"Plesiosaur","m":0},{"n":"CannonBeemon","s":"Ultimate","a":"Virus","e":"electricity","t":"Android","m":1},{"n":"CatchMamemon","s":"Ultimate","a":"Data","e":"steel","t":"Mutant","m":0},{"n":"Cerberusmon","s":"Ultimate","a":"Vaccine","e":"dark","t":"Dark Beast","m":0},{"n":"Cherrymon","s":"Ultimate","a":"Virus","e":"plant","t":"Vegetation","m":0},{"n":"Cyberdramon","s":"Ultimate","a":"Vaccine","e":"steel","t":"Android","m":0},{"n":"DarkSuperStarmon","s":"Ultimate","a":"Virus","e":"dark","t":"Mutant","m":0},{"n":"Deramon","s":"Ultimate","a":"Data","e":"plant","t":"Bird","m":0},{"n":"Dinobeemon","s":"Ultimate","a":"Free","e":"plant","t":"Mutant","m":0},{"n":"Divermon","s":"Ultimate","a":"Data","e":"water","t":"Aquatic Beast Man","m":0},{"n":"DoruGreymon","s":"Ultimate","a":"Data","e":"steel","t":"Beast Dragon","m":1},{"n":"Dragomon","s":"Ultimate","a":"Virus","e":"water","t":"Aquatic Beast Man","m":0},{"n":"Enbarrmon","s":"Ultimate","a":"Data","e":"dark","t":"Undead","m":0},{"n":"Etemon","s":"Ultimate","a":"Virus","e":"fire","t":"Puppet","m":0},{"n":"Flaremon","s":"Ultimate","a":"Vaccine","e":"fire","t":"Beast Man","m":0},{"n":"Garbagemon","s":"Ultimate","a":"Virus","e":"null","t":"Mutant","m":1},{"n":"Garudamon","s":"Ultimate","a":"Vaccine","e":"fire","t":"Bird Man","m":0},{"n":"Gigadramon","s":"Ultimate","a":"Virus","e":"steel","t":"Android","m":0},{"n":"Grademon","s":"Ultimate","a":"Vaccine","e":"steel","t":"Warrior","m":1},{"n":"Groundramon","s":"Ultimate","a":"Virus","e":"earth","t":"Earth Dragon","m":0},{"n":"IceLeomon","s":"Ultimate","a":"Vaccine","e":"ice","t":"Beast Man","m":1},{"n":"Infermon","s":"Ultimate","a":"Unknown","e":"dark","t":"Unidentified","m":1},{"n":"JewelBeemon","s":"Ultimate","a":"Vaccine","e":"electricity","t":"Insectoid","m":1},{"n":"Kimeramon","s":"Ultimate","a":"Data","e":"dark","t":"Composite","m":0},{"n":"LadyDevimon","s":"Ultimate","a":"Virus","e":"dark","t":"Dark Angel","m":1},{"n":"Lilamon","s":"Ultimate","a":"Data","e":"plant","t":"Pixie","m":1},{"n":"Lillymon","s":"Ultimate","a":"Data","e":"plant","t":"Pixie","m":0},{"n":"LoaderLeomon","s":"Ultimate","a":"Vaccine","e":"steel","t":"Machine","m":0},{"n":"Locomon","s":"Ultimate","a":"Data","e":"steel","t":"Machine","m":1},{"n":"MachGaogamon","s":"Ultimate","a":"Data","e":"wind","t":"Android","m":0},{"n":"Mamemon","s":"Ultimate","a":"Data","e":"steel","t":"Mutant","m":0},{"n":"Mammothmon","s":"Ultimate","a":"Vaccine","e":"ice","t":"Ancient Beast","m":0},{"n":"MasterBlimpmon","s":"Ultimate","a":"Data","e":"steel","t":"Machine","m":0},{"n":"MegaKabuterimon","s":"Ultimate","a":"Vaccine","e":"electricity","t":"Insectoid","m":0},{"n":"MegaSeadramon","s":"Ultimate","a":"Data","e":"water","t":"Aquatic","m":1},{"n":"Megadramon","s":"Ultimate","a":"Virus","e":"steel","t":"Android","m":0},{"n":"MetalGreymon","s":"Ultimate","a":"Vaccine","e":"steel","t":"Android","m":0},{"n":"MetalGreymon (Blue)","s":"Ultimate","a":"Virus","e":"steel","t":"Android","m":0},{"n":"MetalMamemon","s":"Ultimate","a":"Data","e":"steel","t":"Android","m":0},{"n":"MetalTyrannomon","s":"Ultimate","a":"Virus","e":"steel","t":"Android","m":1},{"n":"Meteormon","s":"Ultimate","a":"Data","e":"earth","t":"Ore","m":1},{"n":"Mistymon","s":"Ultimate","a":"Virus","e":"fire","t":"Magic Warrior","m":1},{"n":"Alphamon","s":"Mega","a":"Vaccine","e":"light","t":"Holy Knight","m":0},{"n":"Apollomon","s":"Mega","a":"Vaccine","e":"fire","t":"Deity","m":0},{"n":"BanchoLeomon","s":"Mega","a":"Vaccine","e":"light","t":"Beast Man","m":0},{"n":"BeelStarmon","s":"Mega","a":"Virus","e":"dark","t":"Wizard","m":0},{"n":"BlackWarGreymon","s":"Mega","a":"Virus","e":"dark","t":"Dragon Man","m":1},{"n":"Boltmon","s":"Mega","a":"Data","e":"steel","t":"Android","m":0},{"n":"Breakdramon","s":"Mega","a":"Virus","e":"steel","t":"Machine Dragon","m":0},{"n":"Ceresmon","s":"Mega","a":"Data","e":"plant","t":"Deity","m":0},{"n":"ChaosGallantmon","s":"Mega","a":"Virus","e":"dark","t":"Dark Knight","m":0},{"n":"Chaosdramon","s":"Mega","a":"Virus","e":"steel","t":"Machine","m":0},{"n":"Cherubimon (Black)","s":"Mega","a":"Vaccine","e":"dark","t":"Cherub","m":0},{"n":"Darkdramon","s":"Mega","a":"Virus","e":"dark","t":"Android","m":0},{"n":"Diaboromon","s":"Mega","a":"Unknown","e":"dark","t":"Unidentified","m":0},{"n":"Dorugoramon","s":"Mega","a":"Data","e":"steel","t":"Beast Dragon","m":1},{"n":"Durandamon","s":"Mega","a":"Vaccine","e":"steel","t":"Holy Sword","m":0},{"n":"Dynasmon","s":"Mega","a":"Data","e":"fire","t":"Holy Knight","m":0},{"n":"Ebemon","s":"Mega","a":"Virus","e":"steel","t":"Android","m":0},{"n":"Gaiomon","s":"Mega","a":"Virus","e":"fire","t":"Dragon Man","m":0},{"n":"GranDracmon","s":"Mega","a":"Virus","e":"ice","t":"Dark Beast","m":0},{"n":"GranKuwagamon","s":"Mega","a":"Free","e":"electricity","t":"Insectoid","m":0},{"n":"Gryphonmon","s":"Mega","a":"Data","e":"wind","t":"Mythical Beast","m":1},{"n":"Gundramon","s":"Mega","a":"Virus","e":"steel","t":"Machine","m":0},{"n":"HerculesKabuterimon","s":"Mega","a":"Vaccine","e":"electricity","t":"Insectoid","m":1},{"n":"HiAndromon","s":"Mega","a":"Vaccine","e":"electricity","t":"Android","m":1},{"n":"Jesmon","s":"Mega","a":"Data","e":"null","t":"Holy Knight","m":0},{"n":"JumboGamemon","s":"Mega","a":"Data","e":"water","t":"Android","m":1},{"n":"Junomon","s":"Mega","a":"Virus","e":"dark","t":"Deity","m":0},{"n":"Justimon","s":"Mega","a":"Vaccine","e":"electricity","t":"Android","m":1},{"n":"Kentaurosmon","s":"Mega","a":"Vaccine","e":"ice","t":"Holy Knight","m":1},{"n":"KingEtemon","s":"Mega","a":"Virus","e":"fire","t":"Puppet","m":1},{"n":"Lilithmon","s":"Mega","a":"Virus","e":"dark","t":"Evil King","m":1},{"n":"Lotosmon","s":"Mega","a":"Data","e":"light","t":"Pixie","m":0},{"n":"Machinedramon","s":"Mega","a":"Virus","e":"steel","t":"Machine","m":1},{"n":"MagnaKidmon","s":"Mega","a":"Virus","e":"steel","t":"Dragon Man","m":0},{"n":"Magnadramon","s":"Mega","a":"Vaccine","e":"light","t":"Holy Dragon","m":0},{"n":"MaloMyotismon","s":"Mega","a":"Virus","e":"dark","t":"Evil King","m":1},{"n":"Marsmon","s":"Mega","a":"Vaccine","e":"fire","t":"Deity","m":0},{"n":"Mastemon","s":"Mega","a":"Vaccine","e":"null","t":"Angel","m":0},{"n":"MedievalGallantmon","s":"Mega","a":"Data","e":"fire","t":"Warrior","m":0},{"n":"MegaGargomon","s":"Mega","a":"Vaccine","e":"steel","t":"Machine","m":1},{"n":"Megidramon","s":"Mega","a":"Virus","e":"fire","t":"Evil Dragon","m":0},{"n":"MetalEtemon","s":"Mega","a":"Virus","e":"steel","t":"Android","m":0},{"n":"MetalGarurumon","s":"Mega","a":"Data","e":"ice","t":"Android","m":0},{"n":"MetalGarurumon (Black)","s":"Mega","a":"Virus","e":"ice","t":"Android","m":0},{"n":"MetalSeadramon","s":"Mega","a":"Data","e":"steel","t":"Android","m":1},{"n":"Millenniummon","s":"Mega","a":"Virus","e":"dark","t":"Composite","m":1},{"n":"MirageGaogamon","s":"Mega","a":"Data","e":"light","t":"Beast Knight","m":0},{"n":"Neptunemon","s":"Mega","a":"Vaccine","e":"water","t":"Deity","m":0},{"n":"Ophanimon","s":"Mega","a":"Vaccine","e":"light","t":"Super Angel","m":0},{"n":"Ouryumon","s":"Mega","a":"Vaccine","e":"electricity","t":"Beast Dragon","m":1},{"n":"Pharaohmon","s":"Mega","a":"Virus","e":"dark","t":"Wizard","m":1},{"n":"Phoenixmon","s":"Mega","a":"Vaccine","e":"light","t":"Holy Beast","m":0},{"n":"PileVolcanomon","s":"Mega","a":"Data","e":"fire","t":"Android","m":0},{"n":"Plesiomon","s":"Mega","a":"Data","e":"water","t":"Plesiosaur","m":1},{"n":"Plutomon","s":"Mega","a":"Virus","e":"dark","t":"Deity","m":0},{"n":"Pukumon","s":"Mega","a":"Virus","e":"steel","t":"Mutant","m":1},{"n":"Puppetmon","s":"Mega","a":"Virus","e":"plant","t":"Puppet","m":0},{"n":"Ravemon","s":"Mega","a":"Vaccine","e":"electricity","t":"Android","m":0},{"n":"Rosemon","s":"Mega","a":"Data","e":"plant","t":"Pixie","m":0},{"n":"RustTyrannomon","s":"Mega","a":"Virus","e":"steel","t":"Android","m":0},{"n":"SaberLeomon","s":"Mega","a":"Data","e":"wind","t":"Ancient Beast","m":0},{"n":"Seraphimon","s":"Mega","a":"Vaccine","e":"light","t":"Seraph","m":0},{"n":"SkullMammothmon","s":"Mega","a":"Vaccine","e":"ice","t":"Undead","m":1},{"n":"TigerVespamon","s":"Mega","a":"Virus","e":"electricity","t":"Android","m":0},{"n":"Titamon","s":"Mega","a":"Virus","e":"earth","t":"Deity","m":0},{"n":"TyrantKabuterimon","s":"Mega","a":"Virus","e":"electricity","t":"Insectoid","m":0},{"n":"UlforceVeedramon","s":"Mega","a":"Vaccine","e":"light","t":"Holy Knight","m":0},{"n":"UltimateBrachiomon","s":"Mega","a":"Data","e":"wind","t":"Android","m":0},{"n":"Varodurumon","s":"Mega","a":"Vaccine","e":"light","t":"Holy Bird","m":0},{"n":"Vikemon","s":"Mega","a":"Free","e":"ice","t":"Beast Man","m":0},{"n":"Vulcanusmon","s":"Mega","a":"Data","e":"steel","t":"Deity","m":0},{"n":"WarGreymon","s":"Mega","a":"Vaccine","e":"fire","t":"Dragon Man","m":0},{"n":"Zanbamon","s":"Mega","a":"Virus","e":"steel","t":"Wizard","m":0},{"n":"Monzaemon","s":"Ultimate","a":"Vaccine","e":"plant","t":"Puppet","m":0},{"n":"Okuwamon","s":"Ultimate","a":"Virus","e":"electricity","t":"Insectoid","m":1},{"n":"Orochimon","s":"Ultimate","a":"Virus","e":"steel","t":"Dark Dragon","m":0},{"n":"Paildramon","s":"Ultimate","a":"Free","e":"electricity","t":"Dragon Man","m":0},{"n":"Pandamon","s":"Ultimate","a":"Data","e":"earth","t":"Puppet","m":1},{"n":"Parrotmon","s":"Ultimate","a":"Vaccine","e":"electricity","t":"Giant Bird","m":1},{"n":"Phantomon","s":"Ultimate","a":"Virus","e":"dark","t":"Ghost","m":1},{"n":"Piximon","s":"Ultimate","a":"Data","e":"light","t":"Pixie","m":1},{"n":"Pumpkinmon","s":"Ultimate","a":"Data","e":"plant","t":"Puppet","m":0},{"n":"RizeGreymon","s":"Ultimate","a":"Vaccine","e":"fire","t":"Android","m":0},{"n":"SaviorHuckmon","s":"Ultimate","a":"Data","e":"fire","t":"Dragon Man","m":0},{"n":"Scorpiomon","s":"Ultimate","a":"Data","e":"water","t":"Ancient Crustacean","m":0},{"n":"Shaujinmon","s":"Ultimate","a":"Virus","e":"water","t":"Wizard","m":0},{"n":"ShogunGekomon","s":"Ultimate","a":"Virus","e":"null","t":"Amphibian","m":0},{"n":"SkullBaluchimon","s":"Ultimate","a":"Data","e":"earth","t":"Undead","m":0},{"n":"MarineAngemon","s":"Mega","a":"Vaccine","e":"water","t":"Pixie","m":0},{"n":"WarGrowlmon","s":"Ultimate","a":"Virus","e":"fire","t":"Cyborg","m":1},{"n":"WereGarurumon","s":"Ultimate","a":"Vaccine","e":"ice","t":"Beast Man","m":1},{"n":"Venusmon","s":"Mega","a":"Vaccine","e":"plant","t":"Deity","m":0},{"n":"Bacchusmon","s":"Mega","a":"Virus","e":"fire","t":"Deity","m":0},{"n":"Eaglemon","s":"Mega","a":"Vaccine","e":"plant","t":"Cyborg","m":0},{"n":"Whamon","s":"Ultimate","a":"Vaccine","e":"plant","t":"Sea Animal","m":0},{"n":"Wingdramon","s":"Ultimate","a":"Vaccine","e":"plant","t":"Sky Dragon","m":0},{"n":"Triceramon","s":"Ultimate","a":"Data","e":"water","t":"Dinosaur","m":0},{"n":"Zudomon","s":"Ultimate","a":"Vaccine","e":"plant","t":"Sea Animal","m":0},{"n":"Barbamon","s":"Mega","a":"Virus","e":"fire","t":"Demon Lord","m":1},{"n":"SkullGreymon","s":"Ultimate","a":"Virus","e":"fire","t":"Undead","m":0},{"n":"Taomon","s":"Ultimate","a":"Data","e":"water","t":"Wizard","m":0},{"n":"SkullMeramon","s":"Ultimate","a":"Data","e":"water","t":"Undead","m":0},{"n":"Vademon","s":"Ultimate","a":"Virus","e":"fire","t":"Alien","m":0},{"n":"Sakuyamon","s":"Mega","a":"Data","e":"water","t":"Wizard","m":0},{"n":"Piedmon","s":"Mega","a":"Virus","e":"fire","t":"Demon Man","m":1},{"n":"Belphemon SM","s":"Mega","a":"Virus","e":"fire","t":"Demon Lord","m":0},{"n":"Callismon","s":"Mega","a":"Virus","e":"fire","t":"Beast","m":0},{"n":"ClavisAngemon","s":"Mega","a":"Vaccine","e":"plant","t":"Angel","m":0},{"n":"Gankoomon","s":"Mega","a":"Data","e":"water","t":"Holy Knight","m":0},{"n":"Wisemon","s":"Ultimate","a":"Virus","e":"fire","t":"Wizard","m":0},{"n":"Imperialdramon DM","s":"Mega","a":"Free","e":"electricity","t":"Dragon Man","m":0},{"n":"Tankdramon","s":"Ultimate","a":"Virus","e":"fire","t":"Machine Dragon","m":0},{"n":"SuperStarmon","s":"Ultimate","a":"Data","e":"water","t":"Mutant","m":0},{"n":"Merukimon","s":"Mega","a":"Virus","e":"fire","t":"Beast Man","m":1},{"n":"SkullSeadramon","s":"Ultimate","a":"Virus","e":"fire","t":"Undead","m":1},{"n":"ZombiePlutomon","s":"Mega","a":"Virus","e":"fire","t":"Undead","m":1},{"n":"ShineGreymon","s":"Mega","a":"Vaccine","e":"plant","t":"Dragon Man","m":0},{"n":"Gallantmon","s":"Mega","a":"Virus","e":"fire","t":"Holy Knight","m":0},{"n":"Slayerdramon","s":"Mega","a":"Vaccine","e":"plant","t":"Dragon Man","m":1},{"n":"AncientWisemon","s":"Mega","a":"Virus","e":"fire","t":"Wizard","m":0},{"n":"Beelzemon","s":"Mega","a":"Virus","e":"fire","t":"Demon Lord","m":0},{"n":"Leviamon","s":"Mega","a":"Virus","e":"fire","t":"Demon Lord","m":0},{"n":"Creepymon","s":"Mega","a":"Virus","e":"fire","t":"Demon Lord","m":0},{"n":"Goldramon","s":"Mega","a":"Vaccine","e":"plant","t":"Holy Dragon","m":0},{"n":"AvengeKidmon","s":"Mega","a":"Virus","e":"fire","t":"Dragon Man","m":1},{"n":"Kuzuhamon","s":"Mega","a":"Data","e":"water","t":"Wizard","m":1}];
+const STAGES=['Rookie','Champion','Ultimate','Mega'];
+const STAGE_ABBR={Rookie:'ROO',Champion:'CHA',Ultimate:'ULT',Mega:'MEG'};
+const ELEMENTS=['fire','water','plant','electricity','wind','ice','steel','dark','light','earth','null'];
+/* affinity WEAK/RESIST wheel — from digimon/element.ts */
+const WEAK={fire:'plant',water:'fire',plant:'water',ice:'wind',electricity:'water',earth:'electricity',steel:'ice',wind:'earth',light:'dark',dark:'light',null:null};
+const RESIST={fire:'water',water:'electricity',plant:'fire',ice:'fire',electricity:'earth',earth:'plant',steel:'electricity',wind:'ice',light:null,dark:null,null:null};
+
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+const $=(s,r=document)=>r.querySelector(s);
+const stageIdx=s=>{const i=STAGES.indexOf(s);return i<0?9:i;};
+// stable dex numbers by original catalog order
+SPECIES.forEach((d,i)=>d.no=i+1);
+
+const state={q:'',stage:'',met:'',el:''};
+let selected=null;
+
+/* ---- filtering --------------------------------------------------------- */
+function passes(d){
+  if(state.stage && d.s!==state.stage) return false;
+  if(state.met==='met' && !d.m) return false;
+  if(state.met==='unmet' && d.m) return false;
+  if(state.el && d.e!==state.el) return false;
+  if(state.q){
+    // unmet species don't leak their name to search (fog-of-war), only met match
+    if(!d.m) return false;
+    if(!d.n.toLowerCase().includes(state.q.toLowerCase())) return false;
+  }
+  return true;
+}
+function filtersActive(){ return !!(state.q||state.stage||state.met||state.el); }
+
+/* ---- grid render ------------------------------------------------------- */
+function tileHTML(d){
+  const met=d.m;
+  const inner = met
+    ? `<span class="spr"><img src="${sprite(d.n)}" alt="" onerror="this.style.visibility='hidden'"></span><span class="nm">${d.n}</span>`
+    : `<span class="spr"><span class="q">?</span></span><span class="nm">???</span>`;
+  return `<div class="tile ${met?'':'unmet'} ${selected===d.no?'sel':''}" style="--ec:var(--el-${d.e})" data-no="${d.no}" tabindex="0" role="button" aria-label="${met?`${d.n}, ${d.s}, ${d.e}`:`Unknown ${d.s} ${d.e} species — not met`}">
+    <span class="stg">${STAGE_ABBR[d.s]||''}</span>${inner}
+  </div>`;
+}
+function renderGrid(){
+  const wrap=$('#grid-wrap');
+  const list=SPECIES.filter(passes);
+  $('#shown-n').textContent=list.length;
+  if(!list.length){
+    wrap.innerHTML=`<div class="gridempty">No species match these filters.<br>Try clearing the element or status filter.</div>`;
+    return;
+  }
+  // group by element (only elements present in the filtered list), stage-ordered within
+  const byEl={};
+  list.forEach(d=>{(byEl[d.e]=byEl[d.e]||[]).push(d);});
+  const order=state.el?[state.el]:ELEMENTS;
+  let html='';
+  order.forEach(el=>{
+    const items=byEl[el]; if(!items||!items.length) return;
+    items.sort((a,b)=>stageIdx(a.s)-stageIdx(b.s)||a.no-b.no);
+    const metCt=items.filter(d=>d.m).length;
+    html+=`<section class="elsec" data-el="${el}" style="--ec:var(--el-${el})">
+      <div class="eh"><span class="dot"></span><span class="nm">${el}</span><span class="ct">${metCt}/${items.length} met</span></div>
+      <div class="hexgrid">${items.map(tileHTML).join('')}</div>
+    </section>`;
+  });
+  wrap.innerHTML=html;
+}
+
+/* ---- filters UI -------------------------------------------------------- */
+function renderStageSeg(){
+  const seg=$('#stage-seg');
+  const opts=[['','All'],...STAGES.map(s=>[s,s])];
+  seg.innerHTML=opts.map(([v,l])=>{
+    const ct=v?SPECIES.filter(d=>d.s===v).length:SPECIES.length;
+    return `<button data-stage="${v}" class="${state.stage===v?'on':''}">${l} ${v?`(${ct})`:''}</button>`;
+  }).join('');
+}
+function renderMetSeg(){
+  const seg=$('#met-seg');
+  const metCt=SPECIES.filter(d=>d.m).length;
+  const opts=[['','All'],['met','Met'],['unmet','Unmet']];
+  seg.innerHTML=opts.map(([v,l])=>{
+    const ct=v==='met'?metCt:v==='unmet'?SPECIES.length-metCt:SPECIES.length;
+    return `<button data-met="${v}" class="${state.met===v?'on':''}">${l} (${ct})</button>`;
+  }).join('');
+}
+function renderElList(){
+  const list=$('#el-list');
+  const rows=[['','All elements']].concat(ELEMENTS.map(e=>[e,e]));
+  list.innerHTML=rows.map(([v,l])=>{
+    const ct=v?SPECIES.filter(d=>d.e===v).length:SPECIES.length;
+    const ec=v?`var(--el-${v})`:'var(--muted)';
+    return `<button class="elrow ${state.el===v?'on':''}" data-el="${v}" style="--ec:${ec}"><span class="sw"></span><span>${l}</span><span class="ct">${ct}</span></button>`;
+  }).join('');
+}
+function syncFilterUI(){
+  document.querySelectorAll('#stage-seg button').forEach(b=>b.classList.toggle('on',b.dataset.stage===state.stage));
+  document.querySelectorAll('#met-seg button').forEach(b=>b.classList.toggle('on',b.dataset.met===state.met));
+  document.querySelectorAll('#el-list .elrow').forEach(b=>b.classList.toggle('on',b.dataset.el===state.el));
+  $('#clear-btn').hidden=!filtersActive();
+}
+
+/* ---- detail dock ------------------------------------------------------- */
+function selectTile(no){
+  selected=no;
+  document.querySelectorAll('#grid-wrap .tile').forEach(t=>t.classList.toggle('sel',+t.dataset.no===no));
+  paintDetail(no);
+}
+function affName(el){ return el||'—'; }
+function paintDetail(no){
+  const d=SPECIES.find(x=>x.no===no);
+  const dt=$('#detail');
+  if(!d){ paintDetailEmpty(); return; }
+  const weak=WEAK[d.e], resist=RESIST[d.e];
+  dt.style.setProperty('--ec',`var(--el-${d.e})`);
+  dt.innerHTML=`
+    <div class="dhead" style="--ec:var(--el-${d.e})">
+      <div class="dk">${d.e} · ${d.a}</div>
+      <div class="dspr">${d.m?`<img src="${sprite(d.n)}" alt="" onerror="this.style.visibility='hidden'">`:'<span class="qq">?</span>'}</div>
+      <h2>${d.m?d.n:'Unknown species'}</h2>
+      <div class="dnum">No. ${String(d.no).padStart(3,'0')} · ${d.s}</div>
+    </div>
+    <div class="dmeta">
+      <div class="mrow"><span class="mk">Status</span><span class="metpill ${d.m?'met':'unmet'}">${d.m?'Met':'Not met'}</span></div>
+      <div class="mrow"><span class="mk">Element</span><span class="chip" style="--ec:var(--el-${d.e})"><span class="cd"></span>${d.e}</span></div>
+      <div class="mrow"><span class="mk">Attribute</span><span class="mv">${d.a}</span></div>
+      <div class="mrow"><span class="mk">Stage</span><span class="mv">${d.s}</span></div>
+      <div class="mrow"><span class="mk">Type</span><span class="mv">${d.t||'—'}</span></div>
+    </div>
+    <div class="daff">
+      <div class="dlk">Elemental affinity</div>
+      <div class="affrow"><span class="tag weak">Weak</span>${weak?`<span class="av">${affName(weak)}</span>`:'<span class="none">— none</span>'}</div>
+      <div class="affrow"><span class="tag resist">Resist</span>${resist?`<span class="av">${affName(resist)}</span>`:'<span class="none">— none</span>'}</div>
+    </div>`;
+}
+function paintDetailEmpty(){
+  $('#detail').innerHTML=`<div class="dempty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>
+    <div>Select a species to inspect its stage, attribute, type, and elemental weak/resist matchups.<br>Unmet species stay hidden until you meet them in the field.</div>
+  </div>`;
+}
+
+/* ---- stats ------------------------------------------------------------- */
+function paintStats(){
+  const tot=SPECIES.length, met=SPECIES.filter(d=>d.m).length, pct=Math.round(met/tot*100);
+  $('#met-n').textContent=met; $('#tot-n').textContent=tot;
+  $('#comp-fill').style.width=pct+'%';
+  $('#hud-seen').textContent=`${met}/${tot}`;
+  $('#hud-pct').textContent=pct+'%';
+}
+
+function clearFilters(){ state.q='';state.stage='';state.met='';state.el=''; $('#q').value=''; syncFilterUI(); renderGrid(); }
+
+/* ---- events ------------------------------------------------------------ */
+$('#q').addEventListener('input',e=>{state.q=e.target.value.trim();$('#clear-btn').hidden=!filtersActive();renderGrid();});
+$('#stage-seg').addEventListener('click',e=>{const b=e.target.closest('[data-stage]');if(!b)return;state.stage=b.dataset.stage;syncFilterUI();renderGrid();});
+$('#met-seg').addEventListener('click',e=>{const b=e.target.closest('[data-met]');if(!b)return;state.met=b.dataset.met;syncFilterUI();renderGrid();});
+$('#el-list').addEventListener('click',e=>{const b=e.target.closest('[data-el]');if(!b)return;state.el=b.dataset.el;syncFilterUI();renderGrid();});
+$('#clear-btn').addEventListener('click',clearFilters);
+$('#grid-wrap').addEventListener('click',e=>{const t=e.target.closest('[data-no]');if(t)selectTile(+t.dataset.no);});
+$('#grid-wrap').addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')){const t=e.target.closest('[data-no]');if(t){e.preventDefault();selectTile(+t.dataset.no);}}});
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.navbtn').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');
+}));
+
+renderStageSeg(); renderMetSeg(); renderElList(); syncFilterUI();
+renderGrid(); paintStats(); paintDetailEmpty();
+</script>
+</body>
+</html>

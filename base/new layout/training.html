@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Training</title>
+<style>
+/* =========================================================================
+   DIGIWORLD TRAINING — desktop app. Persona 5 theme (shared with all screens):
+     Canvas #0a0a0c · Panel #141418 · Ink #f4f1ea · Muted #8a877f
+     Hairline #2a2a30 · Signal/Battle acid-red #e6001f
+   Radius 0 — angular cyberpunk notch on flat surfaces. Inter, tabular-nums.
+   Single desktop view: no vertical page scroll; stations left, roster right,
+   inner regions scroll.
+   Data mirrors src/training/engine.ts:
+     Stations: 'training' (1 stat) + 'training_premium' (2 stats), one active
+       session per station. Trainable stats hp/en/atk/def/int/spd.
+     Gain @8h: HP=200, EN=100, combat=50, split across chosen stats, ×duration/8.
+     Duration presets 5/30/120/480 min. Mood delta: <30m +3, 30-120m 0,
+       120-240m -5, 240m+ -15. Eligible = not in party, not busy.
+     assign → progress → collect (bump stat bonuses + mood) or cancel.
+   Stat tints derived via color-mix off Signal/Ink/muted — never new hex.
+   ========================================================================= */
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  --good:color-mix(in oklab,var(--signal) 40%,#fff);
+  /* stat tints — all derived from Signal/Ink/muted, no new hex */
+  --st-hp:var(--signal);
+  --st-en:color-mix(in oklab,var(--signal) 62%,#fff);
+  --st-atk:color-mix(in oklab,var(--signal) 80%,var(--ink));
+  --st-def:color-mix(in oklab,var(--muted) 62%,var(--ink));
+  --st-int:color-mix(in oklab,var(--signal) 48%,var(--muted));
+  --st-spd:color-mix(in oklab,var(--signal) 30%,#fff);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+input[type=range]{cursor:pointer}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+
+/* ---- sidebar nav (shared) --------------------------------------------- */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* ---- main -------------------------------------------------------------- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
+
+/* summary strip */
+.tbar{flex:0 0 auto;display:flex;align-items:center;gap:0;padding:12px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.tstat{display:grid;grid-template-columns:auto auto;gap:12px;align-items:baseline;padding:0 22px;border-right:1px solid var(--hair)}
+.tstat:first-child{padding-left:0}
+.tstat .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tstat .v{font:800 18px/1 var(--font)}
+.tstat .v small{font-size:12px;color:var(--muted);font-weight:700}
+.tbar .strip-title{margin-left:auto;text-align:right}
+.tbar .strip-title .k{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.tbar .strip-title .s{font:600 12px/1 var(--font);color:var(--muted);margin-top:5px}
+
+/* ---- content: stations | roster --------------------------------------- */
+.stage{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr 340px;gap:22px;padding:22px 28px 22px}
+@media (max-width:1120px){.stage{grid-template-columns:1fr}.rostercol{display:none}}
+.col{display:flex;flex-direction:column;min-height:0;min-width:0}
+.stitle{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.stitle::after{content:"";flex:1;height:1px;background:var(--hair)}
+.stitle .cnt{color:var(--ink);background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:3px 8px;font-size:10px;letter-spacing:.08em}
+
+/* stations grid */
+.stations{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));grid-auto-rows:min-content;gap:16px;padding-right:6px;scrollbar-width:thin}
+.stations::-webkit-scrollbar{width:8px}.stations::-webkit-scrollbar-thumb{background:var(--hair)}
+.station{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);position:relative;display:flex;flex-direction:column}
+.station::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sc,var(--signal))}
+.station[data-type="training_premium"]{--sc:var(--good)}
+.shead{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:14px 16px 10px}
+.shead .sic{width:36px;height:36px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--sc,var(--signal))}
+.shead .sic svg{width:20px;height:20px}
+.shead .snm{font:800 14px/1.05 var(--font)}
+.shead .ssub{font:700 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.slots-tag{font:800 8px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--sc,var(--signal));border:1px solid var(--sc,var(--signal));clip-path:var(--notch-sm);padding:4px 6px}
+
+/* active session body */
+.sbody{border-top:1px solid var(--hair);padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:150px}
+.sactive{display:flex;flex-direction:column;gap:12px;flex:1}
+.sactive .sfoot{margin-top:auto}
+.trainee{display:grid;grid-template-columns:48px 1fr;gap:12px;align-items:center}
+.trainee .spr{width:48px;height:48px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.trainee .spr img{width:42px;height:42px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.trainee .tnm{font:800 13px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trainee .tsub{font:700 9px/1 var(--font);letter-spacing:.06em;color:var(--muted);margin-top:4px}
+.statchips{display:flex;gap:6px;flex-wrap:wrap}
+.schip{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 9px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;--sk:var(--muted)}
+.schip .cd{width:7px;height:7px;background:var(--sk)}
+.schip .gv{color:var(--good);font-weight:800}
+.schip[data-stat="hp"]{--sk:var(--st-hp)}.schip[data-stat="en"]{--sk:var(--st-en)}
+.schip[data-stat="atk"]{--sk:var(--st-atk)}.schip[data-stat="def"]{--sk:var(--st-def)}
+.schip[data-stat="int"]{--sk:var(--st-int)}.schip[data-stat="spd"]{--sk:var(--st-spd)}
+.tprog{display:flex;flex-direction:column;gap:6px}
+.tprog .pl{display:flex;justify-content:space-between;align-items:baseline;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tprog .pl .clock{font:800 15px/1 var(--font);color:var(--ink);letter-spacing:0}
+.tprog .pl .clock.ready{color:var(--good)}
+.pbar{height:7px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--sc,var(--signal));width:0;transition:width .9s linear}
+.mood-note{font:700 9px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.mood-note b{color:var(--ink)}
+.mood-note.neg b{color:var(--battle)}
+.sfoot{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-top:2px}
+.sfoot.single{grid-template-columns:1fr}
+/* empty station */
+.sempty{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;text-align:center;color:var(--muted)}
+.sempty .ei{width:40px;height:40px;display:grid;place-items:center;border:1px dashed var(--hair);clip-path:var(--notch-sm);color:var(--muted);margin-top:auto}
+.sempty .ei svg{width:22px;height:22px}
+.sempty .et{font-size:11px;line-height:1.4;margin-bottom:auto}
+.sempty .btn{margin-top:0}
+
+.btn{padding:10px 14px;clip-path:var(--notch-sm);font:800 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;border:1px solid transparent;transition:.12s;white-space:nowrap}
+.btn.primary{background:var(--signal);color:#fff}
+.btn.primary:hover:not(:disabled){background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.btn.ghost{background:var(--bg);border-color:var(--hair);color:var(--ink)}
+.btn.ghost:hover:not(:disabled){border-color:var(--muted)}
+.btn.danger{background:var(--bg);border-color:var(--hair);color:var(--muted)}
+.btn.danger:hover:not(:disabled){border-color:var(--battle);color:var(--battle)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.block{width:100%}
+
+/* ---- roster rail ------------------------------------------------------- */
+.rosterlist{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:6px;scrollbar-width:thin}
+.rosterlist::-webkit-scrollbar{width:8px}.rosterlist::-webkit-scrollbar-thumb{background:var(--hair)}
+.mrow{display:grid;grid-template-columns:40px 1fr auto;gap:11px;align-items:center;padding:9px 11px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);position:relative}
+.mrow .mspr{width:40px;height:40px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.mrow .mspr img{width:34px;height:34px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.mrow .mn{min-width:0}
+.mrow .mnn{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mrow .msub{font:700 9px/1 var(--font);letter-spacing:.04em;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px}
+.mrow .mood{display:inline-flex;align-items:center;gap:4px}
+.mrow .mood .md{width:6px;height:6px;background:var(--mc,var(--muted))}
+.mrow[data-mood="high"]{--mc:var(--good)}
+.mrow[data-mood="mid"]{--mc:var(--signal)}
+.mrow[data-mood="low"]{--mc:var(--battle)}
+.mrow .lockp{font:800 8px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:4px 6px}
+.mrow.party{opacity:.55}
+.rosterhint{font-size:11px;color:var(--muted);line-height:1.5;padding:6px 2px}
+.rempty{color:var(--muted);font-size:11.5px;padding:10px 2px;line-height:1.5}
+
+/* ---- assign drawer ----------------------------------------------------- */
+.drawer{position:fixed;inset:0;z-index:60;display:none}
+.drawer.open{display:block}
+.scrim{position:absolute;inset:0;background:color-mix(in oklab,var(--bg) 62%,transparent)}
+.dpanel{position:absolute;right:0;top:0;bottom:0;width:440px;max-width:94vw;background:var(--panel);border-left:1px solid var(--hair);display:flex;flex-direction:column;box-shadow:-20px 0 50px color-mix(in oklab,var(--bg) 70%,transparent)}
+.dhead{padding:20px 22px 16px;border-bottom:1px solid var(--hair);display:flex;align-items:flex-start;gap:12px;position:relative}
+.dhead::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sc,var(--signal))}
+.dhead .dk{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--sc,var(--signal));margin-bottom:8px}
+.dhead h2{font:800 22px/1 var(--font);letter-spacing:-.01em}
+.dclose{margin-left:auto;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
+.dclose:hover{color:var(--ink);border-color:var(--muted)}
+.dbody{flex:1 1 auto;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:20px;scrollbar-width:thin}
+.dbody::-webkit-scrollbar{width:8px}.dbody::-webkit-scrollbar-thumb{background:var(--hair)}
+.field .flabel{display:flex;justify-content:space-between;align-items:baseline;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.field .flabel b{color:var(--ink);font-size:12px;letter-spacing:0}
+/* mon picker */
+.monpick{display:flex;flex-direction:column;gap:6px;max-height:190px;overflow-y:auto;scrollbar-width:thin}
+.monpick::-webkit-scrollbar{width:8px}.monpick::-webkit-scrollbar-thumb{background:var(--hair)}
+.mp{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);text-align:left;transition:.12s}
+.mp:hover{border-color:var(--muted)}
+.mp.on{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.mp .mps{width:34px;height:34px;display:grid;place-items:center}
+.mp .mps img{width:32px;height:32px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.mp .mpn{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp .mpsub{font:700 8px/1 var(--font);letter-spacing:.06em;color:var(--muted);margin-top:3px}
+/* stat toggles */
+.stattoggles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sttog{padding:9px 6px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);display:flex;flex-direction:column;align-items:center;gap:5px;transition:.12s;--sk:var(--muted)}
+.sttog .sd{width:8px;height:8px;background:var(--sk)}
+.sttog .sn{font:800 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase}
+.sttog .sg{font:700 8px/1 var(--font);color:var(--muted)}
+.sttog[data-stat="hp"]{--sk:var(--st-hp)}.sttog[data-stat="en"]{--sk:var(--st-en)}
+.sttog[data-stat="atk"]{--sk:var(--st-atk)}.sttog[data-stat="def"]{--sk:var(--st-def)}
+.sttog[data-stat="int"]{--sk:var(--st-int)}.sttog[data-stat="spd"]{--sk:var(--st-spd)}
+.sttog.on{border-color:var(--sk);background:color-mix(in oklab,var(--sk) 14%,var(--bg))}
+.sttog.on .sg{color:var(--good)}
+.sttog:disabled{opacity:.32;cursor:not-allowed}
+/* duration segment */
+.durseg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.durseg button{padding:10px 4px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 11px/1 var(--font);color:var(--muted);display:flex;flex-direction:column;gap:4px;align-items:center;transition:.12s}
+.durseg button .dm{font:700 7px/1 var(--font);letter-spacing:.06em;text-transform:uppercase}
+.durseg button:hover{color:var(--ink);border-color:var(--muted)}
+.durseg button.on{background:var(--signal);border-color:var(--signal);color:#fff}
+.durseg button.on .dm{color:#fff}
+/* preview */
+.preview{background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:12px 14px;display:flex;flex-direction:column;gap:9px}
+.preview .pk{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.preview .prow{display:flex;justify-content:space-between;align-items:center;font:800 12px/1 var(--font)}
+.preview .prow .pv{color:var(--good)}
+.preview .prow.mood .pv{color:var(--ink)}
+.preview .prow.mood .pv.neg{color:var(--battle)}
+.preview .gains{display:flex;gap:6px;flex-wrap:wrap}
+.dfoot{flex:0 0 auto;border-top:1px solid var(--hair);padding:14px 22px;display:flex;align-items:center;gap:12px}
+.dfoot .dhint{flex:1;font-size:10.5px;color:var(--muted);line-height:1.4}
+.dfoot .dhint.warn{color:var(--battle)}
+
+/* ---- toast ------------------------------------------------------------- */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Training</div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <button class="navbtn" data-nav="factory" aria-label="Factory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory
+      </button>
+      <button class="navbtn" data-nav="adventure" aria-label="Adventure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure
+      </button>
+      <button class="navbtn" data-nav="nursery" aria-label="Nursery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery
+      </button>
+      <button class="navbtn" aria-current="page" data-nav="training" aria-label="Training">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6.5 6.5l11 11"/><path d="M4 9l-1.5-1.5 2-2L6 7M15 18l1.5 1.5 2-2L17 15"/><path d="M9 4l2 2M18 13l2 2M4 15l2 2M13 6l2 2"/></svg>Training
+      </button>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <button class="navbtn" data-nav="digidex" aria-label="DigiDex">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>DigiDex
+      </button>
+      <button class="navbtn" data-nav="roster" aria-label="Roster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster
+      </button>
+      <button class="navbtn" data-nav="world" aria-label="The World">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World
+      </button>
+      <button class="navbtn" data-nav="arena" aria-label="The Arena">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena
+      </button>
+
+      <div class="spring">
+        <div class="hud">
+          <div class="pill">Tamer Lv <b>22</b></div>
+          <div class="pill">Stations <b id="hud-stations">—</b></div>
+          <div class="pill">Training <b id="hud-active">—</b></div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" data-od-id="training-main" tabindex="-1">
+      <div class="tbar" data-od-id="training-bar" id="tbar"></div>
+
+      <div class="stage">
+        <div class="col">
+          <h3 class="stitle">Training Stations <span class="cnt" id="st-count">—</span></h3>
+          <div class="stations" id="stations" data-od-id="stations-grid"></div>
+        </div>
+        <div class="col rostercol">
+          <h3 class="stitle">Bench <span class="cnt" id="bench-count">—</span></h3>
+          <div class="rosterhint">Party members can't train — bench a Digimon first. Mood dips on long sessions.</div>
+          <div class="rosterlist" id="rosterlist" data-od-id="roster-rail"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- assign drawer -->
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+  <div class="scrim" id="scrim"></div>
+  <div class="dpanel" id="dpanel">
+    <div class="dhead">
+      <div>
+        <div class="dk" id="drawer-kick">Assign Training</div>
+        <h2 id="drawer-title">Train a Digimon</h2>
+      </div>
+      <button class="dclose" id="drawer-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="dbody" id="drawer-body"></div>
+    <div class="dfoot">
+      <span class="dhint" id="drawer-hint"></span>
+      <button class="btn primary" id="start-btn" disabled>Start</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============ data mirrors src/training/engine.ts ======================= */
+const MS_PER_HOUR=3_600_000;
+const TRAIN_STATS=['hp','en','atk','def','int','spd'];
+const STAT_LABEL={hp:'HP',en:'EN',atk:'ATK',def:'DEF',int:'INT',spd:'SPD'};
+const MAX_GAIN_8H={hp:200,en:100,atk:50,def:50,int:50,spd:50};
+const DURATIONS=[{m:5,label:'Quick'},{m:30,label:'Short'},{m:120,label:'Long'},{m:480,label:'Full'}];
+
+const STAT_ICON='<circle cx="12" cy="12" r="9"/>';
+const STATION_ICON='<path d="M6.5 6.5l11 11"/><path d="M4 9l-1.5-1.5 2-2L6 7M15 18l1.5 1.5 2-2L17 15"/>';
+
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+const $=(s,r=document)=>r.querySelector(s);
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+function computeGains(durationMs,statKinds){
+  const hours=Math.min(8,Math.max(0,durationMs/MS_PER_HOUR));
+  const scale=hours/8;
+  const n=Math.max(1,statKinds.length);
+  const out={};
+  statKinds.forEach(k=>{ out[k]=Math.max(1,Math.round((MAX_GAIN_8H[k]*scale)/n)); });
+  return out;
+}
+function moodDelta(durationMs){
+  const min=durationMs/60000;
+  if(min<30) return 3;
+  if(min<120) return 0;
+  if(min<240) return -5;
+  return -15;
+}
+function moodBand(v){ return v>=70?'high':v>=35?'mid':'low'; }
+function moodStateLabel(v){ return v>=70?'Content':v>=35?'Neutral':'Restless'; }
+function fmtClock(ms){
+  const s=Math.max(0,Math.round(ms/1000));
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),r=s%60;
+  const p=x=>String(x).padStart(2,'0');
+  return h>0?`${h}:${p(m)}:${p(r)}`:`${p(m)}:${p(r)}`;
+}
+function fmtDur(min){ return min>=60?`${min/60}h`:`${min}m`; }
+
+/* ---- state ------------------------------------------------------------- */
+const state={
+  stations:[
+    { id:'b1', kind:'Training Ground', type:'training', active:null },
+    { id:'b2', kind:'Elite Dojo', type:'training_premium', active:null },
+    { id:'b3', kind:'Training Ground', type:'training', active:{
+        monId:'m4', statKinds:['spd'], startedAt:Date.now()-95*1000, durationMs:120*60000
+    } },
+  ],
+  // bench + party mons (party can't train)
+  mons:[
+    { id:'m1', species:'Agumon',  nickname:'Sparky',  level:24, stage:'Champion', mood:82, inParty:true },
+    { id:'m2', species:'Gabumon', nickname:'Bubbles', level:22, stage:'Champion', mood:44, inParty:true },
+    { id:'m3', species:'Elecmon', nickname:'Volt',    level:19, stage:'Rookie',   mood:66, inParty:true },
+    { id:'m4', species:'Palmon',  nickname:'Thorn',   level:20, stage:'Rookie',   mood:71, inParty:false },
+    { id:'m5', species:'Biyomon', nickname:'Ember',   level:18, stage:'Rookie',   mood:95, inParty:false },
+    { id:'m6', species:'Gomamon', nickname:'Tusk',    level:21, stage:'Champion', mood:38, inParty:false },
+    { id:'m7', species:'Patamon', nickname:'Halo',    level:17, stage:'Rookie',   mood:52, inParty:false },
+  ],
+};
+const monById=id=>state.mons.find(m=>m.id===id);
+function busyMonIds(){ return new Set(state.stations.filter(s=>s.active).map(s=>s.active.monId)); }
+function eligibleMons(){ const busy=busyMonIds(); return state.mons.filter(m=>!m.inParty && !busy.has(m.id)); }
+
+/* draft for the assign drawer */
+let draft=null; // {stationId, monId, stats:[], durMin}
+
+/* ---- toast ---- */
+let toastT;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ---- summary strip ---- */
+function paintBar(){
+  const total=state.stations.length;
+  const active=state.stations.filter(s=>s.active).length;
+  const ready=state.stations.filter(s=>s.active&&Date.now()>=s.active.startedAt+s.active.durationMs).length;
+  $('#tbar').innerHTML=`
+    <div class="tstat"><span class="k">Stations</span><span class="v">${active}<small>/${total} busy</small></span></div>
+    <div class="tstat"><span class="k">Bench</span><span class="v">${eligibleMons().length}<small> ready</small></span></div>
+    <div class="tstat"><span class="k">Ready to collect</span><span class="v" style="${ready?'color:var(--good)':''}">${ready}</span></div>
+    <div class="strip-title"><div class="k">Training</div><div class="s" id="trainline">${active?`${active} session${active===1?'':'s'} running`:'all stations idle'}</div></div>`;
+  $('#hud-stations').textContent=`${active}/${total}`;
+  $('#hud-active').textContent=ready>0?`${ready} ready`:(active>0?`${active} running`:'—');
+}
+
+/* ---- stations ---------------------------------------------------------- */
+function stationHTML(s){
+  const supported=s.type==='training_premium'?2:1;
+  const label=s.type==='training_premium'?'Premium · 2 stats':'Basic · 1 stat';
+  let body;
+  if(s.active){
+    const a=s.active, m=monById(a.monId)||{nickname:a.monId,species:''};
+    const total=a.durationMs, done=Math.min(total,Date.now()-a.startedAt);
+    const rem=Math.max(0,a.startedAt+a.durationMs-Date.now());
+    const ready=rem<=0;
+    const pct=Math.min(100,(done/total)*100);
+    const gains=computeGains(a.durationMs,a.statKinds);
+    const md=moodDelta(a.durationMs);
+    const chips=a.statKinds.map(k=>`<span class="schip" data-stat="${k}"><span class="cd"></span>${STAT_LABEL[k]} <span class="gv">+${gains[k]}</span></span>`).join('');
+    body=`<div class="sactive">
+      <div class="trainee">
+        <span class="spr"><img src="${sprite(m.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+        <div><div class="tnm">${m.nickname}</div><div class="tsub">${m.species} · Lv ${m.level}</div></div>
+      </div>
+      <div class="statchips">${chips}</div>
+      <div class="tprog">
+        <div class="pl"><span>${ready?'Complete':'Time left'}</span><span class="clock ${ready?'ready':''}" data-clock="${s.id}">${ready?'READY':fmtClock(rem)}</span></div>
+        <div class="pbar"><i data-fill="${s.id}" style="width:${pct}%"></i></div>
+      </div>
+      <div class="mood-note ${md<0?'neg':''}">Mood ${md>0?'+'+md:md===0?'±0':md} on collect</div>
+      <div class="sfoot ${ready?'':'single'}">
+        ${ready
+          ? `<button class="btn primary" data-collect="${s.id}">Collect gains</button><button class="btn danger" data-cancel="${s.id}">Cancel</button>`
+          : `<button class="btn danger block" data-cancel="${s.id}">Cancel session</button>`}
+      </div>
+    </div>`;
+  } else {
+    body=`<div class="sempty">
+      <span class="ei"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 5v14M5 12h14"/></svg></span>
+      <div class="et">Idle — bench a Digimon<br>and train ${supported===2?'two stats':'one stat'}.</div>
+      <button class="btn primary block" data-assign="${s.id}">Assign trainee</button>
+    </div>`;
+  }
+  return `<article class="station" data-type="${s.type}" data-station="${s.id}" aria-label="${s.kind}, ${label}">
+    <div class="shead">
+      <span class="sic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${STATION_ICON}</svg></span>
+      <div><div class="snm">${s.kind}</div><div class="ssub">${label}</div></div>
+      <span class="slots-tag">${supported} slot${supported>1?'s':''}</span>
+    </div>
+    <div class="sbody">${body}</div>
+  </article>`;
+}
+function paintStations(){
+  $('#stations').innerHTML=state.stations.map(stationHTML).join('');
+  $('#st-count').textContent=`${state.stations.length} built`;
+}
+
+/* ---- bench roster rail ------------------------------------------------- */
+function paintRoster(){
+  const list=$('#rosterlist');
+  const busy=busyMonIds();
+  const rows=state.mons.map(m=>{
+    const training=busy.has(m.id);
+    const locked=m.inParty||training;
+    const band=moodBand(m.mood);
+    const tag=m.inParty?'In party':training?'Training':'';
+    return `<div class="mrow ${m.inParty?'party':''}" data-mood="${band}" data-mon="${m.id}">
+      <span class="mspr"><img src="${sprite(m.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+      <div class="mn">
+        <div class="mnn">${m.nickname}</div>
+        <div class="msub">Lv ${m.level} · <span class="mood"><span class="md"></span>${moodStateLabel(m.mood)}</span></div>
+      </div>
+      ${locked?`<span class="lockp">${tag}</span>`:`<button class="btn ghost" data-benchassign="${m.id}" style="padding:7px 10px;font-size:9px">Train</button>`}
+    </div>`;
+  }).join('');
+  list.innerHTML=rows||`<div class="rempty">No Digimon on your roster.</div>`;
+  $('#bench-count').textContent=`${eligibleMons().length} eligible`;
+}
+
+/* ---- assign drawer ----------------------------------------------------- */
+function openDrawer(stationId, presetMonId){
+  const s=state.stations.find(x=>x.id===stationId); if(!s||s.active) return;
+  const supported=s.type==='training_premium'?2:1;
+  const elig=eligibleMons();
+  draft={stationId, monId:presetMonId&&elig.some(m=>m.id===presetMonId)?presetMonId:(elig[0]?.id||null), stats:[], durMin:30};
+  const dr=$('#drawer'); const panel=$('#dpanel');
+  panel.style.setProperty('--sc', s.type==='training_premium'?'var(--good)':'var(--signal)');
+  $('#drawer-kick').textContent=`${s.kind} · ${supported===2?'2 stats':'1 stat'}`;
+  $('#drawer-title').textContent='Assign training';
+  renderDrawerBody(s,supported,elig);
+  dr.classList.add('open');
+  $('#drawer-close').focus();
+}
+function closeDrawer(){ $('#drawer').classList.remove('open'); draft=null; }
+function renderDrawerBody(s,supported,elig){
+  const body=$('#drawer-body');
+  if(!elig.length){
+    body.innerHTML=`<div class="rempty">No eligible Digimon. Party members can't train — bench one from the Roster screen first.</div>`;
+    updateStartBtn(); return;
+  }
+  const monPick=elig.map(m=>`<button class="mp ${draft.monId===m.id?'on':''}" data-pickmon="${m.id}">
+      <span class="mps"><img src="${sprite(m.species)}" alt="" onerror="this.style.visibility='hidden'"></span>
+      <div><div class="mpn">${m.nickname}</div><div class="mpsub">${m.species} · Lv ${m.level} · ${moodStateLabel(m.mood)}</div></div>
+    </button>`).join('');
+  const dm=draft.durMin;
+  const statTog=TRAIN_STATS.map(k=>{
+    const on=draft.stats.includes(k);
+    const g=computeGains(dm*60000,[k])[k];
+    return `<button class="sttog ${on?'on':''}" data-togstat="${k}" data-stat="${k}">
+      <span class="sd"></span><span class="sn">${STAT_LABEL[k]}</span><span class="sg">+${g}${on?'':' max'}</span>
+    </button>`;
+  }).join('');
+  const durBtns=DURATIONS.map(d=>`<button class="${draft.durMin===d.m?'on':''}" data-dur="${d.m}"><span>${fmtDur(d.m)}</span><span class="dm">${d.label}</span></button>`).join('');
+  body.innerHTML=`
+    <div class="field">
+      <div class="flabel"><span>Trainee</span><b>${elig.length} on the bench</b></div>
+      <div class="monpick">${monPick}</div>
+    </div>
+    <div class="field">
+      <div class="flabel"><span>Stats to train</span><b id="stat-count">${draft.stats.length}/${supported}</b></div>
+      <div class="stattoggles" id="stattoggles">${statTog}</div>
+    </div>
+    <div class="field">
+      <div class="flabel"><span>Session length</span><b>${fmtDur(draft.durMin)}</b></div>
+      <div class="durseg">${durBtns}</div>
+    </div>
+    <div class="preview" id="preview"></div>`;
+  renderPreview(supported);
+  updateStartBtn();
+}
+function renderPreview(supported){
+  const pv=$('#preview'); if(!pv) return;
+  const dm=draft.durMin;
+  const md=moodDelta(dm*60000);
+  const gains=draft.stats.length?computeGains(dm*60000,draft.stats):{};
+  const gainChips=draft.stats.length
+    ? `<div class="gains">${draft.stats.map(k=>`<span class="schip" data-stat="${k}"><span class="cd"></span>${STAT_LABEL[k]} <span class="gv">+${gains[k]}</span></span>`).join('')}</div>`
+    : `<div class="prow"><span style="color:var(--muted);font-weight:700">Pick ${supported} stat${supported>1?'s':''} to preview gains</span></div>`;
+  pv.innerHTML=`
+    <div class="pk">On collect</div>
+    ${gainChips}
+    <div class="prow mood"><span style="color:var(--muted);font-weight:700;font-size:9px;letter-spacing:.1em;text-transform:uppercase">Mood</span><span class="pv ${md<0?'neg':''}">${md>0?'+'+md:md===0?'±0':md}</span></div>`;
+}
+function updateStartBtn(){
+  const s=state.stations.find(x=>x.id===draft?.stationId);
+  const supported=s?(s.type==='training_premium'?2:1):1;
+  const btn=$('#start-btn'), hint=$('#drawer-hint');
+  if(!draft||!draft.monId){ btn.disabled=true; hint.textContent='No eligible Digimon to train.'; hint.className='dhint warn'; return; }
+  const ok=draft.stats.length===supported;
+  btn.disabled=!ok;
+  if(!ok){ hint.textContent=`Select exactly ${supported} stat${supported>1?'s':''} to train.`; hint.className='dhint'; }
+  else { const md=moodDelta(draft.durMin*60000); hint.textContent=`${fmtDur(draft.durMin)} session · mood ${md>0?'+'+md:md===0?'±0':md}.`; hint.className=`dhint ${md<0?'warn':''}`; }
+}
+
+/* ---- actions ----------------------------------------------------------- */
+function startTraining(){
+  if(!draft||!draft.monId) return;
+  const s=state.stations.find(x=>x.id===draft.stationId); if(!s||s.active) return;
+  const supported=s.type==='training_premium'?2:1;
+  if(draft.stats.length!==supported){ toast(`Pick ${supported} stat${supported>1?'s':''}`); return; }
+  s.active={ monId:draft.monId, statKinds:draft.stats.slice(), startedAt:Date.now(), durationMs:draft.durMin*60000 };
+  const nm=monById(draft.monId)?.nickname||'Digimon';
+  const statTxt=draft.stats.map(k=>STAT_LABEL[k]).join('+');
+  const durTxt=fmtDur(draft.durMin);
+  closeDrawer(); paintAll();
+  toast(`${nm} training ${statTxt} · ${durTxt}`);
+}
+function collectStation(stationId){
+  const s=state.stations.find(x=>x.id===stationId); if(!s||!s.active) return;
+  const a=s.active;
+  if(Date.now()<a.startedAt+a.durationMs){ toast('Not finished yet'); return; }
+  const gains=computeGains(a.durationMs,a.statKinds);
+  const md=moodDelta(a.durationMs);
+  const m=monById(a.monId);
+  if(m){ m.mood=Math.max(0,Math.min(100,m.mood+md)); }
+  s.active=null;
+  paintAll();
+  const gtxt=a.statKinds.map(k=>`+${gains[k]} ${STAT_LABEL[k]}`).join(' · ');
+  toast(`Collected — ${gtxt}${md?` · mood ${md>0?'+'+md:md}`:''}`);
+}
+function cancelStation(stationId){
+  const s=state.stations.find(x=>x.id===stationId); if(!s||!s.active) return;
+  const nm=monById(s.active.monId)?.nickname||'Digimon';
+  s.active=null; paintAll();
+  toast(`${nm}'s session cancelled — no gains`);
+}
+
+function paintAll(){ paintBar(); paintStations(); paintRoster(); }
+
+/* ---- event wiring (delegated) ---- */
+document.addEventListener('click',e=>{
+  const as=e.target.closest('[data-assign]'); if(as){ openDrawer(as.dataset.assign); return; }
+  const ba=e.target.closest('[data-benchassign]'); if(ba){
+    // open the first idle station that fits, preselect this mon
+    const idle=state.stations.find(s=>!s.active); if(!idle){ toast('All stations are busy'); return; }
+    openDrawer(idle.id, ba.dataset.benchassign); return;
+  }
+  const cl=e.target.closest('[data-collect]'); if(cl){ collectStation(cl.dataset.collect); return; }
+  const cx=e.target.closest('[data-cancel]'); if(cx){ cancelStation(cx.dataset.cancel); return; }
+  if(e.target.closest('#start-btn')){ startTraining(); return; }
+  if(e.target.closest('#drawer-close')||e.target.id==='scrim'){ closeDrawer(); return; }
+  // drawer: mon pick
+  const pm=e.target.closest('[data-pickmon]'); if(pm){ draft.monId=pm.dataset.pickmon; const s=state.stations.find(x=>x.id===draft.stationId); renderDrawerBody(s,s.type==='training_premium'?2:1,eligibleMons()); return; }
+  // drawer: stat toggle
+  const ts=e.target.closest('[data-togstat]'); if(ts){
+    const k=ts.dataset.togstat; const s=state.stations.find(x=>x.id===draft.stationId); const supported=s.type==='training_premium'?2:1;
+    const i=draft.stats.indexOf(k);
+    if(i>=0){ draft.stats.splice(i,1); }
+    else { if(draft.stats.length>=supported){ if(supported===1){ draft.stats=[k]; } else { toast(`Only ${supported} stats`); return; } } else { draft.stats.push(k); } }
+    renderDrawerBody(s,supported,eligibleMons()); return;
+  }
+  // drawer: duration
+  const du=e.target.closest('[data-dur]'); if(du){ draft.durMin=+du.dataset.dur; const s=state.stations.find(x=>x.id===draft.stationId); renderDrawerBody(s,s.type==='training_premium'?2:1,eligibleMons()); return; }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&$('#drawer').classList.contains('open')) closeDrawer(); });
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.navbtn').forEach(x=>x.removeAttribute('aria-current'));b.setAttribute('aria-current','page');
+}));
+
+/* ---- live tick --------------------------------------------------------- */
+function tick(){
+  let flip=false;
+  state.stations.forEach(s=>{
+    if(!s.active) return;
+    const a=s.active, total=a.durationMs, rem=a.startedAt+a.durationMs-Date.now();
+    if(rem<=0){ // just finished → repaint to expose Collect button
+      const clk=$(`[data-clock="${s.id}"]`);
+      if(clk && clk.textContent!=='READY'){ flip=true; }
+      return;
+    }
+    const clk=$(`[data-clock="${s.id}"]`); if(clk) clk.textContent=fmtClock(rem);
+    const fill=$(`[data-fill="${s.id}"]`); if(fill) fill.style.width=Math.min(100,((total-rem)/total)*100)+'%';
+  });
+  if(flip){ paintBar(); paintStations(); }
+}
+
+paintAll();
+if(!reduce) setInterval(tick,1000);
+</script>
+</body>
+</html>

@@ -5,3 +5,4 @@ export * from './ws.js';
 export * from './quest.js';
 export * from './nursery.js';
 export * from './world.js';
+export * from './dungeon.js';

@@ -1,0 +1,240 @@
+/* Per-screen tutorial overlay — matches the Cyber-Sleuth-style card the
+   design brief pointed to. Coexists with page CSS; never scoped to a page. */
+
+.tutorial-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  animation: tutorialIn .28s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.tutorial-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--ink) 68%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+}
+
+.tutorial-frame {
+  position: relative;
+  width: min(880px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.tutorial-head {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding-left: 4px;
+}
+
+.tutorial-brand {
+  font: 800 20px/1 var(--font);
+  letter-spacing: .04em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tutorial-cat {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 18px;
+  font: 800 11px/1 var(--font);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  background: var(--signal);
+  color: #111;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+
+.tutorial-body-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.tutorial-chev {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: color .18s, transform .12s;
+}
+.tutorial-chev svg { width: 32px; height: 32px; }
+.tutorial-chev:hover:not(:disabled) { color: #fff; transform: translateX(2px); }
+.tutorial-chev-prev:hover:not(:disabled) { transform: translateX(-2px); }
+.tutorial-chev:disabled { opacity: 0.15; cursor: not-allowed; }
+
+.tutorial-card {
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)),
+    calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+  overflow: hidden;
+}
+
+.tutorial-card-head {
+  background: color-mix(in oklab, var(--panel) 60%, var(--bg));
+  border-bottom: 1px solid var(--hair);
+  padding: 14px 24px;
+  text-align: center;
+}
+.tutorial-card-head h2 {
+  margin: 0;
+  font: 700 15px/1.2 var(--font);
+  letter-spacing: .04em;
+  color: var(--ink);
+}
+
+.tutorial-card-body {
+  padding: 24px 32px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 220px;
+}
+
+.tutorial-text {
+  margin: 0;
+  font: 500 14px/1.65 var(--font);
+  color: var(--ink);
+  letter-spacing: .01em;
+}
+
+.tut-kw {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+.tutorial-visual {
+  margin: 8px auto 0;
+  padding: 16px 24px;
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  border: 1px solid var(--hair);
+  display: grid;
+  place-items: center;
+  max-width: 460px;
+}
+.tut-diagram { width: 100%; height: auto; max-width: 300px; }
+
+.tutorial-card-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px 16px;
+  border-top: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--panel) 40%, var(--bg));
+}
+
+.tutorial-pager {
+  font: 700 14px/1 var(--font);
+  letter-spacing: .06em;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.tutorial-pager b {
+  color: var(--signal);
+  font-size: 18px;
+}
+.tutorial-pager-sep {
+  opacity: 0.6;
+}
+
+.tutorial-actions {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.tutorial-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  padding: 8px 14px;
+  font: 700 11px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background .18s, border-color .18s, transform .12s;
+}
+.tutorial-btn:hover { border-color: var(--muted); transform: translateY(-1px); }
+
+.tutorial-btn-end {
+  color: var(--muted);
+}
+.tutorial-btn-end:hover { color: var(--ink); }
+
+.tutorial-btn-proceed {
+  background: var(--signal);
+  color: #111;
+  border-color: var(--signal);
+}
+.tutorial-btn-proceed:hover { filter: brightness(1.08); }
+
+.tutorial-kbd {
+  font: 700 9px/1 var(--font);
+  letter-spacing: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 3px 5px;
+  min-width: 14px;
+  text-align: center;
+  color: inherit;
+  border-radius: 2px;
+}
+.tutorial-btn-proceed .tutorial-kbd {
+  background: rgba(0, 0, 0, 0.18);
+  border-color: rgba(0, 0, 0, 0.28);
+}
+
+.tutorial-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color .18s, transform .12s;
+}
+.tutorial-close:hover { color: var(--ink); transform: rotate(90deg); }
+
+@keyframes tutorialIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .tutorial-frame { width: 100%; }
+  .tutorial-body-row { grid-template-columns: 32px 1fr 32px; gap: 4px; }
+  .tutorial-chev svg { width: 22px; height: 22px; }
+  .tutorial-card-body { padding: 18px 20px 14px; min-height: 160px; }
+  .tutorial-card-foot { flex-direction: column; align-items: stretch; gap: 8px; padding: 12px 20px 14px; }
+  .tutorial-pager { justify-content: center; }
+  .tutorial-actions { justify-content: center; }
+}
