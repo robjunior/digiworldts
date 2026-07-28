@@ -31,6 +31,7 @@ function circlePts(r: number, seg: number, plane: 'xy' | 'xz') {
 type WorldGlobeProps = {
   readonly regions: readonly WorldRegion[];
   readonly worldObjects?: readonly WorldObject[];
+  readonly focusLatLon?: { readonly lat: number; readonly lon: number } | null;
   readonly autoSpin: boolean;
   readonly selectedIdx: number | null;
   readonly hoveredIdx: number;
@@ -43,6 +44,7 @@ type WorldGlobeProps = {
 export function WorldGlobe({
   regions,
   worldObjects,
+  focusLatLon,
   autoSpin,
   selectedIdx,
   hoveredIdx,
@@ -70,6 +72,13 @@ export function WorldGlobe({
     stateRef.current.selectedIdx = selectedIdx;
     stateRef.current.hoveredIdx = hoveredIdx;
   }, [autoSpin, selectedIdx, hoveredIdx]);
+
+  useEffect(() => {
+    if (!focusLatLon) return;
+    const pos = latLonToVec3(focusLatLon.lat, focusLatLon.lon, 1);
+    stateRef.current.rotY = -Math.atan2(pos.x, pos.z);
+    stateRef.current.rotX = Math.atan2(pos.y, Math.sqrt(pos.x * pos.x + pos.z * pos.z));
+  }, [focusLatLon]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
