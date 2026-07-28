@@ -34,6 +34,8 @@ export function World(): JSX.Element {
 
   const [tab, setTab] = useState<'regions' | 'quests'>('regions');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [selectedLandmarkId, setSelectedLandmarkId] = useState<string | null>(null);
+  const [focusLatLon, setFocusLatLon] = useState<{ readonly lat: number; readonly lon: number } | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number>(-1);
   const [autoSpin, setAutoSpin] = useState<boolean>(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [webGLFailed, setWebGLFailed] = useState<boolean>(false);
@@ -104,7 +106,19 @@ export function World(): JSX.Element {
   }, [navigate]);
 
   const handleHoverChange = useCallback((idx: number) => setHoveredIdx(idx), []);
-  const handleSelect = useCallback((idx: number) => setSelectedIdx(idx), []);
+  const handleSelect = useCallback((idx: number) => {
+    setSelectedIdx(idx);
+    setSelectedLandmarkId(null);
+    const region = regions[idx];
+    if (region) setFocusLatLon({ lat: region.lat, lon: region.lon });
+  }, [regions]);
+  const handleSelectLandmark = useCallback((id: string) => {
+    const obj = worldObjects.find((o) => o.id === id);
+    if (!obj) return;
+    setSelectedLandmarkId(id);
+    setSelectedIdx(null);
+    setFocusLatLon({ lat: obj.lat, lon: obj.lon });
+  }, [worldObjects]);
   const handleHoverTip = useCallback((tip: WorldHoverTipData | null) => setHoverTip(tip), []);
   const handleFailWebGL = useCallback(() => setWebGLFailed(true), []);
   const handleToggleAutoSpin = useCallback(() => setAutoSpin(prev => !prev), []);
@@ -120,6 +134,7 @@ export function World(): JSX.Element {
         <WorldGlobe
           regions={regions}
           worldObjects={worldObjects}
+          focusLatLon={focusLatLon}
           autoSpin={autoSpin}
           selectedIdx={selectedIdx}
           hoveredIdx={hoveredIdx}
@@ -147,13 +162,16 @@ export function World(): JSX.Element {
 
       <RegionRail
         regions={regions}
+        worldObjects={worldObjects}
         quests={quests}
         selectedIdx={selectedIdx}
+        selectedLandmarkId={selectedLandmarkId}
         tab={tab}
         pendingQuestIds={pendingQuestIds}
         loadingQuests={questsQuery.isPending}
         onTabChange={handleTabChange}
         onSelectIdx={handleSelect}
+        onSelectLandmark={handleSelectLandmark}
         onEnterDungeon={enterDungeon}
         onSelectBiome={selectBiome}
         onAcceptQuest={handleAcceptQuest}
