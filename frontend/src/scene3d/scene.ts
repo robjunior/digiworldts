@@ -794,15 +794,18 @@ export class SceneManager {
     this.arenaGroup.add(root);
     this.currentArenaUrl = url;
     this.setBackdropActive(true);
+    let hasFloorMesh = false;
     root.traverse((obj) => {
       if (!(obj instanceof THREE.Mesh)) return;
       obj.frustumCulled = false;
+      if (isFloorNamed(obj)) hasFloorMesh = true;
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) {
         if (!(mat instanceof THREE.Material)) continue;
         forceTransparencyIfAlpha(mat);
       }
     });
+    this.ground.visible = !hasFloorMesh;
     if (this.currentFogMode === 'height') {
       root.traverse((obj) => {
         if (!(obj instanceof THREE.Mesh)) return;
