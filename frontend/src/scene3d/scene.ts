@@ -8,6 +8,18 @@ import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPositio
 
 export type SpriteInit = SpriteRigConfig;
 
+function forceTransparencyIfAlpha(mat: THREE.Material): void {
+  if (!('map' in mat) && !('alphaMap' in mat)) return;
+  const m = mat as THREE.MeshStandardMaterial;
+  const hasAlphaMap = m.alphaMap !== null && m.alphaMap !== undefined;
+  const mapHasAlpha = m.map !== null && m.map !== undefined && m.map.format === THREE.RGBAFormat;
+  if (!hasAlphaMap && !mapHasAlpha) return;
+  if (!m.transparent) m.transparent = true;
+  if (m.alphaTest === 0) m.alphaTest = 0.5;
+  m.depthWrite = false;
+  m.needsUpdate = true;
+}
+
 export type SceneSettings = {
   sunColor: number;
   sunIntensity: number;
@@ -765,7 +777,13 @@ export class SceneManager {
     this.currentArenaUrl = url;
     this.setBackdropActive(true);
     root.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) obj.frustumCulled = false;
+      if (!(obj instanceof THREE.Mesh)) return;
+      obj.frustumCulled = false;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const mat of mats) {
+        if (!(mat instanceof THREE.Material)) continue;
+        forceTransparencyIfAlpha(mat);
+      }
     });
     if (this.currentFogMode === 'height') {
       root.traverse((obj) => {
@@ -1059,6 +1077,16 @@ export class SceneManager {
     if (patch.arenaOffsetX !== undefined || patch.arenaOffsetY !== undefined || patch.arenaOffsetZ !== undefined) {
       this.arenaGroup.position.set(this.currentArenaOffsetX, this.currentArenaOffsetY, this.currentArenaOffsetZ);
     }
+    if (patch.arenaOffsetY !== undefined) {
+      // Sprites live on scene root (not under arenaGroup) so shifting arenaGroup.y
+      // alone would leave them at fixed world Y ≈ 0.37 while the arena floor
+      // moves up/down — sprites appear to sink through the floor. Mirror the
+      // arena Y offset onto every sprite's baseline so admin position edits
+      // move the whole play field together.
+      for (const sprite of this.sprites.values()) {
+        sprite.setArenaBaselineY(this.currentArenaOffsetY);
+      }
+    }
   }
 
   resize(width: number, height: number): void {
@@ -1082,6 +1110,7 @@ export class SceneManager {
     const existing = this.sprites.get(config.unitId);
     if (existing !== undefined) return existing;
     const sprite = new SpriteRig(this.scene, config);
+    sprite.setArenaBaselineY(this.currentArenaOffsetY);
     this.sprites.set(config.unitId, sprite);
     return sprite;
   }
