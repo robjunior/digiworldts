@@ -21,6 +21,7 @@ export type SpriteRigApi = {
   illuminate(color: THREE.Color | number, intensity: number, decayPerSec?: number): void;
   setDowned(down: boolean): void;
   setTextureUrl(url: string): void;
+  setArenaBaselineY(y: number): void;
   dispose(): void;
 };
 
@@ -146,6 +147,7 @@ export class SpriteRig implements SpriteRigApi {
   private readonly basePosition: THREE.Vector3;
   private readonly baseScale: THREE.Vector2 = new THREE.Vector2(SPRITE_MAX_DIMENSION, SPRITE_MAX_DIMENSION);
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
+  private arenaBaselineY = 0;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
   private illumination: IlluminationState | null = null;
@@ -453,7 +455,7 @@ export class SpriteRig implements SpriteRigApi {
     }
 
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
-    this.mesh.position.y = this.basePosition.y;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
     this.mesh.position.z = this.basePosition.z;
     this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
 
@@ -500,6 +502,14 @@ export class SpriteRig implements SpriteRigApi {
     this.downed = down;
     this.mesh.visible = !down;
     this.shadow.visible = !down;
+  }
+
+  setArenaBaselineY(y: number): void {
+    if (this.disposedFlag) return;
+    this.arenaBaselineY = y;
+    this.mesh.position.y = this.basePosition.y + y;
+    this.shadow.position.y = GROUND_Y + y;
+    this.worldPosition.y = this.mesh.position.y;
   }
 
   dispose(): void {
