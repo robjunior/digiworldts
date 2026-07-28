@@ -19,7 +19,7 @@ export function DigdexHive({ entries, onSelect, selectedCatalogId, filterElement
   const sections = useMemo(() => {
     const byEl: Partial<Record<Element, DigdexEntry[]>> = {};
     for (const e of entries) {
-      const el = e.template?.element ?? 'null';
+      const el = e.element;
       if (!byEl[el]) byEl[el] = [];
       byEl[el]!.push(e);
     }
