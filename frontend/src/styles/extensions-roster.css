@@ -277,3 +277,185 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 /* stat bars render at final width instantly (no animation) */
 .stat .fill{transition:none}
 
+
+/* Party strip at top of master pane - tight compact row */
+.master .party-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hair);
+  background: color-mix(in oklab, var(--panel) 60%, var(--bg));
+}
+.master .party-slot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  padding: 6px 8px 6px 10px;
+  min-height: 46px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--el, var(--hair));
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  overflow: hidden;
+}
+.master .party-slot img {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.master .party-slot .party-empty-mark {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px dashed var(--hair);
+  color: var(--muted);
+  font: 800 14px/1 var(--font);
+}
+.master .party-slot .name {
+  grid-column: 2;
+  grid-row: 1;
+  font: 700 12px/1.1 var(--font);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.master .party-slot.is-empty .name { color: var(--muted); }
+.master .party-slot .sub {
+  grid-column: 2;
+  grid-row: 2;
+  font: 600 9px/1 var(--font);
+  color: var(--muted);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.master .party-slot .slot-actions {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.master .party-slot .slot-actions .btn {
+  background: transparent;
+  border: 1px solid var(--hair);
+  color: var(--muted);
+  font: 800 8px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 5px 6px;
+  min-height: 22px;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  cursor: pointer;
+}
+.master .party-slot .slot-actions .btn:hover { color: var(--signal); border-color: var(--signal); }
+.master .party-slot.is-downed { opacity: .6; filter: grayscale(.4); }
+.master .party-slot .down-badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  background: var(--battle);
+  color: #fff;
+  font: 800 8px/1 var(--font);
+  letter-spacing: .04em;
+  padding: 2px 4px;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+}
+
+.training-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.training-row {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.training-label {
+  font: 700 9px/1 var(--font);
+  letter-spacing: .1em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.training-track {
+  position: relative;
+  height: 5px;
+  background: color-mix(in oklab, var(--hair) 60%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  overflow: hidden;
+}
+
+.training-fill {
+  display: block;
+  height: 100%;
+  width: var(--pct, 0%);
+  background: var(--signal);
+  transition: width .25s ease;
+}
+
+.training-row[data-pool="hpen"] .training-fill {
+  background: color-mix(in oklab, var(--signal) 70%, #ffb84a 30%);
+}
+
+.training-count {
+  font: 700 10px/1 var(--font);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 60px;
+  text-align: right;
+}
+
+.stitle .stage-training {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-left: 12px;
+  font: 700 10px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.stitle .stt-lbl {
+  color: var(--muted);
+  font-weight: 700;
+}
+.stitle .stt-pct {
+  color: var(--signal);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.stitle .stt-pct.is-max {
+  color: var(--gold, #f5c542);
+}
+.stitle .stt-detail {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: none;
+  font-variant-numeric: tabular-nums;
+}
+.stats .stat .fill.is-max {
+  background: var(--gold, #f5c542);
+}
