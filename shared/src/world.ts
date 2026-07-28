@@ -56,14 +56,6 @@ export const ARENA_FILES = [
 ] as const;
 export type ArenaFile = (typeof ARENA_FILES)[number];
 
-export type BiomeSceneConfig = {
-  file: ArenaFile;
-  /** Kept loose at shared boundary; backend Zod validates on write, frontend casts on read. */
-  settings: Record<string, unknown>;
-};
-
-export type PerBiomeSceneDefaults = Partial<Record<Biome, BiomeSceneConfig>>;
-
 export type WorldRegion = {
   readonly biome: Biome;
   readonly label: string;
