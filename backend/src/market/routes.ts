@@ -278,17 +278,20 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     }
 
     const now = Date.now();
-    let raced = false;
-    await tx(async (t) => {
-      const dec = await t.run(SQL_DEDUCT_WALLET, [listing.price_credits, now, user.id, listing.price_credits]);
-      if (dec.changes === 0) { raced = true; return; }
-      const sold = await t.run(SQL_MARK_LISTING_SOLD, [now, user.id, listing.id]);
-      if (sold.changes === 0) { raced = true; return; }
-      await t.run(SQL_UPSERT_WALLET_CREDIT, [listing.seller_id, listing.price_credits, now]);
-      await t.run(SQL_TRANSFER_MON, [user.id, now, listing.mon_id]);
-    });
-    if (raced) {
-      return reply.code(409).send({ error: 'race', message: 'Listing state changed. Refresh and try again.' });
+    try {
+      await tx(async (t) => {
+        const dec = await t.run(SQL_DEDUCT_WALLET, [listing.price_credits, now, user.id, listing.price_credits]);
+        if (dec.changes === 0) throw new Error('market-buy-race');
+        const sold = await t.run(SQL_MARK_LISTING_SOLD, [now, user.id, listing.id]);
+        if (sold.changes === 0) throw new Error('market-buy-race');
+        await t.run(SQL_UPSERT_WALLET_CREDIT, [listing.seller_id, listing.price_credits, now]);
+        await t.run(SQL_TRANSFER_MON, [user.id, now, listing.mon_id]);
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'market-buy-race') {
+        return reply.code(409).send({ error: 'race', message: 'Listing state changed. Refresh and try again.' });
+      }
+      throw err;
     }
     log.info('market.buy.ok', {
       buyerId: user.id, sellerId: listing.seller_id,
