@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
-import { getWorldRegions } from '../lib/api-world';
+import { getWorldObjects, getWorldRegions } from '../lib/api-world';
 import { acceptQuest, claimQuest, getQuests } from '../lib/api-quests';
 import type { WorldRegion, Biome } from '@digiworld/shared/world';
 import { useAuth } from '../hooks/useAuth';
@@ -24,6 +24,11 @@ export function World(): JSX.Element {
     queryFn: getWorldRegions
   });
   const regions = useMemo(() => regionsRaw.filter((region) => region.dungeonId !== null), [regionsRaw]);
+  const worldObjectsQuery = useQuery({
+    queryKey: ['world-objects'],
+    queryFn: getWorldObjects,
+  });
+  const worldObjects = worldObjectsQuery.data?.objects ?? [];
   const questsQuery = useQuery({ queryKey: ['world-quests'], queryFn: getQuests });
   const quests = questsQuery.data ?? [];
 
@@ -114,6 +119,7 @@ export function World(): JSX.Element {
       <div className="stage" data-od-id="globe-stage">
         <WorldGlobe
           regions={regions}
+          worldObjects={worldObjects}
           autoSpin={autoSpin}
           selectedIdx={selectedIdx}
           hoveredIdx={hoveredIdx}
