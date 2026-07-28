@@ -243,6 +243,7 @@ export type ShopItemRow = {
   class: 'product' | 'item';
   payload: string;
   enabled: 0 | 1;
+  is_quest_item: 0 | 1;
   created_at: number;
 };
 

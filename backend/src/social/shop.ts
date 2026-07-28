@@ -45,7 +45,7 @@ const SQL_SELECT_ROSTER_MON = `SELECT id, user_id FROM player_roster WHERE id = 
 // ============================================================================
 // Seed items
 // ============================================================================
-const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled'>> = [
+const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item'>> = [
   {
     id: 'itm-heal-small',
     name: 'Small Med-Kit',

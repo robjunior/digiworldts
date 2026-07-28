@@ -22,9 +22,9 @@ import { log } from '../util/log.js';
 const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
-const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, kind, class, payload, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, kind = ?, class = ?, payload = ?, enabled = ? WHERE id = ?`;
+const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, kind, class, payload, enabled, is_quest_item, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ? WHERE id = ?`;
 const SQL_DELETE = `DELETE FROM shop_items WHERE id = ?`;
 
 const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
@@ -42,6 +42,7 @@ export type ShopItemView = {
   class: ShopClass;
   payload: Record<string, unknown>;
   enabled: boolean;
+  isQuestItem: boolean;
   createdAt: number;
 };
 
@@ -53,6 +54,7 @@ export type ShopItemInput = {
   class: ShopClass;
   payload?: Record<string, unknown> | undefined;
   enabled?: boolean | undefined;
+  isQuestItem?: boolean | undefined;
 };
 
 function parsePayload(raw: string): Record<string, unknown> {
@@ -77,6 +79,7 @@ function rowToView(row: ShopItemRow): ShopItemView {
     class: row.class as ShopClass,
     payload: parsePayload(row.payload),
     enabled: row.enabled === 1,
+    isQuestItem: row.is_quest_item === 1,
     createdAt: row.created_at,
   };
 }
@@ -137,12 +140,13 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
     class: input.class,
     payload: JSON.stringify(input.payload ?? {}),
     enabled: input.enabled === false ? 0 : 1,
+    is_quest_item: input.isQuestItem === true ? 1 : 0,
     created_at: now,
   };
   await run(SQL_INSERT, [
-    row.id, row.name, row.description, row.price_credits, row.kind, row.class, row.payload, row.enabled, row.created_at,
+    row.id, row.name, row.description, row.price_credits, row.kind, row.class, row.payload, row.enabled, row.is_quest_item, row.created_at,
   ]);
-  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class });
+  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1 });
   return { ok: true, item: rowToView(row) };
 }
 
@@ -162,11 +166,12 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
     class: input.class,
     payload: JSON.stringify(input.payload ?? parsePayload(existing.payload)),
     enabled: input.enabled === true ? 1 : input.enabled === false ? 0 : existing.enabled,
+    is_quest_item: input.isQuestItem === true ? 1 : input.isQuestItem === false ? 0 : existing.is_quest_item,
   };
   await run(SQL_UPDATE, [
-    merged.name, merged.description, merged.price_credits, merged.kind, merged.class, merged.payload, merged.enabled, id,
+    merged.name, merged.description, merged.price_credits, merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, id,
   ]);
-  log.info('shop.item.update', { id, name: merged.name, class: merged.class });
+  log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1 });
   return { ok: true, item: rowToView(merged) };
 }
 

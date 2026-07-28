@@ -7,6 +7,7 @@ import type {
   DungeonTile,
   DungeonView,
   EncounterDigimon,
+  EncounterLoot,
   UserDungeonRun,
 } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
@@ -32,7 +33,7 @@ type DungeonRow = {
 type TileRow = { readonly x: number; readonly y: number };
 type EncounterRow = {
   readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly difficulty: DungeonEncounter['difficulty'];
-  readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly created_at: number; readonly updated_at: number;
+  readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly loots: string | readonly EncounterLoot[]; readonly created_at: number; readonly updated_at: number;
 };
 type ItemRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly item_id: string; readonly qty: number; readonly created_at: number };
 type WarpRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly target_dungeon_id: string | null; readonly label: string | null; readonly created_at: number; readonly updated_at: number };
@@ -54,8 +55,8 @@ const SQL_INSERT_TILE = `INSERT INTO dungeon_tiles (dungeon_id, x, y) VALUES (?,
 const SQL_LIST_ENCOUNTERS = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_ENCOUNTER = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_ENCOUNTER_AT = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? AND x = ? AND y = ?`;
-const SQL_INSERT_ENCOUNTER = `INSERT INTO dungeon_encounters (id, dungeon_id, x, y, label, difficulty, digimon_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_ENCOUNTER = `UPDATE dungeon_encounters SET x = ?, y = ?, label = ?, difficulty = ?, digimon_data = ?, updated_at = ? WHERE dungeon_id = ? AND id = ?`;
+const SQL_INSERT_ENCOUNTER = `INSERT INTO dungeon_encounters (id, dungeon_id, x, y, label, difficulty, digimon_data, loots, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_ENCOUNTER = `UPDATE dungeon_encounters SET x = ?, y = ?, label = ?, difficulty = ?, digimon_data = ?, loots = ?, updated_at = ? WHERE dungeon_id = ? AND id = ?`;
 const SQL_DELETE_ENCOUNTER = `DELETE FROM dungeon_encounters WHERE dungeon_id = ? AND id = ?`;
 const SQL_LIST_ITEMS = `SELECT * FROM dungeon_items WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_ITEM = `SELECT * FROM dungeon_items WHERE dungeon_id = ? AND id = ?`;
@@ -139,7 +140,7 @@ function tileFromRow(row: TileRow): DungeonTile {
 }
 
 function encounterFromRow(row: EncounterRow): DungeonEncounter {
-  return { id: row.id, dungeonId: row.dungeon_id, x: row.x, y: row.y, label: row.label, difficulty: row.difficulty, digimon: parseDigimonSafe(row.digimon_data), rewardItemId: row.reward_item_id, createdAt: row.created_at, updatedAt: row.updated_at };
+  return { id: row.id, dungeonId: row.dungeon_id, x: row.x, y: row.y, label: row.label, difficulty: row.difficulty, digimon: parseDigimonSafe(row.digimon_data), rewardItemId: row.reward_item_id, loots: parseLootsSafe(row.loots), createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
 function parseDigimonSafe(value: string | readonly EncounterDigimon[]): readonly EncounterDigimon[] {
@@ -147,6 +148,28 @@ function parseDigimonSafe(value: string | readonly EncounterDigimon[]): readonly
     return parseDigimon(value);
   } catch (err) {
     log.warn('dungeon.json.parse.fail', { field: 'digimon_data', err: err instanceof Error ? err.message : String(err) });
+    return [];
+  }
+}
+
+function parseLootsSafe(value: string | readonly EncounterLoot[]): readonly EncounterLoot[] {
+  if (Array.isArray(value)) return value as readonly EncounterLoot[];
+  if (typeof value !== 'string' || value.trim() === '') return [];
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const out: EncounterLoot[] = [];
+    for (const entry of parsed) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const record = entry as Record<string, unknown>;
+      if (typeof record['itemId'] !== 'string') continue;
+      const qty = typeof record['qty'] === 'number' ? record['qty'] : 1;
+      const chance = typeof record['chance'] === 'number' ? record['chance'] : 1;
+      out.push({ itemId: record['itemId'], qty: Math.max(1, Math.floor(qty)), chance: Math.max(0, Math.min(1, chance)) });
+    }
+    return out;
+  } catch (err) {
+    log.warn('dungeon.json.parse.fail', { field: 'loots', err: err instanceof Error ? err.message : String(err) });
     return [];
   }
 }
@@ -251,7 +274,8 @@ export async function createEncounter(dungeonId: string, input: CreateEncounterI
   if (await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, dungeonId, input.x, input.y)) return 'conflict';
   const now = Date.now();
   const id = newId('enc');
-  await run(SQL_INSERT_ENCOUNTER, id, dungeonId, input.x, input.y, input.label ?? null, input.difficulty, JSON.stringify(input.digimon.map(asEncounterDigimon)), now, now);
+  const loots = input.loots ?? [];
+  await run(SQL_INSERT_ENCOUNTER, id, dungeonId, input.x, input.y, input.label ?? null, input.difficulty, JSON.stringify(input.digimon.map(asEncounterDigimon)), JSON.stringify(loots), now, now);
   const row = await one<EncounterRow>(SQL_GET_ENCOUNTER, dungeonId, id);
   return row ? encounterFromRow(row) : 'not-found';
 }
@@ -263,8 +287,9 @@ export async function updateEncounter(dungeonId: string, encId: string, input: U
   const nextY = input.y ?? existing.y;
   const conflict = await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, dungeonId, nextX, nextY);
   if (conflict && conflict.id !== encId) return 'conflict';
-  const next = { x: nextX, y: nextY, label: input.label === undefined ? existing.label : input.label, difficulty: input.difficulty ?? existing.difficulty, digimon: input.digimon === undefined ? parseDigimonSafe(existing.digimon_data) : input.digimon.map(asEncounterDigimon), updatedAt: Date.now() };
-  await run(SQL_UPDATE_ENCOUNTER, next.x, next.y, next.label, next.difficulty, JSON.stringify(next.digimon), next.updatedAt, dungeonId, encId);
+  const nextLoots = input.loots === undefined ? parseLootsSafe(existing.loots) : input.loots;
+  const next = { x: nextX, y: nextY, label: input.label === undefined ? existing.label : input.label, difficulty: input.difficulty ?? existing.difficulty, digimon: input.digimon === undefined ? parseDigimonSafe(existing.digimon_data) : input.digimon.map(asEncounterDigimon), loots: nextLoots, updatedAt: Date.now() };
+  await run(SQL_UPDATE_ENCOUNTER, next.x, next.y, next.label, next.difficulty, JSON.stringify(next.digimon), JSON.stringify(next.loots), next.updatedAt, dungeonId, encId);
   const row = await one<EncounterRow>(SQL_GET_ENCOUNTER, dungeonId, encId);
   return row ? encounterFromRow(row) : 'not-found';
 }
@@ -397,10 +422,10 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   };
 }
 
-const SQL_GRANT_REWARD_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
-     ON CONFLICT(user_id, item_id) DO NOTHING`;
+const SQL_GRANT_REWARD_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
 
-export async function defeatEncounter(userId: string, dungeonId: string, encId: string): Promise<{ readonly run: UserDungeonRun; readonly rewardItemId: string | null } | null> {
+export async function defeatEncounter(userId: string, dungeonId: string, encId: string): Promise<{ readonly run: UserDungeonRun; readonly grantedLoots: readonly { readonly itemId: string; readonly qty: number }[] } | null> {
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   const encounterRow = await one<EncounterRow>(SQL_GET_ENCOUNTER, dungeonId, encId);
   if (!existing || !encounterRow) return null;
@@ -408,13 +433,24 @@ export async function defeatEncounter(userId: string, dungeonId: string, encId: 
   const wasAlreadyDefeated = current.defeatedEncounters.includes(encId);
   const defeated = wasAlreadyDefeated ? current.defeatedEncounters : [...current.defeatedEncounters, encId];
   await run(SQL_UPDATE_RUN_DEFEATED, JSON.stringify(defeated), userId, dungeonId);
-  let rewardItemId: string | null = null;
-  if (!wasAlreadyDefeated && encounterRow.reward_item_id) {
-    await run(SQL_GRANT_REWARD_ITEM, userId, encounterRow.reward_item_id, Date.now());
-    rewardItemId = encounterRow.reward_item_id;
+  const grantedLoots: { itemId: string; qty: number }[] = [];
+  if (!wasAlreadyDefeated) {
+    const now = Date.now();
+    const loots = parseLootsSafe(encounterRow.loots);
+    // Legacy fallback: encounters saved before migration 021 may have loots='[]'
+    // but a non-null reward_item_id. Treat that single item as a guaranteed drop.
+    const legacyFallback: readonly EncounterLoot[] =
+      loots.length === 0 && encounterRow.reward_item_id
+        ? [{ itemId: encounterRow.reward_item_id, qty: 1, chance: 1 }]
+        : [];
+    for (const loot of loots.length > 0 ? loots : legacyFallback) {
+      if (Math.random() >= loot.chance) continue;
+      await run(SQL_GRANT_REWARD_ITEM, userId, loot.itemId, loot.qty, now);
+      grantedLoots.push({ itemId: loot.itemId, qty: loot.qty });
+    }
   }
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
-  return row ? { run: runFromRow(row), rewardItemId } : null;
+  return row ? { run: runFromRow(row), grantedLoots } : null;
 }
 
 export async function completeRun(userId: string, dungeonId: string): Promise<{ readonly run: UserDungeonRun; readonly questCompleted: boolean } | null> {
