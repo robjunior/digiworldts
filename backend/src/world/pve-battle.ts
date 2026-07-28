@@ -209,7 +209,7 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
     });
   }
-  const battle = initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
+  const battle = await initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
   activeByUser.set(userId, battle);
   advanceWildAI(battle);
   if (battle.status === 'ended') {

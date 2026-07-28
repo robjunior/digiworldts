@@ -185,7 +185,7 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   const buffsB = await applyPreBattleBuffs(loadB);
 
   const damageRate = await getDamageRate();
-  const battle = initBattle({
+  const battle = await initBattle({
     matchId: newId('mtc'),
     loadoutA: loadA,
     loadoutB: loadB,
