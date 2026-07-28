@@ -46,6 +46,7 @@ export type BattleUnit = {
   /** Optional for backward compat with pre-P1 `battle:snap:*` blobs; engine defaults to `[]` / `0`. */
   activeBuffs?: ActiveBuff[];
   evade?: number;
+  skillCooldowns?: Record<string, number>;
   guarding: boolean;
   wildInfo?: WildInfo;
   analyzed: boolean;

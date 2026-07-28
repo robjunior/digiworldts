@@ -17,8 +17,8 @@ type Toast = { readonly message: string; readonly type: 'success' | 'error' };
 type EditableWorldObject = Omit<WorldObject, 'id' | 'createdAt' | 'updatedAt'>;
 type PlaceSpec = { readonly elements: readonly Element[]; readonly dungeonId: string; readonly minLevel: number; readonly maxLevel: number };
 
-const KINDS = ['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk'] as const;
-const KIND_TINT: Readonly<Record<WorldObjectKind, string>> = { mountain: '#9aa0a6', tower: '#5d95ff', city: '#a770ff', ruin: '#b8834c', shrine: '#f2d35d', obelisk: '#63d6ff' };
+const KINDS = ['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk', 'crystal', 'grove', 'spring', 'archway'] as const;
+const KIND_TINT: Readonly<Record<WorldObjectKind, string>> = { mountain: '#9aa0a6', tower: '#5d95ff', city: '#a770ff', ruin: '#b8834c', shrine: '#f2d35d', obelisk: '#63d6ff', crystal: '#a3e4ff', grove: '#7fd18a', spring: '#5ec8ff', archway: '#c8b48a' };
 const DUPLICATE_DEGREES = 0.5;
 const DEFAULT_PLACE_SPEC: PlaceSpec = { elements: [], dungeonId: '', minLevel: 1, maxLevel: 5 };
 

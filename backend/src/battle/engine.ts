@@ -26,7 +26,7 @@ import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResi
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import type { Action as DSLAction } from '../skills/dsl.js';
 import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
-import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs } from './dsl-runtime.js';
+import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
   CAPTURE_ANALYZED_MULT,
@@ -321,6 +321,7 @@ export type ApplyErrorCode =
   | 'target-invalid'
   | 'skill-invalid'
   | 'no-energy'
+  | 'on-cooldown'
   | 'battle-over'
   | 'item-invalid'
   | 'silenced';
@@ -557,6 +558,11 @@ export function applyAction(
       return { ok: false, error: 'silenced', code: 'silenced' };
     }
     if (actor.en < s.energyCost) return { ok: false, error: 'not enough energy', code: 'no-energy' };
+    const cooldownRemaining = actor.skillCooldowns?.[s.id] ?? 0;
+    if (cooldownRemaining > 0) {
+      const turnWord = cooldownRemaining === 1 ? 'turn' : 'turns';
+      return { ok: false, error: `skill on cooldown (${cooldownRemaining} more ${turnWord})`, code: 'on-cooldown' };
+    }
     skill = s;
   } else {
     skill = { id: 'basic', name: 'Attack', element: actor.element, energyCost: 0, power: 100 };
@@ -570,6 +576,10 @@ export function applyAction(
   }
 
   actor.en = clamp(actor.en - skill.energyCost, 0, actor.enMax);
+  if (skill.cooldown !== undefined && skill.cooldown > 0) {
+    actor.skillCooldowns = actor.skillCooldowns ?? {};
+    actor.skillCooldowns[skill.id] = skill.cooldown + 1;
+  }
 
   if (skill.actions !== undefined && skill.actions.length > 0) {
     executeDSL(battle, actor, skill.actions as DSLAction[], target, skill.name, actingSide);
@@ -753,6 +763,7 @@ function tickActorAilments(battle: Battle, unit: BattleUnit): void {
   }
   unit.ailments = kept;
   tickActorBuffs(unit);
+  tickSkillCooldowns(unit);
 }
 
 /**

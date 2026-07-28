@@ -287,6 +287,95 @@ export function deleteSkill(id: string): Promise<{ readonly ok: true; readonly i
   return apiFetch<{ readonly ok: true; readonly id: string }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export type CatalogSkillMeta = {
+  readonly id: string;
+  readonly name: string;
+  readonly name_pt: string;
+  readonly description: string | null;
+  readonly description_pt: string | null;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly cooldown: number;
+  readonly stage: Stage;
+  readonly slot_role: string | null;
+  readonly tier_2: boolean;
+  readonly upgrade_of: string | null;
+};
+
+export function getCatalogSkills(): Promise<{ readonly skills: readonly CatalogSkillMeta[] }> {
+  return apiFetch<{ readonly skills: readonly CatalogSkillMeta[] }>('/api/admin/skills-catalog');
+}
+
+export type ArenaFileMeta = {
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+  readonly thumb?: {
+    readonly url: string;
+    readonly mtime: number;
+  };
+};
+
+export function getArenas(): Promise<{ readonly arenas: readonly ArenaFileMeta[] }> {
+  return apiFetch<{ readonly arenas: readonly ArenaFileMeta[] }>('/api/admin/arenas');
+}
+
+export type UploadArenaResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+};
+
+export function uploadArena(file: File, overwrite: boolean): Promise<UploadArenaResponse> {
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  return apiFetch<UploadArenaResponse>(`/api/admin/arenas?overwrite=${overwrite ? '1' : '0'}`, {
+    method: 'POST',
+    body: fd,
+  });
+}
+
+export type UploadThumbnailResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly thumb: {
+    readonly url: string;
+    readonly mtime: number;
+  };
+};
+
+export function uploadArenaThumbnail(file: string, png: Blob): Promise<UploadThumbnailResponse> {
+  const fd = new FormData();
+  fd.append('file', png, `${file.replace(/\.glb$/, '')}.png`);
+  return apiFetch<UploadThumbnailResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}/thumbnail`,
+    { method: 'POST', body: fd },
+  );
+}
+
+export function deleteArena(file: string): Promise<{ readonly ok: true; readonly file: string }> {
+  return apiFetch<{ readonly ok: true; readonly file: string }>(
+    `/api/admin/arenas/${encodeURIComponent(file)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export type RenameArenaResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+  readonly cascaded: boolean;
+};
+
+export function renameArena(file: string, newFile: string): Promise<RenameArenaResponse> {
+  return apiFetch<RenameArenaResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}`,
+    { method: 'PATCH', body: { newFile } },
+  );
+}
+
 export type LootEntryView = {
   readonly id: string;
   readonly itemId: string;

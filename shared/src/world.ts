@@ -54,7 +54,7 @@ export const ARENA_FILES = [
   'wind.glb',
   'light.glb',
 ] as const;
-export type ArenaFile = (typeof ARENA_FILES)[number];
+export type ArenaFile = string;
 
 export type WorldRegion = {
   readonly biome: Biome;

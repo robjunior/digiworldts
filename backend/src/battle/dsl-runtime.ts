@@ -261,6 +261,17 @@ export function tickActorBuffs(unit: BattleUnit): void {
   unit.activeBuffs = kept;
 }
 
+/** Tick skillCooldowns; drop entries that hit 0. Called at actor's own turn start. */
+export function tickSkillCooldowns(unit: BattleUnit): void {
+  const cd = unit.skillCooldowns;
+  if (cd === undefined) return;
+  for (const key of Object.keys(cd)) {
+    const next = (cd[key] ?? 0) - 1;
+    if (next > 0) cd[key] = next;
+    else delete cd[key];
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Action executors.
 // ---------------------------------------------------------------------------

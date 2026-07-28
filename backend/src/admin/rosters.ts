@@ -14,6 +14,7 @@
  */
 import { loadCatalog } from '../digimon/xml.js';
 import { one, q, run, tx, type RosterRow, type UserRow } from '../db/index.js';
+import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 
@@ -25,9 +26,9 @@ const SQL_INSERT = `
       (id, user_id, catalog_id, nickname,
        level, xp,
        hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus,
-       mood, status, slot_index,
+       mood, status, slot_index, equipped_skill_ids,
        created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `;
 const SQL_UPDATE = `
   UPDATE player_roster
@@ -248,17 +249,21 @@ export async function spawnRoster(input: SpawnInput): Promise<RosterOutcome<Admi
   const meta = loadCatalogMeta();
   const catalogName = meta.nameById.get(input.catalogId);
   if (!catalogName) return { ok: false, error: 'catalog-not-found' };
+  const catalog = loadCatalog();
+  const tpl = catalog.digimons.find((t) => t.id === input.catalogId);
+  if (!tpl) return { ok: false, error: 'catalog-not-found' };
 
   const nickname = (input.nickname?.trim() || catalogName).slice(0, 32);
   const level = input.level != null ? Math.max(1, Math.min(999, Math.floor(input.level))) : 5;
   const now = Date.now();
   const id = newId('mon');
+  const equippedJson = JSON.stringify(await getDefaultEquippedForStage(tpl.element, tpl.stage));
 
   await run(SQL_INSERT, [
     id, input.userId, input.catalogId, nickname,
     level, 0,
     0, 0, 0, 0, 0, 0,   // 6 bonuses default 0
-    50, 'resting', null, // mood 50, resting, no slot
+    50, 'resting', null, equippedJson, // mood 50, resting, no slot, catalog defaults
     now, now,
   ]);
 

@@ -1,5 +1,6 @@
 import type { Action, BattleView } from '@digiworld/shared/battle';
 import type { Element, Stage } from '@digiworld/shared/digimon';
+import type { WorldObjectKind } from '@digiworld/shared/quest';
 import type { WorldRegion, WorldRegionsResponse } from '@digiworld/shared/world';
 
 import { ApiError, apiFetch } from './api';
@@ -36,7 +37,7 @@ export type WorldTile = {
   readonly color: string;
 };
 
-export type WorldObjectKind = 'mountain' | 'tower' | 'city' | 'ruin' | 'shrine' | 'obelisk';
+export type { WorldObjectKind };
 
 // PHASE 8 TODO: promote to @digiworld/shared/quest once sister agent lands.
 export type WorldObject = {

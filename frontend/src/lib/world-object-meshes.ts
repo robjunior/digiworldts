@@ -52,7 +52,7 @@ type KindPalette = {
 const MAX_INSTANCES_PER_KIND = 200;
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
-const KIND_ORDER = ['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk'] as const satisfies readonly WorldObjectKind[];
+const KIND_ORDER = ['mountain', 'tower', 'city', 'ruin', 'shrine', 'obelisk', 'crystal', 'grove', 'spring', 'archway'] as const satisfies readonly WorldObjectKind[];
 
 const PALETTES = {
   mountain: { color: new THREE.Color('#725437'), roughness: 0.95, metalness: 0.0 },
@@ -61,6 +61,10 @@ const PALETTES = {
   ruin: { color: new THREE.Color('#b7b2a6'), roughness: 0.9, metalness: 0.0 },
   shrine: { color: new THREE.Color('#d7a648'), roughness: 0.62, metalness: 0.16 },
   obelisk: { color: new THREE.Color('#2f3d4a'), roughness: 0.78, metalness: 0.08 },
+  crystal: { color: new THREE.Color('#a8dceb'), roughness: 0.18, metalness: 0.42 },
+  grove: { color: new THREE.Color('#4a8f4c'), roughness: 0.82, metalness: 0.0 },
+  spring: { color: new THREE.Color('#3a7cb8'), roughness: 0.22, metalness: 0.28 },
+  archway: { color: new THREE.Color('#b8ceb0'), roughness: 0.7, metalness: 0.05 },
 } as const satisfies Record<WorldObjectKind, KindPalette>;
 
 export function createWorldObjectLayer(options: ObjectLayerOptions): WorldObjectLayer {
@@ -75,7 +79,7 @@ export function createWorldObjectLayer(options: ObjectLayerOptions): WorldObject
   let objects: readonly WorldObject[] = [];
 
   const renderObjects = (): void => {
-    const counts: Record<WorldObjectKind, number> = { mountain: 0, tower: 0, city: 0, ruin: 0, shrine: 0, obelisk: 0 };
+    const counts: Record<WorldObjectKind, number> = { mountain: 0, tower: 0, city: 0, ruin: 0, shrine: 0, obelisk: 0, crystal: 0, grove: 0, spring: 0, archway: 0 };
     for (const object of objects) {
       const count = counts[object.kind];
       if (count >= MAX_INSTANCES_PER_KIND || !isVisible(object, center, options.viewRadius)) {
@@ -130,6 +134,17 @@ function createObjectParts(): readonly ObjectPart[] {
     createPart({ kind: 'shrine', geometry: new THREE.BoxGeometry(0.45, 0.16, 0.45), offset: new THREE.Vector3(0, 0.24, 0), scale: new THREE.Vector3(1, 1, 1) }),
     createPart({ kind: 'shrine', geometry: new THREE.BoxGeometry(0.3, 0.16, 0.3), offset: new THREE.Vector3(0, 0.4, 0), scale: new THREE.Vector3(1, 1, 1) }),
     createPart({ kind: 'obelisk', geometry: new THREE.BoxGeometry(0.15, 0.7, 0.15), offset: new THREE.Vector3(0, 0.35, 0), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'crystal', geometry: new THREE.OctahedronGeometry(0.28, 0), offset: new THREE.Vector3(0, 0.35, 0), scale: new THREE.Vector3(1, 1.4, 1) }),
+    createPart({ kind: 'crystal', geometry: new THREE.OctahedronGeometry(0.16, 0), offset: new THREE.Vector3(-0.22, 0.18, 0.05), scale: new THREE.Vector3(1, 1.1, 1) }),
+    createPart({ kind: 'crystal', geometry: new THREE.OctahedronGeometry(0.14, 0), offset: new THREE.Vector3(0.2, 0.16, -0.08), scale: new THREE.Vector3(1, 1.2, 1) }),
+    createPart({ kind: 'grove', geometry: new THREE.ConeGeometry(0.15, 0.55, 6), offset: new THREE.Vector3(-0.18, 0.28, -0.1), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'grove', geometry: new THREE.ConeGeometry(0.17, 0.6, 6), offset: new THREE.Vector3(0.12, 0.3, 0.08), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'grove', geometry: new THREE.ConeGeometry(0.13, 0.5, 6), offset: new THREE.Vector3(0.24, 0.25, -0.16), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'grove', geometry: new THREE.ConeGeometry(0.14, 0.48, 6), offset: new THREE.Vector3(-0.06, 0.24, 0.24), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'spring', geometry: new THREE.CylinderGeometry(0.4, 0.42, 0.08, 16), offset: new THREE.Vector3(0, 0.04, 0), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'spring', geometry: new THREE.SphereGeometry(0.12, 8, 6), offset: new THREE.Vector3(0, 0.14, 0), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'archway', geometry: new THREE.TorusGeometry(0.32, 0.06, 6, 12, Math.PI), offset: new THREE.Vector3(0, 0.32, 0), scale: new THREE.Vector3(1, 1, 1) }),
+    createPart({ kind: 'archway', geometry: new THREE.BoxGeometry(0.5, 0.05, 0.14), offset: new THREE.Vector3(0, 0.03, 0), scale: new THREE.Vector3(1, 1, 1) }),
   ];
 }
 

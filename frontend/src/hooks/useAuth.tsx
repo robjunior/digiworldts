@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, type ReactNode, useContext, useEffect, useMemo } from 'react';
 
 import { ApiError, authLogin, authLogout, authMe, authRegister } from '../lib/api';
+import { seedLocaleFromServer } from '../lib/locale';
 import { useWsStore } from '../state/wsStore';
 
 type AuthStatus = 'loading' | 'authed' | 'anon';
@@ -64,6 +65,9 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): JS
 
   const user = meQuery.data?.user ?? null;
   const status = getStatus(meQuery.isPending, user, meQuery.error);
+  useEffect(() => {
+    if (user?.localePref) seedLocaleFromServer(user.localePref);
+  }, [user?.localePref]);
 
   useEffect(() => {
     if (meQuery.error instanceof ApiError && meQuery.error.status === 401 && meQuery.data?.user !== undefined) {

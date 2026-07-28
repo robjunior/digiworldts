@@ -19,6 +19,8 @@ import {
   WorldIcon,
 } from './common/icons';
 import { useAuth } from '../hooks/useAuth';
+import { useLocale } from '../hooks/useLocale';
+import { setLocale } from '../lib/locale';
 import { getFarm } from '../lib/api-farm';
 import { getRoster } from '../lib/api';
 
@@ -148,6 +150,7 @@ function isActive(pathname: string, target: string): boolean {
 
 export function AppShell(): JSX.Element {
   const { user } = useAuth();
+  const locale = useLocale();
   const { pathname, search } = useLocation();
   const pageLabel = pageLabelFor(pathname);
   const pageScope = pageScopeFor(pathname);
@@ -208,6 +211,24 @@ export function AppShell(): JSX.Element {
         <div className="lights"><i /><i /><i /></div>
         <div className="app-mark">DIGI<span className="bit">WORLD</span></div>
         <div className="win-meta">Tamer Terminal · {pageLabel}</div>
+        <div className="win-locale" role="group" aria-label="Language">
+          <button
+            type="button"
+            className={`win-locale-btn ${locale === 'en' ? 'is-active' : ''}`}
+            aria-pressed={locale === 'en'}
+            onClick={() => setLocale('en')}
+          >
+            EN
+          </button>
+          <button
+            type="button"
+            className={`win-locale-btn ${locale === 'pt' ? 'is-active' : ''}`}
+            aria-pressed={locale === 'pt'}
+            onClick={() => setLocale('pt')}
+          >
+            PT
+          </button>
+        </div>
       </header>
       <div className="body">
         <nav className="side" aria-label="Primary">

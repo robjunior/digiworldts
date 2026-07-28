@@ -19,6 +19,7 @@
 import Fastify, { type FastifyError } from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -32,6 +33,7 @@ import { authPlugin } from './auth/routes.js';
 import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogFromXml } from './skills/seed.js';
+import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
@@ -109,6 +111,15 @@ async function main(): Promise<void> {
   await seedDefaultWorldObjects();
   await seedDefaultQuests();
   await seedSkillsCatalogFromXml();
+  if (config.SKILLS_V2_ENABLED) {
+    const v2Result = await seedSkillsCatalogV2();
+    log.info('skills.v2.boot.seed', {
+      total: v2Result.total,
+      inserted: v2Result.inserted,
+      skipped: v2Result.skipped,
+      validationErrors: v2Result.validationErrors.length,
+    });
+  }
 
   const app = Fastify({
     logger: false,
@@ -136,6 +147,11 @@ async function main(): Promise<void> {
   }
   await app.register(fastifyWebsocket, {
     options: { maxPayload: 32 * 1024 },
+  });
+
+  await app.register(fastifyMultipart, {
+    limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 4 },
+    preservePath: true,
   });
 
   await app.register(fastifyStatic, {

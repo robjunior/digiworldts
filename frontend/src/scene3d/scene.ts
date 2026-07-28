@@ -752,6 +752,9 @@ export class SceneManager {
 
   async loadArenaModel(url: string): Promise<void> {
     if (this.disposedFlag) return;
+    if (this.currentArenaUrl !== null && this.currentArenaUrl !== url) {
+      THREE.Cache.remove(this.currentArenaUrl);
+    }
     const loader = new GLTFLoader();
     const gltf = await loader.loadAsync(url);
     if (this.disposedFlag) return;
@@ -1210,12 +1213,16 @@ export class SceneManager {
     this.rafId = requestAnimationFrame(tick);
   }
 
+  renderOnce(): void {
+    if (this.disposedFlag) return;
+    this.renderer.render(this.scene, this.camera);
+  }
+
   stopLoop(): void {
     if (this.rafId !== 0) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
-    }
-  }
+    }  }
 
   private readonly projectScratch = new THREE.Vector3();
 
