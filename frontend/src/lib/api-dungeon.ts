@@ -18,10 +18,8 @@ export async function moveInDungeon(id: string, x: number, y: number): Promise<D
   });
 }
 
-export async function defeatEncounter(id: string, encId: string): Promise<{ run: DungeonRunView['run'] }> {
-  return apiFetch<{ run: DungeonRunView['run'] }>(`/api/dungeon/${id}/encounter/${encId}/defeat`, {
-    method: 'POST',
-  });
+export async function defeatEncounter(_id: string, _encId: string): Promise<never> {
+  throw new Error('defeatEncounter endpoint removed — combat is server-authoritative; win a real battle to mark an encounter defeated.');
 }
 
 export async function startEncounter(id: string, encId: string): Promise<{ battle: BattleView }> {

@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   completeDungeon,
-  defeatEncounter,
   getDungeon,
   moveInDungeon,
   startEncounter,
@@ -99,6 +98,9 @@ export function Dungeon(): JSX.Element {
           pushLog(`Picked up item.`, 'item');
           flashToast(`Picked up item!`);
         }
+        queryClient.invalidateQueries({ queryKey: ['shop'] });
+        queryClient.invalidateQueries({ queryKey: ['inventory'] });
+        queryClient.invalidateQueries({ queryKey: ['roster'] });
       }
       if (res.triggeredEncounterId) {
         pushLog(`Ambushed by enemies!`, 'hit');
@@ -106,7 +108,9 @@ export function Dungeon(): JSX.Element {
       }
       if (res.randomEncounter) {
         pushLog(`Wild encounter!`, 'hit');
-        setActiveRandomEncounter(res.randomEncounter);
+        if (!startRandomEncounterMutation.isPending) {
+          startRandomEncounterMutation.mutate(res.randomEncounter);
+        }
       }
       if (Object.hasOwn(res, 'warpToDungeonId')) {
         navigate(res.warpToDungeonId === null ? '/world' : `/dungeon/${res.warpToDungeonId}`);
@@ -135,21 +139,7 @@ export function Dungeon(): JSX.Element {
     },
   });
 
-  const defeatMutation = useMutation({
-    mutationFn: async (encId: string) => {
-      if (!id) throw new Error('No dungeon id');
-      return defeatEncounter(id, encId);
-    },
-    onSuccess: (res) => {
-      queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
-        if (!old) return old;
-        return { ...old, run: res.run };
-      });
-      setActiveEncounterId(null);
-      pushLog(`Encounter defeated!`, 'hit');
-      flashToast('Enemies defeated.');
-    },
-  });
+  const defeatMutation = { isPending: false, mutate: (_encId: string) => undefined };
 
   const startEncounterMutation = useMutation({
     mutationFn: async (encId: string) => {
@@ -423,17 +413,6 @@ export function Dungeon(): JSX.Element {
               >
                 {startEncounterMutation.isPending ? 'Entering...' : 'Enter Battle'}
               </button>
-              {import.meta.env.DEV ? (
-                <button
-                  type="button"
-                  className="ebtn"
-                  style={{ marginTop: 8, opacity: 0.7 }}
-                  onClick={() => defeatMutation.mutate(activeEncounter.id)}
-                  disabled={defeatMutation.isPending}
-                >
-                  {defeatMutation.isPending ? 'Advancing...' : 'Debug: mark defeated'}
-                </button>
-              ) : null}
             </div>
           ) : null}
         </div>
