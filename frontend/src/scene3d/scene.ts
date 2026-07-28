@@ -17,6 +17,18 @@ function forceTransparencyIfAlpha(mat: THREE.Material): void {
   m.needsUpdate = true;
 }
 
+const FLOOR_NAME_PATTERNS: readonly RegExp[] = [/floor/i, /ground/i, /terrain/i, /surface/i, /platform/i, /base(?!ment)/i];
+
+function isFloorNamed(mesh: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = mesh;
+  while (node !== null) {
+    const name = node.name;
+    if (name.length > 0 && FLOOR_NAME_PATTERNS.some((p) => p.test(name))) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
 export type SceneSettings = {
   sunColor: number;
   sunIntensity: number;
@@ -835,12 +847,11 @@ export class SceneManager {
   }
 
   private detectPlayFloorY(root: THREE.Object3D): number {
-    // Raycast down at each of the 6 sprite spawn positions and take the median
-    // top-hit. Replaces the earlier "widest short mesh wins" heuristic that
-    // picked the fire arena's lava river over the bridge deck above it.
-    const meshes: THREE.Mesh[] = [];
-    root.traverse((obj) => { if (obj instanceof THREE.Mesh) meshes.push(obj); });
-    if (meshes.length === 0) return 0;
+    const allMeshes: THREE.Mesh[] = [];
+    root.traverse((obj) => { if (obj instanceof THREE.Mesh) allMeshes.push(obj); });
+    if (allMeshes.length === 0) return 0;
+    const floorNamed = allMeshes.filter((m) => isFloorNamed(m));
+    const targets = floorNamed.length > 0 ? floorNamed : allMeshes;
     const spawns: readonly THREE.Vector3[] = [
       slotWorldPosition('you', 0), slotWorldPosition('you', 1), slotWorldPosition('you', 2),
       slotWorldPosition('opp', 0), slotWorldPosition('opp', 1), slotWorldPosition('opp', 2),
@@ -850,10 +861,8 @@ export class SceneManager {
     const floorYs: number[] = [];
     for (const spawn of spawns) {
       raycaster.set(new THREE.Vector3(spawn.x, 20, spawn.z), downward);
-      const hits = raycaster.intersectObjects(meshes, false);
-      // hits[] is sorted by distance from origin; find the first surface
-      // below Y=3.5 to skip roofs/ceilings on domed arenas.
-      const topmost = hits.find((h) => h.point.y <= 3.5);
+      const hits = raycaster.intersectObjects(targets, false);
+      const topmost = floorNamed.length > 0 ? hits[0] : hits.find((h) => h.point.y <= 3.5);
       if (topmost) floorYs.push(topmost.point.y);
     }
     if (floorYs.length === 0) return 0;
