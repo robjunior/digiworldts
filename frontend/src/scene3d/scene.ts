@@ -9,12 +9,10 @@ import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPositio
 export type SpriteInit = SpriteRigConfig;
 
 function forceTransparencyIfAlpha(mat: THREE.Material): void {
-  if (!('map' in mat) && !('alphaMap' in mat)) return;
+  if (!('alphaMap' in mat)) return;
   const m = mat as THREE.MeshStandardMaterial;
   if (m.transparent) return;
-  const hasAlphaMap = m.alphaMap !== null && m.alphaMap !== undefined;
-  const mapHasAlpha = m.map !== null && m.map !== undefined && m.map.format === THREE.RGBAFormat;
-  if (!hasAlphaMap && !mapHasAlpha) return;
+  if (m.alphaMap === null || m.alphaMap === undefined) return;
   if (m.alphaTest === 0) m.alphaTest = 0.5;
   m.needsUpdate = true;
 }
@@ -598,7 +596,6 @@ export class SceneManager {
     if (this.disposedFlag) return;
     if (active) {
       this.scene.background = null;
-      this.ground.visible = false;
       this.propsGroup.visible = false;
     } else {
       if (this.skyTexture === null) this.skyTexture = buildSkyTexture();
@@ -1094,7 +1091,12 @@ export class SceneManager {
       // move the whole play field together. The team-side rings live on their
       // own ringsGroup at world Y ≈ 0.03 — sprites stand on them, so the rings
       // must ride the same offset or sprites float above / sink through them.
+      // The default ground plane is our fallback floor for arenas whose GLB
+      // has holes at sprite positions (empty clearings, hollow interiors) —
+      // position it 0.01 below the arena floor so real arena floor mesh
+      // wins the z-test where present and ground shows through the gaps.
       this.ringsGroup.position.y = this.currentArenaOffsetY;
+      this.ground.position.y = this.currentArenaOffsetY - 0.01;
       for (const sprite of this.sprites.values()) {
         sprite.setArenaBaselineY(this.currentArenaOffsetY);
       }
