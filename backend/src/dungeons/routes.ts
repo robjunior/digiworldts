@@ -247,13 +247,6 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     return reply.code(404).send({ error: 'not-found' });
   });
 
-  app.post<{ Params: { id: string; encId: string } }>('/api/dungeon/:id/encounter/:encId/defeat', async (req, reply) => {
-    const user = await requireAuth(req, reply);
-    const run = await defeatEncounter(user.id, req.params.id, req.params.encId);
-    if (!run) return reply.code(404).send({ error: 'not-found' });
-    return reply.send({ run });
-  });
-
   app.post<{ Params: { id: string; encId: string } }>('/api/dungeon/:id/encounter/:encId/start', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const run = await getRun(user.id, req.params.id);
