@@ -175,6 +175,7 @@ const TOWN: readonly NavEntry[] = [
 
 const BEYOND: readonly NavEntry[] = [
   { to: '/market',    label: 'The Market', svg: ICON_MARKET },
+  { to: '/items',     label: 'Inventory',  svg: ICON_MARKET },
   { to: '/digdex',    label: 'DigiDex',    svg: ICON_DIGIDEX },
   { to: '/roster',    label: 'Roster',     svg: ICON_ROSTER },
   { to: '/world',     label: 'The World',  svg: ICON_WORLD },
