@@ -2,7 +2,6 @@ import { useSearchParams } from 'react-router';
 
 
 import { AdminGuard } from '../components/admin/AdminGuard';
-import { BiomeSceneEditor } from '../components/admin/BiomeSceneEditor';
 import { CatalogTable } from '../components/admin/CatalogTable';
 import { DungeonsAdmin } from '../components/admin/DungeonsAdmin';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
@@ -27,8 +26,7 @@ const ADMIN_TABS = [
   { id: 'shop', label: 'Shop Admin' },
   { id: 'quests', label: 'Quests' },
   { id: 'dungeons', label: 'Dungeons' },
-  { id: 'biomes', label: 'Biome scenes' },
-  { id: 'scene', label: 'Scene (per-arena)' },
+  { id: 'scene', label: 'Scene' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 
@@ -91,8 +89,6 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <QuestsAdmin />;
     case 'dungeons':
       return <DungeonsAdmin />;
-    case 'biomes':
-      return <BiomeSceneEditor />;
     case 'scene':
       return <SceneSettingsAdmin />;
     case 'settings':
