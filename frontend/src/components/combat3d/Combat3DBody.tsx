@@ -265,6 +265,7 @@ export function Combat3DBody(): JSX.Element | null {
     if (!autobattle) return;
     if (!activeBattle || activeBattle.mode !== 'pve' || activeBattle.status !== 'active') return;
     if (!activeBattle.yourTurn || actor === null || actor.down) return;
+    if (commandMode !== 'menu') return;
     const turnKey = `${activeBattle.id}:${activeBattle.round}:${activeBattle.log.length}:${actor.id}`;
     if (autobattleKeyRef.current === turnKey) return;
     const action = pickAutoAction(actor, activeBattle.enemy);
@@ -272,7 +273,7 @@ export function Combat3DBody(): JSX.Element | null {
     autobattleKeyRef.current = turnKey;
     const timerId = window.setTimeout(() => dispatchAction(action), 400);
     return () => window.clearTimeout(timerId);
-  }, [autobattle, activeBattle, actor, dispatchAction]);
+  }, [autobattle, activeBattle, actor, commandMode, dispatchAction]);
 
   if (activeBattle === null) return null;
 
