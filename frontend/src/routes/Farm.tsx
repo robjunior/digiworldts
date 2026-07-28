@@ -125,46 +125,54 @@ export function Farm(): JSX.Element {
 
   return (
     <>
-      <div className="balance" data-od-id="resource-balance">
-        {(['Meat', 'Bits', 'Data'] as const).map((res) => {
-          const rate = res === 'Meat' ? rateMeat : res === 'Bits' ? rateBits : rateData;
-          return (
-            <div key={res} className="bal" style={{ '--r': RES_VAR[res] } as CSSProperties}>
-              <span className="bicon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  {RES_ICON[res]}
-                </svg>
-              </span>
-              <div className="bcol">
-                <span className="bk">{res}</span>
-                <span className="bv">{fmt(farm.balances[res])}</span>
-              </div>
-              <div className="brate"><b>+{fmt(rate)}</b><span className="brh">/hr</span></div>
-            </div>
-          );
-        })}
-        <div className="spring">
-          <button
-            type="button"
-            className="collect-all"
-            aria-label="Collect from all buildings"
-            disabled={readyCount <= 0 || isAllPending}
-            onClick={() => collectAllMutation.mutate()}
-          >
-            <svg className="cai" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
-              <path d="M12 3v14M6 11l6 6 6-6" strokeLinecap="square" strokeLinejoin="miter" />
-            </svg>
-            <span>Collect all</span>
-            {totalCollectable > 0 && <span className="cc">&middot; {fmt(totalCollectable)}</span>}
-          </button>
+      <div className="balbar" data-od-id="resource-balance">
+        <div className="bal" data-res="meat">
+          <span className="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Meat}</svg>
+          </span>
+          <span className="col"><span className="k">Meat</span><span className="v">{fmt(farm.balances.Meat)}</span></span>
+        </div>
+        <div className="bal" data-res="bits">
+          <span className="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Bits}</svg>
+          </span>
+          <span className="col"><span className="k">Bits</span><span className="v">{fmt(farm.balances.Bits)}</span></span>
+        </div>
+        <div className="bal" data-res="data">
+          <span className="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">{RES_ICON.Data}</svg>
+          </span>
+          <span className="col"><span className="k">Data</span><span className="v">{fmt(farm.balances.Data)}</span></span>
+        </div>
+        <div className="bal" data-res="credits">
+          <span className="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><circle cx="12" cy="12" r="8"/><path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5"/></svg>
+          </span>
+          <span className="col"><span className="k">Credits</span><span className="v">{fmt(farm.credits)}</span></span>
+        </div>
+        <div className="strip-title">
+          <div className="k">Farm Yield</div>
+          <div className="s">+{fmt(rateMeat + rateBits + rateData)}/hr {readyCount > 0 ? `· ${readyCount} ready` : ''}</div>
         </div>
       </div>
 
       <div className="mhead">
         <h1>Production Buildings</h1>
         <span className="sub">
-          <b>{readyCount}</b> ready to collect &middot; upgrade with <b>Bits</b>
+          <b>{readyCount}</b> ready to collect · upgrade with <b>Bits</b>
         </span>
+        <button
+          type="button"
+          className="collect-all"
+          aria-label="Collect from all buildings"
+          disabled={readyCount <= 0 || isAllPending}
+          onClick={() => collectAllMutation.mutate()}
+        >
+          <svg className="cai" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+            <path d="M12 3v14M6 11l6 6 6-6" strokeLinecap="square" strokeLinejoin="miter" />
+          </svg>
+          <span>Collect all{totalCollectable > 0 ? ` · ${fmt(totalCollectable)}` : ''}</span>
+        </button>
       </div>
 
       {farmQuery.error instanceof Error && (
