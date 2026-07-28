@@ -7,13 +7,9 @@ type TileInfoPanelProps = {
 
 export function TileInfoPanel({ position, focusedTile }: TileInfoPanelProps): JSX.Element {
   return (
-    <aside className="world-tile-panel" aria-label="Current tile">
-      <div className="world-tile-panel__cap">Coordinates</div>
-      <div className="world-tile-panel__coords">{position ? `${position.x}, ${position.y}` : '—'}</div>
-      <div className="world-tile-panel__meta">
-        <span>{position?.biome.label ?? 'Loading biome'}</span>
-        <span>{focusedTile?.biome ?? position?.biome.biome ?? 'unknown'}</span>
-      </div>
-    </aside>
+    <div className="rhead">
+      <div className="rt">Coordinates</div>
+      <div className="rs"><b>{position ? `${position.x}, ${position.y}` : '—'}</b> · {focusedTile?.biome ?? position?.biome.biome ?? 'unknown'}</div>
+    </div>
   );
 }

@@ -25,6 +25,7 @@ import { log } from '../util/log.js';
 import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResistance, scaleForLevel, scaleStatsForLevel } from '../digimon/element.js';
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import type { Action as DSLAction } from '../skills/dsl.js';
+import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
 import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -78,12 +79,13 @@ export type Loadout = {
   members: LoadoutMember[];
 };
 
-function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, wildInfo?: WildInfo): BattleUnit {
+function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, resolver: SkillsCatalogResolver, wildInfo?: WildInfo): BattleUnit {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
   const equipCap = EQUIPPED_SLOTS_PER_STAGE[m.template.stage] ?? SKILLS_PER_DIGIMON;
-  const rawSkills = m.equippedSkills && m.equippedSkills.length > 0
+  const rawPool = m.equippedSkills && m.equippedSkills.length > 0
     ? m.equippedSkills.slice(0, equipCap)
     : m.template.skillPool.slice(0, equipCap);
+  const rawSkills = rawPool.map((s) => resolveSkillFromCatalog(s, resolver));
   const skills = rawSkills.filter((s) => {
     if (s.energyCost <= scaled.en) return true;
     log.warn('battle.skill.unusable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
@@ -168,7 +170,7 @@ function currentEntry(battle: Battle): TurnEntry | null {
 // ----- Init -----------------------------------------------------------------
 
 /** Fresh Battle instance. `matchId` and side ownership fixed for its lifetime. */
-export function initBattle(input: {
+export async function initBattle(input: {
   matchId?: string;
   loadoutA: Loadout;
   loadoutB: Loadout;
@@ -176,13 +178,14 @@ export function initBattle(input: {
   wildFlags?: ReadonlyArray<WildInfo | undefined>;
   displayNames?: { a?: string; b?: string };
   damageRate?: number;
-}): Battle {
+}): Promise<Battle> {
   const id = input.matchId ?? newId('mtc');
   const mode = input.mode ?? 'pvp';
   const now = Date.now();
-  const unitsA = input.loadoutA.members.map((m, i) => unitFromLoadout('a', i as SlotIndex, m));
+  const resolver = await getSkillsCatalogResolver();
+  const unitsA = input.loadoutA.members.map((m, i) => unitFromLoadout('a', i as SlotIndex, m, resolver));
   const unitsB = input.loadoutB.members.map((m, i) =>
-    unitFromLoadout('b', i as SlotIndex, m, input.wildFlags?.[i]),
+    unitFromLoadout('b', i as SlotIndex, m, resolver, input.wildFlags?.[i]),
   );
   const units = [...unitsA, ...unitsB];
   const queue = buildTurnQueue(units);
@@ -232,12 +235,12 @@ export function initBattle(input: {
  * to MAX_WILD_PARTY_SIZE get a phantom dead-from-start unit so the fixed
  * SlotIndex range works and dead units auto-skip in the queue.
  */
-export function initPveBattle(input: {
+export async function initPveBattle(input: {
   matchId?: string;
   playerLoadout: Loadout;
   wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
   damageRate?: number;
-}): Battle {
+}): Promise<Battle> {
   if (input.wildParty.length < 1 || input.wildParty.length > MAX_WILD_PARTY_SIZE) {
     throw new Error(`initPveBattle: wildParty must be 1-${MAX_WILD_PARTY_SIZE} mons, got ${input.wildParty.length}`);
   }
@@ -267,7 +270,7 @@ export function initPveBattle(input: {
     playerId: 'wild',
     members: wildMembers,
   };
-  const battle = initBattle({
+  const battle = await initBattle({
     ...(input.matchId ? { matchId: input.matchId } : {}),
     loadoutA: input.playerLoadout,
     loadoutB: wildLoadout,

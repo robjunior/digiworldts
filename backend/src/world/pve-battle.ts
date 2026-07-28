@@ -78,6 +78,11 @@ function bitsForWin(defeated: readonly { level: number }[]): number {
 }
 
 const activeByUser = new Map<string, Battle>();
+const dungeonContext = new Map<string, { readonly dungeonId: string; readonly encounterId: string }>();
+
+export function setPveDungeonContext(userId: string, dungeonId: string, encounterId: string): void {
+  dungeonContext.set(userId, { dungeonId, encounterId });
+}
 
 function decodeItemEffect(payloadJson: string): ItemEffect | null {
   let payload: Record<string, unknown>;
@@ -181,11 +186,23 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       tpl.stage as Stage,
       Math.max(0, wildMon.level - 1),
     );
+    if (wildMon.statOverride) {
+      const o = wildMon.statOverride;
+      if (o.hp !== undefined) wildBonus.hp += o.hp;
+      if (o.en !== undefined) wildBonus.en += o.en;
+      if (o.atk !== undefined) wildBonus.atk += o.atk;
+      if (o.def !== undefined) wildBonus.def += o.def;
+      if (o.int !== undefined) wildBonus.int += o.int;
+      if (o.spd !== undefined) wildBonus.spd += o.spd;
+    }
+    const memberTemplate = wildMon.skillsOverride
+      ? { ...tpl, skillPool: wildMon.skillsOverride.map((s, i) => ({ id: `enc-s${i}`, name: s.name, element: s.element, energyCost: s.cost, power: s.power, ...(s.description !== undefined ? { description: s.description } : {}) })) }
+      : tpl;
     wildParty.push({
       member: {
         monId: newId('wild'),
         templateId: wildMon.catalogId,
-        template: tpl,
+        template: memberTemplate,
         level: wildMon.level,
         nickname: wildMon.name,
         statBonus: wildBonus,
@@ -193,7 +210,7 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
     });
   }
-  const battle = initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
+  const battle = await initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
   activeByUser.set(userId, battle);
   advanceWildAI(battle);
   if (battle.status === 'ended') {
@@ -216,7 +233,36 @@ export function getPveBattleView(userId: string): BattleView | null {
 }
 
 export function abandonPveBattle(userId: string): boolean {
+  dungeonContext.delete(userId);
   return activeByUser.delete(userId);
+}
+
+async function markWonDungeonEncounter(userId: string, battle: Battle): Promise<void> {
+  if (battle.outcome !== 'win_a' && battle.outcome !== 'captured_a') return;
+  const ctx = dungeonContext.get(userId);
+  if (!ctx) return;
+  const [{ defeatEncounter, getDungeon }, { bumpDefeatObjectives }] = await Promise.all([
+    import('../dungeons/repo.js'),
+    import('../quests/repo.js'),
+  ]);
+  await defeatEncounter(userId, ctx.dungeonId, ctx.encounterId);
+  log.info('dungeon.encounter.won', { userId, dungeonId: ctx.dungeonId, encounterId: ctx.encounterId });
+  const dungeon = await getDungeon(ctx.dungeonId);
+  const biome = dungeon?.biomeRegion ?? null;
+  if (biome === null) return;
+  const defeatedByElement = new Map<string, number>();
+  for (const unit of battle.units) {
+    if (unit.side !== 'b') continue;
+    if (unit.hp > 0) continue;
+    defeatedByElement.set(unit.element, (defeatedByElement.get(unit.element) ?? 0) + 1);
+  }
+  await Promise.all(
+    [...defeatedByElement].map(([element, count]) =>
+      bumpDefeatObjectives(userId, biome as import('@digiworld/shared/world').Biome, element as Parameters<typeof bumpDefeatObjectives>[2], count).catch((err) => {
+        log.warn('quests.defeat.bump.failed', { userId, biome, element, err: err instanceof Error ? err.message : String(err) });
+      }),
+    ),
+  );
 }
 
 export type XpAward = {
@@ -518,13 +564,19 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
         });
       }
     }
-    const rewards = await awardPveBattleRewards(userId, battle);
-    xpAwards = rewards.xpAwards;
-    itemDrops = rewards.itemDrops;
-    speciesAwards = rewards.speciesAwards;
-    creditsGained = rewards.creditsGained;
-    bitsGained = rewards.bitsGained;
-    activeByUser.delete(userId);
+    const dungeonWinPromise = markWonDungeonEncounter(userId, battle);
+    try {
+      const rewards = await awardPveBattleRewards(userId, battle);
+      xpAwards = rewards.xpAwards;
+      itemDrops = rewards.itemDrops;
+      speciesAwards = rewards.speciesAwards;
+      creditsGained = rewards.creditsGained;
+      bitsGained = rewards.bitsGained;
+      await dungeonWinPromise;
+    } finally {
+      dungeonContext.delete(userId);
+      activeByUser.delete(userId);
+    }
   }
 
   const response: ActResult = {

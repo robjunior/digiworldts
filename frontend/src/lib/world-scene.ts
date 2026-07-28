@@ -16,6 +16,7 @@ export type WorldSceneOptions = {
   readonly sphereRadius?: number;
   readonly borderWidth?: number;
   readonly borderDarken?: number;
+  readonly onClick?: (x: number, y: number, isObject: boolean, objectId?: string) => void;
 };
 
 export type WorldScene<T extends BendedTile = WorldTile> = {
@@ -113,6 +114,50 @@ export function createWorldScene<T extends BendedTile = WorldTile>(canvas: HTMLC
   });
   scene.add(worldObjectLayer.group);
 
+  const raycaster = new THREE.Raycaster();
+  const pointer = new THREE.Vector2();
+
+  const onPointerDown = (event: MouseEvent) => {
+    if (!opts.onClick) return;
+    const rect = canvas.getBoundingClientRect();
+    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+
+    const objIntersects = raycaster.intersectObjects(worldObjectLayer.group.children, true);
+    if (objIntersects.length > 0) {
+      let current: THREE.Object3D | null = objIntersects[0]?.object ?? null;
+      let objId: string | null = null;
+      while (current) {
+        if (current.userData && current.userData.worldObjectId) {
+          objId = current.userData.worldObjectId;
+          break;
+        }
+        current = current.parent;
+      }
+      if (objId) {
+        opts.onClick(0, 0, true, objId);
+        return;
+      }
+    }
+
+    const intersects = raycaster.intersectObject(mesh);
+    if (intersects.length > 0 && intersects[0]?.uv) {
+      const uv = intersects[0].uv;
+      const tx = Math.floor(uv.x * size);
+      const ty = Math.floor((1 - uv.y) * size);
+      const index = ty * size + tx;
+      const clickedTile = lastTiles[index];
+      if (clickedTile && 'x' in clickedTile && 'y' in clickedTile) {
+        opts.onClick(clickedTile.x as number, clickedTile.y as number, false);
+      }
+    }
+  };
+
+  if (opts.onClick) {
+    canvas.addEventListener('pointerdown', onPointerDown);
+  }
+
   let frameId: number | null = null;
   let disposed = false;
   let lastTiles: readonly T[] = [];
@@ -146,6 +191,9 @@ export function createWorldScene<T extends BendedTile = WorldTile>(canvas: HTMLC
         cancelAnimationFrame(frameId);
       }
       window.removeEventListener('resize', resize);
+      if (opts.onClick) {
+        canvas.removeEventListener('pointerdown', onPointerDown);
+      }
       subscribers.clear();
       scene.remove(mesh, worldObjectLayer.group, ambientLight, keyLight);
       worldObjectLayer.dispose();

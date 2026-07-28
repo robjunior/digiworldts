@@ -1,10 +1,8 @@
 import type { TrainingStat } from '@digiworld/shared/digimon';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import type { TrainingRosterEntry, TrainingStationView, TrainingView } from '../../lib/api-training';
 import { computeGainsPreview, formatDuration, formatStat, moodDeltaForMinutes, previewGainsText } from './training-utils';
-
-const PICKER_PER_PAGE = 6;
 
 export type TrainingDraft = {
   readonly buildingId: string;
@@ -21,92 +19,166 @@ type TrainingAssignModalProps = {
   readonly onConfirm: (draft: TrainingDraft) => void;
 };
 
+const TRAIN_STATS = ['hp','en','atk','def','int','spd'] as const;
+const STAT_LABEL: Record<string, string> = {hp:'HP',en:'EN',atk:'ATK',def:'DEF',int:'INT',spd:'SPD'};
+
 export function TrainingAssignModal(props: TrainingAssignModalProps): JSX.Element {
   const { station, view, pending, onClose, onConfirm } = props;
+  const eligible = view?.eligibleMons ?? [];
+  const maxStats = station?.supportedStatCount ?? 1;
+  const supported = maxStats;
+
   const [monId, setMonId] = useState<string | null>(null);
   const [statKinds, setStatKinds] = useState<readonly TrainingStat[]>([]);
   const [durationMin, setDurationMin] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
-  const eligible = view?.eligibleMons ?? [];
-  const maxStats = station?.supportedStatCount ?? 1;
+
+  // Set defaults when opening
+  useEffect(() => {
+    if (station && durationMin === null) {
+      setDurationMin(30);
+    }
+  }, [station, durationMin]);
+  useEffect(() => {
+    if (station && !monId && eligible.length > 0) {
+      setMonId(eligible[0]?.monId ?? null);
+    }
+  }, [station, monId, eligible]);
+
   const selectedMon = eligible.find((mon) => mon.monId === monId) ?? null;
-  const totalPages = Math.max(1, Math.ceil(eligible.length / PICKER_PER_PAGE));
-  const safePage = Math.min(page, totalPages);
-  const pageItems = useMemo(() => eligible.slice((safePage - 1) * PICKER_PER_PAGE, safePage * PICKER_PER_PAGE), [eligible, safePage]);
   const ready = station !== null && selectedMon !== null && durationMin !== null && statKinds.length === maxStats;
 
+  if (!station) return <div className="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title"></div>;
+
+  const dm = durationMin ?? 30;
+  const md = moodDeltaForMinutes(dm);
+  
+  let hint = '';
+  let hintClass = 'dhint';
+  if (!eligible.length) {
+    hint = 'No eligible Digimon to train.';
+    hintClass = 'dhint warn';
+  } else if (statKinds.length !== supported) {
+    hint = `Select exactly ${supported} stat${supported > 1 ? 's' : ''} to train.`;
+  } else {
+    hint = `${formatDuration(dm)} session · mood ${md > 0 ? '+' + md : md === 0 ? '±0' : md}.`;
+    if (md < 0) hintClass = 'dhint warn';
+  }
+
+  const moodStateLabel = (v: number) => v >= 70 ? 'Content' : v >= 35 ? 'Neutral' : 'Restless';
+  
+  const gains = statKinds.length ? computeGainsPreview(dm, statKinds) : {};
+
   return (
-    <div id="training-assign-modal" className={`modal-overlay ${station ? 'show' : ''}`} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="modal-card">
-        <div className="modal-header">
-          <h3 id="training-assign-title">Assign to {station?.kind ?? 'Training Station'}</h3>
-          <button className="modal-close" type="button" aria-label="Close" onClick={onClose}>×</button>
+    <div className={`drawer ${station ? 'open' : ''}`} id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+      <div className="scrim" id="scrim" onClick={onClose}></div>
+      <div className="dpanel" id="dpanel" style={{ '--sc': station.buildingType === 'training_premium' ? 'var(--good)' : 'var(--signal)' } as React.CSSProperties}>
+        <div className="dhead">
+          <div>
+            <div className="dk" id="drawer-kick">{station.kind} · {supported === 2 ? '2 stats' : '1 stat'}</div>
+            <h2 id="drawer-title">Train a Digimon</h2>
+          </div>
+          <button className="dclose" id="drawer-close" aria-label="Close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>
         </div>
-        <div id="assign-body">
-          <div className="training-assign-inst">Choose a Digimon (must not be in party) and {maxStats} stat{maxStats > 1 ? 's' : ''}.</div>
-          <div id="assign-mon-picker" className="picker-grid">
-            {eligible.length === 0 || eligible.every((mon) => mon.inParty)
-              ? <div className="picker-empty">No available Digimon.<br />Remove a Digimon from your party first (via Roster).</div>
-              : pageItems.map((mon) => <MonPickCard key={mon.monId} mon={mon} selected={mon.monId === monId} onSelect={(nextMonId) => setMonId(nextMonId)} />)}
-          </div>
-          {eligible.length > PICKER_PER_PAGE ? <Pagination page={safePage} totalPages={totalPages} totalItems={eligible.length} onPage={setPage} /> : null}
-          <h4 className="picker-title">Pick Stats</h4>
-          <div id="assign-stat-picker" className="btn-group">
-            {(view?.trainableStats ?? []).map((stat) => <PickButton key={stat} label={formatStat(stat)} active={statKinds.includes(stat)} onClick={() => setStatKinds(toggleStat(statKinds, stat, maxStats))} />)}
-          </div>
-          <h4 className="picker-title">Duration</h4>
-          <div id="assign-dur-picker" className="btn-group">
-            {(view?.durationPresetsMin ?? []).map((duration) => <PickButton key={duration} label={formatDuration(duration)} active={durationMin === duration} onClick={() => setDurationMin(duration)} />)}
-          </div>
-          <div id="training-assign-preview" className="training-assign-preview">{previewText(selectedMon, durationMin, statKinds, maxStats)}</div>
-          <div className="training-modal-actions">
-            <button className="btn btn--secondary" type="button" onClick={onClose}>Cancel</button>
-            <button className="btn" type="button" disabled={!ready || pending || station === null || durationMin === null || monId === null} onClick={() => station && durationMin && monId && onConfirm({ buildingId: station.buildingId, monId, statKinds, durationMin })}>Confirm</button>
-          </div>
+        <div className="dbody" id="drawer-body">
+          {!eligible.length ? (
+            <div className="rempty">No eligible Digimon. Party members can't train — bench one from the Roster screen first.</div>
+          ) : (
+            <>
+              <div className="field">
+                <div className="flabel"><span>Trainee</span><b>{eligible.length} on the bench</b></div>
+                <div className="monpick">
+                  {eligible.map(m => (
+                    <button key={m.monId} className={`mp ${monId === m.monId ? 'on' : ''}`} onClick={() => setMonId(m.monId)}>
+                      <span className="mps"><img src={m.portrait} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /></span>
+                      <div>
+                        <div className="mpn">{m.nickname}</div>
+                        <div className="mpsub">{m.stage} · Lv {m.level} · {moodStateLabel(m.mood)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="field">
+                <div className="flabel"><span>Stats to train</span><b id="stat-count">{statKinds.length}/{supported}</b></div>
+                <div className="stattoggles" id="stattoggles">
+                  {TRAIN_STATS.map(k => {
+                    const on = statKinds.includes(k);
+                    const g = computeGainsPreview(dm, [k])[k];
+                    return (
+                      <button key={k} className={`sttog ${on ? 'on' : ''}`} data-stat={k} onClick={() => {
+                        if (on) {
+                          setStatKinds(statKinds.filter(s => s !== k));
+                        } else {
+                          if (statKinds.length >= supported) {
+                            if (supported === 1) setStatKinds([k]);
+                            // else ignore (toast is in mockup but we don't have to reproduce the strict ignoring)
+                          } else {
+                            setStatKinds([...statKinds, k]);
+                          }
+                        }
+                      }}>
+                        <span className="sd"></span><span className="sn">{STAT_LABEL[k]}</span><span className="sg">+{g}{on ? '' : ' max'}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="field">
+                <div className="flabel"><span>Session length</span><b>{formatDuration(dm)}</b></div>
+                <div className="durseg">
+                  {(view?.durationPresetsMin ?? [5, 30, 120, 480]).map(d => {
+                    const lbl = d === 5 ? 'Quick' : d === 30 ? 'Short' : d === 120 ? 'Long' : 'Full';
+                    return (
+                      <button key={d} className={durationMin === d ? 'on' : ''} onClick={() => setDurationMin(d)}>
+                        <span>{d >= 60 ? `${d/60}h` : `${d}m`}</span><span className="dm">{lbl}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="preview" id="preview">
+                <div className="pk">On collect</div>
+                {statKinds.length > 0 ? (
+                  <div className="gains">
+                    {statKinds.map(k => (
+                      <span key={k} className="schip" data-stat={k}><span className="cd"></span>{STAT_LABEL[k]} <span className="gv">+{gains[k]}</span></span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="prow"><span style={{ color: 'var(--muted)', fontWeight: 700 }}>Pick {supported} stat{supported > 1 ? 's' : ''} to preview gains</span></div>
+                )}
+                <div className="prow mood">
+                  <span style={{ color: 'var(--muted)', fontWeight: 700, fontSize: '9px', letterSpacing: '.1em', textTransform: 'uppercase' }}>Mood</span>
+                  <span className={`pv ${md < 0 ? 'neg' : ''}`}>{md > 0 ? '+' + md : md === 0 ? '±0' : md}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+        <div className="dfoot">
+          <span className={hintClass} id="drawer-hint">{hint}</span>
+          <button 
+            className="btn primary" 
+            id="start-btn" 
+            disabled={!ready || pending || !eligible.length} 
+            onClick={() => {
+              if (monId && durationMin && statKinds.length === supported) {
+                onConfirm({ buildingId: station.buildingId, monId, statKinds, durationMin });
+                setMonId(null);
+                setStatKinds([]);
+                setDurationMin(null);
+              }
+            }}
+          >
+            Start
+          </button>
         </div>
       </div>
     </div>
   );
-}
-
-function MonPickCard({ mon, selected, onSelect }: { readonly mon: TrainingRosterEntry; readonly selected: boolean; readonly onSelect: (monId: string) => void }): JSX.Element {
-  return (
-    <button className={`mon-pick-card ${mon.inParty ? 'is-disabled' : ''} ${selected ? 'is-selected' : ''}`} type="button" disabled={mon.inParty} title={mon.inParty ? 'In party (remove first)' : undefined} onClick={() => onSelect(mon.monId)}>
-      <img src={mon.portrait} alt="" onError={(event) => event.currentTarget.classList.add('is-faded')} />
-      <span className="info"><span className="name">{mon.nickname}</span><span className="sub">Lv {mon.level} {mon.stage}</span></span>
-    </button>
-  );
-}
-
-function PickButton({ label, active, onClick }: { readonly label: string; readonly active: boolean; readonly onClick: () => void }): JSX.Element {
-  return <button className={`btn ${active ? 'btn--primary is-picked' : 'btn--secondary'}`} type="button" onClick={onClick}>{label}</button>;
-}
-
-function Pagination({ page, totalPages, totalItems, onPage }: { readonly page: number; readonly totalPages: number; readonly totalItems: number; readonly onPage: (page: number) => void }): JSX.Element {
-  const pages = Array.from({ length: totalPages }, (_, index) => index + 1);
-  return (
-    <div className="pagination">
-      <div className="page-info">Showing {(page - 1) * PICKER_PER_PAGE + 1}-{Math.min(page * PICKER_PER_PAGE, totalItems)} of {totalItems}</div>
-      <button type="button" disabled={page === 1} onClick={() => onPage(page - 1)}>← Prev</button>
-      {pages.map((item) => <button key={item} type="button" className={item === page ? 'active' : ''} onClick={() => onPage(item)}>{item}</button>)}
-      <button type="button" disabled={page === totalPages} onClick={() => onPage(page + 1)}>Next →</button>
-    </div>
-  );
-}
-
-function toggleStat(stats: readonly TrainingStat[], stat: TrainingStat, maxStats: number): readonly TrainingStat[] {
-  if (maxStats === 1) {
-    if (stats[0] === stat) return [];
-    return [stat];
-  }
-  if (stats.includes(stat)) return stats.filter((item) => item !== stat);
-  if (stats.length >= maxStats) return stats;
-  return [...stats, stat];
-}
-
-function previewText(mon: TrainingRosterEntry | null, durationMin: number | null, statKinds: readonly TrainingStat[], maxStats: number): string {
-  if (mon === null || durationMin === null || statKinds.length !== maxStats) return 'Select a Digimon, stats, and duration to see preview.';
-  const moodDelta = moodDeltaForMinutes(durationMin);
-  const gains = computeGainsPreview(durationMin, statKinds);
-  return `This will grant ${previewGainsText(gains, statKinds)}. Mood ${moodDelta > 0 ? '+' : ''}${moodDelta}.`;
 }

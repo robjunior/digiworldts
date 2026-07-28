@@ -7,11 +7,16 @@ type WorldDpadProps = {
 
 export function WorldDpad({ disabled, onMove }: WorldDpadProps): JSX.Element {
   return (
-    <div className="world-dpad" aria-label="Movement controls">
-      <button type="button" disabled={disabled} onClick={() => onMove('up')} aria-label="Move up">↑</button>
-      <button type="button" disabled={disabled} onClick={() => onMove('left')} aria-label="Move left">←</button>
-      <button type="button" disabled={disabled} onClick={() => onMove('down')} aria-label="Move down">↓</button>
-      <button type="button" disabled={disabled} onClick={() => onMove('right')} aria-label="Move right">→</button>
+    <div className="rtip show" id="rtip" style={{ bottom: 60, left: 16, top: 'auto', transform: 'none' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
+        <div/>
+        <button type="button" disabled={disabled} onClick={() => onMove('up')}>↑</button>
+        <div/>
+        <button type="button" disabled={disabled} onClick={() => onMove('left')}>←</button>
+        <button type="button" disabled={disabled} onClick={() => onMove('down')}>↓</button>
+        <button type="button" disabled={disabled} onClick={() => onMove('right')}>→</button>
+      </div>
+      <span className="re" id="rtip-el">D-Pad Controls</span>
     </div>
   );
 }

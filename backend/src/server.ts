@@ -46,9 +46,10 @@ import { onboardingPlugin } from './onboarding/routes.js';
 import { seedDefaultOnboarding } from './onboarding/engine.js';
 import { gameSettingsPlugin } from './settings/routes.js';
 import { seedDefaultGameSettings } from './settings/engine.js';
-import { seedDefaultWorldObjects } from './quests/seed.js';
+import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
 import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
+import { dungeonsPlugin } from './dungeons/routes.js';
 import { nurseryPlugin } from './nursery/routes.js';
 import { marketPlugin } from './market/routes.js';
 import { digdexPlugin } from './dex/routes.js';
@@ -108,6 +109,7 @@ async function main(): Promise<void> {
   await seedDefaultOnboarding();
   await seedDefaultGameSettings();
   await seedDefaultWorldObjects();
+  await seedDefaultQuests();
   await seedSkillsCatalogFromXml();
   if (config.SKILLS_V2_ENABLED) {
     const v2Result = await seedSkillsCatalogV2();
@@ -183,6 +185,7 @@ async function main(): Promise<void> {
   await app.register(onboardingPlugin);
   await app.register(gameSettingsPlugin);
   await app.register(questsPlugin);
+  await app.register(dungeonsPlugin);
   await app.register(worldPlugin);
   await app.register(nurseryPlugin);
   await app.register(marketPlugin);
@@ -211,6 +214,7 @@ async function main(): Promise<void> {
       url: req.url,
       status: error.statusCode ?? 500,
       err: error.message,
+      stack: error.stack,
     });
     if (reply.sent) return;
     const status = error.statusCode ?? 500;

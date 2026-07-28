@@ -8,7 +8,7 @@ import type {
 } from '@digiworld/shared/auth';
 import type { BattleView } from '@digiworld/shared/battle';
 import type { BattleOutcome } from '@digiworld/shared/battle';
-import type { BaseStats, TemplateDigimon } from '@digiworld/shared/digimon';
+import type { BaseStats, StagePools, TemplateDigimon } from '@digiworld/shared/digimon';
 
 type ErrorPayload = {
   readonly error?: unknown;
@@ -37,6 +37,7 @@ export type RosterView = {
   readonly listedAt: number | null;
   readonly evolutionHistory: readonly string[];
   readonly equippedSkillIds: readonly string[] | null;
+  readonly stagePools: StagePools | null;
   readonly template: TemplateDigimon | null;
 };
 

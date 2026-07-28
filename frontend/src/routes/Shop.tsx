@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { DigiCredits } from '../components/common/DigiCredits';
@@ -52,10 +51,6 @@ export function Shop(): JSX.Element {
 
   return (
     <div className="app-shell shop-shell">
-      <AppNav>
-        <NavStat tone="credits" label="Credits" value={credits.toLocaleString()} />
-        <NavStat tone="signal" label="Inventory" value={inventory.reduce((sum, i) => sum + i.qty, 0)} />
-      </AppNav>
       <main className="app-main">
         <PageStrip
           name="Shop"
@@ -68,7 +63,7 @@ export function Shop(): JSX.Element {
         />
         {message ? <div className="banner shop-message"><div className="b-s">{message}</div></div> : null}
         <div className="layout">
-          <div className="shop-main"><ShopFilters active={filter} onFilter={setFilter} /><div className="grid" id="shop-grid">{paginated.length === 0 ? <div className="shop-empty">No items found.</div> : paginated.map((item) => <ShopItem key={item.id} item={item} inventory={inventory} credits={credits} busy={buyMutation.isPending} onBuy={(itemId, qty) => buyMutation.mutate({ itemId, qty })} />)}<ShopPagination total={filtered.length} page={page} perPage={PER_PAGE} onPage={setPage} /></div></div>
+          <div className="shop-main"><ShopFilters active={filter} onFilter={setFilter} /><div className="shop-grid" id="shop-grid">{paginated.length === 0 ? <div className="shop-empty">No items found.</div> : paginated.map((item) => <ShopItem key={item.id} item={item} inventory={inventory} credits={credits} busy={buyMutation.isPending} onBuy={(itemId, qty) => buyMutation.mutate({ itemId, qty })} />)}<ShopPagination total={filtered.length} page={page} perPage={PER_PAGE} onPage={setPage} /></div></div>
           <aside className="inventory"><h2>Inventory <span>{totalInventory} item{totalInventory === 1 ? '' : 's'}</span></h2><div className="inv-list">{inventory.length === 0 ? <div className="inv-empty">Nothing yet, buy something above.</div> : inventory.map((entry) => <InventoryItem key={entry.itemId} inventoryItem={entry} shopItem={itemById.get(entry.itemId) ?? null} onApply={openApply} onActivate={(itemId) => applyMutation.mutate({ itemId })} />)}</div></aside>
         </div>
       </main>

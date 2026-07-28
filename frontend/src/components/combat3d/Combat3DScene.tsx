@@ -1,26 +1,12 @@
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
-import type { Biome, PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { arenaUrl, getArenaVersions, getBiomeScenes, getSceneDefaults, type ArenaVersions } from '../../lib/scene-defaults';
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
+import { getSceneDefaults } from '../../lib/scene-defaults';
 import { useAuth } from '../../hooks/useAuth';
-
-const ARENA_MODEL_BY_KEY: Readonly<Record<string, string>> = {
-  plant: '/assets/arenas/plant.glb',
-  steel: '/assets/arenas/steel.glb',
-  water: '/assets/arenas/water.glb',
-  rock: '/assets/arenas/rock.glb',
-  dark: '/assets/arenas/dark.glb',
-  fire: '/assets/arenas/fire.glb',
-  ice: '/assets/arenas/ice.glb',
-  field: '/assets/arenas/field.glb',
-  null: '/assets/arenas/null.glb',
-  wind: '/assets/arenas/wind.glb',
-  light: '/assets/arenas/light.glb',
-};
 
 const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   plant: 'plant',
@@ -37,23 +23,7 @@ const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   null: 'null',
 };
 
-const ELEMENT_TO_BIOME: Readonly<Record<string, Biome>> = {
-  fire: 'desert',
-  plant: 'forest',
-  nature: 'forest',
-  water: 'lake',
-  electricity: 'storm',
-  ice: 'tundra',
-  earth: 'mountain',
-  steel: 'foundry',
-  wind: 'plateau',
-  light: 'prairie',
-  dark: 'swamp',
-  null: 'void',
-};
-
 const ARENA_FALLBACK = 'steel';
-const BIOME_FALLBACK: Biome = 'void';
 
 function pickArenaKey(battle: BattleView): string {
   const counts = new Map<string, number>();
@@ -74,27 +44,6 @@ function pickArenaKey(battle: BattleView): string {
     if (arena !== undefined) return arena;
   }
   return ARENA_FALLBACK;
-}
-
-function pickBiome(battle: BattleView): Biome {
-  const counts = new Map<Biome, number>();
-  for (const enemy of battle.enemy) {
-    const biome = ELEMENT_TO_BIOME[enemy.element];
-    if (biome !== undefined) counts.set(biome, (counts.get(biome) ?? 0) + 1);
-  }
-  if (counts.size > 0) {
-    let bestKey: Biome = BIOME_FALLBACK;
-    let bestCount = 0;
-    for (const [key, n] of counts) {
-      if (n > bestCount) { bestCount = n; bestKey = key; }
-    }
-    return bestKey;
-  }
-  for (const mon of battle.friendly) {
-    const biome = ELEMENT_TO_BIOME[mon.element];
-    if (biome !== undefined) return biome;
-  }
-  return BIOME_FALLBACK;
 }
 
 export type Combat3DSceneHandle = {
@@ -142,21 +91,20 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
-  const biome = useMemo(() => pickBiome(battle), [battle]);
-  const [biomeScenes, setBiomeScenes] = useState<PerBiomeSceneDefaults>({});
-  const [arenaVersions, setArenaVersions] = useState<ArenaVersions>({});
+  const [arenaModelUrl, setArenaModelUrl] = useState<string | undefined>(() => ARENA_MODEL_BY_KEY[arenaKey]);
+
   useEffect(() => {
     let cancelled = false;
-    void getBiomeScenes(true).then((next) => { if (!cancelled) setBiomeScenes(next); }).catch(() => {});
-    void getArenaVersions(true).then((next) => { if (!cancelled) setArenaVersions(next); }).catch(() => {});
+    void getSceneDefaults(false).then((all) => {
+      if (cancelled) return;
+      const chosen = all[arenaKey]?.modelFile;
+      const picked = typeof chosen === 'string' && chosen !== '' ? getArenaUrl(chosen) : undefined;
+      setArenaModelUrl(picked ?? ARENA_MODEL_BY_KEY[arenaKey]);
+    }).catch(() => {
+      if (!cancelled) setArenaModelUrl(ARENA_MODEL_BY_KEY[arenaKey]);
+    });
     return () => { cancelled = true; };
-  }, [biome]);
-  const biomeConfig = biomeScenes[biome];
-  const arenaModelUrl = biomeConfig?.file !== undefined
-    ? arenaUrl(biomeConfig.file, arenaVersions)
-    : arenaVersions[`${arenaKey}.glb`] !== undefined
-      ? arenaUrl(`${arenaKey}.glb`, arenaVersions)
-      : ARENA_MODEL_BY_KEY[arenaKey];
+  }, [arenaKey]);
 
   useEffect(() => {
     const manager = sceneRef.current;
@@ -204,14 +152,12 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
         window.localStorage.removeItem('digiworld.scene-settings-override');
         window.localStorage.removeItem('digiworld.scene-defaults-baseline');
       }
-      void Promise.all([getSceneDefaults(true), getBiomeScenes(true)])
-        .then(([allArenaDefaults, allBiomeScenes]) => {
-          const biomeSettings = (allBiomeScenes[biome]?.settings ?? {}) as Partial<SceneSettings>;
+      void getSceneDefaults(true)
+        .then((allArenaDefaults) => {
           const arenaDefaults = allArenaDefaults[arenaKey] ?? {};
-          const merged: Partial<SceneSettings> = { ...arenaDefaults, ...biomeSettings };
           const patchToApply: Partial<SceneSettings> = {};
-          for (const key of Object.keys(merged) as (keyof SceneSettings)[]) {
-            if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = merged[key];
+          for (const key of Object.keys(arenaDefaults) as (keyof SceneSettings)[]) {
+            if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = arenaDefaults[key];
           }
           if (Object.keys(patchToApply).length > 0) manager?.applySettings(patchToApply);
         })

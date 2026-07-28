@@ -15,7 +15,7 @@ import { stringifyActions, stringifyTags } from './dsl.js';
 const SQL_UPSERT_SKILL = `INSERT INTO skills_catalog
      (id, name, description, element, energy_cost, cooldown, actions_json, tags_json, animation, enabled, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, 0, ?, ?, NULL, 1, ?, ?)
-     ON CONFLICT (name) DO NOTHING`;
+     ON CONFLICT DO NOTHING`;
 
 function idForSkillName(name: string): string {
   const slug = name

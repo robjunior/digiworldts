@@ -9,7 +9,7 @@
 .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
 .filter-btn { font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; padding:6px 12px; border:1px solid var(--hairline); background:var(--panel); color:var(--muted); cursor:pointer; transition:all .2s; clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); }
 .filter-btn.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
-.grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+.shop-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
 .shop-item-card .card-inner { background:var(--panel); padding:16px; }
 .shop-item-card .icon-slot { height:64px; background:var(--bg); border:1px dashed var(--hairline); margin-bottom:16px; display:grid; place-items:center; color:var(--muted); font-size:11px; }
 .shop-item-card .name { font-weight:600; font-size:14px; margin-bottom:4px; }
@@ -54,5 +54,22 @@
 .pagination button.active { background:var(--ink); color:var(--bg); border-color:var(--ink); }
 .pagination button:disabled { opacity:.5; cursor:not-allowed; }
 .picker-grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; max-height:400px; overflow-y:auto; margin-bottom:20px; }
-@media (max-width:1000px) { .grid { grid-template-columns:repeat(2, 1fr); } }
-@media (max-width:640px) { .grid, .picker-grid { grid-template-columns:1fr; } }
+@media (max-width:1000px) { .shop-grid { grid-template-columns:repeat(2, 1fr); } }
+@media (max-width:640px) { .shop-grid, .picker-grid { grid-template-columns:1fr; } }
+
+/* Inventory tabs + item cards */
+.inv-tabs { display: flex; gap: 4px; padding: 12px 0 8px; border-bottom: 1px solid var(--hair); }
+.inv-tab { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: transparent; border: 1px solid transparent; color: var(--muted); font: 700 10px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; cursor: pointer; clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); transition: color .12s, border-color .12s, background .12s; }
+.inv-tab:hover { color: var(--ink); }
+.inv-tab.is-on { color: #fff; background: var(--signal); border-color: var(--signal); }
+.inv-tab .n { font: 800 10px/1 var(--font); padding: 3px 6px; background: color-mix(in oklab, black 30%, transparent); font-variant-numeric: tabular-nums; }
+.inv-tab.is-on .n { background: rgba(0, 0, 0, 0.35); }
+.items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 16px 0; }
+.item-card { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--hairline); border-left: 3px solid var(--hairline); clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px); }
+.item-card[data-kind="dungeon"] { border-left-color: color-mix(in oklab, var(--signal) 70%, var(--gold)); }
+.item-card[data-kind="consumable"] { border-left-color: color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.item-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.item-card-name { font: 700 13px/1.2 var(--font); color: var(--ink); margin: 0; }
+.item-card-qty { font: 800 12px/1 var(--font); color: var(--signal); font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.item-card-desc { font-size: 11px; line-height: 1.45; margin: 0; }
+.inv-empty { padding: 24px 12px; text-align: center; }

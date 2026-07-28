@@ -2,7 +2,7 @@ import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/b
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import { create } from 'zustand';
 
-import { invalidateArenaVersionsCache, invalidateBiomeScenesCache, invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
 
 type ChatMessage = {
   readonly from: string;
@@ -34,8 +34,6 @@ type WsState = {
   readonly battleEvents: BattleEvent[];
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
-  readonly arenasUpdatedAt: number;
-  readonly biomeScenesUpdatedAt: number;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
@@ -55,8 +53,6 @@ const initialState = {
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
-  arenasUpdatedAt: 0,
-  biomeScenesUpdatedAt: 0,
 } satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -140,15 +136,6 @@ export const useWsStore = create<WsState>((set) => ({
         // the module cache so the next getSceneDefaults() call refetches. TTL
         // in scene-defaults.ts is the safety net if we miss this message.
         invalidateSceneDefaultsCache();
-        return;
-      case 'biome-scenes-updated':
-        invalidateBiomeScenesCache();
-        invalidateArenaVersionsCache();
-        set({ biomeScenesUpdatedAt: msg.at });
-        return;
-      case 'arenas-updated':
-        invalidateArenaVersionsCache();
-        set({ arenasUpdatedAt: msg.at });
         return;
       case 'error':
         return;
