@@ -10,6 +10,10 @@ const urlsByFilename: Readonly<Record<string, string>> = Object.freeze(
   ),
 );
 
+export const ARENA_FILE_LIST: readonly string[] = Object.freeze(
+  Object.keys(urlsByFilename).sort((a, b) => a.localeCompare(b)),
+);
+
 export function getArenaUrl(filename: string): string | undefined {
   return urlsByFilename[filename];
 }
