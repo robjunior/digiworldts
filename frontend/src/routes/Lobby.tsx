@@ -1,107 +1,199 @@
 import { useQuery } from '@tanstack/react-query';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 
-import { AppNav } from '../components/AppNav';
-
-import { PageStrip } from '../components/common/PageStrip';
-import { BattleStrip } from '../components/lobby/BattleStrip';
-import { ChatDrawer } from '../components/lobby/ChatDrawer';
-import { DAILY_QUERY_KEY, DailyStrip } from '../components/lobby/DailyStrip';
-import { LastMatch } from '../components/lobby/LastMatch';
-import { PartyHero } from '../components/lobby/PartyHero';
-import { PresenceList } from '../components/lobby/PresenceList';
-import { RoomsPanel } from '../components/lobby/RoomsPanel';
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { getDaily, getLastMatch, getRoster } from '../lib/api';
+import { getLastMatch, getRoster } from '../lib/api';
+import type { LastMatchSummary } from '../lib/api';
 import { useWsStore } from '../state/wsStore';
 import '../styles/extensions-lobby.css';
 
 const ROSTER_QUERY_KEY = ['roster'] as const;
 const LAST_MATCH_QUERY_KEY = ['last-match'] as const;
 
+function normalizeOutcome(outcome: LastMatchSummary['outcome']): 'win' | 'loss' | 'draw' | 'fled' {
+  switch (outcome) {
+    case 'win_a':
+    case 'win_b':
+    case 'captured_a':
+    case 'win':
+      return 'win';
+    case 'fled_a':
+    case 'fled_b':
+    case 'fled':
+      return 'fled';
+    case 'abandoned':
+    case 'draw':
+      return 'draw';
+    case 'loss':
+      return 'loss';
+    default:
+      return 'draw';
+  }
+}
+
 export function Lobby(): JSX.Element {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { send } = useWebSocket();
-  const presence = useWsStore((state) => state.presence);
   const presenceCount = useWsStore((state) => state.presenceCount);
   const chat = useWsStore((state) => state.chat);
   const queue = useWsStore((state) => state.queue);
   const rosterQuery = useQuery({ queryKey: ROSTER_QUERY_KEY, queryFn: getRoster });
-  const dailyQuery = useQuery({ queryKey: DAILY_QUERY_KEY, queryFn: getDaily });
   const lastMatchQuery = useQuery({ queryKey: LAST_MATCH_QUERY_KEY, queryFn: getLastMatch, retry: false });
   const roster = rosterQuery.data?.roster ?? [];
-  const filledParty = roster.filter((mon) => mon.status === 'party').length;
+  
+  const partySlots = [0, 1, 2].map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot) ?? null);
+  const filledParty = partySlots.filter(Boolean).length;
   const partyReady = filledParty >= 3;
-  const dailyStatus = dailyQuery.data?.canClaim === true ? `Day ${dailyQuery.data.wouldGrantDay} ready to claim` : 'Daily claimed';
+  
+  // chat form state
+  const [chatInput, setChatInput] = useState('');
+  const chatLogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatLogRef.current) {
+      chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
+    }
+  }, [chat]);
+
+  const onChatSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const t = chatInput.trim();
+    if (!t) return;
+    send({ type: 'chat', text: t });
+    setChatInput('');
+  };
+
+  const isQueued = queue.status === 'waiting' || queue.status === 'matched';
+
+  const lm = lastMatchQuery.data;
+  let lastMatchOutcome = 'draw';
+  if (lm) {
+    lastMatchOutcome = normalizeOutcome(lm.outcome);
+  }
 
   return (
-    <div className="app-shell">
-      <AppNav />
-      <main className="app-main" data-od-id="lobby-main">
-        <PageStrip
-          name="Lobby"
-          tone={partyReady ? 'reward' : 'warn'}
-          metrics={[
-            { label: <><b>{presenceCount}</b> online</> },
-            { label: <><b>{queue.size}</b> queued</> },
-            { label: <><b>{filledParty}</b>/3 party</> },
-            { label: dailyStatus, className: dailyQuery.data?.canClaim === true ? 'reward' : 'muted' },
-          ]}
-          actions={<span className="mono muted" style={{ fontSize: 10 }}>Streak <b>{dailyQuery.data?.streakDay ?? 0}d</b></span>}
-        />
-        <div className="lobby-grid-v2" data-od-id="lobby-grid">
-          <aside className="lobby-col-v2 lobby-left" data-od-id="lobby-left">
-            <section className="lobby-section" data-od-id="presence-section">
-              <h2>Online players</h2>
-              <PresenceList users={presence} />
-            </section>
-          </aside>
-          <section className="lobby-col-v2 lobby-center" data-od-id="lobby-center">
-            <section className="lobby-section" data-od-id="party-section">
-              <div className="row spread" style={{ marginBottom: 12 }}>
-                <h2 style={{ margin: 0 }}>Your party</h2>
-                <a className="btn btn--secondary btn--sm" href="/roster">Edit</a>
-              </div>
-              <PartyHero roster={roster} />
-            </section>
-            <section className="lobby-section matchmaking-strip" data-od-id="queue-section">
-              <BattleStrip status={queue.status} since={queue.since} size={queue.size} partyReady={partyReady} send={send} />
-            </section>
-            <section className="lobby-section" data-od-id="last-match-section">
-              <h2>Last match</h2>
-              <LastMatch match={lastMatchQuery.data ?? null} />
-            </section>
-          </section>
-          <aside className="lobby-col-v2 lobby-right" data-od-id="lobby-right">
-            <section className="lobby-section" data-od-id="daily-section">
-              <h2>Daily reward</h2>
-              <DailyStrip daily={dailyQuery.data ?? null} />
-            </section>
-            <section className="lobby-section objectives-section" data-od-id="objectives-section">
-              <h2>Objectives</h2>
-              <ul aria-label="Daily objectives" style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
-                <Objective color="var(--claim-done)" text="Log in today" />
-                <Objective color="var(--claim-done)" text="Feed a digimon" />
-                <Objective color="var(--claim-next)" text="Win 1 match today (0/1)" />
-                <Objective color="var(--claim-todo)" text="Reach player level 15" />
-              </ul>
-            </section>
-            <section className="lobby-section" data-od-id="rooms-section">
-              <RoomsPanel send={send} />
-            </section>
-          </aside>
+    <>
+      {/* matchmaking strip */}
+      <section className="mmstrip" data-od-id="matchmaking-strip">
+        <div className="mm-left">
+          <div className="kick">Arena Queue</div>
+          <h1>Find a Match</h1>
+          <div className="bracket" id="bracket">Bracket · <b>±5 Lv</b> · <b>±100 trained</b> — widens the longer you wait</div>
+          <div className="mm-hint" id="mm-hint">
+            {!partyReady && !isQueued ? `Assign ${3 - filledParty} more Digimon to your party to queue.` : ''}
+          </div>
         </div>
-      </main>
-      <ChatDrawer onlineCount={presenceCount} chat={chat} send={send} />
-    </div>
-  );
-}
+        <div className="mm-right">
+          <button 
+            className={`findbtn ${isQueued ? 'searching' : ''}`} 
+            id="findbtn"
+            disabled={!partyReady && !isQueued}
+            onClick={() => {
+              if (partyReady) send({ type: 'queue', join: !isQueued });
+            }}
+          >
+            {isQueued ? 'Leave queue' : 'Find match'}
+          </button>
+          <span className="q" id="qstate">
+            {isQueued && <><span className="dot"></span>Searching — matching by bracket</>}
+          </span>
+        </div>
+      </section>
 
-function Objective({ color, text }: { readonly color: string; readonly text: string }): JSX.Element {
-  return (
-    <li className="row" style={{ gap: 8 }}>
-      <span className="dot" style={{ width: 6, height: 6, background: color, borderRadius: '50%' }} />
-      {text}
-    </li>
+      <div className="grid">
+        <div className="colL">
+          {/* party */}
+          <div>
+            <h3 className="stitle">Your Party <span className="n" id="party-sum">{filledParty}/3 ready</span></h3>
+            <div className="party" id="party" data-od-id="party-row">
+              {partySlots.map((p, i) => {
+                if (!p) {
+                  return (
+                    <div key={i} className="pcard empty">
+                      <div className="emptyslot">
+                        <div className="plus">+</div>Slot {i + 1} empty
+                      </div>
+                    </div>
+                  );
+                }
+                const stats = p.template?.baseStats ?? { hp: 100, en: 100, atk: 10, def: 10, spd: 10 };
+                const hpMax = stats.hp + (p.statBonus?.hp ?? 0);
+                const hp = hpMax; 
+                const pct = Math.round((hp / hpMax) * 100);
+                const nickname = p.nickname || p.template?.name || 'Unknown';
+                const species = p.template?.name || 'Unknown';
+
+                return (
+                  <div key={p.id} className="pcard" aria-label={`${nickname}, Level ${p.level}, HP ${hp} of ${hpMax}`}>
+                    <span className="sp"><img src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} /></span>
+                    <div>
+                      <div className="pn">{nickname}</div>
+                      <div className="pl">Lv {p.level} · {species}</div>
+                      <div className="hp">
+                        <div className="bar"><span className="fill" style={{ width: `${pct}%` }}></span></div>
+                        <div className="num">{hp.toLocaleString('en-US')} / {hpMax.toLocaleString('en-US')}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* last match */}
+          <div>
+            <h3 className="stitle">Last Match</h3>
+            <div id="lastmatch-wrap">
+              {!lm ? (
+                <div className="empty-line">Play your first match to see rewards here.</div>
+              ) : (
+                <div className={`lastmatch ${lastMatchOutcome === 'win' ? 'win' : ''}`}>
+                  <div className="res">{lastMatchOutcome === 'win' ? 'Victory' : lastMatchOutcome === 'loss' ? 'Defeat' : lastMatchOutcome === 'fled' ? 'Fled' : 'Draw'}</div>
+                  <div className="vs">vs <b>{lm.opponent ?? 'Unknown'}</b></div>
+                  <div className="rw">+{lm.rewards?.credits ?? 0} Bits · +{lm.rewards?.xp ?? 0} XP</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* chat */}
+        <aside className="colR" data-od-id="chat-drawer">
+          <div className="chathead">
+            <div className="k">Global Chat</div>
+            <div className="s" id="chat-sub">{presenceCount} in the plaza</div>
+          </div>
+          <div className="chatlog" id="chatlog" role="log" aria-live="polite" aria-label="Global chat" ref={chatLogRef}>
+            {chat.length === 0 ? (
+              <div className="empty-line">No messages yet — say hi to start.</div>
+            ) : (
+              chat.map((m) => {
+                const isMe = m.from === user?.id;
+                return (
+                  <div key={m.from + m.at} className="msg">
+                    <span className={`who ${isMe ? 'me' : ''}`}>{m.displayName}{isMe ? ' (you)' : ''}</span>
+                    <span className="tx">{m.text}</span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <form className="chatform" id="chatform" onSubmit={onChatSubmit}>
+            <input 
+              id="chatinput" 
+              type="text" 
+              placeholder="Say something to the plaza…" 
+              autoComplete="off" 
+              maxLength={240} 
+              aria-label="Chat message" 
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+            />
+            <button type="submit">Send</button>
+          </form>
+        </aside>
+      </div>
+    </>
   );
 }

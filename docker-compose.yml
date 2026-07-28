@@ -20,11 +20,18 @@ services:
   redis:
     image: redis:7-alpine
     container_name: digiworld-redis-1
-    command: ["redis-server", "--appendonly", "yes"]
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD:?REDIS_PASSWORD is required - copy .env.example to .env and edit}",
+      ]
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "--no-auth-warning", "ping"]
       interval: 3s
       timeout: 3s
       retries: 20
@@ -47,7 +54,7 @@ services:
       DATABASE: postgres
       DATABASE_URL: postgres://digiworld:${POSTGRES_PASSWORD}@db:5432/digiworld
       CLUSTER: redis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
       ADMIN_BOOTSTRAP: ${ADMIN_BOOTSTRAP:-open}
@@ -57,6 +64,7 @@ services:
     volumes:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
+      - scenedata:/app/backend/data/scenes
       - ./backend/data/catalog:/app/backend/data/catalog
     healthcheck:
       test:
@@ -95,3 +103,4 @@ volumes:
   redisdata:
   assetdata:
   scrapecache:
+  scenedata:

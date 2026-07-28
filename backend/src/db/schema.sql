@@ -414,6 +414,8 @@ CREATE TABLE IF NOT EXISTS world_objects (
   id          TEXT PRIMARY KEY,
   x           INTEGER NOT NULL,
   y           INTEGER NOT NULL,
+  lat         REAL NOT NULL DEFAULT 0,
+  lon         REAL NOT NULL DEFAULT 0,
   kind        TEXT NOT NULL,
   scale       REAL NOT NULL DEFAULT 1.0,
   tint        TEXT,
@@ -424,6 +426,32 @@ CREATE TABLE IF NOT EXISTS world_objects (
   updated_at  INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_world_objects_pos ON world_objects (x, y);
+
+CREATE TABLE IF NOT EXISTS dungeon_warps (
+  id                TEXT PRIMARY KEY,
+  dungeon_id        TEXT NOT NULL REFERENCES dungeons(id) ON DELETE CASCADE,
+  x                 INTEGER NOT NULL,
+  y                 INTEGER NOT NULL,
+  target_dungeon_id TEXT REFERENCES dungeons(id) ON DELETE SET NULL,
+  label             TEXT,
+  created_at        INTEGER NOT NULL,
+  updated_at        INTEGER NOT NULL,
+  UNIQUE (dungeon_id, x, y)
+);
+CREATE INDEX IF NOT EXISTS idx_dungeon_warps_dungeon ON dungeon_warps(dungeon_id);
+
+CREATE TABLE IF NOT EXISTS dungeon_doors (
+  id            TEXT PRIMARY KEY,
+  dungeon_id    TEXT NOT NULL REFERENCES dungeons(id) ON DELETE CASCADE,
+  x             INTEGER NOT NULL,
+  y             INTEGER NOT NULL,
+  key_item_id   TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  label         TEXT,
+  created_at    INTEGER NOT NULL,
+  updated_at    INTEGER NOT NULL,
+  UNIQUE (dungeon_id, x, y)
+);
+CREATE INDEX IF NOT EXISTS idx_dungeon_doors_dungeon ON dungeon_doors(dungeon_id);
 
 CREATE TABLE IF NOT EXISTS user_quest_progress (
   user_id                  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

@@ -13,13 +13,14 @@ import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
 import { q } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
-import type { TemplateDigimon } from '../digimon/types.js';
+import type { Element, TemplateDigimon } from '../digimon/types.js';
 
 const SQL_SPECIES_IDS = `SELECT catalog_id FROM player_species_data WHERE user_id = ?`;
 const SQL_ROSTER_ROWS = `SELECT catalog_id, evolution_history FROM player_roster WHERE user_id = ?`;
 
 export type DigdexEntry = {
   readonly catalogId: string;
+  readonly element: Element;
   readonly met: boolean;
   readonly template: TemplateDigimon | null;
 };
@@ -60,7 +61,7 @@ export const digdexPlugin: FastifyPluginAsync = async (app) => {
     const entries: DigdexEntry[] = catalog.digimons.map((t) => {
       const met = metSet.has(t.id);
       if (met) metCount += 1;
-      return { catalogId: t.id, met, template: met ? t : null };
+      return { catalogId: t.id, element: t.element, met, template: met ? t : null };
     });
     const response: DigdexResponse = {
       entries,

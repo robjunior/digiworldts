@@ -1,15 +1,7 @@
 import { useEffect, useMemo } from 'react';
+import { WEAK_MAP, RESIST_MAP, type Element } from '@digiworld/shared/digimon';
 
 import type { DigdexEntry } from '../../lib/api-digdex';
-
-const STAT_ORDER = [
-  { key: 'hp',  label: 'HP' },
-  { key: 'atk', label: 'ATK' },
-  { key: 'def', label: 'DEF' },
-  { key: 'en',  label: 'EN' },
-  { key: 'int', label: 'INT' },
-  { key: 'spd', label: 'SPD' },
-] as const;
 
 export type DigdexDetailModalProps = {
   readonly entry: DigdexEntry;
@@ -18,136 +10,63 @@ export type DigdexDetailModalProps = {
   readonly onSelect: (entry: DigdexEntry) => void;
 };
 
-export function DigdexDetailModal({ entry, entriesById, onClose, onSelect }: DigdexDetailModalProps): JSX.Element | null {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  if (!entry.met || !entry.template) return null;
-  const template = entry.template;
-
-  const previousForms = useMemo<DigdexEntry[]>(() => {
-    const out: DigdexEntry[] = [];
-    for (const other of entriesById.values()) {
-      if (!other.template) continue;
-      if (other.template.evolvesInto?.some((edge) => edge.targetId === template.id)) out.push(other);
-    }
-    return out;
-  }, [entriesById, template.id]);
-  const nextForms = useMemo<DigdexEntry[]>(
-    () => (template.evolvesInto ?? [])
-      .map((edge) => entriesById.get(edge.targetId))
-      .filter((e): e is DigdexEntry => e !== undefined),
-    [entriesById, template.evolvesInto, template.id],
-  );
-
-  const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
-
-  return (
-    <div className="digdex-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="digdex-modal-title">
-      <div className="digdex-modal" style={{ position: 'relative' }} onClick={stopPropagation}>
-        <button className="digdex-modal-close" type="button" onClick={onClose} aria-label="Close">×</button>
-
-        <div className="digdex-modal-head">
-          <img className="digdex-modal-portrait" src={template.assets.portrait} alt={template.name} />
-          <div className="digdex-modal-title">
-            <h2 id="digdex-modal-title">{template.name}</h2>
-            <div className="digdex-modal-tags">
-              <span className="digdex-tag">{template.stage}</span>
-              <span className="digdex-tag">{template.attribute}</span>
-              <span className={`digdex-tag digdex-tag-${template.element}`}>{template.element}</span>
-              <span className="digdex-tag" style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>{template.id}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="digdex-section">
-          <h3>Base stats</h3>
-          <div className="digdex-stats">
-            {STAT_ORDER.map(({ key, label }) => (
-              <div className="digdex-stat" key={key}>
-                <span className="digdex-stat-label">{label}</span>
-                <span className="digdex-stat-value">{template.baseStats[key]}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {template.skillPool.length > 0 ? (
-          <div className="digdex-section">
-            <h3>Skill pool</h3>
-            {template.skillPool.map((skill) => (
-              <div className="digdex-skill" key={skill.id}>
-                <div className="digdex-skill-head">
-                  <span className="digdex-skill-name">{skill.name}</span>
-                  <span className={`digdex-tag digdex-tag-${skill.element}`} style={{ fontSize: 9 }}>{skill.element}</span>
-                  <span className="digdex-skill-meta">EN {skill.energyCost} · PWR {skill.power}</span>
-                </div>
-                {skill.description ? <div className="digdex-skill-desc">{skill.description}</div> : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
-
-        {previousForms.length > 0 ? (
-          <div className="digdex-section">
-            <h3>Evolves from</h3>
-            <div className="digdex-evo-chain">
-              {previousForms.map((prev, index) => (
-                <EvolutionItem key={prev.catalogId} entry={prev} onSelect={onSelect} showArrowAfter={index < previousForms.length - 1} />
-              ))}
-              <span className="digdex-evo-arrow" aria-hidden>→</span>
-              <span className="digdex-evo-arrow" aria-hidden style={{ fontWeight: 900, color: '#7dd3fc' }}>{template.name}</span>
-            </div>
-          </div>
-        ) : null}
-
-        {nextForms.length > 0 ? (
-          <div className="digdex-section">
-            <h3>Evolves into</h3>
-            <div className="digdex-evo-chain">
-              <span className="digdex-evo-arrow" aria-hidden style={{ fontWeight: 900, color: '#7dd3fc' }}>{template.name}</span>
-              <span className="digdex-evo-arrow" aria-hidden>→</span>
-              {nextForms.map((next, index) => (
-                <EvolutionItem key={next.catalogId} entry={next} onSelect={onSelect} showArrowAfter={index < nextForms.length - 1} />
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
+function affName(el: Element | undefined): string {
+  return el || '—';
 }
 
-function EvolutionItem({ entry, onSelect, showArrowAfter }: { readonly entry: DigdexEntry; readonly onSelect: (entry: DigdexEntry) => void; readonly showArrowAfter: boolean }): JSX.Element {
-  const clickable = entry.met;
-  const onClick = (): void => { if (clickable) onSelect(entry); };
+export function DigdexDetail({ entry }: DigdexDetailModalProps): JSX.Element | null {
+  const d = entry;
+  const el = d.template?.element || 'null';
+  const weak = WEAK_MAP[el as Element];
+  const resist = RESIST_MAP[el as Element];
+
   return (
-    <>
-      <div
-        className={`digdex-evo-item${clickable ? ' is-clickable' : ' is-unmet'}`}
-        onClick={onClick}
-        role={clickable ? 'button' : undefined}
-        tabIndex={clickable ? 0 : -1}
-        onKeyDown={(event) => { if (clickable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick(); } }}
-      >
-        {entry.met && entry.template ? (
-          <>
-            <img className="digdex-evo-portrait" src={entry.template.assets.portrait} alt={entry.template.name} loading="lazy" />
-            <span className="digdex-evo-name">{entry.template.name}</span>
-          </>
-        ) : (
-          <>
-            <span className="digdex-evo-unknown">?</span>
-            <span className="digdex-evo-name" style={{ color: 'var(--muted, #8892a0)' }}>Unknown</span>
-          </>
-        )}
-      </div>
-      {showArrowAfter ? <span className="digdex-evo-arrow" aria-hidden>·</span> : null}
-    </>
+    <aside className="detail" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}>
+      {d.met && d.template ? (
+        <>
+          <div className="dhead" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}>
+            <div className="dk">{d.template.element} · {d.template.attribute}</div>
+            <div className="dspr">
+              <img src={d.template.assets.dot} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
+            </div>
+            <h2 id="digdex-modal-title">{d.template.name}</h2>
+            <div className="dnum">No. {String(parseInt(d.catalogId, 10)).padStart(3, '0')} · {d.template.stage}</div>
+          </div>
+          <div className="dmeta">
+            <div className="mrow"><span className="mk">Status</span><span className="metpill met">Met</span></div>
+            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}><span className="cd" />{d.template.element}</span></div>
+            <div className="mrow"><span className="mk">Attribute</span><span className="mv">{d.template.attribute}</span></div>
+            <div className="mrow"><span className="mk">Stage</span><span className="mv">{d.template.stage}</span></div>
+            <div className="mrow"><span className="mk">Type</span><span className="mv">{d.template.type || '—'}</span></div>
+          </div>
+          <div className="daff">
+            <div className="dlk">Elemental affinity</div>
+            <div className="affrow"><span className="tag weak">Weak</span>{weak ? <span className="av">{affName(weak)}</span> : <span className="none">— none</span>}</div>
+            <div className="affrow"><span className="tag resist">Resist</span>{resist ? <span className="av">{affName(resist)}</span> : <span className="none">— none</span>}</div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="dhead" style={{ '--ec': `var(--el-null)` } as React.CSSProperties}>
+            <div className="dk">null · Unknown</div>
+            <div className="dspr"><span className="qq">?</span></div>
+            <h2 id="digdex-modal-title">Unknown species</h2>
+            <div className="dnum">No. {String(parseInt(d.catalogId, 10)).padStart(3, '0')} · Unknown</div>
+          </div>
+          <div className="dmeta">
+            <div className="mrow"><span className="mk">Status</span><span className="metpill unmet">Not met</span></div>
+            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-null)` } as React.CSSProperties}><span className="cd" />???</span></div>
+            <div className="mrow"><span className="mk">Attribute</span><span className="mv">???</span></div>
+            <div className="mrow"><span className="mk">Stage</span><span className="mv">???</span></div>
+            <div className="mrow"><span className="mk">Type</span><span className="mv">—</span></div>
+          </div>
+          <div className="daff">
+            <div className="dlk">Elemental affinity</div>
+            <div className="affrow"><span className="tag weak">Weak</span><span className="none">— none</span></div>
+            <div className="affrow"><span className="tag resist">Resist</span><span className="none">— none</span></div>
+          </div>
+        </>
+      )}
+    </aside>
   );
 }

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 
-import type { Element, MoodState } from '@digiworld/shared/digimon';
+import type { Element, MoodState, Stage, StagePools } from '@digiworld/shared/digimon';
+import { STAGE_COMBAT_POOL, STAGE_HPEN_POOL, combatCapFor, combatSum, hpenCapFor, hpenSum } from '@digiworld/shared/digimon';
 
 import type { RosterView } from '../../lib/api';
 import type { TrainingActiveView } from '../../lib/api-roster';
@@ -52,6 +53,42 @@ export function xpPct(mon: RosterMon): number {
     return 100;
   }
   return Math.round(((mon.xp - mon.xpFloor) / span) * 100);
+}
+
+export type PoolProgress = {
+  readonly filled: number;
+  readonly cap: number;
+  readonly pct: number;
+};
+
+export type TrainingProgress = {
+  readonly stage: Stage;
+  readonly combat: PoolProgress;
+  readonly hpen: PoolProgress;
+  readonly overallPct: number;
+};
+
+export function trainingProgress(mon: RosterMon): TrainingProgress | null {
+  const stage = mon.template?.stage;
+  if (stage === undefined) return null;
+  const priorPools: StagePools = (mon.stagePools ?? {}) as StagePools;
+  const priorCombatCap = combatCapFor(stage, priorPools) - STAGE_COMBAT_POOL[stage];
+  const priorHpenCap = hpenCapFor(stage, priorPools) - STAGE_HPEN_POOL[stage];
+  const currentCombatFilled = Math.max(0, combatSum(mon.statBonus) - priorCombatCap);
+  const currentHpenFilled = Math.max(0, hpenSum(mon.statBonus) - priorHpenCap);
+  const combatCap = STAGE_COMBAT_POOL[stage];
+  const hpenCap = STAGE_HPEN_POOL[stage];
+  const combatPct = combatCap === 0 ? 0 : Math.min(100, Math.round((currentCombatFilled / combatCap) * 100));
+  const hpenPct = hpenCap === 0 ? 0 : Math.min(100, Math.round((currentHpenFilled / hpenCap) * 100));
+  const overallPct = combatCap + hpenCap === 0
+    ? 0
+    : Math.min(100, Math.round(((currentCombatFilled + currentHpenFilled) / (combatCap + hpenCap)) * 100));
+  return {
+    stage,
+    combat: { filled: currentCombatFilled, cap: combatCap, pct: combatPct },
+    hpen: { filled: currentHpenFilled, cap: hpenCap, pct: hpenPct },
+    overallPct,
+  };
 }
 
 export function moodInfo(mon: RosterMon): { readonly label: string; readonly state: MoodState } {

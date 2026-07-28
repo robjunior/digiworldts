@@ -1,4 +1,3 @@
-import type { PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import type { SceneSettings } from '../scene3d/scene';
 import { apiFetch } from './api';
 
@@ -55,28 +54,3 @@ export function invalidateSceneDefaultsCache(): void {
   cache = null;
   cacheAt = 0;
 }
-
-let biomeCache: Promise<PerBiomeSceneDefaults> | null = null;
-let biomeCacheAt = 0;
-
-export function getBiomeScenes(force = false): Promise<PerBiomeSceneDefaults> {
-  const now = Date.now();
-  if (force || biomeCache === null || now - biomeCacheAt > TTL_MS) {
-    biomeCacheAt = now;
-    biomeCache = apiFetch<{ biomes: unknown }>('/api/scene/biomes')
-      .then((body) => (typeof body.biomes === 'object' && body.biomes !== null ? body.biomes as PerBiomeSceneDefaults : {}))
-      .catch(() => ({}));
-  }
-  return biomeCache;
-}
-
-export function replaceBiomeScenesCache(next: PerBiomeSceneDefaults): void {
-  biomeCache = Promise.resolve(next);
-  biomeCacheAt = Date.now();
-}
-
-export function invalidateBiomeScenesCache(): void {
-  biomeCache = null;
-  biomeCacheAt = 0;
-}
-

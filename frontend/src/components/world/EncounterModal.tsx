@@ -20,9 +20,8 @@ type WorldToastProps = {
 
 function WorldToast({ message, onDismiss }: WorldToastProps): JSX.Element {
   return (
-    <div className="world-toast" role="status">
+    <div className="toast show" id="toast" role="status" onClick={onDismiss}>
       <span>{message}</span>
-      <button type="button" onClick={onDismiss} aria-label="Dismiss notification">×</button>
     </div>
   );
 }

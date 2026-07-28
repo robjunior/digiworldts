@@ -243,6 +243,7 @@ export type ShopItemRow = {
   class: 'product' | 'item';
   payload: string;
   enabled: 0 | 1;
+  is_quest_item: 0 | 1;
   created_at: number;
 };
 
@@ -376,6 +377,28 @@ export type AdventureRow = {
   seed: number;
   report: string | null;
   created_at: number;
+};
+
+export type DungeonWarpRow = {
+  id: string;
+  dungeon_id: string;
+  x: number;
+  y: number;
+  target_dungeon_id: string | null;
+  label: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type DungeonDoorRow = {
+  id: string;
+  dungeon_id: string;
+  x: number;
+  y: number;
+  key_item_id: string;
+  label: string | null;
+  created_at: number;
+  updated_at: number;
 };
 
 // ============================================================================

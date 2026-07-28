@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { AppNav, NavStat } from '../components/AppNav';
 import { useEffect, useMemo, useState } from 'react';
 
 import { PageStrip } from '../components/common/PageStrip';
@@ -124,31 +123,20 @@ export function Roster(): JSX.Element {
   };
 
   return (
-    <div className="app-shell roster-shell">
-      <AppNav>
-        <NavStat tone="signal" label="Owned" value={roster.length} />
-        <NavStat tone="nature" label="Party" value={`${roster.filter((mon) => mon.status === 'party').length}/3`} />
-      </AppNav>
-      <main className="app-main">
-        <PageStrip
-          name="Roster"
-          tone={partyFilled >= 3 ? 'reward' : 'warn'}
-          metrics={[
-            { label: <><b>{roster.length}</b> owned</> },
-            { label: <><b>{partyFilled}</b>/3 in party</>, className: partyFilled >= 3 ? 'reward' : 'warn' },
-          ]}
+    <>
+      {roster.length === 0 ? (
+        <EmptyRoster busy={seedMutation.isPending} onSeed={() => seedMutation.mutate()} />
+      ) : (
+        <RosterList
+          roster={roster}
+          now={now}
+          activityByMon={activityByMon}
+          actions={actions}
+          templateById={templateById}
+          reverseGraph={reverseGraph}
+          message={message}
         />
-        {message ? <div className="banner roster-message"><div className="b-s">{message}</div></div> : null}
-        <section><h2 className="caps roster-section-title">Active party</h2><PartyPicker roster={roster} now={now} actions={actions} /></section>
-        {roster.length === 0 ? <EmptyRoster busy={seedMutation.isPending} onSeed={() => seedMutation.mutate()} /> : null}
-        <section>
-          <div className="row spread owned-header">
-            <h2 className="caps roster-section-title owned-title">Owned</h2>
-          </div>
-          <RosterList roster={paginated} now={now} activityByMon={activityByMon} actions={actions} templateById={templateById} reverseGraph={reverseGraph} />
-          <Pagination total={roster.length} page={page} perPage={PER_PAGE} onPage={setPage} />
-        </section>
-      </main>
+      )}
       <EvolveDialog gate={evolutionGate} monName={evolveMon?.nickname ?? null} busy={evolveMutation.isPending} onClose={() => setEvolveMonId(null)} onEvolve={(targetCatalogId) => { if (evolveMonId) evolveMutation.mutate({ monId: evolveMonId, targetCatalogId }); }} />
       <RenameDialog mon={renameMon} busy={renameMutation.isPending} onClose={() => setRenameMon(null)} onSave={(nickname) => { if (renameMon) renameMutation.mutate({ monId: renameMon.id, nickname }); }} />
       <SubstitutionDialog
@@ -162,10 +150,15 @@ export function Roster(): JSX.Element {
           assignMutation.mutate({ monId: substituteFor.id, slot }, { onSuccess: () => setSubstituteFor(null) });
         }}
       />
-    </div>
+    </>
   );
 }
 
 function EmptyRoster({ busy, onSeed }: { readonly busy: boolean; readonly onSeed: () => void }): JSX.Element {
-  return <div className="empty-state"><h3>No Digimon yet</h3><p>The admin needs to add Digimon to the catalog before you can get a starter roster.</p><button className="btn" type="button" disabled={busy} onClick={onSeed}>Try to seed starter roster</button></div>;
+  return (
+    <div className="empty">
+      <p>No Digimon yet<br />The admin needs to add Digimon to the catalog before you can get a starter roster.</p>
+      <button className="navbtn" type="button" disabled={busy} onClick={onSeed}>Try to seed starter roster</button>
+    </div>
+  );
 }

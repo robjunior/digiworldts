@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
+import { BalBar, ResourceBal } from '../components/common/BalBar';
+import { SectionHead } from '../components/common/SectionHead';
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
 import { NurseryDigitamaSidebar } from '../components/nursery/NurseryDigitamaSidebar';
 import { NurserySidebar } from '../components/nursery/NurserySidebar';
@@ -97,33 +99,70 @@ export function Nursery(): JSX.Element {
   const totalWeight = dataQuery.data?.totalWeight ?? 0;
   const error = queryError(nurseryQuery.error, careMutation.error, hatchMutation.error, mixMutation.error, collectMutation.error, dataQuery.error, pendingQuery.error);
 
+  const nurserySubtitle = view
+    ? view.mons.filter((m) => m.mood < 35).length > 0
+      ? `${view.mons.filter((m) => m.mood < 35).length} need attention`
+      : 'all content'
+    : '—';
+
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
-      <NurseryDigitamaSidebar
-        entries={dataEntries}
-        pending={pending}
-        loading={dataQuery.isPending}
-        totalWeight={totalWeight}
-        busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
-        mixBusy={mixMutation.isPending}
-        onHatch={(entry) => hatchMutation.mutate(entry)}
-        onMix={() => mixMutation.mutate()}
-      />
-      <NurseryYard
-        mons={view?.mons ?? []}
-        feedback={feedback}
-        pending={pending}
-        busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
-        onCollect={(entry) => collectMutation.mutate(entry)}
-      />
-      <NurserySidebar
-        view={view}
-        loading={nurseryQuery.isPending}
-        busyMonId={careMutation.variables?.mon.id ?? null}
-        onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
-        onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
-      />
-      <NurseryStatus message={error ?? notice} error={error !== null} />
+      <>
+        <BalBar title="Nursery" subtitle={nurserySubtitle} odId="resource-balance">
+          <ResourceBal resource="meat" label="Meat" value={view?.meat ?? '—'} />
+          <ResourceBal resource="dataspecies" label="Data species" value={dataEntries.length} />
+          <ResourceBal resource="mons" label="In care" value={view?.mons.length ?? 0} />
+        </BalBar>
+
+        <div className="scroll">
+          <div className="col left">
+            <SectionHead title="Care" count={view?.mons ? `${view.mons.length} in care` : '—'} />
+            <NurserySidebar
+              view={view}
+              loading={nurseryQuery.isPending}
+              busyMonId={careMutation.variables?.mon.id ?? null}
+              onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
+              onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
+            />
+          </div>
+
+          <div className="col right">
+            <SectionHead title="Hatchery" />
+            <div className="rstack">
+              <div className="rbox hatchery" data-od-id="hatchery">
+                <div className="rh">
+                  <span className="rt">Species Data</span>
+                  <span className="rc" id="data-count">{dataEntries.length} tracked</span>
+                </div>
+                <NurseryDigitamaSidebar
+                  entries={dataEntries}
+                  pending={pending}
+                  loading={dataQuery.isPending}
+                  totalWeight={totalWeight}
+                  busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
+                  mixBusy={mixMutation.isPending}
+                  onHatch={(entry) => hatchMutation.mutate(entry)}
+                  onMix={() => mixMutation.mutate()}
+                />
+              </div>
+              <div className="rbox pending" data-od-id="pending-hatches">
+                <div className="rh">
+                  <span className="rt">Incubating</span>
+                  <span className="rc" id="pending-count">{pending.length} egg{pending.length === 1 ? '' : 's'}</span>
+                </div>
+                <NurseryYard
+                  mons={view?.mons ?? []}
+                  feedback={feedback}
+                  pending={pending}
+                  busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
+                  onCollect={(entry) => collectMutation.mutate(entry)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+      <NurseryStatus message={error ?? notice} error={error !== null} onDismiss={() => setNotice(null)} />
     </NurseryChrome>
   );
 }
@@ -172,11 +211,21 @@ function collectErrorMessage(code: 'not-found' | 'not-ready' | 'template-missing
   }
 }
 
-function NurseryStatus({ message, error }: { readonly message: string | null; readonly error: boolean }): JSX.Element | null {
-  if (message === null) {
-    return null;
-  }
-  return <div id="toast-slot" className={error ? 'nursery-toast is-error' : 'nursery-toast'} role="status" aria-live="polite">{message}</div>;
+function NurseryStatus({ message, error, onDismiss }: { readonly message: string | null; readonly error: boolean; readonly onDismiss: () => void }): JSX.Element | null {
+  useEffect(() => {
+    if (message !== null) {
+      const timer = window.setTimeout(onDismiss, 5000);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [message, onDismiss]);
+
+  const cls = `nursery-toast ${message !== null ? 'show' : ''} ${error ? 'is-error' : ''}`.trim();
+  return (
+    <div id="toast-slot" className={cls} role="status" aria-live="polite">
+      {message}
+    </div>
+  );
 }
 
 function queryError(...errors: readonly (Error | null)[]): string | null {

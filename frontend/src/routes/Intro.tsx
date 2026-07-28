@@ -6,7 +6,6 @@ import { DialogueLayer } from '../components/onboarding/DialogueLayer';
 import { FallbackMessage } from '../components/onboarding/FallbackMessage';
 import { TeamsLayer } from '../components/onboarding/TeamsLayer';
 import { TransitionOverlay } from '../components/onboarding/TransitionOverlay';
-import { INTRO_TOUR_ACTIVE_KEY, INTRO_TOUR_DONE_KEY, INTRO_TOUR_STEP_KEY } from '../components/intro/tourSteps';
 import { AUTH_ME_KEY, useAuth } from '../hooks/useAuth';
 import { ApiError } from '../lib/api';
 import { getOnboardingState, selectOnboardingTeam, type OnboardingTeamView } from '../lib/api-onboarding';
@@ -14,18 +13,6 @@ import '../styles/extensions-onboarding.css';
 
 const INTRO_QUERY_KEY = ['onboarding'] as const;
 const INTRO_FALLBACK = 'Welcome to DigiWorld.';
-
-function armIntroTour(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(INTRO_TOUR_ACTIVE_KEY, '1');
-    window.localStorage.setItem(INTRO_TOUR_STEP_KEY, '0');
-    window.localStorage.removeItem(INTRO_TOUR_DONE_KEY);
-    window.dispatchEvent(new Event('digiworld:intro-tour-armed'));
-  } catch {
-    // storage unavailable — tour will simply not fire
-  }
-}
 
 export function Intro(): JSX.Element {
   const navigate = useNavigate();
@@ -78,7 +65,6 @@ export function Intro(): JSX.Element {
     try {
       const result = await selectTeamMutation.mutateAsync(team.id);
       sessionStorage.setItem('digiworld:just-onboarded', team.slug || result.teamSlug);
-      armIntroTour();
       await queryClient.invalidateQueries({ queryKey: AUTH_ME_KEY });
       window.setTimeout(() => {
         setTransitionActive(true);

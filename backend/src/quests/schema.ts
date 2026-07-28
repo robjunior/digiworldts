@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS world_objects (
   id          TEXT PRIMARY KEY,
   x           INTEGER NOT NULL,
   y           INTEGER NOT NULL,
+  lat         REAL NOT NULL DEFAULT 0,
+  lon         REAL NOT NULL DEFAULT 0,
   kind        TEXT NOT NULL,
   scale       REAL NOT NULL DEFAULT 1.0,
   tint        TEXT,
