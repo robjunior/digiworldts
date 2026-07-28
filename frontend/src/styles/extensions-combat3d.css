@@ -39,7 +39,8 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 
 /* ---- arena: 3D canvas fills the stage, overlays float above ------------ */
 .stage{flex:1 1 auto;min-height:0;position:relative;overflow:hidden;background:radial-gradient(120% 100% at 50% 120%,color-mix(in oklab,var(--signal) 8%,var(--bg)),var(--bg) 70%)}
-#arena{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+.c3d-canvas-host{position:absolute;inset:0;width:100%;height:100%;z-index:1;overflow:hidden}
+.c3d-canvas{display:block;width:100%;height:100%}
 .arena-fallback{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:1;color:var(--muted);font:600 12px/1.5 var(--font);text-align:center;padding:24px}
 .arena-fallback.show{display:flex}
 .arena-fallback .box{max-width:340px;border:1px solid var(--hair);clip-path:var(--notch-clip);padding:20px 22px;background:color-mix(in oklab,var(--panel) 80%,transparent)}
@@ -221,3 +222,262 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .erow.acting::before{background:var(--battle)}
 
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.floater{display:none}}
+
+/* =====================================================================
+   End-of-battle report card + PVE rewards (XP animation + level-up + loot).
+   Restored from pre-P4a (commit 840ba12^) — the P4a v2 CSS purge dropped
+   every .end-card / .pve-* rule, leaving the (also-purged) minimal 44-line
+   EndCard with no styling.
+   ===================================================================== */
+
+.end-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in oklab, var(--ink) 62%, transparent);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: endCardBackdropIn .22s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.end-modal-content {
+  width: 100%;
+  max-width: 560px;
+  animation: endCardIn .32s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+@keyframes endCardBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes endCardIn {
+  from { opacity: 0; transform: translateY(14px) scale(.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.end-card {
+  position: relative;
+  padding: 26px 28px 22px;
+  text-align: center;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.end-card.win { border-color: var(--signal); background: color-mix(in oklab, var(--signal) 6%, var(--panel)); }
+.end-card.loss { border-color: var(--battle); background: color-mix(in oklab, var(--battle) 6%, var(--panel)); }
+.end-card.draw { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 6%, var(--panel)); }
+
+.end-card-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  background: none;
+  border: 0;
+  padding: 4px 10px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .18s;
+}
+.end-card-close:hover { color: var(--ink); }
+
+.end-card .outcome-pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  color: var(--ink);
+  border: 1px solid currentColor;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.end-card.win .outcome-pill { color: var(--signal); }
+.end-card.loss .outcome-pill { color: var(--battle); }
+.end-card.draw .outcome-pill { color: var(--gold); }
+
+.end-card .headline {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  margin: 0;
+  color: var(--ink);
+}
+
+.end-card .rewards {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.end-card .rewards .r { display: inline-flex; align-items: center; gap: 6px; }
+.end-card .rewards .r .k {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.end-card .cta-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.end-card .cta-row a,
+.end-card .cta-row .btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 18px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-decoration: none;
+  color: var(--bg);
+  background: var(--signal);
+  border: 1px solid var(--signal);
+  cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  transition: transform .12s cubic-bezier(.16, 1, .3, 1), filter .18s;
+}
+.end-card .cta-row a:hover,
+.end-card .cta-row .btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+
+.pve-results {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.pve-block { display: flex; flex-direction: column; gap: 8px; }
+.pve-block-k {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  align-self: flex-start;
+}
+
+.pve-loot-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pve-loot-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  font-size: 12px;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.pve-loot-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--gold);
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+}
+.pve-loot-qty { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.pve-xp-list { display: flex; flex-direction: column; gap: 8px; }
+.pve-xp-row {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.pve-xp-row.is-defeated { opacity: .65; }
+.pve-xp-row.is-levelup { border-color: var(--gold); background: color-mix(in oklab, var(--gold) 5%, var(--bg)); }
+
+.pve-xp-actor { display: flex; align-items: center; gap: 8px; }
+.pve-xp-portrait {
+  width: 24px;
+  height: 24px;
+  image-rendering: pixelated;
+  background: color-mix(in oklab, var(--ink) 8%, transparent);
+  padding: 2px;
+}
+.pve-xp-info { display: flex; flex-direction: column; gap: 1px; line-height: 1.2; }
+.pve-xp-nick { font-size: 12px; font-weight: 600; color: var(--ink); }
+.pve-xp-lvl { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pve-xp-lvl b { color: var(--ink); }
+
+.pve-xp-progress { display: flex; align-items: center; gap: 8px; }
+.pve-xp-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+}
+.pve-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal), color-mix(in oklab, var(--signal) 60%, var(--gold)));
+  transition: width .1s linear;
+}
+.pve-xp-delta { font-size: 11px; font-variant-numeric: tabular-nums; }
+.pve-xp-win { color: var(--signal); }
+.pve-xp-loss { color: var(--battle); }
+.pve-xp-muted { color: var(--muted); }
+
+.pve-xp-lvlup { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.pve-lvlup-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  color: var(--bg);
+  background: var(--gold);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  animation: pveLvlUpPop .35s cubic-bezier(.16, 1, .3, 1) both;
+}
+.pve-lvlup-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 4px;
+  width: 100%;
+}
+.pve-lvlup-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.pve-lvlup-stat.is-up { border-color: var(--signal); color: var(--signal); }
+.pve-lvlup-stat.is-down { border-color: var(--battle); color: var(--battle); }
+.pve-lvlup-stat-k { font-size: 8px; font-weight: 700; letter-spacing: .1em; color: var(--muted); }
+.pve-lvlup-stat-new { font-size: 12px; color: var(--ink); }
+.pve-lvlup-stat.is-up .pve-lvlup-stat-new { color: var(--signal); }
+.pve-lvlup-stat.is-down .pve-lvlup-stat-new { color: var(--battle); }
+.pve-lvlup-stat-old { font-size: 9px; color: var(--muted); text-decoration: line-through; }
+.pve-lvlup-stat-old--same { text-decoration: none; opacity: .5; }
+
+@keyframes pveLvlUpPop {
+  from { opacity: 0; transform: scale(.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+
