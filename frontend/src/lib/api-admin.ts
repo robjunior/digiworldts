@@ -214,6 +214,16 @@ export function updateUserCredits(id: string, credits: number): Promise<{ readon
   return apiFetch<{ readonly ok: true; readonly user: UserDetail }>(`/api/admin/users/${encodeURIComponent(id)}/credits`, { method: 'PATCH', body: { credits } });
 }
 
+export type AdminResetTokenResponse = {
+  readonly token: string;
+  readonly expiresAt: number;
+  readonly url: string;
+};
+
+export function issueUserResetToken(id: string): Promise<AdminResetTokenResponse> {
+  return apiFetch<AdminResetTokenResponse>(`/api/admin/users/${encodeURIComponent(id)}/reset-token`, { method: 'POST' });
+}
+
 export function getUserRoster(userId: string): Promise<{ readonly roster: readonly AdminRosterView[] }> {
   return apiFetch<{ readonly roster: readonly AdminRosterView[] }>(`/api/admin/users/${encodeURIComponent(userId)}/roster`);
 }
