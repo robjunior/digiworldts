@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import type { DialogueNode, DialogueNodeId, Quest, QuestStep, WorldObject } from '@digiworld/shared/quest';
+import type { DialogueNode, DialogueNodeId, Quest, QuestObjective, QuestStep, WorldObject } from '@digiworld/shared/quest';
+import { ELEMENTS } from '@digiworld/shared/digimon';
+import { BIOMES } from '@digiworld/shared/world';
 
 const DialogueNodeIdSchema = z.string().min(1).max(80).transform((value) => value as DialogueNodeId);
 
@@ -52,6 +54,21 @@ const QuestStepSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('loot'), pool: LootPoolSchema }),
 ]);
 
+const QuestObjectiveSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('travel'),
+    biome: z.enum(BIOMES),
+    text: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    kind: z.literal('defeat'),
+    biome: z.enum(BIOMES),
+    element: z.enum(ELEMENTS).optional(),
+    count: z.number().int().min(1).max(999),
+    text: z.string().trim().min(1).max(500),
+  }),
+]);
+
 export const QuestInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(2_000).default(''),
@@ -60,6 +77,10 @@ export const QuestInputSchema = z.object({
   steps: z.array(QuestStepSchema).max(200),
   finalReward: LootPoolSchema,
   unlocksQuestIds: z.array(z.string().min(1).max(80)).max(200).default([]),
+  objectives: z.array(QuestObjectiveSchema).max(20).optional(),
+  giver: z.string().trim().min(1).max(80).optional(),
+  rewardText: z.string().trim().min(1).max(200).optional(),
+  lockHint: z.string().trim().min(1).max(200).optional(),
 });
 
 export const QuestImportSchema = QuestInputSchema.extend({
@@ -80,6 +101,13 @@ export const WorldObjectInputSchema = z.object({
   dungeonId: z.string().min(1).max(80).optional(),
   passable: z.boolean().default(false),
   label: z.string().trim().min(1).max(120).optional(),
+  elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length).optional(),
+  minLevel: z.number().int().min(1).max(999).optional(),
+  maxLevel: z.number().int().min(1).max(999).optional(),
+}).superRefine((input, ctx) => {
+  if (input.minLevel !== undefined && input.maxLevel !== undefined && input.maxLevel < input.minLevel) {
+    ctx.addIssue({ code: 'custom', path: ['maxLevel'], message: 'maxLevel must be >= minLevel' });
+  }
 });
 
 type QuestInput = z.infer<typeof QuestInputSchema>;
@@ -133,6 +161,19 @@ function strictQuestStep(input: QuestInput['steps'][number]): QuestStep {
   }
 }
 
+function strictQuestObjective(input: NonNullable<QuestInput['objectives']>[number]): QuestObjective {
+  if (input.kind === 'travel') {
+    return { kind: 'travel', biome: input.biome, text: input.text };
+  }
+  return {
+    kind: 'defeat',
+    biome: input.biome,
+    count: input.count,
+    text: input.text,
+    ...(input.element !== undefined ? { element: input.element } : {}),
+  };
+}
+
 export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt' | 'updatedAt'> {
   return {
     name: input.name,
@@ -142,6 +183,10 @@ export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt
     steps: input.steps.map(strictQuestStep),
     finalReward: strictLootPool(input.finalReward),
     unlocksQuestIds: input.unlocksQuestIds,
+    ...(input.objectives !== undefined ? { objectives: input.objectives.map(strictQuestObjective) } : {}),
+    ...(input.giver !== undefined ? { giver: input.giver } : {}),
+    ...(input.rewardText !== undefined ? { rewardText: input.rewardText } : {}),
+    ...(input.lockHint !== undefined ? { lockHint: input.lockHint } : {}),
   };
 }
 
@@ -158,6 +203,9 @@ export function asWorldObjectPayload(input: WorldObjectInput): Omit<WorldObject,
     ...(input.questId !== undefined ? { questId: input.questId } : {}),
     ...(input.dungeonId !== undefined ? { dungeonId: input.dungeonId } : {}),
     ...(input.label !== undefined ? { label: input.label } : {}),
+    ...(input.elements !== undefined && input.elements.length > 0 ? { elements: input.elements } : {}),
+    ...(input.minLevel !== undefined ? { minLevel: input.minLevel } : {}),
+    ...(input.maxLevel !== undefined ? { maxLevel: input.maxLevel } : {}),
   };
 }
 

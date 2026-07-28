@@ -13,6 +13,34 @@ export const BIOMES = [
 ] as const;
 export type Biome = (typeof BIOMES)[number];
 
+export const BIOME_LABEL: Record<Biome, string> = {
+  desert: 'Ember Wastes',
+  forest: 'Verdant Reach',
+  lake: 'Mirror Basin',
+  storm: 'Voltcloud',
+  tundra: 'Frostspire',
+  mountain: 'Stoneridge',
+  foundry: 'Rustworks',
+  plateau: 'Skyshear',
+  prairie: 'Solaris Fields',
+  swamp: 'Nightveil',
+  void: 'The Static',
+};
+
+export const BIOME_ELEMENT: Record<Biome, string> = {
+  desert: 'fire',
+  forest: 'plant',
+  lake: 'water',
+  storm: 'electricity',
+  tundra: 'ice',
+  mountain: 'earth',
+  foundry: 'steel',
+  plateau: 'wind',
+  prairie: 'light',
+  swamp: 'dark',
+  void: 'null',
+};
+
 export const ARENA_FILES = [
   'plant.glb',
   'steel.glb',

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import * as THREE from 'three';
 
+import { QuestPane } from '../components/world/QuestPane';
 import { getWorldRegions } from '../lib/api-world';
+import { acceptQuest, claimQuest, getQuests } from '../lib/api-quests';
 import type { WorldRegion } from '@digiworld/shared/world';
+import type { Biome } from '@digiworld/shared/world';
 import { useAuth } from '../hooks/useAuth';
 import '../styles/extensions-world.css';
 
@@ -50,18 +53,79 @@ function circlePts(r: number, seg: number, plane: 'xy' | 'xz') {
 export function World(): JSX.Element {
   useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   
-  const { data: regions = [] } = useQuery({ 
-    queryKey: ['world-regions'], 
-    queryFn: getWorldRegions 
+  const { data: regionsRaw = [] } = useQuery({
+    queryKey: ['world-regions'],
+    queryFn: getWorldRegions
   });
-  
+  const regions = useMemo(() => regionsRaw.filter((region) => region.dungeonId !== null), [regionsRaw]);
+  const questsQuery = useQuery({ queryKey: ['world-quests'], queryFn: getQuests });
+  const quests = questsQuery.data ?? [];
+
+  const [tab, setTab] = useState<'regions' | 'quests'>('regions');
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [hoveredIdx, setHoveredIdx] = useState<number>(-1);
   const [autoSpin, setAutoSpin] = useState<boolean>(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const [webGLFailed, setWebGLFailed] = useState<boolean>(false);
   const [hoverTip, setHoverTip] = useState<{ x: number, y: number, name: string, el: string, rawEl: string } | null>(null);
+  const [pendingQuestIds, setPendingQuestIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((message: string) => {
+    setToastMessage(message);
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimerRef.current = null;
+    }, 2600);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
+  }, []);
+
+  const addPending = useCallback((id: string) => {
+    setPendingQuestIds((prev) => { const next = new Set(prev); next.add(id); return next; });
+  }, []);
+  const removePending = useCallback((id: string) => {
+    setPendingQuestIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+  }, []);
+
+  const acceptMutation = useMutation({
+    mutationFn: (id: string) => acceptQuest(id),
+    onMutate: (id) => addPending(id),
+    onSuccess: (quest) => showToast(`Accepted “${quest.name}”.`),
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Could not accept quest.'),
+    onSettled: (_data, _err, id) => { removePending(id); void queryClient.invalidateQueries({ queryKey: ['world-quests'] }); },
+  });
+  const claimMutation = useMutation({
+    mutationFn: (id: string) => claimQuest(id),
+    onMutate: (id) => addPending(id),
+    onSuccess: (result) => {
+      const parts: string[] = [];
+      if (result.creditsGranted > 0) parts.push(`+${result.creditsGranted} DigiCredits`);
+      for (const drop of result.itemsGranted) parts.push(`${drop.qty}× ${drop.itemId}`);
+      showToast(parts.length > 0 ? `Reward claimed — ${parts.join(' · ')}.` : 'Reward claimed.');
+    },
+    onError: (err) => showToast(err instanceof Error ? err.message : 'Could not claim reward.'),
+    onSettled: (_data, _err, id) => {
+      removePending(id);
+      void queryClient.invalidateQueries({ queryKey: ['world-quests'] });
+      void queryClient.invalidateQueries({ queryKey: ['shop'] });
+      void queryClient.invalidateQueries({ queryKey: ['items'] });
+    },
+  });
+
+  const selectBiome = useCallback((biome: Biome) => {
+    const idx = regions.findIndex((r) => r.biome === biome);
+    if (idx >= 0) {
+      setSelectedIdx(idx);
+      setTab('regions');
+    }
+  }, [regions]);
   
   const stateRef = useRef({
     autoSpin,
@@ -332,54 +396,90 @@ export function World(): JSX.Element {
       </div>
 
       <aside className="rail" data-od-id="region-rail">
-        <div className="rhead">
-          <div className="rt">Regions</div>
-          <div className="rs"><b id="rail-count">{regions.length}</b> discovered · sorted by danger</div>
+        <div className="rtabs" role="tablist" aria-label="Regions and Quests">
+          <button
+            type="button"
+            className="rtab"
+            role="tab"
+            aria-selected={tab === 'regions'}
+            onClick={() => setTab('regions')}
+          >
+            Regions <span className="tcount">{regions.length}</span>
+          </button>
+          <button
+            type="button"
+            className="rtab"
+            role="tab"
+            aria-selected={tab === 'quests'}
+            onClick={() => setTab('quests')}
+          >
+            Quests <span className="tcount">{quests.length}</span>
+          </button>
         </div>
-        
-        <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
-          {[...regions].sort((a, z) => z.danger - a.danger).map((b) => {
-            const i = regions.indexOf(b);
-            const isSel = selectedIdx === i;
-            return (
-              <button 
-                key={i}
-                className={`rrow ${isSel ? 'sel' : ''}`} 
-                data-region={i} 
-                role="option" 
-                aria-selected={isSel}
-                onClick={() => setSelectedIdx(i)}
-                style={{ '--el': elVar(b.element) } as React.CSSProperties}
-                aria-label={`${b.label}, ${b.element}, danger ${b.danger} of 5${b.scouted ? ', scouted' : ''}`}
-              >
-                <span className="rdot"></span>
-                <span className="rnm">{b.label}<span className="rsub">{cap(b.element)} · {cap(b.biome)}</span></span>
-                <span className="rdg">D{b.danger}{b.scouted ? ' ·✓' : ''}</span>
-              </button>
-            );
-          })}
+
+        <div className={`rpane${tab === 'regions' ? ' show' : ''}`} role="tabpanel" aria-label="Regions" hidden={tab !== 'regions'}>
+          <div className="rhead">
+            <div className="rt">Regions</div>
+            <div className="rs"><b id="rail-count">{regions.length}</b> discovered · sorted by danger</div>
+          </div>
+          
+          <div className="rlist" id="rlist" role="listbox" aria-label="World regions">
+            {[...regions].sort((a, z) => z.danger - a.danger).map((b) => {
+              const i = regions.indexOf(b);
+              const isSel = selectedIdx === i;
+              return (
+                <button 
+                  key={i}
+                  className={`rrow ${isSel ? 'sel' : ''}`} 
+                  data-region={i} 
+                  role="option" 
+                  aria-selected={isSel}
+                  onClick={() => setSelectedIdx(i)}
+                  style={{ '--el': elVar(b.element) } as React.CSSProperties}
+                  aria-label={`${b.label}, ${b.element}, danger ${b.danger} of 5${b.scouted ? ', scouted' : ''}`}
+                >
+                  <span className="rdot"></span>
+                  <span className="rnm">{b.label}<span className="rsub">{cap(b.element)} · {cap(b.biome)}</span></span>
+                  <span className="rdg">D{b.danger}{b.scouted ? ' ·✓' : ''}</span>
+                </button>
+              );
+            })}
+          </div>
+          
+          <div className="rdetail" id="rdetail">
+            {selectedRegion ? (
+              <>
+                <div className="dk">Selected Region</div>
+                <h3>{selectedRegion.label}</h3>
+                <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as React.CSSProperties}>
+                  <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
+                  <span className="rchip" style={{ '--el': 'var(--muted)' } as React.CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
+                  {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as React.CSSProperties}><span className="cx"></span>Scouted</span>}
+                </div>
+                <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
+                <div className="dgauge">
+                  <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
+                  <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
+                </div>
+                <button className="dbtn" id="scout-btn" onClick={() => enterDungeon(selectedRegion)}>Enter Dungeon</button>
+              </>
+            ) : (
+              <div className="rempty">Select a region on the globe or list to scout it.</div>
+            )}
+          </div>
         </div>
-        
-        <div className="rdetail" id="rdetail">
-          {selectedRegion ? (
-            <>
-              <div className="dk">Selected Region</div>
-              <h3>{selectedRegion.label}</h3>
-              <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as React.CSSProperties}>
-                <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
-                <span className="rchip" style={{ '--el': 'var(--muted)' } as React.CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
-                {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as React.CSSProperties}><span className="cx"></span>Scouted</span>}
-              </div>
-              <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
-              <div className="dgauge">
-                <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
-                <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
-              </div>
-              <button className="dbtn" id="scout-btn" onClick={() => enterDungeon(selectedRegion)}>Enter Dungeon</button>
-            </>
-          ) : (
-            <div className="rempty">Select a region on the globe or list to scout it.</div>
-          )}
+
+        <div className={`rpane${tab === 'quests' ? ' show' : ''}`} role="tabpanel" aria-label="Quests" hidden={tab !== 'quests'}>
+          <QuestPane
+            quests={quests}
+            regions={regions}
+            loading={questsQuery.isPending}
+            pendingIds={pendingQuestIds}
+            onAreaClick={selectBiome}
+            onLocate={selectBiome}
+            onAccept={(id) => acceptMutation.mutate(id)}
+            onClaim={(id) => claimMutation.mutate(id)}
+          />
         </div>
       </aside>
     </>

@@ -240,9 +240,28 @@ async function markWonDungeonEncounter(userId: string, battle: Battle): Promise<
   if (battle.outcome !== 'win_a' && battle.outcome !== 'captured_a') return;
   const ctx = dungeonContext.get(userId);
   if (!ctx) return;
-  const { defeatEncounter } = await import('../dungeons/repo.js');
+  const [{ defeatEncounter, getDungeon }, { bumpDefeatObjectives }] = await Promise.all([
+    import('../dungeons/repo.js'),
+    import('../quests/repo.js'),
+  ]);
   await defeatEncounter(userId, ctx.dungeonId, ctx.encounterId);
   log.info('dungeon.encounter.won', { userId, dungeonId: ctx.dungeonId, encounterId: ctx.encounterId });
+  const dungeon = await getDungeon(ctx.dungeonId);
+  const biome = dungeon?.biomeRegion ?? null;
+  if (biome === null) return;
+  const defeatedByElement = new Map<string, number>();
+  for (const unit of battle.units) {
+    if (unit.side !== 'b') continue;
+    if (unit.hp > 0) continue;
+    defeatedByElement.set(unit.element, (defeatedByElement.get(unit.element) ?? 0) + 1);
+  }
+  await Promise.all(
+    [...defeatedByElement].map(([element, count]) =>
+      bumpDefeatObjectives(userId, biome as import('@digiworld/shared/world').Biome, element as Parameters<typeof bumpDefeatObjectives>[2], count).catch((err) => {
+        log.warn('quests.defeat.bump.failed', { userId, biome, element, err: err instanceof Error ? err.message : String(err) });
+      }),
+    ),
+  );
 }
 
 export type XpAward = {

@@ -44,7 +44,7 @@ import { onboardingPlugin } from './onboarding/routes.js';
 import { seedDefaultOnboarding } from './onboarding/engine.js';
 import { gameSettingsPlugin } from './settings/routes.js';
 import { seedDefaultGameSettings } from './settings/engine.js';
-import { seedDefaultWorldObjects } from './quests/seed.js';
+import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
 import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
 import { dungeonsPlugin } from './dungeons/routes.js';
@@ -107,6 +107,7 @@ async function main(): Promise<void> {
   await seedDefaultOnboarding();
   await seedDefaultGameSettings();
   await seedDefaultWorldObjects();
+  await seedDefaultQuests();
   await seedSkillsCatalogFromXml();
 
   const app = Fastify({
