@@ -62,15 +62,36 @@ function positionView(pos: Position): {
   };
 }
 
+function parseRequiredItems(value: string | null): readonly string[] | null {
+  if (value === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return null;
+    const strings = parsed.filter((entry): entry is string => typeof entry === 'string');
+    return strings.length > 0 ? strings : null;
+  } catch {
+    return null;
+  }
+}
+
 export const worldPlugin: FastifyPluginAsync = async (app) => {
   app.get('/api/world/regions', async (req, reply) => {
     const user = await requireAuth(req, reply);
     if (!user) return;
-    const rows = await q<{ biome_region: Biome; id: string }>(
-      `SELECT id, biome_region FROM dungeons WHERE biome_region IS NOT NULL`,
+    const rows = await q<{ biome_region: Biome; id: string; unlock_requires_items: string | null }>(
+      `SELECT id, biome_region, unlock_requires_items FROM dungeons WHERE biome_region IS NOT NULL`,
     );
+    const inventoryRows = await q<{ item_id: string }>(
+      `SELECT item_id FROM player_inventory WHERE user_id = ? AND qty >= 1`,
+      user.id,
+    );
+    const ownedItems = new Set(inventoryRows.map((r) => r.item_id));
     const dungeonByBiome = new Map<Biome, string>();
-    for (const r of rows) dungeonByBiome.set(r.biome_region, r.id);
+    for (const r of rows) {
+      const required = parseRequiredItems(r.unlock_requires_items);
+      if (required && !required.every((itemId) => ownedItems.has(itemId))) continue;
+      dungeonByBiome.set(r.biome_region, r.id);
+    }
     const scoutedRows = await q<{ dungeon_id: string }>(
       `SELECT dungeon_id FROM user_dungeon_runs WHERE user_id = ?`,
       user.id,

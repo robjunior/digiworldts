@@ -41,6 +41,7 @@ export type DungeonEncounter = {
   readonly label: string | null;
   readonly difficulty: EncounterDifficulty;
   readonly digimon: readonly EncounterDigimon[];
+  readonly rewardItemId: string | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -81,6 +82,7 @@ export type Dungeon = {
   readonly id: string;
   readonly worldObjectId: string | null;
   readonly questId: string | null;
+  readonly parentId: string | null;
   readonly name: string;
   readonly description: string;
   readonly biome: Biome | 'null';
@@ -97,6 +99,7 @@ export type Dungeon = {
   readonly randomMinPartySize: number;
   readonly randomMaxPartySize: number;
   readonly randomAllowedElements: readonly Element[] | null;
+  readonly unlockRequiresItems: readonly string[] | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
