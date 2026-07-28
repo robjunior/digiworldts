@@ -66,6 +66,7 @@ services:
       - scrapecache:/app/backend/data/cache
       - scenedata:/app/backend/data/scenes
       - ./backend/data/catalog:/app/backend/data/catalog
+      - ./frontend/public/assets/arenas:/app/frontend/public/assets/arenas
     healthcheck:
       test:
         [
@@ -88,6 +89,8 @@ services:
         condition: service_healthy
     ports:
       - "${HOST_PORT:-8080}:8080"
+    volumes:
+      - ./frontend/public/assets/arenas:/usr/share/nginx/html/assets/arenas:ro
     restart: unless-stopped
 
   cloudflared:

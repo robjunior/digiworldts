@@ -3,6 +3,7 @@ import { one, q, tx, type PendingHatchRow, type SpeciesDataRow } from '../db/ind
 import { loadCatalog } from '../digimon/xml.js';
 import { type Stage, type TemplateDigimon } from '../digimon/types.js';
 import { xpToReach } from '../progression/xp.js';
+import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 
@@ -46,8 +47,8 @@ const SQL_SELECT_PENDING = `SELECT * FROM player_pending_hatches WHERE user_id =
 const SQL_SELECT_PENDING_BY_ID = `SELECT * FROM player_pending_hatches WHERE id = ? AND user_id = ?`;
 const SQL_DELETE_PENDING = `DELETE FROM player_pending_hatches WHERE id = ? AND user_id = ?`;
 const SQL_INSERT_ROSTER = `
-  INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, mood, status, slot_index, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?)
+  INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, mood, status, slot_index, equipped_skill_ids, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?, ?)
 `;
 
 export type SpeciesAward = { catalogId: string; tier: Tier; percent: number; kills: number };
@@ -239,8 +240,9 @@ export async function collectHatch(userId: string, hatchId: string): Promise<Col
   const monId = newId('mon');
   const nickname = rookieTpl.name;
   const startingXp = xpToReach(HATCH_LEVEL, 'Rookie');
+  const equippedJson = JSON.stringify(await getDefaultEquippedForStage(rookieTpl.element, rookieTpl.stage));
   await tx(async (t) => {
-    await t.run(SQL_INSERT_ROSTER, [monId, userId, rookieTpl.id, nickname, HATCH_LEVEL, startingXp, now, now]);
+    await t.run(SQL_INSERT_ROSTER, [monId, userId, rookieTpl.id, nickname, HATCH_LEVEL, startingXp, equippedJson, now, now]);
     await t.run(SQL_DELETE_PENDING, [hatchId, userId]);
   });
   log.info('nursery.hatch.collect', { userId, hatchId, monId, rookie: rookieTpl.id });

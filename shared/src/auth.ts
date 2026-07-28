@@ -18,6 +18,8 @@ export type PublicUser = {
   mmr: number;
   /** ms epoch when premium expires, or null if never activated / expired. */
   premiumUntil: number | null;
+  /** 'en' | 'pt', or null when user has never explicitly picked (browser detection applies). */
+  localePref: 'en' | 'pt' | null;
 };
 
 /** GET /api/auth/status — no auth required. */

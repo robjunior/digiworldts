@@ -8,7 +8,7 @@
  * Run: pnpm --filter @digiworld/backend exec tsx test/dsl-runtime.mts
  */
 import { initBattle, applyAction } from '../src/battle/engine.js';
-import { applyDamageWithBuffs, effectiveDef, getEvade, getAccuracy, rollMiss, tickActorBuffs } from '../src/battle/dsl-runtime.js';
+import { applyDamageWithBuffs, effectiveDef, getEvade, getAccuracy, rollMiss, tickActorBuffs, tickSkillCooldowns } from '../src/battle/dsl-runtime.js';
 import type { LoadoutMember, Loadout } from '../src/battle/engine.js';
 import type { Action as DSLAction } from '../src/skills/dsl.js';
 import type { BattleUnit, Skill } from '@digiworld/shared/battle';
@@ -270,6 +270,62 @@ console.log('\n=== Test 17: drain damages target + heals caster ===');
   const casterHpAfter = actor.hp;
   check('target damaged', enemyHpAfter < enemyHpBefore);
   check('caster healed', casterHpAfter > casterHpBefore, `caster ${casterHpBefore}→${casterHpAfter}`);
+}
+
+console.log('\n=== Test 18: cooldown enforcement ===');
+{
+  const cdSkill: Skill = { id: 'sk-cd', name: 'Cooldown Skill', element: 'fire', energyCost: 0, power: 100, cooldown: 2 };
+  const { b, actor } = battleWithActorSkill(cdSkill);
+  const initialCd = actor.skillCooldowns;
+  check('no cooldown entries before cast', initialCd === undefined || Object.keys(initialCd).length === 0);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd', targetId: 'b:0' });
+  check('after cast, skillCooldowns[sk-cd] = 2 (set to 3, ticked to 2)', actor.skillCooldowns?.['sk-cd'] === 2, `got ${actor.skillCooldowns?.['sk-cd']}`);
+}
+
+console.log('\n=== Test 19: cooldown blocks recast with on-cooldown error ===');
+{
+  const cdSkill: Skill = { id: 'sk-cd2', name: 'CD2', element: 'fire', energyCost: 0, power: 100, cooldown: 2 };
+  const { b, actor } = battleWithActorSkill(cdSkill);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd2', targetId: 'b:0' });
+  b.turnCursor = 0;
+  const result = applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd2', targetId: 'b:0' });
+  check('recast returns ok:false', result.ok === false);
+  if (result.ok === false) {
+    check('recast error code is on-cooldown', result.code === 'on-cooldown', `got ${result.code}`);
+    check('recast error mentions cooldown', result.error.includes('cooldown'), `got "${result.error}"`);
+  }
+}
+
+console.log('\n=== Test 20: tickSkillCooldowns direct decrement + expire ===');
+{
+  const cdSkill: Skill = { id: 'sk-cd3', name: 'CD3', element: 'fire', energyCost: 0, power: 100 };
+  const { actor } = battleWithActorSkill(cdSkill);
+  actor.skillCooldowns = { 'sk-a': 3, 'sk-b': 1 };
+  tickSkillCooldowns(actor);
+  check('sk-a decremented from 3 to 2', actor.skillCooldowns?.['sk-a'] === 2);
+  check('sk-b expired (1→0 deleted)', actor.skillCooldowns?.['sk-b'] === undefined);
+  tickSkillCooldowns(actor);
+  check('sk-a decremented from 2 to 1', actor.skillCooldowns?.['sk-a'] === 1);
+  tickSkillCooldowns(actor);
+  check('sk-a expired (1→0 deleted)', actor.skillCooldowns?.['sk-a'] === undefined);
+  check('skillCooldowns record is now empty', Object.keys(actor.skillCooldowns ?? {}).length === 0);
+}
+
+console.log('\n=== Test 21: skills without cooldown do not create entries ===');
+{
+  const noCdSkill: Skill = { id: 'sk-nocd', name: 'NoCD', element: 'fire', energyCost: 0, power: 100 };
+  const { b, actor } = battleWithActorSkill(noCdSkill);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-nocd', targetId: 'b:0' });
+  check('no skillCooldowns entry for cooldown-less skill', actor.skillCooldowns?.['sk-nocd'] === undefined);
+}
+
+console.log('\n=== Test 22: basic fight action does not create cooldown entry ===');
+{
+  const anySkill: Skill = { id: 'sk-x', name: 'X', element: 'fire', energyCost: 0, power: 100 };
+  const { b, actor } = battleWithActorSkill(anySkill);
+  applyAction(b, 'a', { type: 'fight', unitId: 'a:0', targetId: 'b:0' });
+  check('no basic cooldown entry after fight', actor.skillCooldowns?.['basic'] === undefined);
+  check('no other cooldown entries created', actor.skillCooldowns === undefined || Object.keys(actor.skillCooldowns).length === 0);
 }
 
 Math.random = originalRandom;

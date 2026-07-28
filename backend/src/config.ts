@@ -46,6 +46,7 @@ const ConfigSchema = z.object({
   DATA_DIR: z.string().default('data'),
   PUBLIC_DIR: z.string().default('public'),
   FRONTEND_DIST_DIR: z.string().default('../frontend/dist'),
+  ARENAS_DIR: z.string().default('../frontend/public/assets/arenas'),
   CATALOG_XML: z.string().default('data/catalog/digimons.xml'),
   SCRAPE_CACHE_DIR: z.string().default('data/cache'),
   ASSETS_DIR: z.string().default('public/assets/digimon'),
@@ -57,6 +58,7 @@ const ConfigSchema = z.object({
   MAX_LOBBY_CONNECTIONS: z.coerce.number().int().positive().default(1200),
   MAX_CONCURRENT_MATCHES: z.coerce.number().int().positive().default(200),
   CORS_ORIGINS: z.string().default(''),
+  SKILLS_V2_ENABLED: z.string().default('false').transform((v) => v === 'true' || v === '1'),
 }).refine((c) => c.CLUSTER !== 'redis' || (c.REDIS_URL && c.REDIS_URL.length > 0), {
   message: 'REDIS_URL is required when CLUSTER=redis',
   path: ['REDIS_URL'],
@@ -87,6 +89,7 @@ export const config = {
     dataDir: resolve(projectRoot, parsed.data.DATA_DIR),
     publicDir: resolve(projectRoot, parsed.data.PUBLIC_DIR),
     frontendDistDir: resolve(projectRoot, parsed.data.FRONTEND_DIST_DIR),
+    arenasDir: resolve(projectRoot, parsed.data.ARENAS_DIR),
     catalogXml: resolve(projectRoot, parsed.data.CATALOG_XML),
     scrapeCacheDir: resolve(projectRoot, parsed.data.SCRAPE_CACHE_DIR),
     assetsDir: resolve(projectRoot, parsed.data.ASSETS_DIR),

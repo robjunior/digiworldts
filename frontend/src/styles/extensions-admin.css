@@ -864,7 +864,7 @@
 
 .biome-editor-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 200px 1fr 380px;
   gap: var(--sp-4);
   align-items: flex-start;
 }
@@ -972,6 +972,318 @@
 .biome-editor-arena-opt:hover { border-color: var(--signal); }
 .biome-editor-arena-opt.is-active { border-color: var(--signal); color: var(--signal); background: color-mix(in oklab, var(--signal) 8%, var(--bg)); }
 .biome-editor-arena-opt input[type="radio"] { accent-color: var(--signal); }
+
+.biome-arena-refresh {
+  margin-left: var(--sp-2);
+  padding: 2px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.biome-arena-refresh:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.biome-arena-refresh:disabled { opacity: .4; cursor: not-allowed; }
+
+.biome-arena-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 6px;
+  margin-top: var(--sp-2);
+}
+
+.biome-arena-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  color: var(--ink);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  text-align: left;
+  position: relative;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.biome-arena-tile:hover { border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.biome-arena-tile:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
+.biome-arena-tile.is-active {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+  box-shadow: 0 0 0 1px var(--signal) inset;
+}
+.biome-arena-tile.is-in-use { padding-bottom: 22px; }
+
+.biome-arena-tile-thumb {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .55;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity .15s;
+}
+.biome-arena-tile.has-thumb:hover .biome-arena-tile-thumb { opacity: .7; }
+.biome-arena-tile.has-thumb.is-active .biome-arena-tile-thumb { opacity: .8; }
+.biome-arena-tile.has-thumb .biome-arena-tile-name,
+.biome-arena-tile.has-thumb .biome-arena-tile-meta,
+.biome-arena-tile.has-thumb .biome-arena-tile-inuse,
+.biome-arena-tile.has-thumb .biome-arena-tile-delete {
+  position: relative;
+  z-index: 1;
+}
+.biome-arena-tile.has-thumb .biome-arena-tile-name {
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .85), 0 0 8px rgba(0, 0, 0, .5);
+}
+.biome-arena-tile.has-thumb .biome-arena-tile-meta {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .8);
+}
+.biome-arena-tile-name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  word-break: break-all;
+  line-height: 1.2;
+  padding-right: 18px;
+}
+.biome-arena-tile-meta {
+  display: inline-flex;
+  gap: 8px;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.biome-arena-tile.is-active .biome-arena-tile-meta { color: color-mix(in oklab, var(--signal) 65%, var(--muted)); }
+
+.biome-arena-tile-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 14px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, border-color .12s, color .12s, background .12s;
+}
+.biome-arena-tile:hover .biome-arena-tile-delete,
+.biome-arena-tile:focus-within .biome-arena-tile-delete { opacity: 1; }
+.biome-arena-tile-delete:hover:not(:disabled) {
+  color: #ff5252;
+  border-color: #ff5252;
+  background: color-mix(in oklab, #ff5252 12%, transparent);
+}
+.biome-arena-tile-delete:disabled { opacity: .3; cursor: not-allowed; }
+
+.biome-arena-tile-rename {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, border-color .12s, color .12s, background .12s;
+}
+.biome-arena-tile:hover .biome-arena-tile-rename,
+.biome-arena-tile:focus-within .biome-arena-tile-rename { opacity: 1; }
+.biome-arena-tile-rename:hover:not(:disabled) {
+  color: var(--signal);
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+}
+.biome-arena-tile-rename:disabled { opacity: .3; cursor: not-allowed; }
+.biome-arena-tile.has-thumb .biome-arena-tile-rename,
+.biome-arena-tile.has-thumb .biome-arena-tile-delete {
+  background: color-mix(in oklab, var(--bg) 60%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.biome-arena-tile-inuse {
+  position: absolute;
+  bottom: 4px;
+  right: 6px;
+  padding: 1px 5px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1px solid color-mix(in oklab, var(--gold) 45%, var(--hairline));
+  background: color-mix(in oklab, var(--gold) 8%, transparent);
+  pointer-events: none;
+}
+.biome-arena-tile.is-active .biome-arena-tile-inuse {
+  color: var(--signal);
+  border-color: color-mix(in oklab, var(--signal) 45%, var(--hairline));
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+}
+
+.biome-arena-uploader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
+  margin-top: var(--sp-2);
+  margin-bottom: 4px;
+  border: 1px dashed var(--hairline);
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+  transition: border-color .15s, background .15s;
+}
+.biome-arena-uploader.is-drag-over {
+  border-color: var(--signal);
+  border-style: solid;
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+}
+.biome-arena-uploader.is-error {
+  border-color: #ff5252;
+}
+
+.biome-arena-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.biome-arena-uploader.is-drag-over .biome-arena-upload-btn {
+  color: var(--signal);
+  border-color: var(--signal);
+  background: transparent;
+}
+.biome-arena-upload-btn input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.biome-arena-upload-btn:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 8%, transparent);
+}
+.biome-arena-upload-btn.is-uploading {
+  color: var(--muted);
+  cursor: progress;
+}
+.biome-arena-upload-btn.is-ok {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+
+.biome-arena-inline-prompt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+  border: 1px solid var(--signal);
+}
+.biome-arena-inline-prompt.is-warn {
+  background: color-mix(in oklab, var(--gold) 10%, var(--bg));
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.biome-arena-inline-prompt > span { flex: 1 1 200px; word-break: break-word; }
+.biome-arena-inline-prompt > span b { color: var(--signal); }
+.biome-arena-inline-prompt.is-warn > span b { color: var(--gold); }
+
+.biome-arena-prompt-primary,
+.biome-arena-prompt-secondary {
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.biome-arena-prompt-primary {
+  color: var(--bg);
+  background: var(--signal);
+  border-color: var(--signal);
+}
+.biome-arena-prompt-primary:hover {
+  background: color-mix(in oklab, var(--signal) 82%, black);
+}
+.biome-arena-inline-prompt.is-warn .biome-arena-prompt-primary {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.biome-arena-inline-prompt.is-warn .biome-arena-prompt-primary:hover {
+  background: color-mix(in oklab, var(--gold) 82%, black);
+}
+.biome-arena-prompt-secondary {
+  color: var(--muted);
+  background: transparent;
+  border-color: var(--hairline);
+}
+.biome-arena-prompt-secondary:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+
+.biome-arena-upload-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #ff5252;
+  background: color-mix(in oklab, #ff5252 10%, var(--bg));
+  border: 1px solid #ff5252;
+  word-break: break-word;
+}
+.biome-arena-upload-error > b { flex: 0 0 auto; }
+.biome-arena-upload-error > .biome-arena-prompt-secondary { margin-left: auto; color: #ff5252; border-color: #ff5252; }
+.biome-arena-upload-error > .biome-arena-prompt-secondary:hover { background: color-mix(in oklab, #ff5252 20%, transparent); color: #ff8080; }
 
 .biome-editor-spawn-add {
   margin-bottom: var(--sp-2);
@@ -1082,8 +1394,32 @@
 @media (max-width: 960px) {
   .biome-editor-layout { grid-template-columns: 1fr; }
   .biome-editor-list { max-height: 200px; }
+  .biome-editor-preview-col { max-width: 100%; }
 }
 
+.biome-editor-preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: color-mix(in oklab, var(--bg) 60%, var(--panel));
+  border: 1px solid var(--hairline);
+  position: sticky;
+  top: var(--sp-3);
+}
+
+.biome-editor-preview-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.biome-editor-preview-head h4 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 .admin-world-layout {
   display: flex;
   flex-direction: column;
@@ -2106,6 +2442,56 @@
   text-transform: uppercase;
   color: var(--muted);
 }
+
+.biome-editor-preview-key {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--ink);
+  background: color-mix(in oklab, var(--hairline) 30%, transparent);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+.biome-editor-preview-col .scene-admin-preview {
+  aspect-ratio: 4 / 3;
+  min-height: 260px;
+}
+
+
+/* Admin Skills Catalog Viewer */
+.skill-filters { display: flex; flex-direction: column; gap: 4px; }
+.skill-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0 2px; align-items: center; }
+.skill-filter-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); min-width: 52px; }
+.skill-filter-btn { background: var(--panel); border: 1px solid var(--hairline); color: var(--muted); font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 5px 10px; cursor: pointer; transition: color 0.15s, border-color 0.15s, background-color 0.15s; clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px); display: inline-flex; align-items: center; gap: 5px; }
+.skill-filter-btn:hover:not(.is-active) { color: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active { color: var(--bg); background: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active .filter-count { background: color-mix(in oklab, var(--bg) 30%, transparent); color: var(--bg); }
+.filter-count { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px; background: color-mix(in oklab, var(--ink) 12%, transparent); color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.skill-chip { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--hairline); border-left: 3px solid var(--el-neutral); color: var(--ink); font-family: inherit; text-align: left; transition: border-color 0.15s, background-color 0.15s, transform 0.15s; }
+.skill-chip[data-element="fire"] { border-left-color: var(--el-fire); }
+.skill-chip[data-element="water"] { border-left-color: var(--el-water); }
+.skill-chip[data-element="plant"] { border-left-color: var(--el-nature); }
+.skill-chip[data-element="ice"] { border-left-color: var(--el-water); }
+.skill-chip[data-element="electricity"] { border-left-color: var(--el-electric); }
+.skill-chip[data-element="earth"] { border-left-color: var(--el-nature); }
+.skill-chip[data-element="steel"] { border-left-color: var(--muted); }
+.skill-chip[data-element="wind"] { border-left-color: var(--el-light); }
+.skill-chip[data-element="light"] { border-left-color: var(--el-light); }
+.skill-chip[data-element="dark"] { border-left-color: var(--el-dark); }
+.skill-chip[data-element="null"] { border-left-color: var(--el-neutral); }
+.chip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.chip-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chip-meta { display: flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.chip-el { font-weight: 700; }
+.chip-en { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-cd { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.chip-from { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: 0; }
+
+.tier-2-badge { display: inline-block; margin-left: 4px; color: var(--gold); font-size: 11px; line-height: 1; vertical-align: middle; }
+.catalog-badge { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; background: color-mix(in oklab, var(--hairline) 50%, transparent); padding: 2px 6px; border-radius: 4px; }
 
 .admin-user-controls-stat .val {
   font-size: 15px;

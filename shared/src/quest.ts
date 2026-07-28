@@ -84,7 +84,7 @@ export type Quest = {
   readonly updatedAt: number;
 };
 
-export type WorldObjectKind = 'mountain' | 'tower' | 'city' | 'ruin' | 'shrine' | 'obelisk';
+export type WorldObjectKind = 'mountain' | 'tower' | 'city' | 'ruin' | 'shrine' | 'obelisk' | 'crystal' | 'grove' | 'spring' | 'archway';
 
 export type WorldObject = {
   readonly id: string;

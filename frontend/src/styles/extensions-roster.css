@@ -339,6 +339,301 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   color: var(--muted);
   letter-spacing: .08em;
   text-transform: uppercase;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: color 0.15s var(--ease), border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.skill-filter-btn:hover:not(.is-active) { color: var(--ink); border-color: var(--ink); }
+.skill-filter-btn.is-active {
+  color: var(--bg);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.skill-filter-btn.is-active .filter-count { background: color-mix(in oklab, var(--bg) 30%, transparent); color: var(--bg); }
+.skill-filter-btn[data-stage="rookie"].is-active   { background: var(--el-nature); border-color: var(--el-nature); }
+.skill-filter-btn[data-stage="champion"].is-active { background: var(--el-electric); border-color: var(--el-electric); }
+.skill-filter-btn[data-stage="ultimate"].is-active { background: var(--signal); border-color: var(--signal); }
+.skill-filter-btn[data-stage="mega"].is-active     { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+.skill-filter-btn--el.is-active {
+  background: var(--fchip, var(--ink));
+  border-color: var(--fchip, var(--ink));
+  color: var(--bg);
+}
+.skill-filter-btn--attr.is-active { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.skill-filter-btn--attr[data-attribute="vaccine"].is-active  { background: var(--signal);      border-color: var(--signal); }
+.skill-filter-btn--attr[data-attribute="virus"].is-active    { background: var(--el-dark);     border-color: var(--el-dark); }
+.skill-filter-btn--attr[data-attribute="data"].is-active     { background: var(--el-electric); border-color: var(--el-electric); }
+.skill-filter-btn--attr[data-attribute="free"].is-active     { background: var(--el-light);    border-color: var(--el-light); color: var(--bg); }
+.skill-filter-btn--attr[data-attribute="variable"].is-active { background: var(--gold);        border-color: var(--gold); color: var(--bg); }
+.filter-count {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: color-mix(in oklab, var(--ink) 12%, transparent);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.skill-slot {
+  position: relative;
+  min-height: 96px;
+  padding: 10px 12px 8px;
+  background: var(--panel);
+  border: 1px dashed var(--hairline);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease), transform 0.15s var(--ease);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.skill-slot.is-empty .slot-empty-hint { color: var(--muted); font-size: 11px; font-style: italic; margin-top: auto; margin-bottom: auto; text-align: center; }
+.skill-slot.is-filled {
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--el-neutral);
+  background: color-mix(in oklab, var(--signal) 4%, var(--panel));
+  cursor: grab;
+}
+.skill-slot.is-filled:active { cursor: grabbing; }
+.skill-slot[data-element="fire"].is-filled     { border-left-color: var(--el-fire); }
+.skill-slot[data-element="water"].is-filled    { border-left-color: var(--el-water); }
+.skill-slot[data-element="nature"].is-filled   { border-left-color: var(--el-nature); }
+.skill-slot[data-element="electric"].is-filled { border-left-color: var(--el-electric); }
+.skill-slot[data-element="neutral"].is-filled  { border-left-color: var(--el-neutral); }
+.skill-slot.is-dragover {
+  border-style: solid;
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 12%, var(--panel));
+  transform: translateY(-2px);
+}
+.slot-label { font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.slot-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.slot-meta { display: inline-flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; font-variant-numeric: tabular-nums; color: var(--muted); }
+.slot-el { font-weight: 700; }
+.slot-en { color: var(--muted); }
+.slot-cd { color: var(--muted); }
+.slot-source { font-size: 10px; color: var(--muted); font-style: italic; }
+.slot-clear {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.15s var(--ease);
+}
+.slot-clear:hover { color: var(--battle); }
+
+.skill-pool {
+  padding: 12px;
+  background: color-mix(in oklab, var(--hairline) 30%, var(--bg));
+  border: 1px dashed transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.skill-pool.is-dropzone {
+  border-color: var(--muted);
+  background: color-mix(in oklab, var(--muted) 8%, var(--bg));
+}
+
+.skill-chip { position: relative; }
+.skill-chip[draggable="true"] { cursor: grab; }
+.skill-chip[draggable="true"]:active { cursor: grabbing; }
+.skill-chip.is-equipped {
+  background: color-mix(in oklab, var(--muted) 20%, var(--panel));
+  opacity: 0.75;
+}
+.skill-chip.is-equipped:hover:not(:disabled) { opacity: 1; }
+.chip-equipped-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--signal);
+  border: 1px solid var(--signal);
+  padding: 1px 6px;
+  text-transform: uppercase;
+  background: var(--bg);
+}
+.chip-from { color: var(--muted); font-style: italic; text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 860px) {
+  .skill-editor-cols { grid-template-columns: 1fr; }
+  .skill-editor-col--right { position: static; }
+  .slot-column { flex-direction: row; flex-wrap: wrap; }
+  .slot-column .skill-slot { flex: 1 1 140px; min-width: 140px; }
+}
+
+.skill-group-empty { padding: 12px 16px; font-size: 12px; color: var(--muted); font-style: italic; text-align: center; background: color-mix(in oklab, var(--hairline) 30%, var(--bg)); border: 1px dashed var(--hairline); }
+
+.skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.skill-chip {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-left: 3px solid var(--el-neutral);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.skill-chip[data-element="fire"]     { border-left-color: var(--el-fire); }
+.skill-chip[data-element="water"]    { border-left-color: var(--el-water); }
+.skill-chip[data-element="nature"]   { border-left-color: var(--el-nature); }
+.skill-chip[data-element="electric"] { border-left-color: var(--el-electric); }
+.skill-chip[data-element="neutral"]  { border-left-color: var(--el-neutral); }
+.skill-chip:hover:not(:disabled) { border-color: var(--muted); }
+.skill-chip.is-chosen {
+  background: color-mix(in oklab, var(--signal) 8%, var(--panel));
+  border-color: var(--signal);
+  box-shadow: inset 3px 0 0 var(--signal);
+}
+.skill-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.chip-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.chip-name { font-size: 13px; font-weight: 700; color: var(--ink); }
+.chip-power { font-size: 10px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+.chip-meta { display: flex; gap: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
+.chip-el { font-weight: 700; }
+.chip-en { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-cd { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.chip-name-pt { font-size: 10px; color: var(--muted); font-style: italic; margin-top: -4px; margin-bottom: 2px; }
+.tier-2-badge { display: inline-block; margin-left: 4px; color: var(--gold); font-size: 11px; line-height: 1; vertical-align: middle; }
+.catalog-badge { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; background: color-mix(in oklab, var(--hairline) 50%, transparent); padding: 2px 6px; border-radius: 4px; }
+.catalog-skills-section h4 { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--ink); text-transform: uppercase; letter-spacing: 0.06em; }
+
+@media (max-width: 1024px) {
+  .roster-list-head { grid-template-columns: 44px minmax(120px, 1fr) 64px 140px 16px; }
+  .rl-pills, .rl-stats { display: none; }
+}
+@media (max-width: 640px) {
+  .roster-list-head { grid-template-columns: 40px 1fr 56px 16px; padding: 10px 12px; }
+  .rl-xp, .rl-pills, .rl-stats { display: none; }
+  .skill-grid { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .roster-list-body { transition: none; }
+  .rl-chev { transition: none; }
+  .rl-action-btn { transition: none; }
+}
+
+.rl-pill--training { color: var(--gold); }
+.rl-pill--training::before { content: ''; display: inline-block; width: 5px; height: 5px; background: var(--gold); border-radius: 50%; margin-right: 4px; animation: rlTrainingPulse 1.6s ease-in-out infinite; }
+.rl-pill--party { color: var(--el-nature); }
+.rl-pill--party::before { content: ''; display: inline-block; width: 5px; height: 5px; background: var(--el-nature); border-radius: 50%; margin-right: 4px; }
+@keyframes rlTrainingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.rl-actions {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--hairline);
+}
+.rl-action-btn {
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.1s var(--ease);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  font-variant-numeric: tabular-nums;
+}
+.rl-action-btn:hover:not(:disabled) { border-color: var(--ink); background: var(--bg); }
+.rl-action-btn:active:not(:disabled) { transform: scale(0.97); }
+.rl-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.rl-action-btn--evolve { color: var(--gold); border-color: color-mix(in oklab, var(--gold) 45%, var(--hairline)); }
+.rl-action-btn--evolve:hover:not(:disabled) { background: color-mix(in oklab, var(--gold) 8%, var(--panel)); border-color: var(--gold); }
+.rl-action-btn--rename { color: var(--muted); }
+.rl-action-btn--rename:hover:not(:disabled) { color: var(--ink); }
+.rl-action-btn--revive { color: var(--battle); border-color: color-mix(in oklab, var(--battle) 45%, var(--hairline)); }
+.rl-action-btn--revive:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 8%, var(--panel)); border-color: var(--battle); }
+
+.evo-chain {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--el, var(--panel)) 3%, var(--panel));
+}
+.evo-chain::-webkit-scrollbar { height: 4px; }
+.evo-chain::-webkit-scrollbar-thumb { background: color-mix(in oklab, var(--el, var(--muted)) 40%, transparent); }
+.evo-node {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px 4px;
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  min-width: 52px;
+  opacity: 0.55;
+  transition: opacity 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.15s var(--ease);
+  flex-shrink: 0;
+}
+.evo-node:hover { opacity: 1; }
+.evo-node img { width: 32px; height: 32px; image-rendering: pixelated; display: block; }
+.evo-node-label { font-size: 8px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.evo-node.is-current {
+  opacity: 1;
+  border-color: var(--el, var(--gold));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--el, var(--gold)) 40%, transparent);
+  transform: scale(1.06);
+}
+.evo-node.is-current .evo-node-label { color: var(--el, var(--gold)); }
+.evo-node[data-stage="mega"] { border-top: 2px solid color-mix(in oklab, var(--gold) 55%, var(--hairline)); }
+.evo-node[data-stage="ultimate"] { border-top: 2px solid color-mix(in oklab, var(--signal) 55%, var(--hairline)); }
+.evo-node[data-stage="champion"] { border-top: 2px solid color-mix(in oklab, var(--el-electric) 55%, var(--hairline)); }
+.evo-sep {
+  flex-shrink: 0;
+  width: 24px;
+  height: 2px;
+  background-image: linear-gradient(to right, color-mix(in oklab, var(--el, var(--muted)) 55%, transparent) 50%, transparent 50%);
+  background-size: 6px 2px;
+  background-repeat: repeat-x;
+}
+@media (prefers-reduced-motion: reduce) {
+  .evo-node { transition: none; }
+}
+
+.rl-party-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  font: inherit; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), color 0.15s var(--ease), transform 0.1s var(--ease);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -41,6 +41,7 @@ const SQL_COUNT_USERS = `SELECT COUNT(*) AS n FROM users`;
 const SQL_SELECT_BY_USERNAME = `SELECT * FROM users WHERE username = ?`;
 const SQL_INSERT_USER = `INSERT INTO users (id, username, display_name, password_hash, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_LAST_LOGIN = `UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?`;
+const SQL_UPDATE_LOCALE_PREF = `UPDATE users SET locale_pref = ?, updated_at = ? WHERE id = ?`;
 const SQL_INIT_WALLET = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, 0, 0, ?) ON CONFLICT DO NOTHING`;
 const SQL_INIT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, 0, ?) ON CONFLICT DO NOTHING`;
 const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE user_id = ?`;
@@ -91,10 +92,12 @@ export type PublicUser = {
   onboardingCompleted: boolean;
   mmr: number;
   premiumUntil: number | null;
+  localePref: 'en' | 'pt' | null;
 };
 
 async function toPublic(u: UserRow): Promise<PublicUser> {
   const row = await one<{ premium_until: number | null }>(SQL_SELECT_WALLET_PREMIUM, u.id);
+  const localePref: 'en' | 'pt' | null = u.locale_pref === 'en' || u.locale_pref === 'pt' ? u.locale_pref : null;
   return {
     id: u.id,
     username: u.username,
@@ -105,6 +108,7 @@ async function toPublic(u: UserRow): Promise<PublicUser> {
     onboardingCompleted: u.onboarding_completed_at != null,
     mmr: u.mmr,
     premiumUntil: row?.premium_until ?? null,
+    localePref,
   };
 }
 
@@ -263,6 +267,15 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     if (!user) return reply.code(401).send({ error: 'not authenticated' });
     const registrationOpen = config.ADMIN_BOOTSTRAP !== 'closed';
     return reply.send({ user, registrationOpen });
+  });
+
+  app.put('/api/auth/locale-pref', async (req, reply) => {
+    const user = await currentUser(req);
+    if (!user) return reply.code(401).send({ error: 'not authenticated' });
+    const parsed = z.object({ locale: z.enum(['en', 'pt']).nullable() }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    await run(SQL_UPDATE_LOCALE_PREF, parsed.data.locale, Date.now(), user.id);
+    return reply.send({ ok: true, localePref: parsed.data.locale });
   });
 
   app.get('/api/auth/status', async (_req, reply) => {
