@@ -35,11 +35,9 @@ export function TopBar({ battle, actor }: { readonly battle: BattleView; readonl
         <span className={`tt ${battle.yourTurn ? 'you' : ''}`}>{battle.yourTurn ? 'Your Turn' : 'Opponent'}</span>
         <span className="actor">{actor?.name ?? battle.enemy.find((e) => !e.down)?.name ?? '—'}</span>
       </div>
-      <div className="nextq" role="list" aria-label="Turn order">
-        <span className="nl" aria-hidden="true">Next</span>
-        <span style={{display:'flex',gap:'11px'}}>
-          <TurnOrderStrip battle={battle} />
-        </span>
+      <div className="c3d-order" role="list" aria-label="Turn order">
+        <span className="c3d-order-label" aria-hidden="true">Next</span>
+        <TurnOrderStrip battle={battle} />
       </div>
     </div>
   );

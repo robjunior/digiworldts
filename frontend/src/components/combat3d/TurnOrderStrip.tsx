@@ -19,12 +19,23 @@ export const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonl
         if (meta === null) return null;
         const isYours = entry.side === yourSide;
         const isCurrent = idx === 0;
-        const mono = (meta.name || '?').trim().charAt(0).toUpperCase();
+        const cls = `c3d-order-slot ${isYours ? 'is-yours' : 'is-opp'} ${isCurrent ? 'is-current' : ''}`;
         return (
-          <span key={`${entry.unitId}-${idx}`} className={`qi ${isCurrent ? 'cur' : ''} ${isYours ? 'yours' : 'opp'}`} style={{ ['--el' as string]: `var(--el-${meta.element})` }} title={`${meta.name}`}>
-            <span className="mono" aria-hidden="true">{mono}</span>
-            <img src={`/assets/digimon/${meta.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
-          </span>
+          <div
+            key={`${entry.unitId}-${idx}`}
+            className={cls.trim()}
+            role="listitem"
+            style={{ ['--el' as string]: `var(--el-${meta.element})` }}
+            title={meta.name}
+          >
+            <img
+              className="c3d-order-mon"
+              src={`/assets/digimon/${meta.templateId}/dot.gif`}
+              alt={meta.name}
+              loading="eager"
+            />
+            {isCurrent ? <span className="c3d-order-caret" aria-hidden="true" /> : null}
+          </div>
         );
       })}
     </>
