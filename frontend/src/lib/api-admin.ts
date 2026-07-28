@@ -58,6 +58,7 @@ export type ShopItemView = {
   readonly class: ShopItemClass;
   readonly payload: Record<string, unknown>;
   readonly enabled: boolean;
+  readonly isQuestItem?: boolean;
   readonly createdAt: number;
 };
 
@@ -69,6 +70,7 @@ export type ShopItemInput = {
   readonly class: ShopItemClass;
   readonly payload?: Record<string, unknown>;
   readonly enabled?: boolean;
+  readonly isQuestItem?: boolean;
 };
 
 export type UserListEntry = {
@@ -212,6 +214,16 @@ export function updateUserFlags(id: string, flags: { readonly isAdmin?: boolean;
 
 export function updateUserCredits(id: string, credits: number): Promise<{ readonly ok: true; readonly user: UserDetail }> {
   return apiFetch<{ readonly ok: true; readonly user: UserDetail }>(`/api/admin/users/${encodeURIComponent(id)}/credits`, { method: 'PATCH', body: { credits } });
+}
+
+export type AdminResetTokenResponse = {
+  readonly token: string;
+  readonly expiresAt: number;
+  readonly url: string;
+};
+
+export function issueUserResetToken(id: string): Promise<AdminResetTokenResponse> {
+  return apiFetch<AdminResetTokenResponse>(`/api/admin/users/${encodeURIComponent(id)}/reset-token`, { method: 'POST' });
 }
 
 export function getUserRoster(userId: string): Promise<{ readonly roster: readonly AdminRosterView[] }> {

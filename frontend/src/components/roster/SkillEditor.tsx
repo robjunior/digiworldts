@@ -223,17 +223,22 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
     if (existingIndex >= 0) clearSlot(existingIndex);
   };
 
+  
   return (
-    <div className="skill-editor">
-      <div className="skill-editor-header">
-        <div className="hdr-title">
-          <h3>Skill loadout</h3>
-          <span className="hdr-sub">Drag or click to equip up to <b>{data.maxEquipped}</b> — currently <b>{chosenKeys.size}</b>/{data.maxEquipped}</span>
-        </div>
-        <div className="hdr-actions">
-          <button className="btn btn--secondary btn--sm" type="button" onClick={reset} disabled={!dirty || mutation.isPending}>Reset</button>
-          <button className="btn btn--sm" type="button" onClick={save} disabled={!canSave || mutation.isPending}>{mutation.isPending ? 'Saving…' : 'Save loadout'}</button>
-        </div>
+    <>
+      <div className="skillhead">
+        <span className="lbl">Skills — Equipped</span>
+        <button 
+          className="navbtn" 
+          style={{ marginLeft: '12px', padding: '2px 8px', fontSize: '10px' }} 
+          onClick={save} 
+          disabled={!canSave || mutation.isPending}
+        >
+          {mutation.isPending ? 'Saving...' : (dirty ? 'Save changes' : 'Saved')}
+        </button>
+        <span className={`slots ${currentSlots.filter(s => s !== null).length >= data.maxEquipped ? 'full' : ''}`} id="slotcount">
+          {currentSlots.filter(s => s !== null).length} / {data.maxEquipped} slots
+        </span>
       </div>
       {message !== null ? <div className={`skill-editor-msg is-${message.tone}`}>{message.text}</div> : null}
 
@@ -478,6 +483,52 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="skrow" id="skgrid">
+        {data.learnedSkills.filter(entry => {
+          if ((activeElementFilter as string) === 'attack') return entry.skill.power > 0;
+          if ((activeElementFilter as string) === 'support') return entry.skill.power === 0;
+          return true;
+        }).map(entry => {
+          const isEquipped = currentSlots.includes(entry.key);
+          return (
+            <button 
+              key={entry.key}
+              className={`sk ${isEquipped ? 'equipped' : ''}`} 
+              data-skill={entry.key}
+              onClick={() => {
+                if (isEquipped) {
+                  const idx = currentSlots.indexOf(entry.key);
+                  clearSlot(idx);
+                } else {
+                  equipToFirstFree(entry.key);
+                }
+              }}
+              style={{ ['--skel' as string]: `var(--el-${entry.skill.element})` }}
+            >
+              <div className="ic">
+                {/* Fallback to simple circle SVG since we don't have EL_ICONS mapped here */}
+                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="8" /></svg>
+              </div>
+              <div className="body">
+                <span className="nm">
+                  {entry.skill.name}
+                  {isEquipped && <span className="eqtag">Equipped</span>}
+                </span>
+                <span className="ds">{entry.skill.description || '—'}</span>
+              </div>
+              <span className="cost">
+                <span className="en">EN {entry.skill.energyCost}</span>
+                <span className="pw">{entry.skill.power > 0 ? `${entry.skill.power} PWR` : '—'}</span>
+              </span>
+            </button>
+          );
+        })}
+        {data.learnedSkills.length === 0 && <div className="skempty">No skills in this pool.</div>}
+      </div>
+      <div className="skhint" id="skhint" aria-live="polite">
+        {message ? message.text : 'Click to equip or remove skills.'}
+      </div>
+    </>
   );
 }

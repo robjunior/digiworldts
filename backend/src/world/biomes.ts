@@ -57,6 +57,34 @@ export const BIOME_COLOR: Record<Biome, string> = {
   void: '#2a2a2f',
 };
 
+export const BIOME_DANGER: Record<Biome, number> = {
+  desert: 3,
+  forest: 2,
+  lake: 1,
+  storm: 4,
+  tundra: 3,
+  mountain: 3,
+  foundry: 4,
+  plateau: 2,
+  prairie: 1,
+  swamp: 4,
+  void: 5,
+};
+
+export const BIOME_COORDS: Record<Biome, { lat: number; lon: number }> = {
+  desert:   { lat:  18, lon: -140 },
+  forest:   { lat:  34, lon:  -80 },
+  lake:     { lat:   6, lon:  -30 },
+  storm:    { lat:  52, lon:   20 },
+  tundra:   { lat:  66, lon:  100 },
+  mountain: { lat:  40, lon:  160 },
+  foundry:  { lat:  -8, lon:  130 },
+  plateau:  { lat:  28, lon:   60 },
+  prairie:  { lat: -24, lon:  -60 },
+  swamp:    { lat: -42, lon:   40 },
+  void:     { lat: -58, lon: -120 },
+};
+
 const BLOCK_SIZE = 8;
 
 function hash32(seed: number, x: number, y: number): number {

@@ -404,6 +404,8 @@ CREATE TABLE IF NOT EXISTS world_objects (
   id          TEXT PRIMARY KEY,
   x           INTEGER NOT NULL,
   y           INTEGER NOT NULL,
+  lat         DOUBLE PRECISION NOT NULL DEFAULT 0,
+  lon         DOUBLE PRECISION NOT NULL DEFAULT 0,
   kind        TEXT NOT NULL,
   scale       DOUBLE PRECISION NOT NULL DEFAULT 1.0,
   tint        TEXT,

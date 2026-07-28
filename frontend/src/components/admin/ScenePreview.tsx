@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
-  readonly version?: number | undefined;
   readonly settings: SceneSettings;
 };
 
@@ -16,7 +16,7 @@ const PLACEHOLDER_UNITS = [
   { unitId: 'preview:opp:1', side: 'opp' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-12/dot.gif' },
 ];
 
-export function ScenePreview({ arenaKey, version, settings }: ScenePreviewProps): JSX.Element {
+export function ScenePreview({ arenaKey, settings }: ScenePreviewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const managerRef = useRef<SceneManager | null>(null);
@@ -59,11 +59,11 @@ export function ScenePreview({ arenaKey, version, settings }: ScenePreviewProps)
     const manager = managerRef.current;
     if (manager === null) return;
     manager.clearArenaModel();
-    const url = version === undefined
-      ? `/assets/arenas/${arenaKey}.glb`
-      : `/assets/arenas/${arenaKey}.glb?v=${version}`;
+    const picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
+    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+    if (url === undefined) return;
     void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
-  }, [arenaKey, version]);
+  }, [arenaKey, settings.modelFile]);
 
   useEffect(() => {
     managerRef.current?.applySettings(settings);

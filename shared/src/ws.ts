@@ -121,16 +121,6 @@ export type WSServerMessage =
       /** ms epoch when the admin's write completed on the server. */
       at: number;
     }
-  | {
-      type: 'biome-scenes-updated';
-      /** ms epoch when the admin's write completed on the server. */
-      at: number;
-    }
-  | {
-      type: 'arenas-updated';
-      /** ms epoch when the admin uploaded/deleted a .glb. */
-      at: number;
-    }
   | { type: 'error'; code: WSErrorCode; message: string };
 
 // ============================================================================

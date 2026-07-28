@@ -68,6 +68,13 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): JS
   useEffect(() => {
     if (user?.localePref) seedLocaleFromServer(user.localePref);
   }, [user?.localePref]);
+
+  useEffect(() => {
+    if (meQuery.error instanceof ApiError && meQuery.error.status === 401 && meQuery.data?.user !== undefined) {
+      queryClient.setQueryData<AuthMeResponse | null>(AUTH_ME_KEY, null);
+      resetWs();
+    }
+  }, [meQuery.error, meQuery.data, queryClient, resetWs]);
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -100,11 +107,11 @@ export function useAuth(): AuthContextValue {
 }
 
 function getStatus(isPending: boolean, user: PublicUser | null, error: Error | null): AuthStatus {
-  if (user !== null) {
-    return 'authed';
-  }
   if (error instanceof ApiError && error.status === 401) {
     return 'anon';
+  }
+  if (user !== null) {
+    return 'authed';
   }
   if (isPending) {
     return 'loading';

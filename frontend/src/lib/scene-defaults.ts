@@ -1,4 +1,3 @@
-import type { PerBiomeSceneDefaults } from '@digiworld/shared/world';
 import type { SceneSettings } from '../scene3d/scene';
 import { apiFetch } from './api';
 
@@ -55,58 +54,3 @@ export function invalidateSceneDefaultsCache(): void {
   cache = null;
   cacheAt = 0;
 }
-
-let biomeCache: Promise<PerBiomeSceneDefaults> | null = null;
-let biomeCacheAt = 0;
-
-export function getBiomeScenes(force = false): Promise<PerBiomeSceneDefaults> {
-  const now = Date.now();
-  if (force || biomeCache === null || now - biomeCacheAt > TTL_MS) {
-    biomeCacheAt = now;
-    biomeCache = apiFetch<{ biomes: unknown }>('/api/scene/biomes')
-      .then((body) => (typeof body.biomes === 'object' && body.biomes !== null ? body.biomes as PerBiomeSceneDefaults : {}))
-      .catch(() => ({}));
-  }
-  return biomeCache;
-}
-
-export function replaceBiomeScenesCache(next: PerBiomeSceneDefaults): void {
-  biomeCache = Promise.resolve(next);
-  biomeCacheAt = Date.now();
-}
-
-export function invalidateBiomeScenesCache(): void {
-  biomeCache = null;
-  biomeCacheAt = 0;
-}
-
-export type ArenaVersions = Record<string, number>;
-
-let arenaCache: Promise<ArenaVersions> | null = null;
-let arenaCacheAt = 0;
-
-export function getArenaVersions(force = false): Promise<ArenaVersions> {
-  const now = Date.now();
-  if (force || arenaCache === null || now - arenaCacheAt > TTL_MS) {
-    arenaCacheAt = now;
-    arenaCache = apiFetch<{ arenas: readonly { file: string; mtime: number }[] }>('/api/arenas')
-      .then((body) => {
-        const map: ArenaVersions = {};
-        for (const entry of body.arenas) map[entry.file] = entry.mtime;
-        return map;
-      })
-      .catch(() => ({}));
-  }
-  return arenaCache;
-}
-
-export function invalidateArenaVersionsCache(): void {
-  arenaCache = null;
-  arenaCacheAt = 0;
-}
-
-export function arenaUrl(file: string, versions: ArenaVersions): string {
-  const v = versions[file];
-  return v === undefined ? `/assets/arenas/${file}` : `/assets/arenas/${file}?v=${v}`;
-}
-

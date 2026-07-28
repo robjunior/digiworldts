@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 
-import { AppNav } from '../components/AppNav';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
-import { BiomeSceneEditor } from '../components/admin/BiomeSceneEditor';
 import { CatalogTable } from '../components/admin/CatalogTable';
+import { DungeonsAdmin } from '../components/admin/DungeonsAdmin';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
+import { QuestsAdmin } from '../components/admin/QuestsAdmin';
 import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
@@ -24,8 +24,9 @@ const ADMIN_TABS = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
   { id: 'shop', label: 'Shop Admin' },
-  { id: 'biomes', label: 'Biome scenes' },
-  { id: 'scene', label: 'Scene (per-arena)' },
+  { id: 'quests', label: 'Quests' },
+  { id: 'dungeons', label: 'Dungeons' },
+  { id: 'scene', label: 'Scene' },
   { id: 'settings', label: 'Settings' },
 ] as const;
 
@@ -33,48 +34,41 @@ type AdminTab = (typeof ADMIN_TABS)[number]['id'];
 
 export function Admin(): JSX.Element {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  void user;
+  void logout;
+  const [searchParams] = useSearchParams();
+  const activeTab = toAdminTab(searchParams.get('tab'));
 
   if (activeTab === 'scene') {
     return (
       <AdminGuard>
-        <div className="app-shell combat3d-shell">
-          <AppNav />
-          <main className="app-main combat3d-main">
-            <SceneSettingsAdmin />
-          </main>
-        </div>
+        <SceneSettingsAdmin />
       </AdminGuard>
     );
   }
 
   return (
     <AdminGuard>
-      <div className="app-shell admin-shell">
-        <AppNav />
-        <main className="app-main admin-main">
-          <PageStrip
-            name="Admin"
-            tone="action"
-            metrics={[
-              { label: <>catalog, users, scraped data &amp; shop ops</>, className: 'muted' },
-              { label: <><b>{activeTab}</b> tab</> },
-            ]}
-          />
-          <div className="admin-layout">
-            <aside className="admin-sidebar-left" aria-label="Admin sections">
-              {ADMIN_TABS.map((tab) => (
-                <button key={tab.id} className={`admin-nav-item${activeTab === tab.id ? ' is-active' : ''}`} type="button" onClick={() => setActiveTab(tab.id)}>{tab.label}</button>
-              ))}
-            </aside>
-            <section className="admin-content" aria-live="polite">
-              <AdminTabPanel tab={activeTab} />
-            </section>
-          </div>
-        </main>
-      </div>
+      <>
+        <PageStrip
+          name="Admin"
+          tone="action"
+          metrics={[
+            { label: <>catalog, users, scraped data &amp; shop ops</>, className: 'muted' },
+            { label: <><b>{activeTab}</b> tab</> },
+          ]}
+        />
+        <section className="admin-content" aria-live="polite">
+          <AdminTabPanel tab={activeTab} />
+        </section>
+      </>
     </AdminGuard>
   );
+}
+
+function toAdminTab(value: string | null): AdminTab {
+  const found = ADMIN_TABS.find((tab) => tab.id === value);
+  return found?.id ?? 'overview';
 }
 
 function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
@@ -91,8 +85,10 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <SkillsAdmin />;
     case 'shop':
       return <ShopAdmin />;
-    case 'biomes':
-      return <BiomeSceneEditor />;
+    case 'quests':
+      return <QuestsAdmin />;
+    case 'dungeons':
+      return <DungeonsAdmin />;
     case 'scene':
       return <SceneSettingsAdmin />;
     case 'settings':

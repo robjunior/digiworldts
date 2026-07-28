@@ -1,0 +1,28 @@
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+
+/* ---- sidebar (matches roster) ------------------------------------------ */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;text-decoration:none}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* admin link */
+.admin-link{display:block;text-align:center;font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-decoration:none;margin-top:8px;padding:4px}
+.admin-link:hover{color:var(--ink)}
+
+/* ---- main ---- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg);overflow:hidden;position:relative}
