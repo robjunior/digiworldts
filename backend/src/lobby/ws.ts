@@ -77,6 +77,36 @@ const ActionSchema: z.ZodType<Action> = z.discriminatedUnion('type', [
 ]) as unknown as z.ZodType<Action>;
 
 const ActSchema = z.object({ type: z.literal('act'), matchId: z.string(), action: ActionSchema });
+
+const MAX_PUBSUB_PAYLOAD_BYTES = 64 * 1024;
+const CHAT_CHANNEL_ALLOWED_TYPES = new Set(['chat']);
+const WSDELIVER_ALLOWED_TYPES = new Set([
+  'chat',
+  'match',
+  'battle',
+  'event',
+  'end',
+  'queue',
+  'presence',
+  'welcome',
+  'error',
+  'spectate',
+  'scene-defaults-updated',
+  'biome-scenes-updated',
+]);
+
+function parsePubSubEnvelope(
+  msg: string,
+  allowedTypes: ReadonlySet<string>,
+): { readonly type: string; readonly [k: string]: unknown } | null {
+  if (msg.length > MAX_PUBSUB_PAYLOAD_BYTES) return null;
+  let parsed: unknown;
+  try { parsed = JSON.parse(msg); } catch { return null; }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+  const type = (parsed as { type?: unknown }).type;
+  if (typeof type !== 'string' || !allowedTypes.has(type)) return null;
+  return parsed as { readonly type: string; readonly [k: string]: unknown };
+}
 const SpectateSchema = z.object({ type: z.literal('spectate'), matchId: z.string().min(1).max(64), join: z.boolean() });
 
 const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema]);
@@ -406,8 +436,8 @@ async function startCloudLoops(): Promise<void> {
 
   if (chatUnsub) await chatUnsub();
   chatUnsub = await cluster.subscribe(CHAT_CHANNEL, (msg) => {
-    let parsed: unknown;
-    try { parsed = JSON.parse(msg); } catch { return; }
+    const parsed = parsePubSubEnvelope(msg, CHAT_CHANNEL_ALLOWED_TYPES);
+    if (parsed === null) return;
     broadcastLocal(parsed);
   });
 
@@ -432,8 +462,8 @@ async function startCloudLoops(): Promise<void> {
     const userId = channel.slice(WSDELIVER_PREFIX.length);
     const entry = connections.get(userId);
     if (!entry) return;
-    let parsed: unknown;
-    try { parsed = JSON.parse(msg); } catch { return; }
+    const parsed = parsePubSubEnvelope(msg, WSDELIVER_ALLOWED_TYPES);
+    if (parsed === null) return;
     safeSend(entry.socket, parsed);
   });
 
