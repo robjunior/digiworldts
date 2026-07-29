@@ -4,7 +4,7 @@ import type { TemplateDigimon, Element } from '@digiworld/shared/digimon';
 import { ELEMENTS, ATTRIBUTES } from '@digiworld/shared/digimon';
 
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
-import { formatRemaining, isDowned, STAT_MAX, totalStats, trainingProgress, xpPct } from './types';
+import { formatRemaining, isDowned, statMaxFor, totalStats, trainingProgress, xpPct } from './types';
 import { PartyPicker } from './PartyPicker';
 import { SkillEditor } from './SkillEditor';
 import { ResistanceChart } from './ResistanceChart';
@@ -173,6 +173,7 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
 
   const stats = totalStats(r);
   const training = trainingProgress(r);
+  const maxes = statMaxFor(template?.stage);
   const order = [
     { k: 'hp', l: 'HP' }, { k: 'en', l: 'EN' }, { k: 'atk', l: 'ATK' },
     { k: 'def', l: 'DEF' }, { k: 'int', l: 'INT' }, { k: 'spd', l: 'SPD' }
@@ -231,7 +232,7 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
             {order.map(({ k, l }) => {
               const v = stats[k as keyof typeof stats];
               const bo = (r.statBonus as any)?.[k] ?? 0;
-              const cap = STAT_MAX[k as keyof typeof STAT_MAX];
+              const cap = maxes[k as keyof typeof maxes];
               const pct = cap === 0 ? 0 : Math.min(100, Math.round((v / cap) * 100));
               return (
                 <div key={k} className={`stat ${k}`}>
