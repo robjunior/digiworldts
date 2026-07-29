@@ -205,10 +205,10 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
             <span className={`statchip ${r.status}`}><span className="dot"></span>{typeof r.slot === 'number' ? `In party · slot ${r.slot + 1}` : 'Resting'}</span>
             <span className="statchip"><span className="dot"></span>XP {Math.round(r.xp)} / {r.xpNext}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-              <button className="navbtn" style={{ padding: '4px 8px' }} onClick={() => actions.onRename(r)}>Rename</button>
-              <button className="navbtn" style={{ padding: '4px 8px' }} onClick={() => actions.onEvolve(r.id)} disabled={isDowned(r, now)}>Evolve</button>
+              <button className="rl-action-btn rl-action-btn--rename" onClick={() => actions.onRename(r)}>Rename</button>
+              <button className="rl-action-btn rl-action-btn--evolve" onClick={() => actions.onEvolve(r.id)} disabled={isDowned(r, now)}>Evolve</button>
               {typeof r.slot !== 'number' && (
-                <button className="navbtn" style={{ padding: '4px 8px', color: 'var(--signal)' }} onClick={() => actions.onAddToParty(r)} disabled={isDowned(r, now)}>Add to Party</button>
+                <button className="rl-action-btn rl-action-btn--party" onClick={() => actions.onAddToParty(r)} disabled={isDowned(r, now)}>Add to Party</button>
               )}
             </div>
           </div>
