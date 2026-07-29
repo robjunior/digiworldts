@@ -1,21 +1,16 @@
 import { useState, useMemo } from 'react';
 
 import type { TemplateDigimon, Element } from '@digiworld/shared/digimon';
-import { ELEMENTS, ATTRIBUTES, STAGE_COMBAT_POOL, STAGE_HPEN_POOL } from '@digiworld/shared/digimon';
+import { ELEMENTS, ATTRIBUTES } from '@digiworld/shared/digimon';
 
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
-import { formatRemaining, isDowned, totalStats, trainingProgress, xpPct } from './types';
+import { formatRemaining, isDowned, STAT_MAX, totalStats, trainingProgress, xpPct } from './types';
 import { PartyPicker } from './PartyPicker';
 import { SkillEditor } from './SkillEditor';
 import { ResistanceChart } from './ResistanceChart';
 
 const ATTR_TO_EL: Record<string, Element> = { Virus: 'fire', Data: 'water', Vaccine: 'plant', Free: 'electricity', Variable: 'wind' };
 const el = (r: RosterMon) => ATTR_TO_EL[r.template?.attribute ?? 'Free'] ?? 'null';
-
-const STAT_TO_POOL: Record<string, 'combat' | 'hpen'> = {
-  hp: 'hpen', en: 'hpen',
-  atk: 'combat', def: 'combat', int: 'combat', spd: 'combat',
-};
 
 type RosterListProps = {
   readonly roster: readonly RosterMon[];
@@ -178,8 +173,6 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
 
   const stats = totalStats(r);
   const training = trainingProgress(r);
-  const combatCap = training?.combat.cap ?? STAGE_COMBAT_POOL[stage as keyof typeof STAGE_COMBAT_POOL] ?? 700;
-  const hpenCap = training?.hpen.cap ?? STAGE_HPEN_POOL[stage as keyof typeof STAGE_HPEN_POOL] ?? 1000;
   const order = [
     { k: 'hp', l: 'HP' }, { k: 'en', l: 'EN' }, { k: 'atk', l: 'ATK' },
     { k: 'def', l: 'DEF' }, { k: 'int', l: 'INT' }, { k: 'spd', l: 'SPD' }
@@ -238,13 +231,12 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
             {order.map(({ k, l }) => {
               const v = stats[k as keyof typeof stats];
               const bo = (r.statBonus as any)?.[k] ?? 0;
-              const pool = STAT_TO_POOL[k] ?? 'combat';
-              const cap = pool === 'hpen' ? hpenCap : combatCap;
-              const pct = cap === 0 ? 0 : Math.min(100, Math.round((bo / cap) * 100));
+              const cap = STAT_MAX[k as keyof typeof STAT_MAX];
+              const pct = cap === 0 ? 0 : Math.min(100, Math.round((v / cap) * 100));
               return (
-                <div key={k} className={`stat ${k}`} data-pool={pool}>
+                <div key={k} className={`stat ${k}`}>
                   <span className="sl">{l}</span>
-                  <span className="track" title={`${l} bonus ${bo}/${cap} (${pool} pool for ${stage} stage)`}>
+                  <span className="track" title={`${l} ${v} / ${cap}`}>
                     <span className={`fill${pct >= 100 ? ' is-max' : ''}`} data-w={pct} style={{ width: `${pct}%` }}></span>
                   </span>
                   <span className="sv">{v}{bo ? <span className="bo">+{bo}</span> : ''}</span>
