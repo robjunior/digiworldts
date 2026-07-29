@@ -131,8 +131,8 @@
 .market-page .chead .sub {font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-top:5px;display:flex;align-items:center;gap:6px}
 .market-page .chead .sub .dot {width:7px;height:7px;background:var(--ac,var(--muted))}
 /* stat bonus grid (digimon) */
-.market-page .statgrid {display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.market-page .stat {background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px 7px;text-align:center}
+.market-page .statgrid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.market-page .stat {background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px 7px;text-align:center;min-width:0}
 .market-page .stat .sk {font:700 7px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 .market-page .stat .sv {font:800 12px/1 var(--font);margin-top:4px}
 .market-page .stat .sv.pos {color:color-mix(in oklab,var(--signal) 62%,var(--ink))}

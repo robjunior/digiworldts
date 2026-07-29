@@ -72,6 +72,8 @@ export type LoadoutMember = {
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
   equippedSkills?: Skill[];
   downedAtStart?: boolean;
+  currentHp?: number | null;
+  currentEn?: number | null;
 };
 
 export type Loadout = {
@@ -85,12 +87,20 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, re
   const rawPool = m.equippedSkills && m.equippedSkills.length > 0
     ? m.equippedSkills.slice(0, equipCap)
     : m.template.skillPool.slice(0, equipCap);
-  const rawSkills = rawPool.map((s) => resolveSkillFromCatalog(s, resolver));
-  const skills = rawSkills.filter((s) => {
-    if (s.energyCost <= scaled.en) return true;
-    log.warn('battle.skill.unusable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
-    return false;
-  });
+  const skills = rawPool.map((s) => resolveSkillFromCatalog(s, resolver));
+  for (const s of skills) {
+    if (s.energyCost > scaled.en) {
+      log.warn('battle.skill.unaffordable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
+    }
+  }
+  const startingHp = m.downedAtStart
+    ? 0
+    : m.currentHp != null && m.currentHp > 0
+      ? Math.min(m.currentHp, scaled.hp)
+      : scaled.hp;
+  const startingEn = m.currentEn != null && m.currentEn >= 0
+    ? Math.min(m.currentEn, scaled.en)
+    : scaled.en;
   const unit: BattleUnit = {
     id: `${side}:${slot}` as UnitId,
     side,
@@ -100,9 +110,9 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, re
     element: m.template.element,
     attribute: m.template.attribute,
     level: m.level,
-    hp: m.downedAtStart ? 0 : scaled.hp,
+    hp: startingHp,
     hpMax: scaled.hp,
-    en: scaled.en,
+    en: startingEn,
     enMax: scaled.en,
     atk: scaled.atk,
     def: scaled.def,

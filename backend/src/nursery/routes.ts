@@ -22,7 +22,7 @@ const PET_MOOD_DELTA = 5;
 const FEED_MOOD_DELTA = 8;
 const FEED_MEAT_COST = 5;
 
-const SQL_SELECT_ALL = `SELECT * FROM player_roster WHERE user_id = ? ORDER BY created_at`;
+const SQL_SELECT_ALL = `SELECT * FROM player_roster WHERE user_id = ? AND (slot_index IS NULL OR status <> 'party') ORDER BY created_at`;
 const SQL_SELECT_BY_ID = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_MEAT = `SELECT amount FROM resources WHERE user_id = ? AND resource = 'Meat'`;
 const SQL_UPDATE_PET = `UPDATE player_roster SET mood = ?, pets_today = ?, pets_day = ?, updated_at = ? WHERE id = ? AND user_id = ?`;

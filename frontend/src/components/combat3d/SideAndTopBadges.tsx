@@ -2,9 +2,12 @@ import type { BattleView, EnemyUnitView, FriendlyUnitView } from '@digiworld/sha
 import { TurnOrderStrip } from './TurnOrderStrip';
 
 export function SideBadge({ battle }: { readonly battle: BattleView }): JSX.Element {
+  const opponentLabel = battle.mode === 'pvp'
+    ? (battle.opponentDisplayName && battle.opponentDisplayName.length > 0 ? battle.opponentDisplayName : 'Opponent')
+    : 'Wild Pack';
   return (
     <div className="sb">
-      <span className="k">Wild Pack</span>
+      <span className="k">{opponentLabel}</span>
       <span className="pips">
         {battle.enemy.map((e) => (
           <span key={e.id} className={`pip ${e.down || e.hp <= 0 ? '' : 'alive'}`} title={e.name} />

@@ -94,7 +94,7 @@ export function Market(): JSX.Element {
   const busy = buyMutation.isPending || cancelMutation.isPending || listMutation.isPending;
 
   return (
-    <>
+    <div className="market-page">
       <div className="mbar">
           <MarketTabs activeTab={tab} onTab={setTab} />
           <MarketChrome credits={creditsQuery.data ?? 0}>
@@ -250,7 +250,7 @@ export function Market(): JSX.Element {
         onSellPrice={(price) => setDialog((current) => (current.kind === 'sell' ? { ...current, price } : current))}
         onSell={(mon, price) => listMutation.mutate({ monId: mon.id, price })}
       />
-    </>
+    </div>
   );
 }
 

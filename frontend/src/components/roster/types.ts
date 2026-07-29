@@ -1,7 +1,16 @@
 import type { CSSProperties } from 'react';
 
-import type { Element, MoodState, Stage, StagePools } from '@digiworld/shared/digimon';
-import { STAGE_COMBAT_POOL, STAGE_HPEN_POOL, combatCapFor, combatSum, hpenCapFor, hpenSum } from '@digiworld/shared/digimon';
+import type { Element, MoodState, Stage, StagePools, TrainingStat } from '@digiworld/shared/digimon';
+import { STAGES, STAGE_COMBAT_POOL, STAGE_HPEN_POOL, combatCapFor, combatSum, hpenCapFor, hpenSum } from '@digiworld/shared/digimon';
+
+const STAGE_STAT_TRAINING_CAP: Record<Stage, number> = {
+  Baby: 200,
+  'In-Training': 300,
+  Rookie: 500,
+  Champion: 750,
+  Ultimate: 1100,
+  Mega: 1500,
+};
 
 import type { RosterView } from '../../lib/api';
 import type { TrainingActiveView } from '../../lib/api-roster';
@@ -47,19 +56,22 @@ export function totalStats(mon: RosterMon): { readonly hp: number; readonly en: 
   };
 }
 
-export type StatMax = Record<'hp' | 'en' | 'atk' | 'def' | 'int' | 'spd', number>;
+function scaleForLevel(base: number, level: number): number {
+  const l = Math.max(1, Math.min(99, level));
+  return Math.floor(base * (1 + 0.06 * (l - 1)));
+}
 
-export const STAGE_STAT_MAX: Record<Stage, StatMax> = {
-  Baby:          { hp:  560, en:  16, atk:  200, def:  200, int:  200, spd:  200 },
-  'In-Training': { hp:  840, en:  25, atk:  300, def:  300, int:  300, spd:  300 },
-  Rookie:        { hp: 1400, en:  41, atk:  500, def:  500, int:  500, spd:  500 },
-  Champion:      { hp: 2100, en:  62, atk:  750, def:  750, int:  750, spd:  750 },
-  Ultimate:      { hp: 3080, en:  90, atk: 1100, def: 1100, int: 1100, spd: 1100 },
-  Mega:          { hp: 4200, en: 123, atk: 1500, def: 1500, int: 1500, spd: 1500 },
-};
-
-export function statMaxFor(stage: Stage | undefined): StatMax {
-  return STAGE_STAT_MAX[stage ?? 'Rookie'] ?? STAGE_STAT_MAX.Rookie;
+export function scaledStats(mon: RosterMon): { readonly hp: number; readonly en: number; readonly atk: number; readonly def: number; readonly int: number; readonly spd: number } {
+  const base = mon.template?.baseStats;
+  const level = mon.level;
+  return {
+    hp: mon.hpMax || (scaleForLevel(base?.hp ?? 0, level) + mon.statBonus.hp),
+    en: mon.enMax || (scaleForLevel(base?.en ?? 0, level) + mon.statBonus.en),
+    atk: scaleForLevel(base?.atk ?? 0, level) + mon.statBonus.atk,
+    def: scaleForLevel(base?.def ?? 0, level) + mon.statBonus.def,
+    int: scaleForLevel(base?.int ?? 0, level) + mon.statBonus.int,
+    spd: scaleForLevel(base?.spd ?? 0, level) + mon.statBonus.spd,
+  };
 }
 
 export function xpPct(mon: RosterMon): number {
@@ -103,6 +115,57 @@ export function trainingProgress(mon: RosterMon): TrainingProgress | null {
     combat: { filled: currentCombatFilled, cap: combatCap, pct: combatPct },
     hpen: { filled: currentHpenFilled, cap: hpenCap, pct: hpenPct },
     overallPct,
+  };
+}
+
+export type PerStatTraining = Record<TrainingStat, PoolProgress>;
+
+/**
+ * Per-stat current-stage training progress. Each stat's `filled` is the
+ * bonus trained during the CURRENT stage (subtracting an estimate of what
+ * was already trained at prior stages); `cap` is the stage's per-stat
+ * training ceiling from STAGE_STAT_TRAINING_CAP. Bars reset to 0 on evolve
+ * and fill toward the current stage's cap independently per stat.
+ *
+ * Prior-stage per-stat contribution is estimated pro-rata from the mon's
+ * pool history (`stagePools[stage].combat/hpen`), matching the backend's
+ * `defaultMaxedPools` assumption (missing entries treated as fully spent).
+ * Without per-stat historical data on the backend the estimate biases
+ * conservative: the bar can lag the true current-stage progress if the
+ * mon evolved before saturating prior stages' per-stat caps.
+ *
+ * Returns null when the mon has no template (nothing to gate stage on).
+ */
+export function perStatTrainingProgress(mon: RosterMon): PerStatTraining | null {
+  const stage = mon.template?.stage;
+  if (stage === undefined) return null;
+  const priorPools: StagePools = mon.stagePools ?? {};
+  const bonus = mon.statBonus;
+  const currentStageCap = STAGE_STAT_TRAINING_CAP[stage];
+
+  const share = (statKey: TrainingStat, poolKind: 'combat' | 'hpen'): PoolProgress => {
+    let priorStatCap = 0;
+    for (const s of STAGES) {
+      if (s === stage) break;
+      const alloc = priorPools[s];
+      const totalPool = poolKind === 'combat' ? STAGE_COMBAT_POOL[s] : STAGE_HPEN_POOL[s];
+      const spentPool = alloc ? (poolKind === 'combat' ? alloc.combat : alloc.hpen) : totalPool;
+      const prop = totalPool === 0 ? 0 : Math.min(1, Math.max(0, spentPool / totalPool));
+      priorStatCap += STAGE_STAT_TRAINING_CAP[s] * prop;
+    }
+    const rawCurrent = bonus[statKey] - priorStatCap;
+    const currentStageTrained = Math.max(0, Math.min(currentStageCap, rawCurrent));
+    const pct = currentStageCap === 0 ? 0 : Math.min(100, Math.round((currentStageTrained / currentStageCap) * 100));
+    return { filled: Math.round(currentStageTrained), cap: currentStageCap, pct };
+  };
+
+  return {
+    hp:  share('hp',  'hpen'),
+    en:  share('en',  'hpen'),
+    atk: share('atk', 'combat'),
+    def: share('def', 'combat'),
+    int: share('int', 'combat'),
+    spd: share('spd', 'combat'),
   };
 }
 

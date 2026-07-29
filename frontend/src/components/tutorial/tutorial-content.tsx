@@ -368,8 +368,9 @@ const ITEMS_TUTORIAL: Tutorial = {
       title: 'Inventory',
       body: (
         <>
-          Apply items to a Digimon here. {kw('HP/EN buffs')} attach to the target and consume on
-          the next battle. {kw('XP multipliers')} attach to your account for the next win.
+          Apply items to a Digimon here. {kw('HP/EN restoratives')} (Med-Kits, Energy Drinks) heal the target
+          immediately — use them on Roster or from the Dungeon inventory rail. {kw('XP multipliers')} attach to
+          your account and consume on your next win.
         </>
       ),
     },

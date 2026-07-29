@@ -34,6 +34,10 @@ export type RosterView = {
   readonly status: 'resting' | 'training' | 'party' | 'adventure';
   readonly slot: number | null;
   readonly reviveAt: number | null;
+  readonly currentHp: number | null;
+  readonly currentEn: number | null;
+  readonly hpMax: number;
+  readonly enMax: number;
   readonly listedAt: number | null;
   readonly evolutionHistory: readonly string[];
   readonly equippedSkillIds: readonly string[] | null;

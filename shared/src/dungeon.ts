@@ -127,6 +127,7 @@ export type DungeonView = {
   readonly items: readonly DungeonItem[];
   readonly warps: readonly DungeonWarp[];
   readonly doors: readonly DungeonDoor[];
+  readonly traps: readonly DungeonTrap[];
 };
 
 export type UserDungeonRun = {
@@ -137,8 +138,36 @@ export type UserDungeonRun = {
   readonly defeatedEncounters: readonly string[];
   readonly collectedItems: readonly string[];
   readonly unlockedDoors: readonly string[];
+  readonly oneshotTriggeredIds: readonly string[];
   readonly startedAt: number;
   readonly completedAt: number | null;
+};
+
+export const TRAP_KINDS = ['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter'] as const;
+export type TrapKind = (typeof TRAP_KINDS)[number];
+
+export type DungeonTrap = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly kind: TrapKind;
+  readonly severity: number;
+  readonly label: string | null;
+  readonly createdAt: number;
+};
+
+export type TrapTriggered = {
+  readonly trapId: string;
+  readonly kind: TrapKind;
+  readonly severity: number;
+  readonly label: string | null;
+  readonly dodged: boolean;
+  readonly avoidChance: number;
+  readonly partyAvgSpd: number;
+  readonly effectSummary: string;
+  readonly teleportTo?: { readonly x: number; readonly y: number };
+  readonly randomEncounter?: readonly EncounterDigimon[];
 };
 
 export type DungeonRunView = {
@@ -151,5 +180,5 @@ export type DungeonRunView = {
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
-export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null };
+export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly trapTriggered?: TrapTriggered };
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };

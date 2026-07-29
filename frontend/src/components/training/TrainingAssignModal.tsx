@@ -83,7 +83,7 @@ export function TrainingAssignModal(props: TrainingAssignModalProps): JSX.Elemen
         </div>
         <div className="dbody" id="drawer-body">
           {!eligible.length ? (
-            <div className="rempty">No eligible Digimon. Party members can't train — bench one from the Roster screen first.</div>
+            <div className="rempty">No eligible Digimon. Party members can't train — <a href="/roster" style={{ color: 'var(--signal)', textDecoration: 'underline' }}>bench one from the Roster page</a> first.</div>
           ) : (
             <>
               <div className="field">

@@ -31,7 +31,7 @@ export function DungeonRunLog({
         <div className="rs">
           <b>{dungeonName}</b> · Steps {stepCount} · Encounters {defeatedCount}/{totalEncounters}
         </div>
-        {!isComplete && allEncountersDefeated && (
+        {!isComplete && allEncountersDefeated && stepCount > 0 && totalEncounters > 0 && (
           <button
             className="ebtn"
             style={{ marginTop: 10 }}

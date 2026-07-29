@@ -1,7 +1,7 @@
-export function MarketPagination({ total, page, perPage, onPage }: { readonly total: number; readonly page: number; readonly perPage: number; readonly onPage: (page: number) => void }): JSX.Element {
+export function MarketPagination({ total, page, perPage, onPage }: { readonly total: number; readonly page: number; readonly perPage: number; readonly onPage: (page: number) => void }): JSX.Element | null {
   const totalPages = Math.max(1, Math.ceil(total / perPage));
   if (totalPages <= 1 && total <= perPage) {
-    return <div className="pagination"><div className="info">{total} listing{total === 1 ? '' : 's'}</div></div>;
+    return null;
   }
   const start = (page - 1) * perPage + 1;
   const end = Math.min(page * perPage, total);

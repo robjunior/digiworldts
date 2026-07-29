@@ -453,3 +453,154 @@
   bottom: 4%;
   right: 4%;
 }
+
+.dungeon-page .rail .dp-party,
+.dungeon-page .rail .dp-inv {
+  flex: 0 0 auto; border-bottom: 1px solid var(--hair);
+  padding: 12px 14px;
+  background: color-mix(in oklab, var(--panel) 96%, var(--bg));
+}
+.dungeon-page .rail .dp-party-hd,
+.dungeon-page .rail .dp-inv-hd {
+  display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;
+}
+.dungeon-page .rail .dp-party-title,
+.dungeon-page .rail .dp-inv-title {
+  font: 800 9px/1 var(--font); letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+}
+.dungeon-page .rail .dp-party-hint {
+  font: 700 9px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--el, var(--signal));
+  animation: dp-blink 1.1s ease-in-out infinite;
+}
+@keyframes dp-blink { 50% { opacity: 0.5; } }
+.dungeon-page .rail .dp-inv-count {
+  font: 800 11px/1 var(--font); color: var(--ink); font-variant-numeric: tabular-nums;
+}
+
+.dungeon-page .rail .dp-party-slots {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+}
+.dungeon-page .rail .dp-slot {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 4px;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  color: var(--ink); cursor: pointer; text-align: center;
+  transition: border-color 0.12s, background 0.12s;
+}
+.dungeon-page .rail .dp-slot:disabled { cursor: default; }
+.dungeon-page .rail .dp-slot--empty { opacity: 0.4; cursor: default; }
+.dungeon-page .rail .dp-party.is-targeting .dp-slot:not(.dp-slot--empty):not(:disabled) {
+  border-color: var(--el, var(--signal));
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--el, var(--signal)) 50%, transparent);
+  animation: dp-pulse 1.4s ease-in-out infinite;
+}
+@keyframes dp-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--el, var(--signal)) 30%, transparent); }
+  50% { box-shadow: 0 0 0 2px color-mix(in oklab, var(--el, var(--signal)) 70%, transparent); }
+}
+.dungeon-page .rail .dp-party.is-targeting .dp-slot:not(.dp-slot--empty):hover:not(:disabled) {
+  background: color-mix(in oklab, var(--el, var(--signal)) 12%, var(--bg));
+}
+
+.dungeon-page .rail .dp-slot-pic {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  background: color-mix(in oklab, var(--el, var(--panel)) 12%, var(--bg));
+  border: 1px solid color-mix(in oklab, var(--el, var(--hair)) 50%, var(--hair));
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  overflow: hidden;
+}
+.dungeon-page .rail .dp-slot-pic img { width: 36px; height: 36px; object-fit: contain; image-rendering: pixelated; }
+.dungeon-page .rail .dp-slot-q { font: 900 18px/1 var(--font); color: var(--muted); }
+.dungeon-page .rail .dp-slot-nm {
+  font: 800 10px/1.15 var(--font); color: var(--ink);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dungeon-page .rail .dp-slot-lv {
+  font: 700 9px/1 var(--font); letter-spacing: 0.06em; color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.dungeon-page .rail .dp-slot-hp,
+.dungeon-page .rail .dp-slot-en {
+  width: 100%; display: flex; flex-direction: column; gap: 2px; margin-top: 2px;
+}
+.dungeon-page .rail .dp-slot-bar {
+  width: 100%; height: 4px; background: var(--panel); border: 1px solid var(--hair);
+  overflow: hidden; display: block;
+}
+.dungeon-page .rail .dp-slot-fill {
+  display: block; height: 100%; transition: width 0.25s ease;
+}
+.dungeon-page .rail .dp-slot-hp .dp-slot-fill { background: color-mix(in oklab, var(--signal) 30%, #3fbf6f); }
+.dungeon-page .rail .dp-slot-hp.is-low .dp-slot-fill { background: color-mix(in oklab, var(--gold, #f5c542) 65%, var(--signal)); }
+.dungeon-page .rail .dp-slot-hp.is-crit .dp-slot-fill { background: var(--battle); }
+.dungeon-page .rail .dp-slot-en .dp-slot-fill { background: var(--signal); }
+.dungeon-page .rail .dp-slot-num {
+  font: 700 8px/1 var(--font); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right;
+}
+.dungeon-page .rail .dp-slot.is-down {
+  filter: grayscale(0.7); opacity: 0.7;
+}
+.dungeon-page .rail .dp-slot-down {
+  position: absolute; top: 4px; right: 4px;
+  font: 800 7px/1 var(--font); letter-spacing: 0.14em; color: #fff;
+  background: var(--battle); padding: 2px 5px;
+  clip-path: polygon(2px 0, 100% 0, 100% 100%, 0 100%);
+}
+.dungeon-page .rail .dp-slot { position: relative; }
+
+.dungeon-page .rail .dp-inv-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.dungeon-page .rail .dp-inv-empty {
+  padding: 12px 6px; color: var(--muted); font: 600 11px/1.4 var(--font); text-align: center;
+}
+.dungeon-page .rail .dp-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  cursor: pointer; color: var(--el, var(--ink));
+  transition: border-color 0.12s, background 0.12s;
+}
+.dungeon-page .rail .dp-tile:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--el, var(--muted)) 60%, var(--muted));
+  background: color-mix(in oklab, var(--el, var(--bg)) 10%, var(--bg));
+}
+.dungeon-page .rail .dp-tile:disabled { opacity: 0.5; cursor: not-allowed; }
+.dungeon-page .rail .dp-tile.is-selected {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 1px var(--signal), inset 0 0 0 1px color-mix(in oklab, var(--signal) 40%, transparent);
+  background: color-mix(in oklab, var(--signal) 10%, var(--bg));
+}
+.dungeon-page .rail .dp-tile-ic { width: 24px; height: 24px; display: grid; place-items: center; }
+.dungeon-page .rail .dp-tile-ic svg { width: 22px; height: 22px; }
+.dungeon-page .rail .dp-tile-qty {
+  position: absolute; bottom: 2px; right: 4px;
+  font: 800 9px/1 var(--font); color: var(--ink); font-variant-numeric: tabular-nums;
+  padding: 2px 4px; background: color-mix(in oklab, var(--bg) 85%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
+}
+
+.dungeon-page .rail .dp-tip {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  min-width: 180px; max-width: 240px; padding: 8px 10px;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  display: flex; flex-direction: column; gap: 4px;
+  opacity: 0; visibility: hidden; pointer-events: none; z-index: 10;
+  transition: opacity 0.12s;
+  text-align: left;
+}
+.dungeon-page .rail .dp-tile:hover .dp-tip,
+.dungeon-page .rail .dp-tile:focus-visible .dp-tip { opacity: 1; visibility: visible; }
+.dungeon-page .rail .dp-tip-nm {
+  font: 800 11px/1.1 var(--font); color: var(--ink);
+}
+.dungeon-page .rail .dp-tip-ds {
+  font: 500 10px/1.35 var(--font); color: var(--muted);
+}
+.dungeon-page .rail .dp-tip-act {
+  font: 700 8px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--signal); padding-top: 4px; border-top: 1px solid var(--hair);
+}

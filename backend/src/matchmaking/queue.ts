@@ -25,8 +25,10 @@ import { getCluster, type Cluster } from '../cluster/index.js';
 
 const QUEUE_TTL_MS = 5 * 60 * 1000;
 const BRACKET_START = 5;
+const BRACKET_MAX = 20;
 const BRACKET_WIDEN_MS = 3_000;
 const TRAINEDNESS_BRACKET_START = 100;
+const TRAINEDNESS_BRACKET_MAX = 600;
 const TRAINEDNESS_BRACKET_WIDEN_MS = 3_000;
 const PAIR_LOCK_KEY = 'mm:pair-lock';
 const PAIR_LOCK_TTL_SEC = 2;
@@ -139,9 +141,14 @@ class ClusterMatchmaker implements Matchmaker {
       for (let i = 0; i < entries.length; i++) {
         const a = entries[i]!;
         const wait = now - a.queuedAt;
-        const widenedLevel = BRACKET_START + Math.floor(wait / BRACKET_WIDEN_MS) * BRACKET_START;
-        const widenedTrained =
-          TRAINEDNESS_BRACKET_START + Math.floor(wait / TRAINEDNESS_BRACKET_WIDEN_MS) * TRAINEDNESS_BRACKET_START;
+        const widenedLevel = Math.min(
+          BRACKET_MAX,
+          BRACKET_START + Math.floor(wait / BRACKET_WIDEN_MS) * BRACKET_START,
+        );
+        const widenedTrained = Math.min(
+          TRAINEDNESS_BRACKET_MAX,
+          TRAINEDNESS_BRACKET_START + Math.floor(wait / TRAINEDNESS_BRACKET_WIDEN_MS) * TRAINEDNESS_BRACKET_START,
+        );
         for (let j = i + 1; j < entries.length; j++) {
           const b = entries[j]!;
           if (b.userId === a.userId) continue;
