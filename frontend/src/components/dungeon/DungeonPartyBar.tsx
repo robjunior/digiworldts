@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 
+import { useT } from '../../hooks/useLocale';
 import type { RosterView } from '../../lib/api';
 
 type DungeonPartyBarProps = {
@@ -25,11 +26,12 @@ function hpTone(pct: number): string {
 }
 
 export function DungeonPartyBar({ party, targeting, busy, now, onTarget }: DungeonPartyBarProps): ReactElement {
+  const t = useT();
   return (
     <div className={`dp-party${targeting ? ' is-targeting' : ''}`}>
       <div className="dp-party-hd">
-        <span className="dp-party-title">Party</span>
-        {targeting ? <span className="dp-party-hint">Click a member to apply</span> : null}
+        <span className="dp-party-title">{t('dungeon.party')}</span>
+        {targeting ? <span className="dp-party-hint">{t('dungeon.click_member_to_apply')}</span> : null}
       </div>
       <div className="dp-party-slots">
         {party.map((mon) => {

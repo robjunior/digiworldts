@@ -19,7 +19,7 @@ import {
   WorldIcon,
 } from './common/icons';
 import { useAuth } from '../hooks/useAuth';
-import { useLocale } from '../hooks/useLocale';
+import { useLocale, useT } from '../hooks/useLocale';
 import { setLocale } from '../lib/locale';
 import { getFarm } from '../lib/api-farm';
 import { getRoster } from '../lib/api';
@@ -27,6 +27,7 @@ import { getRoster } from '../lib/api';
 type NavEntry = {
   readonly to: string;
   readonly label: string;
+  readonly labelKey?: string;
   readonly svg: ReactNode;
 };
 
@@ -35,22 +36,22 @@ type AdminNavEntry = NavEntry & {
   readonly route?: string;
 };
 
-const PAGE_LABELS: Readonly<Record<string, string>> = {
-  '/': 'Lobby',
-  '/lobby': 'Lobby',
-  '/combat': 'Combat',
-  '/roster': 'Roster',
-  '/factory': 'Factory',
-  '/farm': 'Farm',
-  '/adventure': 'Adventure',
-  '/nursery': 'Nursery',
-  '/training': 'Training',
-  '/market': 'Market',
-  '/digdex': 'Digidex',
-  '/dungeon': 'Dungeon',
-  '/world': 'World',
-  '/admin': 'Admin',
-  '/intro': 'Intro',
+const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
+  '/': 'lobby.title',
+  '/lobby': 'lobby.title',
+  '/combat': 'combat.your_team',
+  '/roster': 'roster.title',
+  '/factory': 'nav.factory',
+  '/farm': 'farm.title',
+  '/adventure': 'adventure.title',
+  '/nursery': 'nursery.title',
+  '/training': 'training.title',
+  '/market': 'market.title',
+  '/digdex': 'digidex.title',
+  '/dungeon': 'nav.dungeon',
+  '/world': 'world.title',
+  '/admin': 'hud.admin',
+  '/intro': 'auth.enter_arena',
 };
 
 /**
@@ -77,10 +78,9 @@ const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/admin': 'admin-layout',
 };
 
-function pageLabelFor(pathname: string): string {
-  if (PAGE_LABELS[pathname]) return PAGE_LABELS[pathname];
-  const first = pathname.split('/').filter(Boolean)[0];
-  return first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Lobby';
+function pageLabelKeyFor(pathname: string): string | null {
+  if (PAGE_LABEL_KEYS[pathname]) return PAGE_LABEL_KEYS[pathname];
+  return null;
 }
 
 function pageScopeFor(pathname: string): string {
@@ -108,21 +108,20 @@ const ICON_ADMIN_COG: ReactNode = <AdminCogIcon />;
 const ICON_BACK: ReactNode = <BackIcon />;
 
 const TOWN: readonly NavEntry[] = [
-  { to: '/factory',   label: 'Factory',    svg: ICON_FACTORY },
-  { to: '/farm',      label: 'Farm',       svg: ICON_FARM },
-  { to: '/adventure', label: 'Adventure',  svg: ICON_ADVENTURE },
-  { to: '/nursery',   label: 'Nursery',    svg: ICON_NURSERY },
-  { to: '/training',  label: 'Training',   svg: ICON_TRAINING },
+  { to: '/factory',   label: 'Factory',    labelKey: 'nav.factory',   svg: ICON_FACTORY },
+  { to: '/farm',      label: 'Farm',       labelKey: 'nav.farm',      svg: ICON_FARM },
+  { to: '/adventure', label: 'Adventure',  labelKey: 'nav.adventure', svg: ICON_ADVENTURE },
+  { to: '/nursery',   label: 'Nursery',    labelKey: 'nav.nursery',   svg: ICON_NURSERY },
+  { to: '/training',  label: 'Training',   labelKey: 'nav.training',  svg: ICON_TRAINING },
 ];
 
 const BEYOND: readonly NavEntry[] = [
-  { to: '/market',    label: 'The Market', svg: ICON_MARKET },
-  { to: '/items',     label: 'Inventory',  svg: ICON_MARKET },
-  { to: '/digdex',    label: 'DigiDex',    svg: ICON_DIGIDEX },
-  { to: '/roster',    label: 'Roster',     svg: ICON_ROSTER },
-  { to: '/world',     label: 'The World',  svg: ICON_WORLD },
-  { to: '/dungeon',   label: 'Dungeon',    svg: ICON_DUNGEON },
-  { to: '/lobby',     label: 'The Arena',  svg: ICON_ARENA },
+  { to: '/market',    label: 'The Market', labelKey: 'nav.market',    svg: ICON_MARKET },
+  { to: '/items',     label: 'Inventory',  labelKey: 'nav.inventory', svg: ICON_MARKET },
+  { to: '/digdex',    label: 'DigiDex',    labelKey: 'nav.digidex',   svg: ICON_DIGIDEX },
+  { to: '/roster',    label: 'Roster',     labelKey: 'nav.roster',    svg: ICON_ROSTER },
+  { to: '/world',     label: 'The World',  labelKey: 'nav.world',     svg: ICON_WORLD },
+  { to: '/lobby',     label: 'The Arena',  labelKey: 'nav.arena',     svg: ICON_ARENA },
 ];
 
 const ADMIN_NAV: readonly AdminNavEntry[] = [
@@ -151,8 +150,10 @@ function isActive(pathname: string, target: string): boolean {
 export function AppShell(): JSX.Element {
   const { user } = useAuth();
   const locale = useLocale();
+  const t = useT();
   const { pathname, search } = useLocation();
-  const pageLabel = pageLabelFor(pathname);
+  const pageLabelKey = pageLabelKeyFor(pathname);
+  const pageLabel = pageLabelKey ? t(pageLabelKey) : (pathname.split('/').filter(Boolean)[0] ?? t('lobby.title'));
   const pageScope = pageScopeFor(pathname);
   const authed = !!user;
   const isAdminMode = pathname.startsWith('/admin');
@@ -170,16 +171,17 @@ export function AppShell(): JSX.Element {
 
   const renderNav = (entry: NavEntry): JSX.Element => {
     const active = isActive(pathname, entry.to);
+    const label = entry.labelKey ? t(entry.labelKey) : entry.label;
     return (
       <Link
         key={entry.to}
         to={entry.to}
         className="navbtn"
-        aria-label={entry.label}
+        aria-label={label}
         {...(active ? { 'aria-current': 'page' as const } : {})}
       >
         {entry.svg}
-        <span>{entry.label}</span>
+        <span>{label}</span>
       </Link>
     );
   };
@@ -189,16 +191,17 @@ export function AppShell(): JSX.Element {
     const dungeonEditorActive = entry.tab === 'dungeons' && pathname.startsWith('/admin/dungeons/');
     const tabActive = pathname === '/admin' && entry.tab === activeAdminTab;
     const active = routeActive || dungeonEditorActive || tabActive;
+    const label = entry.labelKey ? t(entry.labelKey) : entry.label;
     return (
       <Link
         key={entry.to}
         to={entry.to}
         className="navbtn"
-        aria-label={entry.label}
+        aria-label={label}
         {...(active ? { 'aria-current': 'page' as const } : {})}
       >
         {entry.svg}
-        <span>{entry.label}</span>
+        <span>{label}</span>
       </Link>
     );
   };
@@ -210,8 +213,8 @@ export function AppShell(): JSX.Element {
       <header className="titlebar">
         <div className="lights"><i /><i /><i /></div>
         <div className="app-mark">DIGI<span className="bit">WORLD</span></div>
-        <div className="win-meta">Tamer Terminal · {pageLabel}</div>
-        <div className="win-locale" role="group" aria-label="Language">
+        <div className="win-meta">{t('header.tamer_terminal')} · {pageLabel}</div>
+        <div className="win-locale" role="group" aria-label={t('hud.language')}>
           <button
             type="button"
             className={`win-locale-btn ${locale === 'en' ? 'is-active' : ''}`}
@@ -233,35 +236,35 @@ export function AppShell(): JSX.Element {
       <div className="body">
         <nav className="side" aria-label="Primary">
           {isAdminMode ? (
-            <>
-              <div className="grp">Admin</div>
-              {ADMIN_NAV.slice(0, 12).map(renderAdminNav)}
-              <div className="grp" style={BEYOND_STYLE}>─</div>
-              {renderAdminNav(ADMIN_BACK_ENTRY)}
-            </>
-          ) : (
-            <>
-              <div className="grp">The Town</div>
-              {TOWN.map(renderNav)}
-              <div className="grp" style={BEYOND_STYLE}>Beyond</div>
-              {BEYOND.map(renderNav)}
-            </>
-          )}
+              <>
+                <div className="grp">{t('hud.admin')}</div>
+                {ADMIN_NAV.slice(0, 12).map(renderAdminNav)}
+                <div className="grp" style={BEYOND_STYLE}>─</div>
+                {renderAdminNav(ADMIN_BACK_ENTRY)}
+              </>
+            ) : (
+              <>
+                <div className="grp">{t('nav.town')}</div>
+                {TOWN.map(renderNav)}
+                <div className="grp" style={BEYOND_STYLE}>{t('nav.beyond')}</div>
+                {BEYOND.map(renderNav)}
+              </>
+            )}
           <div className="spring">
             {isAdminMode ? (
               <div className="hud">
-                <div className="pill"><span>Admin</span><b>{user?.username ?? '—'}</b></div>
+                <div className="pill"><span>{t('hud.admin')}</span><b>{user?.username ?? '—'}</b></div>
               </div>
             ) : (
               <div className="hud">
-                <div className="pill"><span>Tamer Lv</span><b>{tamerLv ?? '—'}</b></div>
-                <div className="pill"><span>Credits</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
-                <div className="pill"><span>Bits</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
-                <div className="pill"><span>Party</span><b>{party.length}/{partyMax}</b></div>
+                <div className="pill"><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></div>
+                <div className="pill"><span>{t('hud.credits')}</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
+                <div className="pill"><span>{t('hud.bits')}</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
+                <div className="pill"><span>{t('hud.party')}</span><b>{party.length}/{partyMax}</b></div>
               </div>
             )}
             {!isAdminMode && user?.isAdmin === true ? (
-              <Link to="/admin" className="admin-link">Admin</Link>
+              <Link to="/admin" className="admin-link">{t('hud.admin')}</Link>
             ) : null}
           </div>
         </nav>

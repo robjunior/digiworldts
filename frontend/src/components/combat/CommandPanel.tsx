@@ -1,5 +1,6 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 
+import { useT } from '../../hooks/useLocale';
 import { ItemsMenu } from './ItemsMenu';
 import { SkillMenu } from './SkillMenu';
 
@@ -115,37 +116,38 @@ function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onF
   readonly onAnalyze: () => void;
   readonly onFlee: () => void;
 }): JSX.Element {
+  const t = useT();
   const targetReady = target !== null;
   return (
     <>
-      <div className="chelp"><span className="htag">Help</span><span>Select an action.</span></div>
+      <div className="chelp"><span className="htag">Help</span><span>{t('combat.select_action')}</span></div>
       <div className="chead"><span className="sect">Command</span></div>
       <div className="rows">
         <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={() => target && onFight(target.id)}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Fight</div>
+          <div className="mnm">{t('combat.fight')}</div>
         </button>
         <button className="mrow" type="button" onClick={() => onMode('skills')}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Skills</div>
+          <div className="mnm">{t('combat.skills')}</div>
         </button>
         <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={onAnalyze}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Analyse</div>
+          <div className="mnm">{t('combat.analyse')}</div>
         </button>
         {pveMode ? (
           <button className="mrow" type="button" onClick={() => onMode('items')}>
             <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-            <div className="mnm">Item</div>
+            <div className="mnm">{t('combat.item')}</div>
           </button>
         ) : null}
         <button className="mrow" type="button" onClick={onGuard}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Guard</div>
+          <div className="mnm">{t('combat.guard')}</div>
         </button>
         <button className="mrow" type="button" onClick={onFlee}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Flee</div>
+          <div className="mnm">{t('combat.flee')}</div>
         </button>
       </div>
     </>
