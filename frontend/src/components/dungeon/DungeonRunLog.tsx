@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import { useT } from '../../hooks/useLocale';
 import type { LogEntry } from './types';
 
 type DungeonRunLogProps = {
@@ -24,12 +25,13 @@ export function DungeonRunLog({
   onComplete,
   logs,
 }: DungeonRunLogProps): ReactElement {
+  const t = useT();
   return (
     <>
       <div className="rhead">
-        <div className="rt">Run Log</div>
+        <div className="rt">{t('dungeon.run_log')}</div>
         <div className="rs">
-          <b>{dungeonName}</b> · Steps {stepCount} · Encounters {defeatedCount}/{totalEncounters}
+          <b>{dungeonName}</b> · {t('dungeon.steps')} {stepCount} · {t('dungeon.encounters')} {defeatedCount}/{totalEncounters}
         </div>
         {!isComplete && allEncountersDefeated && stepCount > 0 && totalEncounters > 0 && (
           <button
@@ -38,7 +40,7 @@ export function DungeonRunLog({
             onClick={onComplete}
             disabled={isCompleting}
           >
-            Complete Dungeon
+            {t('dungeon.complete_dungeon')}
           </button>
         )}
       </div>

@@ -99,13 +99,15 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/quests/available', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const rating = await partyRating(user.id);
-    return reply.send({ quests: await listAvailableQuests(user.id, rating.meanLevel) });
+    const locale = user.localePref === 'pt' ? 'pt' : 'en';
+    return reply.send({ quests: await listAvailableQuests(user.id, rating.meanLevel, locale) });
   });
 
   app.get('/api/quests', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const rating = await partyRating(user.id);
-    return reply.send({ quests: await listQuestsForUser(user.id, rating.meanLevel) });
+    const locale = user.localePref === 'pt' ? 'pt' : 'en';
+    return reply.send({ quests: await listQuestsForUser(user.id, rating.meanLevel, locale) });
   });
 
   app.post<{ Params: { id: string } }>('/api/quests/:id/start', async (req, reply) => {

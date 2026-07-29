@@ -10,6 +10,9 @@ import './styles/app-shell.css';
 
 import { App } from './App';
 import { AuthProvider } from './hooks/useAuth';
+import { installBrowserLocaleWatcher } from './lib/locale';
+
+installBrowserLocaleWatcher();
 
 const queryClient = new QueryClient({
   defaultOptions: {

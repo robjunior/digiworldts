@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 
+import { useT } from '../../hooks/useLocale';
 import type { InventoryItemView, ShopItemView } from '../../lib/api-shop';
 
 type DungeonInventoryPanelProps = {
@@ -45,6 +46,7 @@ function elementForItem(kind: string, name: string): string {
 }
 
 export function DungeonInventoryPanel({ inventory, productById, selectedItemId, busy, onSelectItem }: DungeonInventoryPanelProps): ReactElement {
+  const t = useT();
   const usable = inventory.filter((entry) => {
     if (entry.qty <= 0) return false;
     const product = productById.get(entry.itemId);
@@ -55,11 +57,11 @@ export function DungeonInventoryPanel({ inventory, productById, selectedItemId, 
   return (
     <div className="dp-inv">
       <div className="dp-inv-hd">
-        <span className="dp-inv-title">Inventory</span>
+        <span className="dp-inv-title">{t('dungeon.inventory')}</span>
         <span className="dp-inv-count">{usable.length}</span>
       </div>
       {usable.length === 0 ? (
-        <div className="dp-inv-empty">No usable items. Buy some at The Market.</div>
+        <div className="dp-inv-empty">{t('dungeon.no_usable_items')}</div>
       ) : (
         <div className="dp-inv-grid">
           {usable.map((entry) => {

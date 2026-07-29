@@ -3,6 +3,7 @@ import { useState, useMemo } from 'react';
 import type { TemplateDigimon, Element } from '@digiworld/shared/digimon';
 import { ELEMENTS, ATTRIBUTES } from '@digiworld/shared/digimon';
 
+import { useT } from '../../hooks/useLocale';
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
 import { formatRemaining, isDowned, perStatTrainingProgress, scaledStats, trainingProgress, xpPct } from './types';
 import { PartyPicker } from './PartyPicker';
@@ -22,6 +23,7 @@ type RosterListProps = {
 };
 
 export function RosterList({ roster, now, activityByMon, actions, templateById, reverseGraph, message }: RosterListProps): JSX.Element {
+  const t = useT();
   const [selectedId, setSelectedId] = useState<string>(roster[0]?.id ?? '');
   const [q, setQ] = useState('');
   const [elFilter, setElFilter] = useState<string>('all');
@@ -70,25 +72,25 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
       >
         <PartyPicker roster={roster} now={now} actions={actions} />
         <div className="mhead">
-          <div className="kick">Digivice Registry</div>
-          <h1>Your Roster</h1>
+          <div className="kick">{t('roster.registry')}</div>
+          <h1>{t('roster.title')}</h1>
           <p className="sub" id="sub">
-            {elFilter === 'all' && !q ? `${roster.length} registered · filter by element` : `${filtered.length} of ${roster.length} shown`}
+            {elFilter === 'all' && !q ? t('roster.registered', { n: roster.length }) : `${filtered.length} of ${roster.length} shown`}
           </p>
         </div>
         <div className="tools">
-          <label className="search" aria-label="Search roster">
+          <label className="search" aria-label={t('common.search')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
             <input 
               id="search" 
               type="search" 
-              placeholder="Search nickname or species…" 
+              placeholder={t('roster.search_placeholder')}
               autoComplete="off" 
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </label>
-          <div className="filters" id="filters" role="group" aria-label="Filter by element">
+          <div className="filters" id="filters" role="group" aria-label={t('roster.filter_by_element')}>
             {chips.map(({ v, l, n }) => (
               <button 
                 key={v}
@@ -166,6 +168,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
 }
 
 function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions, activityByMon }: any) {
+  const t = useT();
   const e = el(r);
   const template = templateById.get(r.catalogId);
   const stage = template?.stage ?? 'Unknown';
@@ -215,8 +218,8 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions, ac
       </div>
 
       <div className="dtabs" role="tablist" aria-label="Digimon detail sections">
-        <button className={`dtab ${activeTab === 'stats' ? 'is-on' : ''}`} role="tab" aria-selected={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>Stats</button>
-        <button className={`dtab ${activeTab === 'skills' ? 'is-on' : ''}`} role="tab" aria-selected={activeTab === 'skills'} onClick={() => setActiveTab('skills')}>Skills</button>
+        <button className={`dtab ${activeTab === 'stats' ? 'is-on' : ''}`} role="tab" aria-selected={activeTab === 'stats'} onClick={() => setActiveTab('stats')}>{t('roster.tab_stats')}</button>
+        <button className={`dtab ${activeTab === 'skills' ? 'is-on' : ''}`} role="tab" aria-selected={activeTab === 'skills'} onClick={() => setActiveTab('skills')}>{t('roster.tab_skills')}</button>
       </div>
 
       <div className="tabwrap">

@@ -18,6 +18,8 @@ type QuestRow = {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly name_pt: string | null;
+  readonly description_pt: string | null;
   readonly required_level: number;
   readonly data: string | Quest;
   readonly created_at: number;
@@ -128,9 +130,16 @@ function parseJsonObject(value: string | Readonly<Record<string, string>>): Read
   return {};
 }
 
-function questFromRow(row: QuestRow): Quest {
-  if (typeof row.data !== 'string') return row.data;
-  return JSON.parse(row.data) as Quest;
+function questFromRow(row: QuestRow, locale?: 'en' | 'pt'): Quest {
+  const parsed: Quest = typeof row.data !== 'string' ? row.data : (JSON.parse(row.data) as Quest);
+  if (locale === 'pt') {
+    return {
+      ...parsed,
+      name: row.name_pt && row.name_pt.length > 0 ? row.name_pt : parsed.name,
+      description: row.description_pt && row.description_pt.length > 0 ? row.description_pt : parsed.description,
+    };
+  }
+  return parsed;
 }
 
 function parseElementsJson(value: string | null): readonly Element[] | null {
@@ -179,13 +188,13 @@ function progressFromRow(row: ProgressRow): UserQuestProgress {
   };
 }
 
-export async function listQuests(): Promise<Quest[]> {
-  return (await q<QuestRow>(SQL_LIST_QUESTS)).map(questFromRow);
+export async function listQuests(locale?: 'en' | 'pt'): Promise<Quest[]> {
+  return (await q<QuestRow>(SQL_LIST_QUESTS)).map((row) => questFromRow(row, locale));
 }
 
-export async function getQuest(id: string): Promise<Quest | null> {
+export async function getQuest(id: string, locale?: 'en' | 'pt'): Promise<Quest | null> {
   const row = await one<QuestRow>(SQL_GET_QUEST, id);
-  return row ? questFromRow(row) : null;
+  return row ? questFromRow(row, locale) : null;
 }
 
 export async function createQuest(input: Omit<Quest, 'id' | 'createdAt' | 'updatedAt'>): Promise<Quest> {
@@ -213,8 +222,8 @@ export async function deleteQuest(id: string): Promise<boolean> {
   return (await run(SQL_DELETE_QUEST, id)).changes > 0;
 }
 
-export async function listAvailableQuests(userId: string, requiredLevel: number): Promise<Quest[]> {
-  return (await q<QuestRow>(SQL_LIST_AVAILABLE_QUESTS, requiredLevel, userId)).map(questFromRow);
+export async function listAvailableQuests(userId: string, requiredLevel: number, locale?: 'en' | 'pt'): Promise<Quest[]> {
+  return (await q<QuestRow>(SQL_LIST_AVAILABLE_QUESTS, requiredLevel, userId)).map((row) => questFromRow(row, locale));
 }
 
 export async function startQuest(userId: string, questId: string): Promise<{ readonly quest: Quest; readonly progress: UserQuestProgress } | null> {
@@ -326,7 +335,7 @@ function formatRewardText(quest: Quest): string {
   return 'Progression reward';
 }
 
-export async function listQuestsForUser(userId: string, meanLevel: number): Promise<QuestWithProgress[]> {
+export async function listQuestsForUser(userId: string, meanLevel: number, locale?: 'en' | 'pt'): Promise<QuestWithProgress[]> {
   const [quests, progressRows] = await Promise.all([
     q<QuestRow>(SQL_LIST_QUESTS),
     q<ProgressRow>(SQL_LIST_PROGRESS_FOR_USER, userId),
@@ -334,7 +343,7 @@ export async function listQuestsForUser(userId: string, meanLevel: number): Prom
   const progressByQuestId = new Map<string, ProgressRow>();
   for (const row of progressRows) progressByQuestId.set(row.quest_id, row);
   return quests
-    .map(questFromRow)
+    .map((row) => questFromRow(row, locale))
     .filter((quest) => quest.objectives !== undefined && quest.objectives.length > 0)
     .map((quest) => questWithProgress(quest, meanLevel, progressByQuestId.get(quest.id) ?? null))
     .filter((q) => q.state !== 'claimed');
