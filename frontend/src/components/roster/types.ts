@@ -47,6 +47,10 @@ export function totalStats(mon: RosterMon): { readonly hp: number; readonly en: 
   };
 }
 
+export const STAT_MAX: Record<'hp' | 'en' | 'atk' | 'def' | 'int' | 'spd', number> = {
+  hp: 1400, en: 41, atk: 260, def: 200, int: 160, spd: 160,
+};
+
 export function xpPct(mon: RosterMon): number {
   const span = mon.xpNext - mon.xpFloor;
   if (span <= 0) {
