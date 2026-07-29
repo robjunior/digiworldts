@@ -47,9 +47,20 @@ export function totalStats(mon: RosterMon): { readonly hp: number; readonly en: 
   };
 }
 
-export const STAT_MAX: Record<'hp' | 'en' | 'atk' | 'def' | 'int' | 'spd', number> = {
-  hp: 1400, en: 41, atk: 260, def: 200, int: 160, spd: 160,
+export type StatMax = Record<'hp' | 'en' | 'atk' | 'def' | 'int' | 'spd', number>;
+
+export const STAGE_STAT_MAX: Record<Stage, StatMax> = {
+  Baby:          { hp:  560, en:  16, atk:  200, def:  200, int:  200, spd:  200 },
+  'In-Training': { hp:  840, en:  25, atk:  300, def:  300, int:  300, spd:  300 },
+  Rookie:        { hp: 1400, en:  41, atk:  500, def:  500, int:  500, spd:  500 },
+  Champion:      { hp: 2100, en:  62, atk:  750, def:  750, int:  750, spd:  750 },
+  Ultimate:      { hp: 3080, en:  90, atk: 1100, def: 1100, int: 1100, spd: 1100 },
+  Mega:          { hp: 4200, en: 123, atk: 1500, def: 1500, int: 1500, spd: 1500 },
 };
+
+export function statMaxFor(stage: Stage | undefined): StatMax {
+  return STAGE_STAT_MAX[stage ?? 'Rookie'] ?? STAGE_STAT_MAX.Rookie;
+}
 
 export function xpPct(mon: RosterMon): number {
   const span = mon.xpNext - mon.xpFloor;
