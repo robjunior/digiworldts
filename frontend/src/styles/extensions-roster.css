@@ -555,11 +555,13 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 7px 14px;
+  padding: 7px 18px;
   cursor: pointer;
   transition: background-color 0.15s var(--ease), border-color 0.15s var(--ease), transform 0.1s var(--ease);
   clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 .rl-action-btn:hover:not(:disabled) { border-color: var(--ink); background: var(--bg); }
 .rl-action-btn:active:not(:disabled) { transform: scale(0.97); }
@@ -570,6 +572,8 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 .rl-action-btn--rename:hover:not(:disabled) { color: var(--ink); }
 .rl-action-btn--revive { color: var(--battle); border-color: color-mix(in oklab, var(--battle) 45%, var(--hairline)); }
 .rl-action-btn--revive:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 8%, var(--panel)); border-color: var(--battle); }
+.rl-action-btn--party { color: var(--signal); border-color: color-mix(in oklab, var(--signal) 45%, var(--hairline)); }
+.rl-action-btn--party:hover:not(:disabled) { background: color-mix(in oklab, var(--signal) 8%, var(--panel)); border-color: var(--signal); }
 
 .evo-chain {
   display: flex;
@@ -753,4 +757,96 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 }
 .stats .stat .fill.is-max {
   background: var(--gold, #f5c542);
+}
+
+/* Roster breakpoint ladder (AppShell sidebar is a fixed 220px at every width):
+     ≤1200  collapse .grid2 to single column
+     ≤1024  master 360→300, tighter detail padding
+     ≤900   master 300→260, collapse .statcols to single column
+     ≤720   stack .roster-layout (master over detail)
+     ≤640   compression pass */
+
+@media (max-width: 1200px) {
+  .grid2 { grid-template-columns: 1fr; gap: 24px; }
+  .tabwrap { padding: 18px 24px 20px; }
+  .dtabs { padding: 0 24px; }
+  .hero .hinfo { padding: 22px 24px 18px; }
+  .hero .cap { left: 24px; }
+}
+
+@media (max-width: 1024px) {
+  .roster-layout { grid-template-columns: 300px 1fr; }
+  .mhead { padding: 14px 14px 10px; }
+  .mhead h1 { font-size: 22px; }
+  .tools { padding: 10px 14px; }
+  .list { padding: 6px; }
+  .rl-actions { padding: 10px 14px; }
+  .row { padding: 9px; }
+  .row .mug { width: 42px; height: 42px; }
+  .row .mug img { width: 34px; height: 34px; }
+  .row { grid-template-columns: 42px 1fr auto; gap: 10px; }
+}
+
+@media (max-width: 900px) {
+  .roster-layout { grid-template-columns: 260px 1fr; }
+  .statcols { grid-template-columns: 1fr; gap: 10px; }
+  .hero { height: min(32vh, 260px); }
+  .hero .hinfo { padding: 16px 18px 14px; width: 100%; max-width: none; }
+  .hinfo h2 { font-size: clamp(28px, 5vw, 44px) !important; }
+  .hinfo .tpl { font-size: 13px; }
+  .meta .cell { min-width: 76px; padding: 8px 12px; }
+  .tabwrap { padding: 14px 16px 18px; }
+  .dtabs { padding: 0 16px; }
+  .dtab { padding: 12px 16px; }
+  .affline { grid-template-columns: 68px 1fr; gap: 10px; }
+  .stat { grid-template-columns: 48px 1fr 40px; gap: 10px; }
+  .master .party-strip { padding: 8px 12px; gap: 6px; }
+  .master .party-slot { padding: 6px 8px; grid-template-columns: 26px 1fr auto; gap: 8px; }
+}
+
+@media (max-width: 720px) {
+  .roster-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    height: auto;
+    min-height: 100%;
+  }
+  .master {
+    max-height: 42vh;
+    border-right: 0;
+    border-bottom: 1px solid var(--hair);
+  }
+  .detail { min-height: 360px; }
+  .rl-actions { padding: 8px 14px; gap: 6px; }
+  .mhead h1 { font-size: 20px; }
+  .mhead .kick { font-size: 9px; }
+  .mhead .sub { font-size: 11px; }
+}
+
+@media (max-width: 640px) {
+  .hero { height: 200px; }
+  .hinfo h2 { font-size: clamp(24px, 6vw, 32px) !important; }
+  .hinfo .kick { font-size: 9px; margin-bottom: 6px; }
+  .hinfo .tpl { font-size: 12px; margin-top: 4px; }
+  .meta { flex-wrap: wrap; margin-top: 10px; }
+  .meta .cell { min-width: 64px; padding: 6px 10px; border-right: 1px solid var(--hair); }
+  .meta .lbl { font-size: 8px; margin-bottom: 4px; }
+  .meta .val { font-size: 13px; }
+  .tabwrap { padding: 12px 12px 16px; }
+  .dtabs { padding: 0 12px; }
+  .dtab { padding: 12px 14px; font-size: 10px; }
+  .hero .hinfo { padding: 12px 14px 10px; }
+  .hero .cap { left: 14px; top: 14px; padding: 5px 8px; }
+  .rl-actions { padding: 8px 12px; gap: 6px; }
+  .rl-action-btn { padding: 6px 12px; font-size: 10px; }
+  .affline { grid-template-columns: 1fr; gap: 4px; }
+  .stat { grid-template-columns: 44px 1fr 36px; gap: 8px; }
+  .stat .sl { font-size: 9px; }
+  .stitle { font-size: 10px; letter-spacing: .18em; }
+  /* nowrap here is deliberate: wrap would produce 4-5 chip rows at 640px, killing the list's vertical space */
+  .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .filters::-webkit-scrollbar { height: 3px; }
+  .filters::-webkit-scrollbar-thumb { background: var(--hair); }
+  .chip { flex-shrink: 0; }
+  .clearf { margin-left: 0; flex-shrink: 0; }
 }
