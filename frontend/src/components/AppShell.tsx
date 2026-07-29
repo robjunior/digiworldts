@@ -162,11 +162,11 @@ export function AppShell(): JSX.Element {
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, enabled: authed, staleTime: 15_000 });
 
   const credits = farmQuery.data?.credits ?? null;
+  const bits = farmQuery.data?.balances?.Bits ?? null;
   const roster = rosterQuery.data?.roster ?? [];
   const party = roster.filter((mon) => mon.status === 'party');
   const partyMax = 3;
   const tamerLv = user?.mmr ?? null;
-  const bits = credits;
 
   const renderNav = (entry: NavEntry): JSX.Element => {
     const active = isActive(pathname, entry.to);
@@ -255,6 +255,7 @@ export function AppShell(): JSX.Element {
             ) : (
               <div className="hud">
                 <div className="pill"><span>Tamer Lv</span><b>{tamerLv ?? '—'}</b></div>
+                <div className="pill"><span>Credits</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>Bits</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>Party</span><b>{party.length}/{partyMax}</b></div>
               </div>

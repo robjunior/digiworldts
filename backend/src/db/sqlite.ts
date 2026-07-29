@@ -33,6 +33,8 @@ export function applyColumnMigrations(handle: DatabaseHandle): void {
     ['listed_at', 'INTEGER'],
     ['evolution_history', 'TEXT'],
     ['equipped_skill_ids', 'TEXT'],
+    ['current_hp', 'INTEGER'],
+    ['current_en', 'INTEGER'],
   ]);
   addMissingColumns(handle, 'shop_items', [
     ['class', `TEXT NOT NULL DEFAULT 'product' CHECK (class IN ('product', 'item'))`],

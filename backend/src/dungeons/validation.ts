@@ -142,6 +142,17 @@ export const DoorInputSchema = z.object({
 
 export const UpdateDoorInputSchema = DoorInputSchema.partial();
 
+export const TrapInputSchema = z.object({
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  kind: z.enum(['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter']),
+  severity: z.number().int().min(1).max(100),
+  label: z.string().trim().max(80).nullable().optional(),
+});
+export const UpdateTrapInputSchema = TrapInputSchema.partial();
+export type TrapInput = z.infer<typeof TrapInputSchema>;
+export type UpdateTrapInput = z.infer<typeof UpdateTrapInputSchema>;
+
 export const MoveInputSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),

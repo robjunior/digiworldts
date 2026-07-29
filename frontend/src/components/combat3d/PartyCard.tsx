@@ -12,11 +12,11 @@ export const PartyCard = memo(function PartyCard({ unit, active }: { readonly un
           <span className="mono" aria-hidden="true">{mono}</span>
           <img src={`/assets/digimon/${unit.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
         </span>
-        <div className="pn">
+        <span className="pn">
           <span className="nm">{unit.name}</span>
           <span className="lv">Lv {unit.level}</span>
-        </div>
-        <div className="stat guard-ic" style={{ marginLeft: 'auto', display: 'none' }} title="Guarding">🛡</div>
+        </span>
+        {unit.guarding ? <span className="guard-ic" title="Guarding">Guard</span> : null}
       </div>
       <div className="stat">
         <span className="sk">HP</span>

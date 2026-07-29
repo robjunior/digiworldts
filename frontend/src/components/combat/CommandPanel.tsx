@@ -129,13 +129,9 @@ function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onF
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">Skills</div>
         </button>
-        <button className="mrow" type="button" onClick={onGuard}>
-          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Guard</div>
-        </button>
         <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={onAnalyze}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">Analyze</div>
+          <div className="mnm">Analyse</div>
         </button>
         {pveMode ? (
           <button className="mrow" type="button" onClick={() => onMode('items')}>
@@ -143,6 +139,10 @@ function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onF
             <div className="mnm">Item</div>
           </button>
         ) : null}
+        <button className="mrow" type="button" onClick={onGuard}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">Guard</div>
+        </button>
         <button className="mrow" type="button" onClick={onFlee}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">Flee</div>

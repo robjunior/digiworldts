@@ -18,6 +18,8 @@ import { log } from '../util/log.js';
 import type { CreateEncounterInput, CreateItemInput, CreateWarpInput, TileInput, UpdateDungeonInput, UpdateEncounterInput, UpdateWarpInput } from './validation.js';
 import { asEncounterDigimon, EncounterDigimonSchema } from './validation.js';
 import { getDoorAt, getDoorById, listDoors } from './doors.js';
+import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.js';
+import type { TrapTriggered } from '@digiworld/shared';
 import { rollRandomEncounter } from './random.js';
 export { createDoor, deleteDoor, updateDoor } from './doors.js';
 
@@ -40,7 +42,7 @@ type WarpRow = { readonly id: string; readonly dungeon_id: string; readonly x: n
 type InventoryQtyRow = { readonly qty: number };
 type RunRow = {
   readonly user_id: string; readonly dungeon_id: string; readonly current_x: number; readonly current_y: number;
-  readonly defeated_encounters: string | readonly string[]; readonly collected_items: string | readonly string[]; readonly unlocked_doors: string | readonly string[]; readonly started_at: number; readonly completed_at: number | null;
+  readonly defeated_encounters: string | readonly string[]; readonly collected_items: string | readonly string[]; readonly unlocked_doors: string | readonly string[]; readonly oneshot_triggered_ids: string | readonly string[] | null; readonly started_at: number; readonly completed_at: number | null;
 };
 
 const SQL_LIST_DUNGEONS = `SELECT * FROM dungeons ORDER BY created_at DESC`;
@@ -71,7 +73,7 @@ const SQL_UPDATE_WARP = `UPDATE dungeon_warps SET target_dungeon_id = ?, label =
 const SQL_DELETE_WARP = `DELETE FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_RUN = `SELECT * FROM user_dungeon_runs WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_INSERT_RUN = `INSERT INTO user_dungeon_runs (user_id, dungeon_id, current_x, current_y, defeated_encounters, collected_items, unlocked_doors, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`;
-const SQL_UPDATE_RUN_POSITION = `UPDATE user_dungeon_runs SET current_x = ?, current_y = ?, collected_items = ? WHERE user_id = ? AND dungeon_id = ?`;
+const SQL_UPDATE_RUN_POSITION = `UPDATE user_dungeon_runs SET current_x = ?, current_y = ?, collected_items = ?, oneshot_triggered_ids = ? WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_UPDATE_RUN_DEFEATED = `UPDATE user_dungeon_runs SET defeated_encounters = ? WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_UPDATE_RUN_UNLOCKED_DOORS = `UPDATE user_dungeon_runs SET unlocked_doors = ? WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_COMPLETE_RUN = `UPDATE user_dungeon_runs SET completed_at = ? WHERE user_id = ? AND dungeon_id = ?`;
@@ -183,7 +185,7 @@ function warpFromRow(row: WarpRow): DungeonWarp {
 }
 
 function runFromRow(row: RunRow): UserDungeonRun {
-  return { userId: row.user_id, dungeonId: row.dungeon_id, currentX: row.current_x, currentY: row.current_y, defeatedEncounters: parseStringArray(row.defeated_encounters, 'defeated_encounters'), collectedItems: parseStringArray(row.collected_items, 'collected_items'), unlockedDoors: parseStringArray(row.unlocked_doors, 'unlocked_doors'), startedAt: row.started_at, completedAt: row.completed_at };
+  return { userId: row.user_id, dungeonId: row.dungeon_id, currentX: row.current_x, currentY: row.current_y, defeatedEncounters: parseStringArray(row.defeated_encounters, 'defeated_encounters'), collectedItems: parseStringArray(row.collected_items, 'collected_items'), unlockedDoors: parseStringArray(row.unlocked_doors, 'unlocked_doors'), oneshotTriggeredIds: parseStringArray(row.oneshot_triggered_ids ?? '[]', 'oneshot_triggered_ids'), startedAt: row.started_at, completedAt: row.completed_at };
 }
 
 export async function listDungeons(): Promise<Dungeon[]> {
@@ -198,7 +200,7 @@ export async function getDungeon(id: string): Promise<Dungeon | null> {
 export async function getDungeonView(id: string): Promise<DungeonView | null> {
   const dungeon = await getDungeon(id);
   if (!dungeon) return null;
-  return { dungeon, tiles: await listTiles(id), encounters: await listEncounters(id), items: await listItems(id), warps: await listWarps(id), doors: await listDoors(id) };
+  return { dungeon, tiles: await listTiles(id), encounters: await listEncounters(id), items: await listItems(id), warps: await listWarps(id), doors: await listDoors(id), traps: await listTraps(id) };
 }
 
 export async function getEncounter(dungeonId: string, encId: string): Promise<DungeonEncounter | null> {
@@ -381,7 +383,7 @@ export async function getDungeonRunView(userId: string, dungeonId: string): Prom
   return { dungeon, run: runFromRow(runRow), tiles: await listTiles(dungeonId), encounters: await listEncounters(dungeonId), items: await listItems(dungeonId), doors: await listDoors(dungeonId) };
 }
 
-export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
+export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!existing) return { kind: 'not-found' };
   const current = runFromRow(existing);
@@ -394,6 +396,22 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   if (door && !current.unlockedDoors.includes(door.id)) return { kind: 'blocked-by-door', run: current, doorId: door.id };
   const isNewPickup = item !== null && !current.collectedItems.includes(item.id);
   const collectedItems = isNewPickup ? [...current.collectedItems, item.id] : current.collectedItems;
+  // Trap: fires once per run. Resolve landing tile (teleport may redirect) before writing position.
+  const trap = await getTrapAt(dungeonId, x, y);
+  let trapTriggered: TrapTriggered | undefined;
+  let nextOneshot = current.oneshotTriggeredIds;
+  let landX = x;
+  let landY = y;
+  if (trap && !current.oneshotTriggeredIds.includes(trap.id)) {
+    const partySpd = await computePartyAvgSpd(userId);
+    const walkables = await listTiles(dungeonId);
+    trapTriggered = evaluateTrap(trap, partySpd, walkables);
+    nextOneshot = [...current.oneshotTriggeredIds, trap.id];
+    if (trapTriggered.teleportTo) {
+      landX = trapTriggered.teleportTo.x;
+      landY = trapTriggered.teleportTo.y;
+    }
+  }
   if (isNewPickup) {
     const cataloged = await one<{ readonly id: string }>(SQL_ITEM_IS_CATALOGED, item.item_id);
     if (!cataloged) {
@@ -401,17 +419,17 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     }
     await tx(async (t) => {
       const now = Date.now();
-      await t.run(SQL_UPDATE_RUN_POSITION, [x, y, JSON.stringify(collectedItems), userId, dungeonId]);
+      await t.run(SQL_UPDATE_RUN_POSITION, [landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId]);
       if (cataloged) await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
     });
   } else {
-    await run(SQL_UPDATE_RUN_POSITION, x, y, JSON.stringify(collectedItems), userId, dungeonId);
+    await run(SQL_UPDATE_RUN_POSITION, landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId);
   }
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return { kind: 'not-found' };
   const triggeredEncounterId = encounter && !current.defeatedEncounters.includes(encounter.id) ? encounter.id : null;
   const dungeon = await getDungeon(dungeonId);
-  const randomEncounter = dungeon && triggeredEncounterId === null && !warp && !door ? rollRandomEncounter(dungeon, loadCatalog()) : null;
+  const randomEncounter = dungeon && triggeredEncounterId === null && !warp && !door && !trapTriggered ? rollRandomEncounter(dungeon, loadCatalog()) : null;
   return {
     kind: 'ok',
     run: runFromRow(row),
@@ -419,6 +437,7 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     pickedUpItemId: isNewPickup ? item.id : null,
     ...(randomEncounter ? { randomEncounter } : {}),
     ...(warp ? { warpToDungeonId: warp.target_dungeon_id } : {}),
+    ...(trapTriggered ? { trapTriggered } : {}),
   };
 }
 

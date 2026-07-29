@@ -308,11 +308,12 @@ function headline(outcome: BattleOutcome, yourSide: 'a' | 'b', battle: BattleVie
   const tone = outcomeTone(outcome, yourSide);
   const opponent = battle.opponentDisplayName;
   const rivalName = battle.mode === 'pvp' && opponent !== undefined && opponent.length > 0 ? opponent : null;
+  const isPve = battle.mode === 'pve';
   switch (tone) {
     case 'win':
       if (outcome === 'captured_a') return 'Wild target captured.';
       if (rivalName !== null) return `Cleared ${rivalName}'s team.`;
-      return 'You cleared the arena.';
+      return isPve ? 'You won the fight.' : 'You cleared the arena.';
     case 'loss':
       if (rivalName !== null) return `Defeated by ${rivalName}.`;
       return 'Your team was cleared.';

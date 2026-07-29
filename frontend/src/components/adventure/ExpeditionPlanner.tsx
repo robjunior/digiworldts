@@ -87,7 +87,7 @@ export function ExpeditionPlanner({
         </div>
 
         <div className="previewgrid">
-          <div className={`pv ${provisionsNeeded > provisionsOwned ? 'short' : ''}`}>
+          <div className={`pv ${provisionsNeeded > provisionsOwned ? 'short' : ''}`} title="Provisions come from Farm crafting (Bio Lab) or Shop.">
             <div className="k">Provisions</div>
             <div className="v">{provisionsNeeded}</div>
           </div>

@@ -113,6 +113,20 @@ export function deleteAdminDoor(dungeonId: string, doorId: string): Promise<{ re
   return apiFetch<{ readonly ok: boolean }>(`/api/admin/dungeons/${dungeonId}/doors/${doorId}`, { method: 'DELETE' });
 }
 
+import type { TrapKind } from '@digiworld/shared';
+
+export function createAdminTrap(dungeonId: string, body: { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps`, { method: 'POST', body });
+}
+
+export function updateAdminTrap(dungeonId: string, trapId: string, body: { readonly x?: number; readonly y?: number; readonly kind?: TrapKind; readonly severity?: number; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps/${trapId}`, { method: 'PUT', body });
+}
+
+export function deleteAdminTrap(dungeonId: string, trapId: string): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps/${trapId}`, { method: 'DELETE' });
+}
+
 export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> {
   return apiFetch<WorldObjectListResponse>('/api/world/objects'); // this is what World uses
 }

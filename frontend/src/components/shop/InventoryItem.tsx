@@ -16,5 +16,7 @@ function InventoryAction({ kind, itemId, onApply, onActivate }: { readonly kind:
   if (kind === 'xp_mult') return <button className="btn btn--sm btn--secondary btn--wide" type="button" onClick={() => onActivate(itemId)}>Activate for next win</button>;
   if (kind === 'evolve') return <div className="inv-info">Use from Roster page (click Evolve on a mon)</div>;
   if (kind === 'cosmetic') return <div className="inv-info">Equipped by default</div>;
-  return <div className="inv-info">Cannot be used directly</div>;
+  if (kind === 'key' || itemId.includes('key')) return <div className="inv-info">Auto-used at locked doors in Dungeons</div>;
+  if (kind === 'quest' || itemId.includes('quest')) return <div className="inv-info">Quest item — turn in via the World map</div>;
+  return <div className="inv-info">Consumed during combat or by opening doors in Dungeons</div>;
 }

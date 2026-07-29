@@ -25,6 +25,7 @@ type Mode = 'list' | 'enrich' | 'assets' | 'all' | 'detail' | 'resistances' | 'r
 function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: number } {
   let mode: Mode = 'help';
   let limit = 20;
+  let limitExplicit = false;
   let detailId: number | undefined;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -46,11 +47,15 @@ function parseArgs(argv: string[]): { mode: Mode; limit: number; detailId?: numb
       const next = argv[i + 1];
       if (next) {
         limit = Number(next);
+        limitExplicit = true;
         i++;
       }
     } else if (a === '--help' || a === '-h') mode = 'help';
   }
   if (limit <= 0 || !Number.isFinite(limit)) limit = 20;
+  // --refresh defaults to full sweep unless user explicitly capped it. Other
+  // modes stay conservative at 20 because they hit slower endpoints.
+  if (mode === 'refresh' && !limitExplicit) limit = Number.MAX_SAFE_INTEGER;
   const out: { mode: Mode; limit: number; detailId?: number } = { mode, limit };
   if (detailId !== undefined) out.detailId = detailId;
   return out;

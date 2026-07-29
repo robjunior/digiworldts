@@ -11,11 +11,13 @@ import {
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
 import { getRoster } from '../lib/api';
-import { getShop } from '../lib/api-shop';
+import { applyShopItem, getShop } from '../lib/api-shop';
 import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 
 import { DungeonGrid } from '../components/dungeon/DungeonGrid';
+import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
+import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
 import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
 import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
@@ -56,6 +58,19 @@ export function Dungeon(): JSX.Element {
   const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
   const [stepCount, setStepCount] = useState(0);
+  const [selectedInvItemId, setSelectedInvItemId] = useState<string | null>(null);
+  const [now, setNow] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const productById = useMemo(() => {
+    const m = new Map<string, import('../lib/api-shop').ShopItemView>();
+    for (const p of shopQuery.data?.products ?? []) m.set(p.id, p);
+    return m;
+  }, [shopQuery.data]);
 
   const flashToast = useCallback((message: string): void => {
     setToast(message);
@@ -90,6 +105,13 @@ export function Dungeon(): JSX.Element {
         if (!old) return old;
         return { ...old, run: res.run };
       });
+      if (res.trapTriggered) {
+        const t = res.trapTriggered;
+        const detail = t.dodged
+          ? `Trap avoided! (party avg SPD ${t.partyAvgSpd}, ${Math.round(t.avoidChance * 100)}% dodge)`
+          : `Trap! ${t.effectSummary}.`;
+        pushLog(detail, t.dodged ? '' : 'hit');
+      }
       if (res.pickedUpItemId) {
         const item = data?.items.find((i) => i.id === res.pickedUpItemId);
         if (item) {
@@ -101,11 +123,13 @@ export function Dungeon(): JSX.Element {
         queryClient.invalidateQueries({ queryKey: ['roster'] });
       }
       if (res.triggeredEncounterId) {
-        pushLog(`Ambushed by enemies!`, 'hit');
+        const enc = data?.encounters.find((e) => e.id === res.triggeredEncounterId);
+        pushLog(`Ambushed by ${enc?.label ?? 'enemies'}!`, 'hit');
         setActiveEncounterId(res.triggeredEncounterId);
       }
       if (res.randomEncounter) {
-        pushLog(`Wild encounter!`, 'hit');
+        const mons = res.randomEncounter.map((m) => `${m.nickname ?? m.catalogId} Lv ${m.level}`).join(', ');
+        pushLog(`Wild encounter: ${mons}.`, 'hit');
         if (!startRandomEncounterMutation.isPending) {
           startRandomEncounterMutation.mutate(res.randomEncounter);
         }
@@ -184,13 +208,41 @@ export function Dungeon(): JSX.Element {
     },
   });
 
+  const applyItemMutation = useMutation({
+    mutationFn: ({ itemId, monId }: { readonly itemId: string; readonly monId?: string }) => applyShopItem(itemId, monId),
+    onSuccess: (result, variables) => {
+      const item = shopQuery.data?.inventory.find((entry) => entry.itemId === variables.itemId);
+      const label = item?.name ?? 'Item';
+      const target = variables.monId ? party.find((m) => m.id === variables.monId)?.nickname ?? 'party' : 'party';
+      pushLog(`${label} applied to ${target}.`, 'item');
+      flashToast(`${label} applied.`);
+      setSelectedInvItemId(null);
+      queryClient.invalidateQueries({ queryKey: ['shop'] });
+      queryClient.invalidateQueries({ queryKey: ['roster'] });
+      void result;
+    },
+    onError: (err: Error) => {
+      flashToast(err.message || 'Could not apply item.');
+      setSelectedInvItemId(null);
+    },
+  });
+
+  const handleSelectItem = useCallback((itemId: string, needsMon: boolean): void => {
+    if (!needsMon) {
+      applyItemMutation.mutate({ itemId });
+      return;
+    }
+    setSelectedInvItemId((prev) => (prev === itemId ? null : itemId));
+  }, [applyItemMutation]);
+
+  const handleTargetMon = useCallback((monId: string): void => {
+    if (!selectedInvItemId) return;
+    applyItemMutation.mutate({ itemId: selectedInvItemId, monId });
+  }, [applyItemMutation, selectedInvItemId]);
+
   const handleCellClick = (x: number, y: number) => {
     if (activeEncounterId || activeRandomEncounter) {
       flashToast('Resolve the encounter first.');
-      return;
-    }
-    if (data?.run.completedAt) {
-      flashToast('Dungeon already completed.');
       return;
     }
     // Check adjacency
@@ -210,7 +262,6 @@ export function Dungeon(): JSX.Element {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (activeEncounterId || activeRandomEncounter) return;
-      if (data.run.completedAt) return;
       if (moveMutation.isPending) return;
 
       let dx = 0;
@@ -286,12 +337,26 @@ export function Dungeon(): JSX.Element {
 
         <div className="controls">
           <div className="dhint">
-            {isComplete ? <b>Dungeon Complete!</b> : <b>Click an adjacent tile to move.</b>}
+            {isComplete ? <b>Cleared — free-explore mode. All paths open.</b> : <b>Click an adjacent tile to move (WASD/arrows).</b>}
           </div>
         </div>
       </div>
 
       <aside className="rail" data-od-id="run-rail">
+        <DungeonPartyBar
+          party={party}
+          targeting={selectedInvItemId !== null}
+          busy={applyItemMutation.isPending}
+          now={now}
+          onTarget={handleTargetMon}
+        />
+        <DungeonInventoryPanel
+          inventory={shopQuery.data?.inventory ?? []}
+          productById={productById}
+          selectedItemId={selectedInvItemId}
+          busy={applyItemMutation.isPending}
+          onSelectItem={handleSelectItem}
+        />
         <DungeonRunLog
           dungeonName={dungeon.name}
           stepCount={stepCount}

@@ -54,7 +54,13 @@ export function Intro(): JSX.Element {
 
   const revealTeams = (): void => {
     setDialogueDismissed(true);
-    window.setTimeout(() => setTeamsVisible(true), 500);
+    window.setTimeout(() => {
+      if (teams.length === 0) {
+        setSelectionError('Onboarding teams have not been configured yet. Ask an admin to seed them.');
+        return;
+      }
+      setTeamsVisible(true);
+    }, 500);
   };
 
   const selectTeam = async (team: OnboardingTeamView): Promise<void> => {

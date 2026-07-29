@@ -3,7 +3,8 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
 
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonView, DungeonWarp } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
+import { TRAP_KINDS } from '@digiworld/shared';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
@@ -25,6 +26,8 @@ import {
   listAdminDungeons,
   putAdminDungeonTiles,
   updateAdminDungeon,
+  createAdminTrap,
+  deleteAdminTrap,
 } from '../lib/api-dungeon-admin';
 import '../styles/extensions-admin.css';
 
@@ -110,7 +113,7 @@ export function AdminDungeon(): JSX.Element {
   if (!id) return <div>Missing dungeon id.</div>;
   if (dungeonQuery.isLoading || !data) return <div>Loading...</div>;
 
-  const { dungeon, encounters, items, warps, doors } = data;
+  const { dungeon, encounters, items, warps, doors, traps } = data;
   const encounterAt = (cell: Cell): DungeonEncounter | undefined =>
     encounters.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const itemAt = (cell: Cell): DungeonItem | undefined =>
@@ -119,6 +122,8 @@ export function AdminDungeon(): JSX.Element {
     warps.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const doorAt = (cell: Cell): DungeonDoor | undefined =>
     doors.find((entry) => entry.x === cell.x && entry.y === cell.y);
+  const trapAt = (cell: Cell): DungeonTrap | undefined =>
+    traps.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const isWalkable = (cell: Cell): boolean => tileSet.has(cellKey(cell));
 
   function showToast(message: string): void {
@@ -223,6 +228,7 @@ export function AdminDungeon(): JSX.Element {
               const item = itemAt(cell);
               const warp = warpAt(cell);
               const door = doorAt(cell);
+              const trap = trapAt(cell);
               const preview = previewSet.has(key);
               return (
                 <button
@@ -243,6 +249,7 @@ export function AdminDungeon(): JSX.Element {
                     {item ? <span className="mk mk-item">I</span> : null}
                     {warp ? <span className="mk mk-warp">W</span> : null}
                     {door ? <span className="mk mk-door">D</span> : null}
+                    {trap ? <span className="mk mk-trap" title={`${trap.kind} sev ${trap.severity}`}>T</span> : null}
                   </span>
                 </button>
               );

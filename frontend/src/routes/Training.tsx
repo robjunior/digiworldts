@@ -116,7 +116,7 @@ export function Training(): JSX.Element {
         </div>
         <div className="col rostercol">
           <h3 className="stitle">Bench <span className="cnt">{benchCount} eligible</span></h3>
-          <div className="rosterhint">Party members can't train — bench a Digimon first. Mood dips on long sessions.</div>
+          <div className="rosterhint">Party members can't train — <a href="/roster" style={{ color: 'var(--signal)', textDecoration: 'underline' }}>bench a Digimon from Roster</a> first. Mood dips on long sessions.</div>
           <div className="rosterlist" data-od-id="roster-rail">
             {rosterQuery.data?.roster.map((m) => {
               const training = view?.stations.some(s => s.active?.monId === m.id);

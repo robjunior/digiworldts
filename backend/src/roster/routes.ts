@@ -26,6 +26,7 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type StagePools, type TemplateDigimon } from '../digimon/types.js';
+import { scaleStatsForLevel } from '../digimon/element.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
 import { getDefaultEquippedForStage, getLearnedPoolIds, getLearnedPoolMeta, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
@@ -44,7 +45,7 @@ const SQL_UPDATE_STATUS_SLOT = `UPDATE player_roster SET status = ?, slot_index 
 const SQL_CLEAR_SLOT = `UPDATE player_roster SET status = 'resting', slot_index = NULL, updated_at = ? WHERE user_id = ? AND slot_index = ?`;
 const SQL_UPDATE_NICKNAME = `UPDATE player_roster SET nickname = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_COUNT = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ?`;
-const SQL_CLEAR_REVIVE_AT = `UPDATE player_roster SET revive_at = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
+const SQL_CLEAR_REVIVE_AT = `UPDATE player_roster SET revive_at = NULL, current_hp = NULL, current_en = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_INVENTORY_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
 const SQL_UPDATE_EQUIPPED_SKILLS = `UPDATE player_roster SET equipped_skill_ids = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
@@ -122,6 +123,10 @@ export type RosterView = {
   status: 'resting' | 'training' | 'party' | 'adventure';
   slot: number | null;
   reviveAt: number | null;
+  currentHp: number | null;
+  currentEn: number | null;
+  hpMax: number;
+  enMax: number;
   listedAt: number | null;
   evolutionHistory: string[];
   equippedSkillIds: string[] | null;
@@ -143,6 +148,17 @@ function parseStagePools(raw: string | null): StagePools | null {
 function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView {
   const stage = template?.stage ?? 'Rookie';
   const equippedRaw = parseJsonStringArray(row.equipped_skill_ids);
+  const bonus = {
+    hp: row.hp_bonus,
+    en: row.en_bonus,
+    atk: row.atk_bonus,
+    def: row.def_bonus,
+    int: row.int_bonus,
+    spd: row.spd_bonus,
+  };
+  const scaled = template
+    ? scaleStatsForLevel(template.baseStats, row.level, bonus)
+    : { hp: 0, en: 0, atk: 0, def: 0, int: 0, spd: 0 };
   return {
     id: row.id,
     catalogId: row.catalog_id,
@@ -151,18 +167,15 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
     xp: row.xp,
     xpFloor: xpToReach(row.level, stage),
     xpNext: xpToReach(row.level + 1, stage),
-    statBonus: {
-      hp: row.hp_bonus,
-      en: row.en_bonus,
-      atk: row.atk_bonus,
-      def: row.def_bonus,
-      int: row.int_bonus,
-      spd: row.spd_bonus,
-    },
+    statBonus: bonus,
     mood: row.mood,
     status: row.status,
     slot: row.slot_index,
     reviveAt: row.revive_at,
+    currentHp: row.current_hp,
+    currentEn: row.current_en,
+    hpMax: scaled.hp,
+    enMax: scaled.en,
     listedAt: row.listed_at,
     evolutionHistory: parseJsonStringArray(row.evolution_history),
     equippedSkillIds: equippedRaw.length > 0 ? equippedRaw : null,

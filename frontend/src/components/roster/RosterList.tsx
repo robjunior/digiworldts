@@ -4,13 +4,12 @@ import type { TemplateDigimon, Element } from '@digiworld/shared/digimon';
 import { ELEMENTS, ATTRIBUTES } from '@digiworld/shared/digimon';
 
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
-import { formatRemaining, isDowned, statMaxFor, totalStats, trainingProgress, xpPct } from './types';
+import { formatRemaining, isDowned, perStatTrainingProgress, scaledStats, trainingProgress, xpPct } from './types';
 import { PartyPicker } from './PartyPicker';
 import { SkillEditor } from './SkillEditor';
 import { ResistanceChart } from './ResistanceChart';
 
-const ATTR_TO_EL: Record<string, Element> = { Virus: 'fire', Data: 'water', Vaccine: 'plant', Free: 'electricity', Variable: 'wind' };
-const el = (r: RosterMon) => ATTR_TO_EL[r.template?.attribute ?? 'Free'] ?? 'null';
+const el = (r: RosterMon): string => r.template?.element ?? 'null';
 
 type RosterListProps = {
   readonly roster: readonly RosterMon[];
@@ -158,6 +157,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
             setActiveTab={setActiveTab} 
             now={now}
             actions={actions}
+            activityByMon={activityByMon}
           />
         ) : null}
       </section>
@@ -165,19 +165,21 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
   );
 }
 
-function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: any) {
+function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions, activityByMon }: any) {
   const e = el(r);
   const template = templateById.get(r.catalogId);
   const stage = template?.stage ?? 'Unknown';
   const attribute = template?.attribute ?? 'Unknown';
 
-  const stats = totalStats(r);
+  const stats = scaledStats(r);
   const training = trainingProgress(r);
-  const maxes = statMaxFor(template?.stage);
+  const perStat = perStatTrainingProgress(r);
+  const activity = activityByMon?.get(r.id) ?? null;
+  const trainingStats = new Set<string>(activity?.statKinds ?? []);
   const order = [
     { k: 'hp', l: 'HP' }, { k: 'en', l: 'EN' }, { k: 'atk', l: 'ATK' },
     { k: 'def', l: 'DEF' }, { k: 'int', l: 'INT' }, { k: 'spd', l: 'SPD' }
-  ];
+  ] as const;
 
   return (
     <div className="dwrap" data-el={e}>
@@ -196,10 +198,13 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
             <div className="cell"><div className="lbl">Mood</div><div className="val">{r.mood}%</div></div>
           </div>
           <div className="status-row">
-            <span className={`statchip ${r.status}`}><span className="dot"></span>{typeof r.slot === 'number' ? `In party · slot ${r.slot + 1}` : 'Resting'}</span>
+            <span className={`statchip ${r.status}${isDowned(r, now) ? ' is-down' : ''}`}><span className="dot"></span>{isDowned(r, now) ? `DOWN · ${formatRemaining(r.reviveAt, now)}` : typeof r.slot === 'number' ? `In party · slot ${r.slot + 1}` : 'Resting'}</span>
             <span className="statchip"><span className="dot"></span>XP {Math.round(r.xp)} / {r.xpNext}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
               <button className="rl-action-btn rl-action-btn--rename" onClick={() => actions.onRename(r)}>Rename</button>
+              {isDowned(r, now) ? (
+                <button className="rl-action-btn rl-action-btn--revive" onClick={() => actions.onRevive(r.id)}>Revive</button>
+              ) : null}
               <button className="rl-action-btn rl-action-btn--evolve" onClick={() => actions.onEvolve(r.id)} disabled={isDowned(r, now)}>Evolve</button>
               {typeof r.slot !== 'number' && (
                 <button className="rl-action-btn rl-action-btn--party" onClick={() => actions.onAddToParty(r)} disabled={isDowned(r, now)}>Add to Party</button>
@@ -230,17 +235,27 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
           </h3>
           <div className="stats statcols">
             {order.map(({ k, l }) => {
-              const v = stats[k as keyof typeof stats];
-              const bo = (r.statBonus as any)?.[k] ?? 0;
-              const cap = maxes[k as keyof typeof maxes];
-              const pct = cap === 0 ? 0 : Math.min(100, Math.round((v / cap) * 100));
+              const v = stats[k];
+              const bo = r.statBonus[k] ?? 0;
+              const prog = perStat?.[k] ?? null;
+              const pct = prog?.pct ?? 0;
+              const filled = prog?.filled ?? 0;
+              const cap = prog?.cap ?? 0;
+              const isTraining = trainingStats.has(k);
               return (
-                <div key={k} className={`stat ${k}`}>
-                  <span className="sl">{l}</span>
-                  <span className="track" title={`${l} ${v} / ${cap}`}>
+                <div key={k} className={`stat ${k}${isTraining ? ' is-training' : ''}`}>
+                  <span className="sl">
+                    {l}
+                    {isTraining ? <span className="trn-pill" title="Currently training this stat">TRN</span> : null}
+                  </span>
+                  <span className="track" title={`${l} · ${training?.stage ?? 'stage'} training ${filled}/${cap} (${pct}%)`}>
                     <span className={`fill${pct >= 100 ? ' is-max' : ''}`} data-w={pct} style={{ width: `${pct}%` }}></span>
                   </span>
-                  <span className="sv">{v}{bo ? <span className="bo">+{bo}</span> : ''}</span>
+                  <span className="sv">
+                    {k === 'hp' && r.currentHp !== null ? <span className="sv-cur" style={{ opacity: 0.7 }}>{r.currentHp}/</span> : null}
+                    {k === 'en' && r.currentEn !== null ? <span className="sv-cur" style={{ opacity: 0.7 }}>{r.currentEn}/</span> : null}
+                    {v}{bo ? <span className="bo">+{bo}</span> : ''}
+                  </span>
                 </div>
               );
             })}
@@ -249,7 +264,7 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions }: 
         </div>
 
         <div className={`tabpanel ${activeTab === 'skills' ? 'is-on' : ''}`} data-panel="skills" role="tabpanel" hidden={activeTab !== 'skills'}>
-          <SkillEditor monId={r.id} />
+          <SkillEditor key={r.id} monId={r.id} />
         </div>
       </div>
     </div>

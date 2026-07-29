@@ -49,7 +49,9 @@ const SQL_UPDATE_MON_XP = `
          updated_at = ?
    WHERE id = ?
 `;
-const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, updated_at = ? WHERE id = ?`;
+const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, current_hp = 0, updated_at = ? WHERE id = ?`;
+const SQL_UPDATE_CURRENT_HPEN = `UPDATE player_roster SET current_hp = ?, current_en = ?, updated_at = ? WHERE id = ?`;
+const SQL_RESET_CURRENT_HPEN = `UPDATE player_roster SET current_hp = NULL, current_en = NULL, updated_at = ? WHERE id = ?`;
 const SQL_ADD_CREDITS = `
   INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
        ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at
@@ -153,6 +155,8 @@ async function buildPlayerLoadout(userId: string): Promise<Loadout | null> {
         int: row.int_bonus,
         spd: row.spd_bonus,
       },
+      currentHp: row.current_hp,
+      currentEn: row.current_en,
     };
     if (isDown) member.downedAtStart = true;
     members.push(member);
@@ -377,7 +381,7 @@ async function awardPveBattleRewards(
       let didChange = false;
 
       if (isDefeated) {
-        const penalty = Math.round(previousXp * 0.1);
+        const penalty = Math.round(previousXp * 0.02);
         if (penalty > 0) {
           const currentLevelFloor = xpToReach(previousLevel, template.stage);
           nextXp = Math.max(currentLevelFloor, previousXp - penalty);
@@ -430,6 +434,26 @@ async function awardPveBattleRewards(
       });
     }
   });
+
+  const survivorPersists: Array<{ id: string; hp: number; en: number }> = [];
+  const levelUpResets: string[] = [];
+  for (const row of partyRows) {
+    if (row.slot_index === null || !participantSlots.has(row.slot_index)) continue;
+    const unit = battle.units.find((u) => u.side === 'a' && u.slot === row.slot_index);
+    if (!unit || unit.hp <= 0) continue;
+    const award = xpAwards.find((a) => a.monId === row.id);
+    if (award && award.gainedLevels > 0) {
+      levelUpResets.push(row.id);
+    } else {
+      survivorPersists.push({ id: row.id, hp: unit.hp, en: unit.en });
+    }
+  }
+  if (survivorPersists.length > 0 || levelUpResets.length > 0) {
+    await tx(async (t) => {
+      for (const p of survivorPersists) await t.run(SQL_UPDATE_CURRENT_HPEN, [p.hp, p.en, now, p.id]);
+      for (const id of levelUpResets) await t.run(SQL_RESET_CURRENT_HPEN, [now, id]);
+    });
+  }
 
   const itemDrops: ItemDrop[] = [];
   if (matchOutcome === 'win') {

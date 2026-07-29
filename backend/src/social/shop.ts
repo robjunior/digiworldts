@@ -14,7 +14,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
-import { one, q, run, tx, type InventoryRow, type ShopItemRow, type WalletRow } from '../db/index.js';
+import { one, q, run, tx, type InventoryRow, type RosterRow, type ShopItemRow, type WalletRow } from '../db/index.js';
+import { findTemplate, loadCatalog } from '../digimon/xml.js';
+import { scaleStatsForLevel } from '../digimon/element.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { addPendingBuff, type BuffKind } from './buffs.js';
@@ -41,6 +43,8 @@ const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
 const SQL_UPDATE_WALLET_CREDITS = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;
 const SQL_INSERT_TRAINING_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, building_type, resource, level, rate_per_hour, capacity, produced, last_touch, upgrade_cost, created_at) VALUES (?, ?, ?, ?, 'Meat', 1, 1, 1, 0, ?, ?, ?)`;
 const SQL_SELECT_ROSTER_MON = `SELECT id, user_id FROM player_roster WHERE id = ? AND user_id = ?`;
+const SQL_SELECT_ROSTER_MON_FULL = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
+const SQL_UPDATE_CURRENT_HPEN = `UPDATE player_roster SET current_hp = ?, current_en = ?, updated_at = ? WHERE id = ?`;
 
 // ============================================================================
 // Seed items
@@ -365,20 +369,51 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const effectKind: BuffKind = decoded.kind;
 
     try {
-      await tx(async (t) => {
-        const info = await t.run(SQL_DECREMENT_INVENTORY, [1, Date.now(), me.id, itemId, 1]);
-        if (info.changes === 0) throw new Error('race');
-        // addPendingBuff opens its own tx; safe because SQLite serializes writes
-        // and Postgres allows nested savepoint semantics (the inner INSERT
-        // will just piggyback on the outer connection when using q/run/one).
-      });
-      await addPendingBuff({
-        userId: me.id,
-        monId: targetMonId,
-        effectKind,
-        magnitude: decoded.magnitude,
-        sourceItem: itemId,
-      });
+      if ((decoded.kind === 'hp_pct' || decoded.kind === 'en_pct') && monId) {
+        const monRow = await one<RosterRow>(SQL_SELECT_ROSTER_MON_FULL, monId, me.id);
+        if (!monRow) return reply.code(404).send({ error: 'that Digimon is not on your roster' });
+        const now = Date.now();
+        if (monRow.revive_at !== null && monRow.revive_at > now) {
+          return reply.code(409).send({ error: 'mon-downed', message: 'This Digimon is downed. Use a Digi-Revive from the roster page first.' });
+        }
+        const catalog = loadCatalog();
+        const tpl = findTemplate(catalog, monRow.catalog_id);
+        if (!tpl) return reply.code(500).send({ error: 'catalog template missing' });
+        const scaled = scaleStatsForLevel(tpl.baseStats, monRow.level, {
+          hp: monRow.hp_bonus,
+          en: monRow.en_bonus,
+          atk: monRow.atk_bonus,
+          def: monRow.def_bonus,
+          int: monRow.int_bonus,
+          spd: monRow.spd_bonus,
+        });
+        const curHp = monRow.current_hp ?? scaled.hp;
+        const curEn = monRow.current_en ?? scaled.en;
+        let newHp = curHp;
+        let newEn = curEn;
+        if (decoded.kind === 'hp_pct') {
+          newHp = Math.min(scaled.hp, curHp + Math.round(scaled.hp * decoded.magnitude));
+        } else {
+          newEn = Math.min(scaled.en, curEn + Math.round(scaled.en * decoded.magnitude));
+        }
+        await tx(async (t) => {
+          const info = await t.run(SQL_DECREMENT_INVENTORY, [1, now, me.id, itemId, 1]);
+          if (info.changes === 0) throw new Error('race');
+          await t.run(SQL_UPDATE_CURRENT_HPEN, [newHp, newEn, now, monId]);
+        });
+      } else {
+        await tx(async (t) => {
+          const info = await t.run(SQL_DECREMENT_INVENTORY, [1, Date.now(), me.id, itemId, 1]);
+          if (info.changes === 0) throw new Error('race');
+        });
+        await addPendingBuff({
+          userId: me.id,
+          monId: targetMonId,
+          effectKind,
+          magnitude: decoded.magnitude,
+          sourceItem: itemId,
+        });
+      }
     } catch {
       return reply.code(409).send({ error: 'apply conflicted — try again' });
     }

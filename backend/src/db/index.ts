@@ -121,6 +121,8 @@ export type RosterRow = {
   status: 'resting' | 'training' | 'party' | 'adventure';
   slot_index: number | null;
   revive_at: number | null;
+  current_hp: number | null;
+  current_en: number | null;
   pets_today: number;
   pets_day: string | null;
   listed_at: number | null;

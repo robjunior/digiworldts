@@ -29,6 +29,7 @@ import {
   updateEncounter,
   updateWarp,
 } from './repo.js';
+import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
 import {
   asCreateDungeonPayload,
   CreateDungeonInputSchema,
@@ -39,9 +40,11 @@ import {
   MoveInputSchema,
   StartRandomEncounterInputSchema,
   TilesInputSchema,
+  TrapInputSchema,
   UpdateDungeonInputSchema,
   UpdateDoorInputSchema,
   UpdateEncounterInputSchema,
+  UpdateTrapInputSchema,
   UpdateWarpInputSchema,
   asEncounterDigimon,
 } from './validation.js';
@@ -241,7 +244,7 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'blocked') return reply.code(400).send({ error: 'not-walkable' });
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}) });
+    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}) });
     return reply.code(500).send({ error: 'internal error' });
   });
 
@@ -346,5 +349,46 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const run = await resetRun(user.id, req.params.id);
     if (!run) return reply.code(404).send({ error: 'not-found' });
     return reply.send({ run });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id/traps', async (req, reply) => {
+    await requireAdmin(req, reply);
+    return reply.send({ traps: await listTraps(req.params.id) });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/traps', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = TrapInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-trap', details: parsed.error.issues });
+    const trap = await createTrap(req.params.id, { x: parsed.data.x, y: parsed.data.y, kind: parsed.data.kind, severity: parsed.data.severity, label: parsed.data.label ?? null });
+    if (trap === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (trap === 'conflict') return reply.code(409).send({ error: 'trap-position-conflict' });
+    log.info('admin.dungeon.trap.create', { adminId: admin.id, dungeonId: req.params.id, id: trap.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.code(201).send({ view });
+  });
+
+  app.put<{ Params: { id: string; trapId: string } }>('/api/admin/dungeons/:id/traps/:trapId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = UpdateTrapInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-trap', details: parsed.error.issues });
+    const trap = await updateTrap(req.params.id, req.params.trapId, parsed.data);
+    if (trap === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (trap === 'conflict') return reply.code(409).send({ error: 'trap-position-conflict' });
+    log.info('admin.dungeon.trap.update', { adminId: admin.id, dungeonId: req.params.id, id: trap.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ view });
+  });
+
+  app.delete<{ Params: { id: string; trapId: string } }>('/api/admin/dungeons/:id/traps/:trapId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const deleted = await deleteTrap(req.params.id, req.params.trapId);
+    if (!deleted) return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.trap.delete', { adminId: admin.id, dungeonId: req.params.id, id: req.params.trapId });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ view });
   });
 };

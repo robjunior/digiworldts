@@ -20,10 +20,6 @@ export function SkillMenu({ unit, target, onSkill, onBack }: SkillMenuProps): JS
       <div className="chelp"><span className="htag">Info</span><span>{hoveredDesc ?? 'Select a skill.'}</span></div>
       <div className="chead"><span className="sect">Skills</span><span className="cnt">{unit.en} / {unit.enMax} EN</span></div>
       <div className="rows">
-        <button className="mrow back" type="button" onClick={onBack}>
-          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">← Back</div>
-        </button>
         {unit.skills.map((skill) => {
           const canAfford = skill.energyCost <= unit.en;
           const disabled = !canAfford || target === null;
@@ -44,6 +40,10 @@ export function SkillMenu({ unit, target, onSkill, onBack }: SkillMenuProps): JS
             </button>
           );
         })}
+        <button className="mrow back" type="button" onClick={onBack}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">← Back</div>
+        </button>
       </div>
     </>
   );

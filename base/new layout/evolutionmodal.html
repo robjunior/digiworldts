@@ -1,0 +1,1342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Roster</title>
+<style>
+/* =========================================================================
+   DIGIWORLD ROSTER — desktop app. Brand system (registered palette only):
+     Canvas #ffffff · Panel #f7f8fa · Ink #111111 · Muted #6b7280
+     Hairline #d9dee7 · Signal Blue #1677ff (accent) · Battle Red #e0384a
+   Radius 0 everywhere — angular cyberpunk notch (clip-path) on all surfaces.
+   Inter stack, tabular-nums on all numerics. Light-only.
+   Data shape mirrors src/roster/routes.ts: hp/en/atk/def/int/spd + statBonus,
+   attribute->element (Data=water, Vaccine=plant, Virus=fire, Free=electricity,
+   Variable=wind), stage, mood, nickname, level, xp/xpFloor/xpNext, party slot.
+   Element wheel from src/digimon/element.ts. Uses image.png as portrait art
+   (right = normal, left = mirrored) per user brief.
+   ========================================================================= */
+:root{
+  /* Persona 5 theme — acid red on ink. */
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--ink);
+  font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+
+/* element accent map — Persona theme. fire/water use the acid-red signal;
+   the other three are tints mixed toward the light --ink foreground so they
+   stay visible as thin rails/dots on the ink canvas. */
+[data-el="fire"]{--el:var(--battle)}
+[data-el="water"]{--el:var(--signal)}
+[data-el="plant"]{--el:color-mix(in oklab,var(--signal) 45%,var(--ink))}
+[data-el="electricity"]{--el:color-mix(in oklab,var(--signal) 65%,var(--ink))}
+[data-el="wind"]{--el:color-mix(in oklab,var(--signal) 30%,var(--ink))}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{
+  height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none;
+}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 360px 1fr;min-height:0}
+
+/* ---- sidebar nav ------------------------------------------------------- */
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
+.navbtn{
+  display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;
+  padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);
+  font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;
+}
+.navbtn svg{width:18px;height:18px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
+.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
+.hud .pill b{color:var(--ink);font-weight:800}
+
+/* ---- master list ------------------------------------------------------- */
+.master{background:var(--bg);border-right:1px solid var(--hair);display:flex;flex-direction:column;min-height:0}
+.mhead{padding:18px 18px 12px;border-bottom:1px solid var(--hair)}
+.mhead .kick{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal);margin-bottom:7px}
+.mhead h1{font:800 24px/1 var(--font);letter-spacing:-.01em}
+.mhead .sub{margin-top:6px;font-size:12px;color:var(--muted)}
+
+.tools{padding:12px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--hair)}
+.search{position:relative}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted)}
+.search input{width:100%;height:36px;padding:0 12px 0 34px;background:var(--panel);color:var(--ink);border:1px solid var(--hair);clip-path:var(--notch-sm);font:500 13px/1 var(--font);outline:none}
+.search input::placeholder{color:var(--muted)}
+.search input:focus{border-color:var(--signal)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{padding:5px 9px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);transition:.12s}
+.chip:hover{color:var(--ink);border-color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);color:#fff}
+.chip .n{opacity:.6;margin-left:4px}
+.clearf{margin-left:auto;padding:5px 9px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.clearf:hover{color:var(--ink);border-color:var(--muted)}
+.clearf[hidden]{display:none}
+
+.list{flex:1 1 auto;overflow-y:auto;padding:8px}
+.list::-webkit-scrollbar{width:8px}.list::-webkit-scrollbar-thumb{background:var(--hair)}
+
+.row{
+  width:100%;text-align:left;display:grid;grid-template-columns:48px 1fr auto;gap:12px;align-items:center;
+  padding:11px;margin-bottom:6px;background:var(--panel);border:1px solid var(--hair);
+  clip-path:var(--notch);position:relative;transition:transform .12s,background .12s,border-color .12s;
+}
+.row::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--signal));transform:scaleY(0);transform-origin:top;transition:transform .15s}
+.row:hover{transform:translateX(3px);background:var(--bg)}
+.row:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.row[aria-selected="true"]{background:var(--bg);border-color:var(--el,var(--signal))}
+.row[aria-selected="true"]::before{transform:scaleY(1)}
+.row .mug{width:48px;height:48px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);overflow:hidden;display:grid;place-items:center}
+.row .mug img{width:40px;height:40px;object-fit:contain;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+.row .who{min-width:0}
+.row .nm{font:800 14px/1.1 var(--font);letter-spacing:.01em}
+.row .rn{display:block;font:600 12px/1.2 var(--font);color:var(--ink);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .tpl{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .lv{font:800 12px/1 var(--font);color:var(--muted);text-align:right}
+.row .lv b{display:block;color:var(--ink);font-size:16px}
+
+.empty{padding:36px 18px;text-align:center;color:var(--muted)}
+.empty p{font-size:13px;margin-bottom:14px;line-height:1.6}
+.empty button{padding:9px 16px;background:var(--signal);color:#fff;clip-path:var(--notch);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase}
+
+/* ---- detail — locked to viewport, no scroll; Stats/Skills tabs swap in place */
+.detail{position:relative;min-height:0;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.dwrap{padding:0 0 20px;max-width:none;flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
+
+/* hero: full-bleed cinematic splash — art fills the panel, info overlaid bottom.
+   Modeled on the reference (1920×1080 dark navy/teal splash). */
+.hero{position:relative;height:min(40vh,340px);flex:0 0 auto;margin-bottom:0;overflow:hidden;display:block;background:var(--bg)}
+/* Stats/Skills tab nav */
+.dtabs{flex:0 0 auto;display:flex;gap:0;padding:0 40px;border-bottom:1px solid var(--hair);background:var(--bg)}
+.dtab{padding:14px 22px;font:800 11px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s}
+.dtab:hover{color:var(--ink)}
+.dtab.is-on{color:var(--signal);border-bottom-color:var(--signal)}
+.dtab:focus-visible{outline:2px solid var(--signal);outline-offset:-4px}
+.tabwrap{flex:1 1 auto;min-height:0;overflow-y:auto;padding:22px 40px 24px}
+.tabwrap::-webkit-scrollbar{width:10px}.tabwrap::-webkit-scrollbar-thumb{background:var(--hair)}
+.tabpanel{display:none}
+.tabpanel.is-on{display:block}
+/* art moved to the RIGHT ~48% and feathered so its own light background dissolves
+   into the dark canvas instead of sitting in a hard rectangle */
+.hero .splash{position:absolute;top:0;right:0;bottom:0;left:auto;width:52%}
+.hero .splash img{width:100%;height:100%;object-fit:cover;display:block;object-position:center 20%;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 100%),linear-gradient(180deg,#000 0,#000 58%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 100%),linear-gradient(180deg,#000 0,#000 58%,transparent 100%);
+  -webkit-mask-composite:source-in;mask-composite:intersect}
+/* navy→teal cinematic wash so any art reads as a dramatic scene + text stays legible */
+.hero .wash{position:absolute;inset:0;background:
+   linear-gradient(90deg,var(--bg) 0,color-mix(in oklab,var(--bg) 70%,transparent) 40%,transparent 62%),
+   linear-gradient(180deg,transparent 55%,color-mix(in oklab,var(--bg) 92%,transparent) 100%);
+   pointer-events:none}
+/* diagonal acid-red slash keeps the Persona identity over the splash */
+.hero::after{content:"";position:absolute;top:-10%;right:-6%;width:46%;height:130%;background:var(--signal);clip-path:polygon(42% 0,100% 0,100% 100%,70% 100%);opacity:.14;transform:skewX(-8deg);pointer-events:none}
+.hero .hinfo{position:absolute;left:0;right:auto;bottom:0;width:min(60%,600px);padding:28px 40px 22px;z-index:2}
+.hero .cap{position:absolute;left:40px;top:26px;background:var(--el,var(--signal));color:#fff;font:800 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;padding:6px 10px;clip-path:polygon(4px 0,100% 0,100% 100%,0 100%);z-index:2}
+
+.hinfo .kick{font:800 10px/1 var(--font);letter-spacing:.24em;text-transform:uppercase;color:var(--signal);margin-bottom:10px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.hinfo h2{font:900 clamp(40px,5vw,68px)/.9 var(--font);letter-spacing:-.02em;text-shadow:0 2px 14px rgba(0,0,0,.55)}
+.hinfo .tpl{margin-top:8px;font:500 15px/1.3 var(--font);color:var(--ink);text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.hinfo .tpl b{color:var(--signal);font-weight:800}
+.meta{display:flex;flex-wrap:wrap;margin-top:16px;border:1px solid var(--hair);clip-path:var(--notch);background:color-mix(in oklab,var(--bg) 78%,transparent);backdrop-filter:blur(4px)}
+.meta .cell{padding:10px 16px;border-right:1px solid var(--hair);min-width:96px}
+.meta .cell:last-child{border-right:0}
+.meta .lbl{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.meta .val{font:800 15px/1 var(--font)}
+.meta .val.el{color:var(--el,var(--signal))}
+
+.stitle{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+.stitle::after{content:"";flex:1;height:1px;background:var(--hair)}
+
+.grid2{display:grid;grid-template-columns:1.15fr .85fr;gap:32px;margin-bottom:0}
+
+/* stat bars — HP hero (battle red), EN thin (signal), rest neutral ink */
+.stats{display:flex;flex-direction:column;gap:11px}
+/* full-width Stats: two columns of bars so it doesn't look sparse */
+.statcols{display:grid;grid-template-columns:1fr 1fr;gap:11px 40px}
+.stat{display:grid;grid-template-columns:52px 1fr 44px;gap:12px;align-items:center}
+.stat .sl{font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat .track{height:10px;background:var(--panel);border:1px solid var(--hair);clip-path:polygon(3px 0,100% 0,100% 100%,0 100%);overflow:hidden}
+.stat .fill{height:100%;width:0;transition:width .5s cubic-bezier(.2,.7,.2,1);background:var(--ink)}
+.stat.hp .fill{background:var(--battle)}
+.stat.en .fill{background:var(--signal)}
+.stat .sv{font:800 13px/1 var(--font);text-align:right}
+.stat .sv .bo{color:var(--signal);font-size:10px;margin-left:2px}
+
+/* affinity + attribute triangle */
+.aff{display:flex;flex-direction:column;gap:12px}
+.affrow{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--hair)}
+.affrow:last-child{border-bottom:0}
+.affrow .al{font:700 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.affrow .av{font:700 13px/1.2 var(--font);display:flex;align-items:center;gap:8px}
+.tagx{padding:3px 8px;clip-path:polygon(3px 0,100% 0,100% 100%,0 100%);font:700 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase}
+.tagx.weak{background:var(--battle);color:#fff}
+.tagx.strong{background:var(--signal);color:#fff}
+.tagx.el{background:color-mix(in oklab,var(--el,var(--signal)) 14%,var(--bg));color:var(--el,var(--signal));border:1px solid var(--el,var(--signal))}
+
+/* resistance matrix — attribute + elemental damage multipliers per column */
+/* resistance matrix — compact framed tiles: icon + signed multiplier badge (ref image-6) */
+.resmx{margin-top:24px;border-top:1px solid var(--hair);padding-top:18px}
+.resmx .rmh{display:flex;align-items:baseline;gap:10px;font:800 10px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.resmx .rmh:not(:first-of-type){margin-top:18px}
+.resmx .rmh .hk{font:600 9px/1 var(--font);letter-spacing:.02em;text-transform:none;color:color-mix(in oklab,var(--muted) 70%,var(--bg))}
+.rmgrid{display:flex;flex-wrap:wrap;gap:6px;padding-top:11px}
+.rmtile{width:50px;position:relative;display:flex;flex-direction:column;align-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.rmtile .ic{width:100%;height:28px;display:grid;place-items:center;color:var(--muted)}
+.rmtile .ic svg{width:19px;height:19px}
+.rmtile .rl{width:100%;text-align:center;font:800 7px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:color-mix(in oklab,var(--muted) 78%,var(--bg));padding-bottom:3px}
+.rmtile .bd{width:100%;text-align:center;font:800 12px/1 var(--font);padding:4px 0 5px;border-top:1px solid var(--hair);color:var(--muted);letter-spacing:.01em}
+/* signed badge: weak (incoming heavy) = red +, resist = signal −, neutral = muted dash */
+.rmtile.weak .bd{color:var(--battle)}
+.rmtile.weak .ic{color:color-mix(in oklab,var(--battle) 70%,var(--muted))}
+.rmtile.weak{border-color:color-mix(in oklab,var(--battle) 40%,var(--hair))}
+.rmtile.weak .rl{color:color-mix(in oklab,var(--battle) 55%,var(--muted))}
+.rmtile.res .bd{color:var(--signal)}
+.rmtile.res .rl{color:color-mix(in oklab,var(--signal) 45%,var(--muted))}
+.rmtile.neu .bd{color:color-mix(in oklab,var(--muted) 80%,var(--bg))}
+.rmtile.self{border-color:var(--el,var(--signal));box-shadow:inset 0 0 0 1px var(--el,var(--signal))}
+.rmtile.self .ic{color:var(--el,var(--signal))}
+.rmtile.self .rl{color:var(--el,var(--signal))}
+.rmtile .you{position:absolute;top:-7px;left:50%;transform:translateX(-50%);font:800 7px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--bg);background:var(--el,var(--signal));clip-path:var(--notch-sm);padding:2px 5px;z-index:2}
+/* unified affinity panel: header + summary chips + two labelled tile rows + one legend */
+.affpanel .rmh{margin-bottom:14px}
+.affsum{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}
+.affsum .as{font:800 8px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;padding:3px 7px;clip-path:polygon(3px 0,100% 0,100% 100%,0 100%)}
+.affsum .as.self{background:color-mix(in oklab,var(--el,var(--signal)) 16%,var(--bg));color:var(--el,var(--signal));border:1px solid var(--el,var(--signal))}
+.affsum .as.weak{background:var(--battle);color:#fff}
+.affsum .as.strong{background:color-mix(in oklab,var(--signal) 16%,var(--bg));color:var(--signal);border:1px solid var(--signal)}
+.affline{display:grid;grid-template-columns:74px 1fr;align-items:start;gap:14px;margin-bottom:12px}
+.affline .alab{font:800 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-top:16px}
+.affline .rmgrid{padding-top:8px}
+.afflegend{margin-top:4px;padding-top:12px;border-top:1px solid var(--hair);font:600 9.5px/1 var(--font);letter-spacing:.02em;color:color-mix(in oklab,var(--muted) 70%,var(--bg))}
+
+/* skills */
+.skills{display:flex;flex-wrap:wrap;gap:10px}
+.skill{padding:11px 14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);display:flex;flex-direction:column;gap:4px;min-width:180px;flex:1 1 200px;max-width:280px}
+/* ---- skill equip / pool ---- */
+.skillhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+.skillhead .lbl{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+.skillhead .slots{font:800 12px/1 var(--font);color:var(--signal)}
+.skillhead .slots.full{color:var(--muted)}
+/* skill filter chips */
+.skfilter{display:flex;gap:8px;margin-bottom:12px}
+.skchip{padding:6px 12px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);cursor:pointer}
+.skchip:hover{color:var(--ink);border-color:var(--muted)}
+.skchip.is-on{background:var(--signal);border-color:var(--signal);color:#fff}
+.skchip:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+/* vertical skill list — element icon · name+description · costs */
+.skrow{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.skempty{color:var(--muted);font-size:12px;padding:16px 0}
+[data-el="fire"]{--skel:var(--signal)}
+[data-el="water"]{--skel:color-mix(in oklab,var(--signal) 70%,var(--bg))}
+[data-el="plant"]{--skel:color-mix(in oklab,var(--signal) 45%,var(--ink))}
+[data-el="electricity"]{--skel:color-mix(in oklab,var(--signal) 60%,var(--ink))}
+[data-el="wind"]{--skel:color-mix(in oklab,var(--signal) 30%,var(--ink))}
+.sk{position:relative;text-align:left;width:100%;padding:11px 14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;cursor:pointer}
+.sk:hover{border-color:var(--muted)}
+.sk:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.sk.equipped{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--panel))}
+.sk.equipped::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal)}
+.sk .ic{width:36px;height:36px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--skel,var(--signal))}
+.sk .ic svg{width:20px;height:20px}
+.sk .body{min-width:0}
+.sk .nm{font:800 14px/1.1 var(--font);display:flex;align-items:center;gap:8px}
+.sk .eqtag{font:800 8px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);border:1px solid var(--signal);padding:3px 5px;clip-path:polygon(3px 0,100% 0,100% 100%,0 100%)}
+.sk .ds{display:block;font:500 12px/1.4 var(--font);color:var(--muted);margin-top:4px}
+.sk .cost{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap}
+.sk .cost .en{font:800 12px/1 var(--font);color:var(--signal)}
+.sk .cost .pw{font:700 11px/1 var(--font);color:var(--ink)}
+.sk[aria-disabled="true"]{opacity:.5;cursor:not-allowed}
+.sk[aria-disabled="true"]:hover{border-color:var(--hair)}
+.skhint{font-size:11px;color:var(--muted);min-height:14px;margin-top:2px}
+.skill .sn{font:800 13px/1 var(--font);letter-spacing:.01em}
+.skill .sd{font-size:11px;color:var(--muted)}
+.skill .sc{font:700 10px/1 var(--font);color:var(--signal);letter-spacing:.06em;margin-top:2px}
+
+/* status / mood */
+.status-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.statchip{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 11px/1 var(--font);letter-spacing:.04em}
+.statchip .dot{width:8px;height:8px;background:var(--muted)}
+.statchip.party .dot{background:var(--signal)}
+
+/* stat bars render at final width instantly (no animation) */
+.stat .fill{transition:none}
+
+/* ---- Evolve button in the hero ---- */
+.evo-btn{position:absolute;right:40px;bottom:26px;z-index:3;display:inline-flex;align-items:center;gap:9px;
+  background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm);
+  padding:12px 18px;font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.12s}
+.evo-btn:hover{background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.evo-btn:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.evo-btn svg{width:15px;height:15px}
+.evo-btn.terminal{background:var(--panel);color:var(--muted);border-color:var(--hair);cursor:default}
+.evo-btn.terminal:hover{background:var(--panel)}
+
+/* ---- evolution modal: overlay + dialog ---- */
+.evo-ov{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  background:color-mix(in oklab,var(--bg) 68%,transparent);backdrop-filter:blur(5px);padding:24px}
+.evo-ov.show{display:flex}
+.evo-modal{width:min(1240px,97vw);height:min(660px,92vh);background:var(--panel);border:1px solid var(--hair);
+  clip-path:var(--notch);display:flex;flex-direction:column;overflow:hidden}
+.evo-head{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:18px 22px;border-bottom:1px solid var(--hair)}
+.evo-head .ek{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.evo-head h3{font:900 20px/1 var(--font);letter-spacing:-.01em}
+.evo-head .sub{font:600 12px/1.4 var(--font);color:var(--muted);margin-top:4px}
+.evo-x{margin-left:auto;width:34px;height:34px;display:grid;place-items:center;background:var(--bg);
+  border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted);cursor:pointer;transition:.12s}
+.evo-x:hover{color:var(--ink);border-color:var(--signal)}
+.evo-x:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.evo-x svg{width:15px;height:15px}
+
+/* ---- evolution modal body: two columns (line tree left · conditions right) ---- */
+.evo-stage{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;display:grid;
+  grid-template-columns:1.15fr 400px;gap:0}
+/* LEFT: horizontal evolution line ------------------------------------------ */
+.evo-line{position:relative;min-height:0;overflow:auto;padding:22px 20px;scrollbar-width:thin;
+  background:radial-gradient(120% 90% at 30% 40%,color-mix(in oklab,var(--signal) 5%,var(--bg)),var(--bg) 72%)}
+.evo-line::-webkit-scrollbar{width:9px;height:9px}.evo-line::-webkit-scrollbar-thumb{background:var(--hair)}
+.evo-cols{display:inline-flex;align-items:center;gap:0;min-height:100%}
+.evo-col{display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 4px}
+.evo-col .stagelbl{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);text-align:center;margin-bottom:2px}
+/* a single node in the line */
+.enode{position:relative;width:118px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);
+  padding:9px;display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;text-align:center;transition:.12s}
+.enode:hover{border-color:var(--muted)}
+.enode:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.enode .pic{width:60px;height:60px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);overflow:hidden}
+.enode .pic img{width:52px;height:52px;object-fit:contain;image-rendering:pixelated}
+.enode .pic .q{font:900 22px/1 var(--font);color:var(--muted)}
+.enode .en-nm{font:800 11px/1.15 var(--font);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis}
+.enode .en-badge{display:inline-flex;align-items:center;gap:5px;font:800 8px/1 var(--font);letter-spacing:.06em;
+  color:var(--el,var(--muted));border:1px solid color-mix(in oklab,var(--el,var(--muted)) 40%,var(--hair));
+  clip-path:var(--notch-sm);padding:3px 6px;background:var(--bg)}
+.enode .en-badge .lv{font-variant-numeric:tabular-nums}
+.enode .en-badge .adot{width:6px;height:6px;background:var(--el,var(--muted));clip-path:var(--notch-sm)}
+/* node states */
+.enode.is-root{border-color:var(--el,var(--signal))}
+.enode.is-root::before{content:"YOU";position:absolute;top:-8px;left:50%;transform:translateX(-50%);z-index:2;
+  font:800 7px/1 var(--font);letter-spacing:.12em;color:#fff;background:var(--el,var(--signal));clip-path:var(--notch-sm);padding:2px 6px}
+.enode.sel{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.enode.sel .en-nm{color:var(--signal)}
+.enode.unmet{opacity:.6}.enode.unmet .en-nm{color:var(--muted)}
+.enode.avail::after{content:"";position:absolute;right:-1px;top:-1px;border-width:0 12px 12px 0;border-style:solid;border-color:transparent var(--el,var(--signal)) transparent transparent}
+/* SVG connector layer sits under the columns */
+.evo-links{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.evo-cols{position:relative;z-index:1}
+/* generation caption top-left */
+.evo-gen{position:absolute;top:14px;left:18px;z-index:2;font:800 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.evo-gen b{color:var(--signal)}
+
+/* RIGHT: Digivolution Conditions panel ------------------------------------- */
+.evo-cond{border-left:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.cond-hd{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:14px 18px;border-bottom:1px solid var(--hair)}
+.cond-hd .ct{font:800 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--signal)}
+.cond-hd .cnm{margin-left:auto;font:800 12px/1 var(--font);color:var(--ink)}
+.cond-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:14px 18px;scrollbar-width:thin;display:flex;flex-direction:column;gap:14px}
+.cond-body::-webkit-scrollbar{width:9px}.cond-body::-webkit-scrollbar-thumb{background:var(--hair)}
+/* target head: sprite + name + stage + attribute/element change */
+.tgt{display:grid;grid-template-columns:56px 1fr;gap:12px;align-items:center}
+.tgt .tpic{width:56px;height:56px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--el,var(--hair));clip-path:var(--notch-sm);overflow:hidden}
+.tgt .tpic img{width:48px;height:48px;object-fit:contain;image-rendering:pixelated}
+.tgt .tpic .q{font:900 20px/1 var(--font);color:var(--muted)}
+.tgt .tnm{font:900 17px/1 var(--font);letter-spacing:-.01em}
+.tgt .tst{font:700 8px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+/* stat requirement grid — HP/STR-style rows with ↑/↓ arrows */
+.cond-sh{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.srow{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;background:var(--bg);
+  border:1px solid var(--hair);clip-path:var(--notch-sm);padding:9px 11px}
+.srow .sk{font:800 9px/1 var(--font);letter-spacing:.08em;color:var(--muted)}
+.srow .sv{text-align:right;font:800 13px/1 var(--font);color:var(--ink);font-variant-numeric:tabular-nums}
+.srow .ar{width:13px;height:13px;display:grid;place-items:center}
+.srow .ar svg{width:13px;height:13px}
+.srow.up .ar{color:color-mix(in oklab,var(--signal) 35%,#3fbf6f)}
+.srow.up .sv{color:color-mix(in oklab,var(--signal) 30%,#3fbf6f)}
+.srow.down .ar{color:var(--battle)}
+.srow.down .sv{color:color-mix(in oklab,var(--battle) 80%,var(--ink))}
+.srow .dl{font:700 8px/1 var(--font);color:var(--muted);font-variant-numeric:tabular-nums}
+/* attribute / element change row */
+.change{display:flex;flex-direction:column;gap:8px}
+.chg-row{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:10px 12px}
+.chg-row .cl{font:800 8px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);width:64px}
+.chg-pill{display:inline-flex;align-items:center;gap:6px;font:800 10px/1 var(--font);padding:5px 9px;clip-path:var(--notch-sm);border:1px solid var(--hair);color:var(--ink);background:var(--panel)}
+.chg-pill .adot{width:7px;height:7px;clip-path:var(--notch-sm)}
+.chg-pill.from{color:var(--muted)}
+.chg-pill.from .adot{background:var(--muted)}
+.chg-pill.to{color:var(--el2,var(--signal));border-color:color-mix(in oklab,var(--el2,var(--signal)) 45%,var(--hair));background:color-mix(in oklab,var(--el2,var(--signal)) 12%,var(--bg))}
+.chg-pill.to .adot{background:var(--el2,var(--signal))}
+.chg-arrow{color:var(--muted)}.chg-arrow svg{width:14px;height:14px}
+.chg-same{font:700 9px/1 var(--font);color:var(--muted)}
+/* requirement mini-rows (level / meat) */
+.req-line{display:flex;align-items:center;gap:8px;font:700 10px/1.3 var(--font);color:var(--muted)}
+.req-line .rq2{display:inline-flex;align-items:center;gap:5px;font:800 9px/1 var(--font);letter-spacing:.04em;padding:5px 8px;clip-path:var(--notch-sm);border:1px solid var(--hair);background:var(--bg);white-space:nowrap}
+.req-line .rq2.ok{color:color-mix(in oklab,var(--signal) 35%,#3fbf6f);border-color:color-mix(in oklab,var(--signal) 30%,var(--hair))}
+.req-line .rq2.bad{color:#fff;background:var(--battle);border-color:var(--battle)}
+.req-line .rq2 .rn{font-variant-numeric:tabular-nums}
+/* footer action */
+.cond-foot{flex:0 0 auto;border-top:1px solid var(--hair);padding:14px 18px;background:color-mix(in oklab,var(--panel) 92%,var(--bg))}
+.evoDo{width:100%;background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm);
+  padding:13px;font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:.12s}
+.evoDo:hover:not(:disabled){background:color-mix(in oklab,var(--signal) 86%,var(--ink))}
+.evoDo:disabled{background:var(--bg);color:var(--muted);border-color:var(--hair);cursor:default}
+.evoDo:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.cond-block{display:flex;align-items:center;gap:7px;font:700 10px/1.3 var(--font);color:color-mix(in oklab,var(--battle) 72%,var(--ink));margin-top:9px}
+.cond-block.dim{color:var(--muted)}
+.cond-block svg{width:12px;height:12px;flex:0 0 12px}
+.cond-empty{padding:30px 18px;color:var(--muted);font:600 12px/1.6 var(--font);text-align:center}
+
+/* ---- digivolution cinematic overlay (plays ~5s inside the modal) ---- */
+.digiv{position:absolute;inset:0;z-index:20;display:none;overflow:hidden;background:#000;
+  align-items:center;justify-content:center;perspective:900px;perspective-origin:center 42%}
+.digiv.play{display:flex}
+/* animated grid world floor + rising verticals */
+.digiv .grid{position:absolute;inset:0;
+  background:
+    linear-gradient(color-mix(in oklab,var(--signal) 40%,transparent) 1px,transparent 1px) 0 0/48px 48px,
+    linear-gradient(90deg,color-mix(in oklab,var(--signal) 40%,transparent) 1px,transparent 1px) 0 0/48px 48px;
+  transform:perspective(520px) rotateX(62deg) scale(1.9);transform-origin:center 78%;
+  opacity:.5;animation:gridflow 1.1s linear infinite}
+@keyframes gridflow{to{background-position:0 48px,0 0}}
+.digiv .glow{position:absolute;left:50%;top:52%;width:520px;height:520px;transform:translate(-50%,-50%);
+  background:radial-gradient(circle,color-mix(in oklab,var(--signal) 40%,transparent),transparent 62%);opacity:.7}
+/* vertical rising light beam (anime evolution column) */
+.digiv .beam{position:absolute;left:50%;top:0;bottom:0;width:180px;transform:translateX(-50%);z-index:1;opacity:0;
+  background:linear-gradient(180deg,transparent,color-mix(in oklab,var(--signal) 30%,transparent) 22%,
+    color-mix(in oklab,#fff 85%,var(--signal)) 50%,color-mix(in oklab,var(--signal) 30%,transparent) 78%,transparent);
+  mix-blend-mode:screen;filter:blur(1px)}
+.digiv.spinning .beam{opacity:.55;animation:beampulse .5s ease-in-out infinite alternate}
+.digiv.charge .beam{opacity:.9;width:230px}
+@keyframes beampulse{from{transform:translateX(-50%) scaleX(.82)}to{transform:translateX(-50%) scaleX(1.12)}}
+/* rotating radial speed-lines (concentration lines behind the sprite) */
+.digiv .speed{position:absolute;left:50%;top:50%;width:1200px;height:1200px;transform:translate(-50%,-50%);z-index:0;opacity:0;
+  background:repeating-conic-gradient(from 0deg at 50% 50%,
+    color-mix(in oklab,var(--signal) 55%,transparent) 0deg 2deg,transparent 2deg 9deg);
+  -webkit-mask:radial-gradient(circle,transparent 120px,#000 300px);
+  mask:radial-gradient(circle,transparent 120px,#000 300px)}
+.digiv.spinning .speed{opacity:.5;animation:speedspin 2.4s linear infinite}
+.digiv.charge .speed{opacity:.85;animation:speedspin .7s linear infinite}
+@keyframes speedspin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+/* parallax drift on grid + glow so the camera move reads as real depth */
+.digiv.spinning .grid{animation:gridflow 1.1s linear infinite,camdriftgrid 2.6s ease-in-out infinite}
+.digiv.spinning .glow{animation:camdriftglow 2.6s ease-in-out infinite}
+@keyframes camdriftgrid{0%{transform:perspective(520px) rotateX(62deg) scale(1.9) translateX(14px)}50%{transform:perspective(520px) rotateX(62deg) scale(1.9) translateX(-14px)}100%{transform:perspective(520px) rotateX(62deg) scale(1.9) translateX(14px)}}
+@keyframes camdriftglow{0%{transform:translate(calc(-50% + 22px),-50%)}50%{transform:translate(calc(-50% - 22px),-50%)}100%{transform:translate(calc(-50% + 22px),-50%)}}
+/* big scrolling species name behind the sprite (Digimon reveal style) */
+.digiv .bigname{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);z-index:1;
+  font:900 clamp(60px,13vw,150px)/1 var(--font);letter-spacing:.02em;text-transform:uppercase;
+  color:transparent;-webkit-text-stroke:2px color-mix(in oklab,var(--signal) 55%,#fff);
+  white-space:nowrap;text-align:center;opacity:0}
+.digiv.reveal .bigname{opacity:.9;animation:namescroll 1.1s ease-out}
+@keyframes namescroll{from{transform:translateY(-50%) scale(1.6);opacity:0}to{transform:translateY(-50%) scale(1);opacity:.9}}
+/* rotating sprite stage (3D) — this wrapper is the CAMERA: it pitches
+   (rotateX, top→mid) and yaws (rotateY) so the whole scene reads cinematic,
+   while the child .spin does the sprite's own turn on top (preserve-3d). */
+.digiv .stage3d{position:relative;z-index:2;width:210px;height:210px;transform-style:preserve-3d;
+  transform:rotateX(0deg) rotateY(0deg)}
+/* opening camera move: rise from a low angle (looking up) toward eye level, pushing in */
+.digiv.squash .stage3d{animation:camdrop 2.1s cubic-bezier(.25,.8,.3,1) forwards}
+@keyframes camdrop{
+  0%{transform:rotateX(24deg) rotateY(0deg) scale(.74) translateY(20px)}  /* low, looking up, far */
+  100%{transform:rotateX(0deg) rotateY(0deg) scale(1) translateY(0)}      /* settled at eye level */
+}
+/* during the spin: steady push-in with a subtle upward drift (energy rising) */
+.digiv.spinning .stage3d{animation:campush 2.6s ease-in-out infinite}
+@keyframes campush{
+  0%{transform:rotateX(3deg) scale(1) translateY(0)}
+  50%{transform:rotateX(-1deg) scale(1.08) translateY(-8px)}   /* push in + lift */
+  100%{transform:rotateX(3deg) scale(1) translateY(0)}
+}
+/* reveal: hard push-in then settle level on the evolved form */
+.digiv.reveal .stage3d{animation:camsettle .8s cubic-bezier(.2,1,.3,1) forwards}
+@keyframes camsettle{
+  0%{transform:rotateX(-6deg) scale(1.18) translateY(-6px)}
+  60%{transform:rotateX(2deg) scale(.98) translateY(2px)}
+  100%{transform:rotateX(0deg) scale(1) translateY(0)}
+}
+.digiv .spin{width:100%;height:100%;display:grid;place-items:center;transform-style:preserve-3d}
+/* spin only starts once the anticipation squash releases (.spinning) */
+.digiv.spinning .spin{animation:spin3d 0.6s linear infinite}
+@keyframes spin3d{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.digiv .spin img{width:170px;height:170px;object-fit:contain;image-rendering:pixelated;transform-origin:bottom center;
+  filter:drop-shadow(0 0 18px color-mix(in oklab,var(--signal) 70%,transparent))}
+.digiv .spin .mono{font:900 84px/1 var(--font);color:#fff}
+/* anticipation "squeech" — little squash then stretch before the turn begins */
+.digiv.squash .spin img{animation:squeech .7s cubic-bezier(.34,1.4,.5,1)}
+@keyframes squeech{
+  0%{transform:scaleY(1) scaleX(1)}
+  32%{transform:scaleY(.78) scaleX(1.14)}       /* crouch/compress */
+  62%{transform:scaleY(1.12) scaleX(.92)}       /* spring up/stretch */
+  100%{transform:scaleY(1) scaleX(1)}
+}
+/* silhouette phase — current form goes white/energized and lifts up the beam */
+.digiv.charge .spin img{filter:brightness(0) invert(1) drop-shadow(0 0 26px #fff)}
+.digiv.charge .spin{animation:beamrise .8s ease-in forwards}
+@keyframes beamrise{from{transform:translateY(0)}to{transform:translateY(-26px)}}
+.digiv.charge.spinning .spin{animation:spin3d .28s linear infinite,beamrise .8s ease-in forwards}
+/* white flash */
+.digiv .flash{position:absolute;inset:0;z-index:5;background:#fff;opacity:0;pointer-events:none}
+.digiv.flash-on .flash{animation:flashpop .5s ease-out}
+@keyframes flashpop{0%{opacity:0}18%{opacity:1}100%{opacity:0}}
+/* evolved reveal — stops spinning, lands with a squash "squeech" */
+.digiv.reveal .spin{animation:none;transform:none}
+.digiv.reveal .spin img{filter:drop-shadow(0 0 24px color-mix(in oklab,var(--signal) 80%,transparent));
+  animation:landsquash .6s cubic-bezier(.2,1.3,.35,1)}
+@keyframes landsquash{
+  0%{transform:scale(.55);opacity:0}
+  45%{transform:scaleX(1.16) scaleY(.84);opacity:1}   /* impact splat */
+  72%{transform:scaleX(.94) scaleY(1.08)}             /* rebound */
+  100%{transform:scale(1);opacity:1}
+}
+/* caption line under the sprite */
+.digiv .cap{position:absolute;left:0;right:0;bottom:44px;z-index:3;text-align:center;
+  font:800 11px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:#fff;opacity:.85}
+.digiv .cap b{color:color-mix(in oklab,var(--signal) 55%,#fff)}
+/* skip hint */
+.digiv .skip{position:absolute;right:14px;bottom:14px;z-index:4;font:700 9px/1 var(--font);
+  letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Roster</div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <button class="navbtn" data-nav="factory" aria-label="Factory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory
+      </button>
+      <button class="navbtn" data-nav="adventure" aria-label="Adventure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure
+      </button>
+      <button class="navbtn" data-nav="nursery" aria-label="Nursery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery
+      </button>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <button class="navbtn" aria-current="page" data-nav="roster" aria-label="Roster">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster
+      </button>
+      <button class="navbtn" data-nav="world" aria-label="The World">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World
+      </button>
+      <button class="navbtn" data-nav="arena" aria-label="The Arena">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena
+      </button>
+
+      <div class="spring">
+        <div class="hud">
+          <div class="pill">Tamer Lv <b id="hud-lv">—</b></div>
+          <div class="pill">Bits <b>4,820</b></div>
+          <div class="pill">Party <b id="hud-party">—</b></div>
+        </div>
+      </div>
+    </nav>
+
+    <aside class="master" data-od-id="master-list">
+      <div class="mhead">
+        <div class="kick">Digivice Registry</div>
+        <h1>Your Roster</h1>
+        <p class="sub" id="sub">— registered · filter by element</p>
+      </div>
+      <div class="tools">
+        <label class="search" aria-label="Search roster">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input id="search" type="search" placeholder="Search nickname or species…" autocomplete="off" />
+        </label>
+        <div class="filters" id="filters" role="group" aria-label="Filter by element"></div>
+      </div>
+      <div class="list" id="list" role="listbox" aria-label="Digimon roster"></div>
+    </aside>
+
+    <main class="detail" id="detail" data-od-id="detail-panel" tabindex="-1"></main>
+  </div>
+</div>
+
+<script>
+/* ---- element wheel from src/digimon/element.ts ------------------------- */
+const WEAK   = { fire:'plant', water:'fire', plant:'water', electricity:'water', wind:'earth' };
+const RESIST = { fire:'water', water:'electricity', plant:'fire', electricity:'earth', wind:'ice' };
+const ATTR_TO_EL = { Virus:'fire', Data:'water', Vaccine:'plant', Free:'electricity', Variable:'wind' };
+const ATTR_STRONG = { Vaccine:'Virus', Virus:'Data', Data:'Vaccine' };
+
+/* ---- roster: shape mirrors RosterView (routes.ts) --------------------- */
+const ART = 'image.png';          // portrait (left in detail hero)
+const ART_R = 'image-1.png';      // second art (right open space in detail hero)
+// skullbot pixel-art "dot" sprite, keyed by species name
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+const ROSTER = [
+  { id:'r1', nickname:'Agumon', species:'Agumon', stage:'Rookie', attribute:'Virus',
+    level:24, xp:640, xpFloor:520, xpNext:900, mood:82, status:'party', slot:0,
+    stats:{hp:820,en:34,atk:168,def:110,int:96,spd:132}, bonus:{hp:40,en:0,atk:12,def:0,int:0,spd:6},
+    skills:[['Pepper Breath','Fire · single foe','EN 8'],['Spirit Strike','Phys · high crit','EN 12'],['Guard Up','Raise DEF · self','EN 6']] },
+  { id:'r2', nickname:'Gabumon', species:'Gabumon', stage:'Rookie', attribute:'Data',
+    level:22, xp:410, xpFloor:400, xpNext:760, mood:74, status:'party', slot:1,
+    stats:{hp:780,en:36,atk:142,def:128,int:104,spd:118}, bonus:{hp:0,en:4,atk:0,def:10,int:0,spd:0},
+    skills:[['Blue Blaster','Water · single foe','EN 8'],['Horn Attack','Phys · single','EN 6'],['Aqua Veil','Cut incoming · party','EN 12']] },
+  { id:'r3', nickname:'Palmon', species:'Palmon', stage:'Rookie', attribute:'Vaccine',
+    level:20, xp:280, xpFloor:280, xpNext:640, mood:90, status:'party', slot:2,
+    stats:{hp:760,en:38,atk:128,def:112,int:130,spd:110}, bonus:{hp:0,en:0,atk:0,def:0,int:14,spd:0},
+    skills:[['Poison Ivy','Plant · single foe','EN 8'],['Root Bind','Slow · single','EN 10'],['Photosynthesis','Heal small · self','EN 8']] },
+  { id:'r4', nickname:'Biyomon', species:'Biyomon', stage:'Rookie', attribute:'Free',
+    level:19, xp:120, xpFloor:120, xpNext:560, mood:68, status:'resting',
+    stats:{hp:700,en:40,atk:134,def:96,int:118,spd:146}, bonus:{hp:0,en:0,atk:0,def:0,int:0,spd:12},
+    skills:[['Spiral Twister','Electric · single','EN 8'],['Wing Cutter','Phys · all foes','EN 14'],['Tailwind','Raise SPD · party','EN 12']] },
+  { id:'r5', nickname:'Tentomon', species:'Tentomon', stage:'Rookie', attribute:'Free',
+    level:18, xp:60, xpFloor:60, xpNext:480, mood:71, status:'resting',
+    stats:{hp:740,en:37,atk:126,def:120,int:112,spd:104}, bonus:{hp:0,en:0,atk:8,def:0,int:0,spd:0},
+    skills:[['Super Shocker','Electric · single','EN 8'],['Talon Attack','Phys · single','EN 6'],['Analyze','Reveal weakness','EN 8']] },
+  { id:'r6', nickname:'Greymon', species:'Greymon', stage:'Champion', attribute:'Virus',
+    level:31, xp:1240, xpFloor:1100, xpNext:1600, mood:88, status:'resting',
+    stats:{hp:1260,en:39,atk:238,def:176,int:120,spd:126}, bonus:{hp:60,en:0,atk:20,def:0,int:0,spd:0},
+    skills:[['Nova Blast','Heavy Fire · single','EN 14'],['Great Horn','Phys · single','EN 12'],['Battle Roar','Raise ATK · party','EN 12']] },
+  { id:'r7', nickname:'Gomamon', species:'Gomamon', stage:'Rookie', attribute:'Data',
+    level:17, xp:40, xpFloor:0, xpNext:440, mood:79, status:'resting',
+    stats:{hp:720,en:41,atk:118,def:108,int:126,spd:122}, bonus:{hp:0,en:0,atk:0,def:0,int:0,spd:0},
+    skills:[['Marching Fishes','Water · all foes','EN 14'],['Claw Swipe','Phys · single','EN 6'],['Tide Heal','Heal medium · ally','EN 12']] },
+  { id:'r8', nickname:'Patamon', species:'Patamon', stage:'Rookie', attribute:'Vaccine',
+    level:16, xp:20, xpFloor:0, xpNext:400, mood:95, status:'resting',
+    stats:{hp:700,en:38,atk:120,def:104,int:138,spd:116}, bonus:{hp:0,en:0,atk:0,def:0,int:0,spd:0},
+    skills:[['Boom Bubble','Plant · single','EN 8'],['Air Shot','Phys · single','EN 6'],['Cheer','Random buff · party','EN 10']] },
+];
+
+const ELEMENTS = [...new Set(ROSTER.map(r=>ATTR_TO_EL[r.attribute]))];
+const state = { q:'', el:'all', selected:ROSTER[0].id };
+const el = r => ATTR_TO_EL[r.attribute];
+const cap = s => s[0].toUpperCase()+s.slice(1);
+
+/* ---- evolution graph (mirrors src/roster/evolve.ts getEvolutionOptions) ------
+   Each roster species maps to evolvesInto branches. An EvolutionOption carries
+   {catalogId(name), stage, requiredLevel, requiredAttribute|null, met}. Backend
+   gate order: attribute-mismatch > level-too-low > (mood). We surface the real
+   level + attribute gate; Meat cost is the game's EVOLUTION_COSTS (labeled as a
+   requirement per the brief — the evolve.ts edge itself gates on level/attr,
+   Meat is spent on POST /digimon/:id/evolve). Stages: Rookie→Champion→Ultimate→
+   Mega. `met:false` = species not yet discovered in the dex → shown as ??? */
+const STAGE_NEXT = { Baby:'In-Training','In-Training':'Rookie', Rookie:'Champion', Champion:'Ultimate', Ultimate:'Mega', Mega:null };
+// EVOLUTION_LEVELS per target stage (EVOLUTION_LEVELS in shared config) + Meat cost
+const EVO_LEVEL = { 'In-Training':8, Rookie:12, Champion:24, Ultimate:38, Mega:55 };
+const EVO_MEAT  = { 'In-Training':40, Rookie:80, Champion:220, Ultimate:520, Mega:1200 };
+// STAGE_MULTIPLIER (src/digimon/element.ts) — grounds the stat ↑/↓ gains between stages
+const STAGE_MULT = { Baby:0.4, 'In-Training':0.6, Rookie:1.0, Champion:1.5, Ultimate:2.2, Mega:3.0 };
+const STAGE_ORDER = ['Baby','In-Training','Rookie','Champion','Ultimate','Mega'];
+/* SPECIES catalog: the full multi-stage evolution graph. Each entry:
+   {stage, attribute, met, into:[nextSpecies…]}. attribute→element drives the
+   ELEMENTAL CHANGE display. Mirrors dex evolvesInto graph; met:false = ??? */
+const SPECIES = {
+  // Rookies (roster starters)
+  Agumon:   {stage:'Rookie',    attribute:'Virus',    met:true,  into:['Greymon','Tyrannomon','Centarumon']},
+  Gabumon:  {stage:'Rookie',    attribute:'Data',     met:true,  into:['Garurumon','Seadramon']},
+  Palmon:   {stage:'Rookie',    attribute:'Vaccine',  met:true,  into:['Togemon','Woodmon']},
+  Biyomon:  {stage:'Rookie',    attribute:'Free',     met:true,  into:['Birdramon','Saberdramon']},
+  Tentomon: {stage:'Rookie',    attribute:'Free',     met:true,  into:['Kabuterimon','Kuwagamon']},
+  Gomamon:  {stage:'Rookie',    attribute:'Data',     met:true,  into:['Ikkakumon']},
+  Patamon:  {stage:'Rookie',    attribute:'Vaccine',  met:true,  into:['Angemon','Unimon']},
+  // Champions
+  Greymon:      {stage:'Champion', attribute:'Virus',   met:true,  into:['MetalGreymon','SkullGreymon']},
+  Tyrannomon:   {stage:'Champion', attribute:'Virus',   met:true,  into:['MetalTyranomon']},
+  Centarumon:   {stage:'Champion', attribute:'Vaccine', met:false, into:[]},
+  Garurumon:    {stage:'Champion', attribute:'Data',    met:true,  into:['WereGarurumon']},
+  Seadramon:    {stage:'Champion', attribute:'Data',    met:true,  into:['MegaSeadramon']},
+  Togemon:      {stage:'Champion', attribute:'Vaccine', met:true,  into:['Lillymon']},
+  Woodmon:      {stage:'Champion', attribute:'Virus',   met:false, into:[]},
+  Birdramon:    {stage:'Champion', attribute:'Vaccine', met:true,  into:['Garudamon']},
+  Saberdramon:  {stage:'Champion', attribute:'Virus',   met:false, into:[]},
+  Kabuterimon:  {stage:'Champion', attribute:'Vaccine', met:true,  into:['MegaKabuterimon']},
+  Kuwagamon:    {stage:'Champion', attribute:'Virus',   met:false, into:[]},
+  Ikkakumon:    {stage:'Champion', attribute:'Vaccine', met:true,  into:['Zudomon']},
+  Angemon:      {stage:'Champion', attribute:'Vaccine', met:true,  into:['MagnaAngemon']},
+  Unimon:       {stage:'Champion', attribute:'Free',    met:false, into:[]},
+  // Ultimates
+  MetalGreymon:  {stage:'Ultimate', attribute:'Vaccine', met:true,  into:['WarGreymon']},
+  SkullGreymon:  {stage:'Ultimate', attribute:'Virus',   met:true,  into:[]},
+  MetalTyranomon:{stage:'Ultimate', attribute:'Virus',   met:false, into:[]},
+  WereGarurumon: {stage:'Ultimate', attribute:'Data',    met:true,  into:['MetalGarurumon']},
+  MegaSeadramon: {stage:'Ultimate', attribute:'Data',    met:false, into:[]},
+  Lillymon:      {stage:'Ultimate', attribute:'Data',    met:true,  into:['Rosemon']},
+  Garudamon:     {stage:'Ultimate', attribute:'Vaccine', met:false, into:[]},
+  MegaKabuterimon:{stage:'Ultimate',attribute:'Vaccine', met:false, into:[]},
+  Zudomon:       {stage:'Ultimate', attribute:'Vaccine', met:false, into:[]},
+  MagnaAngemon:  {stage:'Ultimate', attribute:'Vaccine', met:true,  into:['Seraphimon']},
+  // Megas (terminal)
+  WarGreymon:    {stage:'Mega', attribute:'Vaccine', met:true,  into:[]},
+  MetalGarurumon:{stage:'Mega', attribute:'Data',    met:true,  into:[]},
+  Rosemon:       {stage:'Mega', attribute:'Data',    met:false, into:[]},
+  Seraphimon:    {stage:'Mega', attribute:'Vaccine', met:false, into:[]},
+};
+const ATTR_OF = sp => (SPECIES[sp]?.attribute) || 'Free';
+const STAGE_OF = sp => (SPECIES[sp]?.stage) || 'Rookie';
+const MET_OF = sp => SPECIES[sp] ? SPECIES[sp].met : false;
+const EL_OF = sp => ATTR_TO_EL[ATTR_OF(sp)];
+/* Build the evolution gate for a single hop (mon's current form -> target species). */
+function evoHop(r, target){
+  const tStage = STAGE_OF(target), tAttr = ATTR_OF(target), tMet = MET_OF(target);
+  const requiredLevel = EVO_LEVEL[tStage] ?? 99;
+  const meatCost = EVO_MEAT[tStage] ?? 0;
+  const reqAttr = tAttr !== r.attribute ? tAttr : null;   // attribute shift = a real requirement
+  let reason = null;
+  if(!tMet) reason='unmet';
+  else if(reqAttr && r.attribute!==reqAttr) reason='attribute-mismatch';
+  else if(r.level < requiredLevel) reason='level-too-low';
+  return { name:target, stage:tStage, attr:tAttr, met:tMet, requiredLevel, meatCost, reqAttr,
+           eligible: reason===null, reason };
+}
+/* Legacy gate kept for the hero Evolve button (terminal detection + anyEligible). */
+function evoGate(r){
+  const nextStage = STAGE_NEXT[r.stage] || null;
+  const targets = SPECIES[r.species]?.into || [];
+  const branches = targets.map(t=>evoHop(r,t));
+  return { nextStage, terminal: nextStage===null || targets.length===0, branches,
+           anyEligible: branches.some(b=>b.eligible) };
+}
+/* stat gain preview: target stats = current stats × (mult[targetStage]/mult[curStage]). */
+function statGains(r, targetStage){
+  const ratio = STAGE_MULT[targetStage] / STAGE_MULT[r.stage];
+  const out={};
+  for(const k of ['hp','en','atk','def','int','spd']){
+    const cur=r.stats[k];
+    const next = k==='en' ? Math.min(41, Math.round(cur*ratio)) : Math.round(cur*ratio);
+    out[k] = { cur, next, delta: next-cur };
+  }
+  return out;
+}
+/* full evolution line rooted at the mon's current species: array of stage-columns,
+   each column = list of {name, met, current} for BFS layout. Walks into[] forward. */
+function evolutionLine(rootSpecies){
+  const cols=[]; let frontier=[rootSpecies]; const seen=new Set();
+  while(frontier.length){
+    const col=[]; const nextFrontier=[];
+    for(const sp of frontier){
+      if(seen.has(sp)) continue; seen.add(sp);
+      col.push(sp);
+      (SPECIES[sp]?.into||[]).forEach(t=>nextFrontier.push(t));
+    }
+    if(col.length) cols.push(col);
+    frontier=[...new Set(nextFrontier)];
+    if(cols.length>5) break; // safety
+  }
+  return cols;
+}
+
+/* ---- skill pool + equip (mirrors src/skills/pool.ts + roster equip route) ----
+   Backend: each Digimon has a learned pool (current form + evolution history);
+   you equip up to EQUIPPED_SLOTS_PER_STAGE[stage] of them. Skill fields:
+   {id,name,element,energyCost,power,effect?}. Slot cap by stage below. */
+const EQUIP_CAP = { Baby:2, 'In-Training':3, Rookie:4, Champion:6, Ultimate:8, Mega:10 };
+// shared learned pool keyed by element (id,name,en,power,effect) — the mon's
+// signature skills come first, then broader element skills learned by history.
+const POOL = {
+  fire:[['pepper-breath','Pepper Breath',8,42,''],['spirit-strike','Spirit Strike',12,58,'High crit'],['guard-up','Guard Up',6,0,'Raise DEF · self'],
+        ['nova-blast','Nova Blast',14,74,'Heavy · single'],['flame-toss','Flame Toss',6,30,''],['ember-veil','Ember Veil',10,0,'Burn ward · party'],['battle-roar','Battle Roar',12,0,'Raise ATK · party']],
+  water:[['blue-blaster','Blue Blaster',8,44,''],['horn-attack','Horn Attack',6,34,''],['aqua-veil','Aqua Veil',12,0,'Cut incoming · party'],
+        ['marching-fishes','Marching Fishes',14,52,'All foes'],['tide-heal','Tide Heal',12,0,'Heal medium · ally'],['ice-needle','Ice Needle',8,40,'Slow chance'],['claw-swipe','Claw Swipe',6,32,'']],
+  plant:[['poison-ivy','Poison Ivy',8,40,'Poison chance'],['root-bind','Root Bind',10,0,'Slow · single'],['photosynthesis','Photosynthesis',8,0,'Heal small · self'],
+        ['boom-bubble','Boom Bubble',8,38,''],['air-shot','Air Shot',6,30,''],['spore-cloud','Spore Cloud',12,0,'Sleep · all foes'],['cheer','Cheer',10,0,'Random buff · party']],
+  electricity:[['spiral-twister','Spiral Twister',8,44,''],['wing-cutter','Wing Cutter',14,48,'All foes'],['tailwind','Tailwind',12,0,'Raise SPD · party'],
+        ['super-shocker','Super Shocker',8,46,'Paralyze chance'],['talon-attack','Talon Attack',6,32,''],['analyze','Analyze',8,0,'Reveal weakness'],['static-field','Static Field',12,36,'All foes']],
+  wind:[['gale-slash','Gale Slash',8,42,''],['cyclone','Cyclone',14,50,'All foes'],['updraft','Updraft',10,0,'Raise EVA · party'],
+        ['feather-shot','Feather Shot',6,30,''],['tempest','Tempest',16,66,'Heavy · all'],['calm-winds','Calm Winds',10,0,'Cleanse · ally'],['guard-up','Guard Up',6,0,'Raise DEF · self']],
+};
+const SKILL_BY_ID = {};
+Object.entries(POOL).forEach(([elm,list])=>list.forEach(([id,name,en,pow,eff])=>{SKILL_BY_ID[id]={id,name,en,pow,eff,elm};}));
+// monoline element icons (1.7px stroke, currentColor) for the skill list rows
+const EL_ICON = {
+  fire:'<path d="M12 3c3 4 5 6 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 .5 2 1.5 2.5 2 2 .3-2-1-4 1-7z"/>',
+  water:'<path d="M12 3c3.5 4.5 6 7.5 6 11a6 6 0 0 1-12 0c0-3.5 2.5-6.5 6-11z"/>',
+  plant:'<path d="M12 21V9"/><path d="M12 12c-1-3-4-4-7-4 0 3 2 6 7 6"/><path d="M12 10c1-3 4-5 7-5 0 3-2 7-7 7z"/>',
+  electricity:'<path d="M13 3l-7 10h5l-2 8 8-11h-5l1-7z"/>',
+  wind:'<path d="M4 9h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M4 14h13a2.5 2.5 0 1 1-2.5 2.5"/>',
+};
+// learned pool for a mon = element pool (signature-first). equip = first N by cap.
+const equip = {}; // { monId: [skillId,...] }
+function poolFor(r){ return (POOL[el(r)]||[]).map(([id])=>id); }
+function capFor(r){ return EQUIP_CAP[r.stage] ?? 4; }
+function equippedFor(r){
+  if(!equip[r.id]) equip[r.id] = poolFor(r).slice(0, capFor(r));
+  return equip[r.id];
+}
+
+/* HUD (party avg level + party count) */
+const party = ROSTER.filter(r=>r.status==='party');
+document.getElementById('hud-lv').textContent = Math.round(party.reduce((a,r)=>a+r.level,0)/Math.max(1,party.length));
+document.getElementById('hud-party').textContent = `${party.length}/3`;
+
+/* filter chips w/ live counts + clear affordance */
+const filtersEl = document.getElementById('filters');
+function buildChips(){
+  const counts={}; ROSTER.forEach(r=>{const e=el(r);counts[e]=(counts[e]||0)+1;});
+  const chips=[['all','ALL',ROSTER.length],...ELEMENTS.map(e=>[e,e.toUpperCase(),counts[e]])];
+  filtersEl.innerHTML = chips.map(([v,l,n])=>`<button class="chip" data-el="${v}" aria-pressed="${state.el===v}">${l}<span class="n">${n}</span></button>`).join('')
+    + `<button class="clearf" id="clearf" ${state.el==='all'&&!state.q?'hidden':''}>Clear</button>`;
+  const cf=document.getElementById('clearf');
+  if(cf) cf.onclick=()=>{state.q='';state.el='all';document.getElementById('search').value='';buildChips();renderList();renderDetail();};
+}
+
+function filtered(){
+  const q=state.q.trim().toLowerCase();
+  return ROSTER.filter(r=>{
+    if(state.el!=='all' && el(r)!==state.el) return false;
+    if(q && !(r.nickname.toLowerCase().includes(q)||r.species.toLowerCase().includes(q))) return false;
+    return true;
+  });
+}
+
+const listEl=document.getElementById('list'), subEl=document.getElementById('sub');
+function renderList(){
+  const rows=filtered();
+  subEl.textContent = (state.el==='all'&&!state.q) ? `${ROSTER.length} registered · filter by element` : `${rows.length} of ${ROSTER.length} shown`;
+  if(!rows.length){
+    listEl.innerHTML=`<div class="empty"><p>No Digimon match these filters.<br>The Digivice registry found nothing.</p><button id="reset">Clear filters</button></div>`;
+    document.getElementById('reset').onclick=()=>{state.q='';state.el='all';document.getElementById('search').value='';buildChips();renderList();renderDetail();};
+    return;
+  }
+  if(!rows.some(r=>r.id===state.selected)) state.selected=rows[0].id;
+  listEl.innerHTML=rows.map(r=>`
+    <button class="row" role="option" data-id="${r.id}" data-el="${el(r)}" tabindex="0"
+      aria-selected="${state.selected===r.id}"
+      aria-label="${r.nickname}, ${r.species}, Level ${r.level} ${r.stage}, ${cap(el(r))} element, HP ${r.stats.hp}">
+      <span class="mug"><img src="${sprite(r.species)}" alt="" onerror="this.style.visibility='hidden'" /></span>
+      <span class="who"><span class="nm">${r.nickname}</span><span class="rn">${r.species}</span><span class="tpl">${r.stage} · ${cap(el(r))}</span></span>
+      <span class="lv">LV<b>${r.level}</b></span>
+    </button>`).join('');
+  const rowsEls=listEl.querySelectorAll('.row');
+  rowsEls.forEach((eln,i)=>{
+    eln.addEventListener('click',()=>select(eln.dataset.id));
+    eln.addEventListener('keydown',e=>{
+      if(e.key==='Enter'||e.key===' '){e.preventDefault();select(eln.dataset.id);}
+      else if(e.key==='ArrowDown'){e.preventDefault();(eln.nextElementSibling||listEl.firstElementChild)?.focus();}
+      else if(e.key==='ArrowUp'){e.preventDefault();(eln.previousElementSibling||listEl.lastElementChild)?.focus();}
+    });
+  });
+}
+
+const detailEl=document.getElementById('detail');
+const STAT_MAX={hp:1400,en:41,atk:260,def:200,int:160,spd:160};
+
+/* render learned pool as equip cards — equipped first, then unequipped pool.
+   Filtered by skill type: all / attack (power>0) / support (power 0). */
+let skillFilter = 'all';
+function skillType(s){ return s.pw>0 ? 'attack' : 'support'; }
+function renderSkillCards(r){
+  const eq = equippedFor(r);
+  const full = eq.length >= capFor(r);
+  let ids = poolFor(r).slice();
+  if(skillFilter!=='all') ids = ids.filter(id=>SKILL_BY_ID[id] && skillType(SKILL_BY_ID[id])===skillFilter);
+  // equipped ones first (in equip order), then the rest of the learned pool
+  ids.sort((a,b)=>{
+    const ea=eq.indexOf(a), eb=eq.indexOf(b);
+    if(ea>=0 && eb>=0) return ea-eb;
+    if(ea>=0) return -1; if(eb>=0) return 1; return 0;
+  });
+  if(!ids.length) return `<div class="skempty">No ${skillFilter} skills in this pool.</div>`;
+  return ids.map(id=>{
+    const s=SKILL_BY_ID[id]; if(!s) return '';
+    const on=eq.includes(id);
+    const disabled = !on && full;
+    const desc = s.eff || (s.pw>0 ? 'Deals damage to the target.' : 'Support skill.');
+    return `<button class="sk ${on?'equipped':''}" data-skill="${id}" data-el="${s.elm}" ${disabled?'aria-disabled="true"':''}
+        aria-pressed="${on}" aria-label="${s.name}, ${cap(s.elm)}, ${s.pw>0?s.pw+' power':'support'}, ${s.en} energy${on?', equipped':''}">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${EL_ICON[s.elm]||''}</svg></span>
+      <span class="body">
+        <span class="nm">${s.name}${on?'<span class="eqtag">Equipped</span>':''}</span>
+        <span class="ds">${desc}</span>
+      </span>
+      <span class="cost">
+        <span class="en">EN ${s.en}</span>
+        <span class="pw">${s.pw>0?`${s.pw} PWR`:'—'}</span>
+      </span>
+    </button>`;
+  }).join('');
+}
+function repaintSkills(r){
+  const grid=detailEl.querySelector('#skgrid'); if(!grid) return;
+  grid.innerHTML = renderSkillCards(r);
+  const eq=equippedFor(r), full=eq.length>=capFor(r);
+  const sc=detailEl.querySelector('#slotcount');
+  if(sc){ sc.textContent=`${eq.length} / ${capFor(r)} slots`; sc.classList.toggle('full',full); }
+}
+
+/* ---- resistance matrix: per-attribute & per-element incoming-damage multipliers ----
+   Grounded in the real dex wheel: an attacker element that this mon is WEAK to deals
+   1.5x; one it RESISTs deals 0.5x; else 1x. Attribute triangle (ATTR_STRONG): an
+   attacker attribute we're weak to = 1.5x, one we beat = 0.5x, else 1x. 2x/0x are
+   reserved markers from the reference legend (no source mon hits them yet -> shown as
+   legend keys only). Markers mirror image-5: 2x/1.5x heavy, 1x neutral, 0.5x/0x resist. */
+const RM_ATTRS = [
+  ['Data','DAT'],['Vaccine','VAC'],['Virus','VIR'],['Free','FRE'],['Variable','VAR'],['Unknown','UNK'],['NoData','NOD']
+];
+const RM_ELS = [
+  ['fire','FIR'],['water','WAT'],['plant','PLA'],['ice','ICE'],['electricity','ELE'],
+  ['earth','EAR'],['steel','STE'],['wind','WIN'],['light','LIG'],['dark','DAR'],['null','NUL']
+];
+const RM_ELICON = {
+  fire:'<path d="M12 3c3 4 5 6 5 9a5 5 0 0 1-10 0c0-1.5.8-3 2-4 .2 1.4 1 2 2 2 .8 0 1-1 .5-2C11 5.5 12 4 12 3z"/>',
+  water:'<path d="M12 3c3 4 5 7 5 10a5 5 0 0 1-10 0c0-3 2-6 5-10z"/>',
+  plant:'<path d="M12 21V9M12 9c0-3 2-5 5-5-.2 3-2 5-5 5zM12 12C12 9.5 10 8 7 8c.2 2.5 2 4 5 4z"/>',
+  ice:'<path d="M12 2v20M4 7l16 10M20 7L4 17M12 2l-2 2m2-2l2 2M4 7l.5 2.7M4 7l2.7-.5"/>',
+  electricity:'<path d="M13 2 4 14h6l-1 8 9-12h-6z"/>',
+  earth:'<path d="M12 3l9 6-9 6-9-6z"/><path d="M3 15l9 6 9-6"/>',
+  steel:'<path d="M4 9h16M4 15h16M9 4l-2 16M17 4l-2 16"/>',
+  wind:'<path d="M2 8h13a3 3 0 1 0-3-3M2 12h17a3 3 0 1 1-3 3M2 16h9a3 3 0 1 1-3 3"/>',
+  light:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  dark:'<path d="M15 3a9 9 0 1 0 6 15A7 7 0 0 1 15 3z"/>',
+  null:'<circle cx="12" cy="12" r="9"/><path d="M6 6l12 12"/>'
+};
+const RM_ATTRICON = {
+  Data:'<path d="M12 3l8 5v8l-8 5-8-5V8z"/>',                                   // hexagon
+  Vaccine:'<path d="M12 3l7 3v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V6z"/>',            // shield
+  Virus:'<circle cx="12" cy="12" r="7"/><path d="M9 9l6 6M15 9l-6 6"/>',       // circle-x
+  Free:'<circle cx="12" cy="12" r="7"/>',                                      // ring
+  Variable:'<path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19"/>',                 // asterisk
+  Unknown:'<path d="M9 9a3 3 0 1 1 4 2.8c-.9.5-1 1-1 2M12 17h.01"/>',          // question
+  NoData:'<path d="M6 6l12 12"/>'                                              // slash
+};
+function elMultVs(myEl, attackerEl){
+  // incoming: attacker deals 1.5x if my element is WEAK to it, 0.5x if I RESIST it
+  if(WEAK[myEl]===attackerEl) return 1.5;
+  if(RESIST[myEl]===attackerEl) return 0.5;
+  return 1;
+}
+function attrMultVs(myAttr, attackerAttr){
+  if(ATTR_STRONG[attackerAttr]===myAttr) return 1.5;  // attacker beats my attribute
+  if(ATTR_STRONG[myAttr]===attackerAttr) return 0.5;  // I beat theirs
+  return 1;
+}
+const RM_SVG = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${p}</svg>`;
+// multiplier -> {badge, class}: weak(heavy incoming)=red +, resist=signal −, neutral=—
+const rmMark = m => m>=2?{b:'++',c:'weak'} : m>1?{b:'+',c:'weak'} : m>0.5?{b:'—',c:'neu'} : m>0?{b:'−',c:'res'} : {b:'✕',c:'res'};
+function rmTile(iconSvg,label,m,self){ const k=rmMark(m);
+  return `<div class="rmtile ${k.c} ${self?'self':''}" title="${label} · ${m}× damage">
+    ${self?'<span class="you">You</span>':''}
+    <span class="ic">${iconSvg}</span><span class="rl">${label}</span><span class="bd">${k.b}</span></div>`; }
+
+// Attribute affinity block — lives in the Affinity column (replaces the word list)
+// Painel de afinidade unificado — Attribute + Element como duas linhas rotuladas de um mesmo painel
+function affinityPanel(r){
+  const myEl = el(r);
+  const attrTiles = RM_ATTRS.map(([a,lbl])=>rmTile(RM_SVG(RM_ATTRICON[a]||RM_ATTRICON.Unknown), lbl, attrMultVs(r.attribute,a), a===r.attribute)).join('');
+  const elTiles = RM_ELS.map(([elk,lbl])=>rmTile(RM_SVG(RM_ELICON[elk]||RM_ELICON.null), lbl, elMultVs(myEl,elk), elk===myEl)).join('');
+  const beats = ATTR_STRONG[r.attribute];                                   // atributo que este mon vence (+)
+  const weakToAttr = Object.entries(ATTR_STRONG).find(([,d])=>d===r.attribute)?.[0]; // atributo que vence este mon
+  const affSum = `<span class="as self">${r.attribute}</span>`
+    + (weakToAttr?` <span class="as weak">weak ${weakToAttr}</span>`:'')
+    + (beats?` <span class="as strong">strong ${beats}</span>`:'');
+  return `<div class="resmx affpanel" data-od-id="affinity-panel">
+    <div class="rmh">Affinity<span class="affsum" style="--el:var(--el)">${affSum}</span></div>
+    <div class="affline">
+      <span class="alab">Attribute</span>
+      <div class="rmgrid">${attrTiles}</div>
+    </div>
+    <div class="affline">
+      <span class="alab">Element</span>
+      <div class="rmgrid">${elTiles}</div>
+    </div>
+    <div class="afflegend"><b style="color:var(--battle)">+</b> weak &nbsp;·&nbsp; <b style="color:var(--signal)">−</b> resist &nbsp;·&nbsp; <span style="color:var(--muted)">—</span> even</div>
+  </div>`;
+}
+
+function renderDetail(){
+  skillFilter='all'; // reset filter to match the freshly-rendered "All" chip
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  const e=el(r);
+  const order=[['hp','HP'],['en','EN'],['atk','ATK'],['def','DEF'],['int','INT'],['spd','SPD']];
+  const statRows=order.map(([k,l])=>{
+    const v=r.stats[k], bo=r.bonus[k], pct=Math.min(100,Math.round(v/STAT_MAX[k]*100));
+    return `<div class="stat ${k}"><span class="sl">${l}</span>
+      <span class="track"><span class="fill" data-w="${pct}"></span></span>
+      <span class="sv">${v}${bo?`<span class="bo">+${bo}</span>`:''}</span></div>`;
+  }).join('');
+
+  detailEl.innerHTML=`
+    <div class="dwrap" data-el="${e}">
+      <div class="hero">
+        <div class="splash"><img src="${ART}" alt="${r.nickname}" /></div>
+        <div class="wash"></div>
+        <span class="cap">${r.species}</span>
+        <div class="hinfo">
+          <div class="kick">${r.stage} · ${cap(e)}</div>
+          <h2>${r.nickname}</h2>
+          <p class="tpl">${r.species} &nbsp;/&nbsp; Attribute <b>${r.attribute}</b></p>
+          <div class="meta">
+            <div class="cell"><div class="lbl">Level</div><div class="val">${r.level}</div></div>
+            <div class="cell"><div class="lbl">Element</div><div class="val el">${cap(e)}</div></div>
+            <div class="cell"><div class="lbl">Stage</div><div class="val">${r.stage}</div></div>
+            <div class="cell"><div class="lbl">Mood</div><div class="val">${r.mood}%</div></div>
+          </div>
+          <div class="status-row">
+            <span class="statchip ${r.status}"><span class="dot"></span>${r.status==='party'?`In party · slot ${r.slot+1}`:'Resting'}</span>
+            <span class="statchip"><span class="dot"></span>XP ${r.xp} / ${r.xpNext}</span>
+          </div>
+        </div>
+        ${evoButton(r)}
+      </div>
+
+      <div class="dtabs" role="tablist" aria-label="Digimon detail sections">
+        <button class="dtab is-on" role="tab" data-tab="stats" aria-selected="true">Stats</button>
+        <button class="dtab" role="tab" data-tab="skills" aria-selected="false">Skills</button>
+      </div>
+
+      <div class="tabwrap">
+        <div class="tabpanel is-on" data-panel="stats" role="tabpanel">
+          <h3 class="stitle">Stats</h3>
+          <div class="stats statcols">${statRows}</div>
+          ${affinityPanel(r)}
+        </div>
+
+        <div class="tabpanel" data-panel="skills" role="tabpanel" hidden>
+          <div class="skillhead">
+            <span class="lbl">Skills — Equipped</span>
+            <span class="slots ${equippedFor(r).length>=capFor(r)?'full':''}" id="slotcount">${equippedFor(r).length} / ${capFor(r)} slots</span>
+          </div>
+          <div class="skfilter" id="skfilter" role="group" aria-label="Filter skills by type">
+            <button class="skchip is-on" data-sf="all" aria-pressed="true">All</button>
+            <button class="skchip" data-sf="attack" aria-pressed="false">Attack</button>
+            <button class="skchip" data-sf="support" aria-pressed="false">Support</button>
+          </div>
+          <div class="skrow" id="skgrid">${renderSkillCards(r)}</div>
+          <div class="skhint" id="skhint" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>`;
+
+  detailEl.querySelectorAll('.fill').forEach(f=>{f.style.width=f.dataset.w+'%';});
+}
+
+function select(id){
+  state.selected=id;
+  listEl.querySelectorAll('.row').forEach(eln=>eln.setAttribute('aria-selected',eln.dataset.id===id));
+  renderDetail();
+}
+
+filtersEl.addEventListener('click',e=>{const c=e.target.closest('.chip');if(!c)return;state.el=c.dataset.el;buildChips();renderList();renderDetail();});
+document.getElementById('search').addEventListener('input',e=>{state.q=e.target.value;buildChips();renderList();renderDetail();});
+
+/* equip / unequip a skill (gated by stage slot cap) */
+detailEl.addEventListener('click',e=>{
+  const b=e.target.closest('.sk'); if(!b) return;
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  const id=b.dataset.skill; const eq=equippedFor(r); const hint=detailEl.querySelector('#skhint');
+  const i=eq.indexOf(id);
+  if(i>=0){ eq.splice(i,1); if(hint) hint.textContent=`Removed ${SKILL_BY_ID[id].name}.`; }
+  else if(eq.length>=capFor(r)){ if(hint) hint.textContent=`All ${capFor(r)} slots full — remove one to equip ${SKILL_BY_ID[id].name}.`; return; }
+  else { eq.push(id); if(hint) hint.textContent=`Equipped ${SKILL_BY_ID[id].name}.`; }
+  repaintSkills(r);
+});
+
+/* Stats/Skills tab swap — content changes in place, page never scrolls */
+detailEl.addEventListener('click',e=>{
+  const t=e.target.closest('.dtab'); if(!t) return;
+  const name=t.dataset.tab;
+  detailEl.querySelectorAll('.dtab').forEach(x=>{const on=x===t;x.classList.toggle('is-on',on);x.setAttribute('aria-selected',on);});
+  detailEl.querySelectorAll('.tabpanel').forEach(p=>{const on=p.dataset.panel===name;p.classList.toggle('is-on',on);p.hidden=!on;});
+});
+
+/* skill type filter (all / attack / support) — repaints the horizontal row */
+detailEl.addEventListener('click',e=>{
+  const c=e.target.closest('.skchip'); if(!c) return;
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  skillFilter=c.dataset.sf;
+  detailEl.querySelectorAll('.skchip').forEach(x=>{const on=x===c;x.classList.toggle('is-on',on);x.setAttribute('aria-pressed',on);});
+  repaintSkills(r);
+});
+document.querySelectorAll('.navbtn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.navbtn').forEach(x=>x.removeAttribute('aria-current'));
+  b.setAttribute('aria-current','page');
+}));
+
+/* ================= evolution modal (Cyber Sleuth: line + conditions) ========= */
+const lockSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+const upSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 5v14M6 11l6-6 6 6"/></svg>';
+const downSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 19V5M6 13l6 6 6-6"/></svg>';
+const arrowSVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const fmtMeat = n => n.toLocaleString('en-US');
+let evoReturnFocus=null, evoSel=null;   // evoSel = selected target species in the conditions panel
+
+function evoButton(r){
+  const g=evoGate(r);
+  if(g.terminal) return `<button class="evo-btn terminal" disabled aria-label="${r.nickname} is a final form"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.4H22l-6 4.5 2.3 7.1L12 16.6 5.7 21l2.3-7.1-6-4.5h7.6z"/></svg>Final form</button>`;
+  return `<button class="evo-btn" id="evoOpen" aria-haspopup="dialog" aria-label="Open evolution for ${r.nickname}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Evolve</button>`;
+}
+function esprite(name,met){
+  if(!met) return `<span class="q">?</span>`;
+  return `<img src="${sprite(name)}" alt="" onerror="this.replaceWith(document.createTextNode('${name[0]}'))">`;
+}
+
+/* ---- LEFT: full horizontal evolution line as stage-columns + bracket links ---- */
+function renderLine(r){
+  const cols=evolutionLine(r.species);
+  const colsHTML=cols.map((col,ci)=>{
+    const stageLbl = ci===0 ? STAGE_OF(r.species) : (STAGE_OF(col[0])||'');
+    const nodes=col.map(sp=>{
+      const met=MET_OF(sp), e=EL_OF(sp), st=STAGE_OF(sp);
+      const isRoot = sp===r.species;
+      const isSel = sp===evoSel;
+      // a node one hop from the root that's eligible gets the "avail" corner flag
+      const hop = SPECIES[r.species]?.into?.includes(sp) ? evoHop(r,sp) : null;
+      const avail = hop?.eligible;
+      const cls=[ isRoot?'is-root':'', isSel?'sel':'', !met?'unmet':'', avail?'avail':'' ].filter(Boolean).join(' ');
+      const lv = isRoot ? r.level : (EVO_LEVEL[st] ?? '—');
+      return `<button class="enode ${cls}" data-node="${sp}" data-el="${e}" role="listitem"
+          aria-label="${met?sp:'Undiscovered species'}, ${st}${isRoot?', current form':''}${avail?', can evolve now':''}">
+        <span class="pic">${esprite(sp,met)}</span>
+        <span class="en-nm">${met?sp:'???'}</span>
+        <span class="en-badge"><span class="adot"></span><span class="lv">${isRoot?('Lv '+lv):st.slice(0,3)}</span></span>
+      </button>`;
+    }).join('');
+    return `<div class="evo-col" data-col="${ci}"><div class="stagelbl">${stageLbl}</div>${nodes}</div>`;
+  }).join('');
+  return `<div class="evo-line" id="evoLine">
+    <div class="evo-gen">Line · <b>${cols.length}</b> stages</div>
+    <svg class="evo-links" id="evoLineLinks" aria-hidden="true"></svg>
+    <div class="evo-cols" id="evoCols" role="list" aria-label="Evolution line">${colsHTML}</div>
+  </div>`;
+}
+
+/* draw bracket connectors from each parent node to its children (next column) */
+function drawLineLinks(r){
+  const wrap=document.querySelector('#evoLine'); if(!wrap)return;
+  const svg=document.querySelector('#evoLineLinks');
+  const wr=wrap.getBoundingClientRect();
+  svg.setAttribute('viewBox',`0 0 ${wrap.scrollWidth} ${wrap.scrollHeight}`);
+  svg.style.width=wrap.scrollWidth+'px'; svg.style.height=wrap.scrollHeight+'px';
+  const center=eln=>{ const b=eln.getBoundingClientRect(); return { x:b.left-wr.left+wrap.scrollLeft, y:b.top-wr.top+wrap.scrollTop, w:b.width, h:b.height }; };
+  let paths='';
+  document.querySelectorAll('.enode').forEach(node=>{
+    const sp=node.dataset.node; const kids=SPECIES[sp]?.into||[];
+    if(!kids.length) return;
+    const p=center(node); const px=p.x+p.w, py=p.y+p.h/2;
+    kids.forEach(kid=>{
+      const kn=document.querySelector(`.enode[data-node="${kid}"]`); if(!kn) return;
+      const c=center(kn); const cx=c.x, cy=c.y+c.h/2; const mid=(px+cx)/2;
+      paths+=`<path d="M${px} ${py} H${mid} V${cy} H${cx}" fill="none" stroke="var(--hair)" stroke-width="1.5"/>`;
+    });
+  });
+  svg.innerHTML=paths;
+}
+
+/* ---- RIGHT: Digivolution Conditions for the selected target ---- */
+function renderConditions(r){
+  const box=document.querySelector('#evoCond');
+  if(!evoSel || evoSel===r.species){
+    box.innerHTML=`<div class="cond-hd"><span class="ct">Digivolution Conditions</span></div>
+      <div class="cond-empty">Select a form in the line to preview its requirements, stat gains and attribute change.</div>`;
+    return;
+  }
+  const target=evoSel, met=MET_OF(target), tStage=STAGE_OF(target), tAttr=ATTR_OF(target), tEl=EL_OF(target);
+  const hop = SPECIES[r.species]?.into?.includes(target) ? evoHop(r,target) : null; // direct next-hop only is evolvable
+  const gains=statGains(r,tStage);
+  const SK={hp:'HP',en:'EN',atk:'STR',def:'STA',int:'WIS',spd:'SPD'}; // Cyber-Sleuth-style labels
+  const statRows=['hp','atk','int','en','def','spd'].map(k=>{
+    const g=gains[k]; const dir=g.delta>0?'up':(g.delta<0?'down':'');
+    const ar = g.delta>0?upSVG:(g.delta<0?downSVG:'');
+    return `<div class="srow ${dir}"><span class="sk">${SK[k]}</span>
+      <span class="sv">${g.next}${g.delta?`<span class="dl"> ${g.delta>0?'+':''}${g.delta}</span>`:''}</span>
+      <span class="ar">${ar}</span></div>`;
+  }).join('');
+  // attribute / element change
+  const attrChanged = tAttr!==r.attribute;
+  const curEl = el(r);
+  const attrRow = `<div class="chg-row"><span class="cl">Attribute</span>
+    <span class="chg-pill from" data-el="${curEl}"><span class="adot"></span>${r.attribute}</span>
+    ${attrChanged?`<span class="chg-arrow">${arrowSVG}</span><span class="chg-pill to" style="--el2:var(--el)" data-el="${tEl}"><span class="adot"></span>${tAttr}</span>`:'<span class="chg-same">No change</span>'}</div>`;
+  const elChanged = tEl!==curEl;
+  const elRow = `<div class="chg-row"><span class="cl">Element</span>
+    <span class="chg-pill from" data-el="${curEl}"><span class="adot"></span>${cap(curEl)}</span>
+    ${elChanged?`<span class="chg-arrow">${arrowSVG}</span><span class="chg-pill to" style="--el2:var(--el)" data-el="${tEl}"><span class="adot"></span>${cap(tEl)}</span>`:'<span class="chg-same">No change</span>'}</div>`;
+  // requirements + action (only a direct next-hop is actually evolvable)
+  const rl = hop?hop.requiredLevel:(EVO_LEVEL[tStage]??99);
+  const mc = hop?hop.meatCost:(EVO_MEAT[tStage]??0);
+  const lvOk = met && r.level>=rl, attrOk = !hop?.reqAttr || r.attribute===hop.reqAttr;
+  const reqLine=`<div class="req-line">
+    <span class="rq2 ${met?(lvOk?'ok':'bad'):''}">Lv <span class="rn">${rl}</span></span>
+    <span class="rq2 ${met?'ok':''}"><span class="rn">${fmtMeat(mc)}</span> Meat</span>
+    <span class="rq2">${tStage}</span></div>`;
+  let foot;
+  if(!hop){
+    foot=`<button class="evoDo" disabled>Not a direct evolution</button>
+      <div class="cond-block dim">${arrowSVG}<span>${r.nickname} must reach ${STAGE_NEXT[r.stage]||'—'} first.</span></div>`;
+  } else if(hop.eligible){
+    foot=`<button class="evoDo" id="evoConfirm" data-target="${target}">Digivolve → ${target}</button>`;
+  } else if(hop.reason==='unmet'){
+    foot=`<button class="evoDo" disabled>Undiscovered</button>
+      <div class="cond-block">${lockSVG}<span>Not yet registered in the Digidex.</span></div>`;
+  } else {
+    const miss = hop.reason==='level-too-low' ? `Reach Lv ${rl} (currently ${r.level})` : `Requires ${hop.reqAttr} attribute`;
+    foot=`<button class="evoDo" disabled>Requirement not met</button>
+      <div class="cond-block">${lockSVG}<span>${miss}</span></div>`;
+  }
+  box.innerHTML=`
+    <div class="cond-hd"><span class="ct">Digivolution Conditions</span><span class="cnm">${met?target:'???'}</span></div>
+    <div class="cond-body">
+      <div class="tgt" data-el="${tEl}">
+        <span class="tpic">${esprite(target,met)}</span>
+        <div><div class="tnm">${met?target:'???'}</div><div class="tst">${tStage}${met?'':' · Undiscovered'}</div></div>
+      </div>
+      <div><div class="cond-sh">Stat Change</div><div class="stat-grid">${statRows}</div></div>
+      <div><div class="cond-sh">Attribute / Element</div><div class="change">${attrRow}${elRow}</div></div>
+      <div><div class="cond-sh">Requirements</div>${reqLine}</div>
+    </div>
+    <div class="cond-foot">${foot}</div>`;
+}
+
+function renderEvo(r){
+  const e=el(r);
+  document.querySelector('#evoBody').innerHTML = renderLine(r) + `<aside class="evo-cond" id="evoCond"></aside>`;
+  document.querySelector('#evoHeadName').textContent=`${r.nickname} · ${r.stage}`;
+  document.querySelector('#evoHeadSub').textContent=`${r.species} · ${cap(e)} · Lv ${r.level} · Attr ${r.attribute}`;
+  renderConditions(r);
+  drawLineLinks(r);
+}
+
+function openEvo(){
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  const g=evoGate(r); if(g.terminal) return;
+  evoReturnFocus=document.activeElement;
+  // default-select the first eligible next-hop, else the first branch target
+  const firstElig = g.branches.find(b=>b.eligible) || g.branches[0];
+  evoSel = firstElig ? firstElig.name : null;
+  const ov=document.querySelector('#evoOv');
+  ov.classList.add('show');                 // show first so the line has real dimensions
+  renderEvo(r);
+  const sel=ov.querySelector('.enode.sel')||ov.querySelector('#evoConfirm')||ov.querySelector('#evoClose');
+  if(sel) sel.focus();
+}
+function closeEvo(){
+  document.querySelector('#evoOv').classList.remove('show');
+  if(evoReturnFocus && evoReturnFocus.focus) evoReturnFocus.focus();
+}
+function selectNode(sp){
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  evoSel=sp;
+  document.querySelectorAll('.enode').forEach(n=>n.classList.toggle('sel', n.dataset.node===sp));
+  renderConditions(r);
+}
+function doEvolve(target){
+  const r=ROSTER.find(x=>x.id===state.selected); if(!r) return;
+  const hop = SPECIES[r.species]?.into?.includes(target) ? evoHop(r,target) : null;
+  if(!hop||!hop.eligible) return;
+  const from=r.species;
+  const apply=()=>{
+    // apply grounded stat gains, shift stage + attribute, then rebuild roster + detail
+    const gains=statGains(r,hop.stage);
+    for(const k of ['hp','en','atk','def','int','spd']) r.stats[k]=gains[k].next;
+    r.species=target; r.nickname=target; r.stage=hop.stage; r.attribute=hop.attr;
+    closeEvo();
+    renderList(); renderDetail();
+  };
+  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if(reduce){ apply(); return; }
+  playDigivolve(from, target, apply);
+}
+
+/* ~3s cinematic: grid world + current sprite rotating in 3D → charge → white
+   flash → evolved form appears with its name scrolling behind it. */
+let digivT=[];
+function digivImg(name){
+  const url=sprite(name);
+  return `<img src="${url}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'${name[0]}'}))">`;
+}
+function playDigivolve(from, to, done){
+  const ov=document.querySelector('#digiv');
+  const spin=document.querySelector('#digivSpin');
+  const nameEl=document.querySelector('#digivName');
+  const capEl=document.querySelector('#digivCap');
+  digivT.forEach(clearTimeout); digivT=[];
+  ov.className='digiv play squash';          // reset; start with the anticipation squeech (no spin yet)
+  nameEl.textContent=to;
+  spin.innerHTML=digivImg(from);
+  capEl.innerHTML=`<b>${from}</b> digivolving…`;
+  // phase timeline (total 5000ms): squeech → turn → charge → flash → evolve+squeech
+  digivT.push(setTimeout(()=>{ ov.classList.remove('squash'); ov.classList.add('spinning'); }, 700)); // release into the spin
+  digivT.push(setTimeout(()=>{ ov.classList.add('charge'); }, 2400));           // energize/silhouette
+  digivT.push(setTimeout(()=>{ ov.classList.add('flash-on'); }, 3200));          // white flash starts
+  digivT.push(setTimeout(()=>{                                                    // swap to evolved at flash peak
+    spin.innerHTML=digivImg(to);
+    ov.classList.remove('charge','spinning');
+    ov.classList.add('reveal');                                                  // reveal plays the landing squeech
+    capEl.innerHTML=`<b>${to}</b>`;
+  }, 3400));
+  digivT.push(setTimeout(()=>{ ov.classList.remove('flash-on'); }, 3800));
+  digivT.push(setTimeout(()=>{                                                    // finish
+    ov.classList.remove('play','squash','spinning','charge','flash-on','reveal');
+    done && done();
+  }, 5000));
+}
+
+/* ---- evolution wiring (delegated) ---- */
+document.addEventListener('click',e=>{
+  if(e.target.closest('#evoOpen')){ openEvo(); return; }
+  if(e.target.closest('#evoClose')){ closeEvo(); return; }
+  const node=e.target.closest('.enode'); if(node){ selectNode(node.dataset.node); return; }
+  const go=e.target.closest('#evoConfirm'); if(go){ doEvolve(go.dataset.target); return; }
+  if(e.target===document.querySelector('#evoOv') && !document.querySelector('#digiv').classList.contains('play')){ closeEvo(); return; } // backdrop click (not mid-cinematic)
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape' && document.querySelector('#evoOv').classList.contains('show')
+     && !document.querySelector('#digiv').classList.contains('play')){ e.preventDefault(); closeEvo(); }
+});
+window.addEventListener('resize',()=>{
+  const ov=document.querySelector('#evoOv');
+  if(ov.classList.contains('show')){ const r=ROSTER.find(x=>x.id===state.selected); if(r) drawLineLinks(r); }
+});
+
+buildChips(); renderList(); renderDetail();
+</script>
+
+<div class="evo-ov" id="evoOv" role="dialog" aria-modal="true" aria-labelledby="evoHeadName">
+  <div class="evo-modal">
+    <div class="evo-head">
+      <div>
+        <div class="ek">Digivolution</div>
+        <h3 id="evoHeadName">—</h3>
+        <div class="sub" id="evoHeadSub">—</div>
+      </div>
+      <button class="evo-x" id="evoClose" aria-label="Close evolution">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="evo-stage" id="evoBody"></div>
+    <div class="digiv" id="digiv" aria-hidden="true">
+      <div class="grid"></div>
+      <div class="glow"></div>
+      <div class="beam"></div>
+      <div class="speed"></div>
+      <div class="bigname" id="digivName">—</div>
+      <div class="stage3d"><div class="spin" id="digivSpin"></div></div>
+      <div class="cap" id="digivCap"></div>
+      <div class="flash"></div>
+      <div class="skip">Digivolving…</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

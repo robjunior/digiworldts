@@ -1,43 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo } from 'react';
 
 import { useAuth } from '../../hooks/useAuth';
+import { getTutorialSeen, markTutorialSeen, resetTutorialSeen, type TutorialSeenResponse } from '../../lib/api-tutorial';
 
 /**
- * Per-user tutorial "seen" tracker backed by localStorage.
+ * Per-user tutorial "seen" tracker backed by the server via `/api/tutorial/seen`.
  *
- * Storage is namespaced by userId so that if two accounts share the same
- * browser (dev/testing) or if a player logs out and back into a fresh
- * account, the second user still sees their own tutorials.
+ * Previously localStorage-only (`digiworld.tutorial.seen.{userId}`), which
+ * cleared with cache/private mode and didn't cross devices — so the intro/
+ * per-page tutorials re-fired every session on a fresh browser. Now the
+ * source of truth is `users.tutorial_seen` (migration 022) with React Query
+ * providing a session-scoped cache; markSeen updates optimistically so the
+ * current tutorial closes without waiting on the server round-trip.
  *
- * A cross-tab `storage` event keeps every open tab in sync so dismissing
- * a tutorial in one tab doesn't leave it flashing in another.
+ * Query key is scoped by userId so that when two accounts share the same
+ * browser (dev/testing) or a player logs out and back into a fresh account,
+ * the cache doesn't leak the previous user's seen set.
  */
-export const TUTORIAL_SEEN_EVENT = 'digiworld:tutorial-seen';
+const EMPTY_RESPONSE: TutorialSeenResponse = { seenIds: [] };
 
-function storageKey(userId: string): string {
-  return `digiworld.tutorial.seen.${userId}`;
-}
-
-function loadSeen(userId: string): ReadonlySet<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const raw = window.localStorage.getItem(storageKey(userId));
-    if (raw === null) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((v): v is string => typeof v === 'string'));
-  } catch {
-    return new Set();
-  }
-}
-
-function persist(userId: string, ids: ReadonlySet<string>): void {
-  try {
-    window.localStorage.setItem(storageKey(userId), JSON.stringify([...ids]));
-    window.dispatchEvent(new Event(TUTORIAL_SEEN_EVENT));
-  } catch {
-    // storage unavailable — session-only tracking
-  }
+function tutorialQueryKey(userId: string | null): readonly [string, string, string | null] {
+  return ['tutorial', 'seen', userId] as const;
 }
 
 export function useTutorialSeen(): {
@@ -48,41 +32,59 @@ export function useTutorialSeen(): {
 } {
   const { user } = useAuth();
   const userId = user?.id ?? null;
-  const [seen, setSeen] = useState<ReadonlySet<string>>(() => (userId ? loadSeen(userId) : new Set()));
+  const queryClient = useQueryClient();
+  const queryKey = useMemo(() => tutorialQueryKey(userId), [userId]);
 
-  useEffect(() => {
-    if (userId === null) {
-      setSeen(new Set());
-      return;
-    }
-    setSeen(loadSeen(userId));
-    const refresh = (): void => setSeen(loadSeen(userId));
-    window.addEventListener('storage', refresh);
-    window.addEventListener(TUTORIAL_SEEN_EVENT, refresh);
-    return () => {
-      window.removeEventListener('storage', refresh);
-      window.removeEventListener(TUTORIAL_SEEN_EVENT, refresh);
-    };
-  }, [userId]);
+  const query = useQuery({
+    queryKey,
+    queryFn: getTutorialSeen,
+    enabled: userId !== null,
+    staleTime: Infinity,
+  });
 
-  const has = useCallback((id: string): boolean => seen.has(id), [seen]);
+  const seenSet = useMemo(
+    () => new Set(query.data?.seenIds ?? []),
+    [query.data?.seenIds],
+  );
+
+  const { mutate: mutateMark } = useMutation({
+    mutationFn: (tutorialId: string) => markTutorialSeen(tutorialId),
+    onMutate: async (tutorialId) => {
+      await queryClient.cancelQueries({ queryKey });
+      const prev = queryClient.getQueryData<TutorialSeenResponse>(queryKey) ?? EMPTY_RESPONSE;
+      const nextIds = [...new Set([...prev.seenIds, tutorialId])];
+      queryClient.setQueryData<TutorialSeenResponse>(queryKey, { seenIds: nextIds });
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData<TutorialSeenResponse>(queryKey, ctx.prev);
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData<TutorialSeenResponse>(queryKey, data);
+    },
+  });
+
+  const { mutate: mutateReset } = useMutation({
+    mutationFn: () => resetTutorialSeen(),
+    onSuccess: (data) => {
+      queryClient.setQueryData<TutorialSeenResponse>(queryKey, data);
+    },
+  });
+
+  const has = useCallback((id: string): boolean => seenSet.has(id), [seenSet]);
 
   const markSeen = useCallback(
     (id: string): void => {
-      if (userId === null || seen.has(id)) return;
-      const next = new Set(seen);
-      next.add(id);
-      setSeen(next);
-      persist(userId, next);
+      if (userId === null || seenSet.has(id)) return;
+      mutateMark(id);
     },
-    [seen, userId],
+    [seenSet, userId, mutateMark],
   );
 
   const resetAll = useCallback((): void => {
     if (userId === null) return;
-    setSeen(new Set());
-    persist(userId, new Set());
-  }, [userId]);
+    mutateReset();
+  }, [userId, mutateReset]);
 
   return { userId, has, markSeen, resetAll };
 }
