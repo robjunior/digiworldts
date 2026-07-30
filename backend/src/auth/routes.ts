@@ -39,7 +39,7 @@ const SQL_COUNT_USERS = `SELECT COUNT(*) AS n FROM users`;
 // on SQLite and CITEXT on Postgres, so equality is case-insensitive at the
 // column level. Explicit COLLATE NOCASE in the query is invalid on Postgres.
 const SQL_SELECT_BY_USERNAME = `SELECT * FROM users WHERE username = ?`;
-const SQL_INSERT_USER = `INSERT INTO users (id, username, display_name, password_hash, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+const SQL_INSERT_USER = `INSERT INTO users (id, username, display_name, password_hash, is_admin, created_at, updated_at, first_name, last_name, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_LAST_LOGIN = `UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?`;
 const SQL_UPDATE_LOCALE_PREF = `UPDATE users SET locale_pref = ?, updated_at = ? WHERE id = ?`;
 const SQL_INIT_WALLET = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, 0, 0, ?) ON CONFLICT DO NOTHING`;
@@ -62,10 +62,32 @@ const DisplayNameSchema = z
   .min(1, 'display name required')
   .max(32, 'display name must be 32 characters or fewer');
 
+const FirstNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'first name required')
+  .max(64, 'first name must be 64 characters or fewer');
+
+const LastNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'last name required')
+  .max(64, 'last name must be 64 characters or fewer');
+
+const EmailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('email must be a valid address')
+  .max(254, 'email must be 254 characters or fewer');
+
 const RegisterSchema = z.object({
   username: UsernameSchema,
   displayName: DisplayNameSchema.optional(),
   password: z.string().min(1),
+  firstName: FirstNameSchema,
+  lastName: LastNameSchema,
+  email: EmailSchema,
 });
 
 const LoginSchema = z.object({
@@ -93,6 +115,9 @@ export type PublicUser = {
   mmr: number;
   premiumUntil: number | null;
   localePref: 'en' | 'pt' | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
 };
 
 async function toPublic(u: UserRow): Promise<PublicUser> {
@@ -109,6 +134,9 @@ async function toPublic(u: UserRow): Promise<PublicUser> {
     mmr: u.mmr,
     premiumUntil: row?.premium_until ?? null,
     localePref,
+    firstName: u.first_name,
+    lastName: u.last_name,
+    email: u.email,
   };
 }
 
@@ -160,7 +188,7 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid registration', details: parsed.error.issues });
     }
-    const { username, displayName, password } = parsed.data;
+    const { username, displayName, password, firstName, lastName, email } = parsed.data;
     const policy = validatePasswordPolicy(password);
     if (!policy.ok) return reply.code(400).send({ error: policy.reason });
 
@@ -185,7 +213,7 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
       }
       const cnt = await t.one<{ n: number }>(SQL_COUNT_USERS);
       const isAdmin: 0 | 1 = (cnt?.n ?? 0) === 0 ? 1 : 0;
-      await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now]);
+      await t.run(SQL_INSERT_USER, [id, username, displayName ?? username, hash, isAdmin, now, now, firstName, lastName, email]);
       await t.run(SQL_INIT_WALLET, [id, now]);
       for (const res of ['Meat', 'Bits', 'Data'] as const) {
         await t.run(SQL_INIT_RESOURCE, [id, res, now]);

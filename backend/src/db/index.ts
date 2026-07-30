@@ -80,6 +80,9 @@ export type UserRow = {
   onboarding_completed_at: number | null;
   mmr: number;
   locale_pref: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 };
 
 export type SessionRow = {

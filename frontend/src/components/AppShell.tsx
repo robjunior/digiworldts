@@ -38,6 +38,7 @@ type AdminNavEntry = NavEntry & {
 
 const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
   '/': 'lobby.title',
+  '/account': 'account.title',
   '/lobby': 'lobby.title',
   '/combat': 'combat.your_team',
   '/roster': 'roster.title',
@@ -65,6 +66,7 @@ const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
 const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/lobby': '',
   '/combat': '',
+  '/account': 'account-page',
   '/roster': 'roster-layout',
   '/factory': 'factory-page',
   '/farm': 'farm-page',
@@ -258,7 +260,7 @@ export function AppShell(): JSX.Element {
               </div>
             ) : (
               <div className="hud">
-                <div className="pill"><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></div>
+                <Link to="/account" className="pill" aria-label={t('account.title')}><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></Link>
                 <div className="pill"><span>{t('hud.credits')}</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.bits')}</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.party')}</span><b>{party.length}/{partyMax}</b></div>

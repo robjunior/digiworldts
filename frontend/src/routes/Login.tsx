@@ -25,6 +25,9 @@ export function Login(): JSX.Element {
   const [signinPassword, setSigninPassword] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
   const [signinError, setSigninError] = useState('');
   const [registerError, setRegisterError] = useState('');
@@ -93,9 +96,14 @@ export function Login(): JSX.Element {
     setRegisterError('');
     setPendingTab('register');
     const trimmedDisplayName = displayName.trim();
-    const body = trimmedDisplayName.length > 0
-      ? { username: registerUsername.trim(), password: registerPassword, displayName: trimmedDisplayName }
-      : { username: registerUsername.trim(), password: registerPassword };
+    const base = {
+      username: registerUsername.trim(),
+      password: registerPassword,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: registerEmail.trim(),
+    };
+    const body = trimmedDisplayName.length > 0 ? { ...base, displayName: trimmedDisplayName } : base;
     try {
       const registered = await register(body);
       navigate(targetForUser(registered, nextTarget), { replace: true });
@@ -165,6 +173,18 @@ export function Login(): JSX.Element {
             <label className="field">
               Username
               <input className="input" type="text" name="username" autoComplete="username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9_.-]+" value={registerUsername} onChange={(event) => setRegisterUsername(event.currentTarget.value)} />
+            </label>
+            <label className="field">
+              First name
+              <input className="input" type="text" name="firstName" autoComplete="given-name" required minLength={1} maxLength={64} value={firstName} onChange={(event) => setFirstName(event.currentTarget.value)} />
+            </label>
+            <label className="field">
+              Last name
+              <input className="input" type="text" name="lastName" autoComplete="family-name" required minLength={1} maxLength={64} value={lastName} onChange={(event) => setLastName(event.currentTarget.value)} />
+            </label>
+            <label className="field">
+              Email
+              <input className="input" type="email" name="email" autoComplete="email" required maxLength={254} value={registerEmail} onChange={(event) => setRegisterEmail(event.currentTarget.value)} />
             </label>
             <label className="field">
               Display name (optional)
