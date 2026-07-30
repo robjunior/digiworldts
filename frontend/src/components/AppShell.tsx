@@ -127,6 +127,7 @@ const BEYOND: readonly NavEntry[] = [
 const ADMIN_NAV: readonly AdminNavEntry[] = [
   { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ADMIN_DOT, tab: 'overview' },
   { to: '/admin?tab=users', label: 'Users', svg: ICON_ROSTER, tab: 'users' },
+  { to: '/admin?tab=seasons', label: 'Seasons', svg: ICON_ARENA, tab: 'seasons' },
   { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ADMIN_DOT, tab: 'scraped' },
   { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_DIGIDEX, tab: 'catalog' },
   { to: '/admin?tab=skills', label: 'Skills', svg: ICON_TRAINING, tab: 'skills' },

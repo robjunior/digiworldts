@@ -62,6 +62,8 @@ import { battlePlugin } from './battle/http.js';
 import { hydrateMatchmaking } from './matchmaking/queue.js';
 import { normalizeRosterXpFloor } from './progression/normalize.js';
 import { getCluster, closeCluster } from './cluster/index.js';
+import { seasonsPlugin } from './seasons/routes.js';
+import { startSeasonsTicker, stopSeasonsTicker } from './seasons/ticker.js';
 
 async function main(): Promise<void> {
   ensureDirs();
@@ -195,6 +197,7 @@ async function main(): Promise<void> {
   await app.register(adventurePlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
+  await app.register(seasonsPlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
@@ -239,8 +242,11 @@ async function main(): Promise<void> {
   await app.listen({ host: config.HOST, port: config.PORT });
   log.info('server.listening', { host: config.HOST, port: config.PORT, env: config.NODE_ENV });
 
+  startSeasonsTicker();
+
   const shutdown = async (signal: string): Promise<void> => {
     log.info('server.shutdown.begin', { signal });
+    stopSeasonsTicker();
     await stopLobbyLoops();
     clearInterval(pruneTimer);
     try {

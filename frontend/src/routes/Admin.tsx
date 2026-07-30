@@ -9,6 +9,7 @@ import { OverviewTab } from '../components/admin/OverviewTab';
 import { QuestsAdmin } from '../components/admin/QuestsAdmin';
 import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
+import { SeasonsAdmin } from '../components/admin/SeasonsAdmin';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
 import { SkillsAdmin } from '../components/admin/SkillsAdmin';
 import { UserTable } from '../components/admin/UserTable';
@@ -20,6 +21,7 @@ import '../styles/extensions-combat3d.css';
 const ADMIN_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'users', label: 'Users' },
+  { id: 'seasons', label: 'Seasons' },
   { id: 'scraped', label: 'Scraped' },
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
@@ -77,6 +79,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <OverviewTab />;
     case 'users':
       return <UserTable />;
+    case 'seasons':
+      return <SeasonsAdmin />;
     case 'scraped':
       return <ScrapedTable />;
     case 'catalog':
