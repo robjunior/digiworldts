@@ -18,6 +18,7 @@ import {
   TrainingIcon,
   WorldIcon,
 } from './common/icons';
+import { TopBarRight } from './topbar/TopBarRight';
 import { useAuth } from '../hooks/useAuth';
 import { useLocale, useT } from '../hooks/useLocale';
 import { setLocale } from '../lib/locale';
@@ -235,6 +236,7 @@ export function AppShell(): JSX.Element {
             PT
           </button>
         </div>
+        <TopBarRight />
       </header>
       <div className="body">
         <nav className="side" aria-label="Primary">
