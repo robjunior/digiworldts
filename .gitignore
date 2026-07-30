@@ -13,6 +13,7 @@ dist/
 .env.local
 .env.*.local
 backend/data/.session-secret
+discord/config/products.json
 cookie.txt
 cookies.txt
 

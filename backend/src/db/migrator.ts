@@ -169,7 +169,7 @@ async function hasDungeonRandomEncounterColumns(adapter: DbAdapter): Promise<boo
   return [...expected].every((name) => names.has(name));
 }
 
-function isDuplicateColumnError(err: unknown): boolean {
+export function isDuplicateColumnError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const message = err.message.toLowerCase();
   return message.includes('duplicate column') || message.includes('already exists');

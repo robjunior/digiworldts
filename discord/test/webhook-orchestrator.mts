@@ -1,0 +1,95 @@
+import { setImmediate as flushImmediate } from 'node:timers/promises';
+
+import { assert, assertEqual } from './assert.mjs';
+import { setTestEnv } from './env.mjs';
+
+setTestEnv();
+
+type Row = Record<string, unknown>;
+
+class MemoryDb {
+  readonly sessions = new Map<string, Row>();
+  readonly webhooks = new Set<string>();
+  readonly events: Row[] = [];
+
+  async query<T extends Row>(text: string, params: readonly unknown[] = []): Promise<{ readonly rows: readonly T[]; readonly rowCount: number }> {
+    if (text.includes('INSERT INTO webhook_events')) {
+      const key = `${String(params[0])}:${String(params[1])}`;
+      if (this.webhooks.has(key)) return { rows: [], rowCount: 0 };
+      this.webhooks.add(key);
+      return { rows: [{ provider_event_id: params[1] } as T], rowCount: 1 };
+    }
+    if (text.includes('SELECT * FROM purchase_sessions WHERE provider =')) {
+      const row = [...this.sessions.values()].find((session) => session.provider === params[0] && session.provider_payment_id === params[1]);
+      return { rows: row === undefined ? [] : [row as T], rowCount: row === undefined ? 0 : 1 };
+    }
+    if (text.includes('UPDATE purchase_sessions SET state = $2')) {
+      const session = this.sessions.get(String(params[0]));
+      if (session !== undefined) session.state = params[1];
+      return { rows: [], rowCount: 1 };
+    }
+    if (text.includes('UPDATE purchase_sessions SET state = $2, delivered_at')) {
+      const session = this.sessions.get(String(params[0]));
+      if (session !== undefined) {
+        session.state = params[1];
+        session.delivered_at = params[2];
+      }
+      return { rows: [], rowCount: 1 };
+    }
+    if (text.includes('INSERT INTO purchase_events')) {
+      this.events.push({ id: params[0], session_id: params[1], from_state: params[2], to_state: params[3], provider_status: params[4], reason: params[5] });
+      return { rows: [], rowCount: 1 };
+    }
+    throw new Error(`unexpected sql:${text}`);
+  }
+}
+
+function session(state: string): Row {
+  return { id: 'session-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'SKU_ITEM', provider: 'mercadopago', provider_payment_id: 'pay_1', state, amount_brl_cents: 100, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: null, metadata_json: '{}', created_at: 1_000, updated_at: 1_000 };
+}
+
+async function main(): Promise<void> {
+  const { MercadoPagoProvider, signMercadoPagoWebhook } = await import('../src/payments/mercadopago.js');
+  const { processMercadoPagoPayment } = await import('../src/purchase/orchestrator.js');
+  const { createServer } = await import('../src/server.js');
+  const db = new MemoryDb();
+  db.sessions.set('session-1', session('awaiting_payment'));
+  const grants: string[] = [];
+  await processMercadoPagoPayment('pay_1', {
+    db,
+    now: () => 3_000,
+    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', raw: { status: 'approved' } }) },
+    backendClient: {
+      grantItem: async (input) => { grants.push(input.idempotencyKey); return { ok: true, userId: input.userId, itemId: input.itemId, qty: input.qty, inventoryQty: input.qty, reason: input.reason }; },
+      grantPremium: async () => { throw new Error('wrong grant'); },
+      walletCredit: async () => { throw new Error('wrong grant'); },
+    },
+    loadCatalog: async () => ({ products: [{ sku: 'SKU_ITEM', displayName: { pt: 'Item', en: 'Item' }, priceBrlCents: 100, shopItemId: 'backend-item', kind: 'item', enabled: true }] }),
+  });
+  assertEqual(grants.length, 1, 'approved payment grants exactly once');
+  assertEqual(grants[0] ?? '', 'purchase:session-1:reward', 'deterministic reward idempotency key');
+  assertEqual(db.sessions.get('session-1')?.state, 'delivered', 'approved payment reaches delivered');
+
+  const processCalls: string[] = [];
+  const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: 'http://127.0.0.1:1' });
+  const app = createServer({ mercadoPagoWebhook: { db, paymentProvider: provider, now: () => 5_000, processPayment: async (paymentId) => { processCalls.push(paymentId); } } });
+  const ts = '12345';
+  const signature = signMercadoPagoWebhook({ dataId: 'pay_2', requestId: 'req_1', ts, secret: 'secret' });
+  const payload = { id: 'evt_1', type: 'payment', action: 'payment.updated', data: { id: 'pay_2' }, live_mode: false, date_created: '2026-07-30T14:00:00.000Z' };
+  const first = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}`, 'x-request-id': 'req_1' }, payload });
+  assertEqual(first.statusCode, 200, 'first webhook ACKs 200');
+  await flushImmediate();
+  const second = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}`, 'x-request-id': 'req_1' }, payload });
+  assertEqual(second.statusCode, 200, 'duplicate webhook ACKs 200');
+  await flushImmediate();
+  assertEqual(processCalls.length, 1, 'duplicate webhook does not process twice');
+  const bad = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}` }, payload: { ...payload, data: { id: 'tampered' } } });
+  assertEqual(bad.statusCode, 401, 'bad signature rejected');
+  await app.close();
+  process.stdout.write('webhook and orchestrator tests passed\n');
+}
+
+main().catch((error: unknown) => {
+  process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : 'unknown error'}\n`);
+  process.exit(1);
+});

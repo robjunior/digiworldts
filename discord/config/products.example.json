@@ -1,0 +1,20 @@
+{
+  "_readme": "Copy this file to products.json and replace every placeholder. See discord/config/README.md for the field contract.",
+  "products": [
+    {
+      "sku": "EXAMPLE_SKU_REPLACE_ME",
+      "displayName": {
+        "pt": "Produto de exemplo - substitua",
+        "en": "Example product - replace me"
+      },
+      "description": {
+        "pt": "Descrição falsa para ilustrar o formato. Substitua antes do deploy.",
+        "en": "Fake description illustrating the format. Replace before deploy."
+      },
+      "priceBrlCents": 0,
+      "shopItemId": "REPLACE_WITH_shop_items.id",
+      "kind": "item",
+      "enabled": true
+    }
+  ]
+}
