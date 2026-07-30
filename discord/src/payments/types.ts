@@ -1,0 +1,57 @@
+export type PaymentProviderName = 'mercadopago';
+
+export type PayerInfo = {
+  readonly email: string;
+  readonly name: string;
+  readonly lastName: string;
+  readonly identificationType: string;
+  readonly identificationNumber: string;
+};
+
+export type CreatePixPaymentInput = {
+  readonly amountBrlCents: number;
+  readonly payer: PayerInfo;
+  readonly description: string;
+  readonly notificationUrl: string;
+  readonly expiresAt: Date;
+};
+
+export type PixPayment = {
+  readonly provider: PaymentProviderName;
+  readonly providerPaymentId: string;
+  readonly status: string;
+  readonly qrCode: string;
+  readonly qrCodeBase64: string;
+  readonly ticketUrl: string;
+  readonly expiresAt: string | null;
+  readonly idempotencyKey: string;
+};
+
+export type PaymentStatus = {
+  readonly provider: PaymentProviderName;
+  readonly providerPaymentId: string;
+  readonly status: string;
+  readonly raw: unknown;
+};
+
+export type RefundResult = {
+  readonly provider: PaymentProviderName;
+  readonly refundId: string;
+  readonly paymentId: string;
+  readonly amount: number | null;
+  readonly status: string;
+};
+
+export type WebhookVerificationInput = {
+  readonly signatureHeader: string | undefined;
+  readonly requestId: string | undefined;
+  readonly dataId: string | undefined;
+};
+
+export interface PaymentProvider {
+  readonly name: PaymentProviderName;
+  createPixPayment(input: CreatePixPaymentInput): Promise<PixPayment>;
+  getStatus(paymentId: string): Promise<PaymentStatus>;
+  refund(paymentId: string, amountBrlCents?: number): Promise<RefundResult>;
+  verifyWebhook(input: WebhookVerificationInput): boolean;
+}

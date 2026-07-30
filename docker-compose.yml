@@ -61,6 +61,8 @@ services:
       MAX_LOBBY_CONNECTIONS: ${MAX_LOBBY_CONNECTIONS:-1200}
       MAX_CONCURRENT_MATCHES: ${MAX_CONCURRENT_MATCHES:-200}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Must hold the same value as discord-bot below; unset disables /api/service/* by design.
+      SERVICE_TOKEN_DISCORD: ${SERVICE_TOKEN_DISCORD:-}
     volumes:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
@@ -72,6 +74,58 @@ services:
         [
           "CMD-SHELL",
           'node -e "fetch(\"http://127.0.0.1:3000/api/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+  discord-bot:
+    profiles: ["discord"]
+    build:
+      context: .
+      dockerfile: discord/Dockerfile
+    container_name: digiworld-discord-bot-1
+    ports:
+      - "${DISCORD_HOST_PORT:-3100}:3100"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3100
+      PUBLIC_URL: ${DISCORD_PUBLIC_URL:-}
+      GAME_PUBLIC_URL: ${GAME_PUBLIC_URL:-http://localhost:${HOST_PORT:-8080}}
+      BACKEND_URL: http://backend:3000
+      DATABASE_URL: postgres://digiworld:${POSTGRES_PASSWORD}@db:5432/digiworld
+      SERVICE_TOKEN_DISCORD: ${SERVICE_TOKEN_DISCORD:-}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET:-}
+      DISCORD_GUILD_ID: ${DISCORD_GUILD_ID:-}
+      DISCORD_ADMIN_ROLE_IDS: ${DISCORD_ADMIN_ROLE_IDS:-}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      MP_PAYER_EMAIL: ${MP_PAYER_EMAIL:-}
+      MP_PAYER_NAME: ${MP_PAYER_NAME:-}
+      MP_PAYER_LAST_NAME: ${MP_PAYER_LAST_NAME:-}
+      MP_PAYER_ID_TYPE: ${MP_PAYER_ID_TYPE:-CPF}
+      MP_PAYER_ID_NUMBER: ${MP_PAYER_ID_NUMBER:-}
+      PIX_EXPIRATION_MINUTES: ${PIX_EXPIRATION_MINUTES:-30}
+      PURCHASE_SWEEP_INTERVAL_MS: ${PURCHASE_SWEEP_INTERVAL_MS:-300000}
+      TICKET_INACTIVITY_HOURS: ${TICKET_INACTIVITY_HOURS:-48}
+      RATE_LIMIT_COMMANDS: ${RATE_LIMIT_COMMANDS:-20}
+      RATE_LIMIT_BUY: ${RATE_LIMIT_BUY:-3}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(\"http://127.0.0.1:3100/health\").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
         ]
       interval: 5s
       timeout: 3s

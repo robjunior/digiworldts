@@ -64,6 +64,9 @@ import { normalizeRosterXpFloor } from './progression/normalize.js';
 import { getCluster, closeCluster } from './cluster/index.js';
 import { seasonsPlugin } from './seasons/routes.js';
 import { startSeasonsTicker, stopSeasonsTicker } from './seasons/ticker.js';
+import { playerPlugin } from './player/routes.js';
+import { servicePlugin } from './service/routes.js';
+import { linkPlugin } from './link/routes.js';
 
 async function main(): Promise<void> {
   ensureDirs();
@@ -198,6 +201,9 @@ async function main(): Promise<void> {
   await app.register(chatPlugin);
   await app.register(battlePlugin);
   await app.register(seasonsPlugin);
+  await app.register(playerPlugin);
+  await app.register(linkPlugin);
+  await app.register(servicePlugin);
   await app.register(lobbyPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
