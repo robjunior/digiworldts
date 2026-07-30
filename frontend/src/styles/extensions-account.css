@@ -1,0 +1,330 @@
+/*
+ * Account page — Tamer Career layout (Overwatch-style hero + 2-col).
+ * Ported from base/new layout/player.html, scoped to `.account-page`
+ * (set by AppShell's PAGE_SCOPE map). Uses global design tokens from
+ * `tokens.css` — no local color/font redefinitions.
+ */
+
+.account-page {
+  --acc-notch: var(--notch-clip);
+  --acc-notch-sm: var(--notch-sm-clip);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-height: 100%;
+  background:
+    radial-gradient(120% 90% at 50% -10%, color-mix(in oklab, var(--signal) 7%, transparent), transparent 60%),
+    var(--bg);
+}
+
+.account-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    linear-gradient(115deg, transparent 46%, color-mix(in oklab, var(--ink) 4%, transparent) 47% 53%, transparent 54%),
+    linear-gradient(-115deg, transparent 46%, color-mix(in oklab, var(--ink) 4%, transparent) 47% 53%, transparent 54%);
+}
+
+.account-page > * { position: relative; z-index: 1; }
+
+.account-page [data-el="fire"] { --el: var(--battle); }
+.account-page [data-el="water"] { --el: var(--signal); }
+.account-page [data-el="plant"] { --el: color-mix(in oklab, var(--signal) 45%, var(--ink)); }
+.account-page [data-el="electricity"] { --el: color-mix(in oklab, var(--signal) 65%, var(--ink)); }
+.account-page [data-el="wind"] { --el: color-mix(in oklab, var(--signal) 30%, var(--ink)); }
+
+/* ---- top bar ---- */
+.account-page .acc-topbar {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 28px 0;
+  flex: none;
+}
+
+.account-page .acc-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 4px;
+}
+.account-page .acc-brand .bk { font: 800 9px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
+.account-page .acc-brand .bt { font: 800 13px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+
+.account-page .acc-conn { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.account-page .acc-iconbtn {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm);
+  color: var(--muted);
+  transition: .12s;
+}
+.account-page .acc-iconbtn:hover { color: var(--ink); border-color: var(--muted); }
+.account-page .acc-iconbtn svg { width: 19px; height: 19px; }
+
+.account-page .acc-dcard {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 14px 8px 10px; cursor: pointer;
+  background: var(--signal); border: 1px solid var(--signal);
+  clip-path: var(--acc-notch);
+  color: #fff; transition: .12s;
+}
+.account-page .acc-dcard:hover { background: color-mix(in oklab, var(--signal) 86%, #000); }
+.account-page .acc-dcard .dic {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  background: color-mix(in oklab, #000 22%, var(--signal));
+  clip-path: var(--acc-notch-sm);
+}
+.account-page .acc-dcard .dic svg { width: 20px; height: 20px; color: #fff; }
+.account-page .acc-dcard .dtx { line-height: 1.15; text-align: left; }
+.account-page .acc-dcard .dk { font: 800 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; opacity: .85; display: block; }
+.account-page .acc-dcard .dv { font: 800 13px/1.1 var(--font); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+.account-page .acc-dcard.linked { background: var(--panel); border-color: var(--hair); color: var(--ink); }
+.account-page .acc-dcard.linked .dic { background: var(--bg); border: 1px solid var(--hair); }
+.account-page .acc-dcard.linked .dic svg { color: var(--signal); }
+.account-page .acc-dcard.linked .dk { color: var(--muted); opacity: 1; }
+.account-page .acc-dcard .dot { width: 8px; height: 8px; background: #39d353; clip-path: var(--acc-notch-sm); }
+.account-page .acc-dcard:not(.linked) .dot { display: none; }
+
+/* ---- hero row ---- */
+.account-page .acc-hero {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 28px;
+  align-items: center;
+  padding: 14px 30px 20px;
+  flex: none;
+}
+
+.account-page .acc-avatar {
+  position: relative;
+  width: 120px; height: 120px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--acc-notch);
+  display: grid; place-items: center;
+  overflow: hidden; cursor: pointer; padding: 0;
+}
+.account-page .acc-avatar .acc-avatar-init { font: 900 54px/1 var(--font); color: var(--signal); }
+.account-page .acc-avatar img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; padding: 12px; }
+.account-page .acc-avatar .lvbadge {
+  position: absolute; right: 0; bottom: 0;
+  background: var(--signal); color: #fff;
+  font: 900 12px/1 var(--font); padding: 5px 8px;
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%);
+}
+.account-page .acc-avatar .chg {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  z-index: 2; padding: 7px 4px;
+  background: color-mix(in oklab, var(--signal) 88%, #000);
+  color: #fff; font: 800 8px/1 var(--font);
+  letter-spacing: .16em; text-transform: uppercase; text-align: center;
+  opacity: 0; transform: translateY(100%); transition: .14s; pointer-events: none;
+}
+.account-page .acc-avatar:hover .chg,
+.account-page .acc-avatar:focus-visible .chg { opacity: 1; transform: translateY(0); }
+.account-page .acc-avatar:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+.account-page .acc-hid { min-width: 0; }
+.account-page .acc-hid .kick { font: 800 10px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
+.account-page .acc-hid h1 {
+  display: flex; align-items: center; gap: 14px; margin-top: 10px;
+  font: 900 52px/.9 var(--font); letter-spacing: -.02em;
+  text-transform: uppercase; font-style: italic;
+}
+.account-page .acc-hid .handle { margin-top: 8px; font: 600 12px/1 var(--font); letter-spacing: .05em; color: var(--muted); }
+.account-page .acc-xpwrap { margin-top: 14px; max-width: 560px; }
+.account-page .acc-xpbar { height: 9px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--acc-notch-sm); overflow: hidden; }
+.account-page .acc-xpbar i { display: block; height: 100%; background: var(--signal); width: 0; transition: width .7s cubic-bezier(.2, 1, .3, 1); }
+.account-page .acc-xptxt { margin-top: 6px; font: 700 10px/1 var(--font); letter-spacing: .06em; color: var(--muted); }
+.account-page .acc-xptxt b { color: var(--ink); }
+
+.account-page .acc-rank {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  gap: 26px;
+  align-items: center;
+}
+.account-page .acc-rank .rk.stack { display: flex; flex-direction: column; gap: 18px; }
+.account-page .acc-rank .rk .rn { font: 900 30px/1 var(--font); font-style: italic; letter-spacing: -.01em; }
+.account-page .acc-rank .rk .rn sup { font-size: 11px; color: var(--signal); font-style: normal; vertical-align: super; margin-left: 3px; }
+.account-page .acc-rank .rk .rl { margin-top: 6px; font: 800 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.account-page .acc-ring { width: 76px; height: 76px; position: relative; display: grid; place-items: center; }
+.account-page .acc-ring svg { position: absolute; inset: 0; }
+.account-page .acc-ring .rt { font: 900 22px/1 var(--font); font-style: italic; }
+
+/* ---- body ---- */
+.account-page .acc-body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 4px 30px 24px;
+  align-items: start;
+}
+.account-page .acc-col { display: flex; flex-direction: column; }
+.account-page .acc-colhead { display: flex; align-items: center; gap: 12px; padding: 0 2px 14px; flex: none; }
+.account-page .acc-colhead h2 { font: 800 13px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; }
+.account-page .acc-colhead .line { flex: 1; height: 1px; background: var(--hair); }
+.account-page .acc-colhead .pick {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm);
+  padding: 9px 12px;
+  font: 800 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--ink);
+}
+.account-page .acc-colhead .pick svg { width: 12px; height: 12px; color: var(--muted); }
+.account-page .acc-colhead .hint { font: 600 11px/1 var(--font); color: var(--muted); }
+
+/* stat tiles */
+.account-page .acc-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-content: start;
+}
+.account-page .acc-tile {
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch); padding: 0;
+}
+.account-page .acc-tile .th { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--hair); }
+.account-page .acc-tile .th .ic { width: 22px; height: 22px; display: grid; place-items: center; color: var(--signal); }
+.account-page .acc-tile .th .ic svg { width: 18px; height: 18px; }
+.account-page .acc-tile .th .l { font: 800 9px/1.1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.account-page .acc-tile .tv { padding: 14px; }
+.account-page .acc-tile .n { font: 900 34px/1 var(--font); letter-spacing: -.01em; }
+.account-page .acc-tile .n em { font-style: normal; color: var(--signal); font-size: .6em; margin-left: 1px; }
+.account-page .acc-tile .d { margin-top: 8px; font: 600 11px/1.35 var(--font); color: var(--muted); }
+
+/* party strip */
+.account-page .acc-pstrip {
+  margin-top: 14px;
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch); padding: 12px 14px; flex: none;
+}
+.account-page .acc-pstrip .pk { font: 800 9px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.account-page .acc-pstrip .prow { display: flex; gap: 10px; }
+.account-page .acc-pmon {
+  flex: 1;
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm); padding: 8px;
+  position: relative; overflow: hidden; min-width: 0;
+}
+.account-page .acc-pmon::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--el, var(--signal)); }
+.account-page .acc-pmon .mug { width: 34px; height: 34px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--acc-notch-sm); display: grid; place-items: center; overflow: hidden; flex: none; }
+.account-page .acc-pmon .mug img { width: 28px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+.account-page .acc-pmon .mug .mono { font: 900 15px/1 var(--font); color: var(--el, var(--signal)); }
+.account-page .acc-pmon .txt { min-width: 0; }
+.account-page .acc-pmon .nm { font: 800 12px/1.1 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-page .acc-pmon .lv { margin-top: 3px; font: 700 9px/1 var(--font); letter-spacing: .06em; color: var(--muted); }
+
+/* PvP History */
+.account-page .acc-pvp { display: flex; flex-direction: column; gap: 8px; }
+.account-page .acc-match {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 16px; align-items: center;
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch); padding: 14px 18px; overflow: hidden;
+}
+.account-page .acc-match::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--res) 26%, transparent), transparent 62%);
+}
+.account-page .acc-match.win { --res: var(--signal); }
+.account-page .acc-match.loss { --res: var(--battle); }
+.account-page .acc-match.draw { --res: var(--muted); }
+.account-page .acc-match > * { position: relative; z-index: 1; }
+.account-page .acc-match .rbadge {
+  width: 44px; height: 44px; display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm);
+  font: 900 18px/1 var(--font); font-style: italic; color: var(--res);
+}
+.account-page .acc-match .bout { display: flex; align-items: center; justify-content: center; gap: 16px; min-width: 0; }
+.account-page .acc-match .side { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.account-page .acc-match .side.you { justify-content: flex-end; }
+.account-page .acc-match .side.foe { flex-direction: row-reverse; justify-content: flex-end; }
+.account-page .acc-match .ti { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; flex: none; width: 56px; align-self: center; }
+.account-page .acc-match .tico {
+  width: 34px; height: 34px; display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--hair); clip-path: var(--acc-notch-sm);
+  font: 900 15px/1 var(--font); color: var(--signal); overflow: hidden; flex: none;
+}
+.account-page .acc-match .side.foe .tico { color: var(--muted); }
+.account-page .acc-match .tico img { width: 30px; height: 30px; object-fit: contain; image-rendering: pixelated; }
+.account-page .acc-match .tn { font: 800 10px/1.1 var(--font); letter-spacing: .02em; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 56px; text-align: center; }
+.account-page .acc-match .side.you .tn b, .account-page .acc-match .tn b { color: var(--ink); font-weight: 800; }
+.account-page .acc-match .vs { font: 900 11px/1 var(--font); font-style: italic; letter-spacing: .06em; color: var(--muted); flex: none; }
+.account-page .acc-match .rt { text-align: right; flex: none; }
+.account-page .acc-match .rt .res { font: 900 12px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--res); }
+.account-page .acc-match .rt .meta { margin-top: 6px; font: 600 11px/1 var(--font); color: var(--muted); }
+
+/* empty state */
+.account-page .acc-empty {
+  padding: 22px 18px;
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch);
+  font: 600 12px/1.5 var(--font); color: var(--muted); text-align: center;
+}
+
+/* ---- avatar picker modal ---- */
+.account-page .acc-avov {
+  position: fixed; inset: 0; z-index: 60;
+  display: none; place-items: center;
+  background: rgba(0, 0, 0, .62);
+}
+.account-page .acc-avov.show { display: grid; }
+.account-page .acc-avmodal {
+  width: min(440px, 92vw);
+  background: var(--panel); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch); padding: 22px;
+}
+.account-page .acc-avmodal .mh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.account-page .acc-avmodal .ek { font: 800 10px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
+.account-page .acc-avmodal h3 { font: 800 18px/1.1 var(--font); margin-top: 7px; }
+.account-page .acc-avmodal .msub { margin-top: 5px; font: 600 11px/1.3 var(--font); color: var(--muted); }
+.account-page .acc-avx {
+  background: transparent; border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm); color: var(--muted);
+  width: 30px; height: 30px; display: grid; place-items: center;
+  cursor: pointer; flex: none;
+}
+.account-page .acc-avx:hover { color: var(--ink); border-color: var(--muted); }
+.account-page .acc-avx svg { width: 15px; height: 15px; }
+.account-page .acc-avgrid { margin-top: 16px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.account-page .acc-avpick {
+  position: relative; aspect-ratio: 1;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: var(--acc-notch-sm);
+  display: grid; place-items: center;
+  cursor: pointer; overflow: hidden; transition: .12s;
+}
+.account-page .acc-avpick:hover { transform: translateY(-2px); border-color: var(--el, var(--signal)); }
+.account-page .acc-avpick[aria-pressed="true"] { border-color: var(--signal); box-shadow: inset 0 0 0 1px var(--signal); }
+.account-page .acc-avpick img { width: 78%; height: 78%; object-fit: contain; image-rendering: pixelated; }
+.account-page .acc-avpick .mono { font: 900 30px/1 var(--font); color: var(--el, var(--signal)); }
+.account-page .acc-avpick .cap {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 3px 2px;
+  font: 700 8px/1 var(--font); letter-spacing: .06em;
+  text-transform: uppercase; text-align: center; color: var(--muted);
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+}
+
+@media (max-width: 1000px) {
+  .account-page .acc-body { grid-template-columns: 1fr; }
+  .account-page .acc-hid h1 { font-size: 38px; }
+  .account-page .acc-rank { gap: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .account-page * { animation: none !important; transition: none !important; }
+}
