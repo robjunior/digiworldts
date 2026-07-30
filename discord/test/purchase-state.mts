@@ -12,6 +12,9 @@ async function main(): Promise<void> {
     ['refunded', 'refunded'],
     ['in_mediation', 'disputed'],
     ['charged_back', 'chargeback'],
+    ['action_required', 'awaiting_payment'],
+    ['processed', 'paid'],
+    ['expired', 'expired'],
   ]);
   assertEqual(MERCADOPAGO_STATUSES.length, expected.size, 'test exhausts all MP statuses');
   for (const status of MERCADOPAGO_STATUSES) assertEqual(commerceStateForMercadoPagoStatus(status), expected.get(status) ?? '', `${status} maps to expected commerce state`);

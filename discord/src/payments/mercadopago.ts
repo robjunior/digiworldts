@@ -7,20 +7,33 @@ import type { CreatePixPaymentInput, PaymentProvider, PaymentStatus, PixPayment,
 
 const REAL_MP_BASE_URL = 'https://api.mercadopago.com';
 
-const PixResponseSchema = z.object({
+const OrderPaymentMethodSchema = z.object({
+  id: z.string(),
+  type: z.string(),
+  qr_code: z.string().nullable().optional(),
+  qr_code_base64: z.string().nullable().optional(),
+  ticket_url: z.string().nullable().optional(),
+}).passthrough();
+
+const OrderPaymentSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform(String),
+  amount: z.union([z.string(), z.number()]).transform(String).optional(),
+  status: z.string(),
+  status_detail: z.string().optional(),
+  payment_method: OrderPaymentMethodSchema.optional(),
+}).passthrough();
+
+const OrderResponseSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   status: z.string(),
-  date_of_expiration: z.string().nullable().optional(),
-  point_of_interaction: z.object({
-    transaction_data: z.object({
-      qr_code: z.string(),
-      qr_code_base64: z.string(),
-      ticket_url: z.string(),
-    }).passthrough(),
+  status_detail: z.string().optional(),
+  expiration_time: z.string().nullable().optional(),
+  total_amount: z.union([z.string(), z.number()]).transform(String).optional(),
+  transactions: z.object({
+    payments: z.array(OrderPaymentSchema).min(1),
   }).passthrough(),
 }).passthrough();
 
-const StatusResponseSchema = z.object({ id: z.union([z.string(), z.number()]).transform(String), status: z.string() }).passthrough();
 const RefundResponseSchema = z.object({
   id: z.union([z.string(), z.number()]).transform(String),
   payment_id: z.union([z.string(), z.number()]).transform(String),
@@ -54,6 +67,10 @@ function describeMercadoPagoError(body: unknown): string {
         .filter((description) => description.length > 0)
     : [];
   return causes.length > 0 ? `${message} (${causes.join('; ')})` : message;
+}
+
+function centsToBrlString(cents: number): string {
+  return (cents / 100).toFixed(2);
 }
 
 function centsToBrl(cents: number): number {
@@ -93,26 +110,48 @@ export class MercadoPagoProvider implements PaymentProvider {
 
   async createPixPayment(input: CreatePixPaymentInput): Promise<PixPayment> {
     const idempotencyKey = randomUUID();
+    const amount = centsToBrlString(input.amountBrlCents);
     const body = {
-      transaction_amount: centsToBrl(input.amountBrlCents),
-      payment_method_id: 'pix',
+      type: 'online',
+      external_reference: input.description,
+      total_amount: amount,
       payer: {
         email: input.payer.email,
-        identification: { type: input.payer.identificationType, number: input.payer.identificationNumber },
         first_name: input.payer.name,
         last_name: input.payer.lastName,
+        identification: { type: input.payer.identificationType, number: input.payer.identificationNumber },
       },
-      description: input.description,
-      notification_url: input.notificationUrl,
-      date_of_expiration: input.expiresAt.toISOString(),
+      transactions: {
+        payments: [
+          {
+            amount,
+            payment_method: { id: 'pix', type: 'bank_transfer' },
+          },
+        ],
+      },
     };
-    const parsed = await this.request('/v1/payments', PixResponseSchema, { method: 'POST', idempotencyKey, body });
-    const data = parsed.point_of_interaction.transaction_data;
-    return { provider: this.name, providerPaymentId: parsed.id, status: parsed.status, qrCode: data.qr_code, qrCodeBase64: data.qr_code_base64, ticketUrl: data.ticket_url, expiresAt: parsed.date_of_expiration ?? null, idempotencyKey };
+    const parsed = await this.request('/v1/orders', OrderResponseSchema, { method: 'POST', idempotencyKey, body });
+    const payment = parsed.transactions.payments[0];
+    const pm = payment?.payment_method;
+    const qrCode = pm?.qr_code ?? null;
+    const ticketUrl = pm?.ticket_url ?? null;
+    if (payment === undefined || qrCode === null || ticketUrl === null) {
+      throw new Error(`mercadopago-order-missing-pix-payload orderId=${parsed.id}`);
+    }
+    return {
+      provider: this.name,
+      providerPaymentId: parsed.id,
+      status: parsed.status,
+      qrCode,
+      qrCodeBase64: pm?.qr_code_base64 ?? '',
+      ticketUrl,
+      expiresAt: parsed.expiration_time ?? null,
+      idempotencyKey,
+    };
   }
 
-  async getStatus(paymentId: string): Promise<PaymentStatus> {
-    const parsed = await this.request(`/v1/payments/${encodeURIComponent(paymentId)}`, StatusResponseSchema, { method: 'GET' });
+  async getStatus(orderId: string): Promise<PaymentStatus> {
+    const parsed = await this.request(`/v1/orders/${encodeURIComponent(orderId)}`, OrderResponseSchema, { method: 'GET' });
     return { provider: this.name, providerPaymentId: parsed.id, status: parsed.status, raw: parsed };
   }
 

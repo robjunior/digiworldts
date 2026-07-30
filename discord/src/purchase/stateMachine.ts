@@ -3,7 +3,7 @@ import type { PurchaseEvent, Queryable } from '../repo/types.js';
 export const PURCHASE_STATES = ['pending', 'awaiting_payment', 'paid', 'delivering', 'delivered', 'failed', 'cancelled', 'expired', 'refunded', 'disputed', 'chargeback'] as const;
 export type PurchaseState = (typeof PURCHASE_STATES)[number];
 
-export const MERCADOPAGO_STATUSES = ['pending', 'in_process', 'pending_waiting_transfer', 'approved', 'rejected', 'cancelled', 'refunded', 'in_mediation', 'charged_back'] as const;
+export const MERCADOPAGO_STATUSES = ['pending', 'in_process', 'pending_waiting_transfer', 'approved', 'rejected', 'cancelled', 'refunded', 'in_mediation', 'charged_back', 'action_required', 'processed', 'expired'] as const;
 export type MercadoPagoStatus = (typeof MERCADOPAGO_STATUSES)[number];
 
 const STATUS_STATE: Record<MercadoPagoStatus, PurchaseState> = {
@@ -16,6 +16,9 @@ const STATUS_STATE: Record<MercadoPagoStatus, PurchaseState> = {
   refunded: 'refunded',
   in_mediation: 'disputed',
   charged_back: 'chargeback',
+  action_required: 'awaiting_payment',
+  processed: 'paid',
+  expired: 'expired',
 } as const;
 
 export const TRANSITIONS: Record<PurchaseState, readonly PurchaseState[]> = {
