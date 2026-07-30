@@ -85,6 +85,23 @@ async function main(): Promise<void> {
   assertEqual(processCalls.length, 1, 'duplicate webhook does not process twice');
   const bad = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}` }, payload: { ...payload, data: { id: 'tampered' } } });
   assertEqual(bad.statusCode, 401, 'bad signature rejected');
+
+  const orderId = 'ORDTST01KYT58NXVRNAW452K715R7RF2';
+  const orderSignature = signMercadoPagoWebhook({ dataId: orderId, requestId: 'req_2', ts, secret: 'secret' });
+  const queryOnly = await app.inject({
+    method: 'POST',
+    url: `/webhooks/mercadopago?type=order&data.id=${orderId}&data.external_reference=digiworld-purchase-42`,
+    headers: { 'x-signature': `ts=${ts},v1=${orderSignature}`, 'x-request-id': 'req_2' },
+    payload: '',
+  });
+  assertEqual(queryOnly.statusCode, 200, 'orders API — query-string-only notification ACKs 200');
+  await flushImmediate();
+  assertEqual(processCalls.length, 2, 'orders API — new notification triggers exactly one process call');
+  assertEqual(processCalls[1], orderId, 'orders API — processPayment receives the order_id from data.id query param');
+
+  const missingBoth = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', payload: {} });
+  assertEqual(missingBoth.statusCode, 400, 'no type + no data.id anywhere returns 400');
+
   await app.close();
   process.stdout.write('webhook and orchestrator tests passed\n');
 }
