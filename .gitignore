@@ -69,3 +69,6 @@ tmp/
 
 # codegraph db (existing)
 .codegraph/
+
+# OpenCode agent session artifacts (plans, evidence, drafts)
+.omo/
