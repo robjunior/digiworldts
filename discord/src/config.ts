@@ -30,6 +30,9 @@ const ConfigSchema = z.object({
   TICKET_INACTIVITY_HOURS: z.coerce.number().int().positive().default(48),
   RATE_LIMIT_COMMANDS: z.coerce.number().int().positive().default(20),
   RATE_LIMIT_BUY: z.coerce.number().int().positive().default(3),
+  CREDITS_PER_BRL: z.coerce.number().int().positive().default(100),
+  BUY_MIN_BRL: z.coerce.number().positive().default(5),
+  BUY_MAX_BRL: z.coerce.number().positive().default(500),
 });
 
 const parsed = ConfigSchema.safeParse(process.env);

@@ -3,7 +3,14 @@ import { normalizeLocale, t, type Locale } from '../i18n.js';
 import { log } from '../logger.js';
 import { enforceCommandRateLimit, type RateLimitKind } from './rate-limit.js';
 
-export type ReplyPayload = { readonly ephemeral?: boolean; readonly content?: string; readonly embeds?: readonly { readonly title: string; readonly description: string }[] };
+export type ReplyButton = { readonly type: 2; readonly style: number; readonly label: string; readonly custom_id: string };
+export type ReplyActionRow = { readonly type: 1; readonly components: readonly ReplyButton[] };
+export type ReplyPayload = {
+  readonly ephemeral?: boolean;
+  readonly content?: string;
+  readonly embeds?: readonly { readonly title: string; readonly description: string }[];
+  readonly components?: readonly ReplyActionRow[];
+};
 export type CommandInteraction = {
   readonly user: { readonly id: string };
   readonly locale?: string;

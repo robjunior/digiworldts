@@ -6,42 +6,39 @@ import { query } from '../db.js';
 import { t, type Locale } from '../i18n.js';
 import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
-import { loadProductCatalog, type ProductCatalog, type ProductConfig } from '../products.js';
 import { log } from '../logger.js';
-import { listDisabledPackSkus } from '../repo/admin.js';
+import { isSalesPaused } from '../repo/admin.js';
 import { insertPurchaseSession } from '../repo/purchases.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
-import { runDeferredCommand, type CommandInteraction } from './wrapper.js';
+import { runDeferredCommand, type CommandInteraction, type ReplyActionRow } from './wrapper.js';
+
+const SHORTCUT_BRL_AMOUNTS = [10, 25, 50, 100] as const;
+export const BUY_BUTTON_PREFIX = 'buy:amount:';
 
 type BuyInteraction = CommandInteraction & {
   readonly guildId?: string | null;
-  readonly options?: { readonly getString: (name: string) => string | null };
+  readonly options?: { readonly getNumber?: (name: string) => number | null };
+};
+
+type BuyButtonInteraction = CommandInteraction & {
+  readonly guildId?: string | null;
+  readonly customId: string;
 };
 
 export type BuyCommandDeps = {
-  readonly backendClient?: Pick<BackendGateway, 'products' | 'userByDiscord'>;
+  readonly backendClient?: Pick<BackendGateway, 'userByDiscord'>;
   readonly paymentProvider?: Pick<PaymentProvider, 'createPixPayment'>;
-  readonly loadCatalog?: () => Promise<ProductCatalog>;
   readonly db?: Queryable;
   readonly now?: () => number;
   readonly payer?: { readonly email: string; readonly name: string; readonly lastName: string; readonly identificationType: string; readonly identificationNumber: string };
 };
 
-function price(cents: number): string {
+function brl(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
-function enabledCatalogProducts(catalog: ProductCatalog): readonly ProductConfig[] {
-  return catalog.products.filter((product) => product.enabled !== false);
-}
-
-function findSelectedProduct(catalog: ProductCatalog, sku: string): ProductConfig | null {
-  return enabledCatalogProducts(catalog).find((product) => product.sku === sku) ?? null;
-}
-
-function renderSelectPrompt(products: readonly ProductConfig[], locale: Locale): string {
-  const rows = products.map((product) => t('discord.buy.pack_row', { name: product.displayName[locale], price: price(product.priceBrlCents), sku: product.sku }, locale));
-  return `${t('discord.buy.select_prompt', {}, locale)}\n${rows.join('\n')}`;
+function creditsForCents(amountBrlCents: number): number {
+  return Math.round((amountBrlCents / 100) * config.CREDITS_PER_BRL);
 }
 
 function configuredPayer(): BuyCommandDeps['payer'] {
@@ -49,45 +46,146 @@ function configuredPayer(): BuyCommandDeps['payer'] {
   return { email: config.MP_PAYER_EMAIL, name: config.MP_PAYER_NAME, lastName: config.MP_PAYER_LAST_NAME, identificationType: config.MP_PAYER_ID_TYPE, identificationNumber: config.MP_PAYER_ID_NUMBER };
 }
 
-function createSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly product: ProductConfig; readonly paymentId: string; readonly innerPaymentId: string; readonly idempotencyKey: string; readonly qrCode: string; readonly qrCodeBase64: string; readonly ticketUrl: string; readonly expiresAt: number; readonly now: number }): PurchaseSession {
-  return { id: randomUUID(), userId: input.userId, discordId: input.discordId, guildId: input.guildId, sku: input.product.sku, provider: 'mercadopago', providerPaymentId: input.paymentId, state: 'awaiting_payment', amountBrlCents: input.product.priceBrlCents, currency: 'BRL', idempotencyKey: input.idempotencyKey, qrCode: input.qrCode, qrCodeBase64: input.qrCodeBase64, ticketUrl: input.ticketUrl, expiresAt: input.expiresAt, deliveredAt: null, metadataJson: JSON.stringify({ shopItemId: input.product.shopItemId, kind: input.product.kind, innerPaymentId: input.innerPaymentId }), createdAt: input.now, updatedAt: input.now };
+function shortcutRow(): ReplyActionRow {
+  const withinLimits = SHORTCUT_BRL_AMOUNTS.filter((amount) => amount >= config.BUY_MIN_BRL && amount <= config.BUY_MAX_BRL);
+  return {
+    type: 1,
+    components: withinLimits.map((amount) => ({
+      type: 2 as const,
+      style: 1,
+      label: `R$ ${amount}`,
+      custom_id: `${BUY_BUTTON_PREFIX}${amount * 100}`,
+    })),
+  };
 }
 
-export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCommandDeps = {}): Promise<void> {
+export function parseBuyButtonCents(customId: string): number | null {
+  if (!customId.startsWith(BUY_BUTTON_PREFIX)) return null;
+  const raw = Number.parseInt(customId.slice(BUY_BUTTON_PREFIX.length), 10);
+  return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+}
+
+function createSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly amountBrlCents: number; readonly creditsAmount: number; readonly paymentId: string; readonly innerPaymentId: string; readonly idempotencyKey: string; readonly qrCode: string; readonly qrCodeBase64: string; readonly ticketUrl: string; readonly expiresAt: number; readonly now: number }): PurchaseSession {
+  return {
+    id: randomUUID(),
+    userId: input.userId,
+    discordId: input.discordId,
+    guildId: input.guildId,
+    sku: `CREDITS_${input.amountBrlCents}`,
+    provider: 'mercadopago',
+    providerPaymentId: input.paymentId,
+    state: 'awaiting_payment',
+    amountBrlCents: input.amountBrlCents,
+    currency: 'BRL',
+    idempotencyKey: input.idempotencyKey,
+    qrCode: input.qrCode,
+    qrCodeBase64: input.qrCodeBase64,
+    ticketUrl: input.ticketUrl,
+    expiresAt: input.expiresAt,
+    deliveredAt: null,
+    // creditsAmount is frozen here so a later CREDITS_PER_BRL change never
+    // retroactively alters what an already-paid order delivers.
+    metadataJson: JSON.stringify({ creditsAmount: input.creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL, innerPaymentId: input.innerPaymentId }),
+    createdAt: input.now,
+    updatedAt: input.now,
+  };
+}
+
+async function createPixPurchase(interaction: CommandInteraction & { readonly guildId?: string | null }, amountBrlCents: number, locale: Locale, deps: BuyCommandDeps): Promise<void> {
   const backendClient = deps.backendClient ?? createBackendClient();
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
-  const loadCatalog = deps.loadCatalog ?? loadProductCatalog;
   const db = deps.db ?? { query };
   const now = deps.now ?? Date.now;
   const payer = deps.payer ?? configuredPayer();
+
+  const minCents = Math.round(config.BUY_MIN_BRL * 100);
+  const maxCents = Math.round(config.BUY_MAX_BRL * 100);
+  if (amountBrlCents < minCents) {
+    await interaction.editReply({ content: t('discord.buy.amount_too_low', { min: config.BUY_MIN_BRL.toFixed(2) }, locale) });
+    return;
+  }
+  if (amountBrlCents > maxCents) {
+    await interaction.editReply({ content: t('discord.buy.amount_too_high', { max: config.BUY_MAX_BRL.toFixed(2) }, locale) });
+    return;
+  }
+  if (payer === undefined) {
+    log.error('discord.buy.payer_unconfigured', { missing: 'MP_PAYER_EMAIL/NAME/LAST_NAME/ID_TYPE/ID_NUMBER' });
+    await interaction.editReply({ content: t('discord.buy.failed', {}, locale) });
+    return;
+  }
+
+  const creditsAmount = creditsForCents(amountBrlCents);
+  const linkedUser = await backendClient.userByDiscord(interaction.user.id);
+  const expiresAt = now() + config.PIX_EXPIRATION_MINUTES * 60_000;
+  const payment = await paymentProvider.createPixPayment({
+    amountBrlCents,
+    payer,
+    description: `DigiWorld ${creditsAmount} DigiCredits`,
+    notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(),
+    expiresAt: new Date(expiresAt),
+  });
+  const session = createSession({
+    userId: linkedUser.userId,
+    discordId: interaction.user.id,
+    guildId: interaction.guildId ?? 'dm',
+    amountBrlCents,
+    creditsAmount,
+    paymentId: payment.providerPaymentId,
+    innerPaymentId: payment.innerPaymentId,
+    idempotencyKey: payment.idempotencyKey,
+    qrCode: payment.qrCode,
+    qrCodeBase64: payment.qrCodeBase64,
+    ticketUrl: payment.ticketUrl,
+    expiresAt,
+    now: now(),
+  });
+  await insertPurchaseSession(db, session);
+  await interaction.editReply({
+    embeds: [{
+      title: t('discord.buy.qr_title', { amount: brl(amountBrlCents), credits: creditsAmount }, locale),
+      description: `${payment.qrCode}\n${payment.ticketUrl}\n${t('discord.buy.qr_expires_in', { minutes: Math.ceil((expiresAt - now()) / 60_000) }, locale)}`,
+    }],
+  });
+}
+
+async function guardSalesOpen(db: Queryable, interaction: CommandInteraction, locale: Locale): Promise<boolean> {
+  if (!(await isSalesPaused(db))) return true;
+  await interaction.editReply({ content: t('discord.buy.sales_paused', {}, locale) });
+  return false;
+}
+
+export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCommandDeps = {}): Promise<void> {
+  const db = deps.db ?? { query };
   await runDeferredCommand(interaction, async ({ locale }) => {
-    const sku = interaction.options?.getString('sku') ?? null;
-    const productsResponse = await backendClient.products();
-    const catalog = await loadCatalog();
-    const disabledSkus = await listDisabledPackSkus(db);
-    const backendIds = new Set(productsResponse.products.map((product) => product.id));
-    const availableProducts = enabledCatalogProducts(catalog)
-      .filter((product) => backendIds.has(product.shopItemId))
-      .filter((product) => !disabledSkus.has(product.sku));
-    if (sku === null) {
-      await interaction.editReply({ content: availableProducts.length === 0 ? t('discord.buy.no_packs', {}, locale) : renderSelectPrompt(availableProducts, locale) });
+    if (!(await guardSalesOpen(db, interaction, locale))) return;
+    const valor = interaction.options?.getNumber?.('valor') ?? null;
+    if (valor === null) {
+      await interaction.editReply({
+        embeds: [{
+          title: t('discord.buy.guide_title', {}, locale),
+          description: t('discord.buy.guide_body', {
+            rate: config.CREDITS_PER_BRL,
+            min: config.BUY_MIN_BRL.toFixed(2),
+            max: config.BUY_MAX_BRL.toFixed(2),
+          }, locale),
+        }],
+        components: [shortcutRow()],
+      });
       return;
     }
-    const product = findSelectedProduct({ products: availableProducts }, sku);
-    if (payer === undefined) {
-      log.error('discord.buy.payer_unconfigured', { missing: 'MP_PAYER_EMAIL/NAME/LAST_NAME/ID_TYPE/ID_NUMBER' });
-      await interaction.editReply({ content: t('discord.buy.failed', {}, locale) });
+    await createPixPurchase(interaction, Math.round(valor * 100), locale, deps);
+  }, { kind: 'buy' });
+}
+
+export async function handleBuyButton(interaction: BuyButtonInteraction, deps: BuyCommandDeps = {}): Promise<void> {
+  const db = deps.db ?? { query };
+  await runDeferredCommand(interaction, async ({ locale }) => {
+    if (!(await guardSalesOpen(db, interaction, locale))) return;
+    const cents = parseBuyButtonCents(interaction.customId);
+    if (cents === null) {
+      await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
       return;
     }
-    if (product === null) {
-      await interaction.editReply({ content: t('discord.buy.failed', {}, locale) });
-      return;
-    }
-    const linkedUser = await backendClient.userByDiscord(interaction.user.id);
-    const expiresAt = now() + (product.expiresMinutes ?? config.PIX_EXPIRATION_MINUTES) * 60_000;
-    const payment = await paymentProvider.createPixPayment({ amountBrlCents: product.priceBrlCents, payer, description: `DigiWorld ${product.sku}`, notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(), expiresAt: new Date(expiresAt) });
-    const session = createSession({ userId: linkedUser.userId, discordId: interaction.user.id, guildId: interaction.guildId ?? 'dm', product, paymentId: payment.providerPaymentId, innerPaymentId: payment.innerPaymentId, idempotencyKey: payment.idempotencyKey, qrCode: payment.qrCode, qrCodeBase64: payment.qrCodeBase64, ticketUrl: payment.ticketUrl, expiresAt, now: now() });
-    await insertPurchaseSession(db, session);
-    await interaction.editReply({ embeds: [{ title: t('discord.buy.qr_title', { sku: product.sku }, locale), description: `${payment.qrCode}\n${payment.ticketUrl}\n${t('discord.buy.qr_expires_in', { minutes: Math.ceil((expiresAt - now()) / 60_000) }, locale)}` }] });
+    await createPixPurchase(interaction, cents, locale, deps);
   }, { kind: 'buy' });
 }

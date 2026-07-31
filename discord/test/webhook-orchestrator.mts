@@ -45,7 +45,7 @@ class MemoryDb {
 }
 
 function session(state: string): Row {
-  return { id: 'session-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'SKU_CREDITS', provider: 'mercadopago', provider_payment_id: 'pay_1', state, amount_brl_cents: 100, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: null, metadata_json: '{}', created_at: 1_000, updated_at: 1_000 };
+  return { id: 'session-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'CREDITS_2500', provider: 'mercadopago', provider_payment_id: 'pay_1', state, amount_brl_cents: 2500, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: null, metadata_json: JSON.stringify({ creditsAmount: 2500, creditsPerBrl: 100, innerPaymentId: 'pay_inner_1' }), created_at: 1_000, updated_at: 1_000 };
 }
 
 async function main(): Promise<void> {
@@ -54,24 +54,37 @@ async function main(): Promise<void> {
   const { createServer } = await import('../src/server.js');
   const db = new MemoryDb();
   db.sessions.set('session-1', session('awaiting_payment'));
-  const grants: string[] = [];
+  const grants: { readonly key: string; readonly amount: number }[] = [];
   const notifications: { readonly discordId: string; readonly kind: string; readonly sku?: string }[] = [];
   await processMercadoPagoPayment('pay_1', {
     db,
     now: () => 3_000,
     paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', raw: { status: 'approved' } }) },
     backendClient: {
-      walletCredit: async (input) => { grants.push(input.idempotencyKey); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+      walletCredit: async (input) => { grants.push({ key: input.idempotencyKey, amount: input.amount }); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
     },
-    loadCatalog: async () => ({ products: [{ sku: 'SKU_CREDITS', displayName: { pt: 'Pack', en: 'Pack' }, priceBrlCents: 100, shopItemId: 'backend-pack', kind: 'credits', creditsAmount: 100, enabled: true }] }),
     notifications: { sendPurchaseNotification: async (input) => { notifications.push(input); } },
   });
   assertEqual(grants.length, 1, 'approved payment grants exactly once');
-  assertEqual(grants[0] ?? '', 'purchase:session-1:reward', 'deterministic reward idempotency key');
+  assertEqual(grants[0]?.key ?? '', 'purchase:session-1:reward', 'deterministic reward idempotency key');
+  assertEqual(grants[0]?.amount, 2500, 'credits come from the frozen metadata creditsAmount, not a catalog lookup');
   assertEqual(db.sessions.get('session-1')?.state, 'delivered', 'approved payment reaches delivered');
   assertEqual(notifications.length, 1, 'approved payment fires exactly one notification');
   assertEqual(notifications[0]?.kind, 'approved', 'notification kind is approved');
   assertEqual(notifications[0]?.discordId, 'discord-1', 'notification targets session discord id');
+
+  const fallbackDb = new MemoryDb();
+  fallbackDb.sessions.set('session-2', { ...session('awaiting_payment'), id: 'session-2', provider_payment_id: 'pay_2', amount_brl_cents: 1000, metadata_json: '{}' });
+  const fallbackGrants: number[] = [];
+  await processMercadoPagoPayment('pay_2', {
+    db: fallbackDb,
+    now: () => 3_000,
+    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_2', status: 'approved', raw: { status: 'approved' } }) },
+    backendClient: {
+      walletCredit: async (input) => { fallbackGrants.push(input.amount); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+    },
+  });
+  assertEqual(fallbackGrants[0], 1000, 'session without frozen creditsAmount recomputes from amountBrlCents x CREDITS_PER_BRL');
 
   const processCalls: string[] = [];
   const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: 'http://127.0.0.1:1' });
