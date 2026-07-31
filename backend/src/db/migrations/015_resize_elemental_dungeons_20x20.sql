@@ -106,14 +106,15 @@ INSERT INTO dungeons (
 -- 3. Tiles: 84 walkable per dungeon x 9 dungeons = 756 rows.
 --    Produced by cross-joining the dungeon ids against the 84-tile template.
 -- =============================================================================
+-- Expressed as CTEs rather than `FROM (VALUES ...) AS d(id)`: the column-alias
+-- list on a subquery is Postgres-only, while both engines accept it on a CTE.
 INSERT INTO dungeon_tiles (dungeon_id, x, y)
-SELECT d.id, t.x, t.y
-FROM (VALUES
+WITH d(id) AS (VALUES
   ('dun_plant_1'),('dun_plant_2'),('dun_plant_3'),
   ('dun_water_1'),('dun_water_2'),('dun_water_3'),
   ('dun_fire_1'), ('dun_fire_2'), ('dun_fire_3')
-) AS d(id)
-CROSS JOIN (VALUES
+),
+t(x, y) AS (VALUES
   -- Room A: 5x5 spawn room at (2..6, 2..6)
   (2,2),(3,2),(4,2),(5,2),(6,2),
   (2,3),(3,3),(4,3),(5,3),(6,3),
@@ -136,7 +137,8 @@ CROSS JOIN (VALUES
   (13,12),(14,12),(15,12),(16,12),(17,12),
   (13,13),(14,13),(15,13),(16,13),(17,13),
   (13,14),(14,14),(15,14),(16,14),(17,14)
-) AS t(x, y);
+)
+SELECT d.id, t.x, t.y FROM d CROSS JOIN t;
 
 -- =============================================================================
 -- 4. Boss encounters at (15,12) - Champion of the element, one stage above the

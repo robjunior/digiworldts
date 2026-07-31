@@ -131,42 +131,56 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
   return { applied, skipped };
 }
 
-async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Migration, err: unknown): Promise<boolean> {
-  if (!isDuplicateColumnError(err)) return false;
-  if (migration.version === '011_dungeon_random_encounters') return hasDungeonRandomEncounterColumns(adapter);
-  if (migration.version !== '009_world_objects_lat_lon') return false;
-  if (adapter.kind === 'sqlite') {
-    const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(world_objects)`);
-    const names = new Set(columns.map((column) => column.name));
-    return names.has('lat') && names.has('lon');
+const ADD_COLUMN_STMT_RE = /^ALTER\s+TABLE\s+([A-Za-z_][\w]*)\s+ADD\s+COLUMN\s+([A-Za-z_][\w]*)\b/i;
+
+/**
+ * Returns the columns a migration adds, or null when it does anything else.
+ * Mixed migrations must stay null: marking one applied would silently skip the
+ * backfills and inserts sitting alongside the ALTER.
+ */
+function addedColumnsOf(sql: string): readonly { table: string; column: string }[] | null {
+  const statements = sql
+    .replace(/^\s*--.*$/gm, '')
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (statements.length === 0) return null;
+
+  const columns: { table: string; column: string }[] = [];
+  for (const statement of statements) {
+    const match = ADD_COLUMN_STMT_RE.exec(statement);
+    if (match === null) return null;
+    columns.push({ table: match[1]!, column: match[2]! });
   }
-  const columns = await adapter.query<{ column_name: string }>(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'world_objects' AND column_name IN ('lat', 'lon')`,
-  );
-  return columns.length === 2;
+  return columns;
 }
 
-async function hasDungeonRandomEncounterColumns(adapter: DbAdapter): Promise<boolean> {
-  const expected = new Set([
-    'random_encounters_enabled',
-    'random_encounter_rate',
-    'random_min_level',
-    'random_max_level',
-    'random_max_stage',
-    'random_min_party_size',
-    'random_max_party_size',
-    'random_allowed_elements',
-  ]);
+async function columnExists(adapter: DbAdapter, table: string, column: string): Promise<boolean> {
   if (adapter.kind === 'sqlite') {
-    const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(dungeons)`);
-    const names = new Set(columns.map((column) => column.name));
-    return [...expected].every((name) => names.has(name));
+    const rows = await adapter.query<{ name: string }>(`PRAGMA table_info(${table})`);
+    return rows.some((row) => row.name === column);
   }
-  const columns = await adapter.query<{ column_name: string }>(
-    `SELECT column_name FROM information_schema.columns WHERE table_name = 'dungeons' AND column_name LIKE 'random_%'`,
+  const rows = await adapter.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = ? AND column_name = ?`,
+    [table, column],
   );
-  const names = new Set(columns.map((column) => column.column_name));
-  return [...expected].every((name) => names.has(name));
+  return rows.length > 0;
+}
+
+/**
+ * A pure ADD COLUMN migration whose columns the baseline schema already
+ * declares is a no-op, not a failure: schema.sql has simply absorbed it since
+ * it was written. Verifying every column it would add is what keeps this from
+ * swallowing a genuine error.
+ */
+async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Migration, err: unknown): Promise<boolean> {
+  if (!isDuplicateColumnError(err)) return false;
+  const added = addedColumnsOf(migration.sql);
+  if (added === null || added.length === 0) return false;
+  for (const { table, column } of added) {
+    if (!(await columnExists(adapter, table, column))) return false;
+  }
+  return true;
 }
 
 export function isDuplicateColumnError(err: unknown): boolean {

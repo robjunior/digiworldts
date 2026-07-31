@@ -14,7 +14,7 @@
  * Pairing brackets: two independent bounds that both must be satisfied,
  * each widening over queue wait time so nobody sits forever:
  *   level bracket       → |avgLevel_a − avgLevel_b|   ≤ 5   + 5×⌊wait/3s⌋
- *   trainedness bracket → |trainedness_a − trainedness_b| ≤ 100 + 100×⌊wait/3s⌋
+ *   trainedness bracket → |trainedness_a − trainedness_b| ≤ 1000 + 1000×⌊wait/3s⌋
  *
  * Interface is async. Old sync `Matchmaker` callers must migrate — the
  * pairing loop in lobby/ws.ts already runs in an async context.
