@@ -50,6 +50,7 @@ const ConfigSchema = z.object({
   CATALOG_XML: z.string().default('data/catalog/digimons.xml'),
   SCRAPE_CACHE_DIR: z.string().default('data/cache'),
   ASSETS_DIR: z.string().default('public/assets/digimon'),
+  DIALOGUES_DIR: z.string().default('data/dialogues'),
   SESSION_SECRET: z.string().min(32),
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24 * 7),
   ADMIN_BOOTSTRAP: z.enum(['open', 'closed']).default('open'),
@@ -94,6 +95,7 @@ export const config = {
     catalogXml: resolve(projectRoot, parsed.data.CATALOG_XML),
     scrapeCacheDir: resolve(projectRoot, parsed.data.SCRAPE_CACHE_DIR),
     assetsDir: resolve(projectRoot, parsed.data.ASSETS_DIR),
+    dialogues: resolve(projectRoot, parsed.data.DIALOGUES_DIR),
   },
 } as const;
 
