@@ -1,5 +1,6 @@
 import type { WorldRegion } from '@digiworld/shared/world';
 import type { CSSProperties } from 'react';
+import type { WorldObject } from '../../lib/api-world';
 
 const BLURB: Record<string, string> = {
   desert: 'Heat-warped dunes where Virus-types thrive. Ember storms scour the ridgelines at dusk.',
@@ -20,31 +21,70 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 type RegionDetailProps = {
   readonly selectedRegion: WorldRegion | null;
-  readonly onEnterDungeon: (region: WorldRegion) => void;
+  readonly selectedLandmark: WorldObject | null;
+  readonly onEnterDungeon: (dungeonId: string) => void;
 };
 
-export function RegionDetail({ selectedRegion, onEnterDungeon }: RegionDetailProps): JSX.Element {
+export function RegionDetail({ selectedRegion, selectedLandmark, onEnterDungeon }: RegionDetailProps): JSX.Element {
+  if (selectedRegion) {
+    const dungeonId = selectedRegion.dungeonId;
+    return (
+      <div className="rdetail" id="rdetail">
+        <div className="dk">Selected Region</div>
+        <h3>{selectedRegion.label}</h3>
+        <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as CSSProperties}>
+          <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
+          <span className="rchip" style={{ '--el': 'var(--muted)' } as CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
+          {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as CSSProperties}><span className="cx"></span>Scouted</span>}
+        </div>
+        <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
+        <div className="dgauge">
+          <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
+          <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
+        </div>
+        <button
+          className="dbtn"
+          id="scout-btn"
+          disabled={dungeonId === null}
+          onClick={() => { if (dungeonId !== null) onEnterDungeon(dungeonId); }}
+        >
+          Enter Dungeon
+        </button>
+      </div>
+    );
+  }
+
+  if (selectedLandmark) {
+    const dungeonId = selectedLandmark.dungeonId ?? null;
+    const label = selectedLandmark.label && selectedLandmark.label.trim().length > 0
+      ? selectedLandmark.label
+      : `Unnamed ${selectedLandmark.kind}`;
+    return (
+      <div className="rdetail" id="rdetail">
+        <div className="dk">Selected Landmark</div>
+        <h3>{label}</h3>
+        <div className="dmeta" style={{ '--el': selectedLandmark.tint ?? 'var(--muted)' } as CSSProperties}>
+          <span className="rchip"><span className="cx"></span>{cap(selectedLandmark.kind)}</span>
+          <span className="rchip" style={{ '--el': 'var(--muted)' } as CSSProperties}><span className="cx"></span>{selectedLandmark.lat.toFixed(1)}°, {selectedLandmark.lon.toFixed(1)}°</span>
+        </div>
+        {dungeonId !== null ? (
+          <button
+            className="dbtn"
+            id="scout-btn"
+            onClick={() => onEnterDungeon(dungeonId)}
+          >
+            Enter Dungeon
+          </button>
+        ) : (
+          <div className="rempty">This landmark has no dungeon linked yet.</div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rdetail" id="rdetail">
-      {selectedRegion ? (
-        <>
-          <div className="dk">Selected Region</div>
-          <h3>{selectedRegion.label}</h3>
-          <div className="dmeta" style={{ '--el': elVar(selectedRegion.element) } as CSSProperties}>
-            <span className="rchip"><span className="cx"></span>{cap(selectedRegion.element)}</span>
-            <span className="rchip" style={{ '--el': 'var(--muted)' } as CSSProperties}><span className="cx"></span>{cap(selectedRegion.biome)}</span>
-            {selectedRegion.scouted && <span className="rchip" style={{ '--el': 'var(--signal)' } as CSSProperties}><span className="cx"></span>Scouted</span>}
-          </div>
-          <div className="dblurb">{BLURB[selectedRegion.biome] || ''}</div>
-          <div className="dgauge">
-            <div className="gl"><span>Danger</span><b>{selectedRegion.danger} / 5</b></div>
-            <div className="gbar"><i style={{ width: `${selectedRegion.danger / 5 * 100}%` }}></i></div>
-          </div>
-          <button className="dbtn" id="scout-btn" onClick={() => onEnterDungeon(selectedRegion)}>Enter Dungeon</button>
-        </>
-      ) : (
-        <div className="rempty">Select a region on the globe or list to scout it.</div>
-      )}
+      <div className="rempty">Select a region or landmark on the globe or list to scout it.</div>
     </div>
   );
 }

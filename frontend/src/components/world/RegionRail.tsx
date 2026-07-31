@@ -23,7 +23,7 @@ type RegionRailProps = {
   readonly onTabChange: (tab: 'regions' | 'quests') => void;
   readonly onSelectIdx: (idx: number) => void;
   readonly onSelectLandmark: (id: string) => void;
-  readonly onEnterDungeon: (region: WorldRegion) => void;
+  readonly onEnterDungeon: (dungeonId: string) => void;
   readonly onSelectBiome: (biome: Biome) => void;
   readonly onAcceptQuest: (id: string) => void;
   readonly onClaimQuest: (id: string) => void;
@@ -47,6 +47,9 @@ export function RegionRail({
   onClaimQuest
 }: RegionRailProps): JSX.Element {
   const selectedRegion = selectedIdx !== null ? (regions[selectedIdx] ?? null) : null;
+  const selectedLandmark = selectedLandmarkId !== null
+    ? worldObjects.find((obj) => obj.id === selectedLandmarkId) ?? null
+    : null;
 
   return (
     <aside className="rail" data-od-id="region-rail">
@@ -118,7 +121,7 @@ export function RegionRail({
           })}
         </div>
 
-        <RegionDetail selectedRegion={selectedRegion} onEnterDungeon={onEnterDungeon} />
+        <RegionDetail selectedRegion={selectedRegion} selectedLandmark={selectedLandmark} onEnterDungeon={onEnterDungeon} />
       </div>
 
       <div className={`rpane${tab === 'quests' ? ' show' : ''}`} role="tabpanel" aria-label="Quests" hidden={tab !== 'quests'}>
