@@ -1,7 +1,7 @@
 import { assert, assertEqual } from './assert.mjs';
 import { setTestEnv } from './env.mjs';
 
-import type { ProductsResponse, UserByDiscordResponse } from '../src/backendClient.js';
+import type { UserByDiscordResponse } from '../src/backendClient.js';
 
 setTestEnv();
 
@@ -44,10 +44,9 @@ async function main(): Promise<void> {
   const { BackendClientError } = await import('../src/backendClient.js');
   const { handleBalanceCommand } = await import('../src/commands/balance.js');
   const balanceInteraction = interaction();
-  await handleBalanceCommand(balanceInteraction, { backendClient: { userByDiscord: async () => linkedUser() }, now: () => 1_000 });
+  await handleBalanceCommand(balanceInteraction, { backendClient: { userByDiscord: async () => linkedUser() } });
   const balanceReply = balanceInteraction.calls.find((call) => call.startsWith('edit:')) ?? '';
   assert(balanceReply.includes('Credits: 42'), '/balance renders wallet credits');
-  assert(balanceReply.includes('day(s) left'), '/balance renders premium days');
 
   const unlinkedInteraction = interaction();
   await handleBalanceCommand(unlinkedInteraction, {
@@ -55,41 +54,14 @@ async function main(): Promise<void> {
   });
   assert((unlinkedInteraction.calls.find((call) => call.startsWith('edit:')) ?? '').includes('Link your DigiWorld account'), '/balance 404 renders no_link');
 
-  const { handleShopCommand } = await import('../src/commands/shop.js');
-  const emptyShop = interaction();
-  await handleShopCommand(emptyShop, { backendClient: { products: async (): Promise<ProductsResponse> => ({ products: [] }) }, loadCatalog: async () => ({ products: [] }) });
-  assert((emptyShop.calls.find((call) => call.startsWith('edit:')) ?? '').includes('No Discord products'), '/shop zero products renders no_products');
-
-  const populatedShop = interaction();
-  await handleShopCommand(populatedShop, {
-    backendClient: { products: async (): Promise<ProductsResponse> => ({ products: [{ id: 'backend-item-1', name: 'Backend Item', description: '', priceCredits: 0, kind: 'item', class: 'product', payload: {} }] }) },
-    loadCatalog: async () => ({ products: [{ sku: 'SKU_TEST_ONLY', displayName: { pt: 'Item PT', en: 'Item EN' }, priceBrlCents: 123, shopItemId: 'backend-item-1', kind: 'item', enabled: true }] }),
-  });
-  const shopReply = populatedShop.calls.find((call) => call.startsWith('edit:')) ?? '';
-  assert(shopReply.includes('Item EN'), '/shop renders localized product name');
-  assert(shopReply.includes('SKU_TEST_ONLY'), '/shop renders product SKU row');
-
-  const pagedShop = interaction();
-  await handleShopCommand(pagedShop, {
-    backendClient: { products: async (): Promise<ProductsResponse> => ({ products: [{ id: 'backend-item-1', name: 'Backend Item', description: '', priceCredits: 0, kind: 'item', class: 'product', payload: {} }, { id: 'backend-item-2', name: 'Backend Item 2', description: '', priceCredits: 0, kind: 'item', class: 'product', payload: {} }] }) },
-    loadCatalog: async () => ({ products: [{ sku: 'SKU_PAGE_1', displayName: { pt: 'Item PT', en: 'Item EN' }, priceBrlCents: 123, shopItemId: 'backend-item-1', kind: 'item', enabled: true }, { sku: 'SKU_PAGE_2', displayName: { pt: 'Item PT 2', en: 'Item EN 2' }, priceBrlCents: 456, shopItemId: 'backend-item-2', kind: 'item', enabled: true }] }),
-    pageSize: 1,
-  });
-  assert((pagedShop.calls.find((call) => call.startsWith('edit:')) ?? '').includes('previous | next'), '/shop renders pagination controls for multipage product list');
-
-  const { handlePremiumCommand } = await import('../src/commands/premium.js');
-  const premiumInteraction = interaction();
-  await handlePremiumCommand(premiumInteraction, { backendClient: { userByDiscord: async () => linkedUser({ premiumUntil: 173_800_000 }) }, now: () => 1_000 });
-  assert((premiumInteraction.calls.find((call) => call.startsWith('edit:')) ?? '').includes('Premium is active'), '/premium renders active premium status');
-
   const { handleHelpCommand } = await import('../src/commands/help.js');
   const helpInteraction = interaction();
   await handleHelpCommand(helpInteraction);
   assert((helpInteraction.calls.find((call) => call.startsWith('edit:')) ?? '').includes('/balance'), '/help renders command overview');
 
   const { commandHandlers, commandManifest } = await import('../src/commands/index.js');
-  assertEqual(commandManifest.length, 11, 'manifest still has 11 top-level commands');
-  for (const name of ['balance', 'premium', 'shop', 'help']) assert(typeof commandHandlers[name] === 'function', `${name} handler wired`);
+  assertEqual(commandManifest.length, 7, 'manifest has 7 top-level commands post-REV-1.1 (link, unlink, balance, buy, purchases, help, admin)');
+  for (const name of ['link', 'unlink', 'balance', 'buy', 'help']) assert(typeof commandHandlers[name] === 'function', `${name} handler wired`);
 
   process.stdout.write('commerce command tests passed\n');
 }

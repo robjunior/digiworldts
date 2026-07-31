@@ -17,9 +17,8 @@ The Discord service uses this file for display metadata only. The backend `shop_
 - `priceBrlCents` (required integer, minimum `0`): Price in BRL cents. No other currency is supported in this contract.
 - `currency` (optional string): When present, it must be `BRL`. Omit it unless an operator tool wants an explicit currency marker.
 - `shopItemId` (required string): Foreign key to the backend `shop_items.id` entry that defines the actual gameplay grant.
-- `kind` (required string): One of `item`, `premium`, or `credits`. This controls later purchase fulfillment routing.
-- `premiumDays` (conditionally required integer): Required when `kind` is `premium`; number of premium days granted by the product.
-- `creditsAmount` (conditionally required integer): Required when `kind` is `credits`; amount of DigiWorld credits granted by the product.
+- `kind` (required string): Must be `credits` — the sole supported product kind in this phase (REV-1.1 dropped `item` and `premium` variants; items and premium are bought in-game with DigiCredits).
+- `creditsAmount` (required integer, minimum `1`): Amount of DigiCredits granted by this pack when the PIX payment is confirmed.
 - `expiresMinutes` (optional integer): Per-product PIX expiration override in minutes. When omitted, the service default is used.
 - `enabled` (optional boolean, default `true`): Set to `false` to hide a configured product without deleting it.
 
