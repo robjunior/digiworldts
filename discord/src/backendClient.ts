@@ -14,8 +14,6 @@ const UserByDiscordResponseSchema = z.object({
   locale: z.string().nullable(),
 });
 const WalletCreditResponseSchema = z.object({ ok: z.boolean(), userId: z.string(), amount: z.number(), credits: z.number(), reason: z.string() }).passthrough();
-const ProductSchema = z.object({ id: z.string(), name: z.string(), description: z.string(), priceCredits: z.number(), kind: z.string(), class: z.string(), payload: z.unknown() }).passthrough();
-const ProductsResponseSchema = z.object({ products: z.array(ProductSchema) });
 const ErrorResponseSchema = z.object({ error: z.string().optional() }).passthrough();
 
 export type LinkInitResponse = z.infer<typeof LinkInitResponseSchema>;
@@ -23,7 +21,6 @@ export type LinkCompleteResponse = z.infer<typeof LinkCompleteResponseSchema>;
 export type UnlinkResponse = z.infer<typeof UnlinkResponseSchema>;
 export type UserByDiscordResponse = z.infer<typeof UserByDiscordResponseSchema>;
 export type WalletCreditResponse = z.infer<typeof WalletCreditResponseSchema>;
-export type ProductsResponse = z.infer<typeof ProductsResponseSchema>;
 
 export class BackendClientError extends Error {
   constructor(
@@ -55,7 +52,6 @@ export type BackendGateway = {
   readonly unlink: (discordId: string) => Promise<UnlinkResponse>;
   readonly userByDiscord: (discordId: string) => Promise<UserByDiscordResponse>;
   readonly walletCredit: (input: WalletCreditInput) => Promise<WalletCreditResponse>;
-  readonly products: () => Promise<ProductsResponse>;
 };
 
 export type WalletCreditInput = { readonly userId: string; readonly amount: number; readonly idempotencyKey: string; readonly reason: string };
@@ -84,10 +80,6 @@ export class BackendClient implements BackendGateway {
 
   async walletCredit(input: WalletCreditInput): Promise<WalletCreditResponse> {
     return this.request('/api/service/wallet-credit', WalletCreditResponseSchema, { method: 'POST', body: input });
-  }
-
-  async products(): Promise<ProductsResponse> {
-    return this.request('/api/service/products', ProductsResponseSchema, { method: 'GET' });
   }
 
   private async request<T>(path: string, schema: JsonSchema<T>, init: { readonly method: 'GET' | 'POST'; readonly body?: unknown }): Promise<T> {
