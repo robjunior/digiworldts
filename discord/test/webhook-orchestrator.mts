@@ -23,17 +23,17 @@ class MemoryDb {
       const row = [...this.sessions.values()].find((session) => session.provider === params[0] && session.provider_payment_id === params[1]);
       return { rows: row === undefined ? [] : [row as T], rowCount: row === undefined ? 0 : 1 };
     }
-    if (text.includes('UPDATE purchase_sessions SET state = $2')) {
-      const session = this.sessions.get(String(params[0]));
-      if (session !== undefined) session.state = params[1];
-      return { rows: [], rowCount: 1 };
-    }
     if (text.includes('UPDATE purchase_sessions SET state = $2, delivered_at')) {
       const session = this.sessions.get(String(params[0]));
-      if (session !== undefined) {
-        session.state = params[1];
-        session.delivered_at = params[2];
-      }
+      if (session === undefined || session.state !== params[3]) return { rows: [], rowCount: 0 };
+      session.state = params[1];
+      session.delivered_at = params[2];
+      return { rows: [], rowCount: 1 };
+    }
+    if (text.includes('UPDATE purchase_sessions SET state = $2')) {
+      const session = this.sessions.get(String(params[0]));
+      if (session === undefined || session.state !== params[3]) return { rows: [], rowCount: 0 };
+      session.state = params[1];
       return { rows: [], rowCount: 1 };
     }
     if (text.includes('INSERT INTO purchase_events')) {
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   await processMercadoPagoPayment('pay_1', {
     db,
     now: () => 3_000,
-    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', raw: { status: 'approved' } }) },
+    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', paidAmountBrlCents: 2500, raw: { status: 'approved' } }) },
     backendClient: {
       walletCredit: async (input) => { grants.push({ key: input.idempotencyKey, amount: input.amount }); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
     },
@@ -79,12 +79,29 @@ async function main(): Promise<void> {
   await processMercadoPagoPayment('pay_2', {
     db: fallbackDb,
     now: () => 3_000,
-    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_2', status: 'approved', raw: { status: 'approved' } }) },
+    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_2', status: 'approved', paidAmountBrlCents: 1000, raw: { status: 'approved' } }) },
     backendClient: {
       walletCredit: async (input) => { fallbackGrants.push(input.amount); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
     },
   });
   assertEqual(fallbackGrants[0], 1000, 'session without frozen creditsAmount recomputes from amountBrlCents x CREDITS_PER_BRL');
+
+  // The provider is the authority on what was charged. If it disagrees with the session
+  // we booked, delivering would mint currency nobody paid for.
+  const mismatchDb = new MemoryDb();
+  mismatchDb.sessions.set('session-3', { ...session('awaiting_payment'), id: 'session-3', provider_payment_id: 'pay_3', amount_brl_cents: 2500 });
+  const mismatchGrants: number[] = [];
+  await processMercadoPagoPayment('pay_3', {
+    db: mismatchDb,
+    now: () => 3_000,
+    paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_3', status: 'approved', paidAmountBrlCents: 100, raw: { status: 'approved', total_amount: '1.00' } }) },
+    backendClient: {
+      walletCredit: async (input) => { mismatchGrants.push(input.amount); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+    },
+  });
+  assertEqual(mismatchGrants.length, 0, 'provider reporting a different paid amount must NOT mint any credits');
+  assertEqual(mismatchDb.sessions.get('session-3')?.state, 'disputed', 'amount mismatch parks the session in disputed for a human');
+  assert(mismatchDb.events.some((e) => e.reason === 'amount-mismatch'), 'amount mismatch is recorded as a purchase event');
 
   const processCalls: string[] = [];
   const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: 'http://127.0.0.1:1' });

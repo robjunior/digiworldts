@@ -77,6 +77,17 @@ function centsToBrl(cents: number): number {
   return cents / 100;
 }
 
+// Parses MercadoPago's decimal-string money ("1.23") into centavos without ever
+// touching a float, because this value is the reconciliation guard that decides
+// whether we mint currency. Number("1.23") * 100 is 122.99999999999999.
+export function brlStringToCents(value: string): number | null {
+  const match = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(value.trim());
+  if (match === null) return null;
+  const whole = match[1] ?? '0';
+  const frac = (match[2] ?? '').padEnd(2, '0');
+  return Number.parseInt(whole, 10) * 100 + Number.parseInt(frac, 10);
+}
+
 function parseSignature(header: string | undefined): { readonly ts: string; readonly v1: string } | null {
   if (header === undefined) return null;
   const parts = new Map(header.split(',').map((part) => {
@@ -156,7 +167,13 @@ export class MercadoPagoProvider implements PaymentProvider {
 
   async getStatus(orderId: string): Promise<PaymentStatus> {
     const parsed = await this.request(`/v1/orders/${encodeURIComponent(orderId)}`, OrderResponseSchema, { method: 'GET' });
-    return { provider: this.name, providerPaymentId: parsed.id, status: parsed.status, raw: parsed };
+    return {
+      provider: this.name,
+      providerPaymentId: parsed.id,
+      status: parsed.status,
+      paidAmountBrlCents: parsed.total_amount === undefined ? null : brlStringToCents(parsed.total_amount),
+      raw: parsed,
+    };
   }
 
   async refund(paymentId: string, amountBrlCents?: number): Promise<RefundResult> {

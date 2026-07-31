@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   assertEqual((await getLinkByDiscordId(db, 'discord-1'))?.state ?? null, 'linked', 'discord link upserts linked row');
 
   await insertPurchaseSession(db, { id: 'session-1', userId: 'user-1', discordId: 'discord-1', guildId: 'guild-1', sku: 'sku-1', provider: 'mp', providerPaymentId: 'pay-1', state: 'awaiting_payment', amountBrlCents: 1234, currency: 'BRL', idempotencyKey: 'idem-1', qrCode: 'qr', qrCodeBase64: 'base64', ticketUrl: 'ticket', expiresAt: now + 60_000, deliveredAt: null, metadataJson: '{}', createdAt: now, updatedAt: now });
-  await updatePurchaseSessionState(db, 'session-1', 'paid', now + 2);
+  await updatePurchaseSessionState(db, 'session-1', 'paid', now + 2, 'awaiting_payment');
   assertEqual((await getPurchaseSession(db, 'session-1'))?.state ?? null, 'paid', 'purchase session state updates');
   await insertPurchaseEvent(db, { id: 'event-1', sessionId: 'session-1', fromState: 'awaiting_payment', toState: 'paid', providerStatus: 'approved', reason: 'test', payloadJson: '{}', createdAt: now });
   assertEqual((await getPurchaseEvent(db, 'event-1'))?.toState ?? null, 'paid', 'purchase event reads');

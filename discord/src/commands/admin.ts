@@ -102,7 +102,12 @@ async function handleRefund(interaction: AdminInteraction, deps: AdminCommandDep
   try {
     const refund = await paymentProvider.refund(innerPaymentId, session.amountBrlCents);
     const timestamp = now();
-    await updatePurchaseSessionState(db, session.id, 'refunded', timestamp);
+    const moved = await updatePurchaseSessionState(db, session.id, 'refunded', timestamp, session.state);
+    if (!moved) {
+      log.warn('discord.admin.refund.lost_race', { sessionId: session.id, expectedState: session.state });
+      await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
+      return;
+    }
     await insertPurchaseEvent(db, { id: randomUUID(), sessionId: session.id, fromState: session.state, toState: 'refunded', providerStatus: refund.status, reason: 'admin-refund', payloadJson: JSON.stringify({ refundId: refund.refundId, innerPaymentId }), createdAt: timestamp });
     await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: 'refund', targetId: session.id, payloadJson: JSON.stringify({ refundId: refund.refundId, status: refund.status, sku: session.sku, innerPaymentId }), createdAt: timestamp });
     if (deps.notifications) {

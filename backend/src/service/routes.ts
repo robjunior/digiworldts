@@ -20,6 +20,8 @@ const SQL_UPSERT_WALLET_CREDIT = `INSERT INTO player_wallet (user_id, credits, s
      ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
 const SQL_SELECT_WALLET_GRANT = `SELECT credits, premium_until FROM player_wallet WHERE user_id = ?`;
 
+const MAX_SERVICE_CREDIT_GRANT = 100_000;
+
 const DiscordIdSchema = z.string().trim().min(1).max(64);
 const IdempotencyKeySchema = z.string().trim().min(8).max(200);
 const ReasonSchema = z.string().trim().min(1).max(200);
@@ -27,7 +29,7 @@ const ReasonSchema = z.string().trim().min(1).max(200);
 const LinkInitSchema = z.object({ discordId: DiscordIdSchema }).strict();
 const LinkCompleteSchema = z.object({ discordId: DiscordIdSchema, code: z.string().trim().min(1).max(64) }).strict();
 const UnlinkSchema = z.object({ discordId: DiscordIdSchema }).strict();
-const WalletCreditSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive(), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
+const WalletCreditSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
 
 type LinkRow = Pick<UserRow, 'id' | 'display_name'> & { readonly discord_id: string | null };
 type ServiceUserRow = Pick<UserRow, 'id' | 'display_name' | 'locale_pref'> & {

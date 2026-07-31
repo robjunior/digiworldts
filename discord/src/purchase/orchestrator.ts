@@ -69,20 +69,39 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
     return;
   }
   if (decision.kind === 'accepted') {
-    await updatePurchaseSessionState(db, session.id, decision.to, timestamp);
+    const moved = await updatePurchaseSessionState(db, session.id, decision.to, timestamp, session.state);
+    if (!moved) {
+      log.warn('purchase.transition.lost_race', { sessionId: session.id, from: session.state, to: decision.to });
+      return;
+    }
     await recordTransition(db, session, decision.to, decision.providerStatus, null, timestamp, status.raw);
     if (deps.notifications && (decision.to === 'failed' || decision.to === 'expired')) {
       await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: decision.to, sku: session.sku });
     }
   }
   if (decision.to !== 'paid') return;
+
+  // Never mint currency on our own arithmetic alone. The provider is the authority on
+  // what was actually charged; if its number disagrees with the session we booked, this
+  // is a dispute for a human, not a delivery.
+  if (status.paidAmountBrlCents !== null && status.paidAmountBrlCents !== session.amountBrlCents) {
+    log.error('purchase.amount_mismatch', { sessionId: session.id, expectedCents: session.amountBrlCents, providerCents: status.paidAmountBrlCents });
+    await updatePurchaseSessionState(db, session.id, 'disputed', timestamp, 'paid');
+    await recordTransition(db, { ...session, state: 'paid' }, 'disputed', status.status, 'amount-mismatch', timestamp, status.raw);
+    return;
+  }
+
   const deliveringDecision = decideTransition('paid', 'delivering', status.status);
   if (deliveringDecision.kind !== 'accepted') return;
-  await updatePurchaseSessionState(db, session.id, 'delivering', timestamp);
+  const startedDelivering = await updatePurchaseSessionState(db, session.id, 'delivering', timestamp, 'paid');
+  if (!startedDelivering) {
+    log.warn('purchase.delivering.lost_race', { sessionId: session.id });
+    return;
+  }
   await recordTransition(db, { ...session, state: 'paid' }, 'delivering', status.status, null, timestamp, status.raw);
   await grantReward(backendClient, session);
   const deliveredAt = now();
-  await markPurchaseDelivered(db, session.id, 'delivered', deliveredAt);
+  await markPurchaseDelivered(db, session.id, 'delivered', deliveredAt, 'delivering');
   await recordTransition(db, { ...session, state: 'delivering' }, 'delivered', status.status, null, deliveredAt, status.raw);
   if (deps.notifications) {
     await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'approved', sku: session.sku });
