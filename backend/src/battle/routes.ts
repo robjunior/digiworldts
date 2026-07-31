@@ -225,7 +225,6 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     if (!battle) return { ok: false, error: 'match not found', code: 'battle-over' };
     const side = sideForPlayerId(battle, userId);
     if (!side) return { ok: false, error: 'you are not in this match', code: 'not-your-turn' };
-    const priorRound = battle.round;
     const result = applyAction(battle, side, action);
     if (!result.ok) return { ok: false, error: result.error, code: result.code };
     const viewA = serializeForSide(battle, 'a');
@@ -239,7 +238,11 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
         attachPvpMmrToView(viewA, pvpMmr.a);
         attachPvpMmrToView(viewB, pvpMmr.b);
       }
-    } else if (battle.round !== priorRound) {
+    } else {
+      // Every applied action mutates the battle -- turnCursor, hp, en, ailments.
+      // Saving only when the round changed threw all of it away between calls,
+      // so the next action reloaded a snapshot where it was still the same
+      // player's turn and they could act forever.
       await saveSnapshot(battle);
     }
     await deliverToUser(battle.playerA, { type: 'event', matchId: battle.id, events: result.events });
