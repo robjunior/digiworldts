@@ -1,0 +1,18 @@
+:: StoryTitle
+Embers on the Ridge — Intro
+
+:: start [start]
+@speaker tamer_guild neutral
+
+Head to the Ember Wastes and see what has the caravans spooked.
+
+* [[On my way.->END]] #accept
+* [[What am I looking for?->detail]] #ask
+* [[Not right now.->END]] #decline
+
+:: detail
+@speaker tamer_guild concerned
+
+Fire-types along the dune line. More than the season should carry.
+
+* [[Understood.->END]] #accept_after_detail

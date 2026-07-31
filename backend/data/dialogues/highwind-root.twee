@@ -1,0 +1,18 @@
+:: StoryTitle
+Chasing the Highwind — Intro
+
+:: start [start]
+@speaker the_world neutral
+
+Climb up to the plateau and thin the Wind-type flocks.
+
+* [[Climbing now.->END]] #accept
+* [[Why thin them?->detail]] #ask
+* [[Not yet.->END]] #decline
+
+:: detail
+@speaker the_world concerned
+
+They have crowded out everything that nested there. Balance, or what is left of it.
+
+* [[I'll handle it.->END]] #accept_after_detail

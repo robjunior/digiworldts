@@ -1,0 +1,17 @@
+:: StoryTitle
+First Scout — Intro
+
+:: start [start]
+@speaker tamer_guild happy
+
+Head down to the prairie and get a feel for the calm end of the map.
+
+* [[Sounds good.->END]] #accept
+* [[Anything I should watch for?->detail]] #ask
+
+:: detail
+@speaker tamer_guild happy
+
+Nothing that bites hard. That is rather the point — start where the map is kind.
+
+* [[Off I go.->END]] #accept_after_detail

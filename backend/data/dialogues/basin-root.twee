@@ -1,0 +1,18 @@
+:: StoryTitle
+Still Waters — Intro
+
+:: start [start]
+@speaker nursery neutral
+
+Head down to Mirror Basin and take samples of any Water-type.
+
+* [[I'll go.->END]] #accept
+* [[Samples for what?->detail]] #ask
+* [[Later.->END]] #decline
+
+:: detail
+@speaker nursery happy
+
+The hatchery data. Nothing dangerous — just tedious, and I cannot leave the eggs.
+
+* [[Fine by me.->END]] #accept_after_detail
