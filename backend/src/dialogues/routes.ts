@@ -1,11 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
-import { parseTwee } from '@digiworld/shared/dialogue-parser';
 
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import { deleteDialogue, getDialogue, listDialogues, saveDialogue } from './repo.js';
+import { parseAndValidate } from './runtime.js';
 import { abandonDialogue, advanceDialogue, startDialogue } from './session.js';
 import { syncDialogueFolder } from './sync.js';
 
@@ -67,7 +67,7 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     await requireAdmin(req, reply);
     const parsed = PreviewSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
-    const result = parseTwee(parsed.data.source, { dialogueId: parsed.data.dialogueId ?? 'preview' });
+    const result = parseAndValidate(parsed.data.source, parsed.data.dialogueId ?? 'preview');
     return reply.send({
       ok: result.definition !== null,
       stats: result.stats,
@@ -83,7 +83,7 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     await requireAdmin(req, reply);
     const parsed = ImportSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
-    const result = parseTwee(parsed.data.source, { dialogueId: parsed.data.dialogueId });
+    const result = parseAndValidate(parsed.data.source, parsed.data.dialogueId);
     if (result.definition === null) {
       return reply.code(400).send({ error: 'invalid-twee', errors: result.errors, warnings: result.warnings });
     }

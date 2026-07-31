@@ -9,7 +9,7 @@
  *
  * Run: pnpm --filter @digiworld/backend test:dialogue-runtime
  */
-import { existsSync, readFileSync, unlinkSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, unlinkSync } from 'node:fs';
 
 import { parseTwee } from '../../shared/src/dialogue-parser.ts';
 import { one, run, closeDb } from '../src/db/index.ts';
@@ -19,6 +19,7 @@ import {
   evaluateCondition,
   visibleChoices,
   isKnownAction,
+  parseAndValidate,
   type DialogueRuntimeContext,
 } from '../src/dialogues/runtime.ts';
 import { hasFlag } from '../src/flags/repo.ts';
@@ -276,6 +277,48 @@ Body.
   await applyEntryActions(second.definition!.nodes['start']!, ctx(9, 'collide-b'));
   assert((await hasFlag(USER, 'collide.first')) === true, 'the first dialogue did not apply');
   assert((await hasFlag(USER, 'collide.second')) === true, 'the second dialogue was suppressed by the first');
+});
+
+await test('import refuses an unknown action instead of accepting a silent no-op', async () => {
+  const res = parseAndValidate(`:: StoryTitle
+Typo
+
+:: start
+@speaker g neutral
+@do give_itme("x", 1)
+
+Body.
+
+* [[Go->END]]
+`, 'typo');
+  assert(res.definition === null, 'a typo\'d action was accepted at import');
+  assert(res.errors.some((e) => e.message.includes('give_itme')), 'the error does not name the offending action');
+  assert(res.errors.some((e) => e.passage === 'start'), 'the error does not name the passage');
+});
+
+await test('import refuses an unknown predicate', async () => {
+  const res = parseAndValidate(`:: StoryTitle
+Typo
+
+:: start
+@speaker g neutral
+
+Body.
+
+* [[Go->END]] {if: player_has_itme("x")}
+`, 'typo2');
+  assert(res.definition === null, 'an unknown predicate was accepted at import');
+  assert(res.errors.some((e) => e.message.includes('player_has_itme')), 'the error does not name the predicate');
+});
+
+await test('every authored dialogue still passes the registry gate', async () => {
+  const dir = 'data/dialogues';
+  const files = readdirSync(dir).filter((f) => f.endsWith('.twee'));
+  assert(files.length > 0, 'no authored dialogues found to check');
+  for (const file of files) {
+    const res = parseAndValidate(readFileSync(`${dir}/${file}`, 'utf8'), file.replace(/\.twee$/, ''));
+    assert(res.definition !== null, `${file} was rejected: ${res.errors.map((e) => e.message).join('; ')}`);
+  }
 });
 
 process.stdout.write(`dialogue runtime tests: ${passed} passed, ${failed} failed\n`);

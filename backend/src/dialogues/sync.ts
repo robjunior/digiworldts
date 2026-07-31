@@ -1,7 +1,7 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
-import { parseTwee } from '@digiworld/shared/dialogue-parser';
+import { parseAndValidate } from './runtime.js';
 import { DIALOGUE_SCHEMA_VERSION } from '@digiworld/shared/dialogue';
 import type { DialogueDiagnostic } from '@digiworld/shared/dialogue';
 
@@ -82,7 +82,7 @@ export async function syncDialogueFolder(): Promise<SyncReport> {
       continue;
     }
 
-    const parsed = parseTwee(source, { dialogueId });
+    const parsed = parseAndValidate(source, dialogueId);
     if (parsed.definition === null) {
       results.push({ file: name, status: 'failed', errors: parsed.errors });
       continue;
