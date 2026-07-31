@@ -9,8 +9,12 @@ class PurchaseDb {
   readonly sessions: Row[] = [];
   readonly events: Row[] = [];
   paused = false;
+  debt: Row | null = null;
 
   async query<T extends Row>(text: string, params: readonly unknown[] = []): Promise<{ readonly rows: readonly T[]; readonly rowCount: number }> {
+    if (text.includes('FROM credit_debt')) {
+      return { rows: (this.debt ? [this.debt] : []) as unknown as readonly T[], rowCount: this.debt ? 1 : 0 };
+    }
     if (text.includes('FROM sales_pause')) {
       return { rows: (this.paused ? [{ paused: true, paused_at: 1, paused_by: 'admin', reason: null }] : []) as unknown as readonly T[], rowCount: this.paused ? 1 : 0 };
     }
@@ -138,6 +142,15 @@ async function main(): Promise<void> {
   await handleBuyCommand(paused, { db: pausedDb, backendClient: backendMock, paymentProvider: paymentMock({}), payer, now: () => 1_000 });
   assert(lastEdit(paused.calls).includes('sales are paused'), '/buy blocked while sales are paused');
   assertEqual(pausedDb.sessions.length, 0, 'paused sales create no session');
+
+  // A chargeback that could not be fully clawed back leaves debt. Selling more credits
+  // to someone who already owes us is how you get farmed.
+  const debtDb = new PurchaseDb();
+  debtDb.debt = { user_id: 'user-1', amount: 750, reason: 'chargeback:sess-x', purchase_session_id: 'sess-x', created_at: 1, updated_at: 1 };
+  const indebted = interaction(50, 'buyer-indebted');
+  await handleBuyCommand(indebted, { db: debtDb, backendClient: backendMock, paymentProvider: paymentMock({}), payer, now: () => 1_000 });
+  assert(lastEdit(indebted.calls).includes('750'), '/buy tells the player how much they owe');
+  assertEqual(debtDb.sessions.length, 0, '/buy is blocked while a credit debt is outstanding');
 
   assertEqual(parseBuyButtonCents(`${BUY_BUTTON_PREFIX}2500`), 2500, 'button custom_id parses to centavos');
   assertEqual(parseBuyButtonCents('something:else'), null, 'foreign custom_id returns null');

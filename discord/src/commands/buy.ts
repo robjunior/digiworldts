@@ -8,6 +8,7 @@ import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
 import { log } from '../logger.js';
 import { isSalesPaused } from '../repo/admin.js';
+import { getCreditDebt } from '../repo/debt.js';
 import { insertPurchaseSession, updatePurchaseSessionPayment } from '../repo/purchases.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { runDeferredCommand, type CommandInteraction, type ReplyActionRow } from './wrapper.js';
@@ -116,6 +117,13 @@ async function createPixPurchase(interaction: CommandInteraction & { readonly gu
 
   const creditsAmount = creditsForCents(amountBrlCents);
   const linkedUser = await backendClient.userByDiscord(interaction.user.id);
+
+  const debt = await getCreditDebt(db, linkedUser.userId);
+  if (debt !== null) {
+    await interaction.editReply({ content: t('discord.buy.debt_blocked', { credits: debt.amount }, locale) });
+    return;
+  }
+
   const expiresAt = now() + config.PIX_EXPIRATION_MINUTES * 60_000;
 
   // The session is persisted BEFORE the provider call so a crash in between can never
