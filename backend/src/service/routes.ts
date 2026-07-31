@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { config } from '../config.js';
-import { one, q, tx, type ShopItemRow, type UserRow } from '../db/index.js';
+import { one, tx, type UserRow } from '../db/index.js';
 import type { DbAdapter } from '../db/adapter.js';
 import { log } from '../util/log.js';
 import { requireServiceAuth } from './middleware.js';
@@ -12,7 +12,6 @@ const SQL_SELECT_USER_BY_ID = `SELECT id FROM users WHERE id = ?`;
 const SQL_UNLINK_DISCORD = `UPDATE users SET discord_id = NULL, updated_at = ? WHERE discord_id = ?`;
 const SQL_SELECT_SERVICE_USER = `SELECT u.id, u.display_name, u.discord_id, u.locale_pref, w.credits, w.premium_until
      FROM users u LEFT JOIN player_wallet w ON w.user_id = u.id WHERE u.discord_id = ?`;
-const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY price_credits ASC`;
 const SQL_RESERVE_GRANT = `INSERT INTO service_grant_log (idempotency_key, endpoint, response_json, created_at) VALUES (?, ?, ?, ?)
      ON CONFLICT (idempotency_key) DO NOTHING`;
 const SQL_SELECT_GRANT_RESPONSE = `SELECT response_json FROM service_grant_log WHERE idempotency_key = ?`;
@@ -59,18 +58,6 @@ async function storeGrantResponse(t: DbAdapter, input: { readonly idempotencyKey
 async function requireUserInTx(t: DbAdapter, userId: string): Promise<void> {
   const user = await t.one<{ readonly id: string }>(SQL_SELECT_USER_BY_ID, [userId]);
   if (!user) throw new ServiceRouteError(404, 'user-not-found');
-}
-
-function productJson(item: ShopItemRow): Record<string, unknown> {
-  return {
-    id: item.id,
-    name: item.name,
-    description: item.description,
-    priceCredits: item.price_credits,
-    kind: item.kind,
-    class: item.class,
-    payload: JSON.parse(item.payload),
-  };
 }
 
 export const servicePlugin: FastifyPluginAsync = async (app): Promise<void> => {
@@ -145,11 +132,5 @@ export const servicePlugin: FastifyPluginAsync = async (app): Promise<void> => {
       if (err instanceof ServiceRouteError) return reply.code(err.status).send({ error: err.code });
       throw err;
     }
-  });
-
-  app.get('/api/service/products', async (req, reply) => {
-    await requireServiceAuth(req, reply);
-    const products = await q<ShopItemRow>(SQL_SELECT_PRODUCTS);
-    return reply.send({ products: products.map(productJson) });
   });
 };
