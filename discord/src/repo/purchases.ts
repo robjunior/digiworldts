@@ -39,9 +39,9 @@ const SQL_INSERT_SESSION = `
 `;
 const SQL_SELECT_SESSION = `SELECT * FROM purchase_sessions WHERE id = $1`;
 const SQL_SELECT_SESSION_BY_PAYMENT = `SELECT * FROM purchase_sessions WHERE provider = $1 AND provider_payment_id = $2`;
-const SQL_UPDATE_SESSION_STATE = `UPDATE purchase_sessions SET state = $2, updated_at = $3 WHERE id = $1`;
+const SQL_UPDATE_SESSION_STATE = `UPDATE purchase_sessions SET state = $2, updated_at = $3 WHERE id = $1 AND state = $4`;
 const SQL_UPDATE_PAYMENT = `UPDATE purchase_sessions SET provider_payment_id = $2, idempotency_key = $3, qr_code = $4, qr_code_base64 = $5, ticket_url = $6, expires_at = $7, state = $8, metadata_json = $9, updated_at = $10 WHERE id = $1`;
-const SQL_UPDATE_DELIVERED = `UPDATE purchase_sessions SET state = $2, delivered_at = $3, updated_at = $3 WHERE id = $1`;
+const SQL_UPDATE_DELIVERED = `UPDATE purchase_sessions SET state = $2, delivered_at = $3, updated_at = $3 WHERE id = $1 AND state = $4`;
 const SQL_EXPIRE_SESSIONS = `
   UPDATE purchase_sessions
   SET state = 'expired', updated_at = $1
@@ -119,16 +119,18 @@ export async function getPurchaseSessionByProviderPayment(db: Queryable, provide
   return row ? toSession(row) : null;
 }
 
-export async function updatePurchaseSessionState(db: Queryable, id: string, state: string, now: number): Promise<void> {
-  await db.query(SQL_UPDATE_SESSION_STATE, [id, state, now]);
+export async function updatePurchaseSessionState(db: Queryable, id: string, state: string, now: number, expectedState: string): Promise<boolean> {
+  const result = await db.query(SQL_UPDATE_SESSION_STATE, [id, state, now, expectedState]);
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function updatePurchaseSessionPayment(db: Queryable, session: Pick<PurchaseSession, 'id' | 'providerPaymentId' | 'idempotencyKey' | 'qrCode' | 'qrCodeBase64' | 'ticketUrl' | 'expiresAt' | 'state' | 'metadataJson' | 'updatedAt'>): Promise<void> {
   await db.query(SQL_UPDATE_PAYMENT, [session.id, session.providerPaymentId, session.idempotencyKey, session.qrCode, session.qrCodeBase64, session.ticketUrl, session.expiresAt, session.state, session.metadataJson, session.updatedAt]);
 }
 
-export async function markPurchaseDelivered(db: Queryable, id: string, state: string, now: number): Promise<void> {
-  await db.query(SQL_UPDATE_DELIVERED, [id, state, now]);
+export async function markPurchaseDelivered(db: Queryable, id: string, state: string, now: number, expectedState: string): Promise<boolean> {
+  const result = await db.query(SQL_UPDATE_DELIVERED, [id, state, now, expectedState]);
+  return (result.rowCount ?? 0) > 0;
 }
 
 export async function expirePurchaseSessions(db: Queryable, now: number): Promise<readonly PurchaseSession[]> {

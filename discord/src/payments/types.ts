@@ -34,6 +34,8 @@ export type PaymentStatus = {
   readonly provider: PaymentProviderName;
   readonly providerPaymentId: string;
   readonly status: string;
+  /** Amount the provider says was actually charged, in centavos. Null when the provider response carried no parseable total. */
+  readonly paidAmountBrlCents: number | null;
   readonly raw: unknown;
 };
 
