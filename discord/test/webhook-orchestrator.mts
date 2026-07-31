@@ -113,12 +113,36 @@ async function main(): Promise<void> {
     await processMercadoPagoPayment('ORD_DOES_NOT_EXIST', {
       db: new MemoryDb(),
       now: () => 3_000,
-      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(404, { message: 'not found' }); } },
+      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(400, { message: 'bad request' }); } },
     });
   } catch {
     unknownThrew = true;
   }
-  assert(!unknownThrew, 'an order MercadoPago does not know is swallowed, not retried forever');
+  assert(!unknownThrew, 'a 4xx from the provider (unresolvable order) is swallowed, not retried forever');
+
+  let notFoundThrew = false;
+  try {
+    await processMercadoPagoPayment('ORD_404', {
+      db: new MemoryDb(),
+      now: () => 3_000,
+      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(404, { message: 'not found' }); } },
+    });
+  } catch {
+    notFoundThrew = true;
+  }
+  assert(!notFoundThrew, 'a 404 is likewise terminal');
+
+  let rateLimitThrew = false;
+  try {
+    await processMercadoPagoPayment('ORD_429', {
+      db: new MemoryDb(),
+      now: () => 3_000,
+      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(429, { message: 'slow down' }); } },
+    });
+  } catch {
+    rateLimitThrew = true;
+  }
+  assert(rateLimitThrew, 'a 429 IS retryable — backing off and retrying is exactly right');
 
   let transientThrew = false;
   try {

@@ -76,24 +76,27 @@ async function clawbackAfterChargeback(db: Queryable, backendClient: Pick<Backen
   }
 }
 
+// The webhook turns a throw into a 500 so MercadoPago retries. Only faults that could
+// plausibly succeed later deserve that: 5xx, timeouts and rate limits. Any other 4xx
+// means the provider rejected the request itself — retrying it forever changes nothing.
+function isRetryableProviderFailure(error: unknown): boolean {
+  if (!(error instanceof MercadoPagoHttpError)) return true;
+  return error.status >= 500 || error.status === 408 || error.status === 429;
+}
+
 export async function processMercadoPagoPayment(paymentId: string, deps: OrchestratorDeps = {}): Promise<void> {
   const db = deps.db ?? { query };
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
   const backendClient = deps.backendClient ?? createBackendClient();
   const now = deps.now ?? Date.now;
 
-  // The webhook turns a throw into a 500 so MercadoPago retries. An order the provider
-  // does not know is not a transient fault — retrying it forever accomplishes nothing,
-  // so it is swallowed here and only real failures are allowed to propagate.
   let status: PaymentStatus;
   try {
     status = await paymentProvider.getStatus(paymentId);
   } catch (error) {
-    if (error instanceof MercadoPagoHttpError && error.status === 404) {
-      log.warn('purchase.provider.unknown_order', { paymentId });
-      return;
-    }
-    throw error;
+    if (isRetryableProviderFailure(error)) throw error;
+    log.warn('purchase.provider.unresolvable_order', { paymentId, err: error instanceof Error ? error.message : 'unknown' });
+    return;
   }
 
   if (!isMercadoPagoStatus(status.status)) return;
