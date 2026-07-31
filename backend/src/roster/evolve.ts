@@ -16,6 +16,7 @@ import {
   type TemplateDigimon,
 } from '../digimon/types.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
+import { computeMetSet } from '../dex/met.js';
 import { log } from '../util/log.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
@@ -61,6 +62,8 @@ export type EvolutionOption = {
   name: string;
   stage: Stage;
   portrait: string;
+  /** Has the player ever seen this species? (Not "meets requirements" — that's `eligible`.) */
+  met: boolean;
   eligible: boolean;
   reason?: EvolveReason;
   requiredLevel: number;
@@ -99,6 +102,7 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
   if (!current) return null;
   const nextStage = nextStageAfter(current.stage);
   const templateById = new Map<string, TemplateDigimon>(catalog.digimons.map((t) => [t.id, t]));
+  const metSet = await computeMetSet(userId);
 
   const edges = current.evolvesInto ?? [];
   const options: EvolutionOption[] = [];
@@ -117,6 +121,7 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
       name: target.name,
       stage: target.stage,
       portrait: target.assets.portrait,
+      met: metSet.has(target.id),
       eligible: reason === undefined,
       requiredLevel: req.requiredLevel,
       requiredMood: req.requiredMood,

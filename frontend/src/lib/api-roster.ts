@@ -18,6 +18,8 @@ export type EvolutionOption = {
   readonly name: string;
   readonly stage: Stage;
   readonly portrait: string;
+  /** Has the player ever seen this species? (Not "meets requirements" — that's `eligible`.) */
+  readonly met: boolean;
   readonly eligible: boolean;
   readonly reason?: EvolutionReason;
   readonly requiredLevel: number;
