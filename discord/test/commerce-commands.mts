@@ -61,7 +61,7 @@ async function main(): Promise<void> {
 
   const { commandHandlers, commandManifest } = await import('../src/commands/index.js');
   assertEqual(commandManifest.length, 7, 'manifest has 7 top-level commands post-REV-1.1 (link, unlink, balance, buy, purchases, help, admin)');
-  for (const name of ['link', 'unlink', 'balance', 'buy', 'help']) assert(typeof commandHandlers[name] === 'function', `${name} handler wired`);
+  for (const name of ['link', 'unlink', 'balance', 'buy', 'purchases', 'help']) assert(typeof commandHandlers[name] === 'function', `${name} handler wired`);
 
   process.stdout.write('commerce command tests passed\n');
 }
