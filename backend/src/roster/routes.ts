@@ -308,7 +308,9 @@ export async function partyAverageLevel(userId: string): Promise<number> {
 /** Sum of all training bonuses (hp+en+atk+def+int+spd) across the party,
  *  averaged per mon. Used as a matchmaking bracket alongside averageLevel
  *  so a fully-trained party doesn't get paired with an untrained one.
- *  Range: 0 (untrained party) to ~800 (fully trained per new stage pools). */
+ *  Range: 0 for an untrained party up to the stage's full pool allocation —
+ *  5100 Rookie, 6800 Champion, 8500 Ultimate, 10200 Mega (each stage grants
+ *  700 combat + 1000 hp/en, and prior stages stay banked). */
 export async function partyTrainedness(userId: string): Promise<number> {
   const rows = await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
   if (rows.length === 0) return 0;

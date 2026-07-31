@@ -27,8 +27,14 @@ const QUEUE_TTL_MS = 5 * 60 * 1000;
 const BRACKET_START = 5;
 const BRACKET_MAX = 20;
 const BRACKET_WIDEN_MS = 3_000;
-const TRAINEDNESS_BRACKET_START = 100;
-const TRAINEDNESS_BRACKET_MAX = 600;
+// Trainedness spans 0 (untrained) to ~10200 (fully-trained Mega party) under
+// the current stage pools — see `partyTrainedness()` in roster/routes.ts. The
+// bracket must be scaled to that range: the previous 100/600 pair was sized
+// for a long-gone pool layout and capped tolerance at 6% of the real spread,
+// so two level-46 parties a few thousand points apart could never pair no
+// matter how long they waited.
+const TRAINEDNESS_BRACKET_START = 1_000;
+const TRAINEDNESS_BRACKET_MAX = 10_000;
 const TRAINEDNESS_BRACKET_WIDEN_MS = 3_000;
 const PAIR_LOCK_KEY = 'mm:pair-lock';
 const PAIR_LOCK_TTL_SEC = 2;
