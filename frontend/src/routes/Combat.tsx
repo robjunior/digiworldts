@@ -16,7 +16,6 @@ export function Combat(): JSX.Element {
       <div className="win">
         <div className="titlebar" data-od-id="title-bar">
           <div className="lights"><i /><i /><i /></div>
-          <div className="app-mark">Digi<span className="bit">World</span></div>
           <div className="win-meta">Tamer Terminal · Battle</div>
         </div>
         <div className="stage" data-od-id="battle-stage" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -38,7 +37,6 @@ export function Combat(): JSX.Element {
     <div className="win">
       <div className="titlebar" data-od-id="title-bar">
         <div className="lights"><i /><i /><i /></div>
-        <div className="app-mark">Digi<span className="bit">World</span></div>
         <div className="win-meta">Tamer Terminal · Battle</div>
       </div>
       <Combat3DBody />

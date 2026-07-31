@@ -272,7 +272,6 @@ export function AppShell(): JSX.Element {
           </svg>
         </button>
         <div className="lights"><i /><i /><i /></div>
-        <div className="app-mark">DIGI<span className="bit">WORLD</span></div>
         <div className="win-meta">{t('header.tamer_terminal')} · {pageLabel}</div>
         <div className="win-locale" role="group" aria-label={t('hud.language')}>
           <button
