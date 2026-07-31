@@ -1437,6 +1437,36 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   .evo-cond { border-left: 0; border-top: 1px solid var(--hair); max-height: 40vh; }
 }
 
+/* mobile: one scroll region for the whole dialog + compact stat readout */
+@media (max-width: 768px) {
+  .evo-ov { padding: 10px; }
+  .evo-modal { width: 100%; height: min(94vh, 100%); }
+  .evo-head { padding: 12px 14px; gap: 10px; }
+  .evo-head h3 { font-size: 16px; margin-top: 3px; }
+  .evo-head .sub { font-size: 11px; margin-top: 3px; }
+  .evo-x { width: 30px; height: 30px; }
+
+  .evo-stage { grid-template-rows: auto auto; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; }
+  .evo-stage > * { min-width: 0; }
+  .evo-line { max-height: 46vh; overflow: auto; padding: 18px 14px 14px; }
+  .evo-cond { max-height: none; overflow: visible; }
+  .cond-body { flex: 0 0 auto; overflow: visible; padding: 12px 14px 18px; gap: 11px; }
+  .cond-hd { padding: 12px 14px; }
+  .cond-hd .cnm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .tgt { grid-template-columns: 44px 1fr; gap: 10px; }
+  .tgt .tpic { width: 44px; height: 44px; }
+  .tgt .tpic img { width: 36px; height: 36px; }
+  .tgt .tnm { font-size: 15px; }
+
+  .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .srow { grid-template-columns: minmax(0, 1fr); gap: 1px; padding: 6px 7px; min-width: 0; }
+  .srow .ar { display: none; }
+  .srow .sk { font-size: 8px; }
+  .srow .sv { font-size: 12px; text-align: left; }
+  .srow .sv .dl { font-size: 8px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .digiv, .digiv * { animation: none !important; transition: none !important; }
 }
