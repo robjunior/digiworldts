@@ -150,3 +150,13 @@
 /* ---- toast ------------------------------------------------------------- */
 .adv-page .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 .adv-page .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
+   clipped past the viewport with no way to reach it. Tighten, then allow
+   horizontal pan for the remainder. */
+@media (max-width: 768px) {
+  .adv-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
+  .adv-page .balbar::-webkit-scrollbar { display: none; }
+  .adv-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
+  .adv-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+}
