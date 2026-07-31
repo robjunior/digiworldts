@@ -103,6 +103,7 @@ export type QuestWithProgress = {
   readonly name: string;
   readonly description: string;
   readonly requiredLevel: number;
+  readonly introDialogueId: string | null;
   readonly giver: string;
   readonly rewardText: string;
   readonly lockHint: string | null;
