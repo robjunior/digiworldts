@@ -46,7 +46,7 @@ Register the first account — it becomes the game admin.
 |---|---|---|
 | `POSTGRES_PASSWORD` | yes | DB password (compose refuses to start if unset) |
 | `SESSION_SECRET` | yes, min 32 chars | Cookie signing key (compose refuses to start if unset) |
-| `ADMIN_BOOTSTRAP` | no, default `open` | Set to `closed` after go-live to freeze registration |
+| `ADMIN_BOOTSTRAP` | no, default `closed` | Temporarily set to `open` to bootstrap the first admin, then flip back to `closed` and restart |
 | `HOST_PORT` | no, default `8080` | Host port to publish the frontend on |
 | `SESSION_TTL_HOURS` | no, default `168` | Sliding session lifetime (7 days) |
 | `MAX_LOBBY_CONNECTIONS` | no, default `1200` | WS socket cap |
@@ -146,7 +146,7 @@ Frontend rebuild is fast (Vite + nginx layer). Backend rebuild reinstalls the pn
 
 ## Production notes
 
-- Set `ADMIN_BOOTSTRAP=closed` in `.env` after the admin account is created, then `docker compose up -d backend`.
+- Bootstrap the first admin: set `ADMIN_BOOTSTRAP=open` in `.env`, `docker compose up -d backend`, register the admin, then flip back to `ADMIN_BOOTSTRAP=closed` and `docker compose up -d backend` again.
 - Put a real TLS terminator (Caddy, Traefik, Cloudflare, nginx with certs) in front of `:8080`. WebSocket over TLS is transparent — nginx already sets `Upgrade` + `Connection` headers.
 - For horizontal scale (multi-node game servers), see [`docker-compose.multinode.yml`](docker-compose.multinode.yml) which adds Redis for cluster state and runs 2 backend replicas behind an internal nginx with `ip_hash` WS stickiness.
 - Backups: `docker compose exec db pg_dump -U digiworld digiworld > backup.sql`. Restore: `docker compose exec -T db psql -U digiworld digiworld < backup.sql`.
