@@ -442,6 +442,7 @@ export class SceneManager {
   private camYawDeg = CAM_YAW_DEG;
   private camDist = CAM_DIST;
   private camLookAtY = CAM_LOOK_AT_Y;
+  private cameraLookOffset = new THREE.Vector3(0, 0, 0);
   private camFrustum = FRUSTUM;
   private dust: THREE.Points | null = null;
   private readonly dustBaseY: Float32Array;
@@ -618,15 +619,21 @@ export class SceneManager {
     }
   }
 
+  setCameraLookOffset(x: number, y: number, z: number): void {
+    if (this.disposedFlag) return;
+    this.cameraLookOffset.set(x, y, z);
+    this.placeCameraIso();
+  }
+
   private placeCameraIso(): void {
     const elev = (this.camElevDeg * Math.PI) / 180;
     const yaw = (this.camYawDeg * Math.PI) / 180;
     this.camera.position.set(
-      Math.sin(yaw) * Math.cos(elev) * this.camDist,
-      Math.sin(elev) * this.camDist,
-      Math.cos(yaw) * Math.cos(elev) * this.camDist,
+      Math.sin(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.x,
+      Math.sin(elev) * this.camDist + this.cameraLookOffset.y,
+      Math.cos(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.z,
     );
-    this.camera.lookAt(0, this.camLookAtY, 0);
+    this.camera.lookAt(this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
   }
 
   private updateProjection(): void {
@@ -1224,12 +1231,12 @@ export class SceneManager {
         this.zoomMult = ENTRANCE_ZOOM_START + (1 - ENTRANCE_ZOOM_START) * eased;
         this.updateProjection();
         const panX = ENTRANCE_PAN_START_X * (1 - eased);
-        this.camera.lookAt(panX, this.camLookAtY, 0);
+        this.camera.lookAt(panX + this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
         if (t >= 1) {
           this.zoomMult = 1;
           this.entranceActive = false;
           this.updateProjection();
-          this.camera.lookAt(0, this.camLookAtY, 0);
+          this.camera.lookAt(this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
         }
       }
       for (const sprite of this.sprites.values()) {

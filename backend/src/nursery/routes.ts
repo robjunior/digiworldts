@@ -1,9 +1,11 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
 import { one, q, run, tx, type RosterRow } from '../db/index.js';
+import type { DbAdapter } from '../db/adapter.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { log } from '../util/log.js';
 import type { TemplateDigimon } from '../digimon/types.js';
+import { z } from 'zod';
 import {
   collectHatch,
   listPendingHatches,
@@ -12,22 +14,40 @@ import {
   startMixHatch,
 } from './data.js';
 import type {
+  FeedPenMonResponse,
+  GraduateResponse,
+  NurseryChain,
   NurseryDataResponse,
+  NurseryPenMon,
+  NurseryPenStage,
   NurseryPendingResponse,
+  NurseryView,
+  PetPenMonResponse,
   SpeciesDataEntry,
 } from '@digiworld/shared/nursery';
 
+const BABY_STAGE_MS = 12 * 60 * 60_000;
+const IN_TRAINING_STAGE_MS = 18 * 60 * 60_000;
 const MAX_PETS_PER_MON_PER_DAY = 3;
 const PET_MOOD_DELTA = 5;
 const FEED_MOOD_DELTA = 8;
 const FEED_MEAT_COST = 5;
 
-const SQL_SELECT_ALL = `SELECT * FROM player_roster WHERE user_id = ? AND (slot_index IS NULL OR status <> 'party') ORDER BY created_at`;
+const SQL_SELECT_PEN = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'nursery' ORDER BY created_at`;
 const SQL_SELECT_BY_ID = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_MEAT = `SELECT amount FROM resources WHERE user_id = ? AND resource = 'Meat'`;
 const SQL_UPDATE_PET = `UPDATE player_roster SET mood = ?, pets_today = ?, pets_day = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_UPDATE_MOOD = `UPDATE player_roster SET mood = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_DEDUCT_MEAT = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = 'Meat' AND amount >= ?`;
+const SQL_ADVANCE_PEN = `UPDATE player_roster SET catalog_id = ?, nursery_stage = ?, nursery_evolve_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
+const SQL_GRADUATE = `UPDATE player_roster SET status = 'resting', catalog_id = ?, nursery_stage = NULL, nursery_evolve_at = NULL, nursery_chain = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
+
+const NurseryStageSchema = z.enum(['Baby', 'In-Training', 'Rookie']);
+const NurseryChainSchema = z.object({
+  babyCatalogId: z.string(),
+  inTrainingCatalogId: z.string(),
+  rookieCatalogId: z.string(),
+});
 
 function todayKeyUTC(now: number): string {
   const d = new Date(now);
@@ -45,20 +65,51 @@ function clampMood(v: number): number {
   return Math.max(0, Math.min(100, v));
 }
 
-type NurseryMonView = {
-  id: string;
-  catalogId: string;
-  nickname: string;
-  level: number;
-  mood: number;
-  petsToday: number;
-  canPet: boolean;
-  template: TemplateDigimon | null;
-};
-
 async function readMeat(userId: string): Promise<number> {
   const row = await one<{ amount: number }>(SQL_SELECT_MEAT, userId);
   return row?.amount ?? 0;
+}
+
+function parseNurseryStage(row: RosterRow): NurseryPenStage {
+  return NurseryStageSchema.parse(row.nursery_stage);
+}
+
+function parseNurseryChain(row: RosterRow): NurseryChain {
+  return NurseryChainSchema.parse(JSON.parse(row.nursery_chain ?? '{}'));
+}
+
+async function advancePenMon(row: RosterRow, now: number, db: DbAdapter): Promise<RosterRow> {
+  const chain = parseNurseryChain(row);
+  let current = row;
+  if (parseNurseryStage(current) === 'Baby' && now >= (current.nursery_evolve_at ?? 0)) {
+    const nextEvolveAt = now + IN_TRAINING_STAGE_MS;
+    await db.run(SQL_ADVANCE_PEN, [chain.inTrainingCatalogId, 'In-Training', nextEvolveAt, now, current.id, current.user_id]);
+    log.info('nursery.advance', { userId: current.user_id, monId: current.id, from: 'Baby', to: 'In-Training' });
+    current = { ...current, catalog_id: chain.inTrainingCatalogId, nursery_stage: 'In-Training', nursery_evolve_at: nextEvolveAt, updated_at: now };
+  }
+  if (parseNurseryStage(current) === 'In-Training' && now >= (current.nursery_evolve_at ?? 0)) {
+    await db.run(SQL_ADVANCE_PEN, [chain.rookieCatalogId, 'Rookie', 0, now, current.id, current.user_id]);
+    log.info('nursery.advance', { userId: current.user_id, monId: current.id, from: 'In-Training', to: 'Rookie' });
+    current = { ...current, catalog_id: chain.rookieCatalogId, nursery_stage: 'Rookie', nursery_evolve_at: 0, updated_at: now };
+  }
+  return current;
+}
+
+function toPenMon(row: RosterRow, templateById: ReadonlyMap<string, TemplateDigimon>, today: string): NurseryPenMon {
+  const petsToday = petsTodayFor(row, today);
+  const template = templateById.get(row.catalog_id);
+  return {
+    id: row.id,
+    catalogId: row.catalog_id,
+    nickname: row.nickname,
+    stage: parseNurseryStage(row),
+    dot: template?.assets.dot ?? `/assets/digimon/${row.catalog_id}/dot.gif`,
+    mood: row.mood,
+    petsToday,
+    canPet: petsToday < MAX_PETS_PER_MON_PER_DAY,
+    evolveAt: row.nursery_evolve_at ?? 0,
+    chain: parseNurseryChain(row),
+  };
 }
 
 export const nurseryPlugin: FastifyPluginAsync = async (app) => {
@@ -68,32 +119,28 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     const templateById = new Map<string, TemplateDigimon>();
     for (const t of catalog.digimons) templateById.set(t.id, t);
 
-    const rows = await q<RosterRow>(SQL_SELECT_ALL, user.id);
-    const today = todayKeyUTC(Date.now());
-    const mons: NurseryMonView[] = rows
+    const now = Date.now();
+    const today = todayKeyUTC(now);
+    const rows: RosterRow[] = [];
+    await tx(async (t) => {
+      const penRows = await t.query<RosterRow>(SQL_SELECT_PEN, [user.id]);
+      for (const row of penRows) rows.push(await advancePenMon(row, now, t));
+    });
+    const penMons = rows
       .filter((row) => row.listed_at === null)
-      .map((row) => {
-        const petsToday = petsTodayFor(row, today);
-        return {
-          id: row.id,
-          catalogId: row.catalog_id,
-          nickname: row.nickname,
-          level: row.level,
-          mood: row.mood,
-          petsToday,
-          canPet: petsToday < MAX_PETS_PER_MON_PER_DAY,
-          template: templateById.get(row.catalog_id) ?? null,
-        };
-      });
+      .map((row) => toPenMon(row, templateById, today));
     const meat = await readMeat(user.id);
-    return reply.send({
-      mons,
+    const response: NurseryView = {
+      penMons,
       meat: Math.floor(meat),
       maxPetsPerDay: MAX_PETS_PER_MON_PER_DAY,
       petMoodDelta: PET_MOOD_DELTA,
       feedMoodDelta: FEED_MOOD_DELTA,
       feedMeatCost: FEED_MEAT_COST,
-    });
+      babyStageMs: BABY_STAGE_MS,
+      inTrainingStageMs: IN_TRAINING_STAGE_MS,
+    };
+    return reply.send(response);
   });
 
   app.post<{ Params: { monId: string } }>('/api/nursery/pet/:monId', async (req, reply) => {
@@ -116,12 +163,13 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     const newPetsToday = currentPets + 1;
     await run(SQL_UPDATE_PET, [newMood, newPetsToday, today, now, monId, user.id]);
     log.info('nursery.pet.ok', { userId: user.id, monId, mood: newMood, petsToday: newPetsToday });
-    return reply.send({
+    const response: PetPenMonResponse = {
       ok: true,
       mood: newMood,
       petsToday: newPetsToday,
       maxPetsPerDay: MAX_PETS_PER_MON_PER_DAY,
-    });
+    };
+    return reply.send(response);
   });
 
   app.post<{ Params: { monId: string } }>('/api/nursery/feed/:monId', async (req, reply) => {
@@ -153,7 +201,31 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
       });
     }
     log.info('nursery.feed.ok', { userId: user.id, monId, mood: newMood, meat: remainingMeat });
-    return reply.send({ ok: true, mood: newMood, meat: remainingMeat });
+    const response: FeedPenMonResponse = { ok: true, mood: newMood, meat: remainingMeat };
+    return reply.send(response);
+  });
+
+  app.post<{ Params: { monId: string } }>('/api/nursery/graduate/:monId', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const monId = req.params.monId;
+    const now = Date.now();
+    const result = await tx<GraduateResponse>(async (t) => {
+      const target = await t.one<RosterRow>(SQL_SELECT_BY_ID, [monId, user.id]);
+      if (!target) return { ok: false, error: 'not-found' };
+      if (target.status !== 'nursery') return { ok: false, error: 'not-ready' };
+      if (target.listed_at !== null) return { ok: false, error: 'not-ready' };
+      const advanced = await advancePenMon(target, now, t);
+      if (parseNurseryStage(advanced) !== 'Rookie') return { ok: false, error: 'not-ready' };
+      const chain = parseNurseryChain(advanced);
+      await t.run(SQL_GRADUATE, [chain.rookieCatalogId, now, monId, user.id]);
+      log.info('nursery.graduate.ok', { userId: user.id, monId, rookieCatalogId: chain.rookieCatalogId });
+      return { ok: true, monId, nickname: advanced.nickname, rookieCatalogId: chain.rookieCatalogId };
+    });
+    if (!result.ok) {
+      const code = result.error === 'not-found' ? 404 : 409;
+      return reply.code(code).send({ error: result.error });
+    }
+    return reply.send(result);
   });
 
   app.get('/api/nursery/data', async (req, reply) => {
@@ -225,7 +297,7 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({
       ok: true,
       monId: result.monId,
-      rookieCatalogId: result.rookieCatalogId,
+      babyCatalogId: result.babyCatalogId,
       nickname: result.nickname,
     });
   });
