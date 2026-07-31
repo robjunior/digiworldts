@@ -87,7 +87,23 @@ function interaction(subcommand: string, options: Record<string, string | boolea
   };
 }
 
-const backendMock = { userByDiscord: async () => ({ userId: 'user-1', username: 'tester', displayName: 'Tester', discordId: 'admin-1', credits: 0, premiumUntil: null, locale: 'en' }) };
+const debits: { readonly userId: string; readonly amount: number; readonly idempotencyKey: string }[] = [];
+let walletBalance = 0;
+
+function backendMockWith(credits: number) {
+  walletBalance = credits;
+  return {
+    userByDiscord: async () => ({ userId: 'user-1', displayName: 'Tester', discordId: 'admin-1', credits: walletBalance, premiumUntil: null, locale: 'en' }),
+    walletDebit: async (input: { readonly userId: string; readonly amount: number; readonly idempotencyKey: string; readonly reason: string }) => {
+      debits.push({ userId: input.userId, amount: input.amount, idempotencyKey: input.idempotencyKey });
+      const debited = Math.min(input.amount, walletBalance);
+      walletBalance -= debited;
+      return { ok: true, userId: input.userId, requested: input.amount, debited, shortfall: input.amount - debited, credits: walletBalance, reason: input.reason };
+    },
+  };
+}
+
+const backendMock = backendMockWith(0);
 
 async function main(): Promise<void> {
   const { handleAdminCommand } = await import('../src/commands/admin.js');
@@ -108,26 +124,66 @@ async function main(): Promise<void> {
   const noRolesReply = noRoles.calls.find((c) => c.startsWith('edit:')) ?? '';
   assert(noRolesReply.includes('admin role'), 'empty admin role list blocks everyone');
 
+  // Tier 1 — credits still fully present: claw back everything, refund 100%.
   const refundDb = new MemoryDb();
   refundDb.sessions.set('sess-1', baseSession());
   const refundNotifications: { readonly discordId: string; readonly kind: string; readonly sku?: string }[] = [];
   const refundInt = interaction('refund', { purchase_id: 'sess-1' });
+  debits.length = 0;
   await handleAdminCommand(refundInt, {
     adminRoleIds,
     db: refundDb,
-    backendClient: backendMock,
+    backendClient: backendMockWith(1000),
     paymentProvider,
     notifications: { sendPurchaseNotification: async (input) => { refundNotifications.push(input); } },
     now: () => 5_000,
   });
   const refundReply = refundInt.calls.find((c) => c.startsWith('edit:')) ?? '';
-  assert(refundReply.includes('Refund completed'), 'refund success message');
+  assert(refundReply.includes('Refund completed'), 'tier full — refund success message');
   assertEqual(refundDb.sessions.get('sess-1')?.state, 'refunded', 'session marked refunded');
+  assertEqual(debits.length, 1, 'tier full — credits are clawed back');
+  assertEqual(debits[0]?.amount, 1000, 'tier full — clawback equals the granted amount');
+  assertEqual(debits[0]?.idempotencyKey, 'purchase:sess-1:clawback', 'clawback uses a deterministic idempotency key');
   assertEqual(refundDb.events.length, 1, 'refund event recorded');
   assertEqual(refundDb.audits.length, 1, 'refund audit recorded');
   assertEqual(refundDb.audits[0]?.action, 'refund', 'refund audit action');
   assertEqual(refundNotifications.length, 1, 'refund notification fired');
   assertEqual(refundNotifications[0]?.kind, 'refunded', 'refund notification kind');
+
+  // Tier 2 — partially spent: claw back what is left, refund proportionally.
+  const partialDb = new MemoryDb();
+  partialDb.sessions.set('sess-p', baseSession({ id: 'sess-p' }));
+  const partialInt = interaction('refund', { purchase_id: 'sess-p' });
+  debits.length = 0;
+  await handleAdminCommand(partialInt, {
+    adminRoleIds,
+    db: partialDb,
+    backendClient: backendMockWith(400),
+    paymentProvider,
+    now: () => 5_000,
+  });
+  const partialReply = partialInt.calls.find((c) => c.startsWith('edit:')) ?? '';
+  assert(partialReply.includes('Partial refund'), 'tier partial — reports a partial refund');
+  assertEqual(debits[0]?.amount, 400, 'tier partial — claws back only the remaining balance');
+  assert(partialReply.includes('4.00'), 'tier partial — refunds BRL proportional to the credits still held (400/1000 of R$10)');
+  assertEqual(partialDb.sessions.get('sess-p')?.state, 'refunded', 'partial refund still closes the session');
+
+  // Tier 3 — fully spent: refuse, do not send money out for credits the player consumed.
+  const consumedDb = new MemoryDb();
+  consumedDb.sessions.set('sess-c', baseSession({ id: 'sess-c' }));
+  const consumedInt = interaction('refund', { purchase_id: 'sess-c' });
+  debits.length = 0;
+  await handleAdminCommand(consumedInt, {
+    adminRoleIds,
+    db: consumedDb,
+    backendClient: backendMockWith(0),
+    paymentProvider,
+    now: () => 5_000,
+  });
+  const consumedReply = consumedInt.calls.find((c) => c.startsWith('edit:')) ?? '';
+  assert(consumedReply.includes('already spent'), 'tier consumed — refuses the automatic refund');
+  assertEqual(debits.length, 0, 'tier consumed — nothing is debited');
+  assertEqual(consumedDb.sessions.get('sess-c')?.state, 'delivered', 'tier consumed — session is left untouched for manual handling');
 
   const dbNoInner = new MemoryDb();
   dbNoInner.sessions.set('sess-2', baseSession({ id: 'sess-2', metadata_json: JSON.stringify({ kind: 'credits' }) }));

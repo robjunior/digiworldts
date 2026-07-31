@@ -19,6 +19,7 @@ const SQL_UPDATE_GRANT_RESPONSE = `UPDATE service_grant_log SET response_json = 
 const SQL_UPSERT_WALLET_CREDIT = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
      ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
 const SQL_SELECT_WALLET_GRANT = `SELECT credits, premium_until FROM player_wallet WHERE user_id = ?`;
+const SQL_DEBIT_WALLET = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;
 
 const MAX_SERVICE_CREDIT_GRANT = 100_000;
 
@@ -30,6 +31,7 @@ const LinkInitSchema = z.object({ discordId: DiscordIdSchema }).strict();
 const LinkCompleteSchema = z.object({ discordId: DiscordIdSchema, code: z.string().trim().min(1).max(64) }).strict();
 const UnlinkSchema = z.object({ discordId: DiscordIdSchema }).strict();
 const WalletCreditSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
+const WalletDebitSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
 
 type LinkRow = Pick<UserRow, 'id' | 'display_name'> & { readonly discord_id: string | null };
 type ServiceUserRow = Pick<UserRow, 'id' | 'display_name' | 'locale_pref'> & {
@@ -126,6 +128,34 @@ export const servicePlugin: FastifyPluginAsync = async (app): Promise<void> => {
         await t.run(SQL_UPSERT_WALLET_CREDIT, [parsed.data.userId, parsed.data.amount, now]);
         const wallet = await t.one<{ readonly credits: number }>(SQL_SELECT_WALLET_GRANT, [parsed.data.userId]);
         const body = { ok: true, userId: parsed.data.userId, amount: parsed.data.amount, credits: wallet?.credits ?? parsed.data.amount, reason: parsed.data.reason };
+        await storeGrantResponse(t, { idempotencyKey: parsed.data.idempotencyKey, response: body });
+        return body;
+      });
+      return reply.send(response);
+    } catch (err) {
+      if (err instanceof ServiceRouteError) return reply.code(err.status).send({ error: err.code });
+      throw err;
+    }
+  });
+
+  app.post('/api/service/wallet-debit', async (req, reply) => {
+    await requireServiceAuth(req, reply);
+    const parsed = WalletDebitSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    try {
+      const response = await tx(async (t) => {
+        const now = Date.now();
+        const reservation = await reserveGrant(t, { endpoint: 'wallet-debit', idempotencyKey: parsed.data.idempotencyKey, now });
+        if (reservation.kind === 'cached') return reservation.response;
+        await requireUserInTx(t, parsed.data.userId);
+        const wallet = await t.one<{ readonly credits: number }>(SQL_SELECT_WALLET_GRANT, [parsed.data.userId]);
+        // player_wallet enforces CHECK (credits >= 0), so the wallet itself can never
+        // absorb a shortfall. Claw back only what is actually there and report the gap,
+        // letting the caller decide whether the remainder becomes debt or is written off.
+        const available = wallet?.credits ?? 0;
+        const debited = Math.min(parsed.data.amount, available);
+        if (debited > 0) await t.run(SQL_DEBIT_WALLET, [debited, now, parsed.data.userId, debited]);
+        const body = { ok: true, userId: parsed.data.userId, requested: parsed.data.amount, debited, shortfall: parsed.data.amount - debited, credits: available - debited, reason: parsed.data.reason };
         await storeGrantResponse(t, { idempotencyKey: parsed.data.idempotencyKey, response: body });
         return body;
       });

@@ -62,6 +62,7 @@ async function main(): Promise<void> {
     paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', paidAmountBrlCents: 2500, raw: { status: 'approved' } }) },
     backendClient: {
       walletCredit: async (input) => { grants.push({ key: input.idempotencyKey, amount: input.amount }); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+      walletDebit: async (input) => ({ ok: true, userId: input.userId, requested: input.amount, debited: input.amount, shortfall: 0, credits: 0, reason: input.reason }),
     },
     notifications: { sendPurchaseNotification: async (input) => { notifications.push(input); } },
   });
@@ -82,6 +83,7 @@ async function main(): Promise<void> {
     paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_2', status: 'approved', paidAmountBrlCents: 1000, raw: { status: 'approved' } }) },
     backendClient: {
       walletCredit: async (input) => { fallbackGrants.push(input.amount); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+      walletDebit: async (input) => ({ ok: true, userId: input.userId, requested: input.amount, debited: input.amount, shortfall: 0, credits: 0, reason: input.reason }),
     },
   });
   assertEqual(fallbackGrants[0], 1000, 'session without frozen creditsAmount recomputes from amountBrlCents x CREDITS_PER_BRL');
@@ -97,6 +99,7 @@ async function main(): Promise<void> {
     paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_3', status: 'approved', paidAmountBrlCents: 100, raw: { status: 'approved', total_amount: '1.00' } }) },
     backendClient: {
       walletCredit: async (input) => { mismatchGrants.push(input.amount); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
+      walletDebit: async (input) => ({ ok: true, userId: input.userId, requested: input.amount, debited: input.amount, shortfall: 0, credits: 0, reason: input.reason }),
     },
   });
   assertEqual(mismatchGrants.length, 0, 'provider reporting a different paid amount must NOT mint any credits');

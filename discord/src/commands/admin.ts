@@ -11,6 +11,8 @@ import type { NotificationService } from '../notifications.js';
 import { aggregatePurchaseStats, getSalesPause, setSalesPaused } from '../repo/admin.js';
 import { insertAuditLog } from '../repo/audit.js';
 import { getPurchaseSession, insertPurchaseEvent, updatePurchaseSessionState } from '../repo/purchases.js';
+import { creditsForSession } from '../purchase/orchestrator.js';
+import { decideRefundTier, withinRegretWindow } from '../purchase/refundPolicy.js';
 import type { Queryable } from '../repo/types.js';
 import { runDeferredCommand, type CommandInteraction } from './wrapper.js';
 
@@ -27,7 +29,7 @@ type AdminInteraction = CommandInteraction & {
 
 export type AdminCommandDeps = {
   readonly db?: Queryable;
-  readonly backendClient?: Pick<BackendGateway, 'userByDiscord'>;
+  readonly backendClient?: Pick<BackendGateway, 'userByDiscord' | 'walletDebit'>;
   readonly paymentProvider?: Pick<PaymentProvider, 'refund'>;
   readonly notifications?: Pick<NotificationService, 'sendPurchaseNotification'>;
   readonly now?: () => number;
@@ -76,6 +78,7 @@ async function resolveLocale(deps: AdminCommandDeps, discordId: string): Promise
 async function handleRefund(interaction: AdminInteraction, deps: AdminCommandDeps, locale: Locale): Promise<void> {
   const db = deps.db ?? { query };
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
+  const backendClient = deps.backendClient ?? createBackendClient();
   const now = deps.now ?? Date.now;
   const sessionId = interaction.options?.getString?.('purchase_id', true) ?? null;
   if (sessionId === null) {
@@ -99,8 +102,39 @@ async function handleRefund(interaction: AdminInteraction, deps: AdminCommandDep
     await interaction.editReply({ content: t('discord.admin.refund.no_inner_payment', { purchaseId: session.id }, locale) });
     return;
   }
+
+  const wallet = await backendClient.userByDiscord(session.discordId);
+  const tier = decideRefundTier({
+    sessionState: session.state,
+    grantedCredits: creditsForSession(session),
+    currentBalance: wallet.credits,
+    amountBrlCents: session.amountBrlCents,
+  });
+
+  if (tier.kind === 'consumed') {
+    await interaction.editReply({ content: t('discord.admin.refund.consumed', { purchaseId: session.id }, locale) });
+    return;
+  }
+
+  const clawbackCredits = tier.kind === 'not_delivered' ? 0 : tier.clawbackCredits;
+  const refundBrlCents = tier.kind === 'not_delivered' ? session.amountBrlCents : tier.refundBrlCents;
+
   try {
-    const refund = await paymentProvider.refund(innerPaymentId, session.amountBrlCents);
+    // Claw back BEFORE refunding. If the debit fails we must not have already sent the
+    // money out, otherwise the player keeps both the credits and the cash.
+    if (clawbackCredits > 0) {
+      const debit = await backendClient.walletDebit({
+        userId: session.userId,
+        amount: clawbackCredits,
+        idempotencyKey: `purchase:${session.id}:clawback`,
+        reason: `discord-refund:${session.id}`,
+      });
+      if (debit.shortfall > 0) {
+        log.warn('discord.admin.refund.partial_clawback', { sessionId: session.id, requested: clawbackCredits, debited: debit.debited, shortfall: debit.shortfall });
+      }
+    }
+
+    const refund = await paymentProvider.refund(innerPaymentId, refundBrlCents);
     const timestamp = now();
     const moved = await updatePurchaseSessionState(db, session.id, 'refunded', timestamp, session.state);
     if (!moved) {
@@ -108,12 +142,18 @@ async function handleRefund(interaction: AdminInteraction, deps: AdminCommandDep
       await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
       return;
     }
-    await insertPurchaseEvent(db, { id: randomUUID(), sessionId: session.id, fromState: session.state, toState: 'refunded', providerStatus: refund.status, reason: 'admin-refund', payloadJson: JSON.stringify({ refundId: refund.refundId, innerPaymentId }), createdAt: timestamp });
-    await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: 'refund', targetId: session.id, payloadJson: JSON.stringify({ refundId: refund.refundId, status: refund.status, sku: session.sku, innerPaymentId }), createdAt: timestamp });
+    await insertPurchaseEvent(db, { id: randomUUID(), sessionId: session.id, fromState: session.state, toState: 'refunded', providerStatus: refund.status, reason: `admin-refund:${tier.kind}`, payloadJson: JSON.stringify({ refundId: refund.refundId, innerPaymentId, tier: tier.kind, clawbackCredits, refundBrlCents }), createdAt: timestamp });
+    await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: 'refund', targetId: session.id, payloadJson: JSON.stringify({ refundId: refund.refundId, status: refund.status, tier: tier.kind, clawbackCredits, refundBrlCents, withinRegret: withinRegretWindow(session.createdAt, timestamp) }), createdAt: timestamp });
     if (deps.notifications) {
       await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'refunded', sku: session.sku });
     }
-    await interaction.editReply({ content: t('discord.admin.refund.done', { purchaseId: session.id }, locale) });
+    await interaction.editReply({
+      content: t(tier.kind === 'partial' ? 'discord.admin.refund.partial' : 'discord.admin.refund.done', {
+        purchaseId: session.id,
+        credits: clawbackCredits,
+        amount: (refundBrlCents / 100).toFixed(2),
+      }, locale),
+    });
   } catch (error) {
     log.warn('discord.admin.refund.failed', { sessionId: session.id, err: error instanceof Error ? error.message : 'unknown' });
     await interaction.editReply({ content: t('discord.admin.refund.error', { error: error instanceof Error ? error.message : 'unknown' }, locale) });

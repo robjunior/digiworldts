@@ -1,4 +1,5 @@
 export * from './audit.js';
+export * from './debt.js';
 export * from './links.js';
 export * from './purchases.js';
 export * from './types.js';

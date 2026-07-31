@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import { query, tx } from '../db.js';
 import { log } from '../logger.js';
 import { getPurchaseSessionByProviderPayment, markPurchaseDelivered, updatePurchaseSessionState } from '../repo/purchases.js';
+import { addCreditDebt } from '../repo/debt.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
@@ -15,7 +16,7 @@ import { decideMercadoPagoTransition, decideTransition, isMercadoPagoStatus, isP
 type OrchestratorDeps = {
   readonly db?: Queryable;
   readonly paymentProvider?: Pick<PaymentProvider, 'getStatus'>;
-  readonly backendClient?: Pick<BackendGateway, 'walletCredit'>;
+  readonly backendClient?: Pick<BackendGateway, 'walletCredit' | 'walletDebit'>;
   readonly now?: () => number;
   readonly notifications?: Pick<NotificationService, 'sendPurchaseNotification'>;
 };
@@ -53,6 +54,28 @@ async function grantReward(backendClient: Pick<BackendGateway, 'walletCredit'>, 
   });
 }
 
+// A chargeback is forced on us: the bank pulls the money regardless of policy. Take back
+// whatever credits are still there, and park the rest as debt, since player_wallet's
+// CHECK (credits >= 0) means the wallet itself cannot carry a negative balance.
+async function clawbackAfterChargeback(db: Queryable, backendClient: Pick<BackendGateway, 'walletDebit'>, session: PurchaseSession, now: number): Promise<void> {
+  const owed = creditsForSession(session);
+  try {
+    const debit = await backendClient.walletDebit({
+      userId: session.userId,
+      amount: owed,
+      idempotencyKey: `purchase:${session.id}:chargeback`,
+      reason: `discord-chargeback:${session.id}`,
+    });
+    if (debit.shortfall > 0) {
+      await addCreditDebt(db, { userId: session.userId, amount: debit.shortfall, reason: `chargeback:${session.id}`, purchaseSessionId: session.id, now });
+      log.warn('purchase.chargeback.debt_recorded', { sessionId: session.id, userId: session.userId, shortfall: debit.shortfall });
+    }
+  } catch (error) {
+    await addCreditDebt(db, { userId: session.userId, amount: owed, reason: `chargeback-clawback-failed:${session.id}`, purchaseSessionId: session.id, now });
+    log.error('purchase.chargeback.clawback_failed', { sessionId: session.id, err: error instanceof Error ? error.message : 'unknown' });
+  }
+}
+
 export async function processMercadoPagoPayment(paymentId: string, deps: OrchestratorDeps = {}): Promise<void> {
   const db = deps.db ?? { query };
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
@@ -75,6 +98,9 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
       return;
     }
     await recordTransition(db, session, decision.to, decision.providerStatus, null, timestamp, status.raw);
+    if (decision.to === 'chargeback' && session.state === 'delivered') {
+      await clawbackAfterChargeback(db, backendClient, session, timestamp);
+    }
     if (deps.notifications && (decision.to === 'failed' || decision.to === 'expired')) {
       await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: decision.to, sku: session.sku });
     }
