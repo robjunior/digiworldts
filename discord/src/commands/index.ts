@@ -7,6 +7,7 @@ import { handleHelpCommand } from './help.js';
 import { handleLinkCommand } from './link.js';
 import { handlePurchasesCommand } from './purchases.js';
 import { handleUnlinkCommand } from './unlink.js';
+import { config } from '../config.js';
 import type { CommandInteraction } from './wrapper.js';
 
 export const commandManifest: readonly RESTPostAPIChatInputApplicationCommandsJSONBody[] = [
@@ -18,7 +19,19 @@ export const commandManifest: readonly RESTPostAPIChatInputApplicationCommandsJS
   },
   { name: 'unlink', description: 'Unlink your DigiWorld account', type: ApplicationCommandType.ChatInput },
   { name: 'balance', description: 'Show your DigiWorld wallet balance', type: ApplicationCommandType.ChatInput },
-  { name: 'buy', description: 'Buy a DigiCredit pack', type: ApplicationCommandType.ChatInput, options: [{ name: 'sku', description: 'Credit pack SKU', type: ApplicationCommandOptionType.String, required: false }] },
+  {
+    name: 'buy',
+    description: `Buy DigiCredits with PIX (${config.CREDITS_PER_BRL} credits per BRL 1.00)`,
+    type: ApplicationCommandType.ChatInput,
+    options: [{
+      name: 'valor',
+      description: `Amount in BRL (min ${config.BUY_MIN_BRL}, max ${config.BUY_MAX_BRL}). Omit to see the guide.`,
+      type: ApplicationCommandOptionType.Number,
+      required: false,
+      min_value: config.BUY_MIN_BRL,
+      max_value: config.BUY_MAX_BRL,
+    }],
+  },
   {
     name: 'purchases',
     description: 'Show your purchase history',
@@ -38,11 +51,11 @@ export const commandManifest: readonly RESTPostAPIChatInputApplicationCommandsJS
         options: [{ name: 'purchase_id', description: 'Purchase session id to refund', type: ApplicationCommandOptionType.String, required: true }],
       },
       {
-        name: 'disable',
-        description: 'Disable a credit pack',
+        name: 'sales',
+        description: 'Pause or resume all credit sales',
         type: ApplicationCommandOptionType.Subcommand,
         options: [
-          { name: 'sku', description: 'Credit pack SKU to disable', type: ApplicationCommandOptionType.String, required: true },
+          { name: 'paused', description: 'True pauses sales, false resumes them', type: ApplicationCommandOptionType.Boolean, required: true },
           { name: 'reason', description: 'Optional reason', type: ApplicationCommandOptionType.String, required: false },
         ],
       },

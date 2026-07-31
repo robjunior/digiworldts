@@ -9,7 +9,7 @@ class MemoryDb {
   readonly sessions = new Map<string, Row>();
   readonly events: Row[] = [];
   readonly audits: Row[] = [];
-  readonly disabledPacks = new Map<string, Row>();
+  salesPause: Row | null = null;
 
   async query<T extends Row>(text: string, params: readonly unknown[] = []): Promise<{ readonly rows: readonly T[]; readonly rowCount: number }> {
     if (text.includes('SELECT * FROM purchase_sessions WHERE id')) {
@@ -29,12 +29,12 @@ class MemoryDb {
       this.audits.push({ id: params[0], actor_discord_id: params[1], action: params[2], target_id: params[3], payload_json: params[4], created_at: params[5] });
       return { rows: [], rowCount: 1 };
     }
-    if (text.includes('INSERT INTO disabled_credit_packs')) {
-      this.disabledPacks.set(String(params[0]), { sku: params[0], disabled_at: params[1], disabled_by: params[2], reason: params[3] });
+    if (text.includes('INSERT INTO sales_pause')) {
+      this.salesPause = { paused: params[0], paused_at: params[1], paused_by: params[2], reason: params[3] };
       return { rows: [], rowCount: 1 };
     }
-    if (text.includes('SELECT sku, disabled_at, disabled_by, reason FROM disabled_credit_packs')) {
-      return { rows: Array.from(this.disabledPacks.values()) as readonly T[], rowCount: this.disabledPacks.size };
+    if (text.includes('FROM sales_pause')) {
+      return { rows: (this.salesPause ? [this.salesPause] : []) as readonly T[], rowCount: this.salesPause ? 1 : 0 };
     }
     if (text.includes('COUNT(*) FILTER')) {
       const sessions = Array.from(this.sessions.values());
@@ -55,7 +55,7 @@ class MemoryDb {
 }
 
 function baseSession(overrides: Partial<Row> = {}): Row {
-  return { id: 'sess-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'SKU_100', provider: 'mercadopago', provider_payment_id: 'ORD_ORDER_1', state: 'delivered', amount_brl_cents: 1000, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: 3_000, metadata_json: JSON.stringify({ innerPaymentId: 'pay_inner_1', kind: 'credits', shopItemId: 'backend-pack' }), created_at: 1_000, updated_at: 3_000, ...overrides };
+  return { id: 'sess-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'CREDITS_1000', provider: 'mercadopago', provider_payment_id: 'ORD_ORDER_1', state: 'delivered', amount_brl_cents: 1000, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: 3_000, metadata_json: JSON.stringify({ innerPaymentId: 'pay_inner_1', creditsAmount: 1000, creditsPerBrl: 100 }), created_at: 1_000, updated_at: 3_000, ...overrides };
 }
 
 type FakeInteraction = {
@@ -64,20 +64,22 @@ type FakeInteraction = {
   readonly options: {
     readonly getSubcommand: () => string;
     readonly getString: (name: string, required?: boolean) => string | null;
+    readonly getBoolean: (name: string, required?: boolean) => boolean | null;
   };
   readonly calls: string[];
   deferReply(payload: { readonly ephemeral: true }): Promise<void>;
   editReply(payload: unknown): Promise<void>;
 };
 
-function interaction(subcommand: string, options: Record<string, string | undefined>, member: { readonly roles?: readonly string[] } = { roles: ['admin-role'] }): FakeInteraction {
+function interaction(subcommand: string, options: Record<string, string | boolean | undefined>, member: { readonly roles?: readonly string[] } = { roles: ['admin-role'] }): FakeInteraction {
   const calls: string[] = [];
   return {
     user: { id: 'admin-1' },
     member,
     options: {
       getSubcommand: () => subcommand,
-      getString: (name) => options[name] ?? null,
+      getString: (name) => { const value = options[name]; return typeof value === 'string' ? value : null; },
+      getBoolean: (name) => { const value = options[name]; return typeof value === 'boolean' ? value : null; },
     },
     calls,
     async deferReply(payload) { assert(payload.ephemeral, 'ephemeral'); calls.push('defer'); },
@@ -140,15 +142,25 @@ async function main(): Promise<void> {
   const notFoundReply = notFoundInt.calls.find((c) => c.startsWith('edit:')) ?? '';
   assert(notFoundReply.includes('not found'), 'missing session -> not_found');
 
-  const disableDb = new MemoryDb();
-  const disableInt = interaction('disable', { sku: 'SKU_100', reason: 'test' });
-  await handleAdminCommand(disableInt, { adminRoleIds, db: disableDb, backendClient: backendMock, now: () => 6_000 });
-  const disableReply = disableInt.calls.find((c) => c.startsWith('edit:')) ?? '';
-  assert(disableReply.includes('SKU_100'), 'disable success mentions SKU');
-  assert(disableReply.includes('disabled'), 'disable success has disabled label');
-  assertEqual(disableDb.disabledPacks.size, 1, 'disabled_pack row inserted');
-  assertEqual(disableDb.audits.length, 1, 'disable audit recorded');
-  assertEqual(disableDb.audits[0]?.action, 'disable-sku', 'disable audit action');
+  const pauseDb = new MemoryDb();
+  const pauseInt = interaction('sales', { paused: true, reason: 'manutencao' });
+  await handleAdminCommand(pauseInt, { adminRoleIds, db: pauseDb, backendClient: backendMock, now: () => 6_000 });
+  const pauseReply = pauseInt.calls.find((c) => c.startsWith('edit:')) ?? '';
+  assert(pauseReply.includes('PAUSED'), 'sales paused:true confirms pause');
+  assertEqual(pauseDb.salesPause?.paused, true, 'sales_pause row written with paused=true');
+  assertEqual(pauseDb.salesPause?.paused_by, 'admin-1', 'pause records the acting admin');
+  assertEqual(pauseDb.audits.length, 1, 'pause audit recorded');
+  assertEqual(pauseDb.audits[0]?.action, 'sales-pause', 'pause audit action');
+
+  const resumeDb = new MemoryDb();
+  resumeDb.salesPause = { paused: true, paused_at: 1, paused_by: 'admin-0', reason: null };
+  const resumeInt = interaction('sales', { paused: false });
+  await handleAdminCommand(resumeInt, { adminRoleIds, db: resumeDb, backendClient: backendMock, now: () => 6_500 });
+  const resumeReply = resumeInt.calls.find((c) => c.startsWith('edit:')) ?? '';
+  assert(resumeReply.includes('OPEN'), 'sales paused:false confirms resume');
+  assertEqual(resumeDb.salesPause?.paused, false, 'sales_pause row written with paused=false');
+  assertEqual(resumeDb.salesPause?.paused_by, null, 'resume clears the acting admin');
+  assertEqual(resumeDb.audits[0]?.action, 'sales-resume', 'resume audit action');
 
   const statsDb = new MemoryDb();
   statsDb.sessions.set('s1', baseSession({ id: 's1', state: 'delivered', amount_brl_cents: 1000 }));
@@ -160,8 +172,15 @@ async function main(): Promise<void> {
   assert(statsReply.includes('Delivered: 2'), 'stats shows delivered count');
   assert(statsReply.includes('Refunded: 1'), 'stats shows refunded count');
   assert(statsReply.includes('30.00'), 'stats shows delivered BRL total (1000+2000 = 3000 cents = 30.00 BRL)');
+  assert(statsReply.includes('Sales: open'), 'stats reports sales open when no pause row exists');
   assertEqual(statsDb.audits.length, 1, 'stats audit recorded');
   assertEqual(statsDb.audits[0]?.action, 'stats', 'stats audit action');
+
+  const statsPausedDb = new MemoryDb();
+  statsPausedDb.salesPause = { paused: true, paused_at: 1, paused_by: 'admin-1', reason: null };
+  const statsPausedInt = interaction('stats', {});
+  await handleAdminCommand(statsPausedInt, { adminRoleIds, db: statsPausedDb, backendClient: backendMock, now: () => 7_100 });
+  assert((statsPausedInt.calls.find((c) => c.startsWith('edit:')) ?? '').includes('Sales: PAUSED'), 'stats reports sales paused when the pause row is set');
 
   const resendNotifications: { readonly discordId: string; readonly kind: string; readonly sku?: string }[] = [];
   const resendDb = new MemoryDb();

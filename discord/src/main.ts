@@ -1,6 +1,7 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 
 import { commandHandlers, createAdminCommandHandler, type CommandHandler } from './commands/index.js';
+import { handleBuyButton, parseBuyButtonCents } from './commands/buy.js';
 import { config } from './config.js';
 import { close as closeDb } from './db.js';
 import { log } from './logger.js';
@@ -29,6 +30,10 @@ async function run(): Promise<void> {
   });
   client?.on(Events.InteractionCreate, (interaction) => {
     void (async (): Promise<void> => {
+      if (interaction.isButton()) {
+        if (parseBuyButtonCents(interaction.customId) !== null) await handleBuyButton(interaction);
+        return;
+      }
       if (!interaction.isChatInputCommand()) return;
       const handler = handlers[interaction.commandName];
       if (handler !== undefined) {

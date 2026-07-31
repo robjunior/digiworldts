@@ -8,7 +8,7 @@ import { log } from '../logger.js';
 import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
 import type { NotificationService } from '../notifications.js';
-import { aggregatePurchaseStats, listDisabledPacks, upsertDisabledPack } from '../repo/admin.js';
+import { aggregatePurchaseStats, getSalesPause, setSalesPaused } from '../repo/admin.js';
 import { insertAuditLog } from '../repo/audit.js';
 import { getPurchaseSession, insertPurchaseEvent, updatePurchaseSessionState } from '../repo/purchases.js';
 import type { Queryable } from '../repo/types.js';
@@ -21,6 +21,7 @@ type AdminInteraction = CommandInteraction & {
   readonly options?: {
     readonly getSubcommand?: () => string | null;
     readonly getString?: (name: string, required?: boolean) => string | null;
+    readonly getBoolean?: (name: string, required?: boolean) => boolean | null;
   };
 };
 
@@ -114,26 +115,26 @@ async function handleRefund(interaction: AdminInteraction, deps: AdminCommandDep
   }
 }
 
-async function handleDisable(interaction: AdminInteraction, deps: AdminCommandDeps, locale: Locale): Promise<void> {
+async function handleSales(interaction: AdminInteraction, deps: AdminCommandDeps, locale: Locale): Promise<void> {
   const db = deps.db ?? { query };
   const now = deps.now ?? Date.now;
-  const sku = interaction.options?.getString?.('sku', true) ?? null;
+  const paused = interaction.options?.getBoolean?.('paused', true) ?? null;
   const reason = interaction.options?.getString?.('reason', false) ?? null;
-  if (sku === null) {
+  if (paused === null) {
     await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
     return;
   }
   const timestamp = now();
-  await upsertDisabledPack(db, { sku, disabledAt: timestamp, disabledBy: interaction.user.id, reason });
-  await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: 'disable-sku', targetId: sku, payloadJson: JSON.stringify({ reason }), createdAt: timestamp });
-  await interaction.editReply({ content: t('discord.admin.disable.done', { sku }, locale) });
+  await setSalesPaused(db, { paused, actorDiscordId: interaction.user.id, reason, now: timestamp });
+  await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: paused ? 'sales-pause' : 'sales-resume', targetId: null, payloadJson: JSON.stringify({ reason }), createdAt: timestamp });
+  await interaction.editReply({ content: t(paused ? 'discord.admin.sales.paused' : 'discord.admin.sales.resumed', {}, locale) });
 }
 
 async function handleStats(interaction: AdminInteraction, deps: AdminCommandDeps, locale: Locale): Promise<void> {
   const db = deps.db ?? { query };
   const now = deps.now ?? Date.now;
   const stats = await aggregatePurchaseStats(db);
-  const disabled = await listDisabledPacks(db);
+  const pause = await getSalesPause(db);
   const timestamp = now();
   await insertAuditLog(db, { id: randomUUID(), actorDiscordId: interaction.user.id, action: 'stats', targetId: null, payloadJson: JSON.stringify({}), createdAt: timestamp });
   await interaction.editReply({
@@ -145,7 +146,7 @@ async function handleStats(interaction: AdminInteraction, deps: AdminCommandDeps
         failed: stats.failed,
         expired: stats.expired,
         total: (stats.deliveredBrlCents / 100).toFixed(2),
-        disabled: disabled.length,
+        sales: t(pause.paused ? 'discord.admin.sales.state_paused' : 'discord.admin.sales.state_open', {}, locale),
       }, locale),
     }],
   });
@@ -188,8 +189,8 @@ export async function handleAdminCommand(interaction: AdminInteraction, deps: Ad
     switch (subcommand) {
       case 'refund':
         return handleRefund(interaction, deps, locale);
-      case 'disable':
-        return handleDisable(interaction, deps, locale);
+      case 'sales':
+        return handleSales(interaction, deps, locale);
       case 'stats':
         return handleStats(interaction, deps, locale);
       case 'resend':

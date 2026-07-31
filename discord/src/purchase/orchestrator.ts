@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto';
 
 import type { BackendGateway } from '../backendClient.js';
 import { createBackendClient } from '../backendClient.js';
+import { config } from '../config.js';
 import { query, tx } from '../db.js';
-import { loadProductCatalog, type ProductConfig } from '../products.js';
+import { log } from '../logger.js';
 import { getPurchaseSessionByProviderPayment, markPurchaseDelivered, updatePurchaseSessionState } from '../repo/purchases.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { createMercadoPagoProvider } from '../payments/mercadopago.js';
@@ -15,7 +16,6 @@ type OrchestratorDeps = {
   readonly db?: Queryable;
   readonly paymentProvider?: Pick<PaymentProvider, 'getStatus'>;
   readonly backendClient?: Pick<BackendGateway, 'walletCredit'>;
-  readonly loadCatalog?: () => Promise<{ readonly products: readonly ProductConfig[] }>;
   readonly now?: () => number;
   readonly notifications?: Pick<NotificationService, 'sendPurchaseNotification'>;
 };
@@ -28,21 +28,35 @@ async function recordTransition(db: Queryable, session: PurchaseSession, toState
   await recordPurchaseEvent(db, { id: randomUUID(), sessionId: session.id, fromState: session.state, toState, providerStatus, reason, payloadJson: eventPayload(payload), createdAt: now });
 }
 
-function findProduct(products: readonly ProductConfig[], sku: string): ProductConfig | null {
-  return products.find((product) => product.sku === sku && product.enabled !== false) ?? null;
+function frozenCredits(session: PurchaseSession): number | null {
+  let metadata: Record<string, unknown>;
+  try {
+    metadata = JSON.parse(session.metadataJson) as Record<string, unknown>;
+  } catch (error) {
+    log.warn('purchase.metadata.unparseable', { sessionId: session.id, err: error instanceof Error ? error.message : 'unknown' });
+    return null;
+  }
+  const frozen = metadata['creditsAmount'];
+  return typeof frozen === 'number' && Number.isFinite(frozen) && frozen > 0 ? Math.round(frozen) : null;
 }
 
-async function grantReward(backendClient: Pick<BackendGateway, 'walletCredit'>, session: PurchaseSession, product: ProductConfig): Promise<void> {
-  const idempotencyKey = `purchase:${session.id}:reward`;
-  const reason = `discord-purchase:${session.id}`;
-  await backendClient.walletCredit({ userId: session.userId, amount: product.creditsAmount, idempotencyKey, reason });
+export function creditsForSession(session: PurchaseSession): number {
+  return frozenCredits(session) ?? Math.round((session.amountBrlCents / 100) * config.CREDITS_PER_BRL);
+}
+
+async function grantReward(backendClient: Pick<BackendGateway, 'walletCredit'>, session: PurchaseSession): Promise<void> {
+  await backendClient.walletCredit({
+    userId: session.userId,
+    amount: creditsForSession(session),
+    idempotencyKey: `purchase:${session.id}:reward`,
+    reason: `discord-purchase:${session.id}`,
+  });
 }
 
 export async function processMercadoPagoPayment(paymentId: string, deps: OrchestratorDeps = {}): Promise<void> {
   const db = deps.db ?? { query };
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
   const backendClient = deps.backendClient ?? createBackendClient();
-  const loadCatalog = deps.loadCatalog ?? loadProductCatalog;
   const now = deps.now ?? Date.now;
   const status = await paymentProvider.getStatus(paymentId);
   if (!isMercadoPagoStatus(status.status)) return;
@@ -64,19 +78,9 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
   if (decision.to !== 'paid') return;
   const deliveringDecision = decideTransition('paid', 'delivering', status.status);
   if (deliveringDecision.kind !== 'accepted') return;
-  const products = await loadCatalog();
-  const product = findProduct(products.products, session.sku);
-  if (product === null) {
-    await recordTransition(db, { ...session, state: 'paid' }, 'failed', status.status, 'product-not-found', timestamp, status.raw);
-    await updatePurchaseSessionState(db, session.id, 'failed', timestamp);
-    if (deps.notifications) {
-      await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'failed', sku: session.sku });
-    }
-    return;
-  }
   await updatePurchaseSessionState(db, session.id, 'delivering', timestamp);
   await recordTransition(db, { ...session, state: 'paid' }, 'delivering', status.status, null, timestamp, status.raw);
-  await grantReward(backendClient, session, product);
+  await grantReward(backendClient, session);
   const deliveredAt = now();
   await markPurchaseDelivered(db, session.id, 'delivered', deliveredAt);
   await recordTransition(db, { ...session, state: 'delivering' }, 'delivered', status.status, null, deliveredAt, status.raw);
