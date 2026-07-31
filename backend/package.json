@@ -15,6 +15,7 @@
     "test:cluster": "tsx test/cluster-crossnode.mts",
     "test:migrator": "tsx test/migrator-smoke.mts",
     "test:features": "tsx test/features-smoke.mts",
+    "test:currency": "DB_PATH=/tmp/dw-currency-smoke.db tsx test/currency-smoke.mts",
     "test:discord-link": "DB_PATH=/tmp/dw-discord-link-test.db tsx test/discord-link.mts",
     "test:battle-sim": "tsx test/battle-sim.mts",
     "test:battle-combo": "tsx test/battle-combo.mts",
