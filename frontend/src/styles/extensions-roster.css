@@ -1528,3 +1528,54 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   border-color: var(--el, var(--signal));
   box-shadow: 0 0 0 1px var(--el, var(--signal));
 }
+
+/* Substitution dialog — party-full swap picker. */
+.subst-card { width: min(560px, 94vw); }
+.subst-hint {
+  font: 600 12px/1.55 var(--font); color: var(--muted);
+  margin: 0 0 14px; padding: 0 2px;
+}
+.subst-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.subst-option {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 10px; background: var(--bg); color: var(--ink);
+  border: 1px solid var(--hair); clip-path: var(--notch-sm);
+  cursor: pointer; text-align: center; min-width: 0;
+  transition: border-color .12s, background .12s;
+}
+.subst-option:hover:not(:disabled) { border-color: var(--el, var(--signal)); background: var(--panel); }
+.subst-option:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.subst-option:disabled { opacity: .5; cursor: not-allowed; }
+.subst-option img {
+  width: 64px; height: 64px; object-fit: contain; image-rendering: pixelated;
+  background: var(--panel); border: 1px solid var(--hair);
+}
+.subst-slot {
+  font: 800 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted);
+}
+.subst-empty-mark {
+  width: 64px; height: 64px; display: grid; place-items: center;
+  font: 900 22px/1 var(--font); color: var(--muted);
+  background: var(--panel); border: 1px dashed var(--hair);
+}
+.subst-name {
+  font: 800 12px/1.2 var(--font); max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.subst-sub { font: 600 10px/1.2 var(--font); color: var(--muted); }
+.subst-swap {
+  font: 800 8px/1 var(--font); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--el, var(--signal)); margin-top: 2px; white-space: nowrap;
+}
+.subst-option.is-empty { border-style: dashed; }
+.subst-option.is-downed { opacity: .55; filter: grayscale(.6); }
+
+@media (max-width: 560px) {
+  .subst-grid { grid-template-columns: 1fr; }
+  .subst-option { flex-direction: row; gap: 10px; text-align: left; }
+  .subst-option img, .subst-empty-mark { width: 44px; height: 44px; flex: 0 0 44px; }
+  .subst-slot { flex: 0 0 auto; }
+  .subst-name { flex: 1 1 auto; }
+  .subst-swap { margin-left: auto; margin-top: 0; }
+}
