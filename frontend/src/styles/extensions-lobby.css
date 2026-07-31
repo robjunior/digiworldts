@@ -87,9 +87,10 @@
 .lm-sec .lastmatch .rw b{font-size:11px}
 
 /* chat drawer (right col) */
-.chathead{flex:0 0 auto;padding:16px 18px 12px;border-bottom:1px solid var(--hair)}
+.chathead{flex:0 0 auto;padding:16px 18px 12px;border:0;border-bottom:1px solid var(--hair);background:none;width:100%;text-align:left;font:inherit;color:inherit;display:block;position:relative}
 .chathead .k{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
 .chathead .s{font-size:11px;color:var(--muted);margin-top:6px}
+.chat-caret{display:none}
 .chatlog{flex:1 1 auto;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px}
 .msg{display:flex;flex-direction:column;gap:3px}
 .msg .who{font:700 11px/1 var(--font);letter-spacing:.02em;color:var(--muted)}
@@ -106,3 +107,15 @@
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* mobile: detach chat into a bottom sheet so .colL owns the full width */
+@media (max-width:768px){
+  .grid{grid-template-columns:1fr}
+  .colL{padding:14px 16px 76px}
+  .colR{position:fixed;left:0;right:0;bottom:0;z-index:90;border-left:0;border-top:1px solid var(--hair);max-height:70vh;box-shadow:0 -8px 24px rgba(0,0,0,.35);transition:max-height .2s ease}
+  .colR:not(.is-open){max-height:58px}
+  .colR:not(.is-open) .chatlog,.colR:not(.is-open) .chatform{display:none}
+  .chathead{cursor:pointer;padding:14px 18px 12px}
+  .chat-caret{display:block;position:absolute;right:18px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:11px}
+  .chatlog{max-height:calc(70vh - 118px)}
+}
