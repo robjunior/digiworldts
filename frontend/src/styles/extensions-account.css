@@ -328,3 +328,35 @@
 @media (prefers-reduced-motion: reduce) {
   .account-page * { animation: none !important; transition: none !important; }
 }
+
+.account-page .acc-prefs {
+  margin-top: 14px; padding: 14px 16px;
+  background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch);
+}
+.account-page .acc-prefs .pk {
+  font: 800 9px/1 var(--font); letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.account-page .acc-pref-row { display: flex; align-items: center; gap: 14px; }
+.account-page .acc-pref-txt { flex: 1 1 auto; min-width: 0; }
+.account-page .acc-pref-k { font: 800 12px/1.2 var(--font); color: var(--ink); }
+.account-page .acc-pref-hint { font: 600 11px/1.4 var(--font); color: var(--muted); margin-top: 3px; }
+.account-page .acc-lang { flex: 0 0 auto; display: flex; gap: 6px; }
+.account-page .acc-lang-btn {
+  min-width: 44px; padding: 8px 12px; cursor: pointer;
+  background: var(--bg); color: var(--muted);
+  border: 1px solid var(--hair); clip-path: var(--notch-sm);
+  font: 800 11px/1 var(--font); letter-spacing: .08em;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.account-page .acc-lang-btn:hover { color: var(--ink); border-color: var(--muted); }
+.account-page .acc-lang-btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.account-page .acc-lang-btn.is-active {
+  background: var(--signal); border-color: var(--signal); color: #fff;
+}
+
+@media (max-width: 560px) {
+  .account-page .acc-pref-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .account-page .acc-lang { width: 100%; }
+  .account-page .acc-lang-btn { flex: 1 1 auto; }
+}
