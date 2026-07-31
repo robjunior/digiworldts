@@ -1,4 +1,9 @@
-import type { DialogueAction, DialogueChoice, DialogueCondition, DialogueNode, DialogueValueRef } from '@digiworld/shared/dialogue';
+import { parseTwee } from '@digiworld/shared/dialogue-parser';
+import type { DialogueParseResult } from '@digiworld/shared/dialogue';
+import type {
+  DialogueAction, DialogueChoice, DialogueCondition, DialogueDefinition,
+  DialogueDiagnostic, DialogueNode, DialogueValueRef,
+} from '@digiworld/shared/dialogue';
 
 import type { DbExecutor } from '../db/executor.js';
 import { execRun } from '../db/executor.js';
@@ -91,6 +96,41 @@ export function isKnownPredicate(name: string): boolean {
   return Object.hasOwn(PREDICATES, name);
 }
 
+function predicateNamesIn(condition: DialogueCondition, out: Set<string>): void {
+  if (condition.kind === 'all' || condition.kind === 'any') {
+    for (const part of condition.of) predicateNamesIn(part, out);
+    return;
+  }
+  if (condition.kind === 'not') return predicateNamesIn(condition.of, out);
+  if (condition.kind === 'predicate') out.add(condition.name);
+}
+
+/**
+ * Import-time gate. The parser accepts any well-formed name, so without this a
+ * writer can ship @do give_itme(...) and see it merely do nothing at play time.
+ * Refusing on upload turns a silent no-op into an error with a passage name.
+ */
+export function unsupportedNames(definition: DialogueDefinition): readonly DialogueDiagnostic[] {
+  const out: DialogueDiagnostic[] = [];
+  for (const node of Object.values(definition.nodes)) {
+    for (const action of node.entryActions) {
+      if (!isKnownAction(action.name)) {
+        out.push({ line: 0, passage: node.id, message: `unknown action "${action.name}"` });
+      }
+    }
+    const predicates = new Set<string>();
+    if (node.condition !== null) predicateNamesIn(node.condition, predicates);
+    for (const choice of node.choices) if (choice.condition !== null) predicateNamesIn(choice.condition, predicates);
+    for (const jump of node.jumps) if (jump.condition !== null) predicateNamesIn(jump.condition, predicates);
+    for (const name of predicates) {
+      if (!isKnownPredicate(name)) {
+        out.push({ line: 0, passage: node.id, message: `unknown predicate "${name}"` });
+      }
+    }
+  }
+  return out;
+}
+
 function compare(left: DialogueScalar, op: string, right: DialogueScalar): boolean {
   if (op === '==') return left === right;
   if (op === '!=') return left !== right;
@@ -179,4 +219,13 @@ export async function applyEntryActions(
     }
     return applied;
   });
+}
+
+/** Single entry point for import, preview and sync so the registry gate cannot be skipped by one of them. */
+export function parseAndValidate(source: string, dialogueId: string): DialogueParseResult {
+  const result = parseTwee(source, { dialogueId });
+  if (result.definition === null) return result;
+  const unsupported = unsupportedNames(result.definition);
+  if (unsupported.length === 0) return result;
+  return { ...result, definition: null, errors: [...result.errors, ...unsupported] };
 }
