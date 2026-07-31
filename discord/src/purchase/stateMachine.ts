@@ -29,7 +29,10 @@ export const TRANSITIONS: Record<PurchaseState, readonly PurchaseState[]> = {
   delivered: ['refunded', 'chargeback'],
   failed: [],
   cancelled: [],
-  expired: [],
+  // The local sweep expires a session on OUR clock, but MercadoPago may still accept
+  // the PIX afterwards. Refusing expired -> paid would mean taking a real payment and
+  // never delivering, so a late confirmation still wins.
+  expired: ['paid'],
   refunded: [],
   disputed: ['paid', 'refunded', 'chargeback'],
   chargeback: [],

@@ -305,6 +305,12 @@ export async function partyAverageLevel(userId: string): Promise<number> {
   return Math.max(1, Math.round(sum / rows.length));
 }
 
+/** Counts slots exactly as `loadPartyLoadout` resolves them, so a queue gate and battle creation can never disagree. */
+export async function countPartyMembers(userId: string): Promise<number> {
+  const rows = await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
+  return rows.filter((r) => r.slot_index !== null && r.slot_index >= 0 && r.slot_index < PARTY_SIZE).length;
+}
+
 /** Sum of all training bonuses (hp+en+atk+def+int+spd) across the party,
  *  averaged per mon. Used as a matchmaking bracket alongside averageLevel
  *  so a fully-trained party doesn't get paired with an untrained one.

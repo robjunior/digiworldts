@@ -95,12 +95,36 @@ async function main(): Promise<void> {
   const first = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}`, 'x-request-id': 'req_1' }, payload });
   assertEqual(first.statusCode, 200, 'first webhook ACKs 200');
   await flushImmediate();
+
+  // Regression guard. MercadoPago sends several notifications per order carrying the
+  // SAME data.id (action_required, then processed). An earlier build deduped on that
+  // id, so the notification that actually reported payment was swallowed and the
+  // player paid for nothing. Every signed notification must reach processPayment.
   const second = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}`, 'x-request-id': 'req_1' }, payload });
-  assertEqual(second.statusCode, 200, 'duplicate webhook ACKs 200');
+  assertEqual(second.statusCode, 200, 'repeat notification for the same data.id still ACKs 200');
   await flushImmediate();
-  assertEqual(processCalls.length, 1, 'duplicate webhook does not process twice');
+  assertEqual(processCalls.length, 2, 'same data.id arriving twice is processed BOTH times (status may have changed to paid)');
+
   const bad = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', headers: { 'x-signature': `ts=${ts},v1=${signature}` }, payload: { ...payload, data: { id: 'tampered' } } });
   assertEqual(bad.statusCode, 401, 'bad signature rejected');
+
+  const failingApp = createServer({
+    mercadoPagoWebhook: {
+      db,
+      paymentProvider: provider,
+      now: () => 5_000,
+      processPayment: async () => { throw new Error('backend down'); },
+    },
+  });
+  const failSig = signMercadoPagoWebhook({ dataId: 'pay_fail', requestId: 'req_f', ts, secret: 'secret' });
+  const failed = await failingApp.inject({
+    method: 'POST',
+    url: '/webhooks/mercadopago',
+    headers: { 'x-signature': `ts=${ts},v1=${failSig}`, 'x-request-id': 'req_f' },
+    payload: { type: 'payment', action: 'payment.updated', data: { id: 'pay_fail' } },
+  });
+  assertEqual(failed.statusCode, 500, 'delivery failure returns non-2xx so MercadoPago retries instead of dropping a paid order');
+  await failingApp.close();
 
   const orderId = 'ORDTST01KYT58NXVRNAW452K715R7RF2';
   const orderSignature = signMercadoPagoWebhook({ dataId: orderId, requestId: 'req_2', ts, secret: 'secret' });
@@ -112,8 +136,8 @@ async function main(): Promise<void> {
   });
   assertEqual(queryOnly.statusCode, 200, 'orders API — query-string-only notification ACKs 200');
   await flushImmediate();
-  assertEqual(processCalls.length, 2, 'orders API — new notification triggers exactly one process call');
-  assertEqual(processCalls[1], orderId, 'orders API — processPayment receives the order_id from data.id query param');
+  assertEqual(processCalls.length, 3, 'orders API — query-string notification processed on top of the two body notifications');
+  assertEqual(processCalls[2], orderId, 'orders API — processPayment receives the order_id from data.id query param');
 
   const missingBoth = await app.inject({ method: 'POST', url: '/webhooks/mercadopago', payload: {} });
   assertEqual(missingBoth.statusCode, 400, 'no type + no data.id anywhere returns 400');

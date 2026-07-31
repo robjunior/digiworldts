@@ -18,6 +18,21 @@ class PurchaseDb {
       this.sessions.push({ id: params[0], user_id: params[1], discord_id: params[2], guild_id: params[3], sku: params[4], provider: params[5], provider_payment_id: params[6], state: params[7], amount_brl_cents: params[8], currency: params[9], idempotency_key: params[10], qr_code: params[11], qr_code_base64: params[12], ticket_url: params[13], expires_at: params[14], delivered_at: params[15], metadata_json: params[16], created_at: params[17], updated_at: params[18] });
       return { rows: [], rowCount: 1 };
     }
+    if (text.includes('UPDATE purchase_sessions') && text.includes('provider_payment_id = $2')) {
+      const session = this.sessions.find((s) => s.id === params[0]);
+      if (session !== undefined) {
+        session.provider_payment_id = params[1];
+        session.idempotency_key = params[2];
+        session.qr_code = params[3];
+        session.qr_code_base64 = params[4];
+        session.ticket_url = params[5];
+        session.expires_at = params[6];
+        session.state = params[7];
+        session.metadata_json = params[8];
+        session.updated_at = params[9];
+      }
+      return { rows: [], rowCount: 1 };
+    }
     if (text.includes('UPDATE purchase_sessions') && text.includes("state = 'expired'")) {
       const now = Number(params[0]);
       const expired = this.sessions.filter((session) => (session.state === 'pending' || session.state === 'awaiting_payment') && typeof session.expires_at === 'number' && session.expires_at < now);
@@ -127,6 +142,24 @@ async function main(): Promise<void> {
   assertEqual(parseBuyButtonCents(`${BUY_BUTTON_PREFIX}2500`), 2500, 'button custom_id parses to centavos');
   assertEqual(parseBuyButtonCents('something:else'), null, 'foreign custom_id returns null');
   assertEqual(parseBuyButtonCents(`${BUY_BUTTON_PREFIX}abc`), null, 'malformed custom_id returns null');
+
+  // Regression guard for the orphaned-order bug: the MercadoPago order used to be
+  // created BEFORE the row existed, so a crash in between left a payable QR with no
+  // session to deliver against. The session must survive a provider failure.
+  const orphanDb = new PurchaseDb();
+  const orphan = interaction(50, 'buyer-orphan');
+  await handleBuyCommand(orphan, {
+    db: orphanDb,
+    backendClient: backendMock,
+    paymentProvider: { createPixPayment: async () => { throw new Error('MP down'); } },
+    payer,
+    now: () => 1_000,
+  });
+  assertEqual(orphanDb.sessions.length, 1, 'session is persisted before the provider call, so a provider failure still leaves a durable row');
+  assertEqual(orphanDb.sessions[0]?.state, 'pending', 'session stranded by a provider failure stays in pending, never awaiting_payment');
+  assertEqual(orphanDb.sessions[0]?.provider_payment_id, null, 'stranded session has no provider payment id');
+  const orphanMeta = JSON.parse(String(orphanDb.sessions[0]?.metadata_json)) as { readonly creditsAmount: number };
+  assertEqual(orphanMeta.creditsAmount, 5000, 'creditsAmount is frozen at insert time, before the provider is ever called');
 
   const buttonCaptured: { amountBrlCents?: number } = {};
   const buttonDb = new PurchaseDb();

@@ -8,7 +8,7 @@ import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
 import { log } from '../logger.js';
 import { isSalesPaused } from '../repo/admin.js';
-import { insertPurchaseSession } from '../repo/purchases.js';
+import { insertPurchaseSession, updatePurchaseSessionPayment } from '../repo/purchases.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { runDeferredCommand, type CommandInteraction, type ReplyActionRow } from './wrapper.js';
 
@@ -65,7 +65,7 @@ export function parseBuyButtonCents(customId: string): number | null {
   return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
 }
 
-function createSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly amountBrlCents: number; readonly creditsAmount: number; readonly paymentId: string; readonly innerPaymentId: string; readonly idempotencyKey: string; readonly qrCode: string; readonly qrCodeBase64: string; readonly ticketUrl: string; readonly expiresAt: number; readonly now: number }): PurchaseSession {
+function createPendingSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly amountBrlCents: number; readonly creditsAmount: number; readonly expiresAt: number; readonly now: number }): PurchaseSession {
   return {
     id: randomUUID(),
     userId: input.userId,
@@ -73,19 +73,19 @@ function createSession(input: { readonly userId: string; readonly discordId: str
     guildId: input.guildId,
     sku: `CREDITS_${input.amountBrlCents}`,
     provider: 'mercadopago',
-    providerPaymentId: input.paymentId,
-    state: 'awaiting_payment',
+    providerPaymentId: null,
+    state: 'pending',
     amountBrlCents: input.amountBrlCents,
     currency: 'BRL',
-    idempotencyKey: input.idempotencyKey,
-    qrCode: input.qrCode,
-    qrCodeBase64: input.qrCodeBase64,
-    ticketUrl: input.ticketUrl,
+    idempotencyKey: null,
+    qrCode: null,
+    qrCodeBase64: null,
+    ticketUrl: null,
     expiresAt: input.expiresAt,
     deliveredAt: null,
     // creditsAmount is frozen here so a later CREDITS_PER_BRL change never
     // retroactively alters what an already-paid order delivers.
-    metadataJson: JSON.stringify({ creditsAmount: input.creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL, innerPaymentId: input.innerPaymentId }),
+    metadataJson: JSON.stringify({ creditsAmount: input.creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL }),
     createdAt: input.now,
     updatedAt: input.now,
   };
@@ -117,29 +117,43 @@ async function createPixPurchase(interaction: CommandInteraction & { readonly gu
   const creditsAmount = creditsForCents(amountBrlCents);
   const linkedUser = await backendClient.userByDiscord(interaction.user.id);
   const expiresAt = now() + config.PIX_EXPIRATION_MINUTES * 60_000;
-  const payment = await paymentProvider.createPixPayment({
-    amountBrlCents,
-    payer,
-    description: `DigiWorld ${creditsAmount} DigiCredits`,
-    notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(),
-    expiresAt: new Date(expiresAt),
-  });
-  const session = createSession({
+
+  // The session is persisted BEFORE the provider call so a crash in between can never
+  // leave a payable MercadoPago order with no row to map it back to. external_reference
+  // carries the session id, which is also how an orphaned order is reconciled by hand.
+  const session = createPendingSession({
     userId: linkedUser.userId,
     discordId: interaction.user.id,
     guildId: interaction.guildId ?? 'dm',
     amountBrlCents,
     creditsAmount,
-    paymentId: payment.providerPaymentId,
-    innerPaymentId: payment.innerPaymentId,
+    expiresAt,
+    now: now(),
+  });
+  await insertPurchaseSession(db, session);
+
+  const payment = await paymentProvider.createPixPayment({
+    amountBrlCents,
+    payer,
+    description: `DigiWorld ${creditsAmount} DigiCredits`,
+    externalReference: session.id,
+    notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(),
+    expiresAt: new Date(expiresAt),
+  });
+
+  await updatePurchaseSessionPayment(db, {
+    id: session.id,
+    providerPaymentId: payment.providerPaymentId,
     idempotencyKey: payment.idempotencyKey,
     qrCode: payment.qrCode,
     qrCodeBase64: payment.qrCodeBase64,
     ticketUrl: payment.ticketUrl,
     expiresAt,
-    now: now(),
+    state: 'awaiting_payment',
+    metadataJson: JSON.stringify({ creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL, innerPaymentId: payment.innerPaymentId }),
+    updatedAt: now(),
   });
-  await insertPurchaseSession(db, session);
+
   await interaction.editReply({
     embeds: [{
       title: t('discord.buy.qr_title', { amount: brl(amountBrlCents), credits: creditsAmount }, locale),

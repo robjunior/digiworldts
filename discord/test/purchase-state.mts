@@ -22,6 +22,13 @@ async function main(): Promise<void> {
   assertEqual(decideTransition('delivered', 'paid').kind, 'rejected', 'invalid transition rejected');
   const chargeback = decideMercadoPagoTransition('delivered', 'charged_back');
   assert(chargeback.kind === 'accepted' && chargeback.to === 'chargeback', 'charged_back after delivery records chargeback');
+
+  // The local sweep expires on our clock; MercadoPago may still take the PIX after it.
+  // Rejecting this transition meant pocketing a real payment and never delivering.
+  const lateApproval = decideMercadoPagoTransition('expired', 'approved');
+  assert(lateApproval.kind === 'accepted' && lateApproval.to === 'paid', 'payment confirmed after the local sweep expired the session is still honoured');
+  assertEqual(decideTransition('expired', 'delivered').kind, 'rejected', 'expired cannot jump straight to delivered, it must go through paid');
+
   process.stdout.write('purchase state machine tests passed\n');
 }
 

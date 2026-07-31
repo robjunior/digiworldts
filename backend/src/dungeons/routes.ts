@@ -54,6 +54,7 @@ import {
   asEncounterDigimon,
 } from './validation.js';
 import { loadCatalog, findTemplate } from '../digimon/xml.js';
+import { countPartyMembers } from '../roster/routes.js';
 import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
 import type { WildMon } from '../world/engine.js';
 import { randomEncounterMatchesDungeonConfig } from './random.js';
@@ -297,6 +298,8 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
 
   app.get<{ Params: { id: string } }>('/api/dungeon/:id', async (req, reply) => {
     const user = await requireAuth(req, reply);
+    const partySize = await countPartyMembers(user.id);
+    if (partySize < 1) return reply.code(400).send({ error: 'empty-party' });
     const view = await startOrGetRun(user.id, req.params.id);
     if (!view) return reply.code(404).send({ error: 'not-found' });
     const biome = view.dungeon.biomeRegion;

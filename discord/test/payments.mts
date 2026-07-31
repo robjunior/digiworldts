@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   const port = await listen(server);
   const { MercadoPagoProvider, buildMercadoPagoManifest } = await import('../src/payments/mercadopago.js');
   const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: `http://127.0.0.1:${port}`, timeoutMs: 1_000 });
-  const payment = await provider.createPixPayment({ amountBrlCents: 123, payer: { email: 'buyer@test.local', name: 'Test', lastName: 'Buyer', identificationType: 'CPF', identificationNumber: '12345678909' }, description: 'DigiWorld SKU', notificationUrl: 'http://local/webhooks/mercadopago', expiresAt: new Date('2026-07-30T14:30:00.000Z') });
+  const payment = await provider.createPixPayment({ amountBrlCents: 123, payer: { email: 'buyer@test.local', name: 'Test', lastName: 'Buyer', identificationType: 'CPF', identificationNumber: '12345678909' }, description: 'DigiWorld SKU', externalReference: 'sess-abc-123', notificationUrl: 'http://local/webhooks/mercadopago', expiresAt: new Date('2026-07-30T14:30:00.000Z') });
 
   assertEqual(payment.providerPaymentId, 'order_1', 'orders API — providerPaymentId is the order id, not the opaque payment id');
   assertEqual(payment.innerPaymentId, 'pay_opaque_1', 'orders API — innerPaymentId is the payment id inside the order (for /v1/payments/{id}/refunds addressability, REV-1.4)');
@@ -93,12 +93,14 @@ async function main(): Promise<void> {
   const requestBody = JSON.parse(createRequest.body) as {
     readonly type: string;
     readonly external_reference: string;
+    readonly expiration_time: string;
     readonly total_amount: string;
     readonly payer: Readonly<Record<string, unknown>> & { readonly identification: { readonly type: string } };
     readonly transactions: { readonly payments: readonly { readonly amount: string; readonly payment_method: { readonly id: string; readonly type: string } }[] };
   };
   assertEqual(requestBody.type, 'online', 'orders API — type=online required at top level');
-  assertEqual(requestBody.external_reference, 'DigiWorld SKU', 'external_reference from description');
+  assertEqual(requestBody.external_reference, 'sess-abc-123', 'external_reference carries the purchase session id, so an orphaned order can be reconciled');
+  assertEqual(requestBody.expiration_time, '2026-07-30T14:30:00.000Z', 'requested expiry reaches MercadoPago instead of being a dead parameter');
   assertEqual(requestBody.total_amount, '1.23', 'total_amount encoded as string (orders API is string-typed)');
   assertEqual(requestBody.transactions.payments.length, 1, 'exactly one PIX payment inside transactions.payments');
   assertEqual(requestBody.transactions.payments[0]?.amount, '1.23', 'per-payment amount matches order total');
