@@ -23,6 +23,8 @@ import { DungeonGrid } from '../components/dungeon/DungeonGrid';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
+import { DungeonQuestPanel } from '../components/dungeon/DungeonQuestPanel';
+import { DungeonActionBar } from '../components/dungeon/DungeonActionBar';
 import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
 import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
 import { DialogueOverlay } from '../components/dungeon/DialogueOverlay';
@@ -68,6 +70,7 @@ export function Dungeon(): JSX.Element {
   const [selectedInvItemId, setSelectedInvItemId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [partyTrail, setPartyTrail] = useState<readonly { readonly x: number; readonly y: number }[]>([]);
+  const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
 
   useEffect(() => {
     setPartyTrail([]);
@@ -102,7 +105,7 @@ export function Dungeon(): JSX.Element {
 
   const productById = useMemo(() => {
     const m = new Map<string, import('../lib/api-shop').ShopItemView>();
-    for (const p of shopQuery.data?.products ?? []) m.set(p.id, p);
+    for (const p of shopQuery.data?.catalog ?? []) m.set(p.id, p);
     return m;
   }, [shopQuery.data]);
 
@@ -292,16 +295,47 @@ export function Dungeon(): JSX.Element {
     enabled: introDialogueId !== null && !dialogueDismissed,
   });
 
+  useEffect(() => {
+    if (!activeSheet) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setActiveSheet(null);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [activeSheet]);
+
+  const handleToggleSheet = useCallback((sheet: 'log' | 'items' | 'quest') => {
+    setActiveSheet((prev) => prev === sheet ? null : sheet);
+  }, []);
+
+  const quest = questsQuery.data?.find((q) => q.id === questId) ?? null;
+
   const activeDialogue = dialogueDismissed ? null : dialogueQuery.data?.dialogue.definition ?? null;
   const dialogueOpen = activeDialogue !== null;
 
-  const handleCellClick = (x: number, y: number) => {
+  const tryMove = useCallback((dx: number, dy: number) => {
     if (dialogueOpen) return;
     if (activeEncounterId || activeRandomEncounter) {
       flashToast('Resolve the encounter first.');
       return;
     }
-    // Check adjacency
+    if (moveMutation.isPending) return;
+    const cx = data?.run.currentX ?? 0;
+    const cy = data?.run.currentY ?? 0;
+    const nx = cx + dx;
+    const ny = cy + dy;
+    const tileKey = `${nx},${ny}`;
+    const walkable = data?.tiles.some((t) => `${t.x},${t.y}` === tileKey);
+    if (!walkable) {
+      // Just silently do nothing if trying to move into a wall
+      return;
+    }
+    moveMutation.mutate({ x: nx, y: ny });
+  }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen, flashToast]);
+
+  const handleCellClick = (x: number, y: number) => {
     const cx = data?.run.currentX ?? 0;
     const cy = data?.run.currentY ?? 0;
     const dist = Math.abs(cx - x) + Math.abs(cy - y);
@@ -309,7 +343,7 @@ export function Dungeon(): JSX.Element {
       flashToast('Can only move to adjacent tiles.');
       return;
     }
-    moveMutation.mutate({ x, y });
+    tryMove(x - cx, y - cy);
   };
 
   useEffect(() => {
@@ -317,9 +351,6 @@ export function Dungeon(): JSX.Element {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (dialogueOpen) return;
-      if (activeEncounterId || activeRandomEncounter) return;
-      if (moveMutation.isPending) return;
 
       let dx = 0;
       let dy = 0;
@@ -332,17 +363,11 @@ export function Dungeon(): JSX.Element {
       }
       e.preventDefault();
 
-      const nx = data.run.currentX + dx;
-      const ny = data.run.currentY + dy;
-      const tileKey = `${nx},${ny}`;
-      const walkable = data.tiles.some((t) => `${t.x},${t.y}` === tileKey);
-      if (!walkable) return;
-
-      moveMutation.mutate({ x: nx, y: ny });
+      tryMove(dx, dy);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen]);
+  }, [data, tryMove]);
 
   if (error) {
     const code = error instanceof ApiError ? error.message : '';
@@ -372,8 +397,8 @@ export function Dungeon(): JSX.Element {
   const activeEncounter = activeEncounterId ? (encounters.find((e) => e.id === activeEncounterId) ?? null) : null;
   const pendingDoor = pendingUnlock ? doors.find((door) => door.id === pendingUnlock.doorId) ?? null : null;
   const pendingKeyItemId = pendingDoor?.keyItemId ?? pendingUnlock?.keyItemId ?? '';
-  const keyInventory = shopQuery.data?.inventory.find((entry) => entry.itemId === pendingKeyItemId) ?? null;
-  const keyItem = shopQuery.data?.products.find((entry) => entry.id === pendingKeyItemId) ?? null;
+  const keyInventory = shopQuery.data?.inventory?.find((entry) => entry.itemId === pendingKeyItemId) ?? null;
+  const keyItem = shopQuery.data?.catalog?.find((entry) => entry.id === pendingKeyItemId) ?? null;
   const keyName = keyInventory?.name ?? keyItem?.name ?? pendingKeyItemId;
   const canUnlock = (keyInventory?.qty ?? 0) >= 1;
 
@@ -434,24 +459,33 @@ export function Dungeon(): JSX.Element {
           now={now}
           onTarget={handleTargetMon}
         />
-        <DungeonInventoryPanel
-          inventory={shopQuery.data?.inventory ?? []}
-          productById={productById}
-          selectedItemId={selectedInvItemId}
-          busy={applyItemMutation.isPending}
-          onSelectItem={handleSelectItem}
-        />
-        <DungeonRunLog
-          dungeonName={dungeon.name}
-          stepCount={stepCount}
-          defeatedCount={run.defeatedEncounters.length}
-          totalEncounters={encounters.length}
-          isComplete={isComplete}
-          allEncountersDefeated={allEncountersDefeated}
-          isCompleting={completeMutation.isPending}
-          onComplete={() => completeMutation.mutate()}
-          logs={logs}
-        />
+        <div className="rail-log-inv">
+          <div className={`sheet${activeSheet === 'items' ? ' is-open' : ''}`} id="sheet-items">
+            <DungeonInventoryPanel
+              inventory={shopQuery.data?.inventory ?? []}
+              productById={productById}
+              selectedItemId={selectedInvItemId}
+              busy={applyItemMutation.isPending}
+              onSelectItem={handleSelectItem}
+            />
+          </div>
+          <div className={`sheet${activeSheet === 'log' ? ' is-open' : ''}`} id="sheet-log">
+            <DungeonRunLog
+              dungeonName={dungeon.name}
+              stepCount={stepCount}
+              defeatedCount={run.defeatedEncounters.length}
+              totalEncounters={encounters.length}
+              isComplete={isComplete}
+              allEncountersDefeated={allEncountersDefeated}
+              isCompleting={completeMutation.isPending}
+              onComplete={() => completeMutation.mutate()}
+              logs={logs}
+            />
+          </div>
+          <div className={`sheet${activeSheet === 'quest' ? ' is-open' : ''}`} id="sheet-quest">
+            <DungeonQuestPanel quest={quest} />
+          </div>
+        </div>
         <div className={`enc${activeEncounter || activeRandomEncounter ? '' : ' empty'}`}>
           <div className="idle">Walk the grid. Encounters surface here.</div>
           <DungeonEncounterCard
@@ -465,6 +499,17 @@ export function Dungeon(): JSX.Element {
           />
         </div>
       </aside>
+
+      <DungeonActionBar
+        canMove={!dialogueOpen && !activeEncounterId && !activeRandomEncounter && !moveMutation.isPending}
+        onMove={tryMove}
+        activeSheet={activeSheet}
+        onToggleSheet={handleToggleSheet}
+      />
+
+      {activeSheet !== null && (
+        <div className="sheet-backdrop" onClick={() => setActiveSheet(null)} />
+      )}
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
     </>
