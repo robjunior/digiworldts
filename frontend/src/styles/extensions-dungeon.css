@@ -587,3 +587,20 @@
   font: 700 8px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--signal); padding-top: 4px; border-top: 1px solid var(--hair);
 }
+
+/* Deliberately not `.stage`: that class is redefined by extensions-combat3d.css
+   and extensions-training.css, so its layout flips with stylesheet order. */
+.dungeon-gate-wrap {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 48px 20px;
+}
+.dungeon-gate {
+  width: 100%; max-width: 460px; padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 10px; text-align: center;
+  background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch);
+}
+.dungeon-gate b { font: 900 15px/1.2 var(--font); color: var(--ink); }
+.dungeon-gate span { font: 600 12px/1.6 var(--font); color: var(--muted); }
+.dungeon-gate-actions { display: flex; gap: 10px; justify-content: center; margin-top: 6px; flex-wrap: wrap; }
+.dungeon-gate-actions .btn { text-decoration: none; }

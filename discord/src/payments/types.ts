@@ -12,6 +12,7 @@ export type CreatePixPaymentInput = {
   readonly amountBrlCents: number;
   readonly payer: PayerInfo;
   readonly description: string;
+  readonly externalReference: string;
   readonly notificationUrl: string;
   readonly expiresAt: Date;
 };

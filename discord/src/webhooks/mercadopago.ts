@@ -71,14 +71,22 @@ export async function registerMercadoPagoWebhook(app: FastifyInstance, deps: Mer
     const provider = deps.paymentProvider ?? createMercadoPagoProvider();
     const verified = provider.verifyWebhook({ signatureHeader, requestId, dataId: notification.dataId });
     if (!verified) return reply.code(401).send({ error: 'invalid-signature' });
-    const inserted = await insertWebhookEvent(db, { provider: 'mercadopago', providerEventId: notification.dataId, eventType: notification.type, payloadJson: JSON.stringify(notification.rawPayload), processedAt: now() });
-    if (!inserted) return ack(reply);
-    const response = ack(reply);
-    setImmediate(() => {
-      void processPayment(notification.dataId).catch((error: unknown) => {
-        log.warn('mercadopago.webhook.process.failed', { paymentId: notification.dataId, err: error instanceof Error ? error.message : 'unknown error' });
-      });
-    });
-    return response;
+
+    // webhook_events is an audit trail, never a processing gate. MercadoPago sends
+    // several notifications per order (action_required -> processed) all carrying the
+    // SAME data.id, so gating on it swallowed the notification that actually reports
+    // payment. Re-delivery is made safe by the purchase state machine plus the
+    // backend's service_grant_log idempotency, not by suppressing notifications here.
+    await insertWebhookEvent(db, { provider: 'mercadopago', providerEventId: notification.dataId, eventType: notification.type, payloadJson: JSON.stringify(notification.rawPayload), processedAt: now() });
+
+    try {
+      await processPayment(notification.dataId);
+    } catch (error) {
+      // Non-2xx makes MercadoPago retry. Failing loudly is what keeps a paid order
+      // from being silently dropped when delivery breaks mid-flight.
+      log.error('mercadopago.webhook.process.failed', { paymentId: notification.dataId, err: error instanceof Error ? error.message : 'unknown error' });
+      return reply.code(500).send({ error: 'processing-failed' });
+    }
+    return ack(reply);
   });
 }

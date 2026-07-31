@@ -10,13 +10,14 @@ import {
   startRandomEncounter,
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
-import { getRoster } from '../lib/api';
+import { ApiError, getRoster } from '../lib/api';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
 import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../hooks/useLocale';
 
 import { DungeonGrid } from '../components/dungeon/DungeonGrid';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
@@ -32,6 +33,7 @@ import '../styles/extensions-dungeon.css';
 export function Dungeon(): JSX.Element {
   const { id } = useParams();
   const navigate = useNavigate();
+  const t = useT();
   const queryClient = useQueryClient();
   const handleServerMessage = useWsStore((state) => state.handleServerMessage);
 
@@ -341,6 +343,22 @@ export function Dungeon(): JSX.Element {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen]);
+
+  if (error) {
+    const code = error instanceof ApiError ? error.message : '';
+    return (
+      <div className="dungeon-gate-wrap">
+        <div className="dungeon-gate" role="alert">
+          <b>{code === 'empty-party' ? t('dungeon.gate.empty_party.title') : t('dungeon.gate.error.title')}</b>
+          <span>{code === 'empty-party' ? t('dungeon.gate.empty_party.body') : String(error instanceof Error ? error.message : error)}</span>
+          <div className="dungeon-gate-actions">
+            <Link className="btn" to="/roster">{t('dungeon.gate.open_roster')}</Link>
+            <Link className="btn btn--secondary" to="/world">{t('dungeon.gate.back_world')}</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading || !data) {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;

@@ -115,8 +115,9 @@ export class MercadoPagoProvider implements PaymentProvider {
     const amount = centsToBrlString(input.amountBrlCents);
     const body = {
       type: 'online',
-      external_reference: input.description,
+      external_reference: input.externalReference,
       total_amount: amount,
+      expiration_time: input.expiresAt.toISOString(),
       payer: {
         email: input.payer.email,
         first_name: input.payer.name,

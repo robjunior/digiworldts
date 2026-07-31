@@ -26,6 +26,7 @@ import { config } from '../config.js';
 import { log } from '../util/log.js';
 import { readSessionCookie, resolveSession } from '../auth/session.js';
 import { matchmaker, type MatchPair } from '../matchmaking/queue.js';
+import { PARTY_SIZE } from '../digimon/types.js';
 import {
   createBattleForPair,
   dispatchAction,
@@ -33,6 +34,7 @@ import {
   getSpectatorView,
   handleDisconnect,
   isInMatch,
+  countPartyMembers,
   partyAverageLevel,
   partyTrainedness,
   activeMatchCount,
@@ -312,6 +314,16 @@ const handleQueue: Handler = async (entry, msg) => {
     return;
   }
   if (msg.join) {
+    const partySize = await countPartyMembers(entry.userId);
+    if (partySize !== PARTY_SIZE) {
+      safeSend(entry.socket, {
+        type: 'error',
+        code: 'party-invalid',
+        message: `Ranked needs exactly ${PARTY_SIZE} Digimon in your party — you have ${partySize}.`,
+      });
+      safeSend(entry.socket, { type: 'queue', status: 'idle', size: await matchmaker.size() });
+      return;
+    }
     const level = await partyAverageLevel(entry.userId);
     const trainedness = await partyTrainedness(entry.userId);
     const result = await matchmaker.enqueue({
