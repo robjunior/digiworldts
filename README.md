@@ -327,7 +327,7 @@ Single endpoint: `GET /ws` — expects the session cookie on the upgrade request
 { "type": "chat",  "text": "...", "room?": "rm_..." }
 { "type": "queue", "join": true|false }
 { "type": "act",   "matchId": "mtc_...",
-  "action": { "type": "fight"|"skill"|"guard"|"flee", ... } }
+  "action": { "type": "fight"|"skill"|"flee", ... } }
 { "type": "spectate", "matchId": "mtc_...", "join": true|false }
 ```
 
@@ -357,17 +357,42 @@ Rate limits: chat is capped at **4 messages per 8 seconds per user** (server-sid
 ## Combat rules (server-authoritative)
 
 - Alternating turns. Active player picks ONE alive unit + ONE action.
-- Actions: `fight` (basic attack, 0 EN), `skill` (from a 4-skill pool, gated by EN), `guard` (next incoming halved), `flee` (forfeit).
+- Actions: `fight` (basic attack, 0 EN), `skill` (from a 4-skill pool, gated by EN), `flee` (forfeit).
 - Element affinity mirrors `base/combat.html`: `fire > nature > water > fire`, `electric > water`. Weak = 1.5×, resist = 0.5×.
-- Miss chance 8%, crit chance 15% (×1.6). Damage: `(atk*0.4 + skill.power) * crit * affinity * defMitigation * guard * (0.9-1.1)`.
+- Miss chance 8%, crit chance 15% (×1.6). Damage: `(atk*0.4 + skill.power) * crit * affinity * defMitigation * (0.9-1.1)`.
 - Ailments: `burn`/`poison` are DoT (6-5% of hpMax per turn), `weaken` reduces effective defense, `freeze`/`stun`/`sleep` skip the turn.
-- Match end triggers wallet grant: **60 credits for a win, 25 for a draw, 15 for a loss**, plus XP scaled by opponent level differential.
+- Match end triggers wallet grant: **60 NetCore for a win, 25 for a draw, 15 for a loss**, plus XP scaled by opponent level differential.
 
 ---
 
 ## Farm rules
 
-Every player starts with 4 buildings (Meat Farm, Bit Foundry, Data Spire, Bio Lab). Production is **computed on read** from `last_touch` + `ratePerHour`, capped at `capacity`. Collect banks the accrued value into `resources` and resets the checkpoint. Upgrade costs DigiCredits, raises rate by 25%, capacity by 20%, and the next upgrade cost by 60%.
+Every player starts with 4 buildings (Meat Farm, Bit Foundry, Data Spire, Bio Lab). Production is **computed on read** from `last_touch` + `ratePerHour`, capped at `capacity`. Collect banks the accrued value into `resources` and resets the checkpoint. Upgrade costs **Bits**, raises rate by 25%, capacity by 20%, and the next upgrade cost by 60%.
+
+---
+
+## Currency rules
+
+Two currencies, deliberately separated so that real-money value can never be minted by gameplay.
+
+| | **NetCore (NTC)** | **Credits (CR)** |
+|---|---|---|
+| Role | earned / grind | premium / paid |
+| Sources | PvP match end, PvE wins, adventure encounters, quest rewards, daily rewards | real-money PIX purchase via the Discord bot **only** |
+| Spent on | Digimon listings on the Market, NetCore-priced shop goods | Credit-priced premium shop goods |
+| Transferable between players? | yes, via the Market | **only** via the coin market |
+
+**Nothing in gameplay grants Credits.** Every loot, quest, daily and battle path grants NetCore. Credits enter the economy exclusively through `/api/service/wallet-credit`, the bearer-authenticated M2M endpoint the Discord bot calls after a MercadoPago PIX payment settles (idempotency-ledgered in `service_grant_log`).
+
+### Coin market
+
+Players trade the two currencies with each other, Tibia-Coin style — there is **no server-fixed exchange rate**. Offers are posted in **lots of 25 Credits** at a player-chosen `pricePerLot` denominated in NetCore, and matched from a two-sided order book (`coin_offers`).
+
+- A **sell offer** escrows the poster's Credits; a **buy offer** escrows their NetCore. The asset leaves the wallet at post time — otherwise the same balance could be spent twice.
+- Fills may be partial. `lots_remaining` is decremented by a single guarded `UPDATE ... WHERE lots_remaining >= ?`, so concurrent fills cannot oversell an offer.
+- Cancelling refunds only the **unfilled** remainder.
+
+Because Credits only ever originate from a paid purchase, the market redistributes them rather than minting them — the supply is fixed by real sales, and the price is set by players.
 
 ---
 
