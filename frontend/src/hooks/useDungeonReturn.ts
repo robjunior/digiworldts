@@ -21,12 +21,15 @@ export function useDungeonReturn(): void {
     if (!hadActiveBattle || activeBattle !== null) return;
 
     const rawReturn = sessionStorage.getItem(DUNGEON_RETURN_KEY);
-    if (rawReturn === null) return;
-    sessionStorage.removeItem(DUNGEON_RETURN_KEY);
-
-    const parsedReturn = parseDungeonReturn(rawReturn);
-    if (parsedReturn === null) return;
-    navigate(`/dungeon/${parsedReturn.dungeonId}`);
+    if (rawReturn !== null) {
+      sessionStorage.removeItem(DUNGEON_RETURN_KEY);
+      const parsedReturn = parseDungeonReturn(rawReturn);
+      if (parsedReturn !== null) {
+        navigate(`/dungeon/${parsedReturn.dungeonId}`, { replace: true });
+        return;
+      }
+    }
+    navigate('/lobby', { replace: true });
   }, [activeBattle, navigate]);
 }
 
