@@ -9,7 +9,7 @@ export const MARKET_SORTS = ['newest', 'price_asc', 'price_desc', 'level_desc'] 
 export type MarketStage = (typeof MARKET_STAGES)[number];
 export type MarketElement = (typeof MARKET_ELEMENTS)[number];
 export type MarketSort = (typeof MARKET_SORTS)[number];
-export type MarketTab = 'browse' | 'mine' | 'sell';
+export type MarketTab = 'browse' | 'mine' | 'sell' | 'coins';
 
 export type MarketFilters = {
   readonly q: string;

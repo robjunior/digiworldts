@@ -1,47 +1,138 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-
 import { useEffect, useMemo, useState } from 'react';
 
-import { DigiCredits } from '../components/common/DigiCredits';
-import { PageStrip } from '../components/common/PageStrip';
 import { ApplyDialog } from '../components/shop/ApplyDialog';
-import { InventoryItem } from '../components/shop/InventoryItem';
-import { ShopFilters } from '../components/shop/ShopFilters';
-import { ShopItem } from '../components/shop/ShopItem';
-import { ShopPagination } from '../components/shop/Pagination';
-import type { ShopFilter } from '../components/shop/types';
 import { useAuth } from '../hooks/useAuth';
+import { useT } from '../hooks/useLocale';
 import { getRoster } from '../lib/api';
 import { applyShopItem, buyShopItem, getShop } from '../lib/api-shop';
 import type { InventoryItemView, ShopItemView } from '../lib/api-shop';
+import { ApiError } from '../lib/api';
 import '../styles/extensions-shop.css';
 
 const SHOP_QUERY_KEY = ['shop'] as const;
 const ROSTER_QUERY_KEY = ['roster'] as const;
-const PER_PAGE = 9;
+
+function fmt(n: number): string {
+  return n.toLocaleString('pt-BR');
+}
+
+function Thumb({ item }: { readonly item: ShopItemView }): JSX.Element {
+  if (item.sprite) {
+    return (
+      <div className="thumb">
+        <img 
+          src={`https://api.skullbot.fr/img/digimon/dot/${item.sprite}.png`} 
+          alt="" 
+          onError={(e) => {
+            const target = e.currentTarget;
+            const span = document.createElement('span');
+            span.className = 'mono';
+            span.textContent = item.mono || item.name[0] || '?';
+            target.replaceWith(span);
+          }} 
+        />
+      </div>
+    );
+  }
+  return <div className="thumb"><span className="mono">{item.mono || item.name[0]}</span></div>;
+}
+
+function PriceLine({ item }: { readonly item: ShopItemView }): JSX.Element {
+  const isPremium = item.currency === 'credits'; 
+  const cssClass = isPremium ? 'gem' : 'cred';
+  return (
+    <span className={`price ${cssClass}`}>
+      <span className="coin" />{fmt(item.price)}
+    </span>
+  );
+}
 
 export function Shop(): JSX.Element {
-  const { user, logout } = useAuth();
+  const t = useT();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const shopQuery = useQuery({ queryKey: SHOP_QUERY_KEY, queryFn: getShop });
   const rosterQuery = useQuery({ queryKey: ROSTER_QUERY_KEY, queryFn: getRoster, enabled: false });
-  const [filter, setFilter] = useState<ShopFilter>('all');
-  const [page, setPage] = useState(1);
-  const [message, setMessage] = useState<string | null>(null);
+  
+  const [activeCat, setActiveCat] = useState<string>('all');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [confirmItem, setConfirmItem] = useState<ShopItemView | null>(null);
+  const [successItem, setSuccessItem] = useState<ShopItemView | null>(null);
   const [applyingItem, setApplyingItem] = useState<InventoryItemView | null>(null);
 
-  const items = shopQuery.data?.products ?? [];
-  const inventory = shopQuery.data?.inventory ?? [];
-  const credits = shopQuery.data?.credits ?? 0;
-  const filtered = useMemo(() => items.filter((item) => filter === 'all' || (filter === 'consumable' ? item.kind === 'consumable' || item.kind === 'xp_mult' || item.kind === 'revive' : item.kind === filter)), [filter, items]);
-  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
-  const itemById = useMemo<ReadonlyMap<string, ShopItemView>>(() => new Map(items.map((item) => [item.id, item])), [items]);
-  const totalInventory = inventory.reduce((sum, item) => sum + item.qty, 0);
+  const data = shopQuery.data;
+  const featured = data?.featured ?? null;
+  const quickOffers = data?.quick ?? [];
+  const catalog = data?.catalog ?? [];
+  const categories = data?.categories ?? [];
+  const wallet = data?.wallet ?? { credits: 0, netcore: 0 };
+  const inventory = data?.inventory ?? [];
 
-  useEffect(() => setPage(1), [filter]);
-  const invalidateShop = (): void => { void queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY }); };
-  const buyMutation = useMutation({ mutationFn: ({ itemId, qty }: { readonly itemId: string; readonly qty: number }) => buyShopItem(itemId, qty), onSuccess: (_result, variables) => { const bought = itemById.get(variables.itemId); setMessage(bought?.kind === 'building_placement' ? 'Placed! Visit Training to assign a Digimon.' : `Bought ${variables.qty}x ${bought?.name ?? 'item'}.`); invalidateShop(); } });
-  const applyMutation = useMutation({ mutationFn: ({ itemId, monId }: { readonly itemId: string; readonly monId?: string }) => applyShopItem(itemId, monId), onSuccess: () => { setMessage('Item applied successfully.'); setApplyingItem(null); invalidateShop(); } });
+  const filteredCatalog = useMemo(() => {
+    if (activeCat === 'all') return catalog;
+    return catalog.filter((item) => item.shopCategory === activeCat);
+  }, [activeCat, catalog]);
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    if (toastMsg) {
+      t = setTimeout(() => setToastMsg(null), 2200);
+    }
+    return () => clearTimeout(t);
+  }, [toastMsg]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConfirmItem(null);
+        setSuccessItem(null);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, []);
+
+  const invalidateShop = (): void => {
+    void queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY });
+  };
+
+  const buyMutation = useMutation({
+    mutationFn: ({ itemId, qty }: { readonly itemId: string; readonly qty: number }) => buyShopItem(itemId, qty),
+    onSuccess: (_result, variables) => {
+      invalidateShop();
+      setConfirmItem(null);
+      const item = catalog.find(i => i.id === variables.itemId) || (featured?.id === variables.itemId ? featured : quickOffers.find(i => i.id === variables.itemId));
+      if (item) {
+        setSuccessItem(item);
+        setToastMsg(`${item.name} comprado ✓`);
+      }
+    },
+    onError: (err: unknown) => {
+      setConfirmItem(null);
+      if (err instanceof ApiError) {
+        if (err.status === 402) setToastMsg('Saldo insuficiente');
+        else if (err.status === 403) setToastMsg('Item não disponível para compra');
+        else if (err.status === 404) setToastMsg('Item não encontrado');
+        else if (err.status === 409) setToastMsg('Você já possui este item');
+        else setToastMsg(`Erro: ${err.message}`);
+      } else {
+        setToastMsg('Erro desconhecido');
+      }
+    }
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: ({ itemId, monId }: { readonly itemId: string; readonly monId?: string }) => applyShopItem(itemId, monId),
+    onSuccess: () => {
+      setToastMsg('Item aplicado com sucesso ✓');
+      setApplyingItem(null);
+      invalidateShop();
+    },
+    onError: (err) => {
+      if (err instanceof ApiError) setToastMsg(`Erro: ${err.message}`);
+    }
+  });
 
   const openApply = (itemId: string): void => {
     const item = inventory.find((entry) => entry.itemId === itemId) ?? null;
@@ -49,25 +140,214 @@ export function Shop(): JSX.Element {
     void rosterQuery.refetch();
   };
 
+  const attemptBuy = (item: ShopItemView) => {
+    if (item.owned) return;
+    const balance = item.currency === 'credits' ? wallet.credits : wallet.netcore;
+    if (balance < item.price) {
+      const curName = item.currency === 'credits' ? t('currency.credits') : t('currency.netcore');
+      setToastMsg(`Saldo insuficiente · faltam ${fmt(item.price - balance)} ${curName}`);
+      return;
+    }
+    setConfirmItem(item);
+  };
+
   return (
-    <div className="app-shell shop-shell">
-      <main className="app-main">
-        <PageStrip
-          name="Shop"
-          tone="action"
-          metrics={[
-            { label: <><b>{filtered.length}</b> items</> },
-            { label: <><b>{totalInventory}</b> in inventory</> },
-          ]}
-          actions={<DigiCredits value={credits} />}
-        />
-        {message ? <div className="banner shop-message"><div className="b-s">{message}</div></div> : null}
-        <div className="layout">
-          <div className="shop-main"><ShopFilters active={filter} onFilter={setFilter} /><div className="shop-grid" id="shop-grid">{paginated.length === 0 ? <div className="shop-empty">No items found.</div> : paginated.map((item) => <ShopItem key={item.id} item={item} inventory={inventory} credits={credits} busy={buyMutation.isPending} onBuy={(itemId, qty) => buyMutation.mutate({ itemId, qty })} />)}<ShopPagination total={filtered.length} page={page} perPage={PER_PAGE} onPage={setPage} /></div></div>
-          <aside className="inventory"><h2>Inventory <span>{totalInventory} item{totalInventory === 1 ? '' : 's'}</span></h2><div className="inv-list">{inventory.length === 0 ? <div className="inv-empty">Nothing yet, buy something above.</div> : inventory.map((entry) => <InventoryItem key={entry.itemId} inventoryItem={entry} shopItem={itemById.get(entry.itemId) ?? null} onApply={openApply} onActivate={(itemId) => applyMutation.mutate({ itemId })} />)}</div></aside>
+    <>
+      <div className="mbar" data-od-id="shop-bar">
+        <span className="mtitle">Tamer's Exchange</span>
+        <div className="tabs" id="tabs" role="tablist">
+          <button className="tab" role="tab" aria-selected={activeCat === 'all'} onClick={() => setActiveCat('all')}>{t('shop.category_all')}</button>
+          {categories.map(cat => (
+            <button key={cat} className="tab" role="tab" aria-selected={activeCat === cat} onClick={() => setActiveCat(cat)}>{cat}</button>
+          ))}
         </div>
-      </main>
-      <ApplyDialog item={applyingItem} roster={rosterQuery.data?.roster ?? []} loading={rosterQuery.isFetching} onClose={() => setApplyingItem(null)} onApply={(monId) => { if (applyingItem) applyMutation.mutate({ itemId: applyingItem.itemId, monId }); }} />
-    </div>
+        <div className="wallet">
+          <span className="bal">
+            <span className="coin cred" />
+            <span className="k">{t('currency.netcore')}</span>
+            <span>{fmt(wallet.netcore)}</span>
+          </span>
+          <span className="bal">
+            <span className="coin gem" />
+            <span className="k">{t('currency.credits')}</span>
+            <span>{fmt(wallet.credits)}</span>
+          </span>
+        </div>
+      </div>
+
+      <div className="feature" data-od-id="shop-feature">
+        {featured ? (
+          <article className="hero" data-od-id="shop-hero">
+            <span className="ribbon">{t('shop.featured')}</span>
+            <div className="htx">
+              <span className="kick">{t('shop.featured')} · {featured.shopCategory || t('shop.special')}</span>
+              <h2>{featured.name}</h2>
+              <div className="perks">
+                <div className="perk">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M20 6L9 17l-5-5"/></svg>
+                  {featured.description}
+                </div>
+              </div>
+              <div className="cta">
+                <PriceLine item={featured} />
+                {inventory.find(i => i.itemId === featured.id && i.qty > 0) ? (
+                  <button 
+                    className="buy"
+                    onClick={() => openApply(featured.id)}
+                  >
+                    {t('shop.apply_qty', { qty: String(inventory.find(i => i.itemId === featured.id)?.qty ?? 0) })}
+                  </button>
+                ) : (
+                  <button 
+                    className={`buy ${featured.owned ? 'owned' : ''}`} 
+                    disabled={featured.owned || buyMutation.isPending}
+                    onClick={() => attemptBuy(featured)}
+                  >
+                    {featured.owned ? t('shop.owned') : t('shop.buy')}
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="hart">
+              <Thumb item={featured} />
+            </div>
+          </article>
+        ) : <div />}
+
+        <div className="qside" data-od-id="shop-quick">
+          <div className="qhd">{t('shop.quick_offers')}</div>
+          {quickOffers.map(item => (
+            <div className="qrow" key={item.id}>
+              <Thumb item={item} />
+              <div>
+                <div className="nm">{item.name}</div>
+                <div className="sub">{item.description}</div>
+              </div>
+              {inventory.find(i => i.itemId === item.id && i.qty > 0) ? (
+                <button 
+                  className="buy ghost"
+                  onClick={() => openApply(item.id)}
+                >
+                  {t('shop.apply_qty', { qty: String(inventory.find(i => i.itemId === item.id)?.qty ?? 0) })}
+                </button>
+              ) : (
+                <button 
+                  className={`buy ghost ${item.owned ? 'owned' : ''}`} 
+                  disabled={item.owned || buyMutation.isPending}
+                  onClick={() => attemptBuy(item)}
+                >
+                  {item.owned ? t('shop.owned') : <PriceLine item={item} />}
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="sechd">
+        <h3>{t('shop.catalog')}</h3>
+        <span className="cnt" id="cat-count">{filteredCatalog.length} {t('shop.items')}</span>
+      </div>
+      
+      <div className="scroll" data-od-id="shop-scroll">
+        <div className="grid" id="grid" data-od-id="shop-grid">
+          {filteredCatalog.map(item => (
+            <article className="card" key={item.id} data-od-id={`shop-card-${item.id}`}>
+              <Thumb item={item} />
+              <span className="tagpill">{item.shopCategory || 'Item'}</span>
+              <div className="cnm">{item.name}</div>
+              <div className="csub">{item.description}</div>
+              <div className="foot">
+                <PriceLine item={item} />
+                {inventory.find(i => i.itemId === item.id && i.qty > 0) ? (
+                  <button 
+                    className="buy ghost"
+                    onClick={() => openApply(item.id)}
+                  >
+                    {t('shop.apply_qty', { qty: String(inventory.find(i => i.itemId === item.id)?.qty ?? 0) })}
+                  </button>
+                ) : (
+                  <button 
+                    className={`buy ghost ${item.owned ? 'owned' : ''}`} 
+                    disabled={item.owned || buyMutation.isPending}
+                    onClick={() => attemptBuy(item)}
+                  >
+                    {item.owned ? t('shop.owned') : t('shop.buy')}
+                  </button>
+                )}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className={`toast ${toastMsg ? 'show' : ''}`} role="status" aria-live="polite">
+        {toastMsg}
+      </div>
+
+      {confirmItem && (
+        <div className="cov show" role="dialog" aria-modal="true" aria-labelledby="cvTitle" onClick={(e) => { if (e.target === e.currentTarget) setConfirmItem(null); }}>
+          <div className="cmodal">
+            <div className="ek">Confirmar compra</div>
+            <h3 id="cvTitle">{confirmItem.name}</h3>
+            <div className="cline">
+              <Thumb item={confirmItem} />
+              <div className="cinfo">
+                <div className="n">{confirmItem.name}</div>
+                <div className="s">{confirmItem.description}</div>
+              </div>
+              <PriceLine item={confirmItem} />
+            </div>
+            <div className="cwallet">
+              <div className="wr">
+                <span>Saldo atual</span>
+                <b>{fmt(confirmItem.currency === 'credits' ? wallet.credits : wallet.netcore)} {confirmItem.currency === 'credits' ? t('currency.credits') : t('currency.netcore')}</b>
+              </div>
+              <div className="wr">
+                <span>Custo</span>
+                <b>−{fmt(confirmItem.price)}</b>
+              </div>
+              <div className="wr after">
+                <span>Saldo após compra</span>
+                <b>{fmt((confirmItem.currency === 'credits' ? wallet.credits : wallet.netcore) - confirmItem.price)}</b>
+              </div>
+            </div>
+            <div className="cactions">
+              <button className="buy ghost" onClick={() => setConfirmItem(null)}>Cancelar</button>
+              <button className="buy" onClick={() => buyMutation.mutate({ itemId: confirmItem.id, qty: 1 })} disabled={buyMutation.isPending}>
+                {buyMutation.isPending ? 'Comprando...' : 'Confirmar compra'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {successItem && (
+        <div className="cov show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setSuccessItem(null); }}>
+          <div className="cmodal">
+            <div className="csuccess">
+              <div className="badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <h3>Compra concluída</h3>
+              <p>{successItem.name} · {fmt(successItem.price)} {successItem.currency === 'credits' ? t('currency.credits') : t('currency.netcore')}<br/>{t('shop.acquired')}</p>
+              <div className="cactions">
+                <button className="buy" onClick={() => setSuccessItem(null)}>Continuar comprando</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {applyingItem && (
+        <ApplyDialog 
+          item={applyingItem} 
+          roster={rosterQuery.data?.roster ?? []} 
+          loading={rosterQuery.isFetching} 
+          onClose={() => setApplyingItem(null)} 
+          onApply={(monId) => { applyMutation.mutate({ itemId: applyingItem.itemId, monId }); }} 
+        />
+      )}
+    </>
   );
 }

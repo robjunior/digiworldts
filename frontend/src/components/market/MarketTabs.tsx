@@ -30,6 +30,16 @@ const TABS: readonly { readonly id: MarketTab; readonly label: string; readonly 
       </svg>
     ),
   },
+  {
+    id: 'coins',
+    label: 'Coin Market',
+    svg: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v8M9.5 10.5h3.5a1.5 1.5 0 0 1 0 3H9.5" />
+      </svg>
+    ),
+  },
 ];
 
 export function MarketTabs({ activeTab, onTab }: { readonly activeTab: MarketTab; readonly onTab: (tab: MarketTab) => void }): JSX.Element {

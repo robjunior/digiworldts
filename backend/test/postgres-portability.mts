@@ -226,13 +226,13 @@ async function main(): Promise<void> {
     });
   }
 
-  const addCred = grabConst('battle/routes.ts', 'SQL_ADD_CREDITS');
+  const addCred = grabConst('battle/routes.ts', 'SQL_ADD_NETCORE');
   if (addCred) {
-    await runCheck('add credits (SQL_ADD_CREDITS, ON CONFLICT DO UPDATE fires + additive)', async () => {
+    await runCheck('add credits (SQL_ADD_NETCORE, ON CONFLICT DO UPDATE fires + additive)', async () => {
       await db.query(addCred, [userId, 60, now]);
       await db.query(addCred, [userId, 25, now + 1]);
-      const r = await db.query<{ credits: number }>(`SELECT credits FROM player_wallet WHERE user_id=$1`, [userId]);
-      if (r.rows[0]?.credits !== 85) throw new Error(`credits = ${r.rows[0]?.credits}, expected 85`);
+      const r = await db.query<{ netcore: number }>(`SELECT netcore FROM player_wallet WHERE user_id=$1`, [userId]);
+      if (r.rows[0]?.netcore !== 85) throw new Error(`netcore = ${r.rows[0]?.netcore}, expected 85`);
     });
   }
 
@@ -263,15 +263,15 @@ async function main(): Promise<void> {
 
   await runCheck('transaction commit + rollback semantics', async () => {
     await db.exec('BEGIN');
-    await db.query(`UPDATE player_wallet SET credits = credits - $1 WHERE user_id = $2`, [10, userId]);
+    await db.query(`UPDATE player_wallet SET netcore = netcore - $1 WHERE user_id = $2`, [10, userId]);
     await db.exec('COMMIT');
-    const afterCommit = await db.query<{ credits: number }>(`SELECT credits FROM player_wallet WHERE user_id=$1`, [userId]);
-    if (afterCommit.rows[0]?.credits !== 75) throw new Error(`after commit credits=${afterCommit.rows[0]?.credits}, expected 75`);
+    const afterCommit = await db.query<{ netcore: number }>(`SELECT netcore FROM player_wallet WHERE user_id=$1`, [userId]);
+    if (afterCommit.rows[0]?.netcore !== 75) throw new Error(`after commit netcore=${afterCommit.rows[0]?.netcore}, expected 75`);
     await db.exec('BEGIN');
-    await db.query(`UPDATE player_wallet SET credits = credits - $1 WHERE user_id = $2`, [50, userId]);
+    await db.query(`UPDATE player_wallet SET netcore = netcore - $1 WHERE user_id = $2`, [50, userId]);
     await db.exec('ROLLBACK');
-    const afterRollback = await db.query<{ credits: number }>(`SELECT credits FROM player_wallet WHERE user_id=$1`, [userId]);
-    if (afterRollback.rows[0]?.credits !== 75) throw new Error(`after rollback credits=${afterRollback.rows[0]?.credits}, expected 75`);
+    const afterRollback = await db.query<{ netcore: number }>(`SELECT netcore FROM player_wallet WHERE user_id=$1`, [userId]);
+    if (afterRollback.rows[0]?.netcore !== 75) throw new Error(`after rollback netcore=${afterRollback.rows[0]?.netcore}, expected 75`);
   });
 
   for (const c of checks) {

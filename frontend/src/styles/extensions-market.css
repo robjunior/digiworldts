@@ -81,11 +81,11 @@
 
 /* ---- content: filters | grid ------------------------------------------ */
 .market-page .stage {flex:1 1 auto;min-height:0;display:grid;grid-template-columns:212px 1fr;gap:0}
-@media (max-width:900px){.market-page .stage{grid-template-columns:1fr}.filters{display:none}}
+@media (max-width:900px){.market-page .stage{grid-template-columns:1fr}.market-page .filters{display:none}}
 
 /* filters rail */
 .market-page .filters {border-right:1px solid var(--hair);background:var(--panel);display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:16px 14px;gap:16px;scrollbar-width:thin}
-.market-page .filters::-webkit-scrollbar {width:8px}.filters::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .filters::-webkit-scrollbar {width:8px}.market-page .filters::-webkit-scrollbar-thumb{background:var(--hair)}
 .market-page .fgroup .fl {font:700 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
 .market-page .search {display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px 10px}
 .market-page .search svg {width:14px;height:14px;color:var(--muted);flex:0 0 14px}
@@ -117,7 +117,7 @@
 .market-page .gridhead .sort label {font:700 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .market-page .gridhead .sort select {background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:7px 9px;color:var(--ink);font:700 10px/1 var(--font);outline:none}
 .market-page .grid {flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));grid-auto-rows:min-content;gap:14px;padding:4px 24px 26px;scrollbar-width:thin}
-.market-page .grid::-webkit-scrollbar {width:10px}.grid::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .grid::-webkit-scrollbar {width:10px}.market-page .grid::-webkit-scrollbar-thumb{background:var(--hair)}
 
 /* listing card (shared shell) */
 .market-page .card {background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);position:relative;display:flex;flex-direction:column;padding:14px;gap:11px}
@@ -168,11 +168,11 @@
 .market-page .dclose {margin-left:auto;width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted)}
 .market-page .dclose:hover {color:var(--ink);border-color:var(--muted)}
 .market-page .dbody {flex:1 1 auto;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin}
-.market-page .dbody::-webkit-scrollbar {width:8px}.dbody::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .dbody::-webkit-scrollbar {width:8px}.market-page .dbody::-webkit-scrollbar-thumb{background:var(--hair)}
 .market-page .field .flabel {display:flex;justify-content:space-between;align-items:baseline;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
 .market-page .field .flabel b {color:var(--ink);font-size:12px;letter-spacing:0}
 .market-page .sellpick {display:flex;flex-direction:column;gap:6px;max-height:230px;overflow-y:auto;scrollbar-width:thin}
-.market-page .sellpick::-webkit-scrollbar {width:8px}.sellpick::-webkit-scrollbar-thumb{background:var(--hair)}
+.market-page .sellpick::-webkit-scrollbar {width:8px}.market-page .sellpick::-webkit-scrollbar-thumb{background:var(--hair)}
 .market-page .sp {display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:center;padding:8px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);text-align:left;transition:.12s}
 .market-page .sp:hover {border-color:var(--muted)}
 .market-page .sp.on {border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
@@ -193,6 +193,60 @@
 /* ---- toast ------------------------------------------------------------- */
 .market-page .toast {position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 .market-page .toast.show {opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ---- coin market ------------------------------------------------------- */
+.market-page .coin-market-header { margin-bottom: 24px; padding-top: 14px; }
+.market-page .cm-hints { display: flex; gap: 16px; flex-wrap: wrap; }
+.market-page .cm-hint-box { background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 12px 16px; min-width: 140px; }
+.market-page .cm-hint-label { font: 700 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.market-page .cm-hint-val { font: 800 16px/1 var(--font); color: var(--ink); }
+
+.market-page .coin-market-layout { display: grid; grid-template-columns: 1fr 1fr 280px; gap: 24px; align-items: start; }
+@media (max-width: 1000px) { .market-page .coin-market-layout { grid-template-columns: 1fr 1fr; } .market-page .cm-sidebar { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; } }
+
+.market-page .cm-col-head { font: 800 11px/1 var(--font); letter-spacing: .15em; text-transform: uppercase; color: var(--ink); margin-bottom: 12px; display: flex; align-items: baseline; gap: 8px; }
+.market-page .cm-col-head span { font: 600 9px/1 var(--font); color: var(--muted); letter-spacing: 0; text-transform: none; }
+.market-page .cm-book { display: flex; flex-direction: column; gap: 8px; }
+.market-page .cm-empty { padding: 30px; text-align: center; color: var(--muted); font: 600 11px/1.5 var(--font); background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); }
+.market-page .cm-empty-mine { padding: 16px; text-align: center; color: var(--muted); font: 600 11px/1.5 var(--font); }
+
+.market-page .cm-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 14px; position: relative; }
+.market-page .cm-row.mine { border-color: var(--muted); }
+.market-page .cm-row-info { display: flex; flex-direction: column; gap: 4px; }
+.market-page .cm-row-seller { font: 700 11px/1 var(--font); color: var(--ink); max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.market-page .cm-row-seller b { color: var(--signal); }
+.market-page .cm-row-lots { font: 600 9px/1 var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.market-page .cm-row-price { text-align: right; display: flex; flex-direction: column; gap: 4px; }
+.market-page .cm-price-per { font: 800 13px/1 var(--font); color: var(--ink); }
+.market-page .cm-price-tot { font: 600 9px/1 var(--font); color: var(--muted); }
+.market-page .cm-fill-btn { background: var(--bg); border: 1px solid var(--hair); color: var(--ink); clip-path: var(--notch-sm); font: 800 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; padding: 8px 12px; transition: .12s; }
+.market-page .cm-fill-btn:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+.market-page .cm-fill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.market-page .cm-sidebar { display: flex; flex-direction: column; gap: 24px; }
+.market-page .cm-form-tabs { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--hair); clip-path: var(--notch-sm); background: var(--bg); margin-bottom: 16px; }
+.market-page .cm-form-tab { padding: 10px; font: 800 10px/1 var(--font); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: center; transition: .1s; }
+.market-page .cm-form-tab.on { background: var(--signal); color: #fff; }
+.market-page .cm-field { margin-bottom: 12px; }
+.market-page .cm-field label { display: block; font: 700 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.market-page .cm-field-hint { margin-top: 6px; font: 600 10px/1 var(--font); color: var(--ink); text-align: right; }
+.market-page .cm-summary { padding: 12px; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); margin-bottom: 16px; font: 600 10px/1.4 var(--font); color: var(--muted); }
+.market-page .cm-summary-val { font: 800 13px/1 var(--font); color: var(--ink); margin: 6px 0; }
+.market-page .cm-escrow-warn { color: var(--battle); margin-top: 8px; font-size: 9px; }
+
+.market-page .cm-my-offers-list { display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto; scrollbar-width: thin; }
+.market-page .cm-my-offers-list::-webkit-scrollbar { width: 6px; } .market-page .cm-my-offers-list::-webkit-scrollbar-thumb { background: var(--hair); }
+.market-page .cm-my-offer-row { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; background: var(--bg); padding: 8px 10px; border: 1px solid var(--hair); clip-path: var(--notch-sm); }
+.market-page .cm-my-offer-side { font: 800 9px/1 var(--font); text-transform: uppercase; letter-spacing: .05em; color: var(--ink); }
+.market-page .cm-my-offer-det { font: 600 9px/1 var(--font); color: var(--muted); text-align: right; }
+
+.market-page .cm-fill-info { padding: 16px; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); margin-bottom: 20px; }
+.market-page .cm-fill-seller { font: 700 11px/1 var(--font); color: var(--muted); margin-bottom: 8px; }
+.market-page .cm-fill-seller b { color: var(--ink); font-weight: 800; }
+.market-page .cm-fill-price { font: 800 16px/1 var(--font); color: var(--ink); margin-bottom: 4px; }
+.market-page .cm-fill-rem { font: 600 10px/1 var(--font); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.market-page .cm-fill-exchange { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; padding-top: 20px; border-top: 1px dashed var(--hair); font: 700 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+
 @media (prefers-reduced-motion:reduce){}
 /* Legacy pagination restored for functionality */
 .market-page .pagination { display:flex; justify-content:center; align-items:center; gap:8px; margin: 20px 0 40px; flex-wrap:wrap; grid-column:1/-1; }

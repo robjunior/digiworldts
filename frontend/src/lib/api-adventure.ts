@@ -35,7 +35,7 @@ export type AdventureReport = {
   readonly encounters: readonly AdventureEncounter[];
   readonly wins: number;
   readonly losses: number;
-  readonly totals: { readonly meat: number; readonly bits: number; readonly data: number; readonly credits: number };
+  readonly totals: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number };
   readonly xpDeltas: readonly AdventureXpDelta[];
   readonly koedMonIds: readonly string[];
 };

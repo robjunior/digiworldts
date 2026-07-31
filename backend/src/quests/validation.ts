@@ -23,7 +23,14 @@ const LootItemSchema = z.object({
 const LootPoolSchema = z.object({
   items: z.array(LootItemSchema).max(200),
   pickCount: z.number().int().min(0).max(100),
-  guaranteedCredits: z.number().int().min(0).max(999_999_999).optional(),
+  guaranteedNetcore: z.number().int().min(0).max(999_999_999).optional(),
+  guaranteedCredits: z.number().int().min(0).max(999_999_999).optional(), // deprecated alias
+}).transform(val => {
+  if (val.guaranteedCredits !== undefined && val.guaranteedNetcore === undefined) {
+    val.guaranteedNetcore = val.guaranteedCredits;
+  }
+  delete val.guaranteedCredits;
+  return val;
 });
 
 const QuestStepSchema = z.discriminatedUnion('type', [
@@ -97,7 +104,7 @@ function strictLootPool(input: QuestInput['finalReward']): Quest['finalReward'] 
   return {
     items: input.items,
     pickCount: input.pickCount,
-    ...(input.guaranteedCredits !== undefined ? { guaranteedCredits: input.guaranteedCredits } : {}),
+    ...(input.guaranteedNetcore !== undefined ? { guaranteedNetcore: input.guaranteedNetcore } : {}),
   };
 }
 

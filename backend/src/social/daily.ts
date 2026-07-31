@@ -23,23 +23,23 @@ export type DayReward = {
   meat?: number;
   bits?: number;
   data?: number;
-  credits?: number;
+  netcore?: number;
 };
 
 const CYCLE: readonly DayReward[] = [
-  { day: 1, meat: 40, credits: 20 },
-  { day: 2, bits: 30, credits: 25 },
-  { day: 3, data: 20, credits: 35 },
-  { day: 4, meat: 60, bits: 40, credits: 40 },
-  { day: 5, data: 50, credits: 60 },
-  { day: 6, meat: 100, bits: 80, data: 40, credits: 80 },
-  { day: 7, credits: 250, meat: 120, bits: 120, data: 80 },
+  { day: 1, meat: 40, netcore: 20 },
+  { day: 2, bits: 30, netcore: 25 },
+  { day: 3, data: 20, netcore: 35 },
+  { day: 4, meat: 60, bits: 40, netcore: 40 },
+  { day: 5, data: 50, netcore: 60 },
+  { day: 6, meat: 100, bits: 80, data: 40, netcore: 80 },
+  { day: 7, netcore: 250, meat: 120, bits: 120, data: 80 },
 ];
 
 const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
-const SQL_INSERT_WALLET = `INSERT INTO player_wallet (user_id, credits, streak_day, last_claim_at, updated_at) VALUES (?, 0, 0, NULL, ?)
+const SQL_INSERT_WALLET = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, last_claim_at, updated_at) VALUES (?, 0, 0, 0, NULL, ?)
      ON CONFLICT(user_id) DO NOTHING`;
-const SQL_UPDATE_WALLET = `UPDATE player_wallet SET credits = credits + ?, streak_day = ?, last_claim_at = ?, updated_at = ? WHERE user_id = ?`;
+const SQL_UPDATE_WALLET = `UPDATE player_wallet SET netcore = netcore + ?, streak_day = ?, last_claim_at = ?, updated_at = ? WHERE user_id = ?`;
 const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 
@@ -103,7 +103,7 @@ export const dailyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const rewardIdx = Math.max(0, Math.min(CYCLE.length - 1, step.nextDay - 1));
     const reward = CYCLE[rewardIdx]!;
     await tx(async (t) => {
-      await t.run(SQL_UPDATE_WALLET, [reward.credits ?? 0, step.nextDay, now, now, me.id]);
+      await t.run(SQL_UPDATE_WALLET, [reward.netcore ?? 0, step.nextDay, now, now, me.id]);
       if (reward.meat) await t.run(SQL_UPSERT_RESOURCE, [me.id, 'Meat', reward.meat, now]);
       if (reward.bits) await t.run(SQL_UPSERT_RESOURCE, [me.id, 'Bits', reward.bits, now]);
       if (reward.data) await t.run(SQL_UPSERT_RESOURCE, [me.id, 'Data', reward.data, now]);

@@ -80,7 +80,7 @@ export function Combat3DBody(): JSX.Element | null {
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater3D[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } | null>(null);
+  const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly netcoreGained?: number; readonly bitsGained?: number } | null>(null);
   const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
   const [autobattle, setAutobattle] = useState<boolean>(() => readAutobattlePref());
 
@@ -222,10 +222,10 @@ export function Combat3DBody(): JSX.Element | null {
         }
         if (response.ended) {
           handleServerMessage({ type: 'end', matchId: response.battle.id, view: response.battle, outcome: response.battle.outcome ?? 'abandoned' });
-          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly creditsGained?: number; readonly bitsGained?: number } = {
+          const rewards: { readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly netcoreGained?: number; readonly bitsGained?: number } = {
             xpAwards: response.xpAwards ?? [],
             ...(response.itemDrops && response.itemDrops.length > 0 ? { itemDrops: response.itemDrops } : {}),
-            ...(response.creditsGained !== undefined && response.creditsGained > 0 ? { creditsGained: response.creditsGained } : {}),
+            ...(response.netcoreGained !== undefined && response.netcoreGained > 0 ? { netcoreGained: response.netcoreGained } : {}),
             ...(response.bitsGained !== undefined && response.bitsGained > 0 ? { bitsGained: response.bitsGained } : {}),
           };
           setPveResults(rewards);

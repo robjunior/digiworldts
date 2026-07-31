@@ -17,6 +17,7 @@ export type FarmBuildingView = {
 export type FarmView = {
   readonly balances: Record<FarmResourceKind, number>;
   readonly credits: number;
+  readonly netcore: number;
   readonly buildings: readonly FarmBuildingView[];
 };
 

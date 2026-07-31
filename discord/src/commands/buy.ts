@@ -175,7 +175,7 @@ async function createPixPurchase(interaction: CommandInteraction & { readonly gu
   const payment = await paymentProvider.createPixPayment({
     amountBrlCents,
     payer,
-    description: `DigiWorld ${creditsAmount} DigiCredits`,
+    description: `DigiWorld ${creditsAmount} Credits`,
     externalReference: session.id,
     notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(),
     expiresAt: new Date(expiresAt),

@@ -14,7 +14,7 @@ export async function acceptQuest(id: string): Promise<QuestWithProgress> {
 
 export type QuestClaimResult = {
   readonly ok: true;
-  readonly creditsGranted: number;
+  readonly netcoreGranted: number;
   readonly itemsGranted: readonly { readonly itemId: string; readonly qty: number }[];
 };
 

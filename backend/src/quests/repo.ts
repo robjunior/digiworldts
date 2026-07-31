@@ -110,7 +110,7 @@ const SQL_UPDATE_PROGRESS = `UPDATE user_quest_progress SET current_step_index =
 const SQL_LIST_PROGRESS_FOR_USER = `SELECT * FROM user_quest_progress WHERE user_id = ?`;
 const SQL_UPDATE_OBJECTIVE_PROGRESS = `UPDATE user_quest_progress SET objective_progress = ?, completed_at = ? WHERE user_id = ? AND quest_id = ?`;
 const SQL_MARK_CLAIMED = `UPDATE user_quest_progress SET claimed_at = ? WHERE user_id = ? AND quest_id = ? AND completed_at IS NOT NULL AND claimed_at IS NULL`;
-const SQL_GRANT_CLAIM_CREDITS = `INSERT INTO player_wallet (user_id, credits, streak_day, last_claim_at, premium_until, updated_at) VALUES (?, ?, 0, NULL, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
+const SQL_GRANT_CLAIM_NETCORE = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, last_claim_at, premium_until, updated_at) VALUES (?, 0, ?, 0, NULL, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
 const SQL_GRANT_CLAIM_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
 
 function encodeJson(value: unknown): string {
@@ -338,10 +338,10 @@ function questWithProgress(
 }
 
 function formatRewardText(quest: Quest): string {
-  const credits = quest.finalReward.guaranteedCredits;
+  const netcore = quest.finalReward.guaranteedNetcore;
   const itemCount = quest.finalReward.items.length;
-  if (credits && itemCount > 0) return `${credits} DigiCredits · ${itemCount} item drops`;
-  if (credits) return `${credits} DigiCredits`;
+  if (netcore && itemCount > 0) return `${netcore} NetCore · ${itemCount} item drops`;
+  if (netcore) return `${netcore} NetCore`;
   if (itemCount > 0) return `${itemCount} item drops`;
   return 'Progression reward';
 }
@@ -391,7 +391,7 @@ export async function acceptQuest(userId: string, questId: string, meanLevel: nu
 
 export type QuestClaimResult = {
   readonly ok: boolean;
-  readonly creditsGranted: number;
+  readonly netcoreGranted: number;
   readonly itemsGranted: readonly { readonly itemId: string; readonly qty: number }[];
 };
 
@@ -415,17 +415,17 @@ function randomQtyBetween(min: number, max: number): number {
 export async function claimQuest(userId: string, questId: string): Promise<QuestClaimResult> {
   return tx(async (t) => {
     const questRow = await t.one<QuestRow>(SQL_GET_QUEST, [questId]);
-    if (!questRow) return { ok: false, creditsGranted: 0, itemsGranted: [] };
+    if (!questRow) return { ok: false, netcoreGranted: 0, itemsGranted: [] };
     const quest = questFromRow(questRow);
     const now = Date.now();
     const marked = await t.run(SQL_MARK_CLAIMED, [now, userId, questId]);
-    if (marked.changes === 0) return { ok: false, creditsGranted: 0, itemsGranted: [] };
+    if (marked.changes === 0) return { ok: false, netcoreGranted: 0, itemsGranted: [] };
 
-    let creditsGranted = 0;
-    const guaranteedCredits = quest.finalReward.guaranteedCredits ?? 0;
-    if (guaranteedCredits > 0) {
-      await t.run(SQL_GRANT_CLAIM_CREDITS, [userId, guaranteedCredits, now]);
-      creditsGranted = guaranteedCredits;
+    let netcoreGranted = 0;
+    const guaranteedNetcore = quest.finalReward.guaranteedNetcore ?? 0;
+    if (guaranteedNetcore > 0) {
+      await t.run(SQL_GRANT_CLAIM_NETCORE, [userId, guaranteedNetcore, now]);
+      netcoreGranted = guaranteedNetcore;
     }
 
     const itemsGranted: { itemId: string; qty: number }[] = [];
@@ -445,7 +445,7 @@ export async function claimQuest(userId: string, questId: string): Promise<Quest
       }
     }
 
-    return { ok: true, creditsGranted, itemsGranted };
+    return { ok: true, netcoreGranted, itemsGranted };
   });
 }
 

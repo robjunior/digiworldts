@@ -484,10 +484,10 @@ async function main(): Promise<void> {
     const winnerId = viewA.outcome === 'win_a' ? 'a' : viewA.outcome === 'win_b' ? 'b' : null;
     const expectedCredsC = winnerId === null ? 25 : winnerId === 'a' ? 60 : 15;
     const expectedCredsD = winnerId === null ? 25 : winnerId === 'b' ? 60 : 15;
-    const wallC = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', charlieId);
-    const wallD = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', daveId);
-    check(`charlie credits=${expectedCredsC}`, wallC?.credits === expectedCredsC, `got=${wallC?.credits}`);
-    check(`dave credits=${expectedCredsD}`, wallD?.credits === expectedCredsD, `got=${wallD?.credits}`);
+    const wallC = await one<{ netcore: number }>('SELECT netcore FROM player_wallet WHERE user_id = ?', charlieId);
+    const wallD = await one<{ netcore: number }>('SELECT netcore FROM player_wallet WHERE user_id = ?', daveId);
+    check(`charlie netcore=${expectedCredsC}`, wallC?.netcore === expectedCredsC, `got=${wallC?.netcore}`);
+    check(`dave netcore=${expectedCredsD}`, wallD?.netcore === expectedCredsD, `got=${wallD?.netcore}`);
 
     const expectedBitsC = winnerId === null ? 15 : winnerId === 'a' ? 30 : 5;
     const expectedBitsD = winnerId === null ? 15 : winnerId === 'b' ? 30 : 5;
@@ -535,11 +535,11 @@ async function main(): Promise<void> {
     check('matches.outcome persisted', matchRow?.outcome === expectedOutcome);
     check('matches.winner is the non-fler', matchRow?.winner === nonFlerId);
 
-    // Fler's wallet row was never created (0 credits award skips the upsert).
-    const flerWall = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', flerId);
-    const nonFlerWall = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', nonFlerId);
-    check('fler wallet not credited (row absent or credits=0)', flerWall === null || flerWall.credits === 0, `credits=${flerWall?.credits}`);
-    check('non-fler credits = 60 (win)', nonFlerWall?.credits === 60, `got=${nonFlerWall?.credits}`);
+    // Fler's wallet row was never created (0 netcore award skips the upsert).
+    const flerWall = await one<{ netcore: number }>('SELECT netcore FROM player_wallet WHERE user_id = ?', flerId);
+    const nonFlerWall = await one<{ netcore: number }>('SELECT netcore FROM player_wallet WHERE user_id = ?', nonFlerId);
+    check('fler wallet not credited (row absent or netcore=0)', flerWall === null || flerWall.netcore === 0, `netcore=${flerWall?.netcore}`);
+    check('non-fler netcore = 60 (win)', nonFlerWall?.netcore === 60, `got=${nonFlerWall?.netcore}`);
 
     const flerBits = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", flerId);
     const nonFlerBits = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", nonFlerId);

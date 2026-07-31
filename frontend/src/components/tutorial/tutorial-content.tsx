@@ -74,7 +74,7 @@ const LOBBY_TUTORIAL: Tutorial = {
           {' '}
           {kw('MMR')} (starts at 1000). Wins push MMR up, losses drop it. Win streaks pay bonus
           {' '}
-          {kw('DigiCredits')}.
+          {kw('NetCore')}.
         </>
       ),
     },
@@ -150,8 +150,7 @@ const COMBAT_TUTORIAL: Tutorial = {
       body: (
         <>
           Battles alternate turns. Pick a Digimon plus one action: {kw('Fight')} (basic attack, no
-          EN cost), {kw('Skill')} (spends EN, hits harder), {kw('Guard')} (halves incoming damage
-          next turn), or {kw('Flee')}.
+          EN cost), {kw('Skill')} (spends EN, hits harder), or {kw('Flee')}.
         </>
       ),
     },
@@ -180,7 +179,7 @@ const COMBAT_TUTORIAL: Tutorial = {
       title: 'Rewards',
       body: (
         <>
-          Winning grants {kw('XP')}, {kw('DigiCredits')}, and species progress. KO'd Digimon return
+          Winning grants {kw('XP')}, {kw('NetCore')}, and species progress. KO'd Digimon return
           to your roster to recover for 30 minutes before they can adventure again.
         </>
       ),
@@ -351,7 +350,7 @@ const SHOP_TUTORIAL: Tutorial = {
       title: 'The Item Shop',
       body: (
         <>
-          Buy consumables with {kw('DigiCredits')} earned in combat. Healing potions, EN restoratives,
+          Buy consumables with {kw('NetCore')} earned in combat. Healing potions, EN restoratives,
           {' '}
           {kw('XP multipliers')}, and stat buffs stack in your Inventory.
         </>

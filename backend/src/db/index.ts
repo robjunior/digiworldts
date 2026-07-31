@@ -143,7 +143,7 @@ export type MarketListingRow = {
   id: string;
   mon_id: string;
   seller_id: string;
-  price_credits: number;
+  price_netcore: number;
   listed_at: number;
   sold_at: number | null;
   sold_to: string | null;
@@ -160,6 +160,7 @@ export type ResourceRow = {
 export type WalletRow = {
   user_id: string;
   credits: number;
+  netcore: number;
   streak_day: number;
   last_claim_at: number | null;
   premium_until: number | null;

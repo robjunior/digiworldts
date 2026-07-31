@@ -136,8 +136,8 @@ type Result = {
   bAlive: number;
 };
 
-function runOne(loadA: Loadout, loadB: Loadout, rate: number): Result {
-  const battle = initBattle({ loadoutA: loadA, loadoutB: loadB, damageRate: rate });
+async function runOne(loadA: Loadout, loadB: Loadout, rate: number): Promise<Result> {
+  const battle = await initBattle({ loadoutA: loadA, loadoutB: loadB, damageRate: rate });
   let turns = 0;
   const MAX_TURNS = 600;
   while (battle.status !== 'ended' && turns < MAX_TURNS) {
@@ -244,7 +244,7 @@ async function main(): Promise<void> {
     const loadA = mkLoadout('a', s.a);
     const loadB = mkLoadout('b', s.b);
     const a = agg();
-    for (let i = 0; i < RUNS; i++) push(a, runOne(loadA, loadB, DAMAGE_RATE));
+    for (let i = 0; i < RUNS; i++) push(a, await runOne(loadA, loadB, DAMAGE_RATE));
     reportMatchup(s.label, a, s.a, s.b);
   }
 
@@ -265,7 +265,7 @@ async function main(): Promise<void> {
       const loadA = mkCatalogLoadout('a', s.a, catalogSkills);
       const loadB = mkCatalogLoadout('b', s.b, catalogSkills);
       const a = agg();
-      for (let i = 0; i < RUNS; i++) push(a, runOne(loadA, loadB, DAMAGE_RATE));
+      for (let i = 0; i < RUNS; i++) push(a, await runOne(loadA, loadB, DAMAGE_RATE));
       reportMatchup(`[catalog] ${s.label}`, a, s.a, s.b);
     }
 
@@ -292,7 +292,7 @@ async function main(): Promise<void> {
         const loadA = mkCatalogLoadout('a', TRAINED, orderedSkills, el, stage);
         const loadB = mkCatalogLoadout('b', TRAINED, orderedSkills, el, stage);
         const a = agg();
-        for (let i = 0; i < RUNS; i++) push(a, runOne(loadA, loadB, DAMAGE_RATE));
+        for (let i = 0; i < RUNS; i++) push(a, await runOne(loadA, loadB, DAMAGE_RATE));
         const winA = ((a.wins.a / RUNS) * 100).toFixed(0);
         const winB = ((a.wins.b / RUNS) * 100).toFixed(0);
         const draws = ((a.wins.draw / RUNS) * 100).toFixed(0);

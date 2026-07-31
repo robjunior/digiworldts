@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
+import { CoinMarket } from '../components/market/CoinMarket';
 import { MarketChrome } from '../components/market/MarketChrome';
 import { MarketDialogs, type MarketDialogState } from '../components/market/MarketDialogs';
 import { MarketFilters } from '../components/market/MarketFilters';
@@ -75,7 +76,7 @@ export function Market(): JSX.Element {
 
   const listMutation = useMutation({
     mutationFn: ({ monId, price }: { readonly monId: string; readonly price: number }) => listMarketMon(monId, price),
-    onSuccess: (_, { price }) => handleSuccess(`Listed for ${price.toLocaleString()} DigiCredits.`),
+    onSuccess: (_, { price }) => handleSuccess(`Listed for ${price.toLocaleString()} NetCore.`),
     onError: handleError,
   });
 
@@ -93,11 +94,17 @@ export function Market(): JSX.Element {
   const eligibleMons = useMemo(() => eligibleForMarket(sellRosterQuery.data?.roster ?? []), [sellRosterQuery.data]);
   const busy = buyMutation.isPending || cancelMutation.isPending || listMutation.isPending;
 
+  const coinMarketData = queryClient.getQueryData(['market', 'coins']) as { readonly wallet: { readonly netcore: number } } | undefined;
+  const netcoreVal = coinMarketData?.wallet?.netcore;
+
   return (
     <div className="market-page">
       <div className="mbar">
           <MarketTabs activeTab={tab} onTab={setTab} />
-          <MarketChrome credits={creditsQuery.data ?? 0}>
+          <MarketChrome 
+            credits={creditsQuery.data ?? 0} 
+            {...(tab === 'coins' && netcoreVal !== undefined ? { netcore: netcoreVal } : {})}
+          >
             <button className="listbtn" onClick={() => setTab('sell')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5v14M5 12h14" />
@@ -235,6 +242,10 @@ export function Market(): JSX.Element {
                   )}
                 </div>
               </>
+            )}
+
+            {tab === 'coins' && (
+              <CoinMarket onSuccess={handleSuccess} onError={handleError} />
             )}
           </div>
         </div>

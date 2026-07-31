@@ -1,12 +1,10 @@
 /**
  * In-game shop: a small catalog of consumables + cosmetics purchasable
- * with DigiCredits. Seeded on server boot via `seedShopItems()`.
+ * with Credits (premium) or NetCore (earned). Seeded on server boot via `seedShopItems()`.
  *
- *   GET  /api/shop            → { items, inventory, credits }
- *   POST /api/shop/buy        → { itemId, qty? } — deduct credits, add to inventory
+ *   GET  /api/shop            → { featured, quick, catalog, categories, wallet, inventory }
+ *   POST /api/shop/buy        → { itemId, qty } — deduct currency, add to inventory
  *   POST /api/shop/apply      → { itemId, monId? } — spend 1 item as a pending_buff
- *                                (hp_pct / en_pct target a specific mon; xp_mult
- *                                 is player-wide and consumed on next win)
  *   POST /api/shop/use        → deprecated no-op decrement; kept for backwards compat
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
@@ -24,11 +22,11 @@ import { addPendingBuff, type BuffKind } from './buffs.js';
 // ============================================================================
 // SQL
 // ============================================================================
-const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY price_credits ASC`;
-const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY price_credits ASC`;
+const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
+const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, kind, class, payload, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
@@ -41,20 +39,38 @@ const SQL_UPSERT_INVENTORY = `INSERT INTO player_inventory (user_id, item_id, qt
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
 const SQL_SELECT_WALLET = `SELECT * FROM player_wallet WHERE user_id = ?`;
 const SQL_UPDATE_WALLET_CREDITS = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;
+const SQL_UPDATE_WALLET_NETCORE = `UPDATE player_wallet SET netcore = netcore - ?, updated_at = ? WHERE user_id = ? AND netcore >= ?`;
 const SQL_INSERT_TRAINING_BUILDING = `INSERT INTO farm_buildings (id, user_id, kind, building_type, resource, level, rate_per_hour, capacity, produced, last_touch, upgrade_cost, created_at) VALUES (?, ?, ?, ?, 'Meat', 1, 1, 1, 0, ?, ?, ?)`;
 const SQL_SELECT_ROSTER_MON = `SELECT id, user_id FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_ROSTER_MON_FULL = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_UPDATE_CURRENT_HPEN = `UPDATE player_roster SET current_hp = ?, current_en = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_SHOP_PURCHASE = `INSERT INTO player_shop_purchases (user_id, item_id, purchased_at)
+SELECT ?, id, ? FROM shop_items
+WHERE id = ? AND enabled = 1 AND class = 'product' AND one_time = 1
+ON CONFLICT(user_id, item_id) DO NOTHING`;
+const SQL_SELECT_PURCHASES = `SELECT item_id FROM player_shop_purchases WHERE user_id = ?`;
 
 // ============================================================================
 // Seed items
 // ============================================================================
-const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item'>> = [
+type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item'> & {
+  currency?: string;
+  price?: number;
+  shop_category?: string;
+  featured?: number;
+  quick_offer?: number;
+  one_time?: number;
+  sort_order?: number;
+};
+
+const SEED_ITEMS: Array<SeedItem> = [
   {
     id: 'itm-heal-small',
     name: 'Small Med-Kit',
     description: 'Restore 40% HP to one Digimon in combat (PVE only).',
     price_credits: 80,
+    price: 80,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ heal_pct: 0.4 }),
@@ -64,6 +80,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Large Med-Kit',
     description: 'Restore all HP to one Digimon in combat (PVE only).',
     price_credits: 220,
+    price: 220,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ heal_pct: 1.0 }),
@@ -73,6 +91,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Digi-Revive',
     description: 'Instantly wake a fallen Digimon from its recovery timer. Use from the roster page.',
     price_credits: 400,
+    price: 400,
+    currency: 'credits',
     kind: 'revive',
     class: 'item',
     payload: JSON.stringify({ revive: true }),
@@ -82,6 +102,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Energy Drink',
     description: 'Refill EN to full on one Digimon in combat (PVE only).',
     price_credits: 120,
+    price: 120,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ en_pct: 1.0 }),
@@ -91,6 +113,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Provision',
     description: 'Trail rations for an expedition. Consumed at 10/hour to keep an adventuring party fed and healed on the road.',
     price_credits: 20,
+    price: 20,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ provision: true }),
@@ -100,6 +124,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Focus Chip',
     description: 'Doubles XP from your next match win.',
     price_credits: 340,
+    price: 340,
+    currency: 'credits',
     kind: 'consumable',
     class: 'product',
     payload: JSON.stringify({ xp_mult: 2.0, matches: 1 }),
@@ -109,6 +135,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Gold Badge',
     description: 'A shiny gold badge that appears next to your name in the lobby.',
     price_credits: 900,
+    price: 900,
+    currency: 'credits',
     kind: 'cosmetic',
     class: 'product',
     payload: JSON.stringify({ badge: 'gold' }),
@@ -118,6 +146,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Champion Chip',
     description: 'Digivolve a Rookie into a Champion. Requires level 20.',
     price_credits: 500,
+    price: 500,
+    currency: 'credits',
     kind: 'evolve',
     class: 'product',
     payload: JSON.stringify({ stage: 'Champion' }),
@@ -127,6 +157,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Ultimate Chip',
     description: 'Digivolve a Champion into an Ultimate. Requires level 40.',
     price_credits: 1500,
+    price: 1500,
+    currency: 'credits',
     kind: 'evolve',
     class: 'product',
     payload: JSON.stringify({ stage: 'Ultimate' }),
@@ -136,6 +168,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Mega Chip',
     description: 'Digivolve an Ultimate into a Mega. Requires level 60.',
     price_credits: 4000,
+    price: 4000,
+    currency: 'credits',
     kind: 'evolve',
     class: 'product',
     payload: JSON.stringify({ stage: 'Mega' }),
@@ -145,6 +179,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Training Station',
     description: 'A single-slot facility. Trains one stat at a time. Auto-placed on purchase.',
     price_credits: 500,
+    price: 500,
+    currency: 'credits',
     kind: 'building_placement',
     class: 'product',
     payload: JSON.stringify({ buildingType: 'training', kind: 'Training Station' }),
@@ -154,6 +190,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Premium Training Station',
     description: 'Trains two stats simultaneously. Auto-placed on purchase.',
     price_credits: 2000,
+    price: 2000,
+    currency: 'credits',
     kind: 'building_placement',
     class: 'product',
     payload: JSON.stringify({ buildingType: 'training_premium', kind: 'Premium Training Station' }),
@@ -163,6 +201,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Status Cure',
     description: 'Removes all ailments (burn/poison/weaken/freeze/stun/sleep) from one Digimon in combat (PVE only).',
     price_credits: 160,
+    price: 160,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ clear_ailments: true }),
@@ -172,6 +212,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Power Chip',
     description: '+15 ATK for one Digimon for the rest of the current match (PVE only).',
     price_credits: 200,
+    price: 200,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ atk_bonus: 15 }),
@@ -181,6 +223,8 @@ const SEED_ITEMS: Array<Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_i
     name: 'Guard Chip',
     description: '+15 DEF for one Digimon for the rest of the current match (PVE only).',
     price_credits: 200,
+    price: 200,
+    currency: 'credits',
     kind: 'consumable',
     class: 'item',
     payload: JSON.stringify({ def_bonus: 15 }),
@@ -192,7 +236,11 @@ export async function seedShopItems(): Promise<void> {
   const now = Date.now();
   await tx(async (t) => {
     for (const item of SEED_ITEMS) {
-      await t.run(SQL_INSERT_ITEM, [item.id, item.name, item.description, item.price_credits, item.kind, item.class, item.payload, now]);
+      await t.run(SQL_INSERT_ITEM, [
+        item.id, item.name, item.description, item.price_credits, item.price ?? item.price_credits,
+        item.currency ?? 'credits', item.shop_category ?? 'misc', item.featured ?? 0, item.quick_offer ?? 0,
+        item.one_time ?? 0, item.sort_order ?? 0, item.kind, item.class, item.payload, now
+      ]);
     }
   });
   log.info('shop.seed.ok', { items: SEED_ITEMS.length });
@@ -206,18 +254,25 @@ export async function insertCustomItem(input: {
   kind: string;
   class: 'product' | 'item';
   payload: object;
+  // Let admin use the new params if they pass them, for tests/internal.
+  currency?: string;
+  price?: number;
+  shopCategory?: string;
+  featured?: number;
+  quickOffer?: number;
+  oneTime?: number;
+  sortOrder?: number;
 }): Promise<string> {
   const id = newId('itm');
+  const now = Date.now();
   await run(
     SQL_INSERT_ITEM,
-    id,
-    input.name,
-    input.description,
-    input.priceCredits,
-    input.kind,
-    input.class,
-    JSON.stringify(input.payload),
-    Date.now(),
+    [
+      id, input.name, input.description, input.priceCredits, input.price ?? input.priceCredits,
+      input.currency ?? 'credits', input.shopCategory ?? 'misc', input.featured ?? 0,
+      input.quickOffer ?? 0, input.oneTime ?? 0, input.sortOrder ?? 0,
+      input.kind, input.class, JSON.stringify(input.payload), now
+    ]
   );
   return id;
 }
@@ -258,24 +313,46 @@ function decodeItemEffect(payloadJson: string): EffectDecoded {
 // Plugin
 // ============================================================================
 type InventoryJoinRow = InventoryRow & { name: string; description: string };
+type ExtendedShopItemRow = ShopItemRow & { currency: string, price: number, shop_category: string, featured: number, quick_offer: number, one_time: number, sort_order: number };
 
 export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/shop', async (req, reply) => {
     const me = await requireAuth(req, reply);
-    const products = await q<ShopItemRow>(SQL_SELECT_PRODUCTS);
+    const products = await q<ExtendedShopItemRow>(SQL_SELECT_PRODUCTS);
     const inv = await q<InventoryJoinRow>(SQL_SELECT_INVENTORY, me.id);
-    const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
-    return reply.send({
-      products: products.map((i) => ({
+    const wallet = await one<WalletRow & { netcore: number }>(SQL_SELECT_WALLET, me.id);
+    const purchases = await q<{ item_id: string }>(SQL_SELECT_PURCHASES, me.id);
+    const ownedSet = new Set(purchases.map(p => p.item_id));
+
+    const mapItem = (i: ExtendedShopItemRow) => {
+      let displayPayload: any = {};
+      try { displayPayload = JSON.parse(i.payload); } catch {}
+      return {
         id: i.id,
         name: i.name,
         description: i.description,
-        priceCredits: i.price_credits,
+        price: i.price,
+        currency: i.currency,
         kind: i.kind,
-        class: i.class,
-      })),
+        shopCategory: i.shop_category,
+        oneTime: i.one_time === 1,
+        owned: i.one_time === 1 ? ownedSet.has(i.id) : false,
+        ...displayPayload
+      };
+    };
+
+    const categories = Array.from(new Set(products.map(p => p.shop_category)));
+    const featuredRaw = products.find(p => p.featured === 1);
+    const featured = featuredRaw ? mapItem(featuredRaw) : null;
+    const quick = products.filter(p => p.quick_offer === 1).map(mapItem);
+
+    return reply.send({
+      featured,
+      quick,
+      catalog: products.map(mapItem),
+      categories,
+      wallet: { credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 },
       inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
-      credits: wallet?.credits ?? 0,
     });
   });
 
@@ -291,39 +368,70 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const me = await requireAuth(req, reply);
     const parsed = BuySchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
-    const item = await one<ShopItemRow>(SQL_SELECT_ITEM, parsed.data.itemId);
-    if (!item) return reply.code(404).send({ error: 'item not found' });
-    if (item.class !== 'product') {
-      return reply.code(403).send({ error: 'not-a-product', message: 'Items are earned from PVE drops or farm crafting, not purchased.' });
+    
+    if (parsed.data.qty < 1 || parsed.data.qty > 99 || !Number.isSafeInteger(parsed.data.qty)) {
+      return reply.code(400).send({ error: 'invalid qty' });
     }
-    const total = item.price_credits * parsed.data.qty;
-    const wallet = await one<WalletRow>(SQL_SELECT_WALLET, me.id);
-    const credits = wallet?.credits ?? 0;
-    if (credits < total) return reply.code(402).send({ error: 'insufficient credits', needed: total - credits });
+
     const now = Date.now();
+    const itemIdStr = parsed.data.itemId;
+
     try {
       await tx(async (t) => {
-        const info = await t.run(SQL_UPDATE_WALLET_CREDITS, [total, now, me.id, total]);
-        if (info.changes === 0) throw new Error('credit deduction race');
+        const item = await t.one<ExtendedShopItemRow>(SQL_SELECT_ITEM, [itemIdStr]);
+        if (!item) throw new Error('NOT_FOUND');
+        if (item.class !== 'product') throw new Error('NOT_A_PRODUCT');
+        if (item.currency !== 'credits' && item.currency !== 'netcore') throw new Error('INVALID_CURRENCY');
+
+        let qty = parsed.data.qty;
+        if (item.one_time === 1) {
+          qty = 1;
+          const insertInfo = await t.run(SQL_INSERT_SHOP_PURCHASE, [me.id, now, item.id]);
+          if (insertInfo.changes !== 1) {
+            throw new Error('ALREADY_OWNED');
+          }
+        }
+
+        const total = item.price * qty;
+        if (!Number.isSafeInteger(total) || total < 0 || total > 2147483647) {
+          throw new Error('TOTAL_OVERFLOW');
+        }
+
+        const walletUpdateSql = item.currency === 'credits' ? SQL_UPDATE_WALLET_CREDITS : SQL_UPDATE_WALLET_NETCORE;
+        const walletInfo = await t.run(walletUpdateSql, [total, now, me.id, total]);
+        if (walletInfo.changes === 0) {
+          throw new Error('INSUFFICIENT_FUNDS');
+        }
+
+        // Grant item
         if (item.kind === 'building_placement') {
           let payload: { buildingType?: string; kind?: string } = {};
           try { payload = JSON.parse(item.payload) as { buildingType?: string; kind?: string }; } catch {}
           const buildingType = payload.buildingType === 'training_premium' ? 'training_premium' : 'training';
           const kind = payload.kind ?? 'Training Station';
-          for (let i = 0; i < parsed.data.qty; i++) {
+          for (let i = 0; i < qty; i++) {
             await t.run(SQL_INSERT_TRAINING_BUILDING, [
-              newId('bld'), me.id, kind, buildingType, now, item.price_credits, now,
+              newId('bld'), me.id, kind, buildingType, now, item.price, now,
             ]);
           }
         } else {
-          await t.run(SQL_UPSERT_INVENTORY, [me.id, item.id, parsed.data.qty, now]);
+          await t.run(SQL_UPSERT_INVENTORY, [me.id, item.id, qty, now]);
         }
       });
-    } catch {
+    } catch (err: any) {
+      log.warn('shop.buy.failed', { userId: me.id, itemId: itemIdStr, reason: err.message });
+      if (err.message === 'NOT_FOUND') return reply.code(404).send({ error: 'item not found' });
+      if (err.message === 'NOT_A_PRODUCT') return reply.code(403).send({ error: 'not-a-product', message: 'Items are earned from PVE drops or farm crafting, not purchased.' });
+      if (err.message === 'ALREADY_OWNED') return reply.code(409).send({ error: 'already owned' });
+      if (err.message === 'INSUFFICIENT_FUNDS') return reply.code(402).send({ error: 'insufficient funds' });
+      if (err.message === 'INVALID_CURRENCY') return reply.code(500).send({ error: 'data error: invalid currency' });
+      if (err.message === 'TOTAL_OVERFLOW') return reply.code(400).send({ error: 'total price overflow' });
       return reply.code(409).send({ error: 'purchase conflicted — try again' });
     }
-    log.info('shop.buy', { userId: me.id, itemId: item.id, qty: parsed.data.qty, spent: total });
-    return reply.send({ ok: true, credits: credits - total });
+
+    log.info('shop.buy', { userId: me.id, itemId: itemIdStr, qty: parsed.data.qty });
+    const wallet = await one<WalletRow & { netcore: number }>(SQL_SELECT_WALLET, me.id);
+    return reply.send({ ok: true, credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 });
   });
 
   app.post('/api/shop/use', async (req, reply) => {
@@ -334,7 +442,7 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!owned || owned.qty < parsed.data.qty) {
       return reply.code(409).send({ error: 'not enough of that item' });
     }
-    const info = await run(SQL_DECREMENT_INVENTORY, parsed.data.qty, Date.now(), me.id, parsed.data.itemId, parsed.data.qty);
+    const info = await run(SQL_DECREMENT_INVENTORY, [parsed.data.qty, Date.now(), me.id, parsed.data.itemId, parsed.data.qty]);
     if (info.changes === 0) {
       return reply.code(409).send({ error: 'consume failed — refresh inventory' });
     }
