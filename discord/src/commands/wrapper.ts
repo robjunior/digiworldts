@@ -1,6 +1,7 @@
 import { BackendClientError } from '../backendClient.js';
 import { normalizeLocale, t, type Locale } from '../i18n.js';
 import { log } from '../logger.js';
+import { enforceCommandRateLimit, type RateLimitKind } from './rate-limit.js';
 
 export type ReplyPayload = { readonly ephemeral?: boolean; readonly content?: string; readonly embeds?: readonly { readonly title: string; readonly description: string }[] };
 export type CommandInteraction = {
@@ -26,6 +27,7 @@ export type CommandContext = {
 
 export type CommandWrapperDeps = {
   readonly resolveLocale?: (interaction: CommandInteraction) => Promise<string | null>;
+  readonly kind?: RateLimitKind;
 };
 
 type CommandBody = (context: CommandContext) => Promise<void>;
@@ -42,6 +44,7 @@ export async function runDeferredCommand(interaction: CommandInteraction, body: 
   const userLocale = resolved ?? interaction.locale ?? null;
   const locale = normalizeLocale(userLocale);
   try {
+    enforceCommandRateLimit(interaction.user.id, deps.kind ?? 'default');
     await body({ locale, userLocale });
   } catch (error) {
     log.warn('discord.command.error', { err: error instanceof Error ? error.message : 'unknown error', discordId: interaction.user.id });
