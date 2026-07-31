@@ -48,6 +48,7 @@ export function Lobby(): JSX.Element {
   
   // chat form state
   const [chatInput, setChatInput] = useState('');
+  const [chatOpen, setChatOpen] = useState(false);
   const chatLogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -159,11 +160,18 @@ export function Lobby(): JSX.Element {
         </div>
 
         {/* chat */}
-        <aside className="colR" data-od-id="chat-drawer">
-          <div className="chathead">
+        <aside className={`colR${chatOpen ? ' is-open' : ''}`} data-od-id="chat-drawer">
+          <button
+            type="button"
+            className="chathead"
+            aria-expanded={chatOpen}
+            aria-controls="chatlog"
+            onClick={() => setChatOpen((prev) => !prev)}
+          >
             <div className="k">Global Chat</div>
             <div className="s" id="chat-sub">{presenceCount} in the plaza</div>
-          </div>
+            <span className="chat-caret" aria-hidden="true">{chatOpen ? '▾' : '▴'}</span>
+          </button>
           <div className="chatlog" id="chatlog" role="log" aria-live="polite" aria-label="Global chat" ref={chatLogRef}>
             {chat.length === 0 ? (
               <div className="empty-line">No messages yet — say hi to start.</div>
