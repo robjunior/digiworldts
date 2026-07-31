@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import type { CSSProperties, ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Link, Outlet, useLocation } from 'react-router';
 
 import {
@@ -195,6 +195,13 @@ export function AppShell(): JSX.Element {
   const locale = useLocale();
   const t = useT();
   const { pathname, search } = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  const toggleSidebar = useCallback(() => setSidebarOpen((prev) => !prev), []);
+
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname, search]);
   const pageLabelKey = pageLabelKeyFor(pathname);
   const pageLabel = pageLabelKey ? t(pageLabelKey) : (pathname.split('/').filter(Boolean)[0] ?? t('lobby.title'));
   const pageScope = pageScopeFor(pathname);
@@ -250,8 +257,20 @@ export function AppShell(): JSX.Element {
   const mainClassName = pageScope ? `main ${pageScope}` : 'main';
 
   return (
-    <div className={`win${isDungeonMode ? ' is-dungeon' : ''}`}>
+    <div className={`win${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
       <header className="titlebar">
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label={t('hud.menu')}
+          aria-controls="primary-sidebar"
+          aria-expanded={sidebarOpen}
+          onClick={toggleSidebar}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+        </button>
         <div className="lights"><i /><i /><i /></div>
         <div className="app-mark">DIGI<span className="bit">WORLD</span></div>
         <div className="win-meta">{t('header.tamer_terminal')} · {pageLabel}</div>
@@ -276,7 +295,13 @@ export function AppShell(): JSX.Element {
         <TopBarRight />
       </header>
       <div className="body">
-        <nav className="side" aria-label="Primary">
+        <div className="sidebar-backdrop" aria-hidden={!sidebarOpen} onClick={closeSidebar} />
+        <nav
+          id="primary-sidebar"
+          className={`side${sidebarOpen ? ' is-open' : ''}`}
+          aria-label="Primary"
+          aria-hidden={!sidebarOpen && undefined}
+        >
           {isAdminMode ? (
               <>
                 <div className="grp">{t('hud.admin')}</div>
