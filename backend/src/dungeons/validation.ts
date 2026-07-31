@@ -158,8 +158,13 @@ export const MoveInputSchema = z.object({
   y: z.number().int().min(0).max(199),
 });
 
+export const PlayerEncounterDigimonSchema = EncounterDigimonSchema.omit({
+  statOverride: true,
+  skillsOverride: true,
+}).strict();
+
 export const StartRandomEncounterInputSchema = z.object({
-  digimon: z.array(EncounterDigimonSchema).min(1).max(3),
+  digimon: z.array(PlayerEncounterDigimonSchema).min(1).max(3),
 });
 
 export type CreateDungeonInput = z.infer<typeof CreateDungeonInputSchema>;
