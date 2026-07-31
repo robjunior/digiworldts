@@ -499,6 +499,14 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   await startCloudLoops();
 
   app.get('/ws', { websocket: true }, async (socket: WebSocket, req: FastifyRequest) => {
+    // `ws` silently drops frames that arrive while no 'message' listener is
+    // attached. Auth and presence below are async, and the client sends
+    // `hello` the instant the socket opens — without this buffer that frame
+    // is lost and the client never receives `welcome`.
+    const buffered: unknown[] = [];
+    let onMessage: (raw: unknown) => void = (raw) => { buffered.push(raw); };
+    socket.on('message', (raw: unknown) => { onMessage(raw); });
+
     const token = readSessionCookie(req);
     const session = await resolveSession(token ?? undefined);
     if (!session) {
@@ -516,7 +524,7 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     await presenceMarkOnline(entry);
     log.info('ws.connect', { userId: entry.userId, size: connections.size, nodeId: config.NODE_ID });
 
-    socket.on('message', (raw: unknown) => {
+    onMessage = (raw: unknown): void => {
       let text: string;
       if (typeof raw === 'string') text = raw;
       else if (raw instanceof Buffer) text = raw.toString('utf8');
@@ -548,10 +556,18 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       void handler(entry, msgResult.data).catch((err: unknown) => {
         log.warn('ws.handler.fail', { userId: entry.userId, type: msgResult.data.type, err: err instanceof Error ? err.message : String(err) });
       });
-    });
+    };
+    for (const raw of buffered.splice(0)) onMessage(raw);
 
     socket.on('close', () => {
       void (async () => {
+        // `ensureUnique` displaces the old socket on reconnect, so its close
+        // lands after the replacement is registered. Cleaning up here would
+        // delete the live entry and drop the user from the queue.
+        if (connections.get(entry.userId) !== entry) {
+          log.info('ws.close.superseded', { userId: entry.userId, nodeId: config.NODE_ID });
+          return;
+        }
         connections.delete(entry.userId);
         await presenceMarkOffline(entry.userId);
         schedulePendingAbandon(entry.userId);
