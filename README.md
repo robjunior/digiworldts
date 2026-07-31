@@ -18,7 +18,7 @@ A Digimon-style 3v3 real-time MMO — Node.js + TypeScript, Fastify + native Web
 | Catalog | XML via `fast-xml-parser` | edit-friendly, human-readable, admin-mutable |
 | Scraper | `fetch` + regex | zero-dep, defensive against site drift |
 
-**First-user-is-admin**: registration is **always open** by default. The *first* user to register (via `/api/auth/register`) is flagged `is_admin=1`; every subsequent registration is a regular player (`is_admin=0`). Set `ADMIN_BOOTSTRAP=closed` in the environment to lock registration entirely — useful once the game is live and you don't want new signups.
+**First-user-is-admin**: registration is **closed by default** to prevent a first-user-is-admin race on public deploys. When registration IS open (via `ADMIN_BOOTSTRAP=open`), the *first* user to register (via `/api/auth/register`) is flagged `is_admin=1`; every subsequent registration is a regular player (`is_admin=0`). To bootstrap the first admin: set `ADMIN_BOOTSTRAP=open` in `.env`, restart, register the admin through the UI, then set it back to `closed` and restart. Attackers who arrive before or after that window get 403.
 
 **Server-authoritative combat**: clients submit `{ type: 'act', matchId, action }` and receive full `BattleView` snapshots. No client-side damage math. Cheating is a lookup failure at worst.
 
@@ -107,7 +107,7 @@ pnpm start
 | `ASSETS_DIR` | `public/assets/digimon` | portrait + dot cache root |
 | `SESSION_SECRET` | auto-generated & persisted in `data/.session-secret` | cookie sign key |
 | `SESSION_TTL_HOURS` | `168` (7 days) | sliding renewal |
-| `ADMIN_BOOTSTRAP` | `open` | set to `closed` to disable new registrations entirely (first-registered user is always the admin regardless) |
+| `ADMIN_BOOTSTRAP` | `closed` | closed-by-default prevents first-user-is-admin race on public deploys; temporarily set to `open` to bootstrap the first admin, then close again |
 | `SCRAPER_MIN_DELAY_MS` | `150` | polite throttle between upstream requests |
 | `SCRAPER_USER_AGENT` | see `src/config.ts` | identifies us to upstream hosts |
 | `MAX_LOBBY_CONNECTIONS` | `1200` | hard cap on live WS sockets |
@@ -267,7 +267,7 @@ digiworld/
 |---|---|---|---|
 | GET | `/api/health` | — | liveness |
 | GET | `/api/auth/status` | — | `{ userCount, registrationOpen }` |
-| POST | `/api/auth/register` | — | open by default; first registrant becomes admin. Returns 403 only when `ADMIN_BOOTSTRAP=closed` |
+| POST | `/api/auth/register` | — | Returns 403 unless `ADMIN_BOOTSTRAP=open`. When open, the first registrant becomes admin. |
 | POST | `/api/auth/login` | — | argon2id verify + set cookie |
 | POST | `/api/auth/logout` | cookie | destroy session |
 | POST | `/api/auth/reset-consume` | — | `{ token, newPassword }` — consume an admin-issued reset token, hashes the new password, invalidates all sessions for that user (10 attempts/IP/15min throttle) |
@@ -436,7 +436,7 @@ pnpm --filter @digiworld/backend test:pg-portability
 ## Admin bootstrap notes
 
 - The **first** account created via `/api/auth/register` (browser or curl) is the admin — irrevocably.
-- Every subsequent registration is a regular player (`is_admin=0`). Registration stays open by default so the 1000-player MMO shape actually works. Set `ADMIN_BOOTSTRAP=closed` in the environment to lock the door once the game is live.
+- Every subsequent registration is a regular player (`is_admin=0`). Registration is **closed by default** so a public fresh-deploy cannot be raced by an attacker. To bootstrap the first admin, set `ADMIN_BOOTSTRAP=open` in `.env`, register, then flip it back to `closed`. Leave it `closed` once the game is live.
 - **Regular user password recovery** goes through the admin: `POST /api/admin/users/:id/reset-token` issues a 15-minute cluster-stored token; the user consumes it at `/reset?token=...` and picks a new password. Alternatively the admin can hard-reset directly via `POST /api/admin/users/:id/reset-password` (admin types the new password). Either way, all live sessions for that user are revoked on success.
 - **A totally-lost *admin* password** still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
 - The admin is the ONLY user who can add/edit/remove Digimon templates. Regular players can only pick from what the admin has curated in `data/catalog/digimons.xml`.
