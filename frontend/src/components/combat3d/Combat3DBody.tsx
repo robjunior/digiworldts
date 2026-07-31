@@ -343,8 +343,6 @@ export function Combat3DBody(): JSX.Element | null {
             onMode={setCommandMode}
             onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
             onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
-            onGuard={() => actor && dispatchAction({ type: 'guard', unitId: actor.id })}
-            onAnalyze={(targetId) => actor && dispatchAction({ type: 'analyze', unitId: actor.id, targetId })}
             onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
             onFlee={() => dispatchAction({ type: 'flee' })}
           />

@@ -47,9 +47,7 @@ export type BattleUnit = {
   activeBuffs?: ActiveBuff[];
   evade?: number;
   skillCooldowns?: Record<string, number>;
-  guarding: boolean;
   wildInfo?: WildInfo;
-  analyzed: boolean;
 };
 
 /**
@@ -69,13 +67,11 @@ export type ItemEffect =
 export type Action =
   | { type: 'fight'; unitId: UnitId; targetId: UnitId }
   | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId }
-  | { type: 'guard'; unitId: UnitId }
-  | { type: 'analyze'; unitId: UnitId; targetId: UnitId }
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
   | { type: 'use_item'; unitId: UnitId; targetId: UnitId; itemId: string }
   | { type: 'flee' };
 
-export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'analyzed' | 'capture-hit' | 'capture-miss' | 'item-heal' | 'item-en' | 'item-cure' | 'item-buff' | 'item-revive' | null;
+export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'capture-hit' | 'capture-miss' | 'item-heal' | 'item-en' | 'item-cure' | 'item-buff' | 'item-revive' | null;
 
 export type EventBase = { at: number; round: number };
 
@@ -93,7 +89,6 @@ export type BattleEvent =
       cue: ActionCue;
       applied?: Ailmented[];
       captureChance?: number;
-      analyzedInfo?: { name: string; element: Element; level: number; hp: number; hpMax: number; en: number; enMax: number; atk: number; def: number; spd: number; int: number; skills: Array<{ name: string; element: Element; power: number; energyCost: number }>; wild?: WildInfo };
     })
   | (EventBase & { type: 'ailment-tick'; unit: UnitId; kind: Ailment; damage: number })
   | (EventBase & { type: 'ailment-expired'; unit: UnitId; kind: Ailment })
@@ -158,7 +153,6 @@ export type EnemyUnitView = {
   hpMax: number;
   ailments: Ailmented[];
   down: boolean;
-  analyzed?: boolean;
   wild?: WildInfo;
 };
 
@@ -187,7 +181,6 @@ export type BattleView = {
 export const MISS_CHANCE = 0.08;
 export const CRIT_CHANCE = 0.15;
 export const CRIT_MULT = 1.6;
-export const GUARD_MULT = 0.5;
 export const CHAIN_MULT = 1.4;
 export const AILMENT_TURNS_DEFAULT = 3;
 export const EN_REGEN_PER_TURN = 6;
@@ -200,7 +193,6 @@ export const BLIND_ACCURACY_PENALTY = 30;
 export const CAPTURE_BASE = 0.15;
 export const CAPTURE_HP_FACTOR = 0.75;
 export const CAPTURE_RARE_MULT = 0.5;
-export const CAPTURE_ANALYZED_MULT = 1.3;
 export const CAPTURE_MAX = 0.95;
 
 export const CONTROL_AILMENTS: readonly Ailment[] = ['freeze', 'stun', 'sleep', 'petrify', 'confusion', 'charm'];

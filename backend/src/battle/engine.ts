@@ -29,7 +29,6 @@ import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogRe
 import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
-  CAPTURE_ANALYZED_MULT,
   CAPTURE_BASE,
   CAPTURE_HP_FACTOR,
   CAPTURE_MAX,
@@ -38,7 +37,6 @@ import {
   CRIT_CHANCE,
   CRIT_MULT,
   EN_REGEN_PER_TURN,
-  GUARD_MULT,
   MISS_CHANCE,
   isControlAilment,
   type Action,
@@ -120,8 +118,6 @@ function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, re
     int: scaled.int,
     skills,
     ailments: [],
-    guarding: false,
-    analyzed: false,
   };
   if (m.template.resistances) unit.resistances = m.template.resistances;
   if (wildInfo) unit.wildInfo = wildInfo;
@@ -408,24 +404,6 @@ export function applyAction(
     return { ok: false, error: 'unit is defeated', code: 'unit-invalid' };
   }
 
-  // Guard resolves without a target.
-  if (action.type === 'guard') {
-    actor.guarding = true;
-    pushEvent(battle, {
-      at: Date.now(),
-      round: battle.round,
-      type: 'action',
-      actor: actor.id,
-      actorName: actor.name,
-      action,
-      cue: null,
-    });
-    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
-    tickActorAilments(battle, actor);
-    advanceTurnQueue(battle);
-    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
-  }
-
   if (action.type === 'use_item') {
     if (battle.mode !== 'pve') {
       return { ok: false, error: 'items are PVE-only', code: 'item-invalid' };
@@ -468,41 +446,6 @@ export function applyAction(
     return { ok: false, error: 'invalid target', code: 'target-invalid' };
   }
 
-  if (action.type === 'analyze') {
-    target.analyzed = true;
-    const now = Date.now();
-    pushEvent(battle, {
-      at: now,
-      round: battle.round,
-      type: 'action',
-      actor: actor.id,
-      actorName: actor.name,
-      action,
-      targetId: target.id,
-      targetName: target.name,
-      cue: 'analyzed',
-      analyzedInfo: {
-        name: target.name,
-        element: target.element,
-        level: target.level,
-        hp: target.hp,
-        hpMax: target.hpMax,
-        en: target.en,
-        enMax: target.enMax,
-        atk: target.atk,
-        def: target.def,
-        spd: target.spd,
-        int: target.int,
-        skills: target.skills.map((s) => ({ name: s.name, element: s.element, power: s.power, energyCost: s.energyCost })),
-        ...(target.wildInfo ? { wild: target.wildInfo } : {}),
-      },
-    });
-    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
-    tickActorAilments(battle, actor);
-    advanceTurnQueue(battle);
-    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
-  }
-
   if (action.type === 'capture') {
     if (battle.mode !== 'pve') {
       return { ok: false, error: 'capture only allowed in PVE battles', code: 'target-invalid' };
@@ -512,8 +455,7 @@ export function applyAction(
     }
     const hpFactor = 1 - target.hp / target.hpMax;
     const rareMult = target.wildInfo.rare ? CAPTURE_RARE_MULT : 1;
-    const analyzedMult = target.analyzed ? CAPTURE_ANALYZED_MULT : 1;
-    const rawChance = (CAPTURE_BASE + CAPTURE_HP_FACTOR * hpFactor) * rareMult * analyzedMult;
+    const rawChance = (CAPTURE_BASE + CAPTURE_HP_FACTOR * hpFactor) * rareMult;
     const chance = clamp(rawChance, 0, CAPTURE_MAX);
     const roll = Math.random();
     const captured = roll < chance;
@@ -643,16 +585,14 @@ export function applyAction(
     const scaledSkillPower = scaleForLevel(skill.power, actor.level);
     const baseDamage = attackStat * 0.4 + scaledSkillPower;
     const defMitigation = 1 - clamp(effectiveDef(target) / (effectiveDef(target) + 400), 0, 0.65);
-    const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
     const rate = typeof battle.damageRate === 'number' && battle.damageRate > 0 ? battle.damageRate : 1.0;
     const dmgRaw = resMult === 0 ? 0 : Math.max(
       1,
-      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
+      Math.round(baseDamage * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * variance * rate),
     );
     const dmg = applyDamageWithBuffs(target, dmgRaw);
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
-    target.guarding = false;
 
     const applied: Ailmented[] = [];
     if (skill.effect && Math.random() < skill.effect.chance) {
@@ -862,7 +802,6 @@ function advanceTurnQueue(battle: Battle): void {
     battle.round += 1;
     for (const u of battle.units.filter((x) => x.hp > 0)) {
       u.en = clamp(u.en + EN_REGEN_PER_TURN, 0, u.enMax);
-      u.guarding = false;
     }
     battle.turnQueue = buildTurnQueue(battle.units);
     battle.turnCursor = 0;
@@ -973,7 +912,6 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
         down: u.hp === 0,
       };
       if (u.resistances) view.resistances = u.resistances;
-      if (u.analyzed) view.analyzed = true;
       if (u.wildInfo) view.wild = u.wildInfo;
       enemy.push(view);
     }

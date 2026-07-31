@@ -16,7 +16,6 @@ export const PartyCard = memo(function PartyCard({ unit, active }: { readonly un
           <span className="nm">{unit.name}</span>
           <span className="lv">Lv {unit.level}</span>
         </span>
-        {unit.guarding ? <span className="guard-ic" title="Guarding">Guard</span> : null}
       </div>
       <div className="stat">
         <span className="sk">HP</span>
