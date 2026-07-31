@@ -1,5 +1,4 @@
 import type {
-  DialogueNodeId,
   Quest,
   QuestObjective,
   QuestObjectiveProgress,
@@ -181,7 +180,7 @@ function progressFromRow(row: ProgressRow): UserQuestProgress {
     userId: row.user_id,
     questId: row.quest_id,
     currentStepIndex: row.current_step_index,
-    currentDialogueNodeId: row.current_dialogue_node_id as DialogueNodeId | null,
+    currentDialogueNodeId: row.current_dialogue_node_id,
     choicesMade: parseJsonObject(row.choices_made),
     startedAt: row.started_at,
     completedAt: row.completed_at,
@@ -234,7 +233,7 @@ export async function startQuest(userId: string, questId: string): Promise<{ rea
     if (existing) return { quest: questFromRow(questRow), progress: progressFromRow(existing) };
     const quest = questFromRow(questRow);
     const now = Date.now();
-    const firstDialogue = quest.intro.rootNodeId;
+    const firstDialogue = quest.introDialogueId;
     const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0
       ? encodeObjectiveProgress(quest.objectives.map(() => ({ counter: 0, doneAt: null })))
       : null;
@@ -358,7 +357,7 @@ export async function acceptQuest(userId: string, questId: string, meanLevel: nu
     const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
     if (existing) return questWithProgress(quest, meanLevel, existing);
     const now = Date.now();
-    const firstDialogue = quest.intro.rootNodeId;
+    const firstDialogue = quest.introDialogueId;
     const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0
       ? encodeObjectiveProgress(quest.objectives.map(() => ({ counter: 0, doneAt: null })))
       : null;
