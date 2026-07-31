@@ -1,0 +1,18 @@
+:: StoryTitle
+The Long Circuit — Intro
+
+:: start [start]
+@speaker tamer_guild concerned
+
+Enter the storm under the thunderhead and see if you can reach the foundry.
+
+* [[I'll try.->END]] #accept
+* [[Has anyone reached it?->detail]] #ask
+* [[That sounds like a bad idea.->END]] #decline
+
+:: detail
+@speaker tamer_guild neutral
+
+Three went in. Two came back, and neither could tell us what they saw.
+
+* [[I'll go anyway.->END]] #accept_after_detail

@@ -1,0 +1,18 @@
+:: StoryTitle
+Into the Static — Intro
+
+:: start [start]
+@speaker unknown neutral
+
+The Static waits. If you go in, you come out changed or not at all.
+
+* [[I'm going in.->END]] #accept
+* [[Changed how?->detail]] #ask
+* [[Then I'll stay out.->END]] #decline
+
+:: detail
+@speaker unknown neutral
+
+If I could answer that, it would not be the Static.
+
+* [[I'm still going.->END]] #accept_after_detail
