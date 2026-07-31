@@ -169,7 +169,7 @@ These have real intent but no scoped design yet.
 
 ## ⛔ Non-goals
 
-- **No microtransactions.** Wallets are DigiCredits + Bits, both earned in game.
+- **No pay-to-win power sales.** Credits are a premium currency bought with real money (PIX via the Discord bot), but they buy cosmetics, eggs and convenience boosts — never raw combat power. Gameplay itself grants only NetCore, and Credits are player-tradable for NetCore on the coin market, so a non-paying player can still reach premium goods by grinding. See [`README.md` §Currency rules](README.md).
 - **No client-side damage math.** All combat is server-authoritative — see [`README.md` §Combat rules](README.md).
 - **No gRPC / message queue between nodes.** Redis pub/sub + KV covers every current cross-node need; adding Kafka etc. is premature.
 - **No native mobile app.** Web frontend serves both surfaces.
