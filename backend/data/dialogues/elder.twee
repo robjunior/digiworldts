@@ -1,0 +1,26 @@
+:: StoryTitle
+Elder of the Forest
+
+:: elder/start [start]
+@speaker elder neutral
+@do set_flag("dialogue.elder.met")
+
+Welcome, {player_name}. The forest remembers your footsteps.
+
+* [[Who are you?->elder/who]] #ask_who
+* [[Ask about the shrine->elder/shrine]] #ask_shrine {if: level >= 3}
+* [[Leave->END]] #leave
+
+:: elder/who
+@speaker elder neutral
+
+I am the one who waited.
+
+* [[Back->elder/start]] #back
+
+:: elder/shrine
+@speaker elder concerned
+
+The door opens only for those carrying proof of the old pact.
+
+* [[I will look for it.->END]] #accept
