@@ -1,31 +1,6 @@
 import type { Element } from './digimon.js';
 import type { Biome } from './world.js';
 
-export type QuestSpeaker = 'narrator' | 'npc' | 'player';
-
-export type DialogueNodeId = string & { readonly __brand: 'DialogueNodeId' };
-
-export type DialogueChoice = {
-  readonly label: string;
-  readonly nextNodeId: DialogueNodeId | null;
-  readonly requiresItemId?: string;
-  readonly requiresLevel?: number;
-};
-
-export type DialogueNode = {
-  readonly id: DialogueNodeId;
-  readonly speaker: QuestSpeaker;
-  readonly speakerName?: string;
-  readonly text: string;
-  readonly choices: readonly DialogueChoice[];
-  readonly nextNodeId?: DialogueNodeId | null;
-};
-
-export type DialogueTree = {
-  readonly rootNodeId: DialogueNodeId;
-  readonly nodes: readonly DialogueNode[];
-};
-
 export type EnemyConfig = {
   readonly templateId: string;
   readonly level: number;
@@ -48,7 +23,7 @@ export type LootPool = {
 };
 
 export type QuestStep =
-  | { readonly type: 'dialogue'; readonly tree: DialogueTree }
+  | { readonly type: 'dialogue'; readonly dialogueId: string }
   | { readonly type: 'battle'; readonly enemies: readonly EnemyConfig[]; readonly flavor?: string }
   | { readonly type: 'boss'; readonly enemies: readonly EnemyConfig[]; readonly bossName: string; readonly flavor: string }
   | { readonly type: 'loot'; readonly pool: LootPool };
@@ -72,7 +47,7 @@ export type Quest = {
   readonly name: string;
   readonly description: string;
   readonly requiredLevel: number;
-  readonly intro: DialogueTree;
+  readonly introDialogueId: string | null;
   readonly steps: readonly QuestStep[];
   readonly finalReward: LootPool;
   readonly unlocksQuestIds: readonly string[];
@@ -110,7 +85,7 @@ export type UserQuestProgress = {
   readonly userId: string;
   readonly questId: string;
   readonly currentStepIndex: number;
-  readonly currentDialogueNodeId: DialogueNodeId | null;
+  readonly currentDialogueNodeId: string | null;
   readonly choicesMade: Readonly<Record<string, string>>;
   readonly startedAt: number;
   readonly completedAt: number | null;

@@ -1,7 +1,7 @@
 import { one, q, run } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
-import type { DialogueNodeId, Quest, WorldObjectKind } from '@digiworld/shared/quest';
+import type { Quest, WorldObjectKind } from '@digiworld/shared/quest';
 import { BIOME_COLOR, BIOME_COORDS, biomeAt, type Biome } from '../world/biomes.js';
 
 const SQL_COUNT_WORLD_OBJECTS = 'SELECT COUNT(*) AS n FROM world_objects';
@@ -105,13 +105,15 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function stubIntro(nodeId: string, text: string): Quest['intro'] {
-  const root = nodeId as DialogueNodeId;
-  return {
-    rootNodeId: root,
-    nodes: [{ id: root, speaker: 'narrator', text, choices: [] }],
-  };
-}
+/** Intro copy carried over from the pre-Twine seed; source for authoring the .twee files. */
+export const SEED_INTRO_TEXT: Readonly<Record<string, string>> = {
+  'embers-root': 'Head to the Ember Wastes and see what has the caravans spooked.',
+  'basin-root': 'Head down to Mirror Basin and take samples of any Water-type.',
+  'highwind-root': 'Climb up to the plateau and thin the Wind-type flocks.',
+  'circuit-root': 'Enter the storm under the thunderhead and see if you can reach the foundry.',
+  'firstscout-root': 'Head down to the prairie and get a feel for the calm end of the map.',
+  'static-root': 'The Static waits. If you go in, you come out changed or not at all.',
+};
 
 const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
   {
@@ -119,7 +121,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'Embers on the Ridge',
     description: 'Survey the [[desert]] and clear Fire-types stalking the dune line.',
     requiredLevel: 1,
-    intro: stubIntro('embers-root', 'Head to the Ember Wastes and see what has the caravans spooked.'),
+    introDialogueId: 'embers-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 140 },
     unlocksQuestIds: [],
@@ -135,7 +137,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'Still Waters',
     description: 'The Nursery wants readings from the [[lake]] before sunset.',
     requiredLevel: 1,
-    intro: stubIntro('basin-root', 'Head down to Mirror Basin and take samples of any Water-type.'),
+    introDialogueId: 'basin-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 90 },
     unlocksQuestIds: [],
@@ -151,7 +153,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'Chasing the Highwind',
     description: 'The Skyshear plateau has stirred — Wind-types are riding the currents.',
     requiredLevel: 3,
-    intro: stubIntro('highwind-root', 'Climb up to the plateau and thin the Wind-type flocks.'),
+    introDialogueId: 'highwind-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 200 },
     unlocksQuestIds: [],
@@ -167,7 +169,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'The Long Circuit',
     description: 'Chart a path from Voltcloud to the Rustworks for the Guild.',
     requiredLevel: 5,
-    intro: stubIntro('circuit-root', 'Enter the storm under the thunderhead and see if you can reach the foundry.'),
+    introDialogueId: 'circuit-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 380 },
     unlocksQuestIds: [],
@@ -184,7 +186,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'First Scout',
     description: 'Every tamer starts with a walk through Solaris Fields.',
     requiredLevel: 1,
-    intro: stubIntro('firstscout-root', 'Head down to the prairie and get a feel for the calm end of the map.'),
+    introDialogueId: 'firstscout-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 120 },
     unlocksQuestIds: [],
@@ -199,7 +201,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     name: 'Into the Static',
     description: 'A tear in the map has opened. Someone brave enough will need to look.',
     requiredLevel: 30,
-    intro: stubIntro('static-root', 'The Static waits. If you go in, you come out changed or not at all.'),
+    introDialogueId: 'static-root',
     steps: [],
     finalReward: { items: [], pickCount: 0, guaranteedCredits: 1200 },
     unlocksQuestIds: [],

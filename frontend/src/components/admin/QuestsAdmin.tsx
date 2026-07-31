@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { DialogueNode, DialogueTree, LootItem, LootPool, Quest, QuestStep } from '@digiworld/shared';
+import type { LootItem, LootPool, Quest, QuestStep } from '@digiworld/shared';
 
 import { createAdminQuest, deleteAdminQuest, exportAdminQuest, importAdminQuest, listAdminQuests, updateAdminQuest } from '../../lib/api-quest-admin';
 import type { QuestAdminBody } from '../../lib/api-quest-admin';
 import { AdminMessage, AdminSection, Field } from './AdminShared';
 
 const QUESTS_QUERY_KEY = ['admin', 'quests'] as const;
-const INTRO_TEMPLATE = '{"rootNodeId":"root","nodes":[{"id":"root","speaker":"narrator","text":"…","choices":[]}]}';
 const STEPS_TEMPLATE = '[]';
 const REWARD_TEMPLATE = '{"items":[],"pickCount":0,"guaranteedCredits":0}';
 
@@ -18,7 +17,7 @@ type EditorState = {
   readonly name: string;
   readonly description: string;
   readonly requiredLevel: number;
-  readonly intro: string;
+  readonly introDialogueId: string;
   readonly steps: string;
   readonly finalReward: string;
   readonly unlocksQuestIds: string;
@@ -132,7 +131,7 @@ function QuestEditor({ state, saving, onChange, onCancel, onSubmit }: { readonly
         <Field label="Unlocks quest IDs (CSV)"><input value={state.unlocksQuestIds} onChange={(event) => setField('unlocksQuestIds', event.target.value)} /></Field>
       </div>
       <Field label="Description"><textarea value={state.description} onChange={(event) => setField('description', event.target.value)} rows={3} /></Field>
-      <Field label="Intro dialogue JSON"><textarea value={state.intro} onChange={(event) => setField('intro', event.target.value)} rows={8} spellCheck={false} /></Field>
+      <Field label="Intro dialogue ID"><input className="input" value={state.introDialogueId} onChange={(event) => setField('introDialogueId', event.target.value)} placeholder="leave empty for none" spellCheck={false} /></Field>
       <Field label="Steps JSON"><textarea value={state.steps} onChange={(event) => setField('steps', event.target.value)} rows={8} spellCheck={false} /></Field>
       <Field label="Final reward JSON"><textarea value={state.finalReward} onChange={(event) => setField('finalReward', event.target.value)} rows={5} spellCheck={false} /></Field>
       <div className="admin-quest-actions">
@@ -169,7 +168,7 @@ function bodyFromEditor(state: EditorState): QuestAdminBody {
     name: state.name.trim(),
     description: state.description,
     requiredLevel: state.requiredLevel,
-    intro: parseDialogueTree(state.intro),
+    introDialogueId: state.introDialogueId.trim() === '' ? null : state.introDialogueId.trim(),
     steps: parseQuestSteps(state.steps),
     finalReward: parseLootPool(state.finalReward),
     unlocksQuestIds: state.unlocksQuestIds.split(',').map((id) => id.trim()).filter(Boolean),
@@ -178,11 +177,11 @@ function bodyFromEditor(state: EditorState): QuestAdminBody {
 }
 
 function blankEditor(): EditorState {
-  return { mode: 'create', name: '', description: '', requiredLevel: 1, intro: INTRO_TEMPLATE, steps: STEPS_TEMPLATE, finalReward: REWARD_TEMPLATE, unlocksQuestIds: '' };
+  return { mode: 'create', name: '', description: '', requiredLevel: 1, introDialogueId: '', steps: STEPS_TEMPLATE, finalReward: REWARD_TEMPLATE, unlocksQuestIds: '' };
 }
 
 function editorFromQuest(quest: Quest): EditorState {
-  return { mode: 'edit', questId: quest.id, name: quest.name, description: quest.description, requiredLevel: quest.requiredLevel, intro: stringify(quest.intro), steps: stringify(quest.steps), finalReward: stringify(quest.finalReward), unlocksQuestIds: quest.unlocksQuestIds.join(', ') };
+  return { mode: 'edit', questId: quest.id, name: quest.name, description: quest.description, requiredLevel: quest.requiredLevel, introDialogueId: quest.introDialogueId ?? '', steps: stringify(quest.steps), finalReward: stringify(quest.finalReward), unlocksQuestIds: quest.unlocksQuestIds.join(', ') };
 }
 
 function parseQuestImport(text: string): Quest | QuestAdminBody {
@@ -190,12 +189,6 @@ function parseQuestImport(text: string): Quest | QuestAdminBody {
   if (isQuest(parsed)) return parsed;
   if (isQuestBody(parsed)) return parsed;
   throw new Error('Import JSON must be a quest export or quest body.');
-}
-
-function parseDialogueTree(text: string): DialogueTree {
-  const parsed = parseJson(text, 'Intro dialogue');
-  if (!isDialogueTree(parsed)) throw new Error('Intro dialogue JSON is not a valid dialogue tree.');
-  return parsed;
 }
 
 function parseQuestSteps(text: string): readonly QuestStep[] {
@@ -220,15 +213,13 @@ function parseJson(text: string, label: string): unknown {
 }
 
 function isQuest(value: unknown): value is Quest { return isQuestBody(value) && hasNumber(value, 'createdAt') && hasNumber(value, 'updatedAt') && hasString(value, 'id'); }
-function isQuestBody(value: unknown): value is QuestAdminBody { return isRecord(value) && hasString(value, 'name') && hasString(value, 'description') && hasNumber(value, 'requiredLevel') && isDialogueTree(value.intro) && Array.isArray(value.steps) && isLootPool(value.finalReward) && Array.isArray(value.unlocksQuestIds); }
-function isDialogueTree(value: unknown): value is DialogueTree { return isRecord(value) && hasString(value, 'rootNodeId') && Array.isArray(value.nodes) && value.nodes.every(isDialogueNode); }
-function isDialogueNode(value: unknown): value is DialogueNode { return isRecord(value) && hasString(value, 'id') && (value.speaker === 'narrator' || value.speaker === 'npc' || value.speaker === 'player') && hasString(value, 'text') && Array.isArray(value.choices); }
+function isQuestBody(value: unknown): value is QuestAdminBody { return isRecord(value) && hasString(value, 'name') && hasString(value, 'description') && hasNumber(value, 'requiredLevel') && (value.introDialogueId === null || typeof value.introDialogueId === 'string') && Array.isArray(value.steps) && isLootPool(value.finalReward) && Array.isArray(value.unlocksQuestIds); }
 function isQuestSteps(value: unknown): value is readonly QuestStep[] { return Array.isArray(value) && value.every(isQuestStep); }
 function isQuestStep(value: unknown): value is QuestStep {
   if (!isRecord(value) || typeof value.type !== 'string') return false;
   switch (value.type) {
     case 'dialogue':
-      return isDialogueTree(value.tree);
+      return typeof value.dialogueId === 'string';
     case 'battle':
       return Array.isArray(value.enemies);
     case 'boss':

@@ -1,30 +1,9 @@
 import { z } from 'zod';
-import type { DialogueNode, DialogueNodeId, Quest, QuestObjective, QuestStep, WorldObject } from '@digiworld/shared/quest';
+import type { Quest, QuestObjective, QuestStep, WorldObject } from '@digiworld/shared/quest';
 import { ELEMENTS } from '@digiworld/shared/digimon';
 import { BIOMES } from '@digiworld/shared/world';
 
-const DialogueNodeIdSchema = z.string().min(1).max(80).transform((value) => value as DialogueNodeId);
-
-const DialogueChoiceSchema = z.object({
-  label: z.string().trim().min(1).max(120),
-  nextNodeId: DialogueNodeIdSchema.nullable(),
-  requiresItemId: z.string().min(1).max(80).optional(),
-  requiresLevel: z.number().int().min(1).max(999).optional(),
-});
-
-const DialogueNodeSchema = z.object({
-  id: DialogueNodeIdSchema,
-  speaker: z.enum(['narrator', 'npc', 'player']),
-  speakerName: z.string().trim().min(1).max(80).optional(),
-  text: z.string().trim().min(1).max(2_000),
-  choices: z.array(DialogueChoiceSchema).max(12),
-  nextNodeId: DialogueNodeIdSchema.nullable().optional(),
-});
-
-const DialogueTreeSchema = z.object({
-  rootNodeId: DialogueNodeIdSchema,
-  nodes: z.array(DialogueNodeSchema).min(1).max(500),
-});
+const DialogueIdSchema = z.string().trim().min(1).max(120);
 
 const EnemyConfigSchema = z.object({
   templateId: z.string().min(1).max(80),
@@ -48,7 +27,7 @@ const LootPoolSchema = z.object({
 });
 
 const QuestStepSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('dialogue'), tree: DialogueTreeSchema }),
+  z.object({ type: z.literal('dialogue'), dialogueId: DialogueIdSchema }),
   z.object({ type: z.literal('battle'), enemies: z.array(EnemyConfigSchema).min(1).max(6), flavor: z.string().max(500).optional() }),
   z.object({ type: z.literal('boss'), enemies: z.array(EnemyConfigSchema).min(1).max(6), bossName: z.string().trim().min(1).max(80), flavor: z.string().trim().min(1).max(500) }),
   z.object({ type: z.literal('loot'), pool: LootPoolSchema }),
@@ -73,7 +52,7 @@ export const QuestInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(2_000).default(''),
   requiredLevel: z.number().int().min(1).max(999).default(1),
-  intro: DialogueTreeSchema,
+  introDialogueId: DialogueIdSchema.nullable(),
   steps: z.array(QuestStepSchema).max(200),
   finalReward: LootPoolSchema,
   unlocksQuestIds: z.array(z.string().min(1).max(80)).max(200).default([]),
@@ -114,22 +93,6 @@ type QuestInput = z.infer<typeof QuestInputSchema>;
 type QuestImportInput = z.infer<typeof QuestImportSchema>;
 type WorldObjectInput = z.infer<typeof WorldObjectInputSchema>;
 
-function strictDialogueNode(input: QuestInput['intro']['nodes'][number]): DialogueNode {
-  return {
-    id: input.id,
-    speaker: input.speaker,
-    text: input.text,
-    choices: input.choices.map((choice) => ({
-      label: choice.label,
-      nextNodeId: choice.nextNodeId,
-      ...(choice.requiresItemId !== undefined ? { requiresItemId: choice.requiresItemId } : {}),
-      ...(choice.requiresLevel !== undefined ? { requiresLevel: choice.requiresLevel } : {}),
-    })),
-    ...(input.speakerName !== undefined ? { speakerName: input.speakerName } : {}),
-    ...(input.nextNodeId !== undefined ? { nextNodeId: input.nextNodeId } : {}),
-  };
-}
-
 function strictLootPool(input: QuestInput['finalReward']): Quest['finalReward'] {
   return {
     items: input.items,
@@ -151,7 +114,7 @@ function strictEnemies(input: Extract<QuestInput['steps'][number], { type: 'batt
 function strictQuestStep(input: QuestInput['steps'][number]): QuestStep {
   switch (input.type) {
     case 'dialogue':
-      return { type: 'dialogue', tree: { rootNodeId: input.tree.rootNodeId, nodes: input.tree.nodes.map(strictDialogueNode) } };
+      return { type: 'dialogue', dialogueId: input.dialogueId };
     case 'battle':
       return { type: 'battle', enemies: strictEnemies(input.enemies), ...(input.flavor !== undefined ? { flavor: input.flavor } : {}) };
     case 'boss':
@@ -179,7 +142,7 @@ export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt
     name: input.name,
     description: input.description,
     requiredLevel: input.requiredLevel,
-    intro: { rootNodeId: input.intro.rootNodeId, nodes: input.intro.nodes.map(strictDialogueNode) },
+    introDialogueId: input.introDialogueId,
     steps: input.steps.map(strictQuestStep),
     finalReward: strictLootPool(input.finalReward),
     unlocksQuestIds: input.unlocksQuestIds,
