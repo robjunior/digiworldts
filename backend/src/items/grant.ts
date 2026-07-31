@@ -1,4 +1,5 @@
-import { one, run } from '../db/index.js';
+import type { DbExecutor } from '../db/executor.js';
+import { execOne, execRun } from '../db/executor.js';
 
 const SQL_GRANT = `
   INSERT INTO player_inventory (user_id, item_id, qty, updated_at)
@@ -19,9 +20,9 @@ function assertPositive(qty: number, caller: string): void {
   }
 }
 
-export async function grantItem(userId: string, itemId: string, qty = 1, now = Date.now()): Promise<void> {
+export async function grantItem(userId: string, itemId: string, qty = 1, now = Date.now(), ex?: DbExecutor): Promise<void> {
   assertPositive(qty, 'grantItem');
-  await run(SQL_GRANT, [userId, itemId, qty, now]);
+  await execRun(ex, SQL_GRANT, [userId, itemId, qty, now]);
 }
 
 /**
@@ -29,17 +30,17 @@ export async function grantItem(userId: string, itemId: string, qty = 1, now = D
  * removal must never drive the balance negative or spend the same stack twice.
  * Returns false when the player is short, so callers can refuse the action.
  */
-export async function removeItem(userId: string, itemId: string, qty = 1, now = Date.now()): Promise<boolean> {
+export async function removeItem(userId: string, itemId: string, qty = 1, now = Date.now(), ex?: DbExecutor): Promise<boolean> {
   assertPositive(qty, 'removeItem');
-  const info = await run(SQL_TAKE, [qty, now, userId, itemId, qty]);
+  const info = await execRun(ex, SQL_TAKE, [qty, now, userId, itemId, qty]);
   return info.changes > 0;
 }
 
-export async function countItem(userId: string, itemId: string): Promise<number> {
-  const row = await one<{ readonly qty: number }>(SQL_COUNT, [userId, itemId]);
+export async function countItem(userId: string, itemId: string, ex?: DbExecutor): Promise<number> {
+  const row = await execOne<{ readonly qty: number }>(ex, SQL_COUNT, [userId, itemId]);
   return row === null ? 0 : row.qty;
 }
 
-export async function hasItem(userId: string, itemId: string, qty = 1): Promise<boolean> {
-  return (await countItem(userId, itemId)) >= qty;
+export async function hasItem(userId: string, itemId: string, qty = 1, ex?: DbExecutor): Promise<boolean> {
+  return (await countItem(userId, itemId, ex)) >= qty;
 }
