@@ -153,7 +153,7 @@ export type WorldBattleActResponse = {
   readonly capturedMonId?: string;
   readonly xpAwards?: readonly XpAward[];
   readonly itemDrops?: readonly ItemDrop[];
-  readonly creditsGained?: number;
+  readonly netcoreGained?: number;
   readonly bitsGained?: number;
 };
 

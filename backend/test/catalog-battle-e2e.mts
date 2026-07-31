@@ -107,7 +107,7 @@ const attacker = mem('m1', fireTpl, [fireball!, solarSacrifice!]);
 const defender = mem('m2', waterTpl, [fireRookieSkills[1]!]);
 const loadoutA: Loadout = { playerId: 'u1', members: [attacker] };
 const loadoutB: Loadout = { playerId: 'u2', members: [defender] };
-const battle = initBattle({ matchId: 'match-1', loadoutA, loadoutB });
+const battle = await initBattle({ matchId: 'match-1', loadoutA, loadoutB });
 const actorUnit = battle.units.find((u) => u.side === 'a')!;
 const targetUnit = battle.units.find((u) => u.side === 'b')!;
 check('actor unit has 2 skills equipped (from LoadoutMember.equippedSkills)', actorUnit.skills.length === 2);

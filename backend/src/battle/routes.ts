@@ -7,7 +7,7 @@
  *     hydrate + resume).
  *   - Pre-battle buff consumption (shop-item effects → mon stats) at match
  *     creation and xp_mult buff consumption at match end.
- *   - End-of-match match-history persistence + XP + DigiCredits reward.
+ *   - End-of-match match-history persistence + XP + NetCore reward.
  *
  * All persistence now routes through the async DbAdapter (SQLite or Postgres)
  * via the q/one/run/tx helpers from src/db/index.ts.
@@ -58,8 +58,8 @@ const WSDELIVER = (uid: string): string => `wsdeliver:${uid}`;
 const SQL_INSERT_MATCH = `INSERT INTO matches (id, player_a, player_b, winner, outcome, rounds, started_at, ended_at, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_SELECT_PARTY = `SELECT id, catalog_id, level, xp, slot_index, hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus FROM player_roster WHERE user_id = ? AND slot_index IS NOT NULL ORDER BY slot_index`;
 const SQL_UPDATE_MON = `UPDATE player_roster SET level = ?, xp = ?, hp_bonus = ?, en_bonus = ?, atk_bonus = ?, def_bonus = ?, int_bonus = ?, spd_bonus = ?, updated_at = ? WHERE id = ?`;
-const SQL_ADD_CREDITS = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
-     ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
+const SQL_ADD_NETCORE = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
+     ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
 const SQL_ADD_BITS = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, 'Bits', ?, ?)
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 const SQL_GET_USER_BATTLE_HEADER = `SELECT id, display_name, mmr FROM users WHERE id = ?`;
@@ -409,12 +409,12 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
     await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
     await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
     const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<void> => {
-      const [credits, bits] =
+      const [netcore, bits] =
         result === 'win' ? [CREDITS_PER_WIN, BITS_PER_WIN] :
         result === 'loss' ? [CREDITS_PER_LOSS, BITS_PER_LOSS] :
         result === 'draw' ? [CREDITS_PER_DRAW, BITS_PER_DRAW] :
         [0, 0];
-      if (credits > 0) await t.run(SQL_ADD_CREDITS, [userId, credits, battle.endedAt!]);
+      if (netcore > 0) await t.run(SQL_ADD_NETCORE, [userId, netcore, battle.endedAt!]);
       if (bits > 0) await t.run(SQL_ADD_BITS, [userId, bits, battle.endedAt!]);
     };
     await grantWallet(battle.playerA, summary.aResult);

@@ -76,7 +76,7 @@ export function World(): JSX.Element {
     onMutate: (id) => addPending(id),
     onSuccess: (result) => {
       const parts: string[] = [];
-      if (result.creditsGranted > 0) parts.push(`+${result.creditsGranted} DigiCredits`);
+      if (result.netcoreGranted > 0) parts.push(`+${result.netcoreGranted} NetCore`);
       for (const drop of result.itemsGranted) parts.push(`${drop.qty}× ${drop.itemId}`);
       showToast(parts.length > 0 ? `Reward claimed — ${parts.join(' · ')}.` : 'Reward claimed.');
     },

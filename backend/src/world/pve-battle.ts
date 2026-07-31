@@ -50,9 +50,9 @@ const SQL_UPDATE_MON_XP = `
 const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, current_hp = 0, updated_at = ? WHERE id = ?`;
 const SQL_UPDATE_CURRENT_HPEN = `UPDATE player_roster SET current_hp = ?, current_en = ?, updated_at = ? WHERE id = ?`;
 const SQL_RESET_CURRENT_HPEN = `UPDATE player_roster SET current_hp = NULL, current_en = NULL, updated_at = ? WHERE id = ?`;
-const SQL_ADD_CREDITS = `
-  INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
-       ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at
+const SQL_ADD_NETCORE = `
+  INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
+       ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at
 `;
 const SQL_ADD_BITS = `
   INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, 'Bits', ?, ?)
@@ -65,7 +65,7 @@ const CREDITS_MIN_WIN = 5;
 const BITS_PER_WILD_LEVEL = 2;
 const BITS_MIN_WIN = 10;
 
-function creditsForWin(defeated: readonly { level: number }[]): number {
+function netcoreForWin(defeated: readonly { level: number }[]): number {
   if (defeated.length === 0) return 0;
   const raw = defeated.reduce((sum, w) => sum + w.level, 0) * CREDITS_PER_WILD_LEVEL;
   return Math.max(CREDITS_MIN_WIN, raw);
@@ -305,7 +305,7 @@ export type ActResult =
       xpAwards?: XpAward[];
       itemDrops?: ItemDrop[];
       speciesAwards?: SpeciesAward[];
-      creditsGained?: number;
+      netcoreGained?: number;
       bitsGained?: number;
     }
   | { ok: false; error: string; code?: string };
@@ -313,7 +313,7 @@ export type ActResult =
 async function awardPveBattleRewards(
   userId: string,
   battle: Battle,
-): Promise<{ xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number }> {
+): Promise<{ xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; netcoreGained?: number; bitsGained?: number }> {
   const outcome = battle.outcome;
   if (!outcome) return { xpAwards: [] };
 
@@ -346,12 +346,12 @@ async function awardPveBattleRewards(
     : [];
   const xpPerParticipant = xpFromDefeats(defeatedForXp, myUnits.length, false);
   const speciesAwards = defeatedForData.length > 0 ? await awardSpeciesData(userId, defeatedForData) : [];
-  const creditsGained = matchOutcome === 'win' ? creditsForWin(defeatedForXp) : 0;
+  const netcoreGained = matchOutcome === 'win' ? netcoreForWin(defeatedForXp) : 0;
   const bitsGained = matchOutcome === 'win' ? bitsForWin(defeatedForXp) : 0;
-  if (creditsGained > 0 || bitsGained > 0) {
+  if (netcoreGained > 0 || bitsGained > 0) {
     const now = Date.now();
     await tx(async (t) => {
-      if (creditsGained > 0) await t.run(SQL_ADD_CREDITS, [userId, creditsGained, now]);
+      if (netcoreGained > 0) await t.run(SQL_ADD_NETCORE, [userId, netcoreGained, now]);
       if (bitsGained > 0) await t.run(SQL_ADD_BITS, [userId, bitsGained, now]);
     });
   }
@@ -503,7 +503,7 @@ async function awardPveBattleRewards(
     });
   }
 
-  if (xpAwards.length > 0 || itemDrops.length > 0 || downedIds.length > 0 || speciesAwards.length > 0 || creditsGained > 0 || bitsGained > 0) {
+  if (xpAwards.length > 0 || itemDrops.length > 0 || downedIds.length > 0 || speciesAwards.length > 0 || netcoreGained > 0 || bitsGained > 0) {
     log.info('world.pve.rewards', {
       userId,
       outcome,
@@ -513,15 +513,15 @@ async function awardPveBattleRewards(
       itemDrops: itemDrops.map((d) => ({ id: d.itemId, qty: d.qty })),
       downedMonIds: downedIds,
       speciesAwards: speciesAwards.map((a) => ({ id: a.catalogId, tier: a.tier, pct: a.percent })),
-      creditsGained,
+      netcoreGained,
       bitsGained,
     });
   }
 
-  const result: { xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; creditsGained?: number; bitsGained?: number } = { xpAwards };
+  const result: { xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; netcoreGained?: number; bitsGained?: number } = { xpAwards };
   if (itemDrops.length > 0) result.itemDrops = itemDrops;
   if (speciesAwards.length > 0) result.speciesAwards = speciesAwards;
-  if (creditsGained > 0) result.creditsGained = creditsGained;
+  if (netcoreGained > 0) result.netcoreGained = netcoreGained;
   if (bitsGained > 0) result.bitsGained = bitsGained;
   return result;
 }
@@ -564,7 +564,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   let xpAwards: XpAward[] = [];
   let itemDrops: ItemDrop[] | undefined;
   let speciesAwards: SpeciesAward[] | undefined;
-  let creditsGained: number | undefined;
+  let netcoreGained: number | undefined;
   let bitsGained: number | undefined;
 
   if (ended) {
@@ -602,7 +602,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
       xpAwards = rewards.xpAwards;
       itemDrops = rewards.itemDrops;
       speciesAwards = rewards.speciesAwards;
-      creditsGained = rewards.creditsGained;
+      netcoreGained = rewards.netcoreGained;
       bitsGained = rewards.bitsGained;
       await dungeonWinPromise;
     } finally {
@@ -620,7 +620,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   if (xpAwards.length > 0) response.xpAwards = xpAwards;
   if (itemDrops && itemDrops.length > 0) response.itemDrops = itemDrops;
   if (speciesAwards && speciesAwards.length > 0) response.speciesAwards = speciesAwards;
-  if (creditsGained !== undefined && creditsGained > 0) response.creditsGained = creditsGained;
+  if (netcoreGained !== undefined && netcoreGained > 0) response.netcoreGained = netcoreGained;
   if (bitsGained !== undefined && bitsGained > 0) response.bitsGained = bitsGained;
   return response;
 }

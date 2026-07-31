@@ -26,7 +26,7 @@ export function MarketDialogs(props: DialogProps): JSX.Element | null {
       return (
         <ConfirmDialog
           title="Buy this Digimon?"
-          body={`${state.listing.nickname} costs ${state.listing.price.toLocaleString()} DigiCredits.`}
+          body={`${state.listing.nickname} costs ${state.listing.price.toLocaleString()} NetCore.`}
           action="Buy"
           busy={props.busy}
           onClose={props.onClose}
@@ -137,16 +137,16 @@ function SellDialog({ state, busy, onClose, onSellPrice, onSell }: { readonly st
                 value={state.price}
                 onChange={(event) => onSellPrice(event.currentTarget.value)}
                 onKeyDown={(event) => { if (event.key === 'Enter' && valid) onSell(state.mon, price); }}
-                aria-label="Asking price in DigiCredits"
+                aria-label="Asking price in NetCore"
               />
             </label>
           </div>
         </div>
         <div className="dfoot">
           <span className={`dhint ${!valid && state.price ? 'warn' : ''}`}>
-            {!state.price ? 'Set a price of at least 10 DigiCredits.' : 
-             !valid ? 'Minimum price is 10 DigiCredits.' : 
-             `List ${state.mon.nickname} for ${price.toLocaleString()} DigiCredits.`}
+            {!state.price ? 'Set a price of at least 10 NetCore.' : 
+             !valid ? 'Minimum price is 10 NetCore.' : 
+             `List ${state.mon.nickname} for ${price.toLocaleString()} NetCore.`}
           </span>
           <button className="btn" type="button" disabled={busy || !valid} onClick={() => onSell(state.mon, price)}>
             {busy ? 'Listing…' : 'List'}

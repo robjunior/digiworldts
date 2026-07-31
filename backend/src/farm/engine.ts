@@ -64,6 +64,7 @@ export type BuildingView = {
 export type FarmView = {
   balances: Record<ResourceKind, number>;
   credits: number;
+  netcore: number;
   buildings: BuildingView[];
 };
 
@@ -179,9 +180,10 @@ export async function readFarm(userId: string): Promise<FarmView> {
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
   const wallet = await one<WalletRow>(SQL_SELECT_WALLET, userId);
   const credits = wallet?.credits ?? 0;
+  const netcore = wallet?.netcore ?? 0;
   const rows = await q<FarmBuildingRow>(SQL_SELECT_BUILDINGS, userId);
   const buildings = rows.map((row) => toView(row, now));
-  return { balances, credits, buildings };
+  return { balances, credits, netcore, buildings };
 }
 
 export type CollectResult = { gained: Array<{ resource: ResourceKind; amount: number }>; view: FarmView };

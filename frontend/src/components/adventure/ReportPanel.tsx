@@ -29,7 +29,7 @@ export function ReportPanel({
     report.totals.meat === 0 &&
     report.totals.bits === 0 &&
     report.totals.data === 0 &&
-    report.totals.credits === 0;
+    report.totals.netcore === 0;
 
   return (
     <>
@@ -66,10 +66,10 @@ export function ReportPanel({
             {report.totals.data.toLocaleString('en-US')} <span className="u">Data</span>
           </span>
         )}
-        {report.totals.credits > 0 && (
+        {report.totals.netcore > 0 && (
           <span className="lchip" data-res="credits">
             <span className="cd" />
-            {report.totals.credits.toLocaleString('en-US')} <span className="u">Credits</span>
+            {report.totals.netcore.toLocaleString('en-US')} <span className="u">NetCore</span>
           </span>
         )}
         {noLoot && <span className="rep-empty">No loot this run.</span>}

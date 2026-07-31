@@ -74,6 +74,7 @@ const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/nursery': 'nursery-page',
   '/training': 'training-page',
   '/market': 'market-page',
+  '/shop': 'shop-page',
   '/digdex': 'digdex-container',
   '/dungeon': 'dungeon-page',
   '/world': 'world-page-layout',
@@ -212,6 +213,7 @@ export function AppShell(): JSX.Element {
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, enabled: authed, staleTime: 15_000 });
 
   const credits = farmQuery.data?.credits ?? null;
+  const netcore = farmQuery.data?.netcore ?? null;
   const bits = farmQuery.data?.balances?.Bits ?? null;
   const roster = rosterQuery.data?.roster ?? [];
   const party = roster.filter((mon) => mon.status === 'party');
@@ -316,6 +318,7 @@ export function AppShell(): JSX.Element {
               <div className="hud">
                 <Link to="/account" className="pill" aria-label={t('account.title')}><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></Link>
                 <div className="pill"><span>{t('hud.credits')}</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
+                <div className="pill"><span>{t('hud.netcore')}</span><b>{netcore !== null ? netcore.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.bits')}</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.party')}</span><b>{party.length}/{partyMax}</b></div>
               </div>

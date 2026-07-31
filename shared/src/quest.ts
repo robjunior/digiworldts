@@ -19,7 +19,7 @@ export type LootItem = {
 export type LootPool = {
   readonly items: readonly LootItem[];
   readonly pickCount: number;
-  readonly guaranteedCredits?: number;
+  readonly guaranteedNetcore?: number;
 };
 
 export type QuestStep =

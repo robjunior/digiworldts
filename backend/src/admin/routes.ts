@@ -56,6 +56,7 @@ import {
   listUsers,
   resetUserPassword,
   updateUserCredits,
+  updateUserNetcore,
   updateUserFlags,
   type UserError,
 } from './users.js';
@@ -717,6 +718,14 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const result = await updateUserCredits(req.params.id, req.body?.credits);
     if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
     log.info('admin.user.credits', { adminId: admin.id, targetId: req.params.id, credits: req.body.credits });
+    return reply.send(result);
+  });
+
+  app.patch<{ Params: { id: string }; Body: { netcore: number } }>('/api/admin/users/:id/netcore', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await updateUserNetcore(req.params.id, req.body?.netcore);
+    if (!result.ok) return reply.code(statusForUserError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.user.netcore', { adminId: admin.id, targetId: req.params.id, netcore: req.body.netcore });
     return reply.send(result);
   });
 

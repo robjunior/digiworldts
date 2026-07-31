@@ -11,8 +11,8 @@
  *                                 (ceil(hours * 10) upfront).
  *
  * Rewards:
- *   - Meat / Bits / Data / DigiCredits: scaled per encounter, aggregated
- *     into a report and awarded via SQL_UPSERT_RESOURCE + SQL_ADD_CREDITS.
+ *   - Meat / Bits / Data / NetCore: scaled per encounter, aggregated
+ *     into a report and awarded via SQL_UPSERT_RESOURCE + SQL_ADD_NETCORE.
  *   - XP per mon: computed via progression/awardXp using each mon's
  *     current template + stage growth, honoring the global xpRate.
  *   - KO on a lost encounter: 30% chance to knock one random mon —
@@ -59,8 +59,8 @@ const SQL_UPDATE_MON_XP = `UPDATE player_roster
 const SQL_SET_REVIVE_AT = `UPDATE player_roster SET revive_at = ?, updated_at = ? WHERE id = ?`;
 const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT (user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
-const SQL_ADD_CREDITS = `INSERT INTO player_wallet (user_id, credits, streak_day, updated_at) VALUES (?, ?, 0, ?)
-     ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
+const SQL_ADD_NETCORE = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
+     ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
 const SQL_SELECT_INV_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
 const SQL_DELETE_EMPTY_INV = `DELETE FROM player_inventory WHERE user_id = ? AND item_id = ? AND qty <= 0`;
@@ -81,7 +81,7 @@ export type AdventureEncounter = {
   readonly meat: number;
   readonly bits: number;
   readonly data: number;
-  readonly credits: number;
+  readonly netcore: number;
   readonly xpPerMon: number;
   readonly koMonId: string | null;
 };
@@ -98,7 +98,7 @@ export type AdventureReport = {
   readonly encounters: readonly AdventureEncounter[];
   readonly wins: number;
   readonly losses: number;
-  readonly totals: { readonly meat: number; readonly bits: number; readonly data: number; readonly credits: number };
+  readonly totals: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number };
   readonly xpDeltas: readonly AdventureXpDelta[];
   readonly koedMonIds: readonly string[];
 };
@@ -370,17 +370,17 @@ function rollEncounters(
     const wildRoll = wildPower * (0.85 + rng() * 0.3);
     const outcome: 'win' | 'loss' = partyRoll >= wildRoll ? 'win' : 'loss';
 
-    let meat = 0, bits = 0, data = 0, credits = 0, xpPerMon = 0;
+    let meat = 0, bits = 0, data = 0, netcore = 0, xpPerMon = 0;
     let koMonId: string | null = null;
 
     if (outcome === 'win') {
       meat = Math.floor(1 + hours + rng() * 4);
       bits = Math.floor(1 + hours + rng() * 4);
       data = wildLevel >= 4 ? Math.floor(rng() * 3) : 0;
-      credits = Math.floor(3 + wildLevel * 1.5 + hours);
+      netcore = Math.floor(3 + wildLevel * 1.5 + hours);
       xpPerMon = Math.floor(6 + wildLevel * 2 + hours);
     } else {
-      credits = Math.floor(1 + hours * 0.5);
+      netcore = Math.floor(1 + hours * 0.5);
       xpPerMon = Math.floor(2 + hours);
       if (rng() < KO_CHANCE_ON_LOSS) {
         const candidates = monRows.filter((m) => !alreadyKoedInRun.has(m.id));
@@ -393,7 +393,7 @@ function rollEncounters(
       }
     }
 
-    encounters.push({ index: i, wildLevel, outcome, meat, bits, data, credits, xpPerMon, koMonId });
+    encounters.push({ index: i, wildLevel, outcome, meat, bits, data, netcore, xpPerMon, koMonId });
   }
 
   return { encounters, koedMonIds };
@@ -426,9 +426,9 @@ export async function collectAdventure(
       meat: acc.meat + e.meat,
       bits: acc.bits + e.bits,
       data: acc.data + e.data,
-      credits: acc.credits + e.credits,
+      netcore: acc.netcore + e.netcore,
     }),
-    { meat: 0, bits: 0, data: 0, credits: 0 },
+    { meat: 0, bits: 0, data: 0, netcore: 0 },
   );
   const xpByMon = new Map<string, number>();
   for (const m of monRows) xpByMon.set(m.id, 0);
@@ -474,7 +474,7 @@ export async function collectAdventure(
     if (totals.meat > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, 'Meat', totals.meat, now]);
     if (totals.bits > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, 'Bits', totals.bits, now]);
     if (totals.data > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, 'Data', totals.data, now]);
-    if (totals.credits > 0) await t.run(SQL_ADD_CREDITS, [userId, totals.credits, now]);
+    if (totals.netcore > 0) await t.run(SQL_ADD_NETCORE, [userId, totals.netcore, now]);
 
     const report: AdventureReport = { encounters, wins, losses, totals, xpDeltas, koedMonIds };
     const info = await t.run(SQL_MARK_ADVENTURE_COLLECTED, [now, JSON.stringify(report), active.id]);

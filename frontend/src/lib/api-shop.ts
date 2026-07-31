@@ -2,16 +2,22 @@ import { apiFetch } from './api';
 import type { OkResponse } from './api-roster';
 
 export type ShopItemKind = 'consumable' | 'evolve' | 'building_placement' | 'cosmetic' | 'xp_mult' | 'revive' | string;
-
 export type ShopItemClass = 'product' | 'item';
+export type ShopCurrency = 'credits' | 'netcore';
 
 export type ShopItemView = {
   readonly id: string;
   readonly name: string;
   readonly description: string;
-  readonly priceCredits: number;
+  readonly price: number;
+  readonly currency: ShopCurrency;
   readonly kind: ShopItemKind;
-  readonly class: ShopItemClass;
+  readonly class?: ShopItemClass;
+  readonly shopCategory?: string;
+  readonly oneTime?: boolean;
+  readonly owned?: boolean;
+  readonly sprite?: string | null;
+  readonly mono?: string | null;
 };
 
 export type InventoryItemView = {
@@ -22,9 +28,15 @@ export type InventoryItemView = {
 };
 
 export type ShopResponse = {
-  readonly products: readonly ShopItemView[];
+  readonly featured: ShopItemView | null;
+  readonly quick: readonly ShopItemView[];
+  readonly catalog: readonly ShopItemView[];
+  readonly categories: readonly string[];
+  readonly wallet: {
+    readonly credits: number;
+    readonly netcore: number;
+  };
   readonly inventory: readonly InventoryItemView[];
-  readonly credits: number;
 };
 
 export type ItemsResponse = {
@@ -34,6 +46,7 @@ export type ItemsResponse = {
 export type BuyResponse = {
   readonly ok: true;
   readonly credits: number;
+  readonly netcore: number;
 };
 
 export type ApplyEffectKind = 'hp_pct' | 'en_pct' | 'xp_mult';
@@ -51,7 +64,7 @@ export function getShop(): Promise<ShopResponse> {
   return apiFetch<ShopResponse>('/api/shop');
 }
 
-export function getInventory(): Promise<Pick<ShopResponse, 'inventory' | 'credits'>> {
+export function getInventory(): Promise<Pick<ShopResponse, 'inventory' | 'wallet'>> {
   return apiFetch<ShopResponse>('/api/shop');
 }
 

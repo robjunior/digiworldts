@@ -21,7 +21,7 @@ export const commandManifest: readonly RESTPostAPIChatInputApplicationCommandsJS
   { name: 'balance', description: 'Show your DigiWorld wallet balance', type: ApplicationCommandType.ChatInput },
   {
     name: 'buy',
-    description: `Buy DigiCredits with PIX (${config.CREDITS_PER_BRL} credits per BRL 1.00)`,
+    description: `Buy Credits with PIX (${config.CREDITS_PER_BRL} credits per BRL 1.00)`,
     type: ApplicationCommandType.ChatInput,
     options: [{
       name: 'valor',

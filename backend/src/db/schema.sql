@@ -140,7 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_pending_hatches_user ON player_pending_hatches(us
 
 -- ----------------------------------------------------------------------------
 -- resources: banked wallet balances per player. One row per (user, resource).
--- Resources: Meat, Bits, Data. Currency: DigiCredits (separate column on users
+-- Resources: Meat, Bits, Data. Currencies: Credits (premium) + NetCore (earned)
 -- via player_wallet below to keep it a scalar).
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS resources (
@@ -152,7 +152,8 @@ CREATE TABLE IF NOT EXISTS resources (
 );
 
 -- ----------------------------------------------------------------------------
--- player_wallet: per-player DigiCredits balance + daily-reward streak state.
+-- player_wallet: per-player Credits (premium) + NetCore (earned) balances
+--                + daily-reward streak state.
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS player_wallet (
   user_id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -319,10 +320,52 @@ CREATE INDEX IF NOT EXISTS idx_shop_items_class ON shop_items(class, enabled);
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS player_inventory (
   user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  item_id     TEXT NOT NULL REFERENCES shop_items(id) ON DELETE CASCADE,
+  item_id     TEXT NOT NULL REFERENCES shop_items(id) ON DELETE RESTRICT,
   qty         INTEGER NOT NULL DEFAULT 1 CHECK (qty >= 0),
   updated_at  INTEGER NOT NULL,
   PRIMARY KEY (user_id, item_id)
+);
+
+
+-- ----------------------------------------------------------------------------
+-- player_shop_purchases
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS player_shop_purchases (
+  user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  item_id      TEXT NOT NULL REFERENCES shop_items(id) ON DELETE RESTRICT,
+  purchased_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, item_id)
+);
+
+-- ----------------------------------------------------------------------------
+-- player_exchange_daily
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coin_offers (
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  side            TEXT NOT NULL CHECK (side IN ('sell','buy')),
+  lots_total      INTEGER NOT NULL CHECK (lots_total > 0),
+  lots_remaining  INTEGER NOT NULL CHECK (lots_remaining >= 0),
+  price_per_lot   INTEGER NOT NULL CHECK (price_per_lot > 0),
+  created_at      INTEGER NOT NULL,
+  cancelled_at    INTEGER,
+  completed_at    INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_coin_offers_book ON coin_offers(side, price_per_lot, created_at);
+CREATE INDEX IF NOT EXISTS idx_coin_offers_user ON coin_offers(user_id);
+
+-- ----------------------------------------------------------------------------
+-- wallet_migration_audit
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS wallet_migration_audit (
+  id             TEXT PRIMARY KEY,
+  user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  credits_before INTEGER NOT NULL,
+  credits_after  INTEGER NOT NULL,
+  netcore_before INTEGER NOT NULL,
+  netcore_after  INTEGER NOT NULL,
+  reason         TEXT NOT NULL,
+  created_at     INTEGER NOT NULL
 );
 
 -- ----------------------------------------------------------------------------
@@ -477,6 +520,9 @@ CREATE TABLE IF NOT EXISTS market_listings (
   id             TEXT PRIMARY KEY,                       -- 'mkt_...'
   mon_id         TEXT NOT NULL REFERENCES player_roster(id) ON DELETE CASCADE,
   seller_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- NOTE: migration 044 renames this to price_netcore (listings are priced in
+  -- NetCore). Kept as price_credits here on purpose: a RENAME is not idempotent,
+  -- so the baseline must hold the pre-migration shape. Do not "fix" this.
   price_credits  INTEGER NOT NULL CHECK (price_credits > 0),
   listed_at      INTEGER NOT NULL,
   sold_at        INTEGER,

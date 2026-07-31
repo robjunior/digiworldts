@@ -8,7 +8,7 @@ import type { ItemDrop, StatSnapshot, XpAward } from '../../lib/api-world';
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
   readonly itemDrops?: readonly ItemDrop[];
-  readonly creditsGained?: number;
+  readonly netcoreGained?: number;
   readonly bitsGained?: number;
 };
 
@@ -64,8 +64,8 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
             </span>
           </div>
         ) : null}
-        {isPve && pveResults?.creditsGained !== undefined && pveResults.creditsGained > 0 ? (
-          <div className="r" data-od-id="end-card-pve-credits"><span className="k">Credits</span><span>+{pveResults.creditsGained}</span></div>
+        {isPve && pveResults?.netcoreGained !== undefined && pveResults.netcoreGained > 0 ? (
+          <div className="r" data-od-id="end-card-pve-credits"><span className="k">NetCore</span><span>+{pveResults.netcoreGained}</span></div>
         ) : null}
         {isPve && pveResults?.bitsGained !== undefined && pveResults.bitsGained > 0 ? (
           <div className="r" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span>+{pveResults.bitsGained}</span></div>

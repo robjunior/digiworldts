@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Loja</title>
+<style>
+/* =========================================================================
+   DIGIWORLD SHOP (Tamer's Exchange) — premium shop on the shared Persona
+   shell (titlebar + topbar cluster + left sidebar nav). One-time purchases
+   only: featured hero item + quick offers + full catalog grid.
+   Dual currency: DigiCredits (earned) + Digi-Gems (premium/paid).
+   Registered palette only; radius 0 + cyberpunk notch; Inter; tabular-nums.
+   ========================================================================= */
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+  --credits:color-mix(in oklab,var(--signal) 70%,var(--ink));
+  --gem:color-mix(in oklab,var(--signal) 40%,var(--ink));
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+img{display:block}
+
+/* ---- shell chrome (shared with market/roster/etc) ---- */
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.topright{margin-left:14px;display:flex;align-items:center;gap:8px}
+.tbwrap{position:relative}
+.tbtn{position:relative;display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;background:var(--panel);border:1px solid var(--hair);color:var(--ink);cursor:pointer;clip-path:var(--notch-sm);transition:border-color .12s,background .12s}
+.tbtn:hover{border-color:var(--signal)}
+.tbtn[aria-expanded="true"]{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.tbtn svg{width:16px;height:16px;display:block}
+.tbtn.icon{width:30px;padding:0;justify-content:center}
+.tbtn .uav{width:20px;height:20px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);font:900 10px/1 var(--font);color:var(--signal);clip-path:var(--notch-sm)}
+.tbtn .unm{font:800 11px/1 var(--font);letter-spacing:.04em;color:var(--ink)}
+.tbtn .dot-badge{position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--signal);border-radius:50%;box-shadow:0 0 0 2px var(--panel)}
+.tmenu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px;z-index:60;display:none}
+.tmenu.open{display:block}
+.tmenu .mhd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tmenu a,.tmenu button.mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:none;border:0;text-align:left;text-decoration:none;color:var(--ink);font:600 12px/1.1 var(--font);cursor:pointer;clip-path:var(--notch-sm)}
+.tmenu a:hover,.tmenu button.mi:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.tmenu a svg,.tmenu button.mi svg{width:15px;height:15px;flex:none;color:var(--muted)}
+.tmenu a:hover svg,.tmenu button.mi:hover svg{color:var(--signal)}
+.tmenu .nrow{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-bottom:1px solid var(--hair)}
+.tmenu .nrow:last-child{border-bottom:0}
+.tmenu .nrow .nt{font:700 12px/1.2 var(--font);color:var(--ink)}
+.tmenu .nrow .nm{font:600 11px/1.3 var(--font);color:var(--muted)}
+.tmenu .nrow .na{margin-top:2px;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal)}
+.body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side .grp{font:800 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:10px 12px 6px}
+.navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;text-decoration:none}
+.navbtn svg{width:20px;height:20px}
+.navbtn:hover{color:var(--ink);background:var(--bg)}
+.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
+.spring{margin-top:auto}
+
+/* ---- shop main ---- */
+.main{display:flex;flex-direction:column;min-height:0;background:var(--bg)}.mbar{flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:12px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.mbar .mtitle{font:800 10px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--signal)}
+.tabs{display:flex;gap:6px;margin-left:8px}
+.tab{padding:8px 13px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:700 10px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);transition:.12s}
+.tab:hover{color:var(--ink);border-color:var(--muted)}
+.tab[aria-selected="true"]{background:var(--signal);border-color:var(--signal);color:#fff}
+.wallet{margin-left:auto;display:flex;gap:10px}
+.bal{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 13px/1 var(--font)}
+.bal .k{font:700 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.bal .coin{width:12px;height:12px;clip-path:var(--notch-sm);flex:none}
+.coin.cred{background:var(--credits)}
+.coin.gem{background:var(--gem)}
+
+/* static blocks: feature + section header stay fixed, only .scroll moves */
+.scroll{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 24px 24px;scrollbar-width:none;-ms-overflow-style:none}
+.scroll::-webkit-scrollbar{width:0;height:0;display:none}
+
+.price{display:inline-flex;align-items:center;gap:6px;font:800 14px/1 var(--font)}
+.price .coin{width:11px;height:11px;clip-path:var(--notch-sm)}
+.price.cred .coin{background:var(--credits)}
+.price.gem{color:var(--gem)}
+.price.gem .coin{background:var(--gem)}
+.price .cash{color:var(--ink)}
+.buy{padding:9px 15px;background:var(--signal);color:#fff;clip-path:var(--notch-sm);font:800 11px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;transition:.12s}
+.buy:hover{background:color-mix(in oklab,var(--signal) 82%,#fff)}
+.buy.ghost{background:none;color:var(--ink);border:1px solid var(--hair)}
+.buy.ghost:hover{border-color:var(--signal);color:var(--signal)}
+.buy.owned,.buy:disabled{background:var(--bg);color:var(--muted);border:1px solid var(--hair);cursor:default}
+.thumb{background:var(--bg);border:1px solid var(--hair);display:grid;place-items:center;clip-path:var(--notch-sm)}
+.thumb img{width:74%;height:74%;object-fit:contain;image-rendering:pixelated}
+.thumb .mono{font:900 22px/1 var(--font);color:var(--signal)}
+.ribbon{position:absolute;top:0;right:0;padding:5px 11px;background:var(--signal);color:#fff;font:800 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;clip-path:polygon(9px 0,100% 0,100% 100%,0 100%)}
+
+/* featured hero + quick side (Mock C, upsized) */
+.feature{flex:none;display:grid;grid-template-columns:1.4fr 1fr;gap:16px;padding:22px 24px 0;margin-bottom:20px}
+.hero{position:relative;padding:26px;background:var(--bg);border:1px solid var(--signal);clip-path:var(--notch);display:grid;grid-template-columns:1fr 200px;gap:22px;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:0;background:color-mix(in oklab,var(--signal) 6%,transparent);pointer-events:none}
+.hero .htx{position:relative;z-index:1;display:flex;flex-direction:column;gap:14px}
+.hero .kick{font:800 10px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--signal)}
+.hero h2{font:800 26px/1.02 var(--font);letter-spacing:-.02em}
+.hero .perks{display:flex;flex-direction:column;gap:9px}
+.hero .perk{display:flex;align-items:center;gap:10px;font:600 13px/1.3 var(--font);color:var(--ink)}
+.hero .perk svg{width:16px;height:16px;color:var(--signal);flex:none}
+.hero .cta{margin-top:4px;display:flex;align-items:center;gap:14px}
+.hero .hart{position:relative;z-index:1;align-self:stretch}
+.hero .hart .thumb{width:100%;height:100%;min-height:180px}
+.hero .hart .thumb img{width:60%;height:60%}
+
+.qside{display:flex;flex-direction:column;gap:10px}
+.qside .qhd{font:800 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.qrow{display:grid;grid-template-columns:46px 1fr auto;gap:12px;align-items:center;padding:12px 14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);position:relative;transition:border-color .12s}
+.qrow::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--signal);transform:scaleY(0);transform-origin:top;transition:transform .15s}
+.qrow:hover{border-color:var(--signal)}
+.qrow:hover::before{transform:scaleY(1)}
+.qrow .thumb{width:46px;height:46px}
+.qrow .nm{font:800 13px/1.1 var(--font)}
+.qrow .sub{font:600 11px/1.2 var(--font);color:var(--muted);margin-top:2px}
+
+/* catalog grid */
+.sechd{flex:none;display:flex;align-items:baseline;gap:12px;padding:0 24px;margin:0 0 14px}
+.sechd h3{font:800 13px/1 var(--font);letter-spacing:.04em}
+.sechd .cnt{font:700 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{position:relative;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:15px;display:flex;flex-direction:column;gap:11px;transition:border-color .12s,transform .12s}
+.card:hover{border-color:var(--signal);transform:translateY(-2px)}
+.card .thumb{width:100%;aspect-ratio:1}
+.card .cnm{font:800 14px/1.15 var(--font)}
+.card .csub{font:600 11px/1.35 var(--font);color:var(--muted);flex:1}
+.card .tagpill{align-self:flex-start;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:5px 8px;border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.card .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--panel);border:1px solid var(--signal);clip-path:var(--notch-sm);padding:11px 18px;font:700 12px/1 var(--font);color:var(--ink);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:1180px){.feature{grid-template-columns:1fr}.grid{grid-template-columns:repeat(3,1fr)}.hero{grid-template-columns:1fr}.hero .hart{display:none}}
+
+/* confirm / success modal */
+.cov{position:fixed;inset:0;background:color-mix(in oklab,var(--bg) 78%,transparent);display:none;place-items:center;z-index:90;padding:24px}
+.cov.show{display:grid}
+.cmodal{width:min(400px,92vw);background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:22px}
+.cmodal .ek{font:800 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--signal);margin-bottom:8px}
+.cmodal h3{font:800 18px/1.1 var(--font);letter-spacing:-.01em}
+.cline{display:flex;align-items:center;gap:13px;margin:16px 0;padding:13px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm)}
+.cline .thumb{width:48px;height:48px;flex:none}
+.cline .cinfo{min-width:0;flex:1}
+.cline .cinfo .n{font:800 13px/1.1 var(--font)}
+.cline .cinfo .s{font:600 11px/1.3 var(--font);color:var(--muted);margin-top:2px}
+.cwallet{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.cwallet .wr{display:flex;justify-content:space-between;font:600 12px/1 var(--font);color:var(--muted)}
+.cwallet .wr b{color:var(--ink);font-weight:800}
+.cwallet .wr.after{padding-top:6px;border-top:1px solid var(--hair)}
+.cactions{display:flex;gap:10px}
+.cactions .buy{flex:1;text-align:center;justify-content:center;display:flex;align-items:center}
+.csuccess{text-align:center}
+.csuccess .badge{width:56px;height:56px;margin:0 auto 14px;display:grid;place-items:center;background:color-mix(in oklab,var(--signal) 14%,var(--bg));border:1px solid var(--signal);clip-path:var(--notch)}
+.csuccess .badge svg{width:28px;height:28px;color:var(--signal)}
+.csuccess h3{margin-bottom:6px}
+.csuccess p{font:600 12px/1.4 var(--font);color:var(--muted);margin-bottom:18px}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Loja</div>
+
+    <div class="topright" data-od-id="topbar-right">
+      <div class="tbwrap">
+        <button class="tbtn icon" id="tb-notif" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-menu="menu-notif">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21h4"/></svg>
+          <span class="dot-badge"></span>
+        </button>
+        <div class="tmenu" id="menu-notif" role="menu" aria-label="Notifications">
+          <div class="mhd">Notifications</div>
+          <div class="nrow"><span class="nt">Agumon reached Champion</span><span class="nm">Digivolution ready in the Factory.</span><span class="na">View</span></div>
+          <div class="nrow"><span class="nt">PvP challenge from Sora</span><span class="nm">Ranked bout · Best of 3.</span><span class="na">Accept</span></div>
+          <div class="nrow"><span class="nt">Farm harvest complete</span><span class="nm">3 Digimeat ready to collect.</span><span class="na">Collect</span></div>
+        </div>
+      </div>
+      <div class="tbwrap">
+        <button class="tbtn" id="tb-user" aria-label="Tamer menu" aria-haspopup="true" aria-expanded="false" data-menu="menu-user">
+          <span class="uav">T</span><span class="unm">Taichi</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="tmenu" id="menu-user" role="menu" aria-label="Tamer menu">
+          <div class="mhd">Tamer · Lv 24</div>
+          <a href="player.html" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>View Profile</a>
+          <a href="player.html#connections" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M17.5 20a5.5 5.5 0 0 0-11 0"/><path d="M17 11l2 2 3-3"/></svg>Connections</a>
+          <button class="mi" role="menuitem" onclick="location.href='player.html#settings'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.3-2.6H9.5l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.6h4.9l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg>Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+    <nav class="side" aria-label="Primary" data-od-id="sidebar-nav">
+      <div class="grp">The Town</div>
+      <a class="navbtn" href="factory.html" aria-label="Factory"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/></svg>Factory</a>
+      <a class="navbtn" href="adventure.html" aria-label="Adventure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg>Adventure</a>
+      <a class="navbtn" href="nursery.html" aria-label="Nursery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 21c-4-2.5-7-5.5-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.5-3 6.5-7 9z"/></svg>Nursery</a>
+      <a class="navbtn" href="training.html" aria-label="Training"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6.5 6.5l11 11"/><path d="M4 9l-1.5-1.5 2-2L6 7M15 18l1.5 1.5 2-2L17 15"/><path d="M9 4l2 2M18 13l2 2M4 15l2 2M13 6l2 2"/></svg>Training</a>
+
+      <div class="grp" style="margin-top:6px">Beyond</div>
+      <a class="navbtn" href="shop.html" aria-current="page" aria-label="Loja"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 2L3 6v13a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Loja</a>
+      <a class="navbtn" href="market.html" aria-label="The Market"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 7h16l-1.2 4.5H5.2L4 7z"/><path d="M5.2 11.5V19h13.6v-7.5"/><path d="M4 7l1-3h14l1 3"/></svg>The Market</a>
+      <a class="navbtn" href="digidex.html" aria-label="DigiDex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg>DigiDex</a>
+      <a class="navbtn" href="index.html" aria-label="Roster"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/></svg>Roster</a>
+      <a class="navbtn" href="world.html" aria-label="The World"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/></svg>The World</a>
+      <a class="navbtn" href="combat.html" aria-label="The Arena"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/><circle cx="12" cy="12" r="9"/></svg>The Arena</a>
+
+      <div class="spring"></div>
+    </nav>
+
+    <main class="main" data-od-id="shop-main" tabindex="-1">
+      <div class="mbar" data-od-id="shop-bar">
+        <span class="mtitle">Tamer's Exchange</span>
+        <div class="tabs" id="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-cat="all">Tudo</button>
+          <button class="tab" role="tab" aria-selected="false" data-cat="egg">Ovos</button>
+          <button class="tab" role="tab" aria-selected="false" data-cat="boost">Boosts</button>
+          <button class="tab" role="tab" aria-selected="false" data-cat="cosmetic">Cosméticos</button>
+          <button class="tab" role="tab" aria-selected="false" data-cat="gems">Gems</button>
+        </div>
+        <div class="wallet">
+          <span class="bal"><span class="coin cred"></span><span class="k">Créditos</span><span id="bal-cred">12,480</span></span>
+          <span class="bal"><span class="coin gem"></span><span class="k">Gems</span><span id="bal-gem">340</span></span>
+        </div>
+      </div>
+
+      <div class="feature" data-od-id="shop-feature">
+        <article class="hero" data-od-id="shop-hero">
+          <span class="ribbon">Destaque</span>
+          <div class="htx">
+            <span class="kick">Destaque · Ovo Mega</span>
+            <h2>Ovo Mega Lendário</h2>
+            <div class="perks">
+              <div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Digimon de linha Mega raro garantido</div>
+              <div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>3 chips de treino inclusos</div>
+              <div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Boost de XP 3× de brinde</div>
+              <div class="perk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Choca em 3 minutos na Nursery</div>
+            </div>
+            <div class="cta"><span class="price gem"><span class="coin"></span>650</span><button class="buy" data-buy="mega-egg" data-cur="gem" data-cost="650">Comprar</button></div>
+          </div>
+          <div class="hart"><div class="thumb"><img src="https://api.skullbot.fr/img/digimon/dot/Wargreymon.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'W'}))" /></div></div>
+        </article>
+
+        <div class="qside" data-od-id="shop-quick">
+          <div class="qhd">Ofertas rápidas</div>
+          <div class="qrow"><div class="thumb"><span class="mono">↑</span></div><div><div class="nm">XP Boost 3×</div><div class="sub">Dura 1 hora · toda a party</div></div><button class="buy ghost" data-buy="xp3" data-cur="cred" data-cost="2500"><span class="price cred"><span class="coin"></span>2,500</span></button></div>
+          <div class="qrow"><div class="thumb"><span class="mono">⚡</span></div><div><div class="nm">Farm Speed 2×</div><div class="sub">Produção acelerada · 3h</div></div><button class="buy ghost" data-buy="farm2" data-cur="cred" data-cost="1800"><span class="price cred"><span class="coin"></span>1,800</span></button></div>
+          <div class="qrow"><div class="thumb"><img src="https://api.skullbot.fr/img/digimon/dot/Patamon.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'P'}))" /></div><div><div class="nm">Ovo Raro</div><div class="sub">Rookie garantido ≥ raro</div></div><button class="buy ghost" data-buy="rare-egg" data-cur="gem" data-cost="120"><span class="price gem"><span class="coin"></span>120</span></button></div>
+          <div class="qrow"><div class="thumb"><span class="mono">◈</span></div><div><div class="nm">Pacote 500 Gems</div><div class="sub">Recarga de moeda premium</div></div><button class="buy" data-buy="gems500" data-cur="cash"><span class="price"><span class="cash">R$ 19,90</span></span></button></div>
+        </div>
+      </div>
+
+      <div class="sechd"><h3>Catálogo</h3><span class="cnt" id="cat-count">8 itens</span></div>
+      <div class="scroll" data-od-id="shop-scroll">
+        <div class="grid" id="grid" data-od-id="shop-grid"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="cov" id="cov" role="dialog" aria-modal="true" aria-labelledby="cvTitle">
+  <div class="cmodal" id="cmodal"></div>
+</div>
+
+<script>
+/* ---- shop data (one-time purchases only; no subscription) ---- */
+const ITEMS=[
+  {id:'mega-egg',cat:'egg',nm:'Ovo Mega Lendário',sub:'Mega raro garantido + 3 chips + boost',mono:null,sprite:'Wargreymon',tag:'Ovo',cur:'gem',cost:650},
+  {id:'rare-egg',cat:'egg',nm:'Ovo Raro',sub:'Rookie garantido de raridade ≥ raro',sprite:'Patamon',tag:'Ovo',cur:'gem',cost:120},
+  {id:'starter-egg',cat:'egg',nm:'Ovo Comum',sub:'Rookie aleatório de linha comum',sprite:'Koromon',tag:'Ovo',cur:'cred',cost:800},
+  {id:'xp3',cat:'boost',nm:'XP Boost 3×',sub:'Dura 1 hora, aplica em toda a party',mono:'↑',tag:'Boost',cur:'cred',cost:2500},
+  {id:'farm2',cat:'boost',nm:'Farm Speed 2×',sub:'Produção acelerada por 3 horas',mono:'⚡',tag:'Boost',cur:'cred',cost:1800},
+  {id:'train2',cat:'boost',nm:'Training 2×',sub:'Sessões de treino no dobro da velocidade · 2h',mono:'◇',tag:'Boost',cur:'cred',cost:2200},
+  {id:'skin-neon',cat:'cosmetic',nm:'Skin: Tamer Neon',sub:'Moldura de perfil cosmética',mono:'◆',tag:'Cosmético',cur:'gem',cost:250},
+  {id:'gems500',cat:'gems',nm:'Pacote 500 Gems',sub:'Recarga de moeda premium',mono:'◈',tag:'Moeda',cur:'cash',cost:0},
+];
+const fmt=n=>n.toLocaleString('pt-BR');
+let bal={cred:12480,gem:340};
+const owned=new Set();
+const PURCHASES=[];
+let cat='all';
+
+const gridEl=document.getElementById('grid'), countEl=document.getElementById('cat-count');
+const balCred=document.getElementById('bal-cred'), balGem=document.getElementById('bal-gem');
+const toastEl=document.getElementById('toast'); let toastT;
+
+function priceHTML(it){
+  if(it.cur==='cash') return `<span class="price"><span class="cash">R$ 19,90</span></span>`;
+  const cls=it.cur==='gem'?'gem':'cred';
+  return `<span class="price ${cls}"><span class="coin"></span>${fmt(it.cost)}</span>`;
+}
+function thumbHTML(it){
+  if(it.sprite) return `<div class="thumb"><img src="https://api.skullbot.fr/img/digimon/dot/${it.sprite}.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'${it.nm[0]}'}))" /></div>`;
+  return `<div class="thumb"><span class="mono">${it.mono||it.nm[0]}</span></div>`;
+}
+function renderGrid(){
+  const rows=ITEMS.filter(i=>cat==='all'||i.cat===cat);
+  countEl.textContent=`${rows.length} ${rows.length===1?'item':'itens'}`;
+  gridEl.innerHTML=rows.map(it=>{
+    const own=owned.has(it.id);
+    const btn=own?'<button class="buy owned" disabled>Comprado</button>':`<button class="buy ghost" data-buy="${it.id}">Comprar</button>`;
+    return `<article class="card" data-od-id="shop-card-${it.id}">
+      ${thumbHTML(it)}
+      <span class="tagpill">${it.tag}</span>
+      <div class="cnm">${it.nm}</div>
+      <div class="csub">${it.sub}</div>
+      <div class="foot">${priceHTML(it)}${btn}</div>
+    </article>`;
+  }).join('');
+}
+function toast(msg){ toastEl.textContent=msg; toastEl.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>toastEl.classList.remove('show'),2200); }
+function paintWallet(){ balCred.textContent=fmt(bal.cred); balGem.textContent=fmt(bal.gem); }
+
+function purchase(id){
+  const it=ITEMS.find(i=>i.id===id); if(!it) return;
+  if(owned.has(id)) return;
+  if(it.cur!=='cash' && bal[it.cur] < it.cost){
+    toast(`Saldo insuficiente · faltam ${fmt(it.cost-bal[it.cur])} ${it.cur==='gem'?'Gems':'Créditos'}`); return;
+  }
+  openConfirm(it);
+}
+
+const cov=document.getElementById('cov'), cmodal=document.getElementById('cmodal');
+function closeCov(){ cov.classList.remove('show'); }
+function priceLine(it){
+  if(it.cur==='cash') return '<span class="cash">R$ 19,90</span>';
+  return `<span class="price ${it.cur==='gem'?'gem':'cred'}"><span class="coin"></span>${fmt(it.cost)}</span>`;
+}
+function openConfirm(it){
+  const curName=it.cur==='gem'?'Gems':it.cur==='cred'?'Créditos':'Reais';
+  const walletRows = it.cur==='cash'
+    ? `<div class="wr"><span>Recarga</span><b>+500 Gems</b></div><div class="wr after"><span>Gems após compra</span><b>${fmt(bal.gem+500)}</b></div>`
+    : `<div class="wr"><span>Saldo atual</span><b>${fmt(bal[it.cur])} ${curName}</b></div><div class="wr"><span>Custo</span><b>−${fmt(it.cost)}</b></div><div class="wr after"><span>Saldo após compra</span><b>${fmt(bal[it.cur]-it.cost)}</b></div>`;
+  cmodal.innerHTML=`
+    <div class="ek">Confirmar compra</div>
+    <h3 id="cvTitle">${it.nm}</h3>
+    <div class="cline">${thumbHTML(it)}<div class="cinfo"><div class="n">${it.nm}</div><div class="s">${it.sub}</div></div>${priceLine(it)}</div>
+    <div class="cwallet">${walletRows}</div>
+    <div class="cactions">
+      <button class="buy ghost" id="cvCancel">Cancelar</button>
+      <button class="buy" id="cvConfirm">Confirmar ${it.cur==='cash'?'recarga':'compra'}</button>
+    </div>`;
+  cov.classList.add('show');
+  document.getElementById('cvConfirm').focus();
+  document.getElementById('cvConfirm').onclick=()=>doPurchase(it);
+  document.getElementById('cvCancel').onclick=closeCov;
+}
+function doPurchase(it){
+  if(it.cur==='cash'){ bal.gem+=500; }
+  else { bal[it.cur]-=it.cost; if(it.cat==='egg'||it.cat==='cosmetic') owned.add(it.id); }
+  paintWallet(); renderGrid();
+  PURCHASES.unshift({nm:it.nm, tag:it.tag, cur:it.cur, cost:it.cur==='cash'?'R$ 19,90':it.cost, when:'agora mesmo'});
+  showSuccess(it);
+}
+function showSuccess(it){
+  const paid = it.cur==='cash'?'R$ 19,90':`${fmt(it.cost)} ${it.cur==='gem'?'Gems':'Créditos'}`;
+  const detail = it.cur==='cash'?'500 Gems adicionadas à sua carteira.'
+    : it.cat==='egg'?'O ovo foi enviado para a Nursery — pronto para chocar.'
+    : it.cat==='cosmetic'?'Cosmético desbloqueado no seu perfil.'
+    : 'Boost ativado. Aproveite!';
+  cmodal.innerHTML=`
+    <div class="csuccess">
+      <div class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3>Compra concluída</h3>
+      <p>${it.nm} · ${paid}<br>${detail}</p>
+      <div class="cactions">
+        <a class="buy ghost" href="player.html#purchases" style="text-decoration:none">Ver histórico</a>
+        <button class="buy" id="cvDone">Continuar comprando</button>
+      </div>
+    </div>`;
+  document.getElementById('cvDone').focus();
+  document.getElementById('cvDone').onclick=closeCov;
+  toast(`${it.nm} comprado ✓`);
+}
+cov.addEventListener('click',e=>{ if(e.target===cov) closeCov(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeCov(); });
+
+/* wire everything */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-buy]'); if(b){ purchase(b.dataset.buy); return; }
+  const t=e.target.closest('.tab'); if(t){ cat=t.dataset.cat; document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected',String(x===t))); renderGrid(); }
+});
+paintWallet(); renderGrid();
+
+/* ---- topbar dropdowns: single-open, outside-click + Esc close ---- */
+(function(){
+  const triggers=[...document.querySelectorAll('.tbtn[data-menu]')];
+  function closeAll(except){ triggers.forEach(t=>{ const m=document.getElementById(t.dataset.menu); if(m&&t!==except){ m.classList.remove('open'); t.setAttribute('aria-expanded','false'); } }); }
+  triggers.forEach(t=>{
+    const m=document.getElementById(t.dataset.menu);
+    t.addEventListener('click',e=>{ e.stopPropagation(); const open=m.classList.contains('open'); closeAll(t); m.classList.toggle('open',!open); t.setAttribute('aria-expanded',String(!open)); });
+    m&&m.addEventListener('click',e=>e.stopPropagation());
+  });
+  document.addEventListener('click',()=>closeAll(null));
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeAll(null); });
+})();
+</script>
+</body>
+</html>

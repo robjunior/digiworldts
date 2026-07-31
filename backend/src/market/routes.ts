@@ -16,17 +16,17 @@ const MIN_LEVEL_TO_LIST = 1;
 
 const SQL_SELECT_MON_BY_ID = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_LISTING_BY_ID = `SELECT * FROM market_listings WHERE id = ?`;
-const SQL_INSERT_LISTING = `INSERT INTO market_listings (id, mon_id, seller_id, price_credits, listed_at) VALUES (?, ?, ?, ?, ?)`;
+const SQL_INSERT_LISTING = `INSERT INTO market_listings (id, mon_id, seller_id, price_netcore, listed_at) VALUES (?, ?, ?, ?, ?)`;
 const SQL_MARK_LISTING_CANCELED = `UPDATE market_listings SET canceled_at = ? WHERE id = ? AND sold_at IS NULL AND canceled_at IS NULL`;
 const SQL_MARK_LISTING_SOLD = `UPDATE market_listings SET sold_at = ?, sold_to = ? WHERE id = ? AND sold_at IS NULL AND canceled_at IS NULL`;
 const SQL_SET_MON_LISTED = `UPDATE player_roster SET listed_at = ?, status = 'resting', slot_index = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_UNLIST_MON = `UPDATE player_roster SET listed_at = NULL, updated_at = ? WHERE id = ?`;
 const SQL_TRANSFER_MON = `UPDATE player_roster SET user_id = ?, listed_at = NULL, status = 'resting', slot_index = NULL, equipped_skill_ids = ?, evolution_history = NULL, updated_at = ? WHERE id = ?`;
-const SQL_SELECT_WALLET = `SELECT credits FROM player_wallet WHERE user_id = ?`;
-const SQL_UPSERT_WALLET_CREDIT = `INSERT INTO player_wallet (user_id, credits, streak_day, last_claim_at, premium_until, updated_at) VALUES (?, ?, 0, NULL, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`;
-const SQL_DEDUCT_WALLET = `UPDATE player_wallet SET credits = credits - ?, updated_at = ? WHERE user_id = ? AND credits >= ?`;
+const SQL_SELECT_WALLET = `SELECT netcore FROM player_wallet WHERE user_id = ?`;
+const SQL_UPSERT_WALLET_NETCORE = `INSERT INTO player_wallet (user_id, netcore, streak_day, last_claim_at, premium_until, updated_at) VALUES (?, ?, 0, NULL, NULL, ?) ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
+const SQL_DEDUCT_WALLET = `UPDATE player_wallet SET netcore = netcore - ?, updated_at = ? WHERE user_id = ? AND netcore >= ?`;
 const SQL_SELECT_ACTIVE_MARKET = `
-  SELECT l.id AS listing_id, l.price_credits, l.listed_at, l.seller_id,
+  SELECT l.id AS listing_id, l.price_netcore, l.listed_at, l.seller_id,
          m.id AS mon_id, m.catalog_id, m.nickname, m.level, m.xp,
          m.hp_bonus, m.en_bonus, m.atk_bonus, m.def_bonus, m.int_bonus, m.spd_bonus, m.mood,
          u.display_name AS seller_name
@@ -34,14 +34,14 @@ const SQL_SELECT_ACTIVE_MARKET = `
     JOIN player_roster m ON m.id = l.mon_id
     JOIN users u ON u.id = l.seller_id
    WHERE l.sold_at IS NULL AND l.canceled_at IS NULL
-     AND (CAST(? AS INTEGER) IS NULL OR l.price_credits >= ?)
-     AND (CAST(? AS INTEGER) IS NULL OR l.price_credits <= ?)
+     AND (CAST(? AS INTEGER) IS NULL OR l.price_netcore >= ?)
+     AND (CAST(? AS INTEGER) IS NULL OR l.price_netcore <= ?)
      AND (CAST(? AS INTEGER) IS NULL OR m.level >= ?)
      AND (CAST(? AS INTEGER) IS NULL OR m.level <= ?)
      AND (CAST(? AS TEXT) IS NULL OR LOWER(m.nickname) LIKE LOWER(?))
 `;
 const SQL_SELECT_MY_LISTINGS = `
-  SELECT l.id AS listing_id, l.price_credits, l.listed_at, l.sold_at, l.canceled_at, l.sold_to,
+  SELECT l.id AS listing_id, l.price_netcore, l.listed_at, l.sold_at, l.canceled_at, l.sold_to,
          m.id AS mon_id, m.catalog_id, m.nickname, m.level, m.hp_bonus, m.en_bonus,
          m.atk_bonus, m.def_bonus, m.int_bonus, m.spd_bonus
     FROM market_listings l
@@ -52,7 +52,7 @@ const SQL_SELECT_MY_LISTINGS = `
 
 type MarketRowJoined = {
   listing_id: string;
-  price_credits: number;
+  price_netcore: number;
   listed_at: number;
   seller_id: string;
   seller_name: string;
@@ -156,7 +156,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
             hp: row.hp_bonus, en: row.en_bonus, atk: row.atk_bonus,
             def: row.def_bonus, int: row.int_bonus, spd: row.spd_bonus,
           },
-          price: row.price_credits,
+          price: row.price_netcore,
           listedAt: row.listed_at,
           seller: { id: row.seller_id, displayName: row.seller_name },
           isMine: row.seller_id === user.id,
@@ -186,7 +186,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
   app.get('/api/market/mine', async (req, reply) => {
     const user = await requireAuth(req, reply);
     const rows = await q<{
-      listing_id: string; price_credits: number; listed_at: number;
+      listing_id: string; price_netcore: number; listed_at: number;
       sold_at: number | null; canceled_at: number | null; sold_to: string | null;
       mon_id: string; catalog_id: string; nickname: string; level: number;
       hp_bonus: number; en_bonus: number; atk_bonus: number;
@@ -201,7 +201,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
       catalogId: row.catalog_id,
       nickname: row.nickname,
       level: row.level,
-      price: row.price_credits,
+      price: row.price_netcore,
       listedAt: row.listed_at,
       status: row.sold_at ? 'sold' : row.canceled_at ? 'canceled' : 'active',
       soldAt: row.sold_at,
@@ -272,10 +272,10 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     if (listing.canceled_at !== null) return reply.code(409).send({ error: 'already-canceled' });
     if (listing.seller_id === user.id) return reply.code(409).send({ error: 'cannot-buy-own' });
 
-    const wallet = await one<{ credits: number }>(SQL_SELECT_WALLET, user.id);
-    const buyerCredits = wallet?.credits ?? 0;
-    if (buyerCredits < listing.price_credits) {
-      return reply.code(402).send({ error: 'insufficient-credits', message: `Need ${listing.price_credits} DigiCredits (you have ${buyerCredits}).` });
+    const wallet = await one<{ netcore: number }>(SQL_SELECT_WALLET, user.id);
+    const buyerNetcore = wallet?.netcore ?? 0;
+    if (buyerNetcore < listing.price_netcore) {
+      return reply.code(402).send({ error: 'insufficient-netcore', message: `Need ${listing.price_netcore} NetCore (you have ${buyerNetcore}).` });
     }
 
     const monRow = await one<RosterRow>(SQL_SELECT_MON_BY_ID, listing.mon_id, listing.seller_id);
@@ -287,11 +287,11 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     const now = Date.now();
     try {
       await tx(async (t) => {
-        const dec = await t.run(SQL_DEDUCT_WALLET, [listing.price_credits, now, user.id, listing.price_credits]);
+        const dec = await t.run(SQL_DEDUCT_WALLET, [listing.price_netcore, now, user.id, listing.price_netcore]);
         if (dec.changes === 0) throw new Error('market-buy-race');
         const sold = await t.run(SQL_MARK_LISTING_SOLD, [now, user.id, listing.id]);
         if (sold.changes === 0) throw new Error('market-buy-race');
-        await t.run(SQL_UPSERT_WALLET_CREDIT, [listing.seller_id, listing.price_credits, now]);
+        await t.run(SQL_UPSERT_WALLET_NETCORE, [listing.seller_id, listing.price_netcore, now]);
         await t.run(SQL_TRANSFER_MON, [user.id, now, listing.mon_id]);
       });
     } catch (err) {
@@ -302,8 +302,8 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     }
     log.info('market.buy.ok', {
       buyerId: user.id, sellerId: listing.seller_id,
-      listingId: listing.id, monId: listing.mon_id, price: listing.price_credits,
+      listingId: listing.id, monId: listing.mon_id, price: listing.price_netcore,
     });
-    return reply.send({ ok: true, monId: listing.mon_id, price: listing.price_credits });
+    return reply.send({ ok: true, monId: listing.mon_id, price: listing.price_netcore });
   });
 };

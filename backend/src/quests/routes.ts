@@ -130,8 +130,8 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const user = await requireAuth(req, reply);
     const result = await claimQuest(user.id, req.params.id);
     if (!result.ok) return reply.code(409).send({ error: 'not-completed-or-already-claimed' });
-    log.info('quest.claim', { userId: user.id, questId: req.params.id, creditsGranted: result.creditsGranted, itemsGranted: result.itemsGranted.length });
-    return reply.send({ ok: true, creditsGranted: result.creditsGranted, itemsGranted: result.itemsGranted });
+    log.info('quest.claim', { userId: user.id, questId: req.params.id, netcoreGranted: result.netcoreGranted, itemsGranted: result.itemsGranted.length });
+    return reply.send({ ok: true, netcoreGranted: result.netcoreGranted, itemsGranted: result.itemsGranted });
   });
 
   app.get('/api/world/objects', async (req, reply) => {

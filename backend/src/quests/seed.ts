@@ -123,14 +123,14 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 1,
     introDialogueId: 'embers-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 140 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 140 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'travel', biome: 'desert', text: 'Travel to [[desert]] and survey the dune line' },
       { kind: 'defeat', biome: 'desert', element: 'fire', count: 5, text: 'Defeat [[desert]] Fire-types' },
     ],
     giver: 'Tamer Guild',
-    rewardText: '320 XP · 140 DigiCredits',
+    rewardText: '320 XP · 140 NetCore',
   },
   {
     id: 'qst-basin',
@@ -139,7 +139,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 1,
     introDialogueId: 'basin-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 90 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 90 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'defeat', biome: 'lake', element: 'water', count: 3, text: 'Analyse [[lake]] Water-types' },
@@ -155,14 +155,14 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 3,
     introDialogueId: 'highwind-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 200 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 200 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'travel', biome: 'plateau', text: 'Reach the currents of [[plateau]]' },
       { kind: 'defeat', biome: 'plateau', element: 'wind', count: 4, text: 'Down 4 Wind-types over [[plateau]]' },
     ],
     giver: 'The World',
-    rewardText: '410 XP · 200 DigiCredits',
+    rewardText: '410 XP · 200 NetCore',
   },
   {
     id: 'qst-circuit',
@@ -171,7 +171,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 5,
     introDialogueId: 'circuit-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 380 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 380 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'travel', biome: 'storm', text: 'Enter [[storm]] under the thunderhead' },
@@ -188,7 +188,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 1,
     introDialogueId: 'firstscout-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 120 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 120 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'travel', biome: 'prairie', text: 'Scout the calm of [[prairie]]' },
@@ -203,7 +203,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     requiredLevel: 30,
     introDialogueId: 'static-root',
     steps: [],
-    finalReward: { items: [], pickCount: 0, guaranteedCredits: 1200 },
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 1200 },
     unlocksQuestIds: [],
     objectives: [
       { kind: 'travel', biome: 'void', text: 'Breach [[void]] — the tear in the map' },

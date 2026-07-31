@@ -53,7 +53,7 @@ const ConfigSchema = z.object({
   DIALOGUES_DIR: z.string().default('data/dialogues'),
   SESSION_SECRET: z.string().min(32),
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24 * 7),
-  ADMIN_BOOTSTRAP: z.enum(['open', 'closed']).default('closed'),
+  ADMIN_BOOTSTRAP: z.enum(['open', 'closed']).default('open'),
   SCRAPER_USER_AGENT: z.string().default('DigiWorld/0.1 (self-hosted; contact via game admin)'),
   SCRAPER_MIN_DELAY_MS: z.coerce.number().int().nonnegative().default(150),
   MAX_LOBBY_CONNECTIONS: z.coerce.number().int().positive().default(1200),

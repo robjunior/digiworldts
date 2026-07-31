@@ -17,6 +17,7 @@ export type CommandInteraction = {
   readonly deferred?: boolean;
   readonly replied?: boolean;
   deferReply(payload: { readonly ephemeral: true }): Promise<unknown>;
+  deferUpdate?(): Promise<unknown>;
   editReply(payload: ReplyPayload): Promise<unknown>;
 };
 

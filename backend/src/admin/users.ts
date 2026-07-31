@@ -40,6 +40,11 @@ const SQL_UPSERT_WALLET = `
        VALUES (?, ?, 0, ?)
     ON CONFLICT (user_id) DO UPDATE SET credits = excluded.credits, updated_at = excluded.updated_at
 `;
+const SQL_UPSERT_WALLET_NETCORE = `
+  INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at)
+       VALUES (?, 0, ?, 0, ?)
+    ON CONFLICT (user_id) DO UPDATE SET netcore = excluded.netcore, updated_at = excluded.updated_at
+`;
 const SQL_DELETE_USER = `DELETE FROM users WHERE id = ?`;
 
 export type UserListEntry = {
@@ -162,6 +167,19 @@ export async function updateUserCredits(id: string, credits: number): Promise<Us
   if (!existing) return { ok: false, error: 'not-found' };
   await run(SQL_UPSERT_WALLET, [id, Math.floor(credits), Date.now()]);
   log.info('admin.user.updateCredits', { id, credits: Math.floor(credits) });
+  const detail = await getUser(id);
+  if (!detail) return { ok: false, error: 'not-found' };
+  return { ok: true, user: detail };
+}
+
+export async function updateUserNetcore(id: string, netcore: number): Promise<UserOutcome<UserDetail>> {
+  if (typeof netcore !== 'number' || netcore < 0 || !Number.isFinite(netcore)) {
+    return { ok: false, error: 'invalid-input' };
+  }
+  const existing = await one<UserRow>(SQL_SELECT_BY_ID, id);
+  if (!existing) return { ok: false, error: 'not-found' };
+  await run(SQL_UPSERT_WALLET_NETCORE, [id, Math.floor(netcore), Date.now()]);
+  log.info('admin.user.updateNetcore', { id, netcore: Math.floor(netcore) });
   const detail = await getUser(id);
   if (!detail) return { ok: false, error: 'not-found' };
   return { ok: true, user: detail };

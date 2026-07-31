@@ -1,0 +1,23 @@
+-- 044_market_listings_netcore.sql
+--
+-- Renames market_listings.price_credits -> price_netcore.
+--
+-- Why: Digimon listings are now denominated in NetCore, not Credits. Credits
+-- became the premium (real-money) currency and are deliberately NOT transferable
+-- between players except through the audited coin market (see coin_offers), so
+-- leaving the column named `price_credits` while it holds NetCore is an active
+-- trap for the next reader.
+--
+-- Portability: `ALTER TABLE ... RENAME COLUMN` is supported by SQLite >= 3.25
+-- (better-sqlite3 ships far newer) and by every supported Postgres.
+--
+-- NOTE ON THE BASELINE SCHEMAS: schema.sql / schema-pg.sql intentionally still
+-- declare this column as `price_credits`. That matches the house convention
+-- (see 020_shop_items_is_quest_item.sql) where the baseline holds the
+-- pre-migration shape and migrations evolve it. A fresh install therefore
+-- creates `price_credits` and this migration renames it, converging on exactly
+-- the same shape as an upgraded database. Do NOT "fix" the baseline to say
+-- price_netcore -- a RENAME is not idempotent and the fresh install would then
+-- fail here with "no such column".
+
+ALTER TABLE market_listings RENAME COLUMN price_credits TO price_netcore;
