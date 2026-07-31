@@ -2,6 +2,7 @@ import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
 import { parseTwee } from '@digiworld/shared/dialogue-parser';
+import { DIALOGUE_SCHEMA_VERSION } from '@digiworld/shared/dialogue';
 import type { DialogueDiagnostic } from '@digiworld/shared/dialogue';
 
 import { config } from '../config.js';
@@ -73,7 +74,10 @@ export async function syncDialogueFolder(): Promise<SyncReport> {
     seen.add(dialogueId);
 
     const existing = await getDialogue(dialogueId);
-    if (existing !== null && existing.sourceHash === hashSource(source)) {
+    const upToDate = existing !== null
+      && existing.sourceHash === hashSource(source)
+      && existing.definition.schemaVersion === DIALOGUE_SCHEMA_VERSION;
+    if (upToDate) {
       results.push({ file: name, status: 'unchanged', dialogueId });
       continue;
     }

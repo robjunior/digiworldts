@@ -1,4 +1,4 @@
-export const DIALOGUE_SCHEMA_VERSION = 1 as const;
+export const DIALOGUE_SCHEMA_VERSION = 2 as const;
 
 export type DialogueValueRef =
   | { readonly kind: 'literal'; readonly value: string | number | boolean }
@@ -61,6 +61,8 @@ export type DialogueDefinition = {
   readonly title: string;
   readonly startNodeId: string;
   readonly npcIds: readonly string[];
+  /** Security gate: true when any node carries an action or a condition, so the client must never resolve this dialogue on its own. */
+  readonly requiresServerAdvance: boolean;
   readonly nodes: Readonly<Record<string, DialogueNode>>;
 };
 

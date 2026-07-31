@@ -19,6 +19,7 @@
     "test:battle-sim": "tsx test/battle-sim.mts",
     "test:battle-combo": "tsx test/battle-combo.mts",
     "test:dsl-runtime": "tsx test/dsl-runtime.mts",
+    "test:dialogue-parser": "tsx test/dialogue-parser.mts",
     "test:seed-v2": "tsx test/seed-catalog-v2-smoke.mts",
     "test:pool": "tsx test/pool-smoke.mts",
     "test:backfill": "tsx test/backfill-smoke.mts",
