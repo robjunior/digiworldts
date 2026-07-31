@@ -109,6 +109,7 @@ const EN: Translations = {
   'hud.party': 'Party',
   'hud.admin': 'Admin',
   'hud.language': 'Language',
+  'hud.menu': 'Menu',
 
   'header.tamer_terminal': 'Tamer Terminal',
 
@@ -516,6 +517,7 @@ const PT: Translations = {
   'hud.party': 'Party',
   'hud.admin': 'Admin',
   'hud.language': 'Idioma',
+  'hud.menu': 'Menu',
 
   'header.tamer_terminal': 'Terminal do Tamer',
 
