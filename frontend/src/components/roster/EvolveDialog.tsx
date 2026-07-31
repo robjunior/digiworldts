@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EVOLUTION_LEVELS, type Attribute, type Element, type Stage, type TemplateDigimon } from '@digiworld/shared/digimon';
 import type { EvolutionGate, EvolutionOption, EvolutionReason } from '../../lib/api-roster';
@@ -36,42 +36,23 @@ const EVO_MEAT: Record<Stage, number> = {
 const STAT_KEYS = ['hp', 'atk', 'int', 'en', 'def', 'spd'] as const;
 const STAT_LABELS: Record<(typeof STAT_KEYS)[number], string> = { hp: 'HP', atk: 'ATK', int: 'INT', en: 'EN', def: 'DEF', spd: 'SPD' };
 
-type LineColumn = { readonly stage: Stage | 'Unknown'; readonly ids: readonly string[]; readonly extra: number };
-
 type AnimStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-const COLUMN_NODE_CAP = 8;
-
-function evolutionLine(rootId: string, templates: ReadonlyMap<string, TemplateDigimon>, priorityIds: ReadonlySet<string>): readonly LineColumn[] {
-  const cols: LineColumn[] = [];
-  let frontier: string[] = [rootId];
+/** Oldest-first history + current form. All met by definition — never masked. */
+function pastLine(
+  history: readonly string[],
+  currentId: string,
+  templates: ReadonlyMap<string, TemplateDigimon>,
+): readonly TemplateDigimon[] {
+  const out: TemplateDigimon[] = [];
   const seen = new Set<string>();
-  let guard = 0;
-  while (frontier.length > 0 && guard < 6) {
-    guard += 1;
-    const ids: string[] = [];
-    const nextFrontier: string[] = [];
-    let colStage: Stage | 'Unknown' = 'Unknown';
-    const sortedFrontier = [...frontier].sort((a, b) => {
-      const pa = priorityIds.has(a) ? 0 : 1;
-      const pb = priorityIds.has(b) ? 0 : 1;
-      if (pa !== pb) return pa - pb;
-      return a.localeCompare(b);
-    });
-    for (const id of sortedFrontier) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      ids.push(id);
-      const template = templates.get(id);
-      if (template && colStage === 'Unknown') colStage = template.stage;
-      for (const edge of template?.evolvesInto ?? []) nextFrontier.push(edge.targetId);
-    }
-    const shown = ids.slice(0, COLUMN_NODE_CAP);
-    const extra = ids.length - shown.length;
-    if (shown.length > 0) cols.push({ stage: colStage, ids: shown, extra });
-    frontier = Array.from(new Set(nextFrontier));
+  for (const id of [...history, currentId]) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const template = templates.get(id);
+    if (template) out.push(template);
   }
-  return cols;
+  return out;
 }
 
 function computeStatGains(
@@ -129,13 +110,9 @@ function useReducedMotion(): boolean {
 export function EvolveDialog({ mon, gate, templateById, busy, onClose, onEvolve }: EvolveDialogProps): JSX.Element {
   const open = mon !== null;
   const currentTemplate = mon ? templateById.get(mon.catalogId) : undefined;
-  const line = useMemo(
-    () => {
-      if (!mon) return [];
-      const priority = new Set<string>(gate?.options.map((o) => o.catalogId) ?? []);
-      return evolutionLine(mon.catalogId, templateById, priority);
-    },
-    [mon, templateById, gate],
+  const past = useMemo(
+    () => (mon ? pastLine(mon.evolutionHistory, mon.catalogId, templateById) : []),
+    [mon, templateById],
   );
 
   const firstEligibleOption = useMemo(() => gate?.options.find((o) => o.eligible) ?? gate?.options[0] ?? null, [gate]);
@@ -254,7 +231,7 @@ export function EvolveDialog({ mon, gate, templateById, busy, onClose, onEvolve 
 
         <div className="evo-stage">
           <EvoLine
-            line={line}
+            past={past}
             rootId={mon.catalogId}
             gate={gate}
             selectedTargetId={selectedTargetId}
@@ -305,113 +282,94 @@ function capElement(element: Element | 'null'): string {
 }
 
 function EvoLine({
-  line,
+  past,
   rootId,
   gate,
   selectedTargetId,
   templateById,
   onSelect,
 }: {
-  readonly line: readonly LineColumn[];
+  readonly past: readonly TemplateDigimon[];
   readonly rootId: string;
   readonly gate: EvolutionGate | null;
   readonly selectedTargetId: string | null;
   readonly templateById: ReadonlyMap<string, TemplateDigimon>;
   readonly onSelect: (id: string) => void;
 }): JSX.Element {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [pathData, setPathData] = useState<string>('');
-  const [svgSize, setSvgSize] = useState<{ readonly w: number; readonly h: number }>({ w: 0, h: 0 });
-
-  useLayoutEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-    const nodes = wrap.querySelectorAll<HTMLElement>('.enode');
-    const nodeMap = new Map<string, DOMRect>();
-    for (const n of Array.from(nodes)) {
-      const id = n.getAttribute('data-node');
-      if (id) nodeMap.set(id, n.getBoundingClientRect());
-    }
-    const wrapRect = wrap.getBoundingClientRect();
-    const scrollLeft = wrap.scrollLeft;
-    const scrollTop = wrap.scrollTop;
-    let paths = '';
-    for (const [id, rect] of nodeMap.entries()) {
-      const template = templateById.get(id);
-      if (!template?.evolvesInto?.length) continue;
-      const px = rect.left - wrapRect.left + scrollLeft + rect.width;
-      const py = rect.top - wrapRect.top + scrollTop + rect.height / 2;
-      for (const edge of template.evolvesInto) {
-        const childRect = nodeMap.get(edge.targetId);
-        if (!childRect) continue;
-        const cx = childRect.left - wrapRect.left + scrollLeft;
-        const cy = childRect.top - wrapRect.top + scrollTop + childRect.height / 2;
-        const mid = (px + cx) / 2;
-        paths += `M${px} ${py} H${mid} V${cy} H${cx} `;
-      }
-    }
-    setPathData(paths);
-    setSvgSize({ w: wrap.scrollWidth, h: wrap.scrollHeight });
-  }, [line, templateById]);
+  const options = gate?.options ?? [];
 
   return (
-    <div className="evo-line" ref={wrapRef}>
-      <div className="evo-gen">Line · <b>{line.length}</b> stages</div>
-      <svg className="evo-links" width={svgSize.w} height={svgSize.h} viewBox={`0 0 ${svgSize.w} ${svgSize.h}`} aria-hidden="true">
-        <path d={pathData} fill="none" stroke="var(--hair)" strokeWidth={1.5} />
-      </svg>
-      <div className="evo-cols" role="list" aria-label="Evolution line">
-        {line.map((col, idx) => (
-          <div key={idx} className="evo-col" data-col={idx}>
-            <div className="stagelbl">{col.stage}</div>
-            {col.ids.map((id) => {
-              const template = templateById.get(id);
-              const met = template !== undefined;
-              const isRoot = id === rootId;
-              const isSel = id === selectedTargetId;
-              const option = optionForCatalogId(gate, id);
-              const avail = option?.eligible === true;
-              const stage = template?.stage ?? 'Unknown';
-              const element = template?.element ?? 'null';
-              const cls = [
-                'enode',
-                isRoot ? 'is-root' : '',
-                isSel ? 'sel' : '',
-                !met ? 'unmet' : '',
-                avail ? 'avail' : '',
-              ].filter(Boolean).join(' ');
-              const badge = isRoot ? 'YOU' : stage.slice(0, 3).toUpperCase();
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  role="listitem"
-                  className={cls}
-                  data-node={id}
-                  style={{ ['--el' as string]: `var(--el-${element})` }}
-                  onClick={() => onSelect(id)}
-                  aria-label={met ? `${template.name}, ${stage}${isRoot ? ', current form' : ''}${avail ? ', can evolve now' : ''}` : 'Undiscovered species'}
-                >
-                  <span className="pic">
-                    {met && template.assets.dot ? (
-                      <img src={template.assets.dot} alt="" />
-                    ) : (
-                      <span className="q">?</span>
-                    )}
-                  </span>
-                  <span className="en-nm">{met ? template.name : '???'}</span>
-                  <span className="en-badge"><span className="adot" /><span className="lv">{badge}</span></span>
-                </button>
-              );
-            })}
-            {col.extra > 0 ? (
-              <div className="enode-more" aria-label={`${col.extra} more evolution branches available`}>
-                +{col.extra} more
+    <div className="evo-line">
+      <div className="evo-gen">Line · <b>{past.length}</b> {past.length === 1 ? 'form' : 'forms'} so far</div>
+
+      <div className="evo-past" role="list" aria-label="Evolution history">
+        {past.map((template, idx) => {
+          const isRoot = template.id === rootId;
+          return (
+            <Fragment key={template.id}>
+              {idx > 0 ? <span className="evo-past-sep" aria-hidden="true" /> : null}
+              <div
+                className={`epast${isRoot ? ' is-root' : ''}`}
+                role="listitem"
+                style={{ ['--el' as string]: `var(--el-${template.element})` }}
+                title={`${template.name} · ${template.stage}`}
+              >
+                <span className="pic">
+                  {template.assets.dot ? <img src={template.assets.dot} alt="" /> : <span className="q">?</span>}
+                </span>
+                <span className="epast-nm">{template.name}</span>
+                <span className="epast-st">{isRoot ? 'NOW' : template.stage}</span>
               </div>
-            ) : null}
-          </div>
-        ))}
+            </Fragment>
+          );
+        })}
       </div>
+
+      <div className="evo-gen evo-gen--next">Next · <b>{options.length}</b> {options.length === 1 ? 'path' : 'paths'}</div>
+
+      {options.length === 0 ? (
+        <div className="evo-next-empty">No further digivolutions from this form.</div>
+      ) : (
+        <div className="evo-next" role="list" aria-label="Next digivolutions">
+          {options.map((option) => {
+            const template = templateById.get(option.catalogId);
+            const met = option.met;
+            const isSel = option.catalogId === selectedTargetId;
+            const element = met ? template?.element ?? 'null' : 'null';
+            const cls = [
+              'enode',
+              isSel ? 'sel' : '',
+              !met ? 'unmet' : '',
+              option.eligible ? 'avail' : '',
+            ].filter(Boolean).join(' ');
+            return (
+              <button
+                key={option.catalogId}
+                type="button"
+                role="listitem"
+                className={cls}
+                data-node={option.catalogId}
+                style={{ ['--el' as string]: `var(--el-${element})` }}
+                onClick={() => onSelect(option.catalogId)}
+                aria-label={
+                  met
+                    ? `${option.name}, ${option.stage}${option.eligible ? ', can evolve now' : ''}`
+                    : 'Undiscovered species — requirements shown'
+                }
+              >
+                <span className="pic">
+                  {met && template?.assets.dot ? <img src={template.assets.dot} alt="" /> : <span className="q">?</span>}
+                </span>
+                <span className="en-nm">{met ? option.name : '???'}</span>
+                <span className="en-badge">
+                  <span className="adot" />
+                  <span className="lv">{option.stage.slice(0, 3).toUpperCase()}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -451,15 +409,15 @@ function EvoConditions({
   }
 
   const target = selectedTemplate ?? null;
-  const met = target !== null;
+  const met = selectedOption?.met ?? target !== null;
   const targetStage: Stage = (target?.stage ?? selectedOption?.stage ?? 'Rookie');
-  const targetElement: Element | 'null' = target?.element ?? 'null';
+  const targetElement: Element | 'null' = met ? (target?.element ?? 'null') : 'null';
   const targetAttribute: Attribute = target?.attribute ?? (selectedOption?.requiredAttribute ?? currentAttribute);
   const targetName = target?.name ?? selectedOption?.name ?? '???';
 
   const gains = computeStatGains(currentStats, currentStage, targetStage);
-  const attrChanged = targetAttribute !== currentAttribute;
-  const elChanged = targetElement !== currentElement && targetElement !== 'null';
+  const attrChanged = !met || targetAttribute !== currentAttribute;
+  const elChanged = !met || (targetElement !== currentElement && targetElement !== 'null');
 
   const isDirect = selectedOption !== undefined;
   const requiredLevel = selectedOption?.requiredLevel ?? EVOLUTION_LEVELS[targetStage] ?? 99;
@@ -476,7 +434,7 @@ function EvoConditions({
       <div className="cond-body">
         <div className="tgt" style={{ ['--el' as string]: `var(--el-${targetElement})` }}>
           <span className="tpic">
-            {met && target.assets.dot ? <img src={target.assets.dot} alt="" /> : <span className="q">?</span>}
+            {met && target?.assets.dot ? <img src={target.assets.dot} alt="" /> : <span className="q">?</span>}
           </span>
           <div>
             <div className="tnm">{met ? targetName : '???'}</div>
@@ -524,7 +482,7 @@ function EvoConditions({
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                   </span>
                   <span className="chg-pill to" style={{ ['--el2' as string]: `var(--el-${targetElement})` }}>
-                    <span className="adot" />{targetAttribute}
+                    <span className="adot" />{met ? targetAttribute : '???'}
                   </span>
                 </>
               ) : (
@@ -542,7 +500,7 @@ function EvoConditions({
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
                   </span>
                   <span className="chg-pill to" style={{ ['--el2' as string]: `var(--el-${targetElement})` }}>
-                    <span className="adot" />{capElement(targetElement)}
+                    <span className="adot" />{met ? capElement(targetElement) : '???'}
                   </span>
                 </>
               ) : (
