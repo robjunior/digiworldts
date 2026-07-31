@@ -88,9 +88,8 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 5a. Tiles for the two new dungeons (84 walkable tiles each, same template).
 INSERT INTO dungeon_tiles (dungeon_id, x, y)
-SELECT d.id, t.x, t.y
-FROM (VALUES ('dun_convergence'), ('dun_void')) AS d(id)
-CROSS JOIN (VALUES
+WITH d(id) AS (VALUES ('dun_convergence'), ('dun_void')),
+t(x, y) AS (VALUES
   (2,2),(3,2),(4,2),(5,2),(6,2),
   (2,3),(3,3),(4,3),(5,3),(6,3),
   (2,4),(3,4),(4,4),(5,4),(6,4),
@@ -108,7 +107,10 @@ CROSS JOIN (VALUES
   (13,12),(14,12),(15,12),(16,12),(17,12),
   (13,13),(14,13),(15,13),(16,13),(17,13),
   (13,14),(14,14),(15,14),(16,14),(17,14)
-) AS t(x, y)
+)
+-- The WHERE is load-bearing: SQLite cannot tell an upsert's ON from a join's ON
+-- after INSERT ... SELECT, and requires a WHERE clause to disambiguate.
+SELECT d.id, t.x, t.y FROM d CROSS JOIN t WHERE true
 ON CONFLICT (dungeon_id, x, y) DO NOTHING;
 
 -- 5b. Final bosses at (15,12) for each new dungeon.

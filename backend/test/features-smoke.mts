@@ -291,9 +291,9 @@ async function main(): Promise<void> {
     const loadoutA = mkLoadout(aliceId, 'a');
     const loadoutB = mkLoadout(bobId, 'b');
 
-    const b1 = initBattle({ loadoutA, loadoutB, damageRate: 1.0 });
-    const b2 = initBattle({ loadoutA, loadoutB, damageRate: 2.0 });
-    const b3 = initBattle({ loadoutA, loadoutB });
+    const b1 = await initBattle({ loadoutA, loadoutB, damageRate: 1.0 });
+    const b2 = await initBattle({ loadoutA, loadoutB, damageRate: 2.0 });
+    const b3 = await initBattle({ loadoutA, loadoutB });
     check('initBattle stores damageRate=1.0 when passed', b1.damageRate === 1.0);
     check('initBattle stores damageRate=2.0 when passed', b2.damageRate === 2.0);
     check('initBattle defaults damageRate to 1.0 when omitted', b3.damageRate === 1.0);
@@ -304,13 +304,13 @@ async function main(): Promise<void> {
     await resetMatchmaking();
     const now = Date.now();
     const untrained: QueueEntry = { userId: 'usr_mm_untr', displayName: 'Untr', averageLevel: 40, trainedness: 0,   queuedAt: now };
-    const trained:   QueueEntry = { userId: 'usr_mm_trnd', displayName: 'Trnd', averageLevel: 40, trainedness: 800, queuedAt: now };
+    const trained:   QueueEntry = { userId: 'usr_mm_trnd', displayName: 'Trnd', averageLevel: 40, trainedness: 8000, queuedAt: now };
 
     check('enqueue untrained', (await matchmaker.enqueue(untrained)) === 'queued');
     check('enqueue trained', (await matchmaker.enqueue(trained)) === 'queued');
 
     const noPair = await matchmaker.tryPair();
-    check('mismatched trainedness (0 vs 800) blocks fresh pair (bracket=100)', noPair === null);
+    check('mismatched trainedness (0 vs 8000) blocks fresh pair (bracket=1000)', noPair === null);
     check('both entries still queued after failed pair', (await matchmaker.size()) === 2);
 
     await matchmaker.dequeue(untrained.userId);
@@ -323,7 +323,7 @@ async function main(): Promise<void> {
     await matchmaker.enqueue(oldTrnd);
 
     const paired = await matchmaker.tryPair();
-    check('after 60s wait, widened bracket (2100) allows the mismatched pair', paired !== null);
+    check('after 60s wait, bracket saturates at 10000 and allows the mismatched pair', paired !== null);
     if (paired !== null) {
       check('pair returns both users', paired.a.userId !== paired.b.userId);
     }
@@ -335,7 +335,7 @@ async function main(): Promise<void> {
     await matchmaker.enqueue(closeA);
     await matchmaker.enqueue(closeB);
     const closePair = await matchmaker.tryPair();
-    check('similar trainedness (50 gap ≤ 100 bracket) pairs immediately', closePair !== null);
+    check('similar trainedness (50 gap ≤ 1000 bracket) pairs immediately', closePair !== null);
 
     await resetMatchmaking();
   }
