@@ -77,3 +77,13 @@
 .farm-page .farm-notice { font: 700 12px/1 var(--font); color: var(--muted); padding: 12px 22px 0; }
 
 @media (prefers-reduced-motion: reduce) { .farm-page * { animation: none !important; transition: none !important; } }
+
+/* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
+   clipped past the viewport with no way to reach it. Tighten, then allow
+   horizontal pan for the remainder. */
+@media (max-width: 768px) {
+  .farm-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
+  .farm-page .balbar::-webkit-scrollbar { display: none; }
+  .farm-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
+  .farm-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+}

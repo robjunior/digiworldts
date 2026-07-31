@@ -150,3 +150,13 @@
 .pen-menu__timer { font-size: 12px; text-align: center; opacity: 0.75; padding: 4px 0; }
 .pen-menu__grad { width: 100%; padding: 8px; background: #4c9aff; border: 0; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; }
 .pen-menu__grad:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
+   clipped past the viewport with no way to reach it. Tighten, then allow
+   horizontal pan for the remainder. */
+@media (max-width: 768px) {
+  .nursery-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
+  .nursery-page .balbar::-webkit-scrollbar { display: none; }
+  .nursery-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
+  .nursery-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+}

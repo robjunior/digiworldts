@@ -151,3 +151,13 @@
 .factory-toast.show { opacity:1; transform:translateX(-50%) translateY(0) }
 
 @media (prefers-reduced-motion: reduce) { .factory-page *, .factory-drawer *, .factory-toast * { transition: none !important; } }
+
+/* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
+   clipped past the viewport with no way to reach it. Tighten, then allow
+   horizontal pan for the remainder. */
+@media (max-width: 768px) {
+  .factory-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
+  .factory-page .balbar::-webkit-scrollbar { display: none; }
+  .factory-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
+  .factory-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+}
