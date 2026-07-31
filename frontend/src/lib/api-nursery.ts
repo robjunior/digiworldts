@@ -7,56 +7,44 @@ import type {
   NurseryPendingResponse,
   PendingHatchEntry,
   SpeciesDataEntry,
+  NurseryPenMon,
+  NurseryPenStage,
+  NurseryChain,
+  NurseryView,
+  GraduateResponse,
+  PetPenMonResponse,
+  FeedPenMonResponse,
 } from '@digiworld/shared/nursery';
 
 import { apiFetch } from './api';
 
-export type NurseryMon = {
-  readonly id: string;
-  readonly catalogId: string;
-  readonly nickname: string;
-  readonly level: number;
-  readonly mood: number;
-  readonly petsToday: number;
-  readonly canPet: boolean;
-  readonly template: TemplateDigimon | null;
-};
-
-export type NurseryView = {
-  readonly mons: readonly NurseryMon[];
-  readonly meat: number;
-  readonly maxPetsPerDay: number;
-  readonly petMoodDelta: number;
-  readonly feedMoodDelta: number;
-  readonly feedMeatCost: number;
-};
-
-export type PetResponse = {
-  readonly ok: true;
-  readonly mood: number;
-  readonly petsToday: number;
-  readonly maxPetsPerDay: number;
-};
-
-export type FeedResponse = {
-  readonly ok: true;
-  readonly mood: number;
-  readonly meat: number;
+export type {
+  NurseryPenMon,
+  NurseryPenStage,
+  NurseryChain,
+  NurseryView,
+  GraduateResponse,
+  PetPenMonResponse,
+  FeedPenMonResponse,
+  SpeciesDataEntry,
+  PendingHatchEntry
 };
 
 export function getNursery(): Promise<NurseryView> {
   return apiFetch<NurseryView>('/api/nursery');
 }
 
-export function petNurseryMon(monId: string): Promise<PetResponse> {
-  return apiFetch<PetResponse>(`/api/nursery/pet/${encodeURIComponent(monId)}`, { method: 'POST' });
+export function petNurseryMon(monId: string): Promise<PetPenMonResponse> {
+  return apiFetch<PetPenMonResponse>(`/api/nursery/pet/${encodeURIComponent(monId)}`, { method: 'POST' });
 }
 
-export function feedNurseryMon(monId: string): Promise<FeedResponse> {
-  return apiFetch<FeedResponse>(`/api/nursery/feed/${encodeURIComponent(monId)}`, { method: 'POST' });
+export function feedNurseryMon(monId: string): Promise<FeedPenMonResponse> {
+  return apiFetch<FeedPenMonResponse>(`/api/nursery/feed/${encodeURIComponent(monId)}`, { method: 'POST' });
 }
 
-export type { SpeciesDataEntry, PendingHatchEntry };
+export function graduatePenMon(monId: string): Promise<GraduateResponse> {
+  return apiFetch<GraduateResponse>(`/api/nursery/graduate/${encodeURIComponent(monId)}`, { method: 'POST' });
+}
 
 export function getSpeciesData(): Promise<NurseryDataResponse> {
   return apiFetch<NurseryDataResponse>('/api/nursery/data');

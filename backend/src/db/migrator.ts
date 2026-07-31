@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS schema_versions (
 )`;
 
 export type Dialect = 'sqlite' | 'postgres';
-export type Migration = { version: string; filename: string; sql: string };
+export type Migration = { version: string; filename: string; sql: string; selfManagedTransaction: boolean };
 
 export function loadMigrations(dialect: Dialect): Migration[] {
   if (!existsSync(MIGRATIONS_DIR)) return [];
@@ -65,6 +65,7 @@ export function loadMigrations(dialect: Dialect): Migration[] {
       version,
       filename,
       sql: readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'),
+      selfManagedTransaction: false,
     };
   });
 }
@@ -88,13 +89,21 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
     }
 
     try {
-      await adapter.transaction(async (tx) => {
-        await tx.exec(m.sql);
-        await tx.run(
+      if (isSelfManagedTransaction(m)) {
+        await adapter.exec(m.sql);
+        await adapter.run(
           `INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`,
           [m.version, Date.now()],
         );
-      });
+      } else {
+        await adapter.transaction(async (tx) => {
+          await tx.exec(m.sql);
+          await tx.run(
+            `INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`,
+            [m.version, Date.now()],
+          );
+        });
+      }
       applied.push(m.version);
       log.info('db.migration.applied', { version: m.version, filename: m.filename });
     } catch (err) {
@@ -129,6 +138,10 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
     log.info('db.migrator.done', { applied: applied.length, skipped: skipped.length });
   }
   return { applied, skipped };
+}
+
+function isSelfManagedTransaction(migration: Migration): boolean {
+  return migration.sql.includes('-- migrator:self-managed-transaction');
 }
 
 const ADD_COLUMN_STMT_RE = /^ALTER\s+TABLE\s+([A-Za-z_][\w]*)\s+ADD\s+COLUMN\s+([A-Za-z_][\w]*)\b/i;

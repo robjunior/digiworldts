@@ -118,19 +118,22 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
               const e = el(r);
               const template = templateById.get(r.catalogId);
               const stage = template?.stage ?? 'Unknown';
+              const inNursery = r.status === 'nursery';
+              const dragDisabled = typeof r.slot === 'number' || isDowned(r, now) || inNursery;
               return (
-                <button 
+                <button
                   key={r.id}
-                  className="row" 
-                  role="option" 
-                  data-id={r.id} 
-                  data-el={e} 
+                  className={`row${inNursery ? ' row--nursery' : ''}`}
+                  role="option"
+                  data-id={r.id}
+                  data-el={e}
+                  data-status={r.status}
                   tabIndex={0}
                   aria-selected={selectedMon?.id === r.id}
                   onClick={() => handleSelect(r.id)}
-                  draggable={typeof r.slot !== 'number' && !isDowned(r, now)}
+                  draggable={!dragDisabled}
                   onDragStart={(event) => {
-                    if (typeof r.slot === 'number' || isDowned(r, now)) { event.preventDefault(); return; }
+                    if (dragDisabled) { event.preventDefault(); return; }
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', r.id);
                   }}
@@ -141,6 +144,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
                     <span className="rn">{template?.name ?? r.catalogId}</span>
                     <span className="tpl">{stage} · {e.charAt(0).toUpperCase() + e.slice(1)}</span>
                   </span>
+                  {inNursery ? <span className="row-badge row-badge--nursery">In nursery</span> : null}
                   <span className="lv">LV<b>{r.level}</b></span>
                 </button>
               );
@@ -210,7 +214,7 @@ function DetailPane({ r, templateById, activeTab, setActiveTab, now, actions, ac
               ) : null}
               <button className="rl-action-btn rl-action-btn--evolve" onClick={() => actions.onEvolve(r.id)} disabled={isDowned(r, now)}>Evolve</button>
               {typeof r.slot !== 'number' && (
-                <button className="rl-action-btn rl-action-btn--party" onClick={() => actions.onAddToParty(r)} disabled={isDowned(r, now)}>Add to Party</button>
+                <button className="rl-action-btn rl-action-btn--party" onClick={() => actions.onAddToParty(r)} disabled={isDowned(r, now) || r.status === 'nursery'}>Add to Party</button>
               )}
             </div>
           </div>
