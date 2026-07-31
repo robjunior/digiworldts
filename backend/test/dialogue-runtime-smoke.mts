@@ -12,7 +12,7 @@
 import { existsSync, readFileSync, unlinkSync } from 'node:fs';
 
 import { parseTwee } from '../../shared/src/dialogue-parser.ts';
-import { run, closeDb } from '../src/db/index.ts';
+import { one, run, closeDb } from '../src/db/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 import {
   applyEntryActions,
@@ -53,6 +53,7 @@ async function throws(fn: () => Promise<unknown>): Promise<boolean> {
 const USER = 'usr_dlg_rt';
 const RELIC = 'itm_dlg_relic';
 const REWARD = 'itm_dlg_reward';
+const QUEST = 'qst_dlg_fixture';
 
 await getDb();
 const now = Date.now();
@@ -67,8 +68,9 @@ for (const [id, name] of [[RELIC, 'Relic'], [REWARD, 'Reward']]) {
   );
 }
 
-const ctx = (level: number): DialogueRuntimeContext => ({
+const ctx = (level: number, dialogueId = 'elder'): DialogueRuntimeContext => ({
   userId: USER,
+  dialogueId,
   facts: { level },
   variables: { player_name: 'Tester' },
 });
@@ -123,7 +125,7 @@ Body.
 * [[Go->END]]
 `, { dialogueId: 'x2' });
   assert(!isKnownAction('wipe_everything'), 'the registry claims to know a bogus action');
-  assert(await throws(() => applyEntryActions(parsed.definition!.nodes['start']!, ctx(9))), 'an unknown action ran');
+  assert(await throws(() => applyEntryActions(parsed.definition!.nodes['start']!, ctx(9, parsed.definition!.dialogueId))), 'an unknown action ran');
 });
 
 await test('entry actions apply on first arrival', async () => {
@@ -168,7 +170,7 @@ Body.
 * [[Go->END]]
 `, { dialogueId: 'trade' });
   const node = parsed.definition!.nodes['start']!;
-  assert(await throws(() => applyEntryActions(node, ctx(9))), 'the short trade was allowed');
+  assert(await throws(() => applyEntryActions(node, ctx(9, parsed.definition!.dialogueId))), 'the short trade was allowed');
   assert((await countItem(USER, REWARD)) === 0, 'the reward was handed out despite the rollback');
   assert((await countItem(USER, RELIC)) === 1, 'the relic balance moved despite the rollback');
 });
@@ -187,10 +189,93 @@ Body.
 
 * [[Go->END]]
 `, { dialogueId: 'trade' });
-  const ids = await applyEntryActions(parsed.definition!.nodes['start']!, ctx(9));
+  const ids = await applyEntryActions(parsed.definition!.nodes['start']!, ctx(9, parsed.definition!.dialogueId));
   assert(ids.length === 2, `expected both actions to fire once affordable, got ${ids.length}`);
   assert((await countItem(USER, RELIC)) === 0, 'the relics were not consumed');
   assert((await countItem(USER, REWARD)) === 1, 'the reward was not granted');
+});
+
+await test('start_quest is refused when the quest does not exist', async () => {
+  const parsed = parseTwee(`:: StoryTitle
+Q
+
+:: start
+@speaker g neutral
+@do start_quest("qst-does-not-exist")
+
+Body.
+
+* [[Go->END]]
+`, { dialogueId: 'q-missing' });
+  assert(await throws(() => applyEntryActions(parsed.definition!.nodes['start']!, ctx(9, parsed.definition!.dialogueId))), 'an unknown quest was started');
+});
+
+await test('start_quest rolls back with a failing sibling instead of staying started', async () => {
+  await run(
+    'INSERT INTO quests (id, name, description, required_level, data, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+    [QUEST, 'Fixture Quest', 'fixture', 1, JSON.stringify({ id: QUEST, name: 'Fixture Quest', description: 'fixture', objectives: [] }), now, now],
+  );
+  const parsed = parseTwee(`:: StoryTitle
+Q
+
+:: start
+@speaker g neutral
+@do start_quest("${QUEST}")
+@do remove_item("${RELIC}", 99)
+
+Body.
+
+* [[Go->END]]
+`, { dialogueId: 'q-rollback' });
+  assert(await throws(() => applyEntryActions(parsed.definition!.nodes['start']!, ctx(9, parsed.definition!.dialogueId))), 'the short trade was allowed');
+  const progress = await one<{ readonly quest_id: string }>(
+    'SELECT quest_id FROM user_quest_progress WHERE user_id = ? AND quest_id = ?', USER, QUEST,
+  );
+  assert(progress === null, 'the quest stayed started after the rollback');
+});
+
+await test('start_quest lands when nothing beside it fails', async () => {
+  const parsed = parseTwee(`:: StoryTitle
+Q
+
+:: start
+@speaker g neutral
+@do start_quest("${QUEST}")
+
+Body.
+
+* [[Go->END]]
+`, { dialogueId: 'q-ok' });
+  const ids = await applyEntryActions(parsed.definition!.nodes['start']!, ctx(9, parsed.definition!.dialogueId));
+  assert(ids.length === 1, `expected the quest action to fire, got ${ids.length}`);
+  const progress = await one<{ readonly quest_id: string }>(
+    'SELECT quest_id FROM user_quest_progress WHERE user_id = ? AND quest_id = ?', USER, QUEST,
+  );
+  assert(progress !== null, 'the quest was not started');
+});
+
+await test('two dialogues sharing a passage name do not suppress each other', async () => {
+  const body = (flag: string): string => `:: StoryTitle
+Intro
+
+:: start
+@speaker g neutral
+@do set_flag("${flag}")
+
+Body.
+
+* [[Go->END]]
+`;
+  const first = parseTwee(body('collide.first'), { dialogueId: 'collide-a' });
+  const second = parseTwee(body('collide.second'), { dialogueId: 'collide-b' });
+  const idA = first.definition!.nodes['start']!.entryActions[0]!.id;
+  const idB = second.definition!.nodes['start']!.entryActions[0]!.id;
+  assert(idA === idB, 'this test is pointless unless the parser really reuses the id');
+
+  await applyEntryActions(first.definition!.nodes['start']!, ctx(9, 'collide-a'));
+  await applyEntryActions(second.definition!.nodes['start']!, ctx(9, 'collide-b'));
+  assert((await hasFlag(USER, 'collide.first')) === true, 'the first dialogue did not apply');
+  assert((await hasFlag(USER, 'collide.second')) === true, 'the second dialogue was suppressed by the first');
 });
 
 process.stdout.write(`dialogue runtime tests: ${passed} passed, ${failed} failed\n`);

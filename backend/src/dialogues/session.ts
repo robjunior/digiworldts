@@ -39,10 +39,11 @@ export type DialogueResult =
   | { readonly ok: true; readonly view: DialogueView }
   | { readonly ok: false; readonly error: AdvanceFailure };
 
-async function buildContext(userId: string, displayName: string): Promise<DialogueRuntimeContext> {
+async function buildContext(userId: string, displayName: string, dialogueId: string): Promise<DialogueRuntimeContext> {
   const rating = await partyRating(userId);
   return {
     userId,
+    dialogueId,
     facts: { level: rating.meanLevel },
     variables: { player_name: displayName },
   };
@@ -107,7 +108,7 @@ export async function startDialogue(
   const outcome = await withUserLock(userId, async (): Promise<DialogueResult> => {
     const stored = await getDialogue(dialogueId);
     if (stored === null) return { ok: false, error: 'unknown-dialogue' };
-    const ctx = await buildContext(userId, displayName);
+    const ctx = await buildContext(userId, displayName, dialogueId);
     const node = await resolveNode(stored.definition, stored.definition.startNodeId, ctx);
     if (node === null) return { ok: false, error: 'unknown-node' };
     const view = await enter(stored.definition, node, ctx);
@@ -137,7 +138,7 @@ export async function advanceDialogue(
     const current = stored.definition.nodes[cursor.nodeId];
     if (current === undefined) return { ok: false, error: 'unknown-node' };
 
-    const ctx = await buildContext(userId, displayName);
+    const ctx = await buildContext(userId, displayName, dialogueId);
     const allowed = await visibleChoices(current, ctx);
     const choice = allowed.find((c) => c.id === choiceId);
     if (choice === undefined) return { ok: false, error: 'choice-not-available' };
