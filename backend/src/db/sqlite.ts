@@ -68,6 +68,16 @@ function addMissingColumns(handle: DatabaseHandle, table: string, columns: Reado
 export class SqliteAdapter implements DbAdapter {
   readonly kind = 'sqlite' as const;
 
+  /**
+   * Serialization tail for `transaction()`. better-sqlite3 has ONE
+   * synchronous connection, so a `BEGIN IMMEDIATE` on a handle already inside
+   * a tx throws SQLITE_ERROR — a `Promise.all([tx(…), tx(…)])` crashes the
+   * process. Every `transaction()` call chains onto this tail; failed txs
+   * are caught on the chain itself so one rejection does not poison the
+   * next caller.
+   */
+  private txTail: Promise<unknown> = Promise.resolve();
+
   private constructor(private readonly handle: DatabaseHandle) {}
 
   static async create(): Promise<SqliteAdapter> {
@@ -133,20 +143,27 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   async transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
-    this.handle.exec('BEGIN IMMEDIATE');
-    try {
-      const result = await fn(this);
-      this.handle.exec('COMMIT');
-      return result;
-    } catch (err) {
+    const run = async (): Promise<T> => {
+      this.handle.exec('BEGIN IMMEDIATE');
       try {
-        this.handle.exec('ROLLBACK');
-      } catch (rollbackErr) {
-        log.warn('sqlite.tx.rollback.fail', {
-          err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
-        });
+        const result = await fn(this);
+        this.handle.exec('COMMIT');
+        return result;
+      } catch (err) {
+        try {
+          this.handle.exec('ROLLBACK');
+        } catch (rollbackErr) {
+          log.warn('sqlite.tx.rollback.fail', {
+            err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+          });
+        }
+        throw err;
       }
-      throw err;
-    }
+    };
+    const next = this.txTail.then(run, run);
+    // Keep the tail alive even if this tx rejects — otherwise a single failed
+    // tx would poison every subsequent transaction on this adapter.
+    this.txTail = next.catch(() => undefined);
+    return next;
   }
 }

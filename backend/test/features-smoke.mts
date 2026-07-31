@@ -17,7 +17,7 @@
  */
 import { unlinkSync, existsSync } from 'node:fs';
 
-import { one, run, closeDb } from '../src/db/index.ts';
+import { one, q, run, closeDb } from '../src/db/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 import { hashPassword, verifyPassword } from '../src/auth/password.ts';
 import { createSession, resolveSession, destroyAllSessionsForUser } from '../src/auth/session.ts';
@@ -61,6 +61,9 @@ import { initBattle } from '../src/battle/engine.ts';
 import type { Loadout, LoadoutMember } from '../src/battle/engine.ts';
 import type { TemplateDigimon } from '../src/digimon/types.ts';
 import { matchmaker, resetMatchmaking, type QueueEntry } from '../src/matchmaking/queue.ts';
+import { seedStarterRoster } from '../src/roster/routes.ts';
+import { createBattleForPair, dispatchAction } from '../src/battle/routes.ts';
+import { addPendingBuff } from '../src/social/buffs.ts';
 
 const DB_PATH = process.env.DB_PATH!;
 for (const f of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
@@ -338,6 +341,222 @@ async function main(): Promise<void> {
     check('similar trainedness (50 gap ≤ 1000 bracket) pairs immediately', closePair !== null);
 
     await resetMatchmaking();
+  }
+
+  console.log('\n=== PvP pair → createBattleForPair (parallel tx race) ===');
+  {
+    // Regression lock for commit 3b37a23: applyPreBattleBuffs was converted
+    // to Promise.all(consumePreBattleBuffs) at match start. Each leg opens
+    // its own tx(); the SQLite adapter has ONE synchronous connection so
+    // three concurrent BEGIN IMMEDIATEs threw SQLITE_ERROR and killed the
+    // process on the first live PvP pair. Fixed by the txTail serializer in
+    // sqlite.ts. This test seeds two real parties, adds pending buffs so the
+    // tx does real work, then calls createBattleForPair — the same path
+    // runPairing hits — and asserts a battle materializes.
+    const seedA = await seedStarterRoster(aliceId);
+    check('alice starter seeded', seedA.seeded === 3);
+    const seedB = await seedStarterRoster(bobId);
+    check('bob starter seeded', seedB.seeded === 3);
+
+    const partyA = await q<{ id: string }>(
+      "SELECT id FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index", aliceId);
+    const partyB = await q<{ id: string }>(
+      "SELECT id FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index", bobId);
+    check('alice party has 3 rows', partyA.length === 3);
+    check('bob party has 3 rows', partyB.length === 3);
+
+    for (const row of partyA) {
+      await addPendingBuff({ userId: aliceId, monId: row.id, effectKind: 'hp_pct', magnitude: 0.10 });
+    }
+    for (const row of partyB) {
+      await addPendingBuff({ userId: bobId, monId: row.id, effectKind: 'en_pct', magnitude: 0.15 });
+    }
+
+    const result = await createBattleForPair(aliceId, bobId);
+    check('createBattleForPair returned ok=true (no SQLITE_ERROR crash)', result.ok === true);
+    if (result.ok) {
+      check('viewA has 3 friendly units', result.viewA.friendly.length === 3);
+      check('viewB has 3 friendly units', result.viewB.friendly.length === 3);
+      check('viewA and viewB share the same matchId', result.viewA.id === result.viewB.id);
+      check('viewA yourSide=a', result.viewA.yourSide === 'a');
+      check('viewB yourSide=b', result.viewB.yourSide === 'b');
+      check('battle status is active', result.viewA.status === 'active');
+    }
+
+    const consumedA = await one<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM pending_buffs WHERE user_id = ? AND consumed_at IS NOT NULL", aliceId);
+    const consumedB = await one<{ n: number }>(
+      "SELECT COUNT(*) AS n FROM pending_buffs WHERE user_id = ? AND consumed_at IS NOT NULL", bobId);
+    check('all 3 alice pending_buffs consumed', consumedA?.n === 3);
+    check('all 3 bob pending_buffs consumed', consumedB?.n === 3);
+  }
+
+  console.log('\n=== PvP full battle to KO — MMR + credits + Bits + matches row + snap cleanup ===');
+  {
+    // Fresh users so previous section's active battle state doesn't collide.
+    // The battle runs with Math.random frozen at 0.5, which is above the miss
+    // threshold (0.08) and crit threshold (0.15), so every hit lands as a
+    // non-crit at 1.0× variance — one variable in the flow, deterministic
+    // termination, and every persistence + reward + cluster-cleanup path fires.
+    const charlieId = 'usr_charlie_smoke';
+    const daveId = 'usr_dave_smoke';
+    await insertUser(charlieId, 'charlie_smoke', 'password-charlie-1');
+    await insertUser(daveId, 'dave_smoke', 'password-dave-1');
+    await seedStarterRoster(charlieId);
+    await seedStarterRoster(daveId);
+
+    const create = await createBattleForPair(charlieId, daveId);
+    if (!create.ok) throw new Error('createBattleForPair failed: ' + create.error);
+    const matchId = create.matchId;
+
+    const originalRandom = Math.random;
+    Math.random = () => 0.5;
+
+    let viewA = create.viewA;
+    let viewB = create.viewB;
+    let ended = false;
+    let totalActions = 0;
+    const MAX_ACTIONS = 300;
+    try {
+      while (!ended && totalActions < MAX_ACTIONS) {
+        const activeView = viewA.activeSide === 'a' ? viewA : viewB;
+        const actingUserId = viewA.activeSide === 'a' ? charlieId : daveId;
+        const unitId = activeView.currentTurnUnitId;
+        if (!unitId) break;
+        const target = activeView.enemy.find((u) => !u.down);
+        if (!target) break;
+        const result = await dispatchAction(actingUserId, matchId, { type: 'fight', unitId, targetId: target.id });
+        if (!result.ok) throw new Error(`dispatchAction failed at action ${totalActions}: ${result.error}`);
+        viewA = result.viewA;
+        viewB = result.viewB;
+        ended = result.ended;
+        totalActions++;
+      }
+    } finally {
+      Math.random = originalRandom;
+    }
+
+    check('battle ended within action cap', ended, `actions=${totalActions}`);
+    check('viewA.status === ended', viewA.status === 'ended');
+    check('viewB.status === ended', viewB.status === 'ended');
+    check('outcome present', viewA.outcome !== null);
+    check('viewA and viewB agree on outcome', viewA.outcome === viewB.outcome);
+    check('viewA and viewB agree on winner', viewA.winner === viewB.winner);
+    const outcomeOk = viewA.outcome === 'win_a' || viewA.outcome === 'win_b' || viewA.outcome === 'draw';
+    check('outcome is win_a | win_b | draw', outcomeOk, `outcome=${viewA.outcome}`);
+
+    type EndEvt = { type: 'end'; pvpMmr?: { before: number; after: number; delta: number } };
+    const endEvtA = viewA.log.find((e) => e.type === 'end') as EndEvt | undefined;
+    const endEvtB = viewB.log.find((e) => e.type === 'end') as EndEvt | undefined;
+    check('viewA end event carries pvpMmr', endEvtA?.pvpMmr !== undefined);
+    check('viewB end event carries pvpMmr', endEvtB?.pvpMmr !== undefined);
+    const deltaA = endEvtA!.pvpMmr!.delta;
+    const deltaB = endEvtB!.pvpMmr!.delta;
+    // computeMmrDelta is quality-weighted (winner HP × speed), not vanilla ELO.
+    // The winner's delta and loser's delta are RECIPROCAL through the quality
+    // factor, so |deltaA| + |deltaB| is only symmetric when winQuality×speed=1.
+    // The invariant that ALWAYS holds: each delta is bounded by K_FACTOR × 2.5
+    // (max quality bound) × 0.5 (score gap) = 40, and the sign of each side
+    // matches its outcome.
+    check('|deltaA| bounded (≤ 40)', Math.abs(deltaA) <= 40, `dA=${deltaA}`);
+    check('|deltaB| bounded (≤ 40)', Math.abs(deltaB) <= 40, `dB=${deltaB}`);
+    const signOk =
+      viewA.outcome === 'win_a' ? deltaA > 0 && deltaB < 0 :
+      viewA.outcome === 'win_b' ? deltaA < 0 && deltaB > 0 :
+      deltaA === 0 && deltaB === 0;
+    check('MMR delta sign matches outcome', signOk, `outcome=${viewA.outcome} dA=${deltaA} dB=${deltaB}`);
+
+    const matchRow = await one<{ id: string; player_a: string; player_b: string; winner: string | null; outcome: string; rounds: number }>(
+      'SELECT id, player_a, player_b, winner, outcome, rounds FROM matches WHERE id = ?', matchId);
+    check('matches row inserted', matchRow !== null);
+    check('matches.player_a === charlie', matchRow?.player_a === charlieId);
+    check('matches.player_b === dave', matchRow?.player_b === daveId);
+    check('matches.outcome === viewA.outcome', matchRow?.outcome === viewA.outcome);
+    check('matches.rounds > 0', (matchRow?.rounds ?? 0) > 0);
+    const expectedWinnerId = viewA.outcome === 'win_a' ? charlieId : viewA.outcome === 'win_b' ? daveId : null;
+    check('matches.winner correct', matchRow?.winner === expectedWinnerId);
+
+    const mmrC = await one<{ mmr: number }>('SELECT mmr FROM users WHERE id = ?', charlieId);
+    const mmrD = await one<{ mmr: number }>('SELECT mmr FROM users WHERE id = ?', daveId);
+    check('users.mmr(charlie) matches endEvtA.after', mmrC?.mmr === endEvtA!.pvpMmr!.after);
+    check('users.mmr(dave) matches endEvtB.after', mmrD?.mmr === endEvtB!.pvpMmr!.after);
+
+    const winnerId = viewA.outcome === 'win_a' ? 'a' : viewA.outcome === 'win_b' ? 'b' : null;
+    const expectedCredsC = winnerId === null ? 25 : winnerId === 'a' ? 60 : 15;
+    const expectedCredsD = winnerId === null ? 25 : winnerId === 'b' ? 60 : 15;
+    const wallC = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', charlieId);
+    const wallD = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', daveId);
+    check(`charlie credits=${expectedCredsC}`, wallC?.credits === expectedCredsC, `got=${wallC?.credits}`);
+    check(`dave credits=${expectedCredsD}`, wallD?.credits === expectedCredsD, `got=${wallD?.credits}`);
+
+    const expectedBitsC = winnerId === null ? 15 : winnerId === 'a' ? 30 : 5;
+    const expectedBitsD = winnerId === null ? 15 : winnerId === 'b' ? 30 : 5;
+    const bitsC = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", charlieId);
+    const bitsD = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", daveId);
+    check(`charlie Bits=${expectedBitsC}`, bitsC?.amount === expectedBitsC, `got=${bitsC?.amount}`);
+    check(`dave Bits=${expectedBitsD}`, bitsD?.amount === expectedBitsD, `got=${bitsD?.amount}`);
+
+    const cluster = await getCluster();
+    check('battle:snap:{matchId} deleted', (await cluster.get(`battle:snap:${matchId}`)) === null);
+    check('battle:user:{charlie} deleted', (await cluster.get(`battle:user:${charlieId}`)) === null);
+    check('battle:user:{dave} deleted', (await cluster.get(`battle:user:${daveId}`)) === null);
+
+    console.log(`  info: fought ${totalActions} actions across ${viewA.round} round(s), outcome=${viewA.outcome}, deltaA=${deltaA} deltaB=${deltaB}`);
+  }
+
+  console.log('\n=== PvP flee end path — outcome=fled_*, fler=0 credits, non-fler wins credits+MMR ===');
+  {
+    const eveId = 'usr_eve_smoke';
+    const frankId = 'usr_frank_smoke';
+    await insertUser(eveId, 'eve_smoke', 'password-eve-1');
+    await insertUser(frankId, 'frank_smoke', 'password-frank-1');
+    await seedStarterRoster(eveId);
+    await seedStarterRoster(frankId);
+
+    const create = await createBattleForPair(eveId, frankId);
+    if (!create.ok) throw new Error('createBattleForPair failed: ' + create.error);
+    const matchId = create.matchId;
+
+    // Whichever side is active on turn 1 flees. Not deterministic which side.
+    const flerSide = create.viewA.activeSide;
+    const flerId = flerSide === 'a' ? eveId : frankId;
+    const nonFlerId = flerSide === 'a' ? frankId : eveId;
+
+    const result = await dispatchAction(flerId, matchId, { type: 'flee' });
+    check('flee accepted', result.ok);
+    if (!result.ok) throw new Error('flee failed: ' + result.error);
+    check('battle ended in one action', result.ended === true);
+    const expectedOutcome = flerSide === 'a' ? 'fled_a' : 'fled_b';
+    check(`outcome === ${expectedOutcome}`, result.viewA.outcome === expectedOutcome);
+    check('viewA and viewB agree on outcome', result.viewA.outcome === result.viewB.outcome);
+
+    const matchRow = await one<{ outcome: string; winner: string | null }>(
+      'SELECT outcome, winner FROM matches WHERE id = ?', matchId);
+    check('matches.outcome persisted', matchRow?.outcome === expectedOutcome);
+    check('matches.winner is the non-fler', matchRow?.winner === nonFlerId);
+
+    // Fler's wallet row was never created (0 credits award skips the upsert).
+    const flerWall = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', flerId);
+    const nonFlerWall = await one<{ credits: number }>('SELECT credits FROM player_wallet WHERE user_id = ?', nonFlerId);
+    check('fler wallet not credited (row absent or credits=0)', flerWall === null || flerWall.credits === 0, `credits=${flerWall?.credits}`);
+    check('non-fler credits = 60 (win)', nonFlerWall?.credits === 60, `got=${nonFlerWall?.credits}`);
+
+    const flerBits = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", flerId);
+    const nonFlerBits = await one<{ amount: number }>("SELECT amount FROM resources WHERE user_id = ? AND resource = 'Bits'", nonFlerId);
+    check('fler Bits not credited', flerBits === null || flerBits.amount === 0, `got=${flerBits?.amount}`);
+    check('non-fler Bits = 30 (win)', nonFlerBits?.amount === 30, `got=${nonFlerBits?.amount}`);
+
+    const flerMmr = await one<{ mmr: number }>('SELECT mmr FROM users WHERE id = ?', flerId);
+    const nonFlerMmr = await one<{ mmr: number }>('SELECT mmr FROM users WHERE id = ?', nonFlerId);
+    check('fler MMR decreased from 1000', (flerMmr?.mmr ?? 1000) < 1000, `mmr=${flerMmr?.mmr}`);
+    check('non-fler MMR increased from 1000', (nonFlerMmr?.mmr ?? 1000) > 1000, `mmr=${nonFlerMmr?.mmr}`);
+
+    const cluster = await getCluster();
+    check('battle:snap deleted after flee', (await cluster.get(`battle:snap:${matchId}`)) === null);
+    check('battle:user:{fler} deleted', (await cluster.get(`battle:user:${flerId}`)) === null);
+    check('battle:user:{non-fler} deleted', (await cluster.get(`battle:user:${nonFlerId}`)) === null);
+
+    console.log(`  info: side-${flerSide} fled, non-fler MMR = ${nonFlerMmr?.mmr}`);
   }
 
   await closeCluster();
