@@ -3,7 +3,8 @@
  *
  * First-user-is-admin rule: registration is OPEN by default. The first user
  * to register is auto-flagged `is_admin=1`; every subsequent register is a
- * regular player. Set `ADMIN_BOOTSTRAP=closed` to disable new registrations.
+ * regular player. Registration is closed by default; set `ADMIN_BOOTSTRAP=open`
+ * temporarily to bootstrap the first admin, then set it back to `closed`.
  *
  * All DB access routes through the async DbAdapter (SQLite or Postgres).
  * Every route validates input with Zod. Errors are shaped as
@@ -181,7 +182,10 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply): Pr
 export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Promise<void> => {
   app.post('/api/auth/register', async (req, reply) => {
     if (config.ADMIN_BOOTSTRAP === 'closed') {
-      return reply.code(403).send({ error: 'registration is closed on this server' });
+      return reply.code(403).send({
+        error: 'registration is closed on this server',
+        hint: 'first-time deployers: temporarily set ADMIN_BOOTSTRAP=open in .env, restart, register the admin, then set it back to closed and restart',
+      });
     }
 
     const parsed = RegisterSchema.safeParse(req.body);
