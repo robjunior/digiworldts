@@ -1,6 +1,6 @@
 import { Client, Events, GatewayIntentBits } from 'discord.js';
 
-import { commandHandlers } from './commands/index.js';
+import { commandHandlers, createAdminCommandHandler, type CommandHandler } from './commands/index.js';
 import { config } from './config.js';
 import { close as closeDb } from './db.js';
 import { log } from './logger.js';
@@ -14,6 +14,8 @@ async function run(): Promise<void> {
     ? new Client({ intents: [GatewayIntentBits.Guilds] })
     : null;
   const notifications: NotificationService | undefined = client ? createNotificationService(client) : undefined;
+  const adminHandler: CommandHandler = createAdminCommandHandler(notifications ? { notifications } : {});
+  const handlers: Readonly<Record<string, CommandHandler>> = { ...commandHandlers, admin: adminHandler };
   const app = createServer(notifications ? {
     mercadoPagoWebhook: {
       processPayment: async (paymentId) => processMercadoPagoPaymentInTransaction(paymentId, { notifications }),
@@ -28,7 +30,7 @@ async function run(): Promise<void> {
   client?.on(Events.InteractionCreate, (interaction) => {
     void (async (): Promise<void> => {
       if (!interaction.isChatInputCommand()) return;
-      const handler = commandHandlers[interaction.commandName];
+      const handler = handlers[interaction.commandName];
       if (handler !== undefined) {
         await handler(interaction);
         return;

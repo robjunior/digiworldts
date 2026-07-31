@@ -8,6 +8,7 @@ import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
 import { loadProductCatalog, type ProductCatalog, type ProductConfig } from '../products.js';
 import { log } from '../logger.js';
+import { listDisabledPackSkus } from '../repo/admin.js';
 import { insertPurchaseSession } from '../repo/purchases.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { runDeferredCommand, type CommandInteraction } from './wrapper.js';
@@ -63,8 +64,11 @@ export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCom
     const sku = interaction.options?.getString('sku') ?? null;
     const productsResponse = await backendClient.products();
     const catalog = await loadCatalog();
+    const disabledSkus = await listDisabledPackSkus(db);
     const backendIds = new Set(productsResponse.products.map((product) => product.id));
-    const availableProducts = enabledCatalogProducts(catalog).filter((product) => backendIds.has(product.shopItemId));
+    const availableProducts = enabledCatalogProducts(catalog)
+      .filter((product) => backendIds.has(product.shopItemId))
+      .filter((product) => !disabledSkus.has(product.sku));
     if (sku === null) {
       await interaction.editReply({ content: availableProducts.length === 0 ? t('discord.buy.no_packs', {}, locale) : renderSelectPrompt(availableProducts, locale) });
       return;

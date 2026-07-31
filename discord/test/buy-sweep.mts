@@ -13,6 +13,9 @@ class PurchaseDb {
       this.sessions.push({ id: params[0], user_id: params[1], discord_id: params[2], guild_id: params[3], sku: params[4], provider: params[5], provider_payment_id: params[6], state: params[7], amount_brl_cents: params[8], currency: params[9], idempotency_key: params[10], qr_code: params[11], qr_code_base64: params[12], ticket_url: params[13], expires_at: params[14], delivered_at: params[15], metadata_json: params[16], created_at: params[17], updated_at: params[18] });
       return { rows: [], rowCount: 1 };
     }
+    if (text.includes('SELECT sku FROM disabled_credit_packs')) {
+      return { rows: [] as readonly T[], rowCount: 0 };
+    }
     if (text.includes("UPDATE purchase_sessions") && text.includes("state = 'expired'")) {
       const now = Number(params[0]);
       const expired = this.sessions.filter((session) => (session.state === 'pending' || session.state === 'awaiting_payment') && typeof session.expires_at === 'number' && session.expires_at < now);

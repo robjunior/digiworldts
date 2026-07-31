@@ -1,5 +1,6 @@
 import { ApplicationCommandOptionType, ApplicationCommandType, type RESTPostAPIChatInputApplicationCommandsJSONBody } from 'discord.js';
 
+import { createAdminCommandHandler } from './admin.js';
 import { handleBalanceCommand } from './balance.js';
 import { handleBuyCommand } from './buy.js';
 import { handleHelpCommand } from './help.js';
@@ -30,10 +31,28 @@ export const commandManifest: readonly RESTPostAPIChatInputApplicationCommandsJS
     description: 'DigiWorld commerce admin tools',
     type: ApplicationCommandType.ChatInput,
     options: [
-      { name: 'refund', description: 'Refund a purchase', type: ApplicationCommandOptionType.Subcommand },
-      { name: 'disable', description: 'Disable a credit pack', type: ApplicationCommandOptionType.Subcommand },
+      {
+        name: 'refund',
+        description: 'Refund a purchase',
+        type: ApplicationCommandOptionType.Subcommand,
+        options: [{ name: 'purchase_id', description: 'Purchase session id to refund', type: ApplicationCommandOptionType.String, required: true }],
+      },
+      {
+        name: 'disable',
+        description: 'Disable a credit pack',
+        type: ApplicationCommandOptionType.Subcommand,
+        options: [
+          { name: 'sku', description: 'Credit pack SKU to disable', type: ApplicationCommandOptionType.String, required: true },
+          { name: 'reason', description: 'Optional reason', type: ApplicationCommandOptionType.String, required: false },
+        ],
+      },
       { name: 'stats', description: 'Show commerce stats', type: ApplicationCommandOptionType.Subcommand },
-      { name: 'resend', description: 'Resend purchase delivery notification', type: ApplicationCommandOptionType.Subcommand },
+      {
+        name: 'resend',
+        description: 'Resend purchase delivery notification',
+        type: ApplicationCommandOptionType.Subcommand,
+        options: [{ name: 'purchase_id', description: 'Purchase session id whose notification to resend', type: ApplicationCommandOptionType.String, required: true }],
+      },
     ],
   },
 ] as const;
@@ -48,3 +67,5 @@ export const commandHandlers: Readonly<Record<string, CommandHandler>> = {
   purchases: handlePurchasesCommand,
   help: handleHelpCommand,
 } as const;
+
+export { createAdminCommandHandler };

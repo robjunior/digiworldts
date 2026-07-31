@@ -10,7 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node --enable-source-maps dist/main.js",
     "register-commands": "tsx src/register-commands.ts",
-    "test": "pnpm test:repo && pnpm test:backend-client && pnpm test:commands && pnpm test:i18n && pnpm test:products && pnpm test:commerce-commands && pnpm test:wrapper && pnpm test:payments && pnpm test:purchase-state && pnpm test:webhook-orchestrator && pnpm test:buy-sweep && pnpm test:notifications && pnpm test:purchases",
+    "test": "pnpm test:repo && pnpm test:backend-client && pnpm test:commands && pnpm test:i18n && pnpm test:products && pnpm test:commerce-commands && pnpm test:wrapper && pnpm test:payments && pnpm test:purchase-state && pnpm test:webhook-orchestrator && pnpm test:buy-sweep && pnpm test:notifications && pnpm test:purchases && pnpm test:admin",
     "test:repo": "tsx test/repo.mts",
     "test:backend-client": "tsx test/backend-client.mts",
     "test:commands": "tsx test/commands.mts",
@@ -23,7 +23,8 @@
     "test:webhook-orchestrator": "tsx test/webhook-orchestrator.mts",
     "test:buy-sweep": "tsx test/buy-sweep.mts",
     "test:notifications": "tsx test/notifications.mts",
-    "test:purchases": "tsx test/purchases.mts"
+    "test:purchases": "tsx test/purchases.mts",
+    "test:admin": "tsx test/admin.mts"
   },
   "dependencies": {
     "discord.js": "^14.26.2",
