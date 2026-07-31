@@ -65,6 +65,28 @@ export function deleteDialogue(dialogueId: string): Promise<{ readonly ok: true 
   return apiFetch<{ readonly ok: true }>(`/api/admin/dialogues/${encodeURIComponent(dialogueId)}`, { method: 'DELETE' });
 }
 
+export type DialogueView = {
+  readonly dialogueId: string;
+  readonly nodeId: string;
+  readonly allowedChoiceIds: readonly string[];
+  readonly done: boolean;
+};
+
+export function startDialogueSession(dialogueId: string): Promise<{ readonly view: DialogueView }> {
+  return apiFetch<{ readonly view: DialogueView }>(`/api/dialogues/${encodeURIComponent(dialogueId)}/start`, { method: 'POST' });
+}
+
+export function advanceDialogueSession(dialogueId: string, choiceId: string): Promise<{ readonly view: DialogueView }> {
+  return apiFetch<{ readonly view: DialogueView }>(`/api/dialogues/${encodeURIComponent(dialogueId)}/advance`, {
+    method: 'POST',
+    body: { choiceId },
+  });
+}
+
+export function abandonDialogueSession(): Promise<{ readonly ok: true }> {
+  return apiFetch<{ readonly ok: true }>('/api/dialogues/abandon', { method: 'POST' });
+}
+
 export function dialogueExportUrl(dialogueId: string): string {
   return `/api/admin/dialogues/${encodeURIComponent(dialogueId)}/export`;
 }
