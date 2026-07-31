@@ -127,29 +127,67 @@ const BEYOND: readonly NavEntry[] = [
   { to: '/lobby',     label: 'The Arena',  labelKey: 'nav.arena',     svg: ICON_ARENA },
 ];
 
-const ADMIN_NAV: readonly AdminNavEntry[] = [
-  { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ADMIN_DOT, tab: 'overview' },
-  { to: '/admin?tab=users', label: 'Users', svg: ICON_ROSTER, tab: 'users' },
-  { to: '/admin?tab=seasons', label: 'Seasons', svg: ICON_ARENA, tab: 'seasons' },
-  { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ADMIN_DOT, tab: 'scraped' },
-  { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_DIGIDEX, tab: 'catalog' },
-  { to: '/admin?tab=skills', label: 'Skills', svg: ICON_TRAINING, tab: 'skills' },
-  { to: '/admin?tab=shop', label: 'Shop Admin', svg: ICON_MARKET, tab: 'shop' },
-  { to: '/admin?tab=quests', label: 'Quests', svg: ICON_ADVENTURE, tab: 'quests' },
-  { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
-  { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_DIGIDEX, tab: 'tilesets' },
-  { to: '/admin?tab=biomes', label: 'Biome scenes', svg: ICON_WORLD, tab: 'biomes' },
-  { to: '/admin?tab=scene', label: 'Scene (per-arena)', svg: ICON_ARENA, tab: 'scene' },
-  { to: '/admin?tab=settings', label: 'Settings', svg: ICON_ADMIN_COG, tab: 'settings' },
-  { to: '/admin/world', label: 'World Map Editor', svg: ICON_WORLD, route: '/admin/world' },
-  { to: '/lobby', label: 'Back to game', svg: ICON_BACK, route: '/lobby' },
+const ADMIN_NAV_OVERVIEW: AdminNavEntry = { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ADMIN_DOT, tab: 'overview' };
+
+type AdminNavGroup = {
+  readonly id: string;
+  readonly label: string;
+  readonly entries: readonly AdminNavEntry[];
+};
+
+const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
+  {
+    id: 'community',
+    label: 'Community',
+    entries: [
+      { to: '/admin?tab=users', label: 'Users', svg: ICON_ROSTER, tab: 'users' },
+      { to: '/admin?tab=seasons', label: 'Seasons', svg: ICON_ARENA, tab: 'seasons' },
+    ],
+  },
+  {
+    id: 'content',
+    label: 'Content',
+    entries: [
+      { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_DIGIDEX, tab: 'catalog' },
+      { to: '/admin?tab=skills', label: 'Skills', svg: ICON_TRAINING, tab: 'skills' },
+      { to: '/admin?tab=shop', label: 'Shop Admin', svg: ICON_MARKET, tab: 'shop' },
+      { to: '/admin?tab=quests', label: 'Quests', svg: ICON_ADVENTURE, tab: 'quests' },
+      { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ADMIN_DOT, tab: 'scraped' },
+    ],
+  },
+  {
+    id: 'world',
+    label: 'World',
+    entries: [
+      { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
+      { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_DIGIDEX, tab: 'tilesets' },
+      { to: '/admin?tab=biomes', label: 'Biome scenes', svg: ICON_WORLD, tab: 'biomes' },
+      { to: '/admin?tab=scene', label: 'Scene (per-arena)', svg: ICON_ARENA, tab: 'scene' },
+      { to: '/admin/world', label: 'World Map Editor', svg: ICON_WORLD, route: '/admin/world' },
+    ],
+  },
+  {
+    id: 'system',
+    label: 'System',
+    entries: [
+      { to: '/admin?tab=settings', label: 'Settings', svg: ICON_ADMIN_COG, tab: 'settings' },
+    ],
+  },
 ];
+
 const ADMIN_BACK_ENTRY: AdminNavEntry = { to: '/lobby', label: 'Back to game', svg: ICON_BACK, route: '/lobby' };
 
 const BEYOND_STYLE: CSSProperties = { marginTop: 6 };
 
 function isActive(pathname: string, target: string): boolean {
   return pathname === target || pathname.startsWith(`${target}/`);
+}
+
+function isAdminEntryActive(entry: AdminNavEntry, pathname: string, activeTab: string): boolean {
+  if (entry.route !== undefined && pathname === entry.route) return true;
+  if (entry.tab === 'dungeons' && pathname.startsWith('/admin/dungeons/')) return true;
+  if (pathname === '/admin' && entry.tab === activeTab) return true;
+  return false;
 }
 
 export function AppShell(): JSX.Element {
@@ -193,10 +231,7 @@ export function AppShell(): JSX.Element {
   };
 
   const renderAdminNav = (entry: AdminNavEntry): JSX.Element => {
-    const routeActive = entry.route !== undefined && pathname === entry.route;
-    const dungeonEditorActive = entry.tab === 'dungeons' && pathname.startsWith('/admin/dungeons/');
-    const tabActive = pathname === '/admin' && entry.tab === activeAdminTab;
-    const active = routeActive || dungeonEditorActive || tabActive;
+    const active = isAdminEntryActive(entry, pathname, activeAdminTab);
     const label = entry.labelKey ? t(entry.labelKey) : entry.label;
     return (
       <Link
@@ -245,7 +280,18 @@ export function AppShell(): JSX.Element {
           {isAdminMode ? (
               <>
                 <div className="grp">{t('hud.admin')}</div>
-                {ADMIN_NAV.slice(0, 13).map(renderAdminNav)}
+                {renderAdminNav(ADMIN_NAV_OVERVIEW)}
+                {ADMIN_NAV_GROUPS.map((group) => {
+                  const containsActive = group.entries.some((entry) => isAdminEntryActive(entry, pathname, activeAdminTab));
+                  return (
+                    <details key={group.id} className="nav-group" open={containsActive}>
+                      <summary className="nav-group-summary">{group.label}</summary>
+                      <div className="nav-group-body">
+                        {group.entries.map(renderAdminNav)}
+                      </div>
+                    </details>
+                  );
+                })}
                 <div className="grp" style={BEYOND_STYLE}>─</div>
                 {renderAdminNav(ADMIN_BACK_ENTRY)}
               </>
