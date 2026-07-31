@@ -71,6 +71,5 @@
   .side.is-open{transform:translateX(0)}
   .sidebar-backdrop{display:block}
   .win.has-sidebar-open .sidebar-backdrop{opacity:1;pointer-events:auto}
-  .win-locale{margin-left:auto}
   .win-meta{display:none}
 }

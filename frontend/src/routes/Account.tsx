@@ -4,11 +4,17 @@ import type { Attribute } from '@digiworld/shared/digimon';
 
 import { AvatarPicker, type AvatarPickChoice } from '../components/account/AvatarPicker';
 import { useAuth } from '../hooks/useAuth';
-import { useT } from '../hooks/useLocale';
+import { useLocale, useT } from '../hooks/useLocale';
 import { getRoster, type RosterView } from '../lib/api';
 import { getPlayerCareer, getPvpHistory, type PlayerCareer, type PvpMatchSummary } from '../lib/api-player';
 import { fmtRelative } from '../lib/format';
+import { setLocale, type Locale } from '../lib/locale';
 import '../styles/extensions-account.css';
+
+const LOCALE_CHOICES: readonly { readonly id: Locale; readonly label: string }[] = [
+  { id: 'en', label: 'EN' },
+  { id: 'pt', label: 'PT' },
+];
 
 const ATTR_TO_EL: Readonly<Record<Attribute, string>> = {
   Virus: 'fire',
@@ -97,6 +103,7 @@ function matchStateClass(match: PvpMatchSummary): string {
 
 export function Account(): JSX.Element {
   const t = useT();
+  const locale = useLocale();
   const { user } = useAuth();
   const [avatarChoice, setAvatarChoice] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
@@ -307,8 +314,8 @@ export function Account(): JSX.Element {
               <div className="rl">{t('account.rank.time_played')}</div>
             </div>
           </div>
-        </div>
-      </section>
+          </div>
+        </section>
 
       <div className="acc-body">
         <section className="acc-col" aria-label={t('account.career.aria')}>
@@ -369,6 +376,29 @@ export function Account(): JSX.Element {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+
+          <div className="acc-prefs" aria-label={t('account.prefs.aria')}>
+            <div className="pk">{t('account.prefs.title')}</div>
+            <div className="acc-pref-row">
+              <div className="acc-pref-txt">
+                <div className="acc-pref-k">{t('account.prefs.language')}</div>
+                <div className="acc-pref-hint">{t('account.prefs.language_hint')}</div>
+              </div>
+              <div className="acc-lang" role="group" aria-label={t('account.prefs.language')}>
+                {LOCALE_CHOICES.map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    className={`acc-lang-btn${locale === choice.id ? ' is-active' : ''}`}
+                    aria-pressed={locale === choice.id}
+                    onClick={() => setLocale(choice.id)}
+                  >
+                    {choice.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </section>

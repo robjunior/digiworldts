@@ -20,8 +20,7 @@ import {
 } from './common/icons';
 import { TopBarRight } from './topbar/TopBarRight';
 import { useAuth } from '../hooks/useAuth';
-import { useLocale, useT } from '../hooks/useLocale';
-import { setLocale } from '../lib/locale';
+import { useT } from '../hooks/useLocale';
 import { getFarm } from '../lib/api-farm';
 import { getRoster } from '../lib/api';
 
@@ -192,7 +191,6 @@ function isAdminEntryActive(entry: AdminNavEntry, pathname: string, activeTab: s
 
 export function AppShell(): JSX.Element {
   const { user } = useAuth();
-  const locale = useLocale();
   const t = useT();
   const { pathname, search } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -273,24 +271,6 @@ export function AppShell(): JSX.Element {
         </button>
         <div className="lights"><i /><i /><i /></div>
         <div className="win-meta">{t('header.tamer_terminal')} · {pageLabel}</div>
-        <div className="win-locale" role="group" aria-label={t('hud.language')}>
-          <button
-            type="button"
-            className={`win-locale-btn ${locale === 'en' ? 'is-active' : ''}`}
-            aria-pressed={locale === 'en'}
-            onClick={() => setLocale('en')}
-          >
-            EN
-          </button>
-          <button
-            type="button"
-            className={`win-locale-btn ${locale === 'pt' ? 'is-active' : ''}`}
-            aria-pressed={locale === 'pt'}
-            onClick={() => setLocale('pt')}
-          >
-            PT
-          </button>
-        </div>
         <TopBarRight />
       </header>
       <div className="body">
