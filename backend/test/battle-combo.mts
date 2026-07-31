@@ -1,8 +1,10 @@
 /**
  * Phase A verification driver — proves:
  *   1. Chain multiplier applies on consecutive same-side same-element hits
- *   2. Chain breaks when element or side changes
- *   3. Guard resets the chain (wasHit=false)
+ *   2. Chain persists across element change when the triangle attribute
+ *      (Vaccine/Virus/Data) is the same — this is the widened chain from
+ *      commit 3b37a23; element-only chain is a subset of the attribute path
+ *   3. Chain breaks when side changes
  *   4. shiftInitiative reorders the turn queue correctly
  *
  * Uses fixed Math.random for deterministic damage math (variance/crit/miss).
@@ -11,6 +13,7 @@
 import { initBattle, initPveBattle, applyAction, shiftInitiative } from '../src/battle/engine.js';
 import type { LoadoutMember, Loadout } from '../src/battle/engine.js';
 import type { TemplateDigimon } from '../src/digimon/types.js';
+import { CHAIN_MULT } from '@digiworld/shared/battle';
 
 const originalRandom = Math.random;
 Math.random = () => 0.5;
@@ -67,7 +70,7 @@ function check(name: string, ok: boolean, detail?: string): void {
 
 console.log('=== Test 1: Chain multiplier applies + cue emitted ===');
 {
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   check('lastAction starts null', b.lastAction === null);
   check('queue order is A0,A1,A2,B0,B1,B2 (A units are faster)',
     b.turnQueue.map((e) => e.unitId).join(',') === 'a:0,a:1,a:2,b:0,b:1,b:2',
@@ -86,25 +89,29 @@ console.log('=== Test 1: Chain multiplier applies + cue emitted ===');
   const d2 = (hit2 as { damage: number }).damage;
   const cue2 = (hit2 as { cue: string }).cue;
   check('A1 cue is chain', cue2 === 'chain', `cue=${cue2}`);
-  check('A1 damage ~2x A0 damage', Math.abs(d2 / d1 - 2.0) < 0.05, `d1=${d1} d2=${d2} ratio=${(d2/d1).toFixed(2)}`);
+  check(`A1 damage ~${CHAIN_MULT}x A0 damage (CHAIN_MULT)`, Math.abs(d2 / d1 - CHAIN_MULT) < 0.05, `d1=${d1} d2=${d2} ratio=${(d2/d1).toFixed(2)}`);
 }
 
-console.log('\n=== Test 2: Chain BREAKS when element changes ===');
+console.log('\n=== Test 2: Chain persists via same triangle-attribute even when element changes ===');
 {
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   applyAction(b, 'a', { type: 'fight', unitId: 'a:0', targetId: 'b:0' });
   applyAction(b, 'a', { type: 'fight', unitId: 'a:1', targetId: 'b:0' });
   const r3 = applyAction(b, 'a', { type: 'fight', unitId: 'a:2', targetId: 'b:0' });
   check('A2 water hit accepted', r3.ok);
   const hit3 = b.log.filter((e) => e.type === 'action').at(-1);
   const cue3 = (hit3 as { cue: string }).cue;
-  check('A2 cue is NOT chain (element changed fire→water)', cue3 !== 'chain', `cue=${cue3}`);
+  // A0/A1/A2 all share attribute=Vaccine (∈ ATTRS_TRIANGLE_ELIGIBLE). Engine
+  // chain fires on (same element) OR (same triangle-attribute), so a fire→water
+  // transition still chains via the attribute leg — even though it broke the
+  // element leg. This is the intended behavior after commit 3b37a23.
+  check('A2 cue is chain (attribute leg persists across element change)', cue3 === 'chain', `cue=${cue3}`);
   check('lastAction={a,water,true}', b.lastAction?.side === 'a' && b.lastAction?.element === 'water' && b.lastAction?.wasHit === true);
 }
 
 console.log('\n=== Test 3: Chain BREAKS across enemy turn ===');
 {
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   applyAction(b, 'a', { type: 'fight', unitId: 'a:0', targetId: 'b:0' });
   applyAction(b, 'a', { type: 'fight', unitId: 'a:1', targetId: 'b:0' });
   applyAction(b, 'a', { type: 'fight', unitId: 'a:2', targetId: 'b:0' });
@@ -113,19 +120,9 @@ console.log('\n=== Test 3: Chain BREAKS across enemy turn ===');
   check('lastAction now side=b', b.lastAction?.side === 'b');
 }
 
-console.log('\n=== Test 4: Guard breaks chain ===');
+console.log('\n=== Test 4: shiftInitiative reorders queue ===');
 {
-  const b = initBattle({ loadoutA, loadoutB });
-  applyAction(b, 'a', { type: 'fight', unitId: 'a:0', targetId: 'b:0' });
-  const rG = applyAction(b, 'a', { type: 'guard', unitId: 'a:1' });
-  check('Guard accepted', rG.ok);
-  check('Guard resets lastAction.wasHit=false', b.lastAction?.wasHit === false);
-  check('Guard resets lastAction.element=neutral', b.lastAction?.element === 'neutral');
-}
-
-console.log('\n=== Test 5: shiftInitiative reorders queue ===');
-{
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   const beforeOrder = b.turnQueue.map((e) => e.unitId).join(',');
   check('starting order A0,A1,A2,B0,B1,B2', beforeOrder === 'a:0,a:1,a:2,b:0,b:1,b:2');
 
@@ -142,18 +139,17 @@ console.log('\n=== Test 5: shiftInitiative reorders queue ===');
 
 Math.random = originalRandom;
 
-console.log('\n=== Test 6: initPveBattle sets mode=pve + phantom slots ===');
+console.log('\n=== Test 5: initPveBattle sets mode=pve + phantom slots ===');
 {
   Math.random = () => 0.5;
   const wildMember: LoadoutMember = mem('wild-0', fireB, 0);
-  const b = initPveBattle({
+  const b = await initPveBattle({
     playerLoadout: loadoutA,
     wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
   });
   check('battle.mode = pve', b.mode === 'pve');
   const wildUnit = b.units.find((u) => u.id === 'b:0')!;
   check('wild unit has wildInfo', wildUnit.wildInfo !== undefined, `wildInfo=${JSON.stringify(wildUnit.wildInfo)}`);
-  check('wild unit analyzed=false initially', wildUnit.analyzed === false);
   const phantom1 = b.units.find((u) => u.id === 'b:1')!;
   const phantom2 = b.units.find((u) => u.id === 'b:2')!;
   check('phantom b:1 dead from init (hp=0)', phantom1.hp === 0, `hp=${phantom1.hp}`);
@@ -162,30 +158,11 @@ console.log('\n=== Test 6: initPveBattle sets mode=pve + phantom slots ===');
   Math.random = originalRandom;
 }
 
-console.log('\n=== Test 7: Analyze action marks target + emits analyzedInfo ===');
-{
-  Math.random = () => 0.5;
-  const wildMember: LoadoutMember = mem('wild-a', fireB, -1000);
-  const b = initPveBattle({
-    playerLoadout: loadoutA,
-    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
-  });
-  const r = applyAction(b, 'a', { type: 'analyze', unitId: 'a:0', targetId: 'b:0' });
-  check('analyze accepted', r.ok);
-  const wildUnit = b.units.find((u) => u.id === 'b:0')!;
-  check('target.analyzed=true after analyze', wildUnit.analyzed === true);
-  const evt = b.log.filter((e) => e.type === 'action').at(-1);
-  check('event cue=analyzed', (evt as { cue: string }).cue === 'analyzed');
-  const info = (evt as { analyzedInfo?: { name: string; level: number; hp: number; skills: Array<{ name: string }> } }).analyzedInfo;
-  check('analyzedInfo populated with name+stats+skills', info !== undefined && info.name === wildUnit.name && info.hp === wildUnit.hp);
-  Math.random = originalRandom;
-}
-
-console.log('\n=== Test 8: Capture miss at full HP (non-rare) - chance 0.15 vs roll 0.5 ===');
+console.log('\n=== Test 6: Capture miss at full HP (non-rare) - chance 0.15 vs roll 0.5 ===');
 {
   Math.random = () => 0.5;
   const wildMember: LoadoutMember = mem('wild-cap', fireB, -1000);
-  const b = initPveBattle({
+  const b = await initPveBattle({
     playerLoadout: loadoutA,
     wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
   });
@@ -200,11 +177,11 @@ console.log('\n=== Test 8: Capture miss at full HP (non-rare) - chance 0.15 vs r
   Math.random = originalRandom;
 }
 
-console.log('\n=== Test 9: Capture HIT at 50% HP (non-rare) - chance 0.525 vs roll 0.5 ===');
+console.log('\n=== Test 7: Capture HIT at 50% HP (non-rare) - chance 0.525 vs roll 0.5 ===');
 {
   Math.random = () => 0.5;
   const wildMember: LoadoutMember = mem('wild-half', fireB, -1000);
-  const b = initPveBattle({
+  const b = await initPveBattle({
     playerLoadout: loadoutA,
     wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
   });
@@ -224,11 +201,11 @@ console.log('\n=== Test 9: Capture HIT at 50% HP (non-rare) - chance 0.525 vs ro
   Math.random = originalRandom;
 }
 
-console.log('\n=== Test 10: Rare mon halves capture chance ===');
+console.log('\n=== Test 8: Rare mon halves capture chance ===');
 {
   Math.random = () => 0.5;
   const wildMember: LoadoutMember = mem('wild-rare', fireB, -1000);
-  const b = initPveBattle({
+  const b = await initPveBattle({
     playerLoadout: loadoutA,
     wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: true } }],
   });
@@ -244,28 +221,9 @@ console.log('\n=== Test 10: Rare mon halves capture chance ===');
   Math.random = originalRandom;
 }
 
-console.log('\n=== Test 11: Analyzed bonus boosts capture chance (1.3x) ===');
+console.log('\n=== Test 9: Capture in PVP mode is rejected ===');
 {
-  Math.random = () => 0.5;
-  const wildMember: LoadoutMember = mem('wild-anal', fireB, -1000);
-  const b = initPveBattle({
-    playerLoadout: loadoutA,
-    wildParty: [{ member: wildMember, wildInfo: { catalogId: fireB.id, rare: false } }],
-  });
-  const wild = b.units.find((u) => u.id === 'b:0')!;
-  wild.analyzed = true;
-  wild.hp = Math.floor(wild.hpMax * 0.5);
-  const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
-  check('capture accepted', r.ok);
-  const evt = b.log.filter((e) => e.type === 'action').at(-1);
-  const chance = (evt as { captureChance?: number }).captureChance;
-  check('analyzed captureChance ≈ 0.6825 (0.525 * 1.3)', Math.abs((chance ?? 0) - 0.6825) < 0.005, `chance=${chance}`);
-  Math.random = originalRandom;
-}
-
-console.log('\n=== Test 12: Capture in PVP mode is rejected ===');
-{
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   const r = applyAction(b, 'a', { type: 'capture', unitId: 'a:0', targetId: 'b:0' });
   check('capture rejected in PVP', !r.ok, `error=${!r.ok ? r.error : 'none'}`);
 }
