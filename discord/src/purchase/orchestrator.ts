@@ -8,8 +8,8 @@ import { log } from '../logger.js';
 import { getPurchaseSessionByProviderPayment, markPurchaseDelivered, updatePurchaseSessionState } from '../repo/purchases.js';
 import { addCreditDebt } from '../repo/debt.js';
 import type { PurchaseSession, Queryable } from '../repo/types.js';
-import { createMercadoPagoProvider } from '../payments/mercadopago.js';
-import type { PaymentProvider } from '../payments/types.js';
+import { createMercadoPagoProvider, MercadoPagoHttpError } from '../payments/mercadopago.js';
+import type { PaymentProvider, PaymentStatus } from '../payments/types.js';
 import type { NotificationService } from '../notifications.js';
 import { decideMercadoPagoTransition, decideTransition, isMercadoPagoStatus, isPurchaseState, recordPurchaseEvent } from './stateMachine.js';
 
@@ -81,7 +81,21 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
   const paymentProvider = deps.paymentProvider ?? createMercadoPagoProvider();
   const backendClient = deps.backendClient ?? createBackendClient();
   const now = deps.now ?? Date.now;
-  const status = await paymentProvider.getStatus(paymentId);
+
+  // The webhook turns a throw into a 500 so MercadoPago retries. An order the provider
+  // does not know is not a transient fault — retrying it forever accomplishes nothing,
+  // so it is swallowed here and only real failures are allowed to propagate.
+  let status: PaymentStatus;
+  try {
+    status = await paymentProvider.getStatus(paymentId);
+  } catch (error) {
+    if (error instanceof MercadoPagoHttpError && error.status === 404) {
+      log.warn('purchase.provider.unknown_order', { paymentId });
+      return;
+    }
+    throw error;
+  }
+
   if (!isMercadoPagoStatus(status.status)) return;
   const session = await getPurchaseSessionByProviderPayment(db, 'mercadopago', paymentId);
   if (session === null || !isPurchaseState(session.state)) return;

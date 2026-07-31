@@ -49,7 +49,7 @@ function session(state: string): Row {
 }
 
 async function main(): Promise<void> {
-  const { MercadoPagoProvider, signMercadoPagoWebhook } = await import('../src/payments/mercadopago.js');
+  const { MercadoPagoProvider, signMercadoPagoWebhook, MercadoPagoHttpError } = await import('../src/payments/mercadopago.js');
   const { processMercadoPagoPayment } = await import('../src/purchase/orchestrator.js');
   const { createServer } = await import('../src/server.js');
   const db = new MemoryDb();
@@ -105,6 +105,32 @@ async function main(): Promise<void> {
   assertEqual(mismatchGrants.length, 0, 'provider reporting a different paid amount must NOT mint any credits');
   assertEqual(mismatchDb.sessions.get('session-3')?.state, 'disputed', 'amount mismatch parks the session in disputed for a human');
   assert(mismatchDb.events.some((e) => e.reason === 'amount-mismatch'), 'amount mismatch is recorded as a purchase event');
+
+  // A 500 makes MercadoPago retry. An order it does not know about will never resolve,
+  // so it must not become an infinite retry loop.
+  let unknownThrew = false;
+  try {
+    await processMercadoPagoPayment('ORD_DOES_NOT_EXIST', {
+      db: new MemoryDb(),
+      now: () => 3_000,
+      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(404, { message: 'not found' }); } },
+    });
+  } catch {
+    unknownThrew = true;
+  }
+  assert(!unknownThrew, 'an order MercadoPago does not know is swallowed, not retried forever');
+
+  let transientThrew = false;
+  try {
+    await processMercadoPagoPayment('ORD_PROVIDER_DOWN', {
+      db: new MemoryDb(),
+      now: () => 3_000,
+      paymentProvider: { getStatus: async () => { throw new MercadoPagoHttpError(503, { message: 'unavailable' }); } },
+    });
+  } catch {
+    transientThrew = true;
+  }
+  assert(transientThrew, 'a transient provider failure still propagates so the webhook returns 500 and MercadoPago retries');
 
   const processCalls: string[] = [];
   const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: 'http://127.0.0.1:1' });
