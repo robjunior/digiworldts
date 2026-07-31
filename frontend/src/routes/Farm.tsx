@@ -32,6 +32,7 @@ const RES_VAR: Record<string, string> = {
 const emptyFarm: FarmView = {
   balances: { Meat: 0, Bits: 0, Data: 0 },
   credits: 0,
+  netcore: 0,
   buildings: [],
 };
 

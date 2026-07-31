@@ -1006,6 +1006,9 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
   if (oppName !== undefined && oppName.length > 0) {
     view.opponentDisplayName = oppName;
   }
+  if (battle.sceneId !== undefined && battle.sceneId !== null) {
+    view.sceneId = battle.sceneId;
+  }
   return view;
 }
 
