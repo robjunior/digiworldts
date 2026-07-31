@@ -14,6 +14,7 @@ import { applyGrowth, awardXp, xpFromDefeats, xpToReach, type DefeatedFoe, type 
 import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
+import { grantItem } from '../items/grant.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemDrop, type WildMon } from './engine.js';
@@ -35,12 +36,6 @@ const SQL_INSERT_MON = `
        mood, status, slot_index, equipped_skill_ids,
        created_at, updated_at)
   VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?, ?)
-`;
-const SQL_UPSERT_INVENTORY = `
-  INSERT INTO player_inventory (user_id, item_id, qty, updated_at)
-       VALUES (?, ?, ?, ?)
-    ON CONFLICT (user_id, item_id) DO UPDATE
-       SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at
 `;
 const SQL_UPDATE_MON_XP = `
   UPDATE player_roster
@@ -618,8 +613,13 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
 }
 
 export async function grantItemDrop(userId: string, drop: ItemDrop): Promise<void> {
-  const now = Date.now();
-  await run(SQL_UPSERT_INVENTORY, [userId, drop.itemId, drop.qty, now]);
+  // Loot quantities come from admin-authored rules, where qty_min may be 0.
+  // That is a bad rule, not a reason to throw mid-reward, so warn and skip.
+  if (!Number.isInteger(drop.qty) || drop.qty <= 0) {
+    log.warn('world.drop.skipped-empty', { userId, itemId: drop.itemId, qty: drop.qty });
+    return;
+  }
+  await grantItem(userId, drop.itemId, drop.qty);
   log.info('world.drop.grant', { userId, itemId: drop.itemId, qty: drop.qty });
 }
 
