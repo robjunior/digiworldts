@@ -29,8 +29,6 @@ const UnitIdSchema = z.string().regex(/^[ab]:[0-5]$/);
 const ActionSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('fight'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
   z.object({ type: z.literal('skill'), unitId: UnitIdSchema, skillId: z.string().min(1), targetId: UnitIdSchema }),
-  z.object({ type: z.literal('guard'), unitId: UnitIdSchema }),
-  z.object({ type: z.literal('analyze'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
   z.object({ type: z.literal('capture'), unitId: UnitIdSchema, targetId: UnitIdSchema }),
   z.object({ type: z.literal('use_item'), unitId: UnitIdSchema, targetId: UnitIdSchema, itemId: z.string().min(1) }),
   z.object({ type: z.literal('flee') }),

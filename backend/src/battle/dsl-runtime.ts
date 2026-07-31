@@ -7,7 +7,6 @@ import {
   CHAIN_MULT,
   CRIT_CHANCE,
   CRIT_MULT,
-  GUARD_MULT,
   MAX_HIT_PCT,
   MIN_HIT_PCT,
   MISS_CHANCE,
@@ -386,15 +385,13 @@ function execDealDamage(
     const defMitigation = action.ignore_defense === true
       ? 1
       : 1 - clamp(effectiveDef(target) / (effectiveDef(target) + 400), 0, 0.65);
-    const guardMult = target.guarding ? GUARD_MULT : 1;
     const variance = 0.9 + Math.random() * 0.2;
     const dmgRaw = resMult === 0 ? 0 : Math.max(
       1,
-      Math.round(baseAmount * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
+      Math.round(baseAmount * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * variance * rate),
     );
     const dmg = applyDamageWithBuffs(target, dmgRaw);
     target.hp = clamp(target.hp - dmg, 0, target.hpMax);
-    target.guarding = false;
     battle.lastAction = { side: actingSide, element, attribute: actor.attribute, wasHit: true };
 
     const cue = resMult === 0 ? 'immune'
@@ -582,11 +579,10 @@ function computeMitigatedDamage(
   const attrMult = attrKind ? ATTR_MULT[attrKind] : 1;
   const chainMult = chained ? CHAIN_MULT : 1;
   const defMitigation = ignoreDefense ? 1 : 1 - clamp(effectiveDef(target) / (effectiveDef(target) + 400), 0, 0.65);
-  const guardMult = target.guarding ? GUARD_MULT : 1;
   const variance = 0.9 + Math.random() * 0.2;
   const dmg = resMult === 0 ? 0 : Math.max(
     1,
-    Math.round(baseAmount * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * guardMult * variance * rate),
+    Math.round(baseAmount * (critted ? CRIT_MULT : 1) * attrMult * resMult * chainMult * defMitigation * variance * rate),
   );
   return { dmg, critted, resMult, attrKind };
 }
@@ -628,7 +624,6 @@ function execDrain(
     const { dmg, critted, resMult, attrKind } = computeMitigatedDamage(actor, target, baseAmount, element, false, chained, rate);
     const finalDmg = applyDamageWithBuffs(target, dmg);
     target.hp = clamp(target.hp - finalDmg, 0, target.hpMax);
-    target.guarding = false;
     totalDrained += finalDmg;
     battle.lastAction = { side: actingSide, element, attribute: actor.attribute, wasHit: true };
     const cue = resMult === 0 ? 'immune' : chained ? 'chain' : critted ? 'crit'

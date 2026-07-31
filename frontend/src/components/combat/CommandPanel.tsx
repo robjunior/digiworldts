@@ -16,14 +16,12 @@ type CommandPanelProps = {
   readonly onMode: (mode: CommandMode) => void;
   readonly onFight: (targetId: UnitId) => void;
   readonly onSkill: (skillId: string, targetId: UnitId) => void;
-  readonly onGuard: () => void;
-  readonly onAnalyze: (targetId: UnitId) => void;
   readonly onUseItem: (itemId: string, targetId: UnitId) => void;
   readonly onFlee: () => void;
 };
 
 export function CommandPanel(props: CommandPanelProps): JSX.Element {
-  const { mode, actor, target, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onGuard, onAnalyze, onUseItem, onFlee } = props;
+  const { mode, actor, target, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
 
   if (!yourTurn) {
     return (
@@ -54,8 +52,6 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
       onMode={onMode}
       onFight={onFight}
       onSkill={onSkill}
-      onGuard={onGuard}
-      onAnalyze={onAnalyze}
       onUseItem={onUseItem}
       onFlee={onFlee}
     />
@@ -63,7 +59,7 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
 }
 
 function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly actor: FriendlyUnitView }): JSX.Element {
-  const { mode, actor, target, friendly, pveMode, onMode, onFight, onSkill, onGuard, onAnalyze, onUseItem, onFlee } = props;
+  const { mode, actor, target, friendly, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
   switch (mode) {
     case 'menu':
       return (
@@ -72,8 +68,6 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
           pveMode={pveMode}
           onMode={onMode}
           onFight={onFight}
-          onGuard={onGuard}
-          onAnalyze={() => target && onAnalyze(target.id)}
           onFlee={onFlee}
         />
       );
@@ -88,8 +82,6 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
           pveMode={pveMode}
           onMode={onMode}
           onFight={onFight}
-          onGuard={onGuard}
-          onAnalyze={() => target && onAnalyze(target.id)}
           onFlee={onFlee}
         />
       );
@@ -107,13 +99,11 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
   }
 }
 
-function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onFlee }: {
+function MenuActions({ target, pveMode, onMode, onFight, onFlee }: {
   readonly target: EnemyUnitView | null;
   readonly pveMode: boolean;
   readonly onMode: (mode: CommandMode) => void;
   readonly onFight: (targetId: UnitId) => void;
-  readonly onGuard: () => void;
-  readonly onAnalyze: () => void;
   readonly onFlee: () => void;
 }): JSX.Element {
   const t = useT();
@@ -131,20 +121,12 @@ function MenuActions({ target, pveMode, onMode, onFight, onGuard, onAnalyze, onF
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">{t('combat.skills')}</div>
         </button>
-        <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={onAnalyze}>
-          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">{t('combat.analyse')}</div>
-        </button>
         {pveMode ? (
           <button className="mrow" type="button" onClick={() => onMode('items')}>
             <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
             <div className="mnm">{t('combat.item')}</div>
           </button>
         ) : null}
-        <button className="mrow" type="button" onClick={onGuard}>
-          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-          <div className="mnm">{t('combat.guard')}</div>
-        </button>
         <button className="mrow" type="button" onClick={onFlee}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">{t('combat.flee')}</div>
