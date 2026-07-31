@@ -1,4 +1,5 @@
 import type { Element, Stage } from './digimon.js';
+import type { TilesetGrant } from './tileset.js';
 import type { Biome } from './world.js';
 
 export type EncounterDifficulty = 'easy' | 'normal' | 'elite' | 'boss';
@@ -42,6 +43,10 @@ export type EncounterLoot = {
 export type DungeonTile = {
   readonly x: number;
   readonly y: number;
+  /** Global Tile ID (Tiled convention) — indexes into the joined tilesets
+   * of this dungeon. Defaults to `1` for tiles created via the admin editor
+   * (which paints walkability without a specific sprite). */
+  readonly gid: number;
 };
 
 export type DungeonEncounter = {
@@ -123,6 +128,7 @@ export type Dungeon = {
 export type DungeonView = {
   readonly dungeon: Dungeon;
   readonly tiles: readonly DungeonTile[];
+  readonly tilesets: readonly TilesetGrant[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
   readonly warps: readonly DungeonWarp[];
@@ -174,6 +180,7 @@ export type DungeonRunView = {
   readonly dungeon: Dungeon;
   readonly run: UserDungeonRun;
   readonly tiles: readonly DungeonTile[];
+  readonly tilesets: readonly TilesetGrant[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
   readonly doors: readonly DungeonDoor[];

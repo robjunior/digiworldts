@@ -12,6 +12,7 @@ import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { SeasonsAdmin } from '../components/admin/SeasonsAdmin';
 import { ShopAdmin } from '../components/admin/ShopAdmin';
 import { SkillsAdmin } from '../components/admin/SkillsAdmin';
+import { TilesetsAdmin } from '../components/admin/tilesets/TilesetsAdmin';
 import { UserTable } from '../components/admin/UserTable';
 import { PageStrip } from '../components/common/PageStrip';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +29,7 @@ const ADMIN_TABS = [
   { id: 'shop', label: 'Shop Admin' },
   { id: 'quests', label: 'Quests' },
   { id: 'dungeons', label: 'Dungeons' },
+  { id: 'tilesets', label: 'Tilesets' },
   { id: 'scene', label: 'Scene' },
   { id: 'settings', label: 'Settings' },
 ] as const;
@@ -93,6 +95,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <QuestsAdmin />;
     case 'dungeons':
       return <DungeonsAdmin />;
+    case 'tilesets':
+      return <TilesetsAdmin />;
     case 'scene':
       return <SceneSettingsAdmin />;
     case 'settings':

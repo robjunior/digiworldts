@@ -32,8 +32,9 @@ RUN pnpm --filter @digiworld/shared build \
 # an empty named volume with the mount target's ownership + permissions on FIRST
 # mount, so a missing mkdir means Docker synthesizes the path as root:root and
 # every write from the running backend fails with EACCES. Volumes: assetdata
-# (public/assets/digimon), scrapecache (data/cache), scenedata (data/scenes).
-RUN mkdir -p /app/backend/data /app/backend/data/cache /app/backend/data/scenes /app/backend/public/assets/digimon \
+# (public/assets/digimon), scrapecache (data/cache), scenedata (data/scenes),
+# tilesetdata (data/tilesets).
+RUN mkdir -p /app/backend/data /app/backend/data/cache /app/backend/data/scenes /app/backend/data/tilesets /app/backend/public/assets/digimon \
  && chown -R node:node /app
 
 USER node

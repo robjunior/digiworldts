@@ -7,6 +7,7 @@ import { BIOMES, type Biome, type Dungeon } from '@digiworld/shared';
 
 import { createAdminDungeon, deleteAdminDungeon, listAdminDungeons } from '../../lib/api-dungeon-admin';
 import { AdminSection, ErrorText, Field } from './AdminShared';
+import { TiledImportButton } from './dungeon/TiledImportButton';
 
 const DUNGEONS_QUERY_KEY = ['admin', 'dungeons'] as const;
 
@@ -71,6 +72,7 @@ export function DungeonsAdmin(): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [draft, setDraft] = useState<DraftDungeon>(EMPTY_DRAFT);
 
   const dungeonsQuery = useQuery({ queryKey: DUNGEONS_QUERY_KEY, queryFn: listAdminDungeons });
@@ -119,12 +121,30 @@ export function DungeonsAdmin(): JSX.Element {
       title="Dungeons"
       lede="Create and manage dungeons. Each dungeon has a grid of walkable tiles plus encounters and item drops placed on specific tiles. Nest dungeons under a parent to keep multi-stage arcs grouped in the list."
       actions={
-        <button type="button" className="btn btn--primary btn--sm" onClick={() => setCreating(true)} disabled={creating}>
-          + New Dungeon
-        </button>
+        <>
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => { setImporting((v) => !v); setCreating(false); }}>
+            {importing ? 'Cancel import' : 'Import Tiled JSON'}
+          </button>
+          <button type="button" className="btn btn--primary btn--sm" onClick={() => { setCreating(true); setImporting(false); }} disabled={creating}>
+            + New Dungeon
+          </button>
+        </>
       }
     >
       <ErrorText error={dungeonsQuery.error ?? createMutation.error ?? deleteMutation.error} />
+
+      {importing ? (
+        <div style={{ marginBottom: '16px' }}>
+          <TiledImportButton
+            mode="new"
+            onImported={async (dungeonId) => {
+              await queryClient.invalidateQueries({ queryKey: DUNGEONS_QUERY_KEY });
+              setImporting(false);
+              navigate(`/admin/dungeons/${dungeonId}`);
+            }}
+          />
+        </div>
+      ) : null}
 
       {creating ? (
         <form onSubmit={submit} style={{ marginBottom: '16px', padding: '14px', border: '1px solid var(--hair)', background: 'var(--panel)' }}>

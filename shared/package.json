@@ -42,6 +42,14 @@
       "types": "./dist/dungeon.d.ts",
       "import": "./dist/dungeon.js"
     },
+    "./tiled": {
+      "types": "./dist/tiled.d.ts",
+      "import": "./dist/tiled.js"
+    },
+    "./tileset": {
+      "types": "./dist/tileset.d.ts",
+      "import": "./dist/tileset.js"
+    },
     "./dialogue": {
       "types": "./dist/dialogue.d.ts",
       "import": "./dist/dialogue.js"

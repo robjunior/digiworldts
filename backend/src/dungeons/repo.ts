@@ -8,6 +8,7 @@ import type {
   DungeonView,
   EncounterDigimon,
   EncounterLoot,
+  TilesetGrant,
   UserDungeonRun,
 } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
@@ -17,6 +18,8 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import type { CreateEncounterInput, CreateItemInput, CreateWarpInput, TileInput, UpdateDungeonInput, UpdateEncounterInput, UpdateWarpInput } from './validation.js';
 import { asEncounterDigimon, EncounterDigimonSchema } from './validation.js';
+import type { TiledImportPayload, ImportedTilesetRef } from './tiled-import.js';
+import { findTilesetByName } from '../tilesets/repo.js';
 import { getDoorAt, getDoorById, listDoors } from './doors.js';
 import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.js';
 import type { TrapTriggered } from '@digiworld/shared';
@@ -32,7 +35,7 @@ type DungeonRow = {
   readonly unlock_requires_items: string | readonly string[] | null;
   readonly created_at: number; readonly updated_at: number;
 };
-type TileRow = { readonly x: number; readonly y: number };
+type TileRow = { readonly x: number; readonly y: number; readonly gid: number };
 type EncounterRow = {
   readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly difficulty: DungeonEncounter['difficulty'];
   readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly loots: string | readonly EncounterLoot[]; readonly created_at: number; readonly updated_at: number;
@@ -50,10 +53,10 @@ const SQL_GET_DUNGEON = `SELECT * FROM dungeons WHERE id = ?`;
 const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, parent_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, parent_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_DUNGEON = `DELETE FROM dungeons WHERE id = ?`;
-const SQL_LIST_TILES = `SELECT x, y FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x`;
+const SQL_LIST_TILES = `SELECT x, y, gid FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x`;
+const SQL_LIST_DUNGEON_TILESETS = `SELECT t.id, t.name, t.image_filename, t.tile_width, t.tile_height, t.image_width, t.image_height, t.columns, t.tile_count, t.created_at, t.updated_at, dt.firstgid FROM dungeon_tilesets dt JOIN tilesets t ON t.id = dt.tileset_id WHERE dt.dungeon_id = ? ORDER BY dt.firstgid`;
 const SQL_GET_TILE = `SELECT x, y FROM dungeon_tiles WHERE dungeon_id = ? AND x = ? AND y = ?`;
 const SQL_DELETE_TILES = `DELETE FROM dungeon_tiles WHERE dungeon_id = ?`;
-const SQL_INSERT_TILE = `INSERT INTO dungeon_tiles (dungeon_id, x, y) VALUES (?, ?, ?)`;
 const SQL_LIST_ENCOUNTERS = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_ENCOUNTER = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_ENCOUNTER_AT = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? AND x = ? AND y = ?`;
@@ -138,7 +141,7 @@ function parseStringArraySafe(value: string | readonly string[] | null): readonl
 }
 
 function tileFromRow(row: TileRow): DungeonTile {
-  return { x: row.x, y: row.y };
+  return { x: row.x, y: row.y, gid: row.gid };
 }
 
 function encounterFromRow(row: EncounterRow): DungeonEncounter {
@@ -200,7 +203,16 @@ export async function getDungeon(id: string): Promise<Dungeon | null> {
 export async function getDungeonView(id: string): Promise<DungeonView | null> {
   const dungeon = await getDungeon(id);
   if (!dungeon) return null;
-  return { dungeon, tiles: await listTiles(id), encounters: await listEncounters(id), items: await listItems(id), warps: await listWarps(id), doors: await listDoors(id), traps: await listTraps(id) };
+  return {
+    dungeon,
+    tiles: await listTiles(id),
+    tilesets: await listDungeonTilesets(id),
+    encounters: await listEncounters(id),
+    items: await listItems(id),
+    warps: await listWarps(id),
+    doors: await listDoors(id),
+    traps: await listTraps(id),
+  };
 }
 
 export async function getEncounter(dungeonId: string, encId: string): Promise<DungeonEncounter | null> {
@@ -261,12 +273,46 @@ export async function listTiles(dungeonId: string): Promise<DungeonTile[]> {
   return (await q<TileRow>(SQL_LIST_TILES, dungeonId)).map(tileFromRow);
 }
 
+type DungeonTilesetRow = {
+  readonly id: string;
+  readonly name: string;
+  readonly image_filename: string;
+  readonly tile_width: number;
+  readonly tile_height: number;
+  readonly image_width: number;
+  readonly image_height: number;
+  readonly columns: number;
+  readonly tile_count: number;
+  readonly created_at: number;
+  readonly updated_at: number;
+  readonly firstgid: number;
+};
+
+export async function listDungeonTilesets(dungeonId: string): Promise<TilesetGrant[]> {
+  const rows = await q<DungeonTilesetRow>(SQL_LIST_DUNGEON_TILESETS, dungeonId);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    imageFilename: r.image_filename,
+    imageUrl: `/api/tilesets/${encodeURIComponent(r.id)}/image`,
+    tileWidth: r.tile_width,
+    tileHeight: r.tile_height,
+    imageWidth: r.image_width,
+    imageHeight: r.image_height,
+    columns: r.columns,
+    tileCount: r.tile_count,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    firstgid: r.firstgid,
+  }));
+}
+
 export async function replaceTiles(dungeonId: string, tiles: readonly TileInput[]): Promise<DungeonTile[] | null> {
   const dungeon = await getDungeon(dungeonId);
   if (!dungeon) return null;
   await tx(async (t) => {
     await t.run(SQL_DELETE_TILES, [dungeonId]);
-    for (const tile of tiles) await t.run(SQL_INSERT_TILE, [dungeonId, tile.x, tile.y]);
+    for (const tile of tiles) await t.run(SQL_INSERT_TILE_WITH_GID, [dungeonId, tile.x, tile.y, tile.gid]);
   });
   return listTiles(dungeonId);
 }
@@ -373,14 +419,30 @@ export async function startOrGetRun(userId: string, dungeonId: string): Promise<
   if (!existing) await run(SQL_INSERT_RUN, userId, dungeonId, dungeon.spawnX, dungeon.spawnY, '[]', '[]', '[]', Date.now());
   const runRow = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!runRow) return null;
-  return { dungeon, run: runFromRow(runRow), tiles: await listTiles(dungeonId), encounters: await listEncounters(dungeonId), items: await listItems(dungeonId), doors: await listDoors(dungeonId) };
+  return {
+    dungeon,
+    run: runFromRow(runRow),
+    tiles: await listTiles(dungeonId),
+    tilesets: await listDungeonTilesets(dungeonId),
+    encounters: await listEncounters(dungeonId),
+    items: await listItems(dungeonId),
+    doors: await listDoors(dungeonId),
+  };
 }
 
 export async function getDungeonRunView(userId: string, dungeonId: string): Promise<DungeonRunView | null> {
   const dungeon = await getDungeon(dungeonId);
   const runRow = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!dungeon || !runRow) return null;
-  return { dungeon, run: runFromRow(runRow), tiles: await listTiles(dungeonId), encounters: await listEncounters(dungeonId), items: await listItems(dungeonId), doors: await listDoors(dungeonId) };
+  return {
+    dungeon,
+    run: runFromRow(runRow),
+    tiles: await listTiles(dungeonId),
+    tilesets: await listDungeonTilesets(dungeonId),
+    encounters: await listEncounters(dungeonId),
+    items: await listItems(dungeonId),
+    doors: await listDoors(dungeonId),
+  };
 }
 
 export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
@@ -498,4 +560,155 @@ async function listEncounters(dungeonId: string): Promise<DungeonEncounter[]> {
 
 async function listItems(dungeonId: string): Promise<DungeonItem[]> {
   return (await q<ItemRow>(SQL_LIST_ITEMS, dungeonId)).map(itemFromRow);
+}
+
+const SQL_INSERT_DOOR_IMPORT = `INSERT INTO dungeon_doors (id, dungeon_id, x, y, key_item_id, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_INSERT_TRAP_IMPORT = `INSERT INTO dungeon_traps (id, dungeon_id, x, y, kind, severity, label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_DUNGEON_META_IMPORT = `UPDATE dungeons SET width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_TILE_WITH_GID = `INSERT INTO dungeon_tiles (dungeon_id, x, y, gid) VALUES (?, ?, ?, ?)`;
+const SQL_INSERT_DUNGEON_TILESET = `INSERT INTO dungeon_tilesets (dungeon_id, tileset_id, firstgid) VALUES (?, ?, ?)`;
+const SQL_DELETE_DUNGEON_TILESETS = `DELETE FROM dungeon_tilesets WHERE dungeon_id = ?`;
+
+type ResolvedTilesetLinks = readonly { readonly tilesetId: string; readonly firstgid: number }[];
+
+async function resolveTilesetLinks(
+  refs: readonly ImportedTilesetRef[],
+): Promise<{ readonly ok: true; readonly links: ResolvedTilesetLinks } | { readonly ok: false; readonly missing: readonly string[] }> {
+  const links: { tilesetId: string; firstgid: number }[] = [];
+  const missing: string[] = [];
+  for (const ref of refs) {
+    const found = await findTilesetByName(ref.name);
+    if (!found) missing.push(ref.name);
+    else links.push({ tilesetId: found.id, firstgid: ref.firstgid });
+  }
+  if (missing.length > 0) return { ok: false, missing };
+  return { ok: true, links };
+}
+
+export type ApplyTiledImportNewResult =
+  | { readonly ok: true; readonly dungeon: Dungeon }
+  | { readonly ok: false; readonly error: 'missing-tilesets'; readonly missing: readonly string[] };
+
+export type ApplyTiledImportReplaceResult =
+  | { readonly ok: true; readonly view: DungeonView }
+  | { readonly ok: false; readonly error: 'missing-tilesets'; readonly missing: readonly string[] }
+  | { readonly ok: false; readonly error: 'not-found' };
+
+export async function applyTiledImportReplace(dungeonId: string, payload: TiledImportPayload): Promise<ApplyTiledImportReplaceResult> {
+  const existing = await getDungeon(dungeonId);
+  if (!existing) return { ok: false, error: 'not-found' };
+  const resolved = await resolveTilesetLinks(payload.tilesets);
+  if (!resolved.ok) return { ok: false, error: 'missing-tilesets', missing: resolved.missing };
+  const now = Date.now();
+  const rs = payload.randomSettings;
+  const biome: Dungeon['biome'] = payload.biome ?? existing.biome;
+  const allowedElements = rs.randomAllowedElements === undefined ? existing.randomAllowedElements : rs.randomAllowedElements;
+  await tx(async (t) => {
+    await t.run(SQL_UPDATE_DUNGEON_META_IMPORT, [
+      payload.width, payload.height, payload.spawn.x, payload.spawn.y, biome,
+      (rs.randomEncountersEnabled ?? existing.randomEncountersEnabled) ? 1 : 0,
+      rs.randomEncounterRate ?? existing.randomEncounterRate,
+      rs.randomMinLevel ?? existing.randomMinLevel,
+      rs.randomMaxLevel ?? existing.randomMaxLevel,
+      rs.randomMaxStage ?? existing.randomMaxStage,
+      rs.randomMinPartySize ?? existing.randomMinPartySize,
+      rs.randomMaxPartySize ?? existing.randomMaxPartySize,
+      JSON.stringify(allowedElements),
+      now, dungeonId,
+    ]);
+    await t.run(SQL_DELETE_DUNGEON_TILESETS, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_tiles WHERE dungeon_id = ?`, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_encounters WHERE dungeon_id = ?`, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_items WHERE dungeon_id = ?`, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_doors WHERE dungeon_id = ?`, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_warps WHERE dungeon_id = ?`, [dungeonId]);
+    await t.run(`DELETE FROM dungeon_traps WHERE dungeon_id = ?`, [dungeonId]);
+    for (const link of resolved.links) await t.run(SQL_INSERT_DUNGEON_TILESET, [dungeonId, link.tilesetId, link.firstgid]);
+    for (const tile of payload.tiles) await t.run(SQL_INSERT_TILE_WITH_GID, [dungeonId, tile.x, tile.y, tile.gid]);
+    for (const enc of payload.encounters) {
+      await t.run(SQL_INSERT_ENCOUNTER, [newId('enc'), dungeonId, enc.x, enc.y, enc.label, enc.difficulty, JSON.stringify(enc.digimon), JSON.stringify(enc.loots), now, now]);
+    }
+    for (const it of payload.items) {
+      await t.run(SQL_INSERT_ITEM, [newId('ditm'), dungeonId, it.x, it.y, it.itemId, it.qty, now]);
+    }
+    for (const dr of payload.doors) {
+      await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeonId, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
+    }
+    for (const wp of payload.warps) {
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeonId, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+    }
+    for (const tr of payload.traps) {
+      await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeonId, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
+    }
+  });
+  const view = await getDungeonView(dungeonId);
+  if (!view) return { ok: false, error: 'not-found' };
+  return { ok: true, view };
+}
+
+export async function applyTiledImportNew(input: {
+  readonly name: string;
+  readonly description?: string;
+  readonly biome: Dungeon['biome'];
+  readonly payload: TiledImportPayload;
+}): Promise<ApplyTiledImportNewResult> {
+  const { name, description, biome: fallbackBiome, payload } = input;
+  const resolved = await resolveTilesetLinks(payload.tilesets);
+  if (!resolved.ok) return { ok: false, error: 'missing-tilesets', missing: resolved.missing };
+  const biome: Dungeon['biome'] = payload.biome ?? fallbackBiome;
+  const rs = payload.randomSettings;
+  const now = Date.now();
+  const dungeon: Dungeon = {
+    id: newId('dun'),
+    worldObjectId: null,
+    questId: null,
+    parentId: null,
+    name,
+    description: description ?? '',
+    biome,
+    width: payload.width,
+    height: payload.height,
+    spawnX: payload.spawn.x,
+    spawnY: payload.spawn.y,
+    biomeRegion: null,
+    unlockRequiresItems: null,
+    randomEncountersEnabled: rs.randomEncountersEnabled ?? false,
+    randomEncounterRate: rs.randomEncounterRate ?? 0.12,
+    randomMinLevel: rs.randomMinLevel ?? 1,
+    randomMaxLevel: rs.randomMaxLevel ?? 5,
+    randomMaxStage: rs.randomMaxStage ?? 'Rookie',
+    randomMinPartySize: rs.randomMinPartySize ?? 1,
+    randomMaxPartySize: rs.randomMaxPartySize ?? 1,
+    randomAllowedElements: rs.randomAllowedElements ?? null,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await tx(async (t) => {
+    await t.run(SQL_INSERT_DUNGEON, [
+      dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description,
+      dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion,
+      dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate,
+      dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage,
+      dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements),
+      dungeon.createdAt, dungeon.updatedAt,
+    ]);
+    for (const link of resolved.links) await t.run(SQL_INSERT_DUNGEON_TILESET, [dungeon.id, link.tilesetId, link.firstgid]);
+    for (const tile of payload.tiles) await t.run(SQL_INSERT_TILE_WITH_GID, [dungeon.id, tile.x, tile.y, tile.gid]);
+    for (const enc of payload.encounters) {
+      await t.run(SQL_INSERT_ENCOUNTER, [newId('enc'), dungeon.id, enc.x, enc.y, enc.label, enc.difficulty, JSON.stringify(enc.digimon), JSON.stringify(enc.loots), now, now]);
+    }
+    for (const it of payload.items) {
+      await t.run(SQL_INSERT_ITEM, [newId('ditm'), dungeon.id, it.x, it.y, it.itemId, it.qty, now]);
+    }
+    for (const dr of payload.doors) {
+      await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeon.id, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
+    }
+    for (const wp of payload.warps) {
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeon.id, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+    }
+    for (const tr of payload.traps) {
+      await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeon.id, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
+    }
+  });
+  return { ok: true, dungeon };
 }

@@ -52,6 +52,7 @@ import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
 import { dungeonsPlugin } from './dungeons/routes.js';
 import { dialoguesPlugin } from './dialogues/routes.js';
+import { tilesetsPlugin } from './tilesets/routes.js';
 import { nurseryPlugin } from './nursery/routes.js';
 import { marketPlugin } from './market/routes.js';
 import { digdexPlugin } from './dex/routes.js';
@@ -195,6 +196,7 @@ async function main(): Promise<void> {
   await app.register(questsPlugin);
   await app.register(dungeonsPlugin);
   await app.register(dialoguesPlugin);
+  await app.register(tilesetsPlugin);
   await app.register(worldPlugin);
   await app.register(nurseryPlugin);
   await app.register(marketPlugin);

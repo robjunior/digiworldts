@@ -5,6 +5,7 @@ import type {
   DungeonDoor,
   DungeonEncounter,
   DungeonItem,
+  DungeonTrap,
   DungeonWarp,
 } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
@@ -14,6 +15,7 @@ import { EncounterEditor } from './EncounterEditor';
 import { BossEditor } from './BossEditor';
 import { ItemEditor } from './ItemEditor';
 import { RandomEncountersEditor } from './RandomEncountersEditor';
+import { TrapEditor } from './TrapEditor';
 import { WarpEditor } from './WarpEditor';
 import type { Cell, PathTool, Tool } from './types';
 import type { ShopItemView } from '../../../lib/api-admin';
@@ -34,6 +36,7 @@ export function ToolContext({
   item,
   warp,
   door,
+  trap,
   catalog,
   dungeons,
   shopItems,
@@ -49,6 +52,7 @@ export function ToolContext({
   readonly item?: DungeonItem | undefined;
   readonly warp?: DungeonWarp | undefined;
   readonly door?: DungeonDoor | undefined;
+  readonly trap?: DungeonTrap | undefined;
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
@@ -139,13 +143,23 @@ export function ToolContext({
       />
     );
   }
+  if (tool === 'DOORS') {
+    return (
+      <DoorEditor
+        dungeonId={dungeonId}
+        x={selectedCell.x}
+        y={selectedCell.y}
+        shopItems={shopItems}
+        {...(door ? { door } : {})}
+      />
+    );
+  }
   return (
-    <DoorEditor
+    <TrapEditor
       dungeonId={dungeonId}
       x={selectedCell.x}
       y={selectedCell.y}
-      shopItems={shopItems}
-      {...(door ? { door } : {})}
+      {...(trap ? { trap } : {})}
     />
   );
 }

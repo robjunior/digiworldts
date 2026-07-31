@@ -267,17 +267,31 @@
 }
 .dungeon-page { font-variant-numeric: tabular-nums; }
 
+.win.is-dungeon > .titlebar { display: none; }
+.win.is-dungeon > .body > .side { display: none; }
+.win.is-dungeon > .body { height: 100vh; grid-template-columns: 1fr; }
+.win.is-dungeon > .body > .main.dungeon-page { max-width: 100vw; }
+
 /* Grid view replacement for canvas */
+.dungeon-page .view .dgrid-scroll {
+  position: absolute;
+  inset: 0;
+  /* hidden, not clip: the camera still pans via scrollTo when the player walks, but the wheel cannot. */
+  overflow: hidden;
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.dungeon-page .view .dgrid-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .dungeon-page .view .dgrid {
-  position: absolute; inset: 40px;
-  margin: auto;
   display: grid;
-  grid-template-columns: repeat(var(--dw, 1), 1fr);
-  grid-template-rows: repeat(var(--dh, 1), 1fr);
-  aspect-ratio: var(--dw, 1) / var(--dh, 1);
-  max-width: 100%;
-  max-height: 100%;
-  box-sizing: border-box;
+  box-sizing: content-box;
+  flex: 0 0 auto;
+  margin: auto;
 }
 .dungeon-page .view .dcell {
   background: var(--bg);
