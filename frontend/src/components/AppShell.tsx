@@ -18,6 +18,7 @@ import {
   TrainingIcon,
   WorldIcon,
 } from './common/icons';
+import { TopBarRight } from './topbar/TopBarRight';
 import { useAuth } from '../hooks/useAuth';
 import { useLocale, useT } from '../hooks/useLocale';
 import { setLocale } from '../lib/locale';
@@ -38,6 +39,7 @@ type AdminNavEntry = NavEntry & {
 
 const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
   '/': 'lobby.title',
+  '/account': 'account.title',
   '/lobby': 'lobby.title',
   '/combat': 'combat.your_team',
   '/roster': 'roster.title',
@@ -65,6 +67,7 @@ const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
 const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/lobby': '',
   '/combat': '',
+  '/account': 'account-page',
   '/roster': 'roster-layout',
   '/factory': 'factory-page',
   '/farm': 'farm-page',
@@ -127,6 +130,7 @@ const BEYOND: readonly NavEntry[] = [
 const ADMIN_NAV: readonly AdminNavEntry[] = [
   { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ADMIN_DOT, tab: 'overview' },
   { to: '/admin?tab=users', label: 'Users', svg: ICON_ROSTER, tab: 'users' },
+  { to: '/admin?tab=seasons', label: 'Seasons', svg: ICON_ARENA, tab: 'seasons' },
   { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ADMIN_DOT, tab: 'scraped' },
   { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_DIGIDEX, tab: 'catalog' },
   { to: '/admin?tab=skills', label: 'Skills', svg: ICON_TRAINING, tab: 'skills' },
@@ -232,6 +236,7 @@ export function AppShell(): JSX.Element {
             PT
           </button>
         </div>
+        <TopBarRight />
       </header>
       <div className="body">
         <nav className="side" aria-label="Primary">
@@ -257,7 +262,7 @@ export function AppShell(): JSX.Element {
               </div>
             ) : (
               <div className="hud">
-                <div className="pill"><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></div>
+                <Link to="/account" className="pill" aria-label={t('account.title')}><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></Link>
                 <div className="pill"><span>{t('hud.credits')}</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.bits')}</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.party')}</span><b>{party.length}/{partyMax}</b></div>

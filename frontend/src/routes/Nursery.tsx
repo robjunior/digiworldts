@@ -5,19 +5,20 @@ import { BalBar, ResourceBal } from '../components/common/BalBar';
 import { SectionHead } from '../components/common/SectionHead';
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
 import { NurseryDigitamaSidebar } from '../components/nursery/NurseryDigitamaSidebar';
-import { NurserySidebar } from '../components/nursery/NurserySidebar';
-import { NurseryYard, type NurseryFeedback } from '../components/nursery/NurseryYard';
+import { NurseryPen3D } from '../components/nursery/NurseryPen3D';
+import { NurseryYard } from '../components/nursery/NurseryYard';
 import { ApiError } from '../lib/api';
 import {
   collectPendingHatch,
-  feedNurseryMon,
   getNursery,
   getPendingHatches,
   getSpeciesData,
   petNurseryMon,
+  feedNurseryMon,
+  graduatePenMon,
   startDirectHatch,
   startMixHatch,
-  type NurseryMon,
+  type NurseryPenMon,
   type NurseryView,
   type PendingHatchEntry,
   type SpeciesDataEntry,
@@ -32,7 +33,6 @@ const PENDING_POLL_MS = 5_000;
 export function Nursery(): JSX.Element {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<NurseryFeedback | null>(null);
   const nurseryQuery = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
   const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
   const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
@@ -41,7 +41,18 @@ export function Nursery(): JSX.Element {
     mutationFn: runCareAction,
     onSuccess: async (result) => {
       setNotice(result.message);
-      setFeedback({ monId: result.monId, kind: result.kind, nonce: Date.now() });
+      await queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY });
+    },
+  });
+
+  const graduateMutation = useMutation({
+    mutationFn: async (monId: string) => {
+      const result = await graduatePenMon(monId);
+      if (!result.ok) throw new ApiError("Failed to graduate", 400);
+      return result;
+    },
+    onSuccess: async (result) => {
+      setNotice(`Graduated ${result.nickname} to roster!`);
       await queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY });
     },
   });
@@ -99,11 +110,15 @@ export function Nursery(): JSX.Element {
   const totalWeight = dataQuery.data?.totalWeight ?? 0;
   const error = queryError(nurseryQuery.error, careMutation.error, hatchMutation.error, mixMutation.error, collectMutation.error, dataQuery.error, pendingQuery.error);
 
-  const nurserySubtitle = view
-    ? view.mons.filter((m) => m.mood < 35).length > 0
-      ? `${view.mons.filter((m) => m.mood < 35).length} need attention`
-      : 'all content'
-    : '—';
+  const rookiesCount = view ? view.penMons.filter((m) => m.stage === 'Rookie').length : 0;
+  const needyCount = view ? view.penMons.filter((m) => m.mood < 35).length : 0;
+
+  let nurserySubtitle = '—';
+  if (view) {
+    if (rookiesCount > 0) nurserySubtitle = `${rookiesCount} ready to graduate`;
+    else if (needyCount > 0) nurserySubtitle = `${needyCount} need attention`;
+    else nurserySubtitle = 'all content';
+  }
 
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
@@ -111,18 +126,21 @@ export function Nursery(): JSX.Element {
         <BalBar title="Nursery" subtitle={nurserySubtitle} odId="resource-balance">
           <ResourceBal resource="meat" label="Meat" value={view?.meat ?? '—'} />
           <ResourceBal resource="dataspecies" label="Data species" value={dataEntries.length} />
-          <ResourceBal resource="mons" label="In care" value={view?.mons.length ?? 0} />
+          <ResourceBal resource="mons" label="In care" value={view?.penMons.length ?? 0} />
         </BalBar>
 
         <div className="scroll">
-          <div className="col left">
-            <SectionHead title="Care" count={view?.mons ? `${view.mons.length} in care` : '—'} />
-            <NurserySidebar
-              view={view}
-              loading={nurseryQuery.isPending}
-              busyMonId={careMutation.variables?.mon.id ?? null}
+          <div className="col left pen-col">
+            <SectionHead title="Care" count={view?.penMons ? `${view.penMons.length} in care` : '—'} />
+            <NurseryPen3D
+              penMons={view?.penMons ?? []}
+              stageDurations={{ babyMs: view?.babyStageMs ?? 60000, inTrainingMs: view?.inTrainingStageMs ?? 120000 }}
+              busyMonId={careMutation.isPending ? careMutation.variables?.mon.id : (graduateMutation.isPending ? graduateMutation.variables : null)}
+              canFeed={(view?.meat ?? 0) >= (view?.feedMeatCost ?? 0)}
+              feedCost={view?.feedMeatCost ?? 0}
               onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
               onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
+              onGraduate={(mon) => { graduateMutation.mutate(mon.id); }}
             />
           </div>
 
@@ -151,8 +169,6 @@ export function Nursery(): JSX.Element {
                   <span className="rc" id="pending-count">{pending.length} egg{pending.length === 1 ? '' : 's'}</span>
                 </div>
                 <NurseryYard
-                  mons={view?.mons ?? []}
-                  feedback={feedback}
                   pending={pending}
                   busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
                   onCollect={(entry) => collectMutation.mutate(entry)}
@@ -168,8 +184,8 @@ export function Nursery(): JSX.Element {
 }
 
 type CareAction =
-  | { readonly kind: 'pet'; readonly mon: NurseryMon; readonly view: NurseryView }
-  | { readonly kind: 'feed'; readonly mon: NurseryMon; readonly view: NurseryView };
+  | { readonly kind: 'pet'; readonly mon: NurseryPenMon; readonly view: NurseryView }
+  | { readonly kind: 'feed'; readonly mon: NurseryPenMon; readonly view: NurseryView };
 
 type CareResult = {
   readonly monId: string;

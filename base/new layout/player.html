@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DigiWorld — Tamer Career</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DIGIWORLD — TAMER CAREER (player page)
+   Layout ref: Overwatch career screen (image-9.png)
+   - Top bar: tabs (left) + Connections/Discord (top-right)
+   - Hero row: avatar + XP bar (left) · rank/level ring/wins (right)
+   - Body 2-col: left Career Stats tiles · right PvP History (full-height, scrolls)
+   Persona 5 acid-red theme · registered palette only · radius-0 notch.
+   ============================================================ */
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+html,body{min-height:100%}
+body{overflow-y:auto}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+[data-el="fire"]{--el:var(--battle)}
+[data-el="water"]{--el:var(--signal)}
+[data-el="plant"]{--el:color-mix(in oklab,var(--signal) 45%,var(--ink))}
+[data-el="electricity"]{--el:color-mix(in oklab,var(--signal) 65%,var(--ink))}
+[data-el="wind"]{--el:color-mix(in oklab,var(--signal) 30%,var(--ink))}
+
+/* faint radial world backdrop echoing the reference */
+.stage{min-height:100vh;display:flex;flex-direction:column;position:relative;
+  background:
+    radial-gradient(120% 90% at 50% -10%,color-mix(in oklab,var(--signal) 7%,transparent),transparent 60%),
+    var(--bg)}
+.stage::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background:
+    linear-gradient(115deg,transparent 46%,color-mix(in oklab,var(--ink) 4%,transparent) 47% 53%,transparent 54%),
+    linear-gradient(-115deg,transparent 46%,color-mix(in oklab,var(--ink) 4%,transparent) 47% 53%,transparent 54%)}
+.stage > *{position:relative;z-index:1}
+
+/* ---- top bar: tabs + connections ---- */
+.topbar{display:flex;align-items:center;gap:20px;padding:16px 28px 0;flex:none}
+.brand{display:flex;align-items:baseline;gap:10px;padding:14px 4px}
+.brand .bk{font:800 9px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.brand .bt{font:800 13px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--ink)}
+
+.conn{margin-left:auto;display:flex;align-items:center;gap:10px}
+.iconbtn{width:44px;height:44px;display:grid;place-items:center;cursor:pointer;
+  background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted);transition:.12s}
+.iconbtn:hover{color:var(--ink);border-color:var(--muted)}
+.iconbtn svg{width:19px;height:19px}
+/* discord connect chip */
+.dcard{display:flex;align-items:center;gap:12px;padding:8px 14px 8px 10px;cursor:pointer;
+  background:var(--signal);border:1px solid var(--signal);clip-path:var(--notch);color:#fff;transition:.12s}
+.dcard:hover{background:color-mix(in oklab,var(--signal) 86%,#000)}
+.dcard .dic{width:34px;height:34px;display:grid;place-items:center;background:color-mix(in oklab,#000 22%,var(--signal));clip-path:var(--notch-sm)}
+.dcard .dic svg{width:20px;height:20px;color:#fff}
+.dcard .dtx{line-height:1.15;text-align:left}
+.dcard .dk{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;opacity:.85;display:block}
+.dcard .dv{font:800 13px/1.1 var(--font);margin-top:3px;display:flex;align-items:center;gap:6px}
+.dcard.linked{background:var(--panel);border-color:var(--hair);color:var(--ink)}
+.dcard.linked .dic{background:var(--bg);border:1px solid var(--hair)}
+.dcard.linked .dic svg{color:var(--signal)}
+.dcard.linked .dk{color:var(--muted);opacity:1}
+.dcard .dot{width:8px;height:8px;background:#39d353;clip-path:var(--notch-sm)}
+.dcard:not(.linked) .dot{display:none}
+
+/* ---- hero row ---- */
+.hero{display:grid;grid-template-columns:auto 1fr auto;gap:28px;align-items:center;padding:14px 30px 20px;flex:none}
+.avatar{position:relative;width:120px;height:120px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);
+  display:grid;place-items:center;overflow:hidden;cursor:pointer;padding:0}
+.avatar #avatarInit{font:900 54px/1 var(--font);color:var(--signal)}
+.avatar img{width:100%;height:100%;object-fit:contain;image-rendering:pixelated;padding:12px}
+.avatar .lvbadge{position:absolute;right:0;bottom:0;background:var(--signal);color:#fff;
+  font:900 12px/1 var(--font);padding:5px 8px;clip-path:polygon(8px 0,100% 0,100% 100%,0 100%)}
+.avatar .chg{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:7px 4px;background:color-mix(in oklab,var(--signal) 88%,#000);
+  color:#fff;font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;text-align:center;
+  opacity:0;transform:translateY(100%);transition:.14s;pointer-events:none}
+.avatar:hover .chg,.avatar:focus-visible .chg{opacity:1;transform:translateY(0)}
+.avatar:focus-visible{outline:2px solid var(--signal);outline-offset:3px}
+
+.hid{min-width:0}
+.hid .kick{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.hid h1{display:flex;align-items:center;gap:14px;margin-top:10px;font:900 52px/.9 var(--font);letter-spacing:-.02em;text-transform:uppercase;font-style:italic}
+.hid .handle{margin-top:8px;font:600 12px/1 var(--font);letter-spacing:.05em;color:var(--muted)}
+.xpwrap{margin-top:14px;max-width:560px}
+.xpbar{height:9px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);overflow:hidden}
+.xpbar i{display:block;height:100%;background:var(--signal);width:0;transition:width .7s cubic-bezier(.2,1,.3,1)}
+.xptxt{margin-top:6px;font:700 10px/1 var(--font);letter-spacing:.06em;color:var(--muted)}
+.xptxt b{color:var(--ink)}
+
+/* right rank cluster */
+.rank{display:grid;grid-template-columns:auto auto auto;gap:26px;align-items:center}
+.rk.stack{display:flex;flex-direction:column;gap:18px}
+.rk .rn{font:900 30px/1 var(--font);font-style:italic;letter-spacing:-.01em}
+.rk .rn sup{font-size:11px;color:var(--signal);font-style:normal;vertical-align:super;margin-left:3px}
+.rk .rl{margin-top:6px;font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.ring{width:76px;height:76px;position:relative;display:grid;place-items:center}
+.ring svg{position:absolute;inset:0}
+.ring .rt{font:900 22px/1 var(--font);font-style:italic}
+
+/* ---- body ---- */
+.body{flex:1 1 auto;display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:4px 30px 24px;align-items:start}
+.col{display:flex;flex-direction:column}
+.colhead{display:flex;align-items:center;gap:12px;padding:0 2px 14px;flex:none}
+.colhead h2{font:800 13px/1 var(--font);letter-spacing:.14em;text-transform:uppercase}
+.colhead .line{flex:1;height:1px;background:var(--hair)}
+.colhead .pick{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);
+  padding:9px 12px;font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
+.colhead .pick svg{width:12px;height:12px;color:var(--muted)}
+.colhead .hint{font:600 11px/1 var(--font);color:var(--muted)}
+
+/* stat tiles (left) */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
+.tiles::-webkit-scrollbar{width:8px}.tiles::-webkit-scrollbar-thumb{background:var(--hair)}.tile{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:0}
+.tile .th{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--hair)}
+.tile .th .ic{width:22px;height:22px;display:grid;place-items:center;color:var(--signal)}
+.tile .th .ic svg{width:18px;height:18px}
+.tile .th .l{font:800 9px/1.1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tile .tv{padding:14px}
+.tile .n{font:900 34px/1 var(--font);letter-spacing:-.01em}
+.tile .n em{font-style:normal;color:var(--signal);font-size:.6em;margin-left:1px}
+.tile .d{margin-top:8px;font:600 11px/1.35 var(--font);color:var(--muted)}
+/* party strip under tiles */
+.pstrip{margin-top:14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:12px 14px;flex:none}
+.pstrip .pk{font:800 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.pstrip .prow{display:flex;gap:10px}
+.pmon{flex:1;display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:8px;position:relative;overflow:hidden;min-width:0}
+.pmon::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el,var(--signal))}
+.pmon .mug{width:34px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);display:grid;place-items:center;overflow:hidden;flex:none}
+.pmon .mug img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated}
+.pmon .mug .mono{font:900 15px/1 var(--font);color:var(--el,var(--signal))}
+.pmon .txt{min-width:0}
+.pmon .nm{font:800 12px/1.1 var(--font);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pmon .lv{margin-top:3px;font:700 9px/1 var(--font);letter-spacing:.06em;color:var(--muted)}
+
+/* PvP History (right) — full-height list of gradient bars like TIME PLAYED */
+.pvp{display:flex;flex-direction:column;gap:8px}
+.match{position:relative;display:grid;grid-template-columns:44px 1fr auto;gap:16px;align-items:center;
+  background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:14px 18px;overflow:hidden}
+.match::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(90deg,color-mix(in oklab,var(--res) 26%,transparent),transparent 62%)}
+.match.win{--res:var(--signal)}
+.match.loss{--res:var(--battle)}
+.match > *{position:relative;z-index:1}
+.match .rbadge{width:44px;height:44px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);
+  font:900 18px/1 var(--font);font-style:italic;color:var(--res)}
+/* matchup: [you icon + your mons]  VS  [enemy mons + enemy icon] — centered, balanced sides */
+.match .bout{display:flex;align-items:center;justify-content:center;gap:16px;min-width:0}
+.match .side{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.match .side.you{justify-content:flex-end}
+.match .side.foe{flex-direction:row-reverse;justify-content:flex-end}
+.match .ti{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;flex:none;width:56px;align-self:center}
+.match .tico{width:34px;height:34px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);
+  font:900 15px/1 var(--font);color:var(--signal);overflow:hidden;flex:none}
+.match .side.foe .tico{color:var(--muted)}
+.match .tico img{width:30px;height:30px;object-fit:contain;image-rendering:pixelated}
+.match .tn{font:800 10px/1.1 var(--font);letter-spacing:.02em;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:56px;text-align:center}
+.match .side.you .tn b,.match .tn b{color:var(--ink);font-weight:800}
+.match .party{display:flex;gap:5px;flex:none}
+.match .party .sp{width:26px;height:26px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);display:grid;place-items:center;overflow:hidden;flex:none}
+.match .party .sp img{width:22px;height:22px;object-fit:contain;image-rendering:pixelated}
+.match .party .sp .mono{font:900 12px/1 var(--font);color:var(--muted)}
+.match .vs{font:900 11px/1 var(--font);font-style:italic;letter-spacing:.06em;color:var(--muted);flex:none}
+.match .rt{text-align:right;flex:none}
+.match .rt .res{font:900 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--res)}
+.match .rt .meta{margin-top:6px;font:600 11px/1 var(--font);color:var(--muted)}
+
+/* ---- avatar picker modal ---- */
+.avov{position:fixed;inset:0;z-index:60;display:none;place-items:center;background:rgba(0,0,0,.62)}
+.avov.show{display:grid}
+.avmodal{width:min(440px,92vw);background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch);padding:22px}
+.avmodal .mh{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.avmodal .ek{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
+.avmodal h3{font:800 18px/1.1 var(--font);margin-top:7px}
+.avmodal .msub{margin-top:5px;font:600 11px/1.3 var(--font);color:var(--muted)}
+.avx{background:transparent;border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted);width:30px;height:30px;display:grid;place-items:center;cursor:pointer;flex:none}
+.avx:hover{color:var(--ink);border-color:var(--muted)}
+.avx svg{width:15px;height:15px}
+.avgrid{margin-top:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.avpick{position:relative;aspect-ratio:1;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);display:grid;place-items:center;cursor:pointer;overflow:hidden;transition:.12s}
+.avpick:hover{transform:translateY(-2px);border-color:var(--el,var(--signal))}
+.avpick[aria-pressed="true"]{border-color:var(--signal);box-shadow:inset 0 0 0 1px var(--signal)}
+.avpick img{width:78%;height:78%;object-fit:contain;image-rendering:pixelated}
+.avpick .mono{font:900 30px/1 var(--font);color:var(--el,var(--signal))}
+.avpick .cap{position:absolute;left:0;right:0;bottom:0;padding:3px 2px;font:700 8px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;text-align:center;color:var(--muted);background:color-mix(in oklab,var(--panel) 82%,transparent)}
+
+@media (max-width:1000px){.body{grid-template-columns:1fr}.hid h1{font-size:38px}.rank{gap:16px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="stage" data-od-id="career-stage">
+
+  <!-- top bar -->
+  <header class="topbar" data-od-id="top-bar">
+    <div class="brand"><span class="bk">Digivice</span><span class="bt">Tamer Career</span></div>
+    <div class="conn" data-od-id="connections">
+      <button class="iconbtn" aria-label="Search" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+      </button>
+      <button class="iconbtn" aria-label="Add friend" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+      </button>
+      <button class="dcard" id="dcBtn" type="button" aria-pressed="false" aria-label="Connect Discord"></button>
+    </div>
+  </header>
+
+  <!-- hero row -->
+  <section class="hero" data-od-id="identity-hero">
+    <button class="avatar" id="avTrigger" type="button" aria-haspopup="dialog" aria-label="Change tamer icon">
+      <span id="avatarInit">T</span>
+      <span class="lvbadge" id="lvBadge">—</span>
+      <span class="chg">Change</span>
+    </button>
+    <div class="hid">
+      <div class="kick">Digivice Registry · Tamer</div>
+      <h1><span id="tamerName">—</span></h1>
+      <div class="handle" id="tamerHandle">—</div>
+      <div class="xpwrap">
+        <div class="xpbar"><i id="xpFill"></i></div>
+        <div class="xptxt"><b id="xpNow">—</b> / <span id="xpMax">—</span> XP to next tamer level</div>
+      </div>
+    </div>
+    <div class="rank" data-od-id="rank-cluster">
+      <div class="rk stack">
+        <div><div class="rn" id="rankNow">—</div><div class="rl">Current Rank</div></div>
+        <div><div class="rn" id="rankHi">—</div></div>
+      </div>
+      <div class="ring" aria-hidden="true">
+        <svg viewBox="0 0 76 76"><circle cx="38" cy="38" r="33" fill="none" stroke="var(--hair)" stroke-width="5"></circle><circle id="ringArc" cx="38" cy="38" r="33" fill="none" stroke="var(--signal)" stroke-width="5" stroke-dasharray="207" stroke-dashoffset="207" transform="rotate(-90 38 38)"></circle></svg>
+        <span class="rt" id="ringTier">—</span>
+      </div>
+      <div class="rk stack">
+        <div><div class="rn" id="winsNum">—</div><div class="rl">PvP Wins</div></div>
+        <div><div class="rn" id="hoursNum">—</div><div class="rl">Time Played</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- body -->
+  <div class="body">
+    <!-- LEFT: career stats + party -->
+    <section class="col" data-od-id="career-stats">
+      <div class="colhead"><h2>Career Stats</h2><span class="line"></span>
+        <span class="pick">Lifetime<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"></path></svg></span>
+      </div>
+      <div class="tiles" id="statGrid"></div>
+      <div class="pstrip" data-od-id="active-party">
+        <div class="pk" id="partyHint">Active Party</div>
+        <div class="prow" id="partyGrid"></div>
+      </div>
+    </section>
+
+    <!-- RIGHT: PvP History -->
+    <section class="col" data-od-id="pvp-history">
+      <div class="colhead"><h2>PvP History</h2><span class="hint" id="pvpHint">—</span><span class="line"></span></div>
+      <div class="pvp" id="pvpList"></div>
+    </section>
+  </div>
+</div>
+
+<div class="avov" id="avPicker" role="dialog" aria-modal="true" aria-labelledby="avPickTitle">
+  <div class="avmodal">
+    <div class="mh">
+      <div>
+        <div class="ek">Digivice · Identity</div>
+        <h3 id="avPickTitle">Tamer Icon</h3>
+        <div class="msub">Pick one of your partners — or your tamer initial.</div>
+      </div>
+      <button class="avx" id="avClose" type="button" aria-label="Close picker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </button>
+    </div>
+    <div class="avgrid" id="avGrid"></div>
+  </div>
+</div>
+
+<script>
+/* ---- data (mirrors roster / hud conventions from index.html) ---- */
+const ATTR_TO_EL={Virus:'fire',Data:'water',Vaccine:'plant',Free:'wind'};
+const sprite = sp => `https://api.skullbot.fr/img/digimon/dot/${encodeURIComponent(sp)}.png`;
+
+const TAMER={
+  name:'Taichi', handle:'@sunrise_tamer · Digivice #04-118',
+  level:24, xp:640, xpNext:900,
+  rankNow:1420, rankHi:1560, tier:'III',
+  wins:128, hours:214,
+};
+
+const PARTY=[
+  { species:'Agumon', nickname:'Agumon', stage:'Rookie', attribute:'Virus', level:24 },
+  { species:'Gabumon', nickname:'Gabumon', stage:'Rookie', attribute:'Data', level:22 },
+  { species:'Palmon', nickname:'Palmon', stage:'Rookie', attribute:'Vaccine', level:20 },
+];
+
+const LIFETIME=[
+  { n:'128', l:'Battles Won', d:'62% win rate · 79 losses', ic:'<path d="M14 3l-2 5h4l-4 8 2-5h-4l4-8z"/>' },
+  { n:'31', l:'Digivolutions', d:'across 8 partners', ic:'<path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/>' },
+  { n:'46', l:'Dex Registered', d:'of 240 known species', ic:'<rect x="4" y="5" width="16" height="14" rx="1"/><path d="M8 5v14"/>' },
+  { n:'214<em>h</em>', l:'Time Trained', d:'longest streak · 18 days', ic:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>' },
+];
+
+const PVP=[
+  { win:true,  opp:'Yamato',   mine:['Agumon','Gabumon','Palmon'],  party:['Gabumon','Gomamon','Patamon'], rounds:7,  ago:'12m ago' },
+  { win:true,  opp:'Koushiro', mine:['Agumon','Palmon','Biyomon'],  party:['Tentomon','Palmon','Biyomon'], rounds:5,  ago:'1h ago' },
+  { win:false, opp:'Jou',      mine:['Agumon','Gabumon','Palmon'],  party:['Gomamon','Greymon','Gabumon'], rounds:11, ago:'3h ago' },
+  { win:true,  opp:'Mimi',     mine:['Agumon','Gabumon','Palmon'],  party:['Palmon','Biyomon','Patamon'],  rounds:6,  ago:'yesterday' },
+  { win:false, opp:'Takeru',   mine:['Agumon','Palmon','Gomamon'],  party:['Patamon','Agumon','Tentomon'], rounds:9,  ago:'2d ago' },
+  { win:true,  opp:'Sora',     mine:['Agumon','Gabumon','Palmon'],  party:['Biyomon','Palmon','Gomamon'],  rounds:8,  ago:'2d ago' },
+  { win:true,  opp:'Daisuke',  mine:['Agumon','Gabumon','Biyomon'], party:['Agumon','Gabumon','Tentomon'], rounds:6,  ago:'3d ago' },
+  { win:false, opp:'Ken',      mine:['Agumon','Gabumon','Palmon'],  party:['Patamon','Gomamon','Greymon'], rounds:12, ago:'4d ago' },
+];
+
+const $=s=>document.querySelector(s);
+const spCell=sp=>`<span class="sp"><img src="${sprite(sp)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'${sp[0]}'}))"></span>`;
+function mono(ch){const s=document.createElement('span');s.id='avatarInit';s.textContent=ch.toUpperCase();return s;}
+
+function fill(){
+  $('#avatarInit').textContent=TAMER.name[0].toUpperCase();
+  $('#lvBadge').textContent=TAMER.level;
+  $('#tamerName').textContent=TAMER.name;
+  $('#tamerHandle').textContent=TAMER.handle;
+  $('#xpNow').textContent=TAMER.xp.toLocaleString();
+  $('#xpMax').textContent=TAMER.xpNext.toLocaleString();
+  $('#rankNow').innerHTML=`${TAMER.rankNow.toLocaleString()}<sup>RNK</sup>`;
+  $('#rankHi').innerHTML=`${TAMER.rankHi.toLocaleString()}<sup>PK</sup>`;
+  $('#ringTier').textContent=TAMER.tier;
+  $('#winsNum').textContent=TAMER.wins;
+  $('#hoursNum').innerHTML=`${TAMER.hours}<sup>H</sup>`;
+  requestAnimationFrame(()=>{
+    $('#xpFill').style.width=Math.min(100,Math.round(TAMER.xp/TAMER.xpNext*100))+'%';
+    const pct=Math.min(1,TAMER.rankNow/TAMER.rankHi);
+    $('#ringArc').style.strokeDashoffset=String(Math.round(207*(1-pct)));
+  });
+
+  // career stat tiles
+  $('#statGrid').innerHTML=LIFETIME.map(s=>
+    `<div class="tile"><div class="th"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">${s.ic}</svg></span><span class="l">${s.l}</span></div>
+      <div class="tv"><div class="n">${s.n}</div><div class="d">${s.d}</div></div></div>`).join('');
+
+  // party strip
+  $('#partyHint').textContent=`Active Party · ${PARTY.length}/3`;
+  $('#partyGrid').innerHTML=PARTY.map(p=>{
+    const el=ATTR_TO_EL[p.attribute]||'fire';
+    const img=`<img src="${sprite(p.species)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'${p.species[0]}'}))">`;
+    return `<div class="pmon" data-el="${el}"><span class="mug">${img}</span><div class="txt"><div class="nm">${p.nickname}</div><div class="lv">Lv ${p.level} · ${p.stage}</div></div></div>`;
+  }).join('');
+
+  // pvp history
+  renderPvp();
+}
+
+function renderPvp(){
+  const wins=PVP.filter(m=>m.win).length;
+  $('#pvpHint').textContent=`last ${PVP.length} · ${wins}W ${PVP.length-wins}L`;
+  $('#pvpList').innerHTML=PVP.map(m=>{
+    // your tamer icon reflects the avatar choice (sprite or monogram); opponents use their initial
+    const youIcon=avChoice
+      ? `<img src="${sprite(avChoice)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'${TAMER.name[0].toUpperCase()}'}))">`
+      : TAMER.name[0].toUpperCase();
+    const foeIcon=m.opp[0].toUpperCase();
+    return `<div class="match ${m.win?'win':'loss'}">
+      <div class="rbadge">${m.win?'W':'L'}</div>
+      <div class="bout">
+        <div class="side you">
+          <div class="ti"><span class="tico">${youIcon}</span><span class="tn"><b>${TAMER.name}</b></span></div>
+          <div class="party">${m.mine.map(spCell).join('')}</div>
+        </div>
+        <span class="vs">VS</span>
+        <div class="side foe">
+          <div class="ti"><span class="tico">${foeIcon}</span><span class="tn">${m.opp}</span></div>
+          <div class="party">${m.party.map(spCell).join('')}</div>
+        </div>
+      </div>
+      <div class="rt"><div class="res">${m.win?'Victory':'Defeat'}</div><div class="meta">${m.rounds} rounds · ${m.ago}</div></div>
+    </div>`;
+  }).join('');
+}
+
+/* ---- tamer icon picker ---- */
+let avChoice=null;
+function renderAvatar(){
+  const host=$('#avTrigger'), badge=host.querySelector('.lvbadge');
+  host.querySelectorAll('img,#avatarInit').forEach(n=>n.remove());
+  if(avChoice){
+    const img=document.createElement('img'); img.src=sprite(avChoice); img.alt='';
+    img.onerror=()=>{ img.replaceWith(mono(TAMER.name[0])); };
+    host.insertBefore(img,badge);
+  } else { host.insertBefore(mono(TAMER.name[0]),badge); }
+}
+function buildPicker(){
+  const grid=$('#avGrid');
+  const opts=[{monogram:true},...PARTY.map(p=>({species:p.species,attribute:p.attribute}))];
+  grid.innerHTML=opts.map(o=>{
+    if(o.monogram) return `<button class="avpick" type="button" data-choice="" aria-pressed="${avChoice===null}"><span class="mono">${TAMER.name[0].toUpperCase()}</span><span class="cap">Initial</span></button>`;
+    const el=ATTR_TO_EL[o.attribute]||'fire';
+    return `<button class="avpick" type="button" data-el="${el}" data-choice="${o.species}" aria-pressed="${avChoice===o.species}">
+      <img src="${sprite(o.species)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'mono',textContent:'${o.species[0]}'}))"><span class="cap">${o.species}</span></button>`;
+  }).join('');
+}
+function openPicker(){ buildPicker(); $('#avPicker').classList.add('show'); const f=$('#avGrid .avpick'); f&&f.focus(); }
+function closePicker(){ $('#avPicker').classList.remove('show'); $('#avTrigger').focus(); }
+
+/* ---- discord connect ---- */
+let discordLinked=false;
+const DISCORD_ICON='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4.4A19 19 0 0 0 15.4 3l-.3.5a14 14 0 0 1 4 1.3 13 13 0 0 0-11-.1 13 13 0 0 1 4-1.3L11.9 3A19 19 0 0 0 7.3 4.4C4.6 8.4 3.9 12.3 4.2 16.1a19 19 0 0 0 5.8 2.9l.5-1a12 12 0 0 1-1.8-.9l.4-.3a9 9 0 0 0 8 0l.4.3c-.6.4-1.2.7-1.8.9l.5 1a19 19 0 0 0 5.8-2.9c.4-4.5-.7-8.4-2.8-11.7ZM9.5 14c-.9 0-1.6-.8-1.6-1.9S8.6 10.3 9.5 10.3s1.6.9 1.6 1.9S10.4 14 9.5 14Zm5 0c-.9 0-1.6-.8-1.6-1.9s.7-1.8 1.6-1.8 1.6.9 1.6 1.9S15.4 14 14.5 14Z"/></svg>';
+function renderDiscord(){
+  const dc=$('#dcBtn'); if(!dc) return;
+  dc.classList.toggle('linked',discordLinked);
+  dc.setAttribute('aria-pressed',String(discordLinked));
+  dc.innerHTML=discordLinked
+    ? `<span class="dic">${DISCORD_ICON}</span><span class="dtx"><span class="dk">Connected</span><span class="dv">taichi_01 <span class="dot"></span></span></span>`
+    : `<span class="dic">${DISCORD_ICON}</span><span class="dtx"><span class="dk">Connections</span><span class="dv">Connect Discord</span></span>`;
+}
+
+/* ---- tabs (Overview live; others placeholders on this prototype) ---- */
+function init(){
+  fill(); renderAvatar(); renderDiscord();
+  $('#dcBtn').addEventListener('click',()=>{ discordLinked=!discordLinked; renderDiscord(); });
+  $('#avTrigger').addEventListener('click',openPicker);
+  $('#avClose').addEventListener('click',closePicker);
+  $('#avPicker').addEventListener('click',e=>{ if(e.target===$('#avPicker')) closePicker(); });
+  $('#avGrid').addEventListener('click',e=>{ const b=e.target.closest('.avpick'); if(!b) return; avChoice=b.dataset.choice||null; renderAvatar(); renderPvp(); closePicker(); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape' && $('#avPicker').classList.contains('show')) closePicker(); });
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init); else init();
+</script>
+
+
+</body></html>

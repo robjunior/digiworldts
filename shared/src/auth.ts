@@ -20,6 +20,12 @@ export type PublicUser = {
   premiumUntil: number | null;
   /** 'en' | 'pt', or null when user has never explicitly picked (browser detection applies). */
   localePref: 'en' | 'pt' | null;
+  /** Given name, null on accounts created before the signup form collected it. */
+  firstName: string | null;
+  /** Family name, null on accounts created before the signup form collected it. */
+  lastName: string | null;
+  /** Contact email (lower-cased), null on accounts created before the signup form collected it. */
+  email: string | null;
 };
 
 /** GET /api/auth/status — no auth required. */
@@ -52,6 +58,9 @@ export type AuthErrorResponse = {
 export type RegisterBody = {
   username: string;
   password: string;
+  firstName: string;
+  lastName: string;
+  email: string;
   displayName?: string;
 };
 

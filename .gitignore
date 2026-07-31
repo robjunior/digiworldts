@@ -13,6 +13,7 @@ dist/
 .env.local
 .env.*.local
 backend/data/.session-secret
+discord/config/products.json
 cookie.txt
 cookies.txt
 
@@ -68,3 +69,6 @@ tmp/
 
 # codegraph db (existing)
 .codegraph/
+
+# OpenCode agent session artifacts (plans, evidence, drafts)
+.omo/

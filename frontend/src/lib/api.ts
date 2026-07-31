@@ -31,7 +31,7 @@ export type RosterView = {
   readonly xpNext: number;
   readonly statBonus: BaseStats;
   readonly mood: number;
-  readonly status: 'resting' | 'training' | 'party' | 'adventure';
+  readonly status: 'resting' | 'training' | 'party' | 'adventure' | 'nursery';
   readonly slot: number | null;
   readonly reviveAt: number | null;
   readonly currentHp: number | null;
@@ -235,6 +235,30 @@ export function getRoster(): Promise<RosterResponse> {
 
 export function getDaily(): Promise<DailyResponse> {
   return apiFetch<DailyResponse>('/api/daily');
+}
+
+// PHASE 6 CANDIDATE: promote friends HTTP response types to shared.
+export type FriendView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly online: boolean;
+  readonly since: number;
+};
+
+export type FriendRequestView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly at: number;
+};
+
+export type FriendsResponse = {
+  readonly friends: readonly FriendView[];
+  readonly incoming: readonly FriendRequestView[];
+  readonly outgoing: readonly FriendRequestView[];
+};
+
+export function getFriends(): Promise<FriendsResponse> {
+  return apiFetch<FriendsResponse>('/api/friends');
 }
 
 export function claimDaily(): Promise<DailyClaimResponse> {

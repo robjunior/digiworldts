@@ -108,6 +108,7 @@ export function Roster(): JSX.Element {
       if (typeof mon.slot === 'number') return;
       if (isDowned(mon, now)) { setMessage('This Digimon is recovering. Revive it first.'); return; }
       if (mon.listedAt !== null) { setMessage('This Digimon is on the market. Cancel the listing first.'); return; }
+      if (mon.status === 'nursery') { setMessage('This Digimon is still in the nursery — graduate it to Rookie first.'); return; }
       if (mon.status === 'training') { setMessage('This Digimon is training. Collect the training session first.'); return; }
       const emptySlot = partyBySlot.findIndex((slot) => slot === null);
       if (emptySlot >= 0) { assignMutation.mutate({ monId: mon.id, slot: emptySlot }); return; }

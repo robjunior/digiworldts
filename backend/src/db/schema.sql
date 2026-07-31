@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   spd_bonus     INTEGER NOT NULL DEFAULT 0,
   mood          INTEGER NOT NULL DEFAULT 50 CHECK (mood BETWEEN 0 AND 100),
   status        TEXT NOT NULL DEFAULT 'resting'          -- resting | training | party
-                CHECK (status IN ('resting', 'training', 'party', 'adventure')),
+                CHECK (status IN ('resting', 'training', 'party', 'adventure', 'nursery')),
   slot_index    INTEGER,                                 -- 0..2 if in party, else NULL
   revive_at     INTEGER,                                 -- unix ms; when set and > now, mon is downed and unusable in PVE
   pets_today    INTEGER NOT NULL DEFAULT 0,              -- nursery: count of pets given today (resets when pets_day rolls)
@@ -107,6 +107,9 @@ CREATE TABLE IF NOT EXISTS player_roster (
   evolution_history TEXT,                                -- JSON string[]: prior catalog_ids in evolution order (null = no history)
   equipped_skill_ids TEXT,                               -- JSON string[4]: chosen skill IDs from the learned pool; null = fallback to current template's top 4
   stage_pools   TEXT,                                    -- JSON Partial<Record<Stage,{combat,hpen}>>: per-stage bonus spent, locks on evolution
+  nursery_stage TEXT,                                    -- Baby | In-Training | Rookie while status='nursery'
+  nursery_evolve_at INTEGER,                             -- unix ms for next nursery stage; 0 when Rookie is ready to graduate
+  nursery_chain TEXT,                                    -- JSON {babyCatalogId,inTrainingCatalogId,rookieCatalogId}
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
   UNIQUE (user_id, slot_index) ON CONFLICT ABORT         -- no two party slots collide

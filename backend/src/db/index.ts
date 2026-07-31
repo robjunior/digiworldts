@@ -80,6 +80,9 @@ export type UserRow = {
   onboarding_completed_at: number | null;
   mmr: number;
   locale_pref: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
 };
 
 export type SessionRow = {
@@ -118,7 +121,7 @@ export type RosterRow = {
   int_bonus: number;
   spd_bonus: number;
   mood: number;
-  status: 'resting' | 'training' | 'party' | 'adventure';
+  status: 'resting' | 'training' | 'party' | 'adventure' | 'nursery';
   slot_index: number | null;
   revive_at: number | null;
   current_hp: number | null;
@@ -129,6 +132,9 @@ export type RosterRow = {
   evolution_history: string | null;
   equipped_skill_ids: string | null;
   stage_pools: string | null;
+  nursery_stage: string | null;
+  nursery_evolve_at: number | null;
+  nursery_chain: string | null;
   created_at: number;
   updated_at: number;
 };

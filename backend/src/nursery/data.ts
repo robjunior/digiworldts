@@ -6,6 +6,7 @@ import { xpToReach } from '../progression/xp.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import type { NurseryChain, PendingHatchEntry } from '@digiworld/shared/nursery';
 
 export type Tier = 'common' | 'uncommon' | 'rare';
 
@@ -17,6 +18,7 @@ const DATA_AMOUNT: Record<Tier, number> = {
 
 export const HATCH_DURATION_MS = 3 * 60 * 1000;
 export const HATCH_LEVEL = 5;
+export const BABY_STAGE_MS = 5 * 60_000;
 
 export function rarityTier(rare: boolean, stage: Stage): Tier {
   if (rare) return 'rare';
@@ -47,8 +49,8 @@ const SQL_SELECT_PENDING = `SELECT * FROM player_pending_hatches WHERE user_id =
 const SQL_SELECT_PENDING_BY_ID = `SELECT * FROM player_pending_hatches WHERE id = ? AND user_id = ?`;
 const SQL_DELETE_PENDING = `DELETE FROM player_pending_hatches WHERE id = ? AND user_id = ?`;
 const SQL_INSERT_ROSTER = `
-  INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, mood, status, slot_index, equipped_skill_ids, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 50, 'resting', NULL, ?, ?, ?)
+  INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, hp_bonus, atk_bonus, def_bonus, spd_bonus, mood, status, slot_index, equipped_skill_ids, nursery_stage, nursery_evolve_at, nursery_chain, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 50, 'nursery', NULL, ?, 'Baby', ?, ?, ?, ?)
 `;
 
 export type SpeciesAward = { catalogId: string; tier: Tier; percent: number; kills: number };
@@ -92,14 +94,18 @@ function reverseGraph(catalog: readonly TemplateDigimon[]): Map<string, string[]
   return graph;
 }
 
-export type HatchPath = { rookieId: string; targetId: string; chain: string[] };
+export type HatchPath = { babyId: string; inTrainingId: string; rookieId: string; targetId: string; chain: string[] };
 
 export function hatchPathTo(catalogId: string, catalog: readonly TemplateDigimon[]): HatchPath | null {
   const templateById = new Map(catalog.map((t) => [t.id, t] as const));
   const target = templateById.get(catalogId);
   if (!target) return null;
   if (target.stage === 'Rookie') {
-    return { rookieId: target.id, targetId: target.id, chain: [target.id] };
+    const inTrainingId = predecessorForStage(target.id, 'In-Training', catalog, templateById) ?? target.id;
+    if (inTrainingId === target.id) log.warn('nursery.hatchpath.missing-stage', { catalogId: target.id, missing: 'in-training' });
+    const babyId = predecessorForStage(inTrainingId, 'Baby', catalog, templateById) ?? inTrainingId;
+    if (babyId === inTrainingId) log.warn('nursery.hatchpath.missing-stage', { catalogId: inTrainingId, missing: 'baby' });
+    return { babyId, inTrainingId, rookieId: target.id, targetId: target.id, chain: [babyId, inTrainingId, target.id] };
   }
   const rev = reverseGraph(catalog);
   const queue: Array<{ id: string; path: string[] }> = [{ id: catalogId, path: [catalogId] }];
@@ -111,7 +117,11 @@ export function hatchPathTo(catalogId: string, catalog: readonly TemplateDigimon
     if (!tpl) continue;
     if (tpl.stage === 'Rookie') {
       const chain = node.path.slice().reverse();
-      return { rookieId: tpl.id, targetId: catalogId, chain };
+      const inTrainingId = predecessorForStage(tpl.id, 'In-Training', catalog, templateById) ?? tpl.id;
+      if (inTrainingId === tpl.id) log.warn('nursery.hatchpath.missing-stage', { catalogId: tpl.id, missing: 'in-training' });
+      const babyId = predecessorForStage(inTrainingId, 'Baby', catalog, templateById) ?? inTrainingId;
+      if (babyId === inTrainingId) log.warn('nursery.hatchpath.missing-stage', { catalogId: inTrainingId, missing: 'baby' });
+      return { babyId, inTrainingId, rookieId: tpl.id, targetId: catalogId, chain: [babyId, inTrainingId, ...chain] };
     }
     for (const parent of rev.get(node.id) ?? []) {
       if (seen.has(parent)) continue;
@@ -122,30 +132,33 @@ export function hatchPathTo(catalogId: string, catalog: readonly TemplateDigimon
   return null;
 }
 
-export type PendingHatchView = {
-  id: string;
-  targetCatalogId: string;
-  targetName: string;
-  targetStage: string;
-  rookieCatalogId: string;
-  rookieName: string;
-  rookieDot: string;
-  hatchAt: number;
-  ready: boolean;
-};
+function predecessorForStage(
+  catalogId: string,
+  stage: Stage,
+  catalog: readonly TemplateDigimon[],
+  templateById: ReadonlyMap<string, TemplateDigimon>,
+): string | null {
+  const parents = reverseGraph(catalog).get(catalogId) ?? [];
+  const matching = parents.filter((id) => templateById.get(id)?.stage === stage).sort();
+  return matching[0] ?? null;
+}
+
+export type PendingHatchView = PendingHatchEntry;
 
 function toPendingView(row: PendingHatchRow, catalog: readonly TemplateDigimon[], now: number): PendingHatchView {
   const templateById = new Map(catalog.map((t) => [t.id, t] as const));
   const target = templateById.get(row.target_catalog);
-  const rookie = templateById.get(row.rookie_catalog);
+  const path = hatchPathTo(row.target_catalog, catalog);
+  const babyId = path?.babyId ?? row.rookie_catalog;
+  const baby = templateById.get(babyId);
   return {
     id: row.id,
     targetCatalogId: row.target_catalog,
     targetName: target?.name ?? row.target_catalog,
     targetStage: target?.stage ?? '?',
-    rookieCatalogId: row.rookie_catalog,
-    rookieName: rookie?.name ?? row.rookie_catalog,
-    rookieDot: rookie?.assets.dot ?? `/assets/digimon/${row.rookie_catalog}/dot.gif`,
+    babyCatalogId: babyId,
+    babyName: baby?.name ?? babyId,
+    babyDot: baby?.assets.dot ?? `/assets/digimon/${babyId}/dot.gif`,
     hatchAt: row.hatch_at,
     ready: row.hatch_at <= now,
   };
@@ -226,7 +239,7 @@ async function insertPending(userId: string, path: HatchPath, cleanup: () => Pro
 }
 
 export type CollectResult =
-  | { ok: true; monId: string; rookieCatalogId: string; nickname: string }
+  | { ok: true; monId: string; babyCatalogId: string; nickname: string }
   | { ok: false; error: 'not-found' | 'not-ready' | 'template-missing' };
 
 export async function collectHatch(userId: string, hatchId: string): Promise<CollectResult> {
@@ -235,16 +248,22 @@ export async function collectHatch(userId: string, hatchId: string): Promise<Col
   const now = Date.now();
   if (row.hatch_at > now) return { ok: false, error: 'not-ready' };
   const catalog = loadCatalog().digimons;
+  const path = hatchPathTo(row.target_catalog, catalog);
+  if (!path) return { ok: false, error: 'template-missing' };
   const rookieTpl = catalog.find((t) => t.id === row.rookie_catalog);
   if (!rookieTpl) return { ok: false, error: 'template-missing' };
+  const babyTpl = catalog.find((t) => t.id === path.babyId);
   const monId = newId('mon');
-  const nickname = rookieTpl.name;
-  const startingXp = xpToReach(HATCH_LEVEL, 'Rookie');
-  const equippedJson = JSON.stringify(await getDefaultEquippedForStage(rookieTpl.element, rookieTpl.stage));
+  const nickname = babyTpl?.name ?? `${rookieTpl.name} Egg`;
+  const startingStage = babyTpl?.stage ?? 'Baby';
+  const startingElement = babyTpl?.element ?? rookieTpl.element;
+  const startingXp = xpToReach(HATCH_LEVEL, startingStage);
+  const equippedJson = JSON.stringify(await getDefaultEquippedForStage(startingElement, startingStage));
+  const chain: NurseryChain = { babyCatalogId: path.babyId, inTrainingCatalogId: path.inTrainingId, rookieCatalogId: path.rookieId };
   await tx(async (t) => {
-    await t.run(SQL_INSERT_ROSTER, [monId, userId, rookieTpl.id, nickname, HATCH_LEVEL, startingXp, equippedJson, now, now]);
+    await t.run(SQL_INSERT_ROSTER, [monId, userId, path.babyId, nickname, HATCH_LEVEL, startingXp, equippedJson, now + BABY_STAGE_MS, JSON.stringify(chain), now, now]);
     await t.run(SQL_DELETE_PENDING, [hatchId, userId]);
   });
-  log.info('nursery.hatch.collect', { userId, hatchId, monId, rookie: rookieTpl.id });
-  return { ok: true, monId, rookieCatalogId: rookieTpl.id, nickname };
+  log.info('nursery.hatch.collect', { userId, hatchId, monId, baby: path.babyId, rookie: rookieTpl.id });
+  return { ok: true, monId, babyCatalogId: path.babyId, nickname };
 }
