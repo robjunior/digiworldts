@@ -1,10 +1,20 @@
 /**
  * Nursery / Digitama wire types.
  *
- * The nursery collects "species data" from every wild Digimon the player
- * defeats in PVE. When a species meter reaches 100% the player can hatch a
- * new Rookie of that lineage — a 3-minute egg timer runs before the hatched
- * mon appears on the roster.
+ * Flow (post-pen refactor):
+ *   1. Player accumulates species data by defeating wild mons in PVE.
+ *   2. When a species meter reaches 100% they place an egg (Digitama)
+ *      in the hatchery. A ~3-minute incubation timer runs.
+ *   3. On collect the egg hatches into a **Baby** in the nursery pen
+ *      (NOT a Rookie in the roster — that used to be the flow).
+ *   4. The pen server-authoritatively auto-progresses each mon:
+ *        Baby -> In-Training -> Rookie
+ *      based on `nursery_evolve_at` timers. Meat feeds + pets applied
+ *      during Baby/In-Training raise mood but do not shorten the timer
+ *      (kept simple; may be a follow-up dial).
+ *   5. When a mon reaches Rookie, the player clicks Graduate to move it
+ *      into the regular roster (status='resting'). This mirrors the
+ *      previous "Hatch!" collect action semantically.
  */
 
 import type { Stage } from './digimon.js';
@@ -28,14 +38,23 @@ export type SpeciesAwardWire = {
   kills: number;
 };
 
+/**
+ * A digitama incubating in the hatchery. Collecting when ready creates a
+ * **Baby** in the nursery pen (the field name `babyCatalogId` reflects this
+ * post-refactor semantic — even though the egg is themed after the eventual
+ * target Rookie species, what pops out first is the Baby form).
+ *
+ * `targetCatalogId` still tracks the FINAL Rookie the chain will produce,
+ * for hatchery-list display ("Egg — Rookie X lineage").
+ */
 export type PendingHatchEntry = {
   id: string;
   targetCatalogId: string;
   targetName: string;
   targetStage: Stage | string;
-  rookieCatalogId: string;
-  rookieName: string;
-  rookieDot: string;
+  babyCatalogId: string;
+  babyName: string;
+  babyDot: string;
   hatchAt: number;
   ready: boolean;
 };
@@ -57,6 +76,79 @@ export type MixHatchResponse =
   | { ok: true; pending: PendingHatchEntry; rolledCatalogId: string; totalWeight: number }
   | { ok: false; error: 'no-data' | 'no-path' };
 
+/**
+ * Collecting a ready egg creates a **Baby** in the nursery pen (NOT a Rookie
+ * in the roster). To move the eventual Rookie into the roster the client
+ * calls POST /api/nursery/graduate/:monId once the pen mon reaches Rookie.
+ */
 export type CollectHatchResponse =
-  | { ok: true; monId: string; rookieCatalogId: string; nickname: string }
+  | { ok: true; monId: string; babyCatalogId: string; nickname: string }
+  | { ok: false; error: 'not-found' | 'not-ready' | 'template-missing' };
+
+// -----------------------------------------------------------------------------
+// Nursery pen — Baby + In-Training + graduated Rookie hanging out in a scene.
+// -----------------------------------------------------------------------------
+
+export type NurseryPenStage = 'Baby' | 'In-Training' | 'Rookie';
+
+/**
+ * Locked-in evolution chain assigned at egg-collect time so the pen can
+ * pre-render the next stages and time each hop server-side.
+ */
+export type NurseryChain = {
+  babyCatalogId: string;
+  inTrainingCatalogId: string;
+  rookieCatalogId: string;
+};
+
+/**
+ * A Baby, In-Training, or ready-to-graduate Rookie in the player's pen.
+ *
+ * The server auto-advances `stage` on read once `evolveAt` passes:
+ *   - stage='Baby': evolveAt = collectAt + BABY_STAGE_MS
+ *   - stage='In-Training': evolveAt = advanceAt + IN_TRAINING_STAGE_MS
+ *   - stage='Rookie': evolveAt = 0 (ready to graduate to roster)
+ *
+ * `catalogId` swaps to the corresponding chain entry whenever the stage
+ * advances, so the client can just look up the new dot texture.
+ */
+export type NurseryPenMon = {
+  id: string;
+  catalogId: string;
+  nickname: string;
+  stage: NurseryPenStage;
+  dot: string;
+  mood: number;
+  petsToday: number;
+  canPet: boolean;
+  evolveAt: number;
+  chain: NurseryChain;
+};
+
+export type NurseryView = {
+  penMons: NurseryPenMon[];
+  meat: number;
+  maxPetsPerDay: number;
+  petMoodDelta: number;
+  feedMoodDelta: number;
+  feedMeatCost: number;
+  babyStageMs: number;
+  inTrainingStageMs: number;
+};
+
+export type PetPenMonResponse = {
+  ok: true;
+  mood: number;
+  petsToday: number;
+  maxPetsPerDay: number;
+};
+
+export type FeedPenMonResponse = {
+  ok: true;
+  mood: number;
+  meat: number;
+};
+
+export type GraduateResponse =
+  | { ok: true; monId: string; nickname: string; rookieCatalogId: string }
   | { ok: false; error: 'not-found' | 'not-ready' | 'template-missing' };

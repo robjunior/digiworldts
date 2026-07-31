@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS schema_versions (
 )`;
 
 export type Dialect = 'sqlite' | 'postgres';
-export type Migration = { version: string; filename: string; sql: string };
+export type Migration = { version: string; filename: string; sql: string; selfManagedTransaction: boolean };
 
 export function loadMigrations(dialect: Dialect): Migration[] {
   if (!existsSync(MIGRATIONS_DIR)) return [];
@@ -65,6 +65,7 @@ export function loadMigrations(dialect: Dialect): Migration[] {
       version,
       filename,
       sql: readFileSync(resolve(MIGRATIONS_DIR, filename), 'utf8'),
+      selfManagedTransaction: false,
     };
   });
 }
@@ -88,13 +89,21 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
     }
 
     try {
-      await adapter.transaction(async (tx) => {
-        await tx.exec(m.sql);
-        await tx.run(
+      if (isSelfManagedTransaction(m)) {
+        await adapter.exec(m.sql);
+        await adapter.run(
           `INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`,
           [m.version, Date.now()],
         );
-      });
+      } else {
+        await adapter.transaction(async (tx) => {
+          await tx.exec(m.sql);
+          await tx.run(
+            `INSERT INTO schema_versions (version, applied_at) VALUES (?, ?)`,
+            [m.version, Date.now()],
+          );
+        });
+      }
       applied.push(m.version);
       log.info('db.migration.applied', { version: m.version, filename: m.filename });
     } catch (err) {
@@ -131,9 +140,14 @@ export async function runMigrations(adapter: DbAdapter): Promise<MigrationResult
   return { applied, skipped };
 }
 
+function isSelfManagedTransaction(migration: Migration): boolean {
+  return migration.sql.includes('-- migrator:self-managed-transaction');
+}
+
 async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Migration, err: unknown): Promise<boolean> {
   if (!isDuplicateColumnError(err)) return false;
   if (migration.version === '011_dungeon_random_encounters') return hasDungeonRandomEncounterColumns(adapter);
+  if (migration.version === '024_roster_current_hp_en') return hasRosterCurrentHpEnColumns(adapter);
   if (migration.version !== '009_world_objects_lat_lon') return false;
   if (adapter.kind === 'sqlite') {
     const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(world_objects)`);
@@ -142,6 +156,18 @@ async function canMarkDuplicateColumnMigration(adapter: DbAdapter, migration: Mi
   }
   const columns = await adapter.query<{ column_name: string }>(
     `SELECT column_name FROM information_schema.columns WHERE table_name = 'world_objects' AND column_name IN ('lat', 'lon')`,
+  );
+  return columns.length === 2;
+}
+
+async function hasRosterCurrentHpEnColumns(adapter: DbAdapter): Promise<boolean> {
+  if (adapter.kind === 'sqlite') {
+    const columns = await adapter.query<{ name: string }>(`PRAGMA table_info(player_roster)`);
+    const names = new Set(columns.map((column) => column.name));
+    return names.has('current_hp') && names.has('current_en');
+  }
+  const columns = await adapter.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns WHERE table_name = 'player_roster' AND column_name IN ('current_hp', 'current_en')`,
   );
   return columns.length === 2;
 }

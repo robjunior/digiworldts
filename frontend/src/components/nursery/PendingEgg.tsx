@@ -24,10 +24,10 @@ export function PendingEgg({ entry, busy, onCollect }: PendingEggProps): JSX.Ele
   return (
     <div className={`egg ${ready ? 'ready' : ''}`} data-egg={entry.id}>
       <span className="espr">
-        <img src={`/assets/digimon/${entry.rookieCatalogId}/dot.gif`} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+        <img src={`/assets/digimon/${entry.babyCatalogId}/dot.gif`} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
       </span>
       <div className="emid">
-        <div className="en">{entry.rookieName}</div>
+        <div className="en">{entry.babyName}</div>
         <div className="esub">→ {entry.targetName} · {entry.targetStage}</div>
       </div>
       {ready ? (
