@@ -293,13 +293,149 @@
 .queue-status.is-matched { color:var(--el-nature); }
 .queue-btn.is-waiting { background:var(--gold); color:var(--ink); }
 
-.party-picker { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
-.party-slot { background:var(--panel); border:1px solid var(--hairline); padding:10px 12px; display:flex; flex-direction:column; gap:6px; align-items:center; text-align:center;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
-.party-slot.is-empty { border-style:dashed; color:var(--muted); }
-.party-slot img { width:64px; height:64px; object-fit:contain; background:var(--bg); border:1px solid var(--hairline); }
-.party-slot .name { font-size:12px; font-weight:600; }
-.party-slot .sub  { font-size:10px; color:var(--muted); }
+/* ---------- Party Picker ---------- */
+.party-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--panel) 60%, var(--bg));
+}
+
+.party-picker-header {
+  font: 800 10px/1 var(--font);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin: 0;
+}
+
+.party-picker-slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.party-slot {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 10px 12px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  overflow: hidden;
+}
+
+.party-slot.is-active {
+  border: 1px solid var(--signal);
+}
+
+.party-slot.is-empty {
+  border-style: dashed;
+}
+
+.party-slot img {
+  position: absolute;
+  top: 10%;
+  right: -10%;
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  opacity: 0.15;
+  image-rendering: pixelated;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.party-slot .party-empty-mark {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+  color: var(--muted);
+  opacity: 0.3;
+  z-index: 1;
+}
+
+.party-slot .party-slot-text {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+}
+
+.party-slot .name {
+  font: 700 13px/1.2 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.party-slot .sub {
+  font: 600 11px/1.2 var(--font);
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.party-slot .slot-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 5;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.party-slot:hover .slot-actions,
+.party-slot:focus-within .slot-actions {
+  opacity: 1;
+}
+
+.party-slot .slot-actions .btn {
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  color: var(--muted);
+  font: 800 8px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  cursor: pointer;
+}
+
+.party-slot .slot-actions .btn:hover {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+
+.party-slot.is-downed {
+  opacity: 0.8;
+  filter: grayscale(0.5);
+}
+
+.party-slot .down-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--signal);
+  color: #fff;
+  font: 800 8px/1 var(--font);
+  letter-spacing: .04em;
+  padding: 2px 4px;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  z-index: 5;
+}
 
 /* ---------- Admin table ---------- */
 .admin-table { width:100%; border-collapse:collapse; }

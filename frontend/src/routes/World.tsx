@@ -97,12 +97,8 @@ export function World(): JSX.Element {
     }
   }, [regions]);
   
-  const enterDungeon = useCallback((region: WorldRegion) => {
-    if (region.dungeonId) {
-      navigate('/dungeon/' + region.dungeonId);
-    } else {
-      console.log('Nav intent for un-linked region', region.label);
-    }
+  const enterDungeon = useCallback((dungeonId: string) => {
+    navigate('/dungeon/' + dungeonId);
   }, [navigate]);
 
   const handleHoverChange = useCallback((idx: number) => setHoveredIdx(idx), []);

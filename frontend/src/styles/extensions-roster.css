@@ -1467,3 +1467,26 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   color: #7db6ff;
   border-color: rgba(76, 154, 255, 0.35);
 }
+
+/* Actions stay reachable without hover: coarse pointers and keyboard focus. */
+.party-picker .party-slot .slot-actions {
+  opacity: 0.6;
+}
+.party-picker .party-slot:hover .slot-actions,
+.party-picker .party-slot:focus-within .slot-actions {
+  opacity: 1;
+}
+@media (hover: none), (pointer: coarse) {
+  .party-picker .party-slot .slot-actions {
+    opacity: 1;
+  }
+}
+
+/* Defect 3: Restore per-element accent using var(--el) */
+.party-picker .party-slot:not(.is-empty) {
+  border-color: var(--el, var(--hairline));
+}
+.party-picker .party-slot.is-active:not(.is-empty) {
+  border-color: var(--el, var(--signal));
+  box-shadow: 0 0 0 1px var(--el, var(--signal));
+}
