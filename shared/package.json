@@ -41,9 +41,23 @@
     "./dungeon": {
       "types": "./dist/dungeon.d.ts",
       "import": "./dist/dungeon.js"
+    },
+    "./dialogue": {
+      "types": "./dist/dialogue.d.ts",
+      "import": "./dist/dialogue.js"
+    },
+    "./dialogue-parser": {
+      "types": "./dist/dialogue-parser.d.ts",
+      "import": "./dist/dialogue-parser.js"
+    },
+    "./dialogue-expr": {
+      "types": "./dist/dialogue-expr.d.ts",
+      "import": "./dist/dialogue-expr.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
