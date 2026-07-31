@@ -18,6 +18,10 @@
       "types": "./dist/battle.d.ts",
       "import": "./dist/battle.js"
     },
+    "./scene": {
+      "types": "./dist/scene.d.ts",
+      "import": "./dist/scene.js"
+    },
     "./auth": {
       "types": "./dist/auth.d.ts",
       "import": "./dist/auth.js"

@@ -44,6 +44,7 @@ export function AdminDungeon(): JSX.Element {
   const [toast, setToast] = useState<string | null>(null);
   const [paintTarget, setPaintTarget] = useState<boolean | null>(null);
   const [showImport, setShowImport] = useState<boolean>(false);
+  const [panelCollapsed, setPanelCollapsed] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
   const tileSetRef = useRef<Map<string, number>>(new Map());
   const gridRef = useRef<HTMLDivElement>(null);
@@ -297,7 +298,7 @@ export function AdminDungeon(): JSX.Element {
           )}
         </div>
 
-        <aside className="admin-dungeon-floating-panel" aria-label="Dungeon editor tools">
+        <aside className={`admin-dungeon-floating-panel${panelCollapsed ? ' is-collapsed' : ''}`} aria-label="Dungeon editor tools">
           <div className="admin-dungeon-panel-head">
             <div>
               <h2>{dungeon.name}</h2>
@@ -306,6 +307,16 @@ export function AdminDungeon(): JSX.Element {
               </span>
             </div>
             <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="admin-dungeon-panel-toggle"
+                onClick={() => setPanelCollapsed((v) => !v)}
+                aria-label={panelCollapsed ? 'Expand tool panel' : 'Collapse tool panel'}
+                aria-expanded={!panelCollapsed}
+                title={panelCollapsed ? 'Expand tool panel' : 'Collapse tool panel'}
+              >
+                <span aria-hidden="true">☰</span>
+              </button>
               <button
                 type="button"
                 className="btn btn--secondary btn--sm"

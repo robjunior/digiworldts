@@ -63,6 +63,7 @@ export type DungeonEncounter = {
    */
   readonly rewardItemId: string | null;
   readonly loots: readonly EncounterLoot[];
+  readonly sceneId: string | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };

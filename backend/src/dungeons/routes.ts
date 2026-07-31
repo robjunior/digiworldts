@@ -362,7 +362,7 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     });
     if (wilds.length !== encounter.digimon.length) return reply.code(500).send({ error: 'catalog-missing' });
 
-    const started = await startPveBattleFromEncounter(user.id, wilds);
+    const started = await startPveBattleFromEncounter(user.id, wilds, encounter.sceneId);
     if (!started.ok) {
       if (started.error === 'party-invalid') {
         return reply.code(409).send({ error: 'party-invalid', message: 'Assign 3 alive Digimon to your party first.' });

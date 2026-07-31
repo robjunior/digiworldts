@@ -1,19 +1,13 @@
+import type { JSX } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import { apiFetch } from '../../lib/api';
-import { getSceneDefaults, replaceSceneDefaultsCache, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
+import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
+import { ELEMENT_TO_ARENA_KEY, type SceneEntity } from '@digiworld/shared/scene';
+
+import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { ARENA_FILE_LIST } from '../../scene3d/arena-urls';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
-
-const STORAGE_KEY = 'digiworld.scene-settings-override';
-const BASELINE_STORAGE_KEY = 'digiworld.scene-defaults-baseline';
-
-const PREVIEW_ARENAS = ['plant', 'steel', 'water', 'rock', 'dark', 'fire', 'ice', 'field', 'null', 'wind', 'light'] as const;
-type PreviewArenaKey = (typeof PREVIEW_ARENAS)[number];
-const PREVIEW_ARENA_SET: ReadonlySet<string> = new Set<string>(PREVIEW_ARENAS);
-
-type PerArenaOverride = Record<string, Partial<SceneSettings>>;
 
 const DEFAULT_SETTINGS: SceneSettings = {
   sunColor: 0xfff2d0,
@@ -55,25 +49,20 @@ const DEFAULT_SETTINGS: SceneSettings = {
   arenaOffsetZ: 0,
 };
 
-function loadOverride(): PerArenaOverride {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return {};
-    const obj = parsed as Record<string, unknown>;
-    const keys = Object.keys(obj);
-    if (keys.length > 0 && !keys.every((k) => PREVIEW_ARENA_SET.has(k))) return {};
-    const out: PerArenaOverride = {};
-    for (const k of keys) {
-      const v = obj[k];
-      if (typeof v === 'object' && v !== null) out[k] = v as Partial<SceneSettings>;
-    }
-    return out;
-  } catch {
-    return {};
-  }
+type SceneDraft = {
+  readonly name: string;
+  readonly elements: readonly Element[];
+  readonly useGlbSettings: boolean;
+  readonly settings: Partial<SceneSettings>;
+};
+
+function draftFromScene(scene: SceneEntity): SceneDraft {
+  return {
+    name: scene.name,
+    elements: scene.elements,
+    useGlbSettings: scene.useGlbSettings === true,
+    settings: (scene.settings as Partial<SceneSettings>) ?? {},
+  };
 }
 
 function toHex(color: number): string {
@@ -84,210 +73,176 @@ function fromHex(hex: string): number {
   return parseInt(hex.slice(1), 16);
 }
 
-const PRESETS_STORAGE_KEY = 'digiworld.scene-presets';
-
-type Presets = Record<string, Partial<SceneSettings>>;
-
-function loadPresets(): Presets {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(PRESETS_STORAGE_KEY);
-    if (raw === null) return {};
-    return JSON.parse(raw) as Presets;
-  } catch {
-    return {};
-  }
+function arenaKeyForDraft(draft: SceneDraft): string {
+  const first = draft.elements[0];
+  if (first !== undefined) return ELEMENT_TO_ARENA_KEY[first];
+  return 'steel';
 }
 
-function savePresetsToStorage(presets: Presets): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
-  } catch {
-    return;
+function draftsEqual(a: SceneDraft, b: SceneDraft): boolean {
+  if (a.name !== b.name) return false;
+  if (a.useGlbSettings !== b.useGlbSettings) return false;
+  if (a.elements.length !== b.elements.length) return false;
+  const aSet = new Set<Element>(a.elements);
+  for (const el of b.elements) if (!aSet.has(el)) return false;
+  const aKeys = Object.keys(a.settings);
+  const bKeys = Object.keys(b.settings);
+  if (aKeys.length !== bKeys.length) return false;
+  for (const k of aKeys) {
+    if ((a.settings as Record<string, unknown>)[k] !== (b.settings as Record<string, unknown>)[k]) return false;
   }
-}
-
-function arenaHash(defaults: Partial<SceneSettings> | undefined): string {
-  return JSON.stringify(defaults ?? {});
-}
-
-function loadBaseline(): Record<string, string> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(BASELINE_STORAGE_KEY);
-    if (raw === null) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== 'object' || parsed === null) return {};
-    const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
-      if (typeof v === 'string') out[k] = v;
-    }
-    return out;
-  } catch {
-    return {};
-  }
+  return true;
 }
 
 export function SceneSettingsAdmin(): JSX.Element {
-  const [override, setOverride] = useState<PerArenaOverride>(() => loadOverride());
-  const [baseline, setBaseline] = useState<Record<string, string>>(() => loadBaseline());
-  const [codeDefaults, setCodeDefaults] = useState<PerArenaSceneDefaults>({});
-  const [presets, setPresets] = useState<Presets>(() => loadPresets());
-  const [presetName, setPresetName] = useState('');
-  const [selectedPreset, setSelectedPreset] = useState('');
+  const [scenes, setScenes] = useState<readonly SceneEntity[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<SceneDraft | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [previewArena, setPreviewArena] = useState<PreviewArenaKey>('plant');
-  const [copyFrom, setCopyFrom] = useState('');
+  const [busy, setBusy] = useState<'copy' | 'delete' | 'create' | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void getSceneDefaults(true)
-      .then((remoteDefaults) => {
-        if (!cancelled) setCodeDefaults(remoteDefaults);
+    invalidateScenesCache();
+    getScenes(true)
+      .then((list) => {
+        if (cancelled) return;
+        setScenes(list);
+        if (list.length > 0 && selectedId === null) {
+          const first = list[0];
+          if (first !== undefined) {
+            setSelectedId(first.id);
+            setDraft(draftFromScene(first));
+          }
+        }
       })
-      .catch(() => {});
+      .catch((err: unknown) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'failed to load scenes');
+      });
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const overrideKeys = Object.keys(override);
-    if (overrideKeys.length === 0) return;
-    const nextOverride: PerArenaOverride = { ...override };
-    const nextBaseline: Record<string, string> = { ...baseline };
-    let baselineChanged = false;
-    let overrideChanged = false;
-    for (const arena of overrideKeys) {
-      const currentHash = arenaHash(codeDefaults[arena]);
-      const recordedHash = baseline[arena];
-      if (recordedHash === undefined) {
-        nextBaseline[arena] = currentHash;
-        baselineChanged = true;
-      } else if (recordedHash !== currentHash) {
-        delete nextOverride[arena];
-        delete nextBaseline[arena];
-        overrideChanged = true;
-        baselineChanged = true;
-      }
-    }
-    if (overrideChanged) setOverride(nextOverride);
-    if (baselineChanged) setBaseline(nextBaseline);
-  }, [codeDefaults]);
+  const selectedScene = useMemo(() => scenes.find((s) => s.id === selectedId) ?? null, [scenes, selectedId]);
+  const dirty = useMemo(() => (draft !== null && selectedScene !== null ? !draftsEqual(draft, draftFromScene(selectedScene)) : false), [draft, selectedScene]);
 
-  useEffect(() => {
-    try {
-      const hasAny = Object.keys(baseline).length > 0;
-      if (hasAny) window.localStorage.setItem(BASELINE_STORAGE_KEY, JSON.stringify(baseline));
-      else window.localStorage.removeItem(BASELINE_STORAGE_KEY);
-    } catch { /* noop */ }
-  }, [baseline]);
-
-  const settings: SceneSettings = useMemo(() => ({
+  const effectiveSettings: SceneSettings = useMemo(() => ({
     ...DEFAULT_SETTINGS,
-    ...(codeDefaults[previewArena] ?? {}),
-    ...(override[previewArena] ?? {}),
-  }), [previewArena, codeDefaults, override]);
+    ...(draft?.settings ?? {}),
+  }), [draft]);
 
-  const overrideForArena = useMemo(() => override[previewArena] ?? {}, [override, previewArena]);
+  const previewArenaKey = draft !== null ? arenaKeyForDraft(draft) : 'steel';
 
-  useEffect(() => {
-    try {
-      const pruned: PerArenaOverride = {};
-      let hasAny = false;
-      for (const [k, v] of Object.entries(override)) {
-        if (v && Object.keys(v).length > 0) {
-          pruned[k] = v;
-          hasAny = true;
-        }
-      }
-      if (hasAny) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
-      else window.localStorage.removeItem(STORAGE_KEY);
-    } catch { /* noop */ }
-  }, [override]);
+  const selectScene = (id: string): void => {
+    setSelectedId(id);
+    const scene = scenes.find((s) => s.id === id);
+    if (scene !== undefined) setDraft(draftFromScene(scene));
+    setSaveStatus('idle');
+  };
 
-  const patch = (change: Partial<SceneSettings>): void => {
-    setOverride((prev) => {
-      const arenaCode = codeDefaults[previewArena] ?? {};
-      const arenaOverride = { ...(prev[previewArena] ?? {}) };
+  const patchSettings = (change: Partial<SceneSettings>): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const nextSettings = { ...prev.settings } as Record<string, unknown>;
       for (const [k, v] of Object.entries(change)) {
-        const key = k as keyof SceneSettings;
-        const codeBaseline = (arenaCode as Record<string, unknown>)[key];
-        const baseline = codeBaseline !== undefined ? codeBaseline : (DEFAULT_SETTINGS as Record<string, unknown>)[key];
-        if (v === baseline) delete (arenaOverride as Record<string, unknown>)[key];
-        else (arenaOverride as Record<string, unknown>)[key] = v;
+        if (v === undefined) delete nextSettings[k];
+        else nextSettings[k] = v;
       }
-      return { ...prev, [previewArena]: arenaOverride };
+      return { ...prev, settings: nextSettings as Partial<SceneSettings> };
     });
   };
 
-  const resetArena = (): void => {
-    setOverride((prev) => {
-      const next = { ...prev };
-      delete next[previewArena];
-      return next;
-    });
-    setBaseline((prev) => {
-      if (!(previewArena in prev)) return prev;
-      const next = { ...prev };
-      delete next[previewArena];
-      return next;
+  const clearSetting = (key: keyof SceneSettings): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const nextSettings = { ...prev.settings } as Record<string, unknown>;
+      delete nextSettings[key as string];
+      return { ...prev, settings: nextSettings as Partial<SceneSettings> };
     });
   };
 
-  const clearAllOverrides = (): void => {
-    setOverride({});
-    setBaseline({});
+  const toggleElement = (el: Element): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const has = prev.elements.includes(el);
+      const next = has ? prev.elements.filter((x) => x !== el) : [...prev.elements, el];
+      return { ...prev, elements: next };
+    });
   };
 
-  const savePreset = (): void => {
-    const name = presetName.trim();
-    if (name === '') return;
-    const next = { ...presets, [name]: { ...overrideForArena } };
-    savePresetsToStorage(next);
-    setPresets(next);
-    setPresetName('');
-    setSelectedPreset(name);
+  const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
+  const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
+
+  const handleNew = async (): Promise<void> => {
+    setBusy('create');
+    try {
+      const res = await createScene({ name: 'New scene', elements: [], settings: {} });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const applyPreset = (name: string): void => {
-    setSelectedPreset(name);
-    if (name === '') return;
-    const preset = presets[name];
-    if (preset === undefined) return;
-    setOverride((prev) => ({ ...prev, [previewArena]: { ...preset } }));
+  const handleCopy = async (): Promise<void> => {
+    if (selectedId === null) return;
+    setBusy('copy');
+    try {
+      const res = await copyScene(selectedId);
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const deletePreset = (): void => {
-    if (selectedPreset === '') return;
-    const next = { ...presets };
-    delete next[selectedPreset];
-    savePresetsToStorage(next);
-    setPresets(next);
-    setSelectedPreset('');
+  const handleDelete = async (): Promise<void> => {
+    if (selectedId === null) return;
+    if (!window.confirm(`Delete scene "${selectedScene?.name ?? selectedId}"? This cannot be undone.`)) return;
+    setBusy('delete');
+    try {
+      await deleteScene(selectedId);
+      const list = await getScenes(true);
+      setScenes(list);
+      const next = list[0];
+      if (next !== undefined) {
+        setSelectedId(next.id);
+        setDraft(draftFromScene(next));
+      } else {
+        setSelectedId(null);
+        setDraft(null);
+      }
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const saveToCode = async (): Promise<void> => {
+  const handleSave = async (): Promise<void> => {
+    if (selectedId === null || draft === null) return;
     setSaveStatus('saving');
     try {
-      const nextCode: PerArenaSceneDefaults = { ...codeDefaults };
-      const currentCode = codeDefaults[previewArena] ?? {};
-      const merged: Partial<SceneSettings> = { ...currentCode, ...overrideForArena };
-      if (Object.keys(merged).length > 0) nextCode[previewArena] = merged;
-      else delete nextCode[previewArena];
-      const body = await apiFetch<{ ok: true; defaults: PerArenaSceneDefaults }>('/api/admin/scene-defaults', { method: 'POST', body: nextCode });
-      setCodeDefaults(body.defaults);
-      replaceSceneDefaultsCache(body.defaults);
-      setOverride((prev) => {
-        const next = { ...prev };
-        delete next[previewArena];
-        return next;
+      const res = await updateScene(selectedId, {
+        name: draft.name,
+        elements: draft.elements,
+        settings: draft.settings,
+        useGlbSettings: draft.useGlbSettings,
       });
-      setBaseline((prev) => {
-        if (!(previewArena in prev)) return prev;
-        const next = { ...prev };
-        delete next[previewArena];
-        return next;
-      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setDraft(draftFromScene(res.scene));
       setSaveStatus('saved');
       window.setTimeout(() => setSaveStatus('idle'), 2500);
     } catch {
@@ -296,210 +251,217 @@ export function SceneSettingsAdmin(): JSX.Element {
     }
   };
 
-  const copyFromArena = (sourceKey: string): void => {
-    setCopyFrom(sourceKey);
-    if (sourceKey === '' || !PREVIEW_ARENA_SET.has(sourceKey) || sourceKey === previewArena) return;
-    const sourceCode = codeDefaults[sourceKey] ?? {};
-    const sourceOverride = override[sourceKey] ?? {};
-    const merged: Partial<SceneSettings> = { ...sourceCode, ...sourceOverride };
-    setOverride((prev) => ({ ...prev, [previewArena]: merged }));
-    window.setTimeout(() => setCopyFrom(''), 250);
-  };
-
-  const overrideCount = Object.keys(overrideForArena).length;
-  const codeDefaultCount = Object.keys(codeDefaults[previewArena] ?? {}).length;
-
   return (
-    <div className="scene-admin scene-admin-fullsize">
-      <section className="scene-admin-canvas-layer" aria-label="Live scene preview">
-        <div className="scene-admin-arena-picker" role="tablist" aria-label="Arena preview">
-          {PREVIEW_ARENAS.map((key) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={previewArena === key}
-              className={`scene-admin-arena-tab${previewArena === key ? ' is-active' : ''}`}
-              onClick={() => setPreviewArena(key)}
-            >
-              {key}
-            </button>
-          ))}
-        </div>
-        <ScenePreview arenaKey={previewArena} settings={settings} />
-      </section>
-      <aside className="scene-admin-controls-panel" aria-label="Scene controls">
-        <header className="scene-admin-header">
-        <div>
-          <h2>Scene lighting &amp; atmosphere</h2>
-          <p className="scene-admin-note">
-            Each arena keeps its own settings — tweaking <b>{previewArena}</b> does not affect other arenas.
-            Use <b>Copy from</b> to clone another arena&rsquo;s settings into this one.
-            <br />
-            Changes take effect the next time combat starts (or on page reload).
-          </p>
-        </div>
-        <div className="scene-admin-header-actions">
-          <span className="scene-admin-badge" data-active={overrideCount > 0 ? '1' : '0'}>
-            {overrideCount === 0 ? `${previewArena}: no override` : `${previewArena}: ${overrideCount} override${overrideCount === 1 ? '' : 's'}`}
-          </span>
-          {codeDefaultCount > 0 ? (
-            <span className="scene-admin-badge" data-active="1" title="Saved to code for this arena (server-side default)">
-              code: {codeDefaultCount}
-            </span>
-          ) : null}
-          <select
-            className="scene-admin-copy-from"
-            value={copyFrom}
-            onChange={(e) => copyFromArena(e.currentTarget.value)}
-            title={`Copy another arena's settings into ${previewArena}`}
-          >
-            <option value="">Copy from arena…</option>
-            {PREVIEW_ARENAS.filter((k) => k !== previewArena).map((k) => (
-              <option key={k} value={k}>{k}</option>
-            ))}
-          </select>
-          <button type="button" className="scene-admin-reset" onClick={() => { void saveToCode(); }} disabled={saveStatus === 'saving' || overrideCount === 0}>
-            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : `Save ${previewArena} to code`}
+    <div className="scene-admin scene-admin-fullsize scene-admin-crud">
+      <aside className="scene-admin-list-panel" aria-label="Scene list">
+        <header className="scene-admin-list-header">
+          <h2>Scenes</h2>
+          <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
+            {busy === 'create' ? 'Creating…' : 'New scene'}
           </button>
-          <button type="button" className="scene-admin-reset" onClick={resetArena} disabled={overrideCount === 0}>Reset arena</button>
-          <button
-            type="button"
-            className="scene-admin-reset"
-            onClick={clearAllOverrides}
-            disabled={Object.keys(override).length === 0}
-            title="Clear ALL local scene overrides for every arena so you see exactly what other users see (server defaults)"
-          >
-            Reset all local
-          </button>
-        </div>
-      </header>
-
-      <section className="scene-admin-model-picker">
-        <label className="scene-admin-model-picker-label">
-          <span>Model file</span>
-          <select
-            value={settings.modelFile ?? ''}
-            onChange={(e) => {
-              const next = e.currentTarget.value;
-              if (next === '') {
-                setOverride((prev) => {
-                  const arenaOverride = { ...(prev[previewArena] ?? {}) } as Record<string, unknown>;
-                  delete arenaOverride.modelFile;
-                  return { ...prev, [previewArena]: arenaOverride as Partial<SceneSettings> };
-                });
-              } else {
-                patch({ modelFile: next });
-              }
-            }}
-          >
-            <option value="">— use default ({previewArena}.glb) —</option>
-            {ARENA_FILE_LIST.map((filename) => (
-              <option key={filename} value={filename}>{filename}</option>
-            ))}
-          </select>
-        </label>
-        <p className="scene-admin-note">
-          Any <code>.glb</code> in <code>frontend/src/assets/arenas/</code> — filename doesn't matter.
-          Picks the mesh loaded for the <b>{previewArena}</b> arena in combat.
-        </p>
-      </section>
-
-      <section className="scene-admin-presets">
-        <h3>Presets</h3>
-        <div className="scene-admin-presets-row">
-          <select value={selectedPreset} onChange={(e) => applyPreset(e.currentTarget.value)}>
-            <option value="">— select a preset —</option>
-            {Object.keys(presets).sort().map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-          <button type="button" onClick={deletePreset} disabled={selectedPreset === ''}>Delete</button>
-          <input
-            type="text"
-            placeholder="preset name"
-            value={presetName}
-            onChange={(e) => setPresetName(e.currentTarget.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') savePreset(); }}
-          />
-          <button type="button" onClick={savePreset} disabled={presetName.trim() === '' || overrideCount === 0}>Save current arena</button>
-        </div>
-      </section>
-
-      <div className="scene-admin-grid">
-        <Section title="Sun (key light)">
-          <ColorRow label="Color" value={settings.sunColor} onChange={(v) => patch({ sunColor: v })} />
-          <SliderRow label="Intensity" value={settings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patch({ sunIntensity: v })} />
-          <SliderRow label="Pos X" value={settings.sunPosX} min={-20} max={20} step={0.1} onChange={(v) => patch({ sunPosX: v })} />
-          <SliderRow label="Pos Y" value={settings.sunPosY} min={0} max={25} step={0.1} onChange={(v) => patch({ sunPosY: v })} />
-          <SliderRow label="Pos Z" value={settings.sunPosZ} min={-20} max={20} step={0.1} onChange={(v) => patch({ sunPosZ: v })} />
-        </Section>
-
-        <Section title="Shadows">
-          <ToggleRow label="Enabled" value={settings.shadowsEnabled} onChange={(v) => patch({ shadowsEnabled: v })} />
-          <SliderRow label="Softness" value={settings.shadowRadius} min={0} max={20} step={0.5} onChange={(v) => patch({ shadowRadius: v })} />
-          <SliderRow label="Bias" value={settings.shadowBias} min={-0.01} max={0.01} step={0.0001} onChange={(v) => patch({ shadowBias: v })} decimals={4} />
-          <SliderRow label="Normal bias" value={settings.shadowNormalBias} min={0} max={0.2} step={0.005} onChange={(v) => patch({ shadowNormalBias: v })} decimals={3} />
-          <SelectRow label="Map size" value={settings.shadowMapSize} options={[512, 1024, 2048, 4096]} onChange={(v) => patch({ shadowMapSize: v })} />
-        </Section>
-
-        <Section title="Fog">
-          <ToggleRow label="Enabled" value={settings.fogEnabled} onChange={(v) => patch({ fogEnabled: v })} />
-          <RadioRow label="Mode" value={settings.fogMode} options={[{ label: 'Linear', value: 'linear' }, { label: 'Volumetric (exp²)', value: 'exp2' }, { label: 'Height', value: 'height' }]} onChange={(v) => patch({ fogMode: v as 'linear' | 'exp2' | 'height' })} />
-          <ColorRow label="Color" value={settings.fogColor} onChange={(v) => patch({ fogColor: v })} />
-          {settings.fogMode === 'linear' ? (
-            <>
-              <SliderRow label="Near" value={settings.fogNear} min={0} max={80} step={0.5} onChange={(v) => patch({ fogNear: v })} />
-              <SliderRow label="Far" value={settings.fogFar} min={5} max={120} step={0.5} onChange={(v) => patch({ fogFar: v })} />
-            </>
-          ) : settings.fogMode === 'exp2' ? (
-            <SliderRow label="Density" value={settings.fogDensity} min={0} max={0.2} step={0.001} onChange={(v) => patch({ fogDensity: v })} decimals={3} />
+        </header>
+        {loadError !== null ? <p className="scene-admin-error">{loadError}</p> : null}
+        <ul className="scene-admin-list">
+          {scenes.length === 0 ? (
+            <li className="scene-admin-list-empty">No scenes yet. Click <b>New scene</b> to create one.</li>
           ) : (
-            <>
-              <SliderRow label="Density" value={settings.fogDensity} min={0.001} max={0.1} step={0.0001} onChange={(v) => patch({ fogDensity: v })} decimals={4} />
-              <SliderRow label="Height" value={settings.fogHeight} min={-5} max={5} step={0.05} onChange={(v) => patch({ fogHeight: v })} decimals={2} />
-            </>
+            scenes.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  className={`scene-admin-list-item${selectedId === s.id ? ' is-selected' : ''}`}
+                  onClick={() => selectScene(s.id)}
+                >
+                  <span className="scene-admin-list-name">{s.name}</span>
+                  <span className="scene-admin-list-meta">
+                    {s.useGlbSettings === true ? 'GLB' : 'settings'}
+                    {s.elements.length > 0 ? ` · ${s.elements.join(', ')}` : ''}
+                  </span>
+                </button>
+              </li>
+            ))
           )}
-        </Section>
-
-        <Section title="Hemisphere (ambient)">
-          <ColorRow label="Sky" value={settings.hemiSkyColor} onChange={(v) => patch({ hemiSkyColor: v })} />
-          <ColorRow label="Ground" value={settings.hemiGroundColor} onChange={(v) => patch({ hemiGroundColor: v })} />
-          <SliderRow label="Intensity" value={settings.hemiIntensity} min={0} max={2} step={0.02} onChange={(v) => patch({ hemiIntensity: v })} />
-        </Section>
-
-        <Section title="Rim light">
-          <ColorRow label="Color" value={settings.rimColor} onChange={(v) => patch({ rimColor: v })} />
-          <SliderRow label="Intensity" value={settings.rimIntensity} min={0} max={2} step={0.02} onChange={(v) => patch({ rimIntensity: v })} />
-        </Section>
-
-        <Section title="Fill light">
-          <ColorRow label="Color" value={settings.fillColor} onChange={(v) => patch({ fillColor: v })} />
-          <SliderRow label="Intensity" value={settings.fillIntensity} min={0} max={2} step={0.02} onChange={(v) => patch({ fillIntensity: v })} />
-        </Section>
-
-        <Section title="Camera">
-          <RadioRow label="Type" value={settings.cameraType} options={[{ label: 'Orthographic', value: 'ortho' }, { label: 'Perspective', value: 'perspective' }]} onChange={(v) => patch({ cameraType: v as 'ortho' | 'perspective' })} />
-          <SliderRow label="Elevation°" value={settings.camElevDeg} min={0} max={80} step={0.5} onChange={(v) => patch({ camElevDeg: v })} />
-          <SliderRow label="Yaw°" value={settings.camYawDeg} min={-90} max={90} step={0.5} onChange={(v) => patch({ camYawDeg: v })} />
-          <SliderRow label="Distance" value={settings.camDist} min={4} max={40} step={0.2} onChange={(v) => patch({ camDist: v })} />
-          <SliderRow label="Look-at Y" value={settings.camLookAtY} min={-2} max={5} step={0.05} onChange={(v) => patch({ camLookAtY: v })} />
-          {settings.cameraType === 'perspective'
-            ? <SliderRow label="Field of view°" value={settings.camFov} min={20} max={90} step={1} onChange={(v) => patch({ camFov: v })} decimals={0} />
-            : <SliderRow label="Frustum" value={settings.camFrustum} min={1} max={12} step={0.1} onChange={(v) => patch({ camFrustum: v })} />}
-        </Section>
-
-        <Section title="Arena position">
-          <SliderRow label="Scene size" value={settings.arenaSpan} min={5} max={200} step={1} onChange={(v) => patch({ arenaSpan: v })} decimals={0} />
-          <SliderRow label="Offset X (←→)" value={settings.arenaOffsetX} min={-50} max={50} step={0.2} onChange={(v) => patch({ arenaOffsetX: v })} decimals={1} />
-          <SliderRow label="Offset Y (↑↓)" value={settings.arenaOffsetY} min={-50} max={50} step={0.2} onChange={(v) => patch({ arenaOffsetY: v })} decimals={1} />
-          <SliderRow label="Offset Z (fwd/back)" value={settings.arenaOffsetZ} min={-50} max={50} step={0.2} onChange={(v) => patch({ arenaOffsetZ: v })} decimals={1} />
-        </Section>
-
-        <Section title="Effects">
-          <SliderRow label="Exposure" value={settings.exposure} min={0.2} max={2.5} step={0.02} onChange={(v) => patch({ exposure: v })} />
-          <SliderRow label="Dust opacity" value={settings.dustOpacity} min={0} max={1} step={0.02} onChange={(v) => patch({ dustOpacity: v })} />
-        </Section>
-      </div>
+        </ul>
       </aside>
+
+      {draft === null || selectedScene === null ? (
+        <section className="scene-admin-canvas-layer scene-admin-empty" aria-label="No scene selected">
+          <p>Select a scene from the list, or create a new one to start editing.</p>
+        </section>
+      ) : (
+        <>
+          <section className="scene-admin-canvas-layer" aria-label="Live scene preview">
+            <ScenePreview arenaKey={previewArenaKey} settings={effectiveSettings} />
+          </section>
+          <aside className="scene-admin-controls-panel" aria-label="Scene controls">
+            <header className="scene-admin-header">
+              <div>
+                <h2>Editing: {draft.name}</h2>
+                <p className="scene-admin-note">
+                  Elements tag this scene for auto-pick during PVE / PVP.
+                  {draft.useGlbSettings ? ' GLB mode: the mesh drives lighting; settings below are ignored.' : ' Settings mode: the sliders below drive lighting and fog.'}
+                </p>
+              </div>
+              <div className="scene-admin-header-actions">
+                <button type="button" onClick={() => { void handleSave(); }} disabled={!dirty || saveStatus === 'saving'}>
+                  {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save'}
+                </button>
+                <button type="button" onClick={() => { void handleCopy(); }} disabled={busy !== null}>
+                  {busy === 'copy' ? 'Copying…' : 'Duplicate'}
+                </button>
+                <button type="button" className="scene-admin-danger" onClick={() => { void handleDelete(); }} disabled={busy !== null}>
+                  {busy === 'delete' ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </header>
+
+            <section className="scene-admin-meta">
+              <label className="scene-admin-row">
+                <span className="scene-admin-label">Name</span>
+                <input type="text" value={draft.name} maxLength={120} onChange={(e) => setName(e.currentTarget.value)} />
+              </label>
+              <label className="scene-admin-row scene-admin-row--toggle">
+                <span className="scene-admin-label">Use GLB embedded lighting</span>
+                <input type="checkbox" checked={draft.useGlbSettings} onChange={(e) => setUseGlbSettings(e.currentTarget.checked)} />
+                <span className="scene-admin-value">{draft.useGlbSettings ? 'ON' : 'OFF'}</span>
+              </label>
+              <div className="scene-admin-row scene-admin-row--elements">
+                <span className="scene-admin-label">Elements</span>
+                <div className="scene-admin-element-chips">
+                  {ELEMENTS.map((el) => {
+                    const active = draft.elements.includes(el);
+                    return (
+                      <button
+                        key={el}
+                        type="button"
+                        className={`scene-admin-chip${active ? ' is-active' : ''}`}
+                        onClick={() => toggleElement(el)}
+                      >
+                        {el}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="scene-admin-model-picker">
+              <label className="scene-admin-model-picker-label">
+                <span>Model file</span>
+                <select
+                  value={(draft.settings.modelFile as string | undefined) ?? ''}
+                  onChange={(e) => {
+                    const next = e.currentTarget.value;
+                    if (next === '') {
+                      setDraft((prev) => {
+                        if (prev === null) return prev;
+                        const s = { ...prev.settings } as Record<string, unknown>;
+                        delete s['modelFile'];
+                        return { ...prev, settings: s as Partial<SceneSettings> };
+                      });
+                    } else {
+                      patchSettings({ modelFile: next });
+                    }
+                  }}
+                >
+                  <option value="">— no model (default per-element fallback) —</option>
+                  {ARENA_FILE_LIST.map((filename) => (
+                    <option key={filename} value={filename}>{filename}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="scene-admin-note">
+                Any <code>.glb</code> in <code>frontend/src/assets/arenas/</code>. Leave empty to use the built-in arena mesh for the scene's primary element.
+              </p>
+            </section>
+
+            {draft.useGlbSettings ? (
+              <section className="scene-admin-glb-notice">
+                <p>
+                  <b>GLB embedded lighting is ON.</b> Combat will render this scene using whatever the GLB itself defines.
+                  The settings below are stored but ignored at render time.
+                </p>
+              </section>
+            ) : null}
+
+            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings}>
+              <Section title="Sun (key light)">
+                <ColorRow label="Color" value={effectiveSettings.sunColor} onChange={(v) => patchSettings({ sunColor: v })} />
+                <SliderRow label="Intensity" value={effectiveSettings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patchSettings({ sunIntensity: v })} />
+                <SliderRow label="Pos X" value={effectiveSettings.sunPosX} min={-20} max={20} step={0.1} onChange={(v) => patchSettings({ sunPosX: v })} />
+                <SliderRow label="Pos Y" value={effectiveSettings.sunPosY} min={0} max={25} step={0.1} onChange={(v) => patchSettings({ sunPosY: v })} />
+                <SliderRow label="Pos Z" value={effectiveSettings.sunPosZ} min={-20} max={20} step={0.1} onChange={(v) => patchSettings({ sunPosZ: v })} />
+              </Section>
+
+              <Section title="Shadows">
+                <ToggleRow label="Enabled" value={effectiveSettings.shadowsEnabled} onChange={(v) => patchSettings({ shadowsEnabled: v })} />
+                <SliderRow label="Softness" value={effectiveSettings.shadowRadius} min={0} max={20} step={0.5} onChange={(v) => patchSettings({ shadowRadius: v })} />
+                <SliderRow label="Bias" value={effectiveSettings.shadowBias} min={-0.01} max={0.01} step={0.0001} onChange={(v) => patchSettings({ shadowBias: v })} decimals={4} />
+                <SliderRow label="Normal bias" value={effectiveSettings.shadowNormalBias} min={0} max={0.2} step={0.005} onChange={(v) => patchSettings({ shadowNormalBias: v })} decimals={3} />
+                <SelectRow label="Map size" value={effectiveSettings.shadowMapSize} options={[512, 1024, 2048, 4096]} onChange={(v) => patchSettings({ shadowMapSize: v })} />
+              </Section>
+
+              <Section title="Fog">
+                <ToggleRow label="Enabled" value={effectiveSettings.fogEnabled} onChange={(v) => patchSettings({ fogEnabled: v })} />
+                <RadioRow label="Mode" value={effectiveSettings.fogMode} options={[{ label: 'Linear', value: 'linear' }, { label: 'Volumetric (exp²)', value: 'exp2' }, { label: 'Height', value: 'height' }]} onChange={(v) => patchSettings({ fogMode: v as 'linear' | 'exp2' | 'height' })} />
+                <ColorRow label="Color" value={effectiveSettings.fogColor} onChange={(v) => patchSettings({ fogColor: v })} />
+                {effectiveSettings.fogMode === 'linear' ? (
+                  <>
+                    <SliderRow label="Near" value={effectiveSettings.fogNear} min={0} max={80} step={0.5} onChange={(v) => patchSettings({ fogNear: v })} />
+                    <SliderRow label="Far" value={effectiveSettings.fogFar} min={5} max={120} step={0.5} onChange={(v) => patchSettings({ fogFar: v })} />
+                  </>
+                ) : effectiveSettings.fogMode === 'exp2' ? (
+                  <SliderRow label="Density" value={effectiveSettings.fogDensity} min={0} max={0.2} step={0.001} onChange={(v) => patchSettings({ fogDensity: v })} decimals={3} />
+                ) : (
+                  <>
+                    <SliderRow label="Density" value={effectiveSettings.fogDensity} min={0.001} max={0.1} step={0.0001} onChange={(v) => patchSettings({ fogDensity: v })} decimals={4} />
+                    <SliderRow label="Height" value={effectiveSettings.fogHeight} min={-5} max={5} step={0.05} onChange={(v) => patchSettings({ fogHeight: v })} decimals={2} />
+                  </>
+                )}
+              </Section>
+
+              <Section title="Hemisphere (ambient)">
+                <ColorRow label="Sky" value={effectiveSettings.hemiSkyColor} onChange={(v) => patchSettings({ hemiSkyColor: v })} />
+                <ColorRow label="Ground" value={effectiveSettings.hemiGroundColor} onChange={(v) => patchSettings({ hemiGroundColor: v })} />
+                <SliderRow label="Intensity" value={effectiveSettings.hemiIntensity} min={0} max={2} step={0.02} onChange={(v) => patchSettings({ hemiIntensity: v })} />
+              </Section>
+
+              <Section title="Rim light">
+                <ColorRow label="Color" value={effectiveSettings.rimColor} onChange={(v) => patchSettings({ rimColor: v })} />
+                <SliderRow label="Intensity" value={effectiveSettings.rimIntensity} min={0} max={2} step={0.02} onChange={(v) => patchSettings({ rimIntensity: v })} />
+              </Section>
+
+              <Section title="Fill light">
+                <ColorRow label="Color" value={effectiveSettings.fillColor} onChange={(v) => patchSettings({ fillColor: v })} />
+                <SliderRow label="Intensity" value={effectiveSettings.fillIntensity} min={0} max={2} step={0.02} onChange={(v) => patchSettings({ fillIntensity: v })} />
+              </Section>
+
+              <Section title="Camera">
+                <RadioRow label="Type" value={effectiveSettings.cameraType} options={[{ label: 'Orthographic', value: 'ortho' }, { label: 'Perspective', value: 'perspective' }]} onChange={(v) => patchSettings({ cameraType: v as 'ortho' | 'perspective' })} />
+                <SliderRow label="Elevation°" value={effectiveSettings.camElevDeg} min={0} max={80} step={0.5} onChange={(v) => patchSettings({ camElevDeg: v })} />
+                <SliderRow label="Yaw°" value={effectiveSettings.camYawDeg} min={-90} max={90} step={0.5} onChange={(v) => patchSettings({ camYawDeg: v })} />
+                <SliderRow label="Distance" value={effectiveSettings.camDist} min={4} max={40} step={0.2} onChange={(v) => patchSettings({ camDist: v })} />
+                <SliderRow label="Look-at Y" value={effectiveSettings.camLookAtY} min={-2} max={5} step={0.05} onChange={(v) => patchSettings({ camLookAtY: v })} />
+                {effectiveSettings.cameraType === 'perspective'
+                  ? <SliderRow label="Field of view°" value={effectiveSettings.camFov} min={20} max={90} step={1} onChange={(v) => patchSettings({ camFov: v })} decimals={0} />
+                  : <SliderRow label="Frustum" value={effectiveSettings.camFrustum} min={1} max={12} step={0.1} onChange={(v) => patchSettings({ camFrustum: v })} />}
+              </Section>
+
+              <Section title="Arena position">
+                <SliderRow label="Scene size" value={effectiveSettings.arenaSpan} min={5} max={200} step={1} onChange={(v) => patchSettings({ arenaSpan: v })} decimals={0} />
+                <SliderRow label="Offset X (←→)" value={effectiveSettings.arenaOffsetX} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetX: v })} decimals={1} />
+                <SliderRow label="Offset Y (↑↓)" value={effectiveSettings.arenaOffsetY} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetY: v })} decimals={1} />
+                <SliderRow label="Offset Z (fwd/back)" value={effectiveSettings.arenaOffsetZ} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetZ: v })} decimals={1} />
+              </Section>
+
+              <Section title="Effects">
+                <SliderRow label="Exposure" value={effectiveSettings.exposure} min={0.2} max={2.5} step={0.02} onChange={(v) => patchSettings({ exposure: v })} />
+                <SliderRow label="Dust opacity" value={effectiveSettings.dustOpacity} min={0} max={1} step={0.02} onChange={(v) => patchSettings({ dustOpacity: v })} />
+              </Section>
+            </fieldset>
+          </aside>
+        </>
+      )}
     </div>
   );
 }

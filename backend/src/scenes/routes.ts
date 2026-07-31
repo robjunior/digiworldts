@@ -1,0 +1,141 @@
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+
+import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
+
+import { requireAdmin, requireAuth } from '../auth/routes.js';
+import { getCluster } from '../cluster/index.js';
+import { log } from '../util/log.js';
+import {
+  copySceneEntry,
+  createSceneEntry,
+  deleteSceneEntry,
+  getScene,
+  listScenes,
+  updateSceneEntry,
+} from './store.js';
+
+const SCENES_CHANNEL = 'scene:scenes:updated';
+
+const ArenaSettingsZ = z.object({
+  sunColor: z.number().int().min(0).max(0xffffff).optional(),
+  sunIntensity: z.number().min(0).max(4).optional(),
+  sunPosX: z.number().optional(),
+  sunPosY: z.number().optional(),
+  sunPosZ: z.number().optional(),
+  shadowsEnabled: z.boolean().optional(),
+  shadowRadius: z.number().min(0).max(32).optional(),
+  shadowBias: z.number().min(-0.05).max(0.05).optional(),
+  shadowNormalBias: z.number().min(0).max(1).optional(),
+  shadowMapSize: z.number().int().min(256).max(8192).optional(),
+  fogEnabled: z.boolean().optional(),
+  fogMode: z.enum(['linear', 'exp2', 'height']).optional(),
+  fogColor: z.number().int().min(0).max(0xffffff).optional(),
+  fogNear: z.number().min(0).max(500).optional(),
+  fogFar: z.number().min(0).max(500).optional(),
+  fogDensity: z.number().min(0).max(2).optional(),
+  fogHeight: z.number().min(-100).max(100).optional(),
+  hemiSkyColor: z.number().int().min(0).max(0xffffff).optional(),
+  hemiGroundColor: z.number().int().min(0).max(0xffffff).optional(),
+  hemiIntensity: z.number().min(0).max(4).optional(),
+  rimColor: z.number().int().min(0).max(0xffffff).optional(),
+  rimIntensity: z.number().min(0).max(4).optional(),
+  fillColor: z.number().int().min(0).max(0xffffff).optional(),
+  fillIntensity: z.number().min(0).max(4).optional(),
+  exposure: z.number().min(0).max(4).optional(),
+  dustOpacity: z.number().min(0).max(1).optional(),
+  camElevDeg: z.number().min(0).max(89).optional(),
+  camYawDeg: z.number().min(-180).max(180).optional(),
+  camDist: z.number().min(1).max(80).optional(),
+  camLookAtY: z.number().min(-10).max(10).optional(),
+  camFrustum: z.number().min(1).max(40).optional(),
+  cameraType: z.enum(['ortho', 'perspective']).optional(),
+  camFov: z.number().min(1).max(179).optional(),
+  arenaSpan: z.number().min(5).max(300).optional(),
+  arenaOffsetX: z.number().min(-100).max(100).optional(),
+  arenaOffsetY: z.number().min(-100).max(100).optional(),
+  arenaOffsetZ: z.number().min(-100).max(100).optional(),
+  modelFile: z.string().trim().min(1).max(200).optional(),
+}).strict();
+
+const SceneCreateZ = z.object({
+  name: z.string().trim().min(1).max(120),
+  elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
+  settings: ArenaSettingsZ,
+  useGlbSettings: z.boolean().optional(),
+}).strict();
+
+const SceneUpdateZ = SceneCreateZ.partial();
+
+async function broadcastScenesUpdated(): Promise<void> {
+  const cluster = await getCluster();
+  await cluster.publish(SCENES_CHANNEL, JSON.stringify({ at: Date.now() }));
+}
+
+export const scenesPlugin: FastifyPluginAsync = async (app) => {
+  app.get('/api/scene/scenes', async (req, reply) => {
+    await requireAuth(req, reply);
+    const scenes = await listScenes();
+    return reply.send({ scenes });
+  });
+
+  app.post('/api/admin/scenes', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = SceneCreateZ.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
+    }
+    const scene = await createSceneEntry({
+      name: parsed.data.name,
+      elements: parsed.data.elements,
+      settings: parsed.data.settings,
+      useGlbSettings: parsed.data.useGlbSettings === true,
+    });
+    await broadcastScenesUpdated();
+    log.info('admin.scene.create', { adminId: admin.id, sceneId: scene.id, name: scene.name });
+    return reply.code(201).send({ ok: true, scene });
+  });
+
+  app.put<{ Params: { id: string } }>('/api/admin/scenes/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = SceneUpdateZ.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
+    }
+    const patch: {
+      name?: string;
+      elements?: readonly Element[];
+      settings?: Readonly<Record<string, unknown>>;
+      useGlbSettings?: boolean;
+    } = {};
+    if (parsed.data.name !== undefined) patch.name = parsed.data.name;
+    if (parsed.data.elements !== undefined) patch.elements = parsed.data.elements;
+    if (parsed.data.settings !== undefined) patch.settings = parsed.data.settings;
+    if (parsed.data.useGlbSettings !== undefined) patch.useGlbSettings = parsed.data.useGlbSettings;
+    const scene = await updateSceneEntry(req.params.id, patch);
+    if (scene === null) return reply.code(404).send({ error: 'not-found' });
+    await broadcastScenesUpdated();
+    log.info('admin.scene.update', { adminId: admin.id, sceneId: scene.id });
+    return reply.send({ ok: true, scene });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/scenes/:id/copy', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const scene = await copySceneEntry(req.params.id);
+    if (scene === null) return reply.code(404).send({ error: 'not-found' });
+    await broadcastScenesUpdated();
+    log.info('admin.scene.copy', { adminId: admin.id, sourceId: req.params.id, newId: scene.id });
+    return reply.code(201).send({ ok: true, scene });
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/admin/scenes/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const existing = await getScene(req.params.id);
+    if (existing === null) return reply.code(404).send({ error: 'not-found' });
+    const ok = await deleteSceneEntry(req.params.id);
+    if (!ok) return reply.code(404).send({ error: 'not-found' });
+    await broadcastScenesUpdated();
+    log.info('admin.scene.delete', { adminId: admin.id, sceneId: req.params.id });
+    return reply.send({ ok: true });
+  });
+};
