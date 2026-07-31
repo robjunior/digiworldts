@@ -1,0 +1,15 @@
+-- Guarantees player_roster.stage_pools exists before the nursery-pen table
+-- rebuild in 040_nursery_pen.sqlite.sql SELECTs it.
+--
+-- stage_pools was only ever added to the schema.sql baseline, never by a
+-- migration. Databases created before it entered the baseline therefore never
+-- receive the column, and any later migration that reads it fails with
+-- "no such column: stage_pools".
+--
+-- On databases that already have the column this ALTER raises a duplicate
+-- column error, which the migrator recognises and records as already-applied
+-- (see canMarkDuplicateColumnMigration in db/migrator.ts).
+--
+-- SQLite only: schema-pg.sql already declares stage_pools, and the Postgres
+-- nursery migration uses ADD COLUMN IF NOT EXISTS.
+ALTER TABLE player_roster ADD COLUMN stage_pools TEXT;

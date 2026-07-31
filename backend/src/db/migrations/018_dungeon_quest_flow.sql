@@ -64,6 +64,20 @@ UPDATE dungeon_encounters SET reward_item_id = 'itm-quest-shard-fire'  WHERE id 
 --    Both use the same 20x20 template with the standard corridor+two-room
 --    layout used by the elemental set.
 -- =============================================================================
+
+-- 5-pre. Release the biome_regions this migration seeds. `dungeons` carries a
+-- partial UNIQUE index on biome_region, so an admin-created dungeon that
+-- already claimed 'storm' or 'void' would abort the INSERT below. Guarding the
+-- INSERT with ON CONFLICT DO NOTHING is not sufficient: the tiles/encounters
+-- inserted afterwards reference dun_convergence and dun_void by foreign key,
+-- so a silently skipped dungeon fails the migration a few statements later.
+-- Releasing the region keeps the admin's dungeon intact; only its region
+-- assignment is cleared, and that is re-selectable from the dungeon admin UI.
+UPDATE dungeons
+   SET biome_region = NULL
+ WHERE biome_region IN ('storm', 'void')
+   AND id NOT IN ('dun_convergence', 'dun_void');
+
 INSERT INTO dungeons (
   id, world_object_id, quest_id, parent_id, name, description, biome, width, height,
   spawn_x, spawn_y, biome_region,
