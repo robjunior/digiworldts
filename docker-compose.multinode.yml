@@ -39,7 +39,7 @@ services:
     container_name: digiworld-postgres-1
     environment:
       POSTGRES_USER: digiworld
-      POSTGRES_PASSWORD: digiworld
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required - copy .env.example to .env and edit}
       POSTGRES_DB: digiworld
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -52,11 +52,16 @@ services:
   redis:
     image: redis:7-alpine
     container_name: digiworld-redis-1
-    command: ['redis-server', '--appendonly', 'yes']
+    command:
+      - 'redis-server'
+      - '--appendonly'
+      - 'yes'
+      - '--requirepass'
+      - '${REDIS_PASSWORD:?REDIS_PASSWORD is required - copy .env.example to .env and edit}'
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
       interval: 3s
       timeout: 3s
       retries: 20
@@ -73,12 +78,12 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       CLUSTER: redis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       DATABASE: postgres
-      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      DATABASE_URL: postgres://digiworld:${POSTGRES_PASSWORD}@postgres:5432/digiworld
       # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
       # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
-      SESSION_SECRET: change-me-32-char-min-in-production-please
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
       ADMIN_BOOTSTRAP: open
     volumes:
       - gamedata:/data
@@ -96,12 +101,12 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       CLUSTER: redis
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       DATABASE: postgres
-      DATABASE_URL: postgres://digiworld:digiworld@postgres:5432/digiworld
+      DATABASE_URL: postgres://digiworld:${POSTGRES_PASSWORD}@postgres:5432/digiworld
       # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
       # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
-      SESSION_SECRET: change-me-32-char-min-in-production-please
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
       ADMIN_BOOTSTRAP: open
 
   nginx:
