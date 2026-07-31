@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   assert(unlinkNetworkAfterDefer, '/unlink defers before M2M work');
 
   const { commandManifest } = await import('../src/commands/index.js');
-  assertEqual(commandManifest.length, 11, '11 top-level commands declared');
+  assertEqual(commandManifest.length, 7, '7 top-level commands declared (post-REV-1.1: link, unlink, balance, buy, purchases, help, admin)');
   assert(commandManifest.some((command) => command.name === 'link' && command.options?.some((option) => option.name === 'code')), '/link declares code option');
   assert(commandManifest.some((command) => command.name === 'admin' && command.options?.length === 4), 'admin subcommands declared');
 

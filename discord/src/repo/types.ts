@@ -52,41 +52,6 @@ export type PurchaseEvent = {
   readonly createdAt: number;
 };
 
-export type PromoCode = {
-  readonly id: string;
-  readonly code: string;
-  readonly kind: 'fixed_brl';
-  readonly discountBrlCents: number;
-  readonly maxUses: number | null;
-  readonly usesCount: number;
-  readonly startsAt: number | null;
-  readonly expiresAt: number | null;
-  readonly disabledAt: number | null;
-  readonly createdBy: string | null;
-  readonly createdAt: number;
-};
-
-export type PromoRedemption = {
-  readonly userId: string;
-  readonly codeId: string;
-  readonly purchaseSessionId: string | null;
-  readonly redeemedAt: number;
-};
-
-export type Ticket = {
-  readonly id: string;
-  readonly userId: string | null;
-  readonly discordId: string | null;
-  readonly guildId: string | null;
-  readonly channelId: string | null;
-  readonly lastPurchaseSessionId: string | null;
-  readonly status: string;
-  readonly transcript: string | null;
-  readonly openedAt: number;
-  readonly closedAt: number | null;
-  readonly lastActivityAt: number;
-};
-
 export type WebhookEvent = {
   readonly provider: string;
   readonly providerEventId: string;

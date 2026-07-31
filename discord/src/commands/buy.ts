@@ -39,7 +39,7 @@ function findSelectedProduct(catalog: ProductCatalog, sku: string): ProductConfi
 }
 
 function renderSelectPrompt(products: readonly ProductConfig[], locale: Locale): string {
-  const rows = products.map((product) => t('discord.shop.item_row', { name: product.displayName[locale], price: price(product.priceBrlCents), sku: product.sku }, locale));
+  const rows = products.map((product) => t('discord.buy.pack_row', { name: product.displayName[locale], price: price(product.priceBrlCents), sku: product.sku }, locale));
   return `${t('discord.buy.select_prompt', {}, locale)}\n${rows.join('\n')}`;
 }
 
@@ -66,7 +66,7 @@ export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCom
     const backendIds = new Set(productsResponse.products.map((product) => product.id));
     const availableProducts = enabledCatalogProducts(catalog).filter((product) => backendIds.has(product.shopItemId));
     if (sku === null) {
-      await interaction.editReply({ content: availableProducts.length === 0 ? t('discord.shop.no_products', {}, locale) : renderSelectPrompt(availableProducts, locale) });
+      await interaction.editReply({ content: availableProducts.length === 0 ? t('discord.buy.no_packs', {}, locale) : renderSelectPrompt(availableProducts, locale) });
       return;
     }
     const product = findSelectedProduct({ products: availableProducts }, sku);

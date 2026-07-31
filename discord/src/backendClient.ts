@@ -14,8 +14,6 @@ const UserByDiscordResponseSchema = z.object({
   locale: z.string().nullable(),
 });
 const WalletCreditResponseSchema = z.object({ ok: z.boolean(), userId: z.string(), amount: z.number(), credits: z.number(), reason: z.string() }).passthrough();
-const GrantPremiumResponseSchema = z.object({ ok: z.boolean(), userId: z.string(), days: z.number(), premiumUntil: z.number(), reason: z.string() }).passthrough();
-const GrantItemResponseSchema = z.object({ ok: z.boolean(), userId: z.string(), itemId: z.string(), qty: z.number(), inventoryQty: z.number(), reason: z.string() }).passthrough();
 const ProductSchema = z.object({ id: z.string(), name: z.string(), description: z.string(), priceCredits: z.number(), kind: z.string(), class: z.string(), payload: z.unknown() }).passthrough();
 const ProductsResponseSchema = z.object({ products: z.array(ProductSchema) });
 const ErrorResponseSchema = z.object({ error: z.string().optional() }).passthrough();
@@ -25,8 +23,6 @@ export type LinkCompleteResponse = z.infer<typeof LinkCompleteResponseSchema>;
 export type UnlinkResponse = z.infer<typeof UnlinkResponseSchema>;
 export type UserByDiscordResponse = z.infer<typeof UserByDiscordResponseSchema>;
 export type WalletCreditResponse = z.infer<typeof WalletCreditResponseSchema>;
-export type GrantPremiumResponse = z.infer<typeof GrantPremiumResponseSchema>;
-export type GrantItemResponse = z.infer<typeof GrantItemResponseSchema>;
 export type ProductsResponse = z.infer<typeof ProductsResponseSchema>;
 
 export class BackendClientError extends Error {
@@ -59,15 +55,11 @@ export type BackendGateway = {
   readonly unlink: (discordId: string) => Promise<UnlinkResponse>;
   readonly userByDiscord: (discordId: string) => Promise<UserByDiscordResponse>;
   readonly walletCredit: (input: WalletCreditInput) => Promise<WalletCreditResponse>;
-  readonly grantPremium: (input: PremiumGrantInput) => Promise<GrantPremiumResponse>;
-  readonly grantItem: (input: ItemGrantInput) => Promise<GrantItemResponse>;
   readonly products: () => Promise<ProductsResponse>;
 };
 
 export type WalletCreditInput = { readonly userId: string; readonly amount: number; readonly idempotencyKey: string; readonly reason: string };
 export type LinkCompleteInput = { readonly discordId: string; readonly code: string };
-export type PremiumGrantInput = { readonly userId: string; readonly days: number; readonly idempotencyKey: string; readonly reason: string };
-export type ItemGrantInput = { readonly userId: string; readonly itemId: string; readonly qty: number; readonly idempotencyKey: string; readonly reason: string };
 
 type JsonSchema<T> = { readonly parse: (value: unknown) => T };
 
@@ -92,14 +84,6 @@ export class BackendClient implements BackendGateway {
 
   async walletCredit(input: WalletCreditInput): Promise<WalletCreditResponse> {
     return this.request('/api/service/wallet-credit', WalletCreditResponseSchema, { method: 'POST', body: input });
-  }
-
-  async grantPremium(input: PremiumGrantInput): Promise<GrantPremiumResponse> {
-    return this.request('/api/service/grant-premium', GrantPremiumResponseSchema, { method: 'POST', body: input });
-  }
-
-  async grantItem(input: ItemGrantInput): Promise<GrantItemResponse> {
-    return this.request('/api/service/grant-item', GrantItemResponseSchema, { method: 'POST', body: input });
   }
 
   async products(): Promise<ProductsResponse> {

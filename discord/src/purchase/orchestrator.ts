@@ -13,7 +13,7 @@ import { decideMercadoPagoTransition, decideTransition, isMercadoPagoStatus, isP
 type OrchestratorDeps = {
   readonly db?: Queryable;
   readonly paymentProvider?: Pick<PaymentProvider, 'getStatus'>;
-  readonly backendClient?: Pick<BackendGateway, 'grantItem' | 'grantPremium' | 'walletCredit'>;
+  readonly backendClient?: Pick<BackendGateway, 'walletCredit'>;
   readonly loadCatalog?: () => Promise<{ readonly products: readonly ProductConfig[] }>;
   readonly now?: () => number;
 };
@@ -30,24 +30,10 @@ function findProduct(products: readonly ProductConfig[], sku: string): ProductCo
   return products.find((product) => product.sku === sku && product.enabled !== false) ?? null;
 }
 
-async function grantReward(backendClient: Pick<BackendGateway, 'grantItem' | 'grantPremium' | 'walletCredit'>, session: PurchaseSession, product: ProductConfig): Promise<void> {
+async function grantReward(backendClient: Pick<BackendGateway, 'walletCredit'>, session: PurchaseSession, product: ProductConfig): Promise<void> {
   const idempotencyKey = `purchase:${session.id}:reward`;
   const reason = `discord-purchase:${session.id}`;
-  switch (product.kind) {
-    case 'item':
-      await backendClient.grantItem({ userId: session.userId, itemId: product.shopItemId, qty: 1, idempotencyKey, reason });
-      return;
-    case 'premium':
-      await backendClient.grantPremium({ userId: session.userId, days: product.premiumDays, idempotencyKey, reason });
-      return;
-    case 'credits':
-      await backendClient.walletCredit({ userId: session.userId, amount: product.creditsAmount, idempotencyKey, reason });
-      return;
-    default: {
-      const exhaustive: never = product;
-      throw new Error(`unsupported-product-kind:${JSON.stringify(exhaustive)}`);
-    }
-  }
+  await backendClient.walletCredit({ userId: session.userId, amount: product.creditsAmount, idempotencyKey, reason });
 }
 
 export async function processMercadoPagoPayment(paymentId: string, deps: OrchestratorDeps = {}): Promise<void> {

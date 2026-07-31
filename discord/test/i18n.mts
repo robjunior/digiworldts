@@ -3,13 +3,13 @@ import { assert, assertEqual } from './assert.mjs';
 async function main(): Promise<void> {
   const { COMMERCE_I18N_KEYS, t, translations, translate } = await import('../src/i18n.js');
 
-  assertEqual(COMMERCE_I18N_KEYS.length, 47, 'commerce i18n key list has 47 keys');
+  assertEqual(COMMERCE_I18N_KEYS.length, 34, 'commerce i18n key list has 34 keys');
   for (const key of COMMERCE_I18N_KEYS) {
     assert(typeof translations.pt[key] === 'string', `pt has ${key}`);
     assert(typeof translations.en[key] === 'string', `en has ${key}`);
   }
-  assertEqual(Object.keys(translations.pt).length, 47, 'pt dictionary has exactly 47 keys');
-  assertEqual(Object.keys(translations.en).length, 47, 'en dictionary has exactly 47 keys');
+  assertEqual(Object.keys(translations.pt).length, 34, 'pt dictionary has exactly 34 keys');
+  assertEqual(Object.keys(translations.en).length, 34, 'en dictionary has exactly 34 keys');
 
   const fallback = translate({ en: { sample: 'Fallback {value}' }, pt: { other: 'Outro' } }, 'pt', 'sample', { value: 'ok' });
   assertEqual(fallback, 'Fallback ok', 'missing PT key falls back to EN and interpolates');

@@ -26,8 +26,6 @@ async function main(): Promise<void> {
       captured.push({ method: req.method ?? '', url: req.url ?? '', authorization: req.headers.authorization, body });
       if (req.url === '/api/service/user-by-discord/discord-1') sendJson(res, 200, { userId: 'user-1', displayName: 'Rob', discordId: 'discord-1', credits: 7, premiumUntil: null, locale: 'pt-BR' });
       else if (req.url === '/api/service/wallet-credit') sendJson(res, 200, { ok: true, userId: 'user-1', amount: 5, credits: 12, reason: 'test' });
-      else if (req.url === '/api/service/grant-premium') sendJson(res, 200, { ok: true, userId: 'user-1', days: 3, premiumUntil: 99, reason: 'test' });
-      else if (req.url === '/api/service/grant-item') sendJson(res, 200, { ok: true, userId: 'user-1', itemId: 'item-1', qty: 2, inventoryQty: 2, reason: 'test' });
       else if (req.url === '/api/service/products') sendJson(res, 200, { products: [] });
       else if (req.url === '/api/service/link-init') sendJson(res, 200, { linked: false });
       else if (req.url === '/api/service/link-complete') sendJson(res, 200, { linked: true, userId: 'user-1' });
@@ -42,8 +40,6 @@ async function main(): Promise<void> {
   const client = new BackendClient({ baseUrl: `http://127.0.0.1:${address.port}`, serviceToken: 'token-123', timeoutMs: 1000 });
   assertEqual((await client.userByDiscord('discord-1')).credits, 7, 'user-by-discord parsed');
   await client.walletCredit({ userId: 'user-1', amount: 5, idempotencyKey: 'idem-1', reason: 'test' });
-  await client.grantPremium({ userId: 'user-1', days: 3, idempotencyKey: 'idem-2', reason: 'test' });
-  await client.grantItem({ userId: 'user-1', itemId: 'item-1', qty: 2, idempotencyKey: 'idem-3', reason: 'test' });
   await client.products();
   await client.linkInit('discord-1');
   await client.linkComplete({ discordId: 'discord-1', code: 'DW-0000-0000-0000-0000-0000' });

@@ -45,7 +45,7 @@ class MemoryDb {
 }
 
 function session(state: string): Row {
-  return { id: 'session-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'SKU_ITEM', provider: 'mercadopago', provider_payment_id: 'pay_1', state, amount_brl_cents: 100, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: null, metadata_json: '{}', created_at: 1_000, updated_at: 1_000 };
+  return { id: 'session-1', user_id: 'user-1', discord_id: 'discord-1', guild_id: 'guild-1', sku: 'SKU_CREDITS', provider: 'mercadopago', provider_payment_id: 'pay_1', state, amount_brl_cents: 100, currency: 'BRL', idempotency_key: 'idem', qr_code: 'qr', qr_code_base64: 'base64', ticket_url: 'ticket', expires_at: 2_000, delivered_at: null, metadata_json: '{}', created_at: 1_000, updated_at: 1_000 };
 }
 
 async function main(): Promise<void> {
@@ -60,11 +60,9 @@ async function main(): Promise<void> {
     now: () => 3_000,
     paymentProvider: { getStatus: async () => ({ provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'approved', raw: { status: 'approved' } }) },
     backendClient: {
-      grantItem: async (input) => { grants.push(input.idempotencyKey); return { ok: true, userId: input.userId, itemId: input.itemId, qty: input.qty, inventoryQty: input.qty, reason: input.reason }; },
-      grantPremium: async () => { throw new Error('wrong grant'); },
-      walletCredit: async () => { throw new Error('wrong grant'); },
+      walletCredit: async (input) => { grants.push(input.idempotencyKey); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
     },
-    loadCatalog: async () => ({ products: [{ sku: 'SKU_ITEM', displayName: { pt: 'Item', en: 'Item' }, priceBrlCents: 100, shopItemId: 'backend-item', kind: 'item', enabled: true }] }),
+    loadCatalog: async () => ({ products: [{ sku: 'SKU_CREDITS', displayName: { pt: 'Pack', en: 'Pack' }, priceBrlCents: 100, shopItemId: 'backend-pack', kind: 'credits', creditsAmount: 100, enabled: true }] }),
   });
   assertEqual(grants.length, 1, 'approved payment grants exactly once');
   assertEqual(grants[0] ?? '', 'purchase:session-1:reward', 'deterministic reward idempotency key');

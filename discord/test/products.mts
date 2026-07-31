@@ -18,13 +18,12 @@ function schemaAccepts(value: unknown): boolean {
     const product = objectValue(entry, 'product is object');
     if (typeof product['sku'] !== 'string') return false;
     if (typeof product['shopItemId'] !== 'string') return false;
-    if (!['item', 'premium', 'credits'].includes(typeof product['kind'] === 'string' ? product['kind'] : '')) return false;
+    if (product['kind'] !== 'credits') return false;
+    if (!Number.isInteger(product['creditsAmount']) || Number(product['creditsAmount']) < 1) return false;
     if (!localizedTextAccepts(product['displayName'])) return false;
     if (product['description'] !== undefined && !localizedTextAccepts(product['description'])) return false;
     if (!Number.isInteger(product['priceBrlCents']) || Number(product['priceBrlCents']) < 0) return false;
     if (product['currency'] !== undefined && product['currency'] !== 'BRL') return false;
-    if (product['kind'] === 'premium' && !Number.isInteger(product['premiumDays'])) return false;
-    if (product['kind'] === 'credits' && !Number.isInteger(product['creditsAmount'])) return false;
     return true;
   });
 }
@@ -41,15 +40,19 @@ async function main(): Promise<void> {
   const { parseProductCatalog } = await import('../src/products.js');
 
   assertEqual(schema['$schema'], 'http://json-schema.org/draft-07/schema#', 'schema is draft-07');
-  assert(schemaAccepts(example), 'schema accepts example catalog');
+  assert(schemaAccepts(example), 'schema accepts credits-only example catalog');
   parseProductCatalog(example);
 
-  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, kind: 'item' }] }), 'schema rejects missing shopItemId');
-  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, kind: 'item' }] }), 'loader rejects missing shopItemId');
-  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, currency: 'USD', shopItemId: 'item-x', kind: 'item' }] }), 'schema rejects non-BRL currency');
-  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, currency: 'USD', shopItemId: 'item-x', kind: 'item' }] }), 'loader rejects non-BRL currency');
-  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'premium' }] }), 'schema rejects premium without premiumDays');
-  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'premium' }] }), 'loader rejects premium without premiumDays');
+  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, kind: 'credits', creditsAmount: 100 }] }), 'schema rejects missing shopItemId');
+  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, kind: 'credits', creditsAmount: 100 }] }), 'loader rejects missing shopItemId');
+  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, currency: 'USD', shopItemId: 'item-x', kind: 'credits', creditsAmount: 100 }] }), 'schema rejects non-BRL currency');
+  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, currency: 'USD', shopItemId: 'item-x', kind: 'credits', creditsAmount: 100 }] }), 'loader rejects non-BRL currency');
+  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'credits' }] }), 'schema rejects credits without creditsAmount');
+  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'credits' }] }), 'loader rejects credits without creditsAmount');
+  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'item' }] }), 'schema rejects dropped kind=item (REV-1.1)');
+  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'item' }] }), 'loader rejects dropped kind=item (REV-1.1)');
+  assert(!schemaAccepts({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'premium', premiumDays: 30 }] }), 'schema rejects dropped kind=premium (REV-1.1)');
+  assertRejects(() => parseProductCatalog({ products: [{ sku: 'x', displayName: { pt: 'pt', en: 'en' }, priceBrlCents: 0, shopItemId: 'item-x', kind: 'premium', premiumDays: 30 }] }), 'loader rejects dropped kind=premium (REV-1.1)');
 
   await loaderCases();
   process.stdout.write('product schema tests passed\n');

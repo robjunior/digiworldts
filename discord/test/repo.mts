@@ -4,22 +4,14 @@ import { resolve } from 'node:path';
 
 import { assert, assertEqual } from './assert.mjs';
 import {
-  closeTicket,
-  disablePromoCode,
   getAuditLog,
   getLinkByDiscordId,
-  getPromoCode,
-  getPromoRedemption,
   getPurchaseEvent,
   getPurchaseSession,
-  getTicket,
   getWebhookEvent,
   insertAuditLog,
-  insertPromoCode,
-  insertPromoRedemption,
   insertPurchaseEvent,
   insertPurchaseSession,
-  insertTicket,
   insertWebhookEvent,
   markLinkLinked,
   updatePurchaseSessionState,
@@ -58,16 +50,6 @@ async function main(): Promise<void> {
   assertEqual((await getPurchaseSession(db, 'session-1'))?.state ?? null, 'paid', 'purchase session state updates');
   await insertPurchaseEvent(db, { id: 'event-1', sessionId: 'session-1', fromState: 'awaiting_payment', toState: 'paid', providerStatus: 'approved', reason: 'test', payloadJson: '{}', createdAt: now });
   assertEqual((await getPurchaseEvent(db, 'event-1'))?.toState ?? null, 'paid', 'purchase event reads');
-
-  await insertPromoCode(db, { id: 'promo-1', code: 'SAVE', kind: 'fixed_brl', discountBrlCents: 500, maxUses: null, usesCount: 0, startsAt: null, expiresAt: null, disabledAt: null, createdBy: 'admin', createdAt: now });
-  await disablePromoCode(db, 'promo-1', now + 3);
-  assertEqual((await getPromoCode(db, 'promo-1'))?.disabledAt ?? null, now + 3, 'promo disables');
-  await insertPromoRedemption(db, { userId: 'user-1', codeId: 'promo-1', purchaseSessionId: 'session-1', redeemedAt: now });
-  assertEqual((await getPromoRedemption(db, 'user-1', 'promo-1'))?.purchaseSessionId ?? null, 'session-1', 'promo redemption reads');
-
-  await insertTicket(db, { id: 'ticket-1', userId: 'user-1', discordId: 'discord-1', guildId: 'guild-1', channelId: 'chan-1', lastPurchaseSessionId: 'session-1', status: 'open', transcript: null, openedAt: now, closedAt: null, lastActivityAt: now });
-  await closeTicket(db, 'ticket-1', now + 4);
-  assertEqual((await getTicket(db, 'ticket-1'))?.status ?? null, 'closed', 'ticket closes');
 
   assert(await insertWebhookEvent(db, { provider: 'mercadopago', providerEventId: 'evt-1', eventType: 'payment', payloadJson: '{}', processedAt: now }), 'first webhook insert wins');
   assert(!(await insertWebhookEvent(db, { provider: 'mercadopago', providerEventId: 'evt-1', eventType: 'payment', payloadJson: '{}', processedAt: now })), 'duplicate webhook is ignored');
