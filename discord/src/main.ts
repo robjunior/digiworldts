@@ -4,16 +4,23 @@ import { commandHandlers } from './commands/index.js';
 import { config } from './config.js';
 import { close as closeDb } from './db.js';
 import { log } from './logger.js';
+import { createNotificationService, type NotificationService } from './notifications.js';
+import { processMercadoPagoPaymentInTransaction } from './purchase/orchestrator.js';
 import { startPurchaseSweep, type PurchaseSweep } from './purchase/sweep.js';
 import { createServer } from './server.js';
 
 async function run(): Promise<void> {
-  const app = createServer();
   const client = config.DISCORD_TOKEN
     ? new Client({ intents: [GatewayIntentBits.Guilds] })
     : null;
+  const notifications: NotificationService | undefined = client ? createNotificationService(client) : undefined;
+  const app = createServer(notifications ? {
+    mercadoPagoWebhook: {
+      processPayment: async (paymentId) => processMercadoPagoPaymentInTransaction(paymentId, { notifications }),
+    },
+  } : {});
   let shutdownStarted = false;
-  let purchaseSweep: PurchaseSweep | null = startPurchaseSweep(config.PURCHASE_SWEEP_INTERVAL_MS);
+  let purchaseSweep: PurchaseSweep | null = startPurchaseSweep(config.PURCHASE_SWEEP_INTERVAL_MS, notifications ? { notifications } : {});
 
   client?.once(Events.ClientReady, (readyClient) => {
     log.info('discord.client.ready', { user: readyClient.user.tag });

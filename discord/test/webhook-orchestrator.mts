@@ -55,6 +55,7 @@ async function main(): Promise<void> {
   const db = new MemoryDb();
   db.sessions.set('session-1', session('awaiting_payment'));
   const grants: string[] = [];
+  const notifications: { readonly discordId: string; readonly kind: string; readonly sku?: string }[] = [];
   await processMercadoPagoPayment('pay_1', {
     db,
     now: () => 3_000,
@@ -63,10 +64,14 @@ async function main(): Promise<void> {
       walletCredit: async (input) => { grants.push(input.idempotencyKey); return { ok: true, userId: input.userId, amount: input.amount, credits: input.amount, reason: input.reason }; },
     },
     loadCatalog: async () => ({ products: [{ sku: 'SKU_CREDITS', displayName: { pt: 'Pack', en: 'Pack' }, priceBrlCents: 100, shopItemId: 'backend-pack', kind: 'credits', creditsAmount: 100, enabled: true }] }),
+    notifications: { sendPurchaseNotification: async (input) => { notifications.push(input); } },
   });
   assertEqual(grants.length, 1, 'approved payment grants exactly once');
   assertEqual(grants[0] ?? '', 'purchase:session-1:reward', 'deterministic reward idempotency key');
   assertEqual(db.sessions.get('session-1')?.state, 'delivered', 'approved payment reaches delivered');
+  assertEqual(notifications.length, 1, 'approved payment fires exactly one notification');
+  assertEqual(notifications[0]?.kind, 'approved', 'notification kind is approved');
+  assertEqual(notifications[0]?.discordId, 'discord-1', 'notification targets session discord id');
 
   const processCalls: string[] = [];
   const provider = new MercadoPagoProvider({ accessToken: 'TEST-token', webhookSecret: 'secret', baseUrl: 'http://127.0.0.1:1' });

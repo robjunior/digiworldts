@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { query } from '../db.js';
 import { log } from '../logger.js';
+import type { NotificationService } from '../notifications.js';
 import { expirePurchaseSessions } from '../repo/purchases.js';
 import type { Queryable } from '../repo/types.js';
 import { recordPurchaseEvent } from './stateMachine.js';
@@ -11,17 +12,21 @@ type SweepDeps = {
   readonly now?: () => number;
   readonly setIntervalFn?: typeof setInterval;
   readonly clearIntervalFn?: typeof clearInterval;
+  readonly notifications?: Pick<NotificationService, 'sendPurchaseNotification'>;
 };
 
 export type PurchaseSweep = { readonly stop: () => void; readonly runOnce: () => Promise<number> };
 
-export async function sweepExpiredPurchaseSessions(deps: Pick<SweepDeps, 'db' | 'now'> = {}): Promise<number> {
+export async function sweepExpiredPurchaseSessions(deps: Pick<SweepDeps, 'db' | 'now' | 'notifications'> = {}): Promise<number> {
   const db = deps.db ?? { query };
   const now = deps.now ?? Date.now;
   const timestamp = now();
   const expired = await expirePurchaseSessions(db, timestamp);
   for (const session of expired) {
     await recordPurchaseEvent(db, { id: randomUUID(), sessionId: session.id, fromState: session.state, toState: 'expired', providerStatus: null, reason: 'expired-session-sweep', payloadJson: '{}', createdAt: timestamp });
+    if (deps.notifications) {
+      await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'expired', sku: session.sku });
+    }
   }
   return expired.length;
 }

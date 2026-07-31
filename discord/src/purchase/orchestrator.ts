@@ -8,6 +8,7 @@ import { getPurchaseSessionByProviderPayment, markPurchaseDelivered, updatePurch
 import type { PurchaseSession, Queryable } from '../repo/types.js';
 import { createMercadoPagoProvider } from '../payments/mercadopago.js';
 import type { PaymentProvider } from '../payments/types.js';
+import type { NotificationService } from '../notifications.js';
 import { decideMercadoPagoTransition, decideTransition, isMercadoPagoStatus, isPurchaseState, recordPurchaseEvent } from './stateMachine.js';
 
 type OrchestratorDeps = {
@@ -16,6 +17,7 @@ type OrchestratorDeps = {
   readonly backendClient?: Pick<BackendGateway, 'walletCredit'>;
   readonly loadCatalog?: () => Promise<{ readonly products: readonly ProductConfig[] }>;
   readonly now?: () => number;
+  readonly notifications?: Pick<NotificationService, 'sendPurchaseNotification'>;
 };
 
 function eventPayload(value: unknown): string {
@@ -55,6 +57,9 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
   if (decision.kind === 'accepted') {
     await updatePurchaseSessionState(db, session.id, decision.to, timestamp);
     await recordTransition(db, session, decision.to, decision.providerStatus, null, timestamp, status.raw);
+    if (deps.notifications && (decision.to === 'failed' || decision.to === 'expired')) {
+      await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: decision.to, sku: session.sku });
+    }
   }
   if (decision.to !== 'paid') return;
   const deliveringDecision = decideTransition('paid', 'delivering', status.status);
@@ -64,6 +69,9 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
   if (product === null) {
     await recordTransition(db, { ...session, state: 'paid' }, 'failed', status.status, 'product-not-found', timestamp, status.raw);
     await updatePurchaseSessionState(db, session.id, 'failed', timestamp);
+    if (deps.notifications) {
+      await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'failed', sku: session.sku });
+    }
     return;
   }
   await updatePurchaseSessionState(db, session.id, 'delivering', timestamp);
@@ -72,8 +80,11 @@ export async function processMercadoPagoPayment(paymentId: string, deps: Orchest
   const deliveredAt = now();
   await markPurchaseDelivered(db, session.id, 'delivered', deliveredAt);
   await recordTransition(db, { ...session, state: 'delivering' }, 'delivered', status.status, null, deliveredAt, status.raw);
+  if (deps.notifications) {
+    await deps.notifications.sendPurchaseNotification({ discordId: session.discordId, kind: 'approved', sku: session.sku });
+  }
 }
 
-export async function processMercadoPagoPaymentInTransaction(paymentId: string): Promise<void> {
-  await tx(async (client) => processMercadoPagoPayment(paymentId, { db: client }));
+export async function processMercadoPagoPaymentInTransaction(paymentId: string, deps: Pick<OrchestratorDeps, 'notifications'> = {}): Promise<void> {
+  await tx(async (client) => processMercadoPagoPayment(paymentId, { db: client, ...deps }));
 }
