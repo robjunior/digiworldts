@@ -240,6 +240,7 @@ export function parseTwee(source: string, options: { readonly dialogueId: string
     title,
     startNodeId,
     npcIds,
+    requiresServerAdvance: stats.actions > 0 || stats.conditions > 0,
     nodes,
   };
 

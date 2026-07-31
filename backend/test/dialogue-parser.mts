@@ -207,5 +207,41 @@ test('$variables are distinguished from bare facts', () => {
   });
 });
 
+test('a dialogue carrying actions or conditions demands the server cursor', () => {
+  strictEqual(def.requiresServerAdvance, true);
+  strictEqual(def.schemaVersion, 2);
+});
+
+test('a pure-text dialogue stays on the client tier', () => {
+  const plain = parseTwee(`:: StoryTitle
+Plain Intro
+
+:: start
+@speaker guide neutral
+
+Nothing here mutates state.
+
+* [[Understood->END]]
+`, { dialogueId: 'plain' });
+  strictEqual(plain.definition?.requiresServerAdvance, false);
+  strictEqual(plain.stats.actions, 0);
+  strictEqual(plain.stats.conditions, 0);
+});
+
+test('a lone gated choice is enough to demand the server cursor', () => {
+  const gated = parseTwee(`:: StoryTitle
+Gated
+
+:: start
+@speaker guide neutral
+
+Pick one.
+
+* [[Locked->END]] {if: level >= 3}
+`, { dialogueId: 'gated' });
+  strictEqual(gated.stats.actions, 0);
+  strictEqual(gated.definition?.requiresServerAdvance, true);
+});
+
 process.stdout.write(`dialogue parser tests: ${passed} passed, ${failed} failed\n`);
 process.exit(failed === 0 ? 0 : 1);
