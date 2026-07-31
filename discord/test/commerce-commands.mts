@@ -30,7 +30,6 @@ function interaction(): FakeInteraction {
 function linkedUser(overrides: Partial<UserByDiscordResponse> = {}): UserByDiscordResponse {
   return {
     userId: 'usr_1',
-    username: 'tester',
     displayName: 'Tester',
     discordId: 'discord-commerce-1',
     credits: 42,

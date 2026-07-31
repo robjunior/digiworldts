@@ -8,9 +8,10 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
     "start": "node --enable-source-maps dist/main.js",
     "register-commands": "tsx src/register-commands.ts",
-    "test": "pnpm test:repo && pnpm test:backend-client && pnpm test:commands && pnpm test:i18n && pnpm test:commerce-commands && pnpm test:wrapper && pnpm test:payments && pnpm test:purchase-state && pnpm test:webhook-orchestrator && pnpm test:buy-sweep && pnpm test:notifications && pnpm test:purchases && pnpm test:admin",
+    "test": "pnpm typecheck && pnpm test:repo && pnpm test:backend-client && pnpm test:commands && pnpm test:i18n && pnpm test:commerce-commands && pnpm test:wrapper && pnpm test:payments && pnpm test:purchase-state && pnpm test:webhook-orchestrator && pnpm test:buy-sweep && pnpm test:notifications && pnpm test:purchases && pnpm test:admin",
     "test:repo": "tsx test/repo.mts",
     "test:backend-client": "tsx test/backend-client.mts",
     "test:commands": "tsx test/commands.mts",

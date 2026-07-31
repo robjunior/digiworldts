@@ -17,7 +17,7 @@ class MemoryDb {
       const key = `${String(params[0])}:${String(params[1])}`;
       if (this.webhooks.has(key)) return { rows: [], rowCount: 0 };
       this.webhooks.add(key);
-      return { rows: [{ provider_event_id: params[1] } as T], rowCount: 1 };
+      return { rows: [{ provider_event_id: params[1] }] as unknown as readonly T[], rowCount: 1 };
     }
     if (text.includes('SELECT * FROM purchase_sessions WHERE provider =')) {
       const row = [...this.sessions.values()].find((session) => session.provider === params[0] && session.provider_payment_id === params[1]);

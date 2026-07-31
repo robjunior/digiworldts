@@ -5,18 +5,23 @@ setTestEnv();
 
 type Row = Record<string, unknown>;
 
-function fakeDb(rows: Row[]): { readonly calls: string[]; query: (text: string, params?: readonly unknown[]) => Promise<{ readonly rows: readonly Row[]; readonly rowCount: number }> } {
+type FakeDb = {
+  readonly calls: string[];
+  readonly query: <R extends Row>(text: string, params?: readonly unknown[]) => Promise<{ readonly rows: readonly R[]; readonly rowCount: number }>;
+};
+
+function fakeDb(rows: Row[]): FakeDb {
   const calls: string[] = [];
   return {
     calls,
-    async query(text, params) {
+    async query<R extends Row>(text: string, params?: readonly unknown[]) {
       calls.push(text.trim().split(/\s+/, 3).join(' '));
       if (text.includes('COUNT(*)')) {
-        return { rows: [{ count: rows.length }], rowCount: 1 };
+        return { rows: [{ count: rows.length }] as unknown as readonly R[], rowCount: 1 };
       }
       const limit = Number(params?.[2] ?? 5);
       const offset = Number(params?.[3] ?? 0);
-      return { rows: rows.slice(offset, offset + limit), rowCount: rows.length };
+      return { rows: rows.slice(offset, offset + limit) as readonly R[], rowCount: rows.length };
     },
   };
 }
