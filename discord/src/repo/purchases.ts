@@ -48,6 +48,18 @@ const SQL_EXPIRE_SESSIONS = `
   WHERE state IN ('pending', 'awaiting_payment') AND expires_at IS NOT NULL AND expires_at < $1
   RETURNING *
 `;
+const SQL_LIST_TERMINAL_PURCHASES = `
+  SELECT id, sku, state, amount_brl_cents, created_at
+  FROM purchase_sessions
+  WHERE user_id = $1 AND state = ANY($2)
+  ORDER BY created_at DESC
+  LIMIT $3 OFFSET $4
+`;
+const SQL_COUNT_TERMINAL_PURCHASES = `
+  SELECT COUNT(*)::int AS count
+  FROM purchase_sessions
+  WHERE user_id = $1 AND state = ANY($2)
+`;
 const SQL_INSERT_EVENT = `
   INSERT INTO purchase_events (id, session_id, from_state, to_state, provider_status, reason, payload_json, created_at)
   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -122,6 +134,27 @@ export async function markPurchaseDelivered(db: Queryable, id: string, state: st
 export async function expirePurchaseSessions(db: Queryable, now: number): Promise<readonly PurchaseSession[]> {
   const result = await db.query<SessionRow>(SQL_EXPIRE_SESSIONS, [now]);
   return result.rows.map(toSession);
+}
+
+export type PurchaseListRow = {
+  readonly id: string;
+  readonly sku: string;
+  readonly state: string;
+  readonly amountBrlCents: number;
+  readonly createdAt: number;
+};
+
+export async function listTerminalPurchases(db: Queryable, input: { readonly userId: string; readonly states: readonly string[]; readonly limit: number; readonly offset: number }): Promise<readonly PurchaseListRow[]> {
+  const result = await db.query<{ readonly id: string; readonly sku: string; readonly state: string; readonly amount_brl_cents: number; readonly created_at: number }>(
+    SQL_LIST_TERMINAL_PURCHASES,
+    [input.userId, input.states, input.limit, input.offset],
+  );
+  return result.rows.map((row) => ({ id: row.id, sku: row.sku, state: row.state, amountBrlCents: row.amount_brl_cents, createdAt: row.created_at }));
+}
+
+export async function countTerminalPurchases(db: Queryable, input: { readonly userId: string; readonly states: readonly string[] }): Promise<number> {
+  const result = await db.query<{ readonly count: number }>(SQL_COUNT_TERMINAL_PURCHASES, [input.userId, input.states]);
+  return Number(result.rows[0]?.count ?? 0);
 }
 
 export async function insertPurchaseEvent(db: Queryable, event: PurchaseEvent): Promise<void> {
