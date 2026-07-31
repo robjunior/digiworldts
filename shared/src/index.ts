@@ -6,3 +6,6 @@ export * from './quest.js';
 export * from './nursery.js';
 export * from './world.js';
 export * from './dungeon.js';
+export * from './dialogue.js';
+export * from './dialogue-expr.js';
+export * from './dialogue-parser.js';
