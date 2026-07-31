@@ -19,6 +19,8 @@ export type CreatePixPaymentInput = {
 export type PixPayment = {
   readonly provider: PaymentProviderName;
   readonly providerPaymentId: string;
+  /** MP Orders API: the inner `transactions.payments[0].id` — the addressable payment id for refunds via `POST /v1/payments/{id}/refunds`. Distinct from `providerPaymentId`, which stores the ORDER id (order id 404s at that refund endpoint). See REVISION-1.4 in `.omo/plans/discord-commerce.md`. */
+  readonly innerPaymentId: string;
   readonly status: string;
   readonly qrCode: string;
   readonly qrCodeBase64: string;

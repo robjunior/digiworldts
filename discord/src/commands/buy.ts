@@ -48,8 +48,8 @@ function configuredPayer(): BuyCommandDeps['payer'] {
   return { email: config.MP_PAYER_EMAIL, name: config.MP_PAYER_NAME, lastName: config.MP_PAYER_LAST_NAME, identificationType: config.MP_PAYER_ID_TYPE, identificationNumber: config.MP_PAYER_ID_NUMBER };
 }
 
-function createSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly product: ProductConfig; readonly paymentId: string; readonly idempotencyKey: string; readonly qrCode: string; readonly qrCodeBase64: string; readonly ticketUrl: string; readonly expiresAt: number; readonly now: number }): PurchaseSession {
-  return { id: randomUUID(), userId: input.userId, discordId: input.discordId, guildId: input.guildId, sku: input.product.sku, provider: 'mercadopago', providerPaymentId: input.paymentId, state: 'awaiting_payment', amountBrlCents: input.product.priceBrlCents, currency: 'BRL', idempotencyKey: input.idempotencyKey, qrCode: input.qrCode, qrCodeBase64: input.qrCodeBase64, ticketUrl: input.ticketUrl, expiresAt: input.expiresAt, deliveredAt: null, metadataJson: JSON.stringify({ shopItemId: input.product.shopItemId, kind: input.product.kind }), createdAt: input.now, updatedAt: input.now };
+function createSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly product: ProductConfig; readonly paymentId: string; readonly innerPaymentId: string; readonly idempotencyKey: string; readonly qrCode: string; readonly qrCodeBase64: string; readonly ticketUrl: string; readonly expiresAt: number; readonly now: number }): PurchaseSession {
+  return { id: randomUUID(), userId: input.userId, discordId: input.discordId, guildId: input.guildId, sku: input.product.sku, provider: 'mercadopago', providerPaymentId: input.paymentId, state: 'awaiting_payment', amountBrlCents: input.product.priceBrlCents, currency: 'BRL', idempotencyKey: input.idempotencyKey, qrCode: input.qrCode, qrCodeBase64: input.qrCodeBase64, ticketUrl: input.ticketUrl, expiresAt: input.expiresAt, deliveredAt: null, metadataJson: JSON.stringify({ shopItemId: input.product.shopItemId, kind: input.product.kind, innerPaymentId: input.innerPaymentId }), createdAt: input.now, updatedAt: input.now };
 }
 
 export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCommandDeps = {}): Promise<void> {
@@ -82,7 +82,7 @@ export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCom
     const linkedUser = await backendClient.userByDiscord(interaction.user.id);
     const expiresAt = now() + (product.expiresMinutes ?? config.PIX_EXPIRATION_MINUTES) * 60_000;
     const payment = await paymentProvider.createPixPayment({ amountBrlCents: product.priceBrlCents, payer, description: `DigiWorld ${product.sku}`, notificationUrl: new URL('/webhooks/mercadopago', config.PUBLIC_URL).toString(), expiresAt: new Date(expiresAt) });
-    const session = createSession({ userId: linkedUser.userId, discordId: interaction.user.id, guildId: interaction.guildId ?? 'dm', product, paymentId: payment.providerPaymentId, idempotencyKey: payment.idempotencyKey, qrCode: payment.qrCode, qrCodeBase64: payment.qrCodeBase64, ticketUrl: payment.ticketUrl, expiresAt, now: now() });
+    const session = createSession({ userId: linkedUser.userId, discordId: interaction.user.id, guildId: interaction.guildId ?? 'dm', product, paymentId: payment.providerPaymentId, innerPaymentId: payment.innerPaymentId, idempotencyKey: payment.idempotencyKey, qrCode: payment.qrCode, qrCodeBase64: payment.qrCodeBase64, ticketUrl: payment.ticketUrl, expiresAt, now: now() });
     await insertPurchaseSession(db, session);
     await interaction.editReply({ embeds: [{ title: t('discord.buy.qr_title', { sku: product.sku }, locale), description: `${payment.qrCode}\n${payment.ticketUrl}\n${t('discord.buy.qr_expires_in', { minutes: Math.ceil((expiresAt - now()) / 60_000) }, locale)}` }] });
   }, { kind: 'buy' });

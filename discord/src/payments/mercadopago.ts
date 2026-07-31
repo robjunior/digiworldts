@@ -89,7 +89,9 @@ function parseSignature(header: string | undefined): { readonly ts: string; read
 }
 
 export function buildMercadoPagoManifest(input: { readonly dataId?: string | undefined; readonly requestId?: string | undefined; readonly ts: string }): string {
-  const idSegment = input.dataId === undefined ? '' : `id:${input.dataId};`;
+  // MP support 2026-07-31: alphanumeric data.id (Orders API era, ORD*) MUST be lowercased before HMAC.
+  // .toLowerCase() is a noop on legacy numeric ids, so applying unconditionally is safe.
+  const idSegment = input.dataId === undefined ? '' : `id:${input.dataId.toLowerCase()};`;
   const requestSegment = input.requestId === undefined ? '' : `request-id:${input.requestId};`;
   return `${idSegment}${requestSegment}ts:${input.ts};`;
 }
@@ -141,6 +143,7 @@ export class MercadoPagoProvider implements PaymentProvider {
     return {
       provider: this.name,
       providerPaymentId: parsed.id,
+      innerPaymentId: payment.id,
       status: parsed.status,
       qrCode,
       qrCodeBase64: pm?.qr_code_base64 ?? '',
