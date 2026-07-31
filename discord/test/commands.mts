@@ -29,13 +29,18 @@ function interaction(code: string | null = null, locale?: string): FakeInteracti
   };
 }
 
-function fakeDb(): { readonly saved: string[]; readonly query: (text: string, params?: readonly unknown[]) => Promise<{ readonly rows: readonly Record<string, unknown>[]; readonly rowCount: number }> } {
+type FakeDb = {
+  readonly saved: string[];
+  readonly query: <R extends Record<string, unknown>>(text: string, params?: readonly unknown[]) => Promise<{ readonly rows: readonly R[]; readonly rowCount: number }>;
+};
+
+function fakeDb(): FakeDb {
   const saved: string[] = [];
   return {
     saved,
-    async query(_text, params) {
+    async query<R extends Record<string, unknown>>(_text: string, params?: readonly unknown[]) {
       saved.push(JSON.stringify(params ?? []));
-      return { rows: [], rowCount: 1 };
+      return { rows: [] as readonly R[], rowCount: 1 };
     },
   };
 }

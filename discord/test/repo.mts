@@ -36,7 +36,7 @@ function queryable(raw: PgliteRaw): PgliteRaw & Queryable {
 }
 
 async function main(): Promise<void> {
-  const db = queryable(new PGlite());
+  const db = queryable(new PGlite() as unknown as PgliteRaw);
   await db.exec(readFileSync(resolve('../backend/src/db/migrations/030_commerce_schema.pg.sql'), 'utf8'));
   await db.query('SET search_path = commerce, public');
   await db.query('BEGIN');
