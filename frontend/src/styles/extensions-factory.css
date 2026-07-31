@@ -154,10 +154,22 @@
 
 /* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
    clipped past the viewport with no way to reach it. Tighten, then allow
-   horizontal pan for the remainder. */
+   horizontal pan for the remainder. The card rails are worse — .fcard is
+   pinned to a 380px minimum inside a 334px column, so each card is wider
+   than the phone and its own contents clip. Stack them instead. */
 @media (max-width: 768px) {
   .factory-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
   .factory-page .balbar::-webkit-scrollbar { display: none; }
   .factory-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
   .factory-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+
+  .factory-page .scroll { padding: 14px 14px 18px; overflow-y: auto; }
+  .factory-page .ovw { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+  .factory-page .fac-sec { flex: 0 0 auto; }
+  .factory-page .rail { flex-direction: column; overflow-x: visible; overflow-y: visible; flex: 0 0 auto; padding-bottom: 0; }
+  .factory-page .fgrid.rail > .fcard,
+  .factory-page .buygrid.rail > .buycard { flex: 0 0 auto; width: 100%; min-width: 0; }
+  .factory-page .fcard { height: auto; }
+  .factory-page .buygrid { flex-direction: column; }
 }
