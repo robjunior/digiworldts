@@ -65,6 +65,21 @@ export function Dungeon(): JSX.Element {
   const [stepCount, setStepCount] = useState(0);
   const [selectedInvItemId, setSelectedInvItemId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
+  const [partyTrail, setPartyTrail] = useState<readonly { readonly x: number; readonly y: number }[]>([]);
+
+  useEffect(() => {
+    setPartyTrail([]);
+  }, [id]);
+
+  useEffect(() => {
+    const x = data?.run.currentX;
+    const y = data?.run.currentY;
+    if (x === undefined || y === undefined) return;
+    setPartyTrail((prev) => {
+      if (prev[0]?.x === x && prev[0]?.y === y) return prev;
+      return [{ x, y }, ...prev].slice(0, 3);
+    });
+  }, [data?.run.currentX, data?.run.currentY]);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -380,6 +395,7 @@ export function Dungeon(): JSX.Element {
               items={items}
               doors={doors}
               party={party}
+              partyTrail={partyTrail}
               onCellClick={handleCellClick}
             />
           </div>

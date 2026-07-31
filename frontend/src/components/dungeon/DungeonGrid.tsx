@@ -23,6 +23,8 @@ type DungeonGridProps = {
   readonly items: readonly DungeonItem[];
   readonly doors: readonly DungeonDoor[];
   readonly party: readonly RosterView[];
+  /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
+  readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
 };
 
@@ -35,6 +37,7 @@ export function DungeonGrid({
   items,
   doors,
   party,
+  partyTrail,
   onCellClick,
 }: DungeonGridProps): ReactElement {
   const gridCells = [];
@@ -74,10 +77,12 @@ export function DungeonGrid({
         else if (isUndefeatedEncounter) cellClass += ' enc';
         else if (isUncollectedItem) cellClass += ' item';
         if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
-        if (isAdjacent) cellClass += ' adj';
       }
 
       const spriteStyle = tile !== undefined ? gidCellStyle(tile.gid, tilesets, spriteScale) : null;
+
+      const trailIdx = partyTrail.findIndex((p) => p.x === x && p.y === y);
+      const trailMember = trailIdx >= 0 ? party[trailIdx] ?? null : null;
 
       gridCells.push(
         <div
@@ -87,24 +92,21 @@ export function DungeonGrid({
           data-cell-x={x}
           data-cell-y={y}
           onClick={() => {
-            if (isWalkable && !isPlayer) onCellClick(x, y);
+            if (isAdjacent) onCellClick(x, y);
           }}
         >
-          {isPlayer && party.length > 0 && (
-            <div className="party-marker" aria-label="Your party">
-              {party.map((mon) => (
-                <img
-                  key={mon.id}
-                  className="party-sprite"
-                  src={`/assets/digimon/${mon.catalogId}/dot.gif`}
-                  alt={mon.nickname || mon.template?.name || 'party member'}
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
-                  }}
-                />
-              ))}
+          {trailMember ? (
+            <div className="party-marker" aria-label={isPlayer ? 'Your party' : undefined}>
+              <img
+                className="party-sprite"
+                src={`/assets/digimon/${trailMember.catalogId}/dot.gif`}
+                alt={trailMember.nickname || trailMember.template?.name || 'party member'}
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+                }}
+              />
             </div>
-          )}
+          ) : null}
           {doorAt && !isPlayer ? <span className="door-marker">D</span> : null}
         </div>
       );
