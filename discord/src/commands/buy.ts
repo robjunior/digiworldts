@@ -85,5 +85,5 @@ export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCom
     const session = createSession({ userId: linkedUser.userId, discordId: interaction.user.id, guildId: interaction.guildId ?? 'dm', product, paymentId: payment.providerPaymentId, idempotencyKey: payment.idempotencyKey, qrCode: payment.qrCode, qrCodeBase64: payment.qrCodeBase64, ticketUrl: payment.ticketUrl, expiresAt, now: now() });
     await insertPurchaseSession(db, session);
     await interaction.editReply({ embeds: [{ title: t('discord.buy.qr_title', { sku: product.sku }, locale), description: `${payment.qrCode}\n${payment.ticketUrl}\n${t('discord.buy.qr_expires_in', { minutes: Math.ceil((expiresAt - now()) / 60_000) }, locale)}` }] });
-  });
+  }, { kind: 'buy' });
 }
