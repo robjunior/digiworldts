@@ -60,7 +60,7 @@ export type AdminRosterView = {
   xp: number;
   statBonus: AdminStatBonus;
   mood: number;
-  status: 'resting' | 'training' | 'party' | 'adventure';
+  status: RosterRow['status'];
   slot: number | null;
   createdAt: number;
   updatedAt: number;
@@ -75,6 +75,8 @@ export type RosterInput = {
   status?: 'resting' | 'training' | 'party' | undefined;
   slot?: number | null | undefined;
 };
+
+type EditableRosterStatus = NonNullable<RosterInput['status']>;
 
 export type SpawnInput = {
   userId: string;
@@ -173,7 +175,7 @@ function clampBonus(v: number | undefined, existing: number): number {
   return Math.max(-9999, Math.min(9999, Math.floor(v)));
 }
 
-function validateSlot(slot: number | null | undefined, status: 'resting' | 'training' | 'party' | 'adventure'): RosterError | null {
+function validateSlot(slot: number | null | undefined, status: EditableRosterStatus): RosterError | null {
   if (status === 'party') {
     if (slot == null) return 'invalid-slot';
     if (!Number.isInteger(slot) || slot < 0 || slot > 2) return 'invalid-slot';
@@ -181,6 +183,10 @@ function validateSlot(slot: number | null | undefined, status: 'resting' | 'trai
     return 'invalid-slot';
   }
   return null;
+}
+
+function isEditableRosterStatus(status: RosterRow['status']): status is EditableRosterStatus {
+  return status === 'resting' || status === 'training' || status === 'party';
 }
 
 // ============================================================================
@@ -199,7 +205,7 @@ export async function updateRoster(monId: string, input: RosterInput): Promise<R
   const mood = input.mood != null ? Math.max(0, Math.min(100, Math.floor(input.mood))) : existing.mood;
 
   const status = input.status ?? existing.status;
-  if (!['resting', 'training', 'party'].includes(status)) return { ok: false, error: 'invalid-status' };
+  if (!isEditableRosterStatus(status)) return { ok: false, error: 'invalid-status' };
 
   // Determine desired slot. If status changed to non-party, clear slot.
   const desiredSlot = status === 'party'

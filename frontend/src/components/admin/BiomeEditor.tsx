@@ -13,7 +13,7 @@ type BiomeSpawn = {
 };
 
 type BiomeOverride = {
-  readonly arenaKey?: 'plant' | 'steel' | 'water' | 'rock' | 'dark' | 'fire' | 'ice' | 'field' | 'null' | 'wind' | 'light' | null;
+  readonly arenaKey?: 'plant' | 'steel' | 'water' | 'rock' | 'dark' | 'fire' | 'ice' | 'field' | 'null' | 'wind' | 'light' | 'nursery' | null;
   readonly spawns: readonly BiomeSpawn[];
 };
 
@@ -22,6 +22,7 @@ type BiomeConfig = Record<string, BiomeOverride>;
 const ARENA_OPTIONS = [
   { value: '', label: 'auto (by element)' },
   { value: 'plant', label: 'Nature — plant.glb (forest)' },
+  { value: 'nursery', label: 'Nursery — field.glb (grass playpen)' },
   { value: 'steel', label: 'Metal / Electric — steel.glb (factory)' },
   { value: 'water', label: 'Water — water.glb (beach)' },
   { value: 'rock', label: 'Earth — rock.glb (canyon)' },
@@ -161,7 +162,7 @@ export function BiomeEditor(): JSX.Element {
                       name="arena-key"
                       value={opt.value}
                       checked={active}
-                      onChange={() => updateCurrent({ arenaKey: opt.value === '' ? null : opt.value as 'plant' | 'steel' | 'water' | 'rock' | 'dark' })}
+                      onChange={() => updateCurrent({ arenaKey: opt.value === '' ? null : opt.value as 'plant' | 'steel' | 'water' | 'rock' | 'dark' | 'nursery' | 'fire' | 'ice' | 'field' | 'null' | 'wind' | 'light' })}
                     />
                     {opt.label}
                   </label>

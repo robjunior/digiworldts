@@ -25,7 +25,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { toPgPlaceholders } from '../src/db/adapter.ts';
-import { loadMigrations } from '../src/db/migrator.ts';
+import { loadMigrations, isDuplicateColumnError } from '../src/db/migrator.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..');
@@ -77,16 +77,34 @@ async function main(): Promise<void> {
   // (dialect-filtered — SQLite-only migrations are skipped) so PREPARE-time
   // table lookups see the full post-migrator shape.
   const migrations = loadMigrations('postgres');
+  // A migration whose columns already exist in the baseline schema is NOT a
+  // failure: `runMigrations` handles exactly this case at boot by marking the
+  // version applied and continuing (see `canMarkDuplicateColumnMigration` in
+  // src/db/migrator.ts, logged as `db.migration.already-in-baseline`). The
+  // harness has to mirror that tolerance or it dies on a condition production
+  // shrugs off — e.g. 009_world_objects_lat_lon, whose lat/lon columns were
+  // folded into schema-pg.sql by commit 6ed1970. Any OTHER error is still
+  // fatal, so a genuinely broken migration keeps failing loudly.
+  const appliedMigrations: string[] = [];
+  const baselineMigrations: string[] = [];
   for (const m of migrations) {
     try {
       await db.exec(m.sql);
+      appliedMigrations.push(m.filename);
     } catch (e) {
+      if (isDuplicateColumnError(e)) {
+        baselineMigrations.push(m.filename);
+        continue;
+      }
       console.log(`  ✗ migration ${m.filename} failed: ${(e as Error).message}`);
       process.exit(1);
     }
   }
-  if (migrations.length > 0) {
-    console.log(`  ✓ ${migrations.length} migration${migrations.length === 1 ? '' : 's'} applied: ${migrations.map((m) => m.filename).join(', ')}`);
+  if (appliedMigrations.length > 0) {
+    console.log(`  ✓ ${appliedMigrations.length} migration${appliedMigrations.length === 1 ? '' : 's'} applied: ${appliedMigrations.join(', ')}`);
+  }
+  if (baselineMigrations.length > 0) {
+    console.log(`  ⊘ ${baselineMigrations.length} already in baseline (skipped, matches runMigrations): ${baselineMigrations.join(', ')}`);
   }
   const tables = await db.query<{ table_name: string }>(
     `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name`,
@@ -153,7 +171,7 @@ async function main(): Promise<void> {
   const insertUser = grabConst('auth/routes.ts', 'SQL_INSERT_USER');
   if (insertUser) {
     await runCheck('insert user (real SQL_INSERT_USER)', async () => {
-      await db.query(insertUser, [userId, 'pgtestuser', 'PGtest User', 'hash', 0, now, now]);
+      await db.query(insertUser, [userId, 'pgtestuser', 'PGtest User', 'hash', 0, now, now, 'PGtest', 'User', 'pgtest@example.invalid']);
     });
   } else {
     checks.push({ name: 'find SQL_INSERT_USER', ok: false, err: 'constant not found' });

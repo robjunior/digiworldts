@@ -7,6 +7,7 @@ import { TutorialManager } from './components/tutorial/TutorialManager';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AUTH_ME_KEY } from './hooks/useAuth';
 import { useWebSocket } from './hooks/useWebSocket';
+import { Account } from './routes/Account';
 import { Adventure } from './routes/Adventure';
 import { Digdex } from './routes/Digdex';
 import { Dungeon } from './routes/Dungeon';
@@ -76,6 +77,7 @@ export function App(): JSX.Element {
             <Route path="/combat" element={<Combat />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
+              <Route path="/account" element={<Account />} />
               <Route path="/lobby" element={<Lobby />} />
               <Route path="/roster" element={<Roster />} />
               <Route path="/farm" element={<Farm />} />

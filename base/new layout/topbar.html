@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DigiWorld — Topbar</title>
+<style>
+/* =========================================================================
+   DIGIWORLD TOPBAR — standalone shell chrome. Persona 5 theme (acid red on
+   ink), registered palette only. Just the titlebar: brand mark + right-side
+   notifications and tamer menu. No sidebar, no body content.
+   ========================================================================= */
+:root{
+  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
+  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{
+  background:var(--bg);color:var(--ink);
+  font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+
+.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.titlebar{
+  height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;
+  padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none;
+}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.app-mark .bit{color:var(--signal)}
+.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* topbar-right cluster */
+.topright{margin-left:14px;display:flex;align-items:center;gap:8px}
+.tbwrap{position:relative}
+.tbtn{position:relative;display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;background:var(--panel);border:1px solid var(--hair);color:var(--ink);cursor:pointer;clip-path:var(--notch-sm,polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px));transition:border-color .12s,background .12s}
+.tbtn:hover{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--panel))}
+.tbtn[aria-expanded="true"]{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.tbtn svg{width:16px;height:16px;display:block}
+.tbtn.icon{width:30px;padding:0;justify-content:center}
+.tbtn .uav{width:20px;height:20px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);font:900 10px/1 var(--font);color:var(--signal);clip-path:var(--notch-sm,polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px))}
+.tbtn .unm{font:800 11px/1 var(--font);letter-spacing:.04em;color:var(--ink)}
+.tbtn .dot-badge{position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--signal);border-radius:50%;box-shadow:0 0 0 2px var(--panel)}
+.tmenu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm,polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px));padding:6px;z-index:60;display:none}
+.tmenu.open{display:block}
+.tmenu .mhd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tmenu a,.tmenu button.mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:none;border:0;text-align:left;text-decoration:none;color:var(--ink);font:600 12px/1.1 var(--font);cursor:pointer;clip-path:var(--notch-sm,polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px))}
+.tmenu a:hover,.tmenu button.mi:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel));color:var(--ink)}
+.tmenu a svg,.tmenu button.mi svg{width:15px;height:15px;flex:none;color:var(--muted)}
+.tmenu a:hover svg,.tmenu button.mi:hover svg{color:var(--signal)}
+.tmenu .nrow{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-bottom:1px solid var(--hair)}
+.tmenu .nrow:last-child{border-bottom:0}
+.tmenu .nrow .nt{font:700 12px/1.2 var(--font);color:var(--ink)}
+.tmenu .nrow .nm{font:600 11px/1.3 var(--font);color:var(--muted)}
+.tmenu .nrow .na{margin-top:2px;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal)}
+</style>
+</head>
+<body>
+<div class="win" data-od-id="app-window">
+  <div class="titlebar" data-od-id="title-bar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="app-mark">Digi<span class="bit">World</span></div>
+    <div class="win-meta">Tamer Terminal · Topbar</div>
+
+    <div class="topright" data-od-id="topbar-right">
+      <div class="tbwrap">
+        <button class="tbtn icon" id="tb-notif" aria-label="Notifications" aria-haspopup="true" aria-expanded="false" data-menu="menu-notif">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8"/><path d="M10 21h4"/></svg>
+          <span class="dot-badge"></span>
+        </button>
+        <div class="tmenu" id="menu-notif" role="menu" aria-label="Notifications">
+          <div class="mhd">Notifications</div>
+          <div class="nrow"><span class="nt">Agumon reached Champion</span><span class="nm">Digivolution ready in the Factory.</span><span class="na">View</span></div>
+          <div class="nrow"><span class="nt">PvP challenge from Sora</span><span class="nm">Ranked bout · Best of 3.</span><span class="na">Accept</span></div>
+          <div class="nrow"><span class="nt">Farm harvest complete</span><span class="nm">3 Digimeat ready to collect.</span><span class="na">Collect</span></div>
+        </div>
+      </div>
+      <div class="tbwrap">
+        <button class="tbtn" id="tb-user" aria-label="Tamer menu" aria-haspopup="true" aria-expanded="false" data-menu="menu-user">
+          <span class="uav">T</span><span class="unm">Taichi</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="tmenu" id="menu-user" role="menu" aria-label="Tamer menu">
+          <div class="mhd">Tamer · Lv 24</div>
+          <a href="player.html" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/><path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6"/></svg>View Profile</a>
+          <a href="player.html#connections" role="menuitem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M17.5 20a5.5 5.5 0 0 0-11 0"/><path d="M17 11l2 2 3-3"/></svg>Connections</a>
+          <button class="mi" role="menuitem" onclick="location.href='player.html#settings'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.3-2.6H9.5l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.6h4.9l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z"/></svg>Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* topbar dropdowns: single-open, outside-click + Esc close */
+(function(){
+  const triggers = [...document.querySelectorAll('.tbtn[data-menu]')];
+  if(!triggers.length) return;
+  function closeAll(except){
+    triggers.forEach(t=>{
+      const m=document.getElementById(t.dataset.menu);
+      if(m && t!==except){ m.classList.remove('open'); t.setAttribute('aria-expanded','false'); }
+    });
+  }
+  triggers.forEach(t=>{
+    const m=document.getElementById(t.dataset.menu);
+    t.addEventListener('click', e=>{
+      e.stopPropagation();
+      const open = m.classList.contains('open');
+      closeAll(t);
+      m.classList.toggle('open', !open);
+      t.setAttribute('aria-expanded', String(!open));
+    });
+    m && m.addEventListener('click', e=>e.stopPropagation());
+  });
+  document.addEventListener('click', ()=>closeAll(null));
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeAll(null); });
+})();
+</script>
+</body>
+</html>

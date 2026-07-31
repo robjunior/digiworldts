@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://digiworld.local/discord/products.schema.json",
+  "title": "DigiWorld Discord product catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["products"],
+  "properties": {
+    "_readme": {
+      "type": "string"
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/product"
+      }
+    }
+  },
+  "definitions": {
+    "localizedText": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pt", "en"],
+      "properties": {
+        "pt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "en": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sku", "displayName", "priceBrlCents", "shopItemId", "kind"],
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "$ref": "#/definitions/localizedText"
+        },
+        "description": {
+          "$ref": "#/definitions/localizedText"
+        },
+        "priceBrlCents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "const": "BRL"
+        },
+        "shopItemId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["item", "premium", "credits"]
+        },
+        "premiumDays": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "creditsAmount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "expiresMinutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "premium"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["premiumDays"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "credits"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["creditsAmount"]
+          }
+        }
+      ]
+    }
+  }
+}

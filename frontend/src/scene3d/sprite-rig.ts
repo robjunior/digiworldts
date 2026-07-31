@@ -22,6 +22,8 @@ export type SpriteRigApi = {
   setDowned(down: boolean): void;
   setTextureUrl(url: string): void;
   setArenaBaselineY(y: number): void;
+  setBasePosition(x: number, z: number): void;
+  setFacingDirection(sign: 1 | -1): void;
   dispose(): void;
 };
 
@@ -140,7 +142,7 @@ export class SpriteRig implements SpriteRigApi {
   readonly worldPosition: THREE.Vector3;
 
   private readonly scene: THREE.Scene;
-  private readonly mesh: THREE.Mesh;
+  readonly mesh: THREE.Mesh;
   private readonly shadow: THREE.Mesh;
   private readonly mat: THREE.MeshBasicMaterial;
   private readonly baseColor: THREE.Color;
@@ -153,6 +155,7 @@ export class SpriteRig implements SpriteRigApi {
   private illumination: IlluminationState | null = null;
   private downed: boolean;
   private disposedFlag = false;
+  private facingSign: 1 | -1 = 1;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -400,6 +403,10 @@ export class SpriteRig implements SpriteRigApi {
     this.shadowWidthUnits = SHADOW_MAX_WIDTH * widthFraction;
   }
 
+  setFacingDirection(sign: 1 | -1): void {
+    this.facingSign = sign;
+  }
+
   update(dt: number, elapsedS: number, cameraQuat: THREE.Quaternion): void {
     if (this.disposedFlag || !this.mesh.visible) return;
     this.mesh.quaternion.copy(cameraQuat);
@@ -457,7 +464,7 @@ export class SpriteRig implements SpriteRigApi {
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
     this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
@@ -510,6 +517,11 @@ export class SpriteRig implements SpriteRigApi {
     this.mesh.position.y = this.basePosition.y + y;
     this.shadow.position.y = GROUND_Y + y;
     this.worldPosition.y = this.mesh.position.y;
+  }
+
+  setBasePosition(x: number, z: number): void {
+    this.basePosition.x = x;
+    this.basePosition.z = z;
   }
 
   dispose(): void {
