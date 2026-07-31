@@ -41,6 +41,8 @@ function resolveNode(definition: DialogueDefinition, nodeId: string): DialogueNo
 
 export function DialogueOverlay({ definition, variables = {}, speakerName, onClose }: DialogueOverlayProps): JSX.Element | null {
   const [nodeId, setNodeId] = useState(definition.startNodeId);
+  /** Stores the src, not a boolean, so the fallback resets itself when the speaker or expression changes. */
+  const [failedPortraitSrc, setFailedPortraitSrc] = useState<string | null>(null);
 
   useEffect(() => { setNodeId(definition.startNodeId); }, [definition]);
 
@@ -70,17 +72,15 @@ export function DialogueOverlay({ definition, variables = {}, speakerName, onClo
   const speaker = node.speaker;
   const label = speaker === null ? null : speakerName?.(speaker.npcId) ?? speaker.npcId;
   const body = renderText(node.text, variables);
+  const portraitSrc = speaker === null ? null : `/assets/npc/${speaker.npcId}/${speaker.expression}.png`;
+  const showPortrait = portraitSrc !== null && portraitSrc !== failedPortraitSrc;
 
   return (
     <div className="dlg-overlay" role="dialog" aria-modal="true" aria-label={label ?? 'Dialogue'}>
       <div className="dlg-frame">
-        {speaker !== null ? (
+        {showPortrait && speaker !== null ? (
           <div className="dlg-portrait" data-expression={speaker.expression}>
-            <img
-              src={`/assets/npc/${speaker.npcId}/${speaker.expression}.png`}
-              alt=""
-              onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
-            />
+            <img src={portraitSrc} alt="" onError={() => setFailedPortraitSrc(portraitSrc)} />
           </div>
         ) : null}
 
