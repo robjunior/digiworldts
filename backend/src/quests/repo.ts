@@ -314,6 +314,7 @@ function questWithProgress(
     name: quest.name,
     description: quest.description,
     requiredLevel: quest.requiredLevel,
+    introDialogueId: quest.introDialogueId,
     giver: quest.giver ?? 'Tamer Guild',
     rewardText: quest.rewardText ?? formatRewardText(quest),
     lockHint: quest.lockHint ?? (quest.requiredLevel > meanLevel ? `Reach party level ${quest.requiredLevel} to unlock` : null),

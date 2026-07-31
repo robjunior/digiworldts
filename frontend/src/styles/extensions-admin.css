@@ -1729,6 +1729,31 @@
   box-shadow: 0 18px 60px color-mix(in oklab, black 28%, transparent);
 }
 
+.admin-dungeon-zoombar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 74%, transparent);
+}
+
+.admin-dungeon-zoombar .btn {
+  min-width: 30px;
+  padding: 2px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-dungeon-zoom-readout {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-dungeon-panel-head {
   display: flex;
   align-items: flex-start;
@@ -2494,3 +2519,20 @@
 .tier-2-badge { display: inline-block; margin-left: 4px; color: var(--gold); font-size: 11px; line-height: 1; vertical-align: middle; }
 .catalog-badge { font-size: 9px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; background: color-mix(in oklab, var(--hairline) 50%, transparent); padding: 2px 6px; border-radius: 4px; }
 
+
+/* ---------- Dialogues admin ---------- */
+.admin-dialogues .dlg-title{font:500 11px/1.3 var(--font);color:var(--muted);margin-top:2px}
+.admin-dialogues .dlg-muted{color:var(--muted)}
+.admin-dialogues .dlg-actions{display:flex;gap:6px;justify-content:flex-end;white-space:nowrap}
+.admin-dialogues .dlg-confirm-actions{display:flex;gap:8px;margin-top:10px}
+.dlg-sync-report{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.dlg-sync-failure{background:var(--bg);border:1px solid var(--hair);border-left:3px solid var(--signal);padding:8px 10px;font:500 12px/1.5 var(--font)}
+.dlg-sync-failure ul{margin:4px 0 0;padding-left:18px;color:var(--muted)}
+.twee-import{display:flex;flex-direction:column;gap:12px}
+.twee-preview{display:flex;flex-direction:column;gap:10px}
+.twee-stats{display:flex;flex-wrap:wrap;gap:14px;font:500 12px/1 var(--font);color:var(--muted)}
+.twee-stats b{color:var(--ink);font-weight:800}
+.twee-diagnostics{margin:0;padding-left:18px;font:500 12px/1.6 var(--font)}
+.twee-diagnostics.is-error{color:var(--signal)}
+.twee-diagnostics.is-warn{color:var(--muted)}
+.twee-diagnostics code{color:var(--ink)}

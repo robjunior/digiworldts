@@ -11,9 +11,12 @@ import {
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
 import { getRoster } from '../lib/api';
+import { getDialogue } from '../lib/api-dialogues';
+import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
 import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
 import { useWsStore } from '../state/wsStore';
+import { useAuth } from '../hooks/useAuth';
 
 import { DungeonGrid } from '../components/dungeon/DungeonGrid';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
@@ -21,6 +24,7 @@ import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
 import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
 import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
+import { DialogueOverlay } from '../components/dungeon/DialogueOverlay';
 import { DungeonStrip } from '../components/dungeon/DungeonStrip';
 import type { LogEntry, PendingUnlock } from '../components/dungeon/types';
 import '../styles/extensions-dungeon.css';
@@ -54,6 +58,7 @@ export function Dungeon(): JSX.Element {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
   const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
@@ -65,6 +70,18 @@ export function Dungeon(): JSX.Element {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    const scroller = gridScrollRef.current;
+    if (!scroller) return;
+    const cell = scroller.querySelector<HTMLElement>(`[data-cell-x="${data?.run.currentX ?? -1}"][data-cell-y="${data?.run.currentY ?? -1}"]`);
+    if (!cell) return;
+    const scrollerRect = scroller.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const targetLeft = scroller.scrollLeft + (cellRect.left - scrollerRect.left) - scrollerRect.width / 2 + cellRect.width / 2;
+    const targetTop = scroller.scrollTop + (cellRect.top - scrollerRect.top) - scrollerRect.height / 2 + cellRect.height / 2;
+    scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'smooth' });
+  }, [data?.run.currentX, data?.run.currentY]);
 
   const productById = useMemo(() => {
     const m = new Map<string, import('../lib/api-shop').ShopItemView>();
@@ -240,7 +257,29 @@ export function Dungeon(): JSX.Element {
     applyItemMutation.mutate({ itemId: selectedInvItemId, monId });
   }, [applyItemMutation, selectedInvItemId]);
 
+  const { user } = useAuth();
+  const [dialogueDismissed, setDialogueDismissed] = useState(false);
+
+  // A dungeon that belongs to a quest opens that quest's intro on entry. This
+  // is the only trigger for now; deliberate NPC interaction arrives with the
+  // /interact endpoint.
+  const questId = data?.dungeon.questId ?? null;
+  const questsQuery = useQuery({ queryKey: ['quests'], queryFn: getQuests, enabled: questId !== null });
+  const introDialogueId = questId === null
+    ? null
+    : questsQuery.data?.find((q) => q.id === questId)?.introDialogueId ?? null;
+
+  const dialogueQuery = useQuery({
+    queryKey: ['dialogue', introDialogueId],
+    queryFn: () => getDialogue(introDialogueId as string),
+    enabled: introDialogueId !== null && !dialogueDismissed,
+  });
+
+  const activeDialogue = dialogueDismissed ? null : dialogueQuery.data?.dialogue.definition ?? null;
+  const dialogueOpen = activeDialogue !== null;
+
   const handleCellClick = (x: number, y: number) => {
+    if (dialogueOpen) return;
     if (activeEncounterId || activeRandomEncounter) {
       flashToast('Resolve the encounter first.');
       return;
@@ -261,6 +300,7 @@ export function Dungeon(): JSX.Element {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (dialogueOpen) return;
       if (activeEncounterId || activeRandomEncounter) return;
       if (moveMutation.isPending) return;
 
@@ -285,13 +325,13 @@ export function Dungeon(): JSX.Element {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [data, activeEncounterId, activeRandomEncounter, moveMutation]);
+  }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen]);
 
   if (isLoading || !data) {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, encounters, items, doors } = data;
+  const { dungeon, run, tiles, tilesets, encounters, items, doors } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
@@ -314,6 +354,13 @@ export function Dungeon(): JSX.Element {
         />
 
         <div className="view">
+          {activeDialogue !== null ? (
+            <DialogueOverlay
+              definition={activeDialogue}
+              variables={{ player_name: user?.displayName ?? 'Tamer' }}
+              onClose={() => setDialogueDismissed(true)}
+            />
+          ) : null}
           {pendingDoor ? (
             <DungeonDoorPrompt
               pendingDoor={pendingDoor}
@@ -323,16 +370,19 @@ export function Dungeon(): JSX.Element {
               onUnlock={(doorId) => unlockMutation.mutate(doorId)}
             />
           ) : null}
-          <DungeonGrid
-            dungeon={dungeon}
-            run={run}
-            tiles={tiles}
-            encounters={encounters}
-            items={items}
-            doors={doors}
-            party={party}
-            onCellClick={handleCellClick}
-          />
+          <div className="dgrid-scroll" ref={gridScrollRef}>
+            <DungeonGrid
+              dungeon={dungeon}
+              run={run}
+              tiles={tiles}
+              tilesets={tilesets}
+              encounters={encounters}
+              items={items}
+              doors={doors}
+              party={party}
+              onCellClick={handleCellClick}
+            />
+          </div>
         </div>
 
         <div className="controls">
