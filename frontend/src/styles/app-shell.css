@@ -16,6 +16,14 @@
 .navbtn:hover{color:var(--ink);background:var(--bg)}
 .navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
 .side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
+.side details.nav-group{display:flex;flex-direction:column;gap:4px}
+.side .nav-group-summary{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}
+.side .nav-group-summary::-webkit-details-marker{display:none}
+.side .nav-group-summary::marker{content:''}
+.side .nav-group-summary::after{content:'▸';font-size:9px;color:var(--muted);transition:transform .12s ease;transform-origin:center}
+.side details.nav-group[open] .nav-group-summary::after{transform:rotate(90deg)}
+.side .nav-group-summary:hover{color:var(--ink)}
+.side .nav-group-body{display:flex;flex-direction:column;gap:4px;padding-left:4px}
 .hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
 .hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
 .hud .pill b{color:var(--ink);font-weight:800}
