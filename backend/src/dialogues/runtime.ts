@@ -5,6 +5,7 @@ import { execRun } from '../db/executor.js';
 import { tx } from '../db/index.js';
 import { clearFlag, hasFlag, setFlag } from '../flags/repo.js';
 import { grantItem, hasItem, removeItem } from '../items/grant.js';
+import { startQuestWithin } from '../quests/repo.js';
 
 export class DialogueRuntimeError extends Error {}
 
@@ -12,6 +13,7 @@ export type DialogueScalar = string | number | boolean;
 
 export type DialogueRuntimeContext = {
   readonly userId: string;
+  readonly dialogueId: string;
   readonly facts: Readonly<Record<string, DialogueScalar>>;
   readonly variables: Readonly<Record<string, DialogueScalar>>;
 };
@@ -75,6 +77,10 @@ const ACTIONS: Readonly<Record<string, ActionHandler>> = {
   },
   remove_item: (ctx, args, ex) =>
     removeItem(ctx.userId, asString(args[0]!, 'remove_item'), asCount(args[1], 'remove_item'), Date.now(), ex),
+  start_quest: async (ctx, args, ex) => {
+    const started = await startQuestWithin(ex, ctx.userId, asString(args[0]!, 'start_quest'));
+    return started !== null;
+  },
 };
 
 export function isKnownAction(name: string): boolean {
@@ -131,8 +137,18 @@ export async function visibleChoices(
   return out;
 }
 
-async function claim(ex: DbExecutor, userId: string, action: DialogueAction, now: number): Promise<boolean> {
-  const info = await execRun(ex, SQL_CLAIM_ACTION, [userId, action.id, now]);
+/**
+ * The parser numbers actions per passage, so `start#a0` repeats across every
+ * dialogue that names its opening passage `start` -- which all six quest
+ * intros do. Qualifying by dialogue keeps one dialogue's ledger entry from
+ * suppressing another's action entirely.
+ */
+function ledgerKey(dialogueId: string, action: DialogueAction): string {
+  return `${dialogueId}:${action.id}`;
+}
+
+async function claim(ex: DbExecutor, ctx: DialogueRuntimeContext, action: DialogueAction, now: number): Promise<boolean> {
+  const info = await execRun(ex, SQL_CLAIM_ACTION, [ctx.userId, ledgerKey(ctx.dialogueId, action), now]);
   return info.changes > 0;
 }
 
@@ -154,7 +170,7 @@ export async function applyEntryActions(
     for (const action of node.entryActions) {
       const handler = ACTIONS[action.name];
       if (handler === undefined) throw new DialogueRuntimeError(`unknown action "${action.name}"`);
-      if (!(await claim(t, ctx.userId, action, now))) continue;
+      if (!(await claim(t, ctx, action, now))) continue;
       const args = action.args.map((arg) => resolveValue(arg, ctx));
       if (!(await handler(ctx, args, t))) {
         throw new DialogueRuntimeError(`action "${action.name}" was refused`);

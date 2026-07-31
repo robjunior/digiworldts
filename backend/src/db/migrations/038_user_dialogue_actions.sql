@@ -9,10 +9,12 @@
 -- repeat. A retried advance -- a flaky network, a double click -- has the same
 -- shape, so this also makes the endpoint idempotent.
 --
--- Keyed on the stable id the parser emits per action (elder/relic#a0). That id
--- is derived from passage name plus ordinal, so re-importing the same .twee
--- keeps the ledger meaningful; editing a passage's actions deliberately mints
--- new ids, which lets a rewritten dialogue apply again.
+-- Keyed on "{dialogue_id}:{action_id}". The parser numbers actions per passage
+-- (start#a0), which is unique inside one dialogue but NOT across them -- all
+-- six quest intros open with a passage named `start`. Storing the bare id
+-- would let whichever dialogue fired first permanently suppress the others.
+-- Editing a passage's actions still mints new ids, so a rewritten dialogue
+-- applies again.
 --
 -- Deliberately not folded into user_flags: flags are game state a designer may
 -- sweep by namespace, and clearing this bookkeeping by accident would reopen

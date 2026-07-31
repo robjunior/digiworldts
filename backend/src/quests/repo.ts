@@ -10,6 +10,7 @@ import type {
 } from '@digiworld/shared/quest';
 import type { Biome } from '@digiworld/shared/world';
 import type { Element } from '@digiworld/shared/digimon';
+import type { DbExecutor } from '../db/executor.js';
 import { one, q, run, tx } from '../db/index.js';
 import { newId } from '../util/ids.js';
 
@@ -225,32 +226,42 @@ export async function listAvailableQuests(userId: string, requiredLevel: number,
   return (await q<QuestRow>(SQL_LIST_AVAILABLE_QUESTS, requiredLevel, userId)).map((row) => questFromRow(row, locale));
 }
 
-export async function startQuest(userId: string, questId: string): Promise<{ readonly quest: Quest; readonly progress: UserQuestProgress } | null> {
-  return tx(async (t) => {
-    const questRow = await t.one<QuestRow>(SQL_GET_QUEST, [questId]);
-    if (!questRow) return null;
-    const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
-    if (existing) return { quest: questFromRow(questRow), progress: progressFromRow(existing) };
-    const quest = questFromRow(questRow);
-    const now = Date.now();
-    const firstDialogue = quest.introDialogueId;
-    const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0
-      ? encodeObjectiveProgress(quest.objectives.map(() => ({ counter: 0, doneAt: null })))
-      : null;
-    await t.run(SQL_INSERT_PROGRESS, [userId, questId, 0, firstDialogue, '{}', now, initialObjectiveProgress]);
-    return {
-      quest,
-      progress: {
-        userId,
-        questId,
-        currentStepIndex: 0,
-        currentDialogueNodeId: firstDialogue,
-        choicesMade: {},
-        startedAt: now,
-        completedAt: null,
-      },
-    };
-  });
+export type StartQuestResult = { readonly quest: Quest; readonly progress: UserQuestProgress } | null;
+
+/**
+ * Takes the caller's handle so a dialogue action can start a quest inside the
+ * transaction that also moves items and flags. Opening a nested tx here would
+ * put the insert on a different connection, where a rollback upstream would
+ * leave the quest started.
+ */
+export async function startQuestWithin(t: DbExecutor, userId: string, questId: string): Promise<StartQuestResult> {
+  const questRow = await t.one<QuestRow>(SQL_GET_QUEST, [questId]);
+  if (!questRow) return null;
+  const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
+  if (existing) return { quest: questFromRow(questRow), progress: progressFromRow(existing) };
+  const quest = questFromRow(questRow);
+  const now = Date.now();
+  const firstDialogue = quest.introDialogueId;
+  const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0
+    ? encodeObjectiveProgress(quest.objectives.map(() => ({ counter: 0, doneAt: null })))
+    : null;
+  await t.run(SQL_INSERT_PROGRESS, [userId, questId, 0, firstDialogue, '{}', now, initialObjectiveProgress]);
+  return {
+    quest,
+    progress: {
+      userId,
+      questId,
+      currentStepIndex: 0,
+      currentDialogueNodeId: firstDialogue,
+      choicesMade: {},
+      startedAt: now,
+      completedAt: null,
+    },
+  };
+}
+
+export async function startQuest(userId: string, questId: string): Promise<StartQuestResult> {
+  return tx((t) => startQuestWithin(t, userId, questId));
 }
 
 function parseObjectiveProgress(raw: string | null, objectiveCount: number): QuestObjectiveProgress[] {
