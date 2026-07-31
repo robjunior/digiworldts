@@ -1,11 +1,14 @@
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
+import { ELEMENT_TO_ARENA_KEY } from '@digiworld/shared/scene';
+import type { SceneEntity } from '@digiworld/shared/scene';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
 import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
-import { getSceneDefaults } from '../../lib/scene-defaults';
+import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
+import { getScenes } from '../../lib/api-scenes';
 import { useAuth } from '../../hooks/useAuth';
 
 const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
@@ -46,6 +49,20 @@ function pickArenaKey(battle: BattleView): string {
   return ARENA_FALLBACK;
 }
 
+function arenaKeyForScene(scene: SceneEntity, battle: BattleView): string {
+  const first = scene.elements[0];
+  if (first !== undefined) return ELEMENT_TO_ARENA_KEY[first];
+  return pickArenaKey(battle);
+}
+
+type SceneResolution = {
+  readonly source: 'scene-entity' | 'arena-defaults';
+  readonly arenaKey: string;
+  readonly modelUrl: string | undefined;
+  readonly useGlbSettings: boolean;
+  readonly settingsPatch: Partial<SceneSettings>;
+};
+
 export type Combat3DSceneHandle = {
   playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, onImpact?: () => void): void;
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
@@ -84,40 +101,96 @@ function toPlacements(battle: BattleView): readonly UnitPlacement[] {
   return [...you, ...opp];
 }
 
+function extractPatch(raw: Readonly<Record<string, unknown>>): Partial<SceneSettings> {
+  const patch: Record<string, unknown> = { ...raw };
+  delete patch['modelFile'];
+  return patch as Partial<SceneSettings>;
+}
+
 export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(function Combat3DScene({ battle, onReady }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<SceneManager | null>(null);
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
-  const arenaKey = useMemo(() => pickArenaKey(battle), [battle]);
-  const [arenaModelUrl, setArenaModelUrl] = useState<string | undefined>(() => ARENA_MODEL_BY_KEY[arenaKey]);
+  const fallbackArenaKey = useMemo(() => pickArenaKey(battle), [battle]);
+  const sceneId = battle.sceneId ?? null;
+  const [resolution, setResolution] = useState<SceneResolution | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void getSceneDefaults(false).then((all) => {
+    async function resolve(): Promise<void> {
+      if (sceneId !== null) {
+        const scenes = await getScenes(false).catch(() => [] as readonly SceneEntity[]);
+        const scene = scenes.find((s) => s.id === sceneId) ?? null;
+        if (scene !== null) {
+          const settings = scene.settings as Partial<SceneSettings>;
+          const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
+          const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : undefined;
+          const arenaKey = arenaKeyForScene(scene, battle);
+          const useGlbSettings = scene.useGlbSettings === true;
+          if (cancelled) return;
+          setResolution({
+            source: 'scene-entity',
+            arenaKey,
+            modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey],
+            useGlbSettings,
+            settingsPatch: useGlbSettings ? {} : extractPatch(scene.settings),
+          });
+          return;
+        }
+      }
+      const all = await getSceneDefaults(false).catch((): PerArenaSceneDefaults => ({}));
       if (cancelled) return;
-      const chosen = all[arenaKey]?.modelFile;
-      const picked = typeof chosen === 'string' && chosen !== '' ? getArenaUrl(chosen) : undefined;
-      setArenaModelUrl(picked ?? ARENA_MODEL_BY_KEY[arenaKey]);
-    }).catch(() => {
-      if (!cancelled) setArenaModelUrl(ARENA_MODEL_BY_KEY[arenaKey]);
-    });
+      const arenaDefaults = all[fallbackArenaKey] ?? {};
+      const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
+      const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey];
+      setResolution({
+        source: 'arena-defaults',
+        arenaKey: fallbackArenaKey,
+        modelUrl,
+        useGlbSettings: false,
+        settingsPatch: extractPatch(arenaDefaults),
+      });
+    }
+    void resolve();
     return () => { cancelled = true; };
-  }, [arenaKey]);
+  }, [battle, sceneId, fallbackArenaKey]);
 
   useEffect(() => {
     const manager = sceneRef.current;
-    if (manager === null) return;
-    if (arenaModelUrl === undefined) {
-      manager.clearArenaModel();
-      return;
-    }
+    if (manager === null || resolution === null) return;
     manager.clearArenaModel();
-    void manager.loadArenaModelWithAtmosphere(arenaModelUrl, arenaKey).catch((err) => {
-      console.warn('arena.load.fail', arenaModelUrl, err);
-    });
-  }, [arenaModelUrl, arenaKey]);
+    if (resolution.modelUrl !== undefined) {
+      const url = resolution.modelUrl;
+      const loader = resolution.useGlbSettings
+        ? manager.loadArenaModelBare(url)
+        : manager.loadArenaModelWithAtmosphere(url, resolution.arenaKey);
+      void loader.catch((err) => { console.warn('arena.load.fail', url, err); });
+    }
+    if (!resolution.useGlbSettings) {
+      const localKeys = new Set<string>();
+      try {
+        if (isAdmin) {
+          const raw = window.localStorage.getItem('digiworld.scene-settings-override');
+          if (raw !== null) {
+            const parsed = JSON.parse(raw) as Record<string, unknown>;
+            const perArenaEntry = parsed && typeof parsed === 'object' ? parsed[resolution.arenaKey] : null;
+            if (perArenaEntry !== null && typeof perArenaEntry === 'object') {
+              const localArenaOverride = perArenaEntry as Partial<SceneSettings>;
+              for (const k of Object.keys(localArenaOverride)) localKeys.add(k);
+              manager.applySettings(localArenaOverride);
+            }
+          }
+        }
+      } catch {}
+      const patchToApply: Partial<SceneSettings> = {};
+      for (const key of Object.keys(resolution.settingsPatch) as (keyof SceneSettings)[]) {
+        if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = resolution.settingsPatch[key];
+      }
+      if (Object.keys(patchToApply).length > 0) manager.applySettings(patchToApply);
+    }
+  }, [resolution, isAdmin]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -135,38 +208,11 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     manager.resize(rect.width, rect.height);
     manager.startLoop();
     manager.runEntrance();
-    try {
-      const localKeys = new Set<string>();
-      if (isAdmin) {
-        const raw = window.localStorage.getItem('digiworld.scene-settings-override');
-        if (raw !== null) {
-          const parsed = JSON.parse(raw) as Record<string, unknown>;
-          const perArenaEntry = parsed && typeof parsed === 'object' ? parsed[arenaKey] : null;
-          if (perArenaEntry !== null && typeof perArenaEntry === 'object') {
-            const localArenaOverride = perArenaEntry as Partial<SceneSettings>;
-            for (const k of Object.keys(localArenaOverride)) localKeys.add(k);
-            manager.applySettings(localArenaOverride);
-          }
-        }
-      } else {
+    if (!isAdmin) {
+      try {
         window.localStorage.removeItem('digiworld.scene-settings-override');
         window.localStorage.removeItem('digiworld.scene-defaults-baseline');
-      }
-      void getSceneDefaults(true)
-        .then((allArenaDefaults) => {
-          const arenaDefaults = allArenaDefaults[arenaKey] ?? {};
-          const patchToApply: Partial<SceneSettings> = {};
-          for (const key of Object.keys(arenaDefaults) as (keyof SceneSettings)[]) {
-            if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = arenaDefaults[key];
-          }
-          if (Object.keys(patchToApply).length > 0) manager?.applySettings(patchToApply);
-        })
-        .catch(() => {});
-    } catch {}
-    if (arenaModelUrl !== undefined) {
-      void manager.loadArenaModelWithAtmosphere(arenaModelUrl, arenaKey).catch((err) => {
-        console.warn('arena.load.fail', arenaModelUrl, err);
-      });
+      } catch {}
     }
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -184,7 +230,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
       manager?.dispose();
       sceneRef.current = null;
     };
-  }, [onReady]);
+  }, [onReady, isAdmin]);
 
   useEffect(() => {
     const manager = sceneRef.current;

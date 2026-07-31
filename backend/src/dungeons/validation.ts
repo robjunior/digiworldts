@@ -112,6 +112,7 @@ export const CreateEncounterInputSchema = z.object({
   difficulty: z.enum(['easy', 'normal', 'elite', 'boss']).default('normal'),
   digimon: z.array(EncounterDigimonSchema).min(1).max(6),
   loots: z.array(EncounterLootSchema).max(32).optional(),
+  sceneId: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
 export const UpdateEncounterInputSchema = CreateEncounterInputSchema.partial();

@@ -188,6 +188,7 @@ export async function initBattle(input: {
   wildFlags?: ReadonlyArray<WildInfo | undefined>;
   displayNames?: { a?: string; b?: string };
   damageRate?: number;
+  sceneId?: string | null;
 }): Promise<Battle> {
   const id = input.matchId ?? newId('mtc');
   const mode = input.mode ?? 'pvp';
@@ -230,6 +231,7 @@ export async function initBattle(input: {
     endedAt: null,
     lastAction: null,
     damageRate: input.damageRate ?? 1.0,
+    sceneId: input.sceneId ?? null,
   };
   if (input.displayNames) {
     const dn: { a?: string; b?: string } = {};
@@ -250,6 +252,7 @@ export async function initPveBattle(input: {
   playerLoadout: Loadout;
   wildParty: ReadonlyArray<{ member: LoadoutMember; wildInfo: WildInfo }>;
   damageRate?: number;
+  sceneId?: string | null;
 }): Promise<Battle> {
   if (input.wildParty.length < 1 || input.wildParty.length > MAX_WILD_PARTY_SIZE) {
     throw new Error(`initPveBattle: wildParty must be 1-${MAX_WILD_PARTY_SIZE} mons, got ${input.wildParty.length}`);
@@ -287,6 +290,7 @@ export async function initPveBattle(input: {
     mode: 'pve',
     wildFlags,
     ...(input.damageRate !== undefined ? { damageRate: input.damageRate } : {}),
+    ...(input.sceneId !== undefined ? { sceneId: input.sceneId } : {}),
   });
   for (let i = input.wildParty.length; i < MAX_WILD_PARTY_SIZE; i++) {
     const phantom = battle.units.find((u) => u.id === (`b:${i}` as UnitId));

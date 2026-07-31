@@ -143,6 +143,7 @@ export type Battle = {
    *  compat with in-flight `battle:snap:*` blobs from before the field was
    *  added — `applyAction` falls back to `1.0` when absent. */
   damageRate?: number;
+  sceneId?: string | null;
 };
 
 export type EnemyUnitView = {
@@ -180,6 +181,7 @@ export type BattleView = {
   enemy: EnemyUnitView[];
   log: BattleEvent[];
   opponentDisplayName?: string;
+  sceneId?: string | null;
 };
 
 export const MISS_CHANCE = 0.08;

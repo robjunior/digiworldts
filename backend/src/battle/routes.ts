@@ -42,6 +42,8 @@ import type {
 import { computeMmrDelta, MMR_START } from './mmr.js';
 import { getCluster } from '../cluster/index.js';
 import { clearSpectators, listSpectators } from './spectate.js';
+import { pickSceneForElements } from '../scenes/picker.js';
+import type { Element } from '@digiworld/shared/digimon';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -185,12 +187,18 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   const buffsB = await applyPreBattleBuffs(loadB);
 
   const damageRate = await getDamageRate();
+  const partyElements = Array.from(new Set<Element>([
+    ...loadA.members.map((m) => m.template.element as Element),
+    ...loadB.members.map((m) => m.template.element as Element),
+  ]));
+  const pickedScene = await pickSceneForElements(partyElements);
   const battle = await initBattle({
     matchId: newId('mtc'),
     loadoutA: loadA,
     loadoutB: loadB,
     displayNames: { a: uA?.display_name ?? '', b: uB?.display_name ?? '' },
     damageRate,
+    sceneId: pickedScene?.id ?? null,
   });
   await saveSnapshot(battle);
 

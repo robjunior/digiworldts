@@ -2536,3 +2536,220 @@
 .twee-diagnostics.is-error{color:var(--signal)}
 .twee-diagnostics.is-warn{color:var(--muted)}
 .twee-diagnostics code{color:var(--ink)}
+
+/* ---------- Admin dungeon floating panel: collapsible ---------- */
+.admin-dungeon-panel-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 74%, transparent);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.admin-dungeon-panel-toggle:hover,
+.admin-dungeon-panel-toggle:focus-visible {
+  background: color-mix(in oklab, var(--panel) 84%, transparent);
+  border-color: color-mix(in oklab, var(--gold) 34%, var(--hairline));
+  outline: none;
+}
+.admin-dungeon-floating-panel.is-collapsed {
+  width: auto;
+  max-height: none;
+  overflow: hidden;
+  padding: 8px;
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+}
+.admin-dungeon-floating-panel.is-collapsed > :not(.admin-dungeon-panel-head) {
+  display: none;
+}
+.admin-dungeon-floating-panel.is-collapsed .admin-dungeon-panel-head {
+  gap: 6px;
+  align-items: center;
+}
+.admin-dungeon-floating-panel.is-collapsed .admin-dungeon-panel-head > div:first-child {
+  display: none;
+}
+
+/* ---------- Scene admin: CRUD list + editor ---------- */
+.scene-admin-crud {
+  display: grid;
+  grid-template-columns: 240px 1fr 320px;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+}
+.scene-admin-crud .scene-admin-canvas-layer {
+  min-width: 0;
+  overflow: hidden;
+}
+.scene-admin-crud .scene-admin-controls-panel {
+  min-width: 0;
+  overflow-y: auto;
+}
+.scene-admin-list-panel {
+  border-right: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--panel) 86%, transparent);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.scene-admin-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.scene-admin-list-header h2 {
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+.scene-admin-list-header button {
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+}
+.scene-admin-list-header button:hover:not(:disabled) {
+  border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline));
+}
+.scene-admin-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.scene-admin-list-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.scene-admin-list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.scene-admin-list-item:hover {
+  background: color-mix(in oklab, var(--bg) 80%, transparent);
+}
+.scene-admin-list-item.is-selected {
+  background: color-mix(in oklab, var(--gold) 12%, transparent);
+  border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline));
+}
+.scene-admin-list-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.scene-admin-list-meta {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scene-admin-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 24px;
+}
+
+.scene-admin-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.scene-admin-row--elements {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+.scene-admin-element-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.scene-admin-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+.scene-admin-chip:hover {
+  border-color: color-mix(in oklab, var(--gold) 34%, var(--hairline));
+}
+.scene-admin-chip.is-active {
+  background: color-mix(in oklab, var(--gold) 22%, transparent);
+  border-color: color-mix(in oklab, var(--gold) 60%, var(--hairline));
+  color: var(--ink);
+}
+
+.scene-admin-glb-notice {
+  margin: 10px 14px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in oklab, var(--gold) 50%, var(--hairline));
+  background: color-mix(in oklab, var(--gold) 8%, transparent);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.scene-admin-grid[disabled] {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.scene-admin-danger {
+  border-color: color-mix(in oklab, var(--signal) 50%, var(--hairline)) !important;
+  color: var(--signal) !important;
+}
+.scene-admin-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+}
+.scene-admin-error {
+  padding: 8px 14px;
+  color: var(--signal);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .scene-admin-crud {
+    grid-template-columns: 200px 1fr;
+  }
+  .scene-admin-crud .scene-admin-controls-panel {
+    grid-column: 1 / -1;
+  }
+}

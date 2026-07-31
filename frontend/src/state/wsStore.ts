@@ -3,6 +3,7 @@ import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@d
 import { create } from 'zustand';
 
 import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
+import { invalidateScenesCache } from '../lib/api-scenes';
 
 type ChatMessage = {
   readonly from: string;
@@ -132,10 +133,10 @@ export const useWsStore = create<WsState>((set) => ({
         }
         return;
       case 'scene-defaults-updated':
-        // Admin saved on some node → cluster fanned out to every ws → we null
-        // the module cache so the next getSceneDefaults() call refetches. TTL
-        // in scene-defaults.ts is the safety net if we miss this message.
         invalidateSceneDefaultsCache();
+        return;
+      case 'scene-updated':
+        invalidateScenesCache();
         return;
       case 'error':
         return;

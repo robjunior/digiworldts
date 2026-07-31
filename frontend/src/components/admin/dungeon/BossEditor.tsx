@@ -1,14 +1,15 @@
 import type { FormEvent, JSX } from 'react';
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { DungeonEncounter, EncounterDigimon, EncounterLoot } from '@digiworld/shared';
-import type { TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Element, TemplateDigimon } from '@digiworld/shared/digimon';
 import type { ShopItemView } from '../../../lib/api-admin';
 
 import { ADMIN_DUNGEON_QUERY } from './query-keys';
 import { replaceAt, toOptionalText } from './utils';
 import { createAdminEncounter, deleteAdminEncounter, updateAdminEncounter } from '../../../lib/api-dungeon-admin';
+import { getScenes } from '../../../lib/api-scenes';
 
 export function BossEditor({
   dungeonId,
@@ -26,8 +27,13 @@ export function BossEditor({
   readonly shopItems: readonly ShopItemView[];
 }): JSX.Element {
   const queryClient = useQueryClient();
+  const scenesQuery = useQuery({
+    queryKey: ['admin-scenes'],
+    queryFn: () => getScenes(),
+    staleTime: 30_000,
+  });
   const createMut = useMutation({
-    mutationFn: (body: { readonly x: number; readonly y: number; readonly difficulty: 'boss'; readonly digimon: readonly EncounterDigimon[]; readonly loots: readonly EncounterLoot[] }) =>
+    mutationFn: (body: { readonly x: number; readonly y: number; readonly difficulty: 'boss'; readonly digimon: readonly EncounterDigimon[]; readonly loots: readonly EncounterLoot[]; readonly sceneId?: string | null }) =>
       createAdminEncounter(dungeonId, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_DUNGEON_QUERY(dungeonId) }),
   });
@@ -42,6 +48,7 @@ export function BossEditor({
         readonly difficulty: 'boss';
         readonly digimon: readonly EncounterDigimon[];
         readonly loots: readonly EncounterLoot[];
+        readonly sceneId?: string | null;
       };
     }) => updateAdminEncounter(dungeonId, encounterId, body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_DUNGEON_QUERY(dungeonId) }),
@@ -67,6 +74,23 @@ export function BossEditor({
   });
 
   const [loots, setLoots] = useState<readonly EncounterLoot[]>(encounter?.loots ? [...encounter.loots] : []);
+  const [sceneId, setSceneId] = useState<string | null>(encounter?.sceneId ?? null);
+
+  const bossElements = useMemo<readonly Element[]>(() => {
+    const set = new Set<Element>();
+    for (const entry of digimonList) {
+      const tpl = catalog.find((c) => c.id === entry.catalogId);
+      if (tpl) set.add(tpl.element as Element);
+    }
+    return Array.from(set);
+  }, [digimonList, catalog]);
+
+  const eligibleScenes = useMemo(() => {
+    const scenes = scenesQuery.data ?? [];
+    if (bossElements.length === 0) return scenes;
+    const elementSet = new Set<Element>(bossElements);
+    return scenes.filter((s) => s.elements.length === 0 || s.elements.some((e) => elementSet.has(e as Element)));
+  }, [scenesQuery.data, bossElements]);
 
   if (!encounter && !createMut.isPending) {
     return (
@@ -74,7 +98,7 @@ export function BossEditor({
         <h3>No Boss at {x},{y}</h3>
         <button
           type="button"
-          onClick={() => createMut.mutate({ x, y, difficulty: 'boss', digimon: digimonList, loots })}
+          onClick={() => createMut.mutate({ x, y, difficulty: 'boss', digimon: digimonList, loots, sceneId })}
         >
           Add Boss Encounter
         </button>
@@ -89,7 +113,7 @@ export function BossEditor({
     const label = toOptionalText(form.get('label'));
     updateMut.mutate({
       encounterId: encounter.id,
-      body: { ...(label === null ? {} : { label }), difficulty: 'boss', digimon: digimonList, loots },
+      body: { ...(label === null ? {} : { label }), difficulty: 'boss', digimon: digimonList, loots, sceneId },
     });
   };
 
@@ -192,7 +216,28 @@ export function BossEditor({
             </label>
           </div>
         ))}
-        
+
+        <h4>Scene</h4>
+        <div className="admin-boss-scene editor-sub-panel">
+          <label>
+            Battle scene
+            <select
+              value={sceneId ?? ''}
+              onChange={(event) => setSceneId(event.target.value === '' ? null : event.target.value)}
+            >
+              <option value="">Auto-pick from boss elements</option>
+              {eligibleScenes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.elements.length > 0 ? ` (${s.elements.join(', ')})` : ' (unassigned)'}
+                </option>
+              ))}
+            </select>
+          </label>
+          {sceneId !== null && !eligibleScenes.some((s) => s.id === sceneId) ? (
+            <p className="admin-boss-scene-hint">Saved scene no longer matches this boss's elements. Choose another or clear.</p>
+          ) : null}
+        </div>
+
         {renderLootSection('Items', itemOptions, (id) => !shopItems.find((i) => i.id === id)?.isQuestItem)}
         {renderLootSection('Quest Items', questItemOptions, (id) => !!shopItems.find((i) => i.id === id)?.isQuestItem)}
 

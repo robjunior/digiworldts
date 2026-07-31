@@ -829,6 +829,23 @@ export class SceneManager {
     await this.loadArenaModel(url);
   }
 
+  /**
+   * "Bare" arena load: intended for scenes with `useGlbSettings=true`.
+   * Skips `setArenaAtmosphere`, disables scene fog, and dims the default
+   * scene lights so the GLB's own lights / environment / cameras dominate
+   * the look. A bare-geometry GLB (no lights) still gets a dim key + hemi
+   * from the manager so it doesn't render pitch-black.
+   */
+  async loadArenaModelBare(url: string): Promise<void> {
+    this.currentArenaKey = null;
+    this.scene.fog = null;
+    this.hemi.intensity = 0.15;
+    this.keyLight.intensity = 0.35;
+    this.rimLight.intensity = 0.0;
+    this.fillLight.intensity = 0.0;
+    await this.loadArenaModel(url);
+  }
+
   private normalizeArenaTransform(root: THREE.Object3D): void {
     root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root);

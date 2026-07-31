@@ -121,6 +121,11 @@ export type WSServerMessage =
       /** ms epoch when the admin's write completed on the server. */
       at: number;
     }
+  | {
+      type: 'scene-updated';
+      /** ms epoch when the scene CRUD write completed on the server. */
+      at: number;
+    }
   | { type: 'error'; code: WSErrorCode; message: string };
 
 // ============================================================================

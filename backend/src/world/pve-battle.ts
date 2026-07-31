@@ -18,6 +18,9 @@ import { grantItem } from '../items/grant.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemDrop, type WildMon } from './engine.js';
+import { pickSceneForElements } from '../scenes/picker.js';
+import { getScene } from '../scenes/store.js';
+import type { Element } from '@digiworld/shared/digimon';
 
 const MAX_WILD_ACTIONS_PER_TURN = 6;
 
@@ -159,11 +162,21 @@ async function buildPlayerLoadout(userId: string): Promise<Loadout | null> {
   return { playerId: userId, members: [members[0]!, members[1]!, members[2]!] };
 }
 
+async function resolveSceneId(explicit: string | null, wilds: readonly WildMon[]): Promise<string | null> {
+  if (explicit !== null && explicit !== '') {
+    const scene = await getScene(explicit);
+    if (scene !== null) return scene.id;
+  }
+  const elements = Array.from(new Set(wilds.map((w) => w.element as Element)));
+  const picked = await pickSceneForElements(elements);
+  return picked?.id ?? null;
+}
+
 export type StartResult =
   | { ok: true; view: BattleView }
   | { ok: false; error: 'party-invalid' | 'catalog-missing' | 'battle-in-progress' };
 
-export async function startPveBattleFromEncounter(userId: string, wilds: WildMon[]): Promise<StartResult> {
+export async function startPveBattleFromEncounter(userId: string, wilds: WildMon[], sceneId: string | null = null): Promise<StartResult> {
   if (activeByUser.has(userId)) {
     return { ok: false, error: 'battle-in-progress' };
   }
@@ -209,7 +222,7 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
       wildInfo: { catalogId: wildMon.catalogId, rare: wildMon.rare },
     });
   }
-  const battle = await initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate() });
+  const battle = await initPveBattle({ playerLoadout, wildParty, damageRate: await getDamageRate(), sceneId: await resolveSceneId(sceneId, wilds) });
   activeByUser.set(userId, battle);
   advanceWildAI(battle);
   if (battle.status === 'ended') {

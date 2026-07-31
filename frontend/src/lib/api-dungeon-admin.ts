@@ -48,7 +48,7 @@ export async function putAdminDungeonTiles(id: string, tiles: readonly DungeonTi
   });
 }
 
-export async function createAdminEncounter(id: string, body: { x: number; y: number; label?: string; difficulty?: 'easy' | 'normal' | 'elite' | 'boss'; digimon: readonly EncounterDigimon[]; loots: readonly EncounterLoot[] }): Promise<{ encounter: DungeonEncounter }> {
+export async function createAdminEncounter(id: string, body: { x: number; y: number; label?: string; difficulty?: 'easy' | 'normal' | 'elite' | 'boss'; digimon: readonly EncounterDigimon[]; loots: readonly EncounterLoot[]; sceneId?: string | null }): Promise<{ encounter: DungeonEncounter }> {
   return apiFetch<{ encounter: DungeonEncounter }>(`/api/admin/dungeons/${id}/encounters`, {
     method: 'POST',
     body,
