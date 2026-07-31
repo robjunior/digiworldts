@@ -1,4 +1,6 @@
-import { one, q, run } from '../db/index.js';
+import type { DbExecutor } from '../db/executor.js';
+import { execOne, execRun } from '../db/executor.js';
+import { q } from '../db/index.js';
 
 const SQL_SET = `
   INSERT INTO user_flags (user_id, flag, set_at)
@@ -21,22 +23,22 @@ function escapeLikePrefix(prefix: string): string {
  * DO NOTHING, not DO UPDATE: re-setting keeps the original set_at, so a
  * first-met timestamp survives the player triggering the same line again.
  */
-export async function setFlag(userId: string, flag: string, now = Date.now()): Promise<void> {
-  await run(SQL_SET, [userId, flag, now]);
+export async function setFlag(userId: string, flag: string, now = Date.now(), ex?: DbExecutor): Promise<void> {
+  await execRun(ex, SQL_SET, [userId, flag, now]);
 }
 
-export async function clearFlag(userId: string, flag: string): Promise<void> {
-  await run(SQL_CLEAR, [userId, flag]);
+export async function clearFlag(userId: string, flag: string, ex?: DbExecutor): Promise<void> {
+  await execRun(ex, SQL_CLEAR, [userId, flag]);
 }
 
-export async function hasFlag(userId: string, flag: string): Promise<boolean> {
-  return (await one<{ readonly hit: number }>(SQL_HAS, [userId, flag])) !== null;
+export async function hasFlag(userId: string, flag: string, ex?: DbExecutor): Promise<boolean> {
+  return (await execOne<{ readonly hit: number }>(ex, SQL_HAS, [userId, flag])) !== null;
 }
 
 export async function listFlags(userId: string): Promise<readonly string[]> {
   return (await q<FlagRow>(SQL_LIST, [userId])).map((row) => row.flag);
 }
 
-export async function clearFlagPrefix(userId: string, prefix: string): Promise<void> {
-  await run(SQL_CLEAR_PREFIX, [userId, `${escapeLikePrefix(prefix)}%`]);
+export async function clearFlagPrefix(userId: string, prefix: string, ex?: DbExecutor): Promise<void> {
+  await execRun(ex, SQL_CLEAR_PREFIX, [userId, `${escapeLikePrefix(prefix)}%`]);
 }
