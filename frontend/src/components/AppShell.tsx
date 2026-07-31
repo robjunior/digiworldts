@@ -137,6 +137,7 @@ const ADMIN_NAV: readonly AdminNavEntry[] = [
   { to: '/admin?tab=shop', label: 'Shop Admin', svg: ICON_MARKET, tab: 'shop' },
   { to: '/admin?tab=quests', label: 'Quests', svg: ICON_ADVENTURE, tab: 'quests' },
   { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
+  { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_DIGIDEX, tab: 'tilesets' },
   { to: '/admin?tab=biomes', label: 'Biome scenes', svg: ICON_WORLD, tab: 'biomes' },
   { to: '/admin?tab=scene', label: 'Scene (per-arena)', svg: ICON_ARENA, tab: 'scene' },
   { to: '/admin?tab=settings', label: 'Settings', svg: ICON_ADMIN_COG, tab: 'settings' },
@@ -161,6 +162,7 @@ export function AppShell(): JSX.Element {
   const pageScope = pageScopeFor(pathname);
   const authed = !!user;
   const isAdminMode = pathname.startsWith('/admin');
+  const isDungeonMode = pathname.startsWith('/dungeon/');
   const activeAdminTab = new URLSearchParams(search).get('tab') ?? 'overview';
 
   const farmQuery = useQuery({ queryKey: ['farm'] as const, queryFn: getFarm, enabled: authed, staleTime: 15_000 });
@@ -213,7 +215,7 @@ export function AppShell(): JSX.Element {
   const mainClassName = pageScope ? `main ${pageScope}` : 'main';
 
   return (
-    <div className="win">
+    <div className={`win${isDungeonMode ? ' is-dungeon' : ''}`}>
       <header className="titlebar">
         <div className="lights"><i /><i /><i /></div>
         <div className="app-mark">DIGI<span className="bit">WORLD</span></div>
@@ -243,7 +245,7 @@ export function AppShell(): JSX.Element {
           {isAdminMode ? (
               <>
                 <div className="grp">{t('hud.admin')}</div>
-                {ADMIN_NAV.slice(0, 12).map(renderAdminNav)}
+                {ADMIN_NAV.slice(0, 13).map(renderAdminNav)}
                 <div className="grp" style={BEYOND_STYLE}>─</div>
                 {renderAdminNav(ADMIN_BACK_ENTRY)}
               </>

@@ -41,7 +41,7 @@ export async function deleteAdminDungeon(id: string): Promise<{ ok: boolean }> {
   });
 }
 
-export async function putAdminDungeonTiles(id: string, tiles: readonly { x: number; y: number }[]): Promise<{ tiles: readonly DungeonTile[] }> {
+export async function putAdminDungeonTiles(id: string, tiles: readonly DungeonTile[]): Promise<{ tiles: readonly DungeonTile[] }> {
   return apiFetch<{ tiles: readonly DungeonTile[] }>(`/api/admin/dungeons/${id}/tiles`, {
     method: 'PUT',
     body: { tiles },
@@ -148,5 +148,36 @@ export async function updateAdminWorldObject(id: string, body: Partial<Omit<Worl
 export async function deleteAdminWorldObject(id: string): Promise<{ ok: boolean }> {
   return apiFetch<{ ok: boolean }>(`/api/admin/world-objects/${id}`, {
     method: 'DELETE',
+  });
+}
+
+export type ImportTiledNewBody = {
+  readonly tiledJson: unknown;
+  readonly name: string;
+  readonly biome: Dungeon['biome'];
+  readonly description?: string;
+};
+
+export type ImportTiledResponse = {
+  readonly dungeon: Dungeon;
+  readonly warnings: readonly string[];
+};
+
+export type ImportTiledReplaceResponse = {
+  readonly view: DungeonView;
+  readonly warnings: readonly string[];
+};
+
+export async function importAdminDungeonTiled(body: ImportTiledNewBody): Promise<ImportTiledResponse> {
+  return apiFetch<ImportTiledResponse>('/api/admin/dungeons/import-tiled', {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function importAdminDungeonTiledReplace(dungeonId: string, tiledJson: unknown): Promise<ImportTiledReplaceResponse> {
+  return apiFetch<ImportTiledReplaceResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/import-tiled`, {
+    method: 'POST',
+    body: { tiledJson },
   });
 }

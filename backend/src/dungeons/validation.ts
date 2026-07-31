@@ -91,6 +91,8 @@ export const UpdateDungeonInputSchema = z.object({
 export const TileSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),
+  /** GID into the dungeon's joined tilesets; defaults so legacy clients that omit it stay valid. */
+  gid: z.number().int().min(1).max(1_000_000).default(1),
 });
 
 export const TilesInputSchema = z.object({

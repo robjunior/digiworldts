@@ -3,11 +3,11 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
 
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
-import { TRAP_KINDS } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
+import { TiledImportButton } from '../components/admin/dungeon/TiledImportButton';
 import { ADMIN_DUNGEON_QUERY } from '../components/admin/dungeon/query-keys';
 import type { Cell, PathTool, Tool } from '../components/admin/dungeon/types';
 import { PATH_TOOLS, TOOLS } from '../components/admin/dungeon/types';
@@ -16,18 +16,18 @@ import {
   cellKey,
   pathIcon,
   rectangleFill,
+  tileGidMap,
   tileKey,
-  tilesFromSet,
+  tilesFromMap,
   titleCase,
 } from '../components/admin/dungeon/utils';
 import { getCatalog, getShopItems } from '../lib/api-admin';
+import { gidCellStyle, primaryTileset } from '../lib/tileset-sprite';
 import {
   getAdminDungeon,
   listAdminDungeons,
   putAdminDungeonTiles,
   updateAdminDungeon,
-  createAdminTrap,
-  deleteAdminTrap,
 } from '../lib/api-dungeon-admin';
 import '../styles/extensions-admin.css';
 
@@ -43,7 +43,15 @@ export function AdminDungeon(): JSX.Element {
   const [hoverCell, setHoverCell] = useState<Cell | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [paintTarget, setPaintTarget] = useState<boolean | null>(null);
-  const tileSetRef = useRef<Set<string>>(new Set());
+  const [showImport, setShowImport] = useState<boolean>(false);
+  const [zoom, setZoom] = useState<number>(1);
+  const tileSetRef = useRef<Map<string, number>>(new Map());
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  const ZOOM_MIN = 0.25;
+  const ZOOM_MAX = 4;
+  const ZOOM_STEP = 0.25;
+  const clampZoom = (z: number): number => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(z * 100) / 100));
 
   const dungeonId = id ?? '';
   const dungeonQuery = useQuery({
@@ -56,7 +64,7 @@ export function AdminDungeon(): JSX.Element {
   const shopItemsQuery = useQuery({ queryKey: ['admin', 'shop-items'], queryFn: getShopItems });
 
   const tilesMutation = useMutation({
-    mutationFn: (tiles: readonly Cell[]) => putAdminDungeonTiles(dungeonId, tiles),
+    mutationFn: (tiles: readonly DungeonTile[]) => putAdminDungeonTiles(dungeonId, tiles),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_DUNGEON_QUERY(dungeonId) }),
   });
   const spawnMutation = useMutation({
@@ -69,13 +77,13 @@ export function AdminDungeon(): JSX.Element {
   });
 
   useEffect(() => {
-    if (dungeonQuery.data) tileSetRef.current = new Set(dungeonQuery.data.tiles.map(tileKey));
+    if (dungeonQuery.data) tileSetRef.current = tileGidMap(dungeonQuery.data.tiles);
   }, [dungeonQuery.data]);
 
   useEffect(() => {
     const finishPaint = (): void => {
       if (paintTarget !== null) {
-        tilesMutation.mutate(tilesFromSet(tileSetRef.current));
+        tilesMutation.mutate(tilesFromMap(tileSetRef.current));
         setPaintTarget(null);
       }
     };
@@ -91,6 +99,31 @@ export function AdminDungeon(): JSX.Element {
     return () => window.removeEventListener('keydown', cancelPending);
   }, []);
 
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const delta = event.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+      setZoom((z) => clampZoom(z + delta));
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (event.key === '+' || event.key === '=') { event.preventDefault(); setZoom((z) => clampZoom(z + ZOOM_STEP)); }
+      else if (event.key === '-' || event.key === '_') { event.preventDefault(); setZoom((z) => clampZoom(z - ZOOM_STEP)); }
+      else if (event.key === '0') { event.preventDefault(); setZoom(1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const [viewport, setViewport] = useState<{ readonly vw: number; readonly vh: number }>(() => ({
     vw: typeof window === 'undefined' ? 1440 : window.innerWidth,
     vh: typeof window === 'undefined' ? 900 : window.innerHeight,
@@ -103,6 +136,8 @@ export function AdminDungeon(): JSX.Element {
 
   const data = dungeonQuery.data;
   const tileSet = useMemo(() => new Set(data?.tiles.map(tileKey) ?? []), [data?.tiles]);
+  const tileGidByCoord = useMemo(() => new Map<string, number>((data?.tiles ?? []).map((t) => [`${t.x},${t.y}`, t.gid])), [data?.tiles]);
+  const tilesets = data?.tilesets ?? [];
   const previewSet = useMemo(() => {
     if (!pendingStart || !hoverCell || tool !== 'PATH') return new Set<string>();
     if (pathTool === 'LINE') return new Set(bresenhamLine(pendingStart, hoverCell).map(cellKey));
@@ -131,33 +166,35 @@ export function AdminDungeon(): JSX.Element {
     window.setTimeout(() => setToast(null), 1600);
   }
 
-  function optimisticTiles(nextSet: Set<string>): void {
-    const nextTiles = tilesFromSet(nextSet);
-    tileSetRef.current = nextSet;
+  function optimisticTiles(nextMap: Map<string, number>): void {
+    const nextTiles = tilesFromMap(nextMap);
+    tileSetRef.current = nextMap;
     queryClient.setQueryData<DungeonView>(ADMIN_DUNGEON_QUERY(dungeonId), (old) =>
       old ? { ...old, tiles: nextTiles } : old,
     );
   }
 
   function setCellWalkable(cell: Cell, walkable: boolean): void {
-    const next = new Set(tileSetRef.current);
-    if (walkable) next.add(cellKey(cell));
-    else next.delete(cellKey(cell));
+    const next = new Map(tileSetRef.current);
+    const key = cellKey(cell);
+    if (walkable) next.set(key, next.get(key) ?? 1);
+    else next.delete(key);
     optimisticTiles(next);
   }
 
   function commitCells(cells: readonly Cell[], walkable: boolean): void {
-    const next = new Set(tileSetRef.current);
+    const next = new Map(tileSetRef.current);
     for (const cell of cells) {
-      if (walkable) next.add(cellKey(cell));
-      else next.delete(cellKey(cell));
+      const key = cellKey(cell);
+      if (walkable) next.set(key, next.get(key) ?? 1);
+      else next.delete(key);
     }
     optimisticTiles(next);
-    tilesMutation.mutate(tilesFromSet(next));
+    tilesMutation.mutate(tilesFromMap(next));
   }
 
   function handlePathMouseDown(cell: Cell, event: ReactMouseEvent<HTMLButtonElement>): void {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || tool !== 'PATH') return;
     if (pathTool === 'PAINT') {
       const nextTarget = eraseMode ? false : !tileSetRef.current.has(cellKey(cell));
       setPaintTarget(nextTarget);
@@ -180,7 +217,7 @@ export function AdminDungeon(): JSX.Element {
       return;
     }
     if (
-      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS') &&
+      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS' || tool === 'TRAPS') &&
       !isWalkable(cell)
     ) {
       showToast('Pick a walkable tile first.');
@@ -191,7 +228,7 @@ export function AdminDungeon(): JSX.Element {
 
   function handleHover(cell: Cell): void {
     setHoverCell(cell);
-    if (pathTool === 'PAINT' && paintTarget !== null) setCellWalkable(cell, paintTarget);
+    if (tool === 'PATH' && pathTool === 'PAINT' && paintTarget !== null) setCellWalkable(cell, paintTarget);
   }
 
   function cancelContext(event: ReactMouseEvent<HTMLButtonElement>): void {
@@ -199,24 +236,24 @@ export function AdminDungeon(): JSX.Element {
     setPendingStart(null);
   }
 
-  const CELL_MIN = 36;
-  const CELL_MAX = 96;
+  const CELL_MIN = 12;
+  const CELL_MAX = 256;
   const availW = Math.max(320, viewport.vw - 210 - 48);
   const availH = Math.max(320, viewport.vh - 38 - 48);
-  const cellSize = Math.max(
-    CELL_MIN,
-    Math.min(CELL_MAX, Math.floor(Math.min(availW / dungeon.width, availH / dungeon.height))),
-  );
+  const fitSize = Math.floor(Math.min(availW / dungeon.width, availH / dungeon.height));
+  const cellSize = Math.max(CELL_MIN, Math.min(CELL_MAX, Math.floor(fitSize * zoom)));
   const gridStyle: CSSProperties = {
     gridTemplateColumns: `repeat(${dungeon.width}, ${cellSize}px)`,
     gridTemplateRows: `repeat(${dungeon.height}, ${cellSize}px)`,
   };
+  const canonicalTileset = primaryTileset(tilesets);
+  const spriteScale = canonicalTileset ? cellSize / canonicalTileset.tileWidth : 1;
   const activeLabel = tool === 'PATH' ? `PATH — ${eraseMode ? 'Erase ' : ''}${titleCase(pathTool)}` : tool;
 
   return (
     <AdminGuard>
       <>
-        <div className="admin-dungeon-grid-full" style={gridStyle}>
+        <div ref={gridRef} className="admin-dungeon-grid-full" style={gridStyle}>
           {Array.from({ length: dungeon.height }, (_, y) =>
             Array.from({ length: dungeon.width }, (__, x) => {
               const cell = { x, y };
@@ -230,6 +267,8 @@ export function AdminDungeon(): JSX.Element {
               const door = doorAt(cell);
               const trap = trapAt(cell);
               const preview = previewSet.has(key);
+              const gid = tileGidByCoord.get(key);
+              const spriteStyle = walkable && gid !== undefined ? gidCellStyle(gid, tilesets, spriteScale) : null;
               return (
                 <button
                   key={key}
@@ -237,6 +276,7 @@ export function AdminDungeon(): JSX.Element {
                   className={`dungeon-cell tool-${tool.toLowerCase()}${walkable ? ' is-walkable' : ''}${
                     selected ? ' is-selected' : ''
                   }${preview ? ' is-preview' : ''}`}
+                  style={spriteStyle ?? undefined}
                   onMouseDown={(event) => handlePathMouseDown(cell, event)}
                   onMouseEnter={() => handleHover(cell)}
                   onContextMenu={cancelContext}
@@ -265,13 +305,68 @@ export function AdminDungeon(): JSX.Element {
                 {dungeon.width} × {dungeon.height} · {activeLabel}
               </span>
             </div>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="btn btn--secondary btn--sm"
+                onClick={() => setShowImport((v) => !v)}
+                title="Replace this dungeon's tiles and POIs from a Tiled JSON export"
+              >
+                {showImport ? 'Cancel import' : 'Re-import Tiled'}
+              </button>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => navigate('/admin?tab=dungeons')}
+                aria-label="Close dungeon editor"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          {showImport ? (
+            <TiledImportButton
+              mode="replace"
+              dungeonId={dungeonId}
+              onImported={() => {
+                void queryClient.invalidateQueries({ queryKey: ADMIN_DUNGEON_QUERY(dungeonId) });
+                setShowImport(false);
+              }}
+            />
+          ) : null}
+          <div className="admin-dungeon-zoombar" aria-label="Zoom controls">
             <button
               type="button"
-              className="modal-close"
-              onClick={() => navigate('/admin?tab=dungeons')}
-              aria-label="Close dungeon editor"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setZoom((z) => clampZoom(z - ZOOM_STEP))}
+              disabled={zoom <= ZOOM_MIN}
+              title="Zoom out (−, Ctrl+wheel down)"
+              aria-label="Zoom out"
             >
-              ×
+              −
+            </button>
+            <span className="admin-dungeon-zoom-readout" title="Cell size (px) at current zoom">
+              {Math.round(zoom * 100)}% · {cellSize}px
+            </span>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setZoom((z) => clampZoom(z + ZOOM_STEP))}
+              disabled={zoom >= ZOOM_MAX}
+              title="Zoom in (+, Ctrl+wheel up)"
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="btn btn--secondary btn--sm"
+              onClick={() => setZoom(1)}
+              disabled={zoom === 1}
+              title="Reset zoom to fit (0)"
+              aria-label="Reset zoom"
+            >
+              Fit
             </button>
           </div>
           <div className="layer-picker tool-picker" aria-label="Dungeon tools">
@@ -330,6 +425,7 @@ export function AdminDungeon(): JSX.Element {
             {...(selectedCell && itemAt(selectedCell) ? { item: itemAt(selectedCell) } : {})}
             {...(selectedCell && warpAt(selectedCell) ? { warp: warpAt(selectedCell) } : {})}
             {...(selectedCell && doorAt(selectedCell) ? { door: doorAt(selectedCell) } : {})}
+            {...(selectedCell && trapAt(selectedCell) ? { trap: trapAt(selectedCell) } : {})}
           />
         </aside>
         {toast ? (

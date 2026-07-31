@@ -6,13 +6,19 @@ import type {
   DungeonEncounter,
   DungeonItem,
   DungeonDoor,
+  TilesetGrant,
 } from '@digiworld/shared';
 import type { RosterView } from '../../lib/api';
+import { gidCellStyle, primaryTileset } from '../../lib/tileset-sprite';
+
+const PLAYER_ZOOM = 2;
+const CELL_SIZE_FALLBACK = 32;
 
 type DungeonGridProps = {
   readonly dungeon: DungeonType;
   readonly run: DungeonRunView['run'];
   readonly tiles: readonly DungeonTile[];
+  readonly tilesets: readonly TilesetGrant[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
   readonly doors: readonly DungeonDoor[];
@@ -24,6 +30,7 @@ export function DungeonGrid({
   dungeon,
   run,
   tiles,
+  tilesets,
   encounters,
   items,
   doors,
@@ -31,11 +38,17 @@ export function DungeonGrid({
   onCellClick,
 }: DungeonGridProps): ReactElement {
   const gridCells = [];
-  const tilesSet = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const tilesByCoord = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+  const canonicalTileset = primaryTileset(tilesets);
+  const cellSize = canonicalTileset
+    ? canonicalTileset.tileWidth * PLAYER_ZOOM
+    : CELL_SIZE_FALLBACK;
+  const spriteScale = canonicalTileset ? cellSize / canonicalTileset.tileWidth : 1;
 
   for (let y = 0; y < dungeon.height; y++) {
     for (let x = 0; x < dungeon.width; x++) {
-      const isWalkable = tilesSet.has(`${x},${y}`);
+      const tile = tilesByCoord.get(`${x},${y}`);
+      const isWalkable = tile !== undefined;
       const isPlayer = run.currentX === x && run.currentY === y;
       const isAdjacent =
         !isPlayer &&
@@ -64,10 +77,15 @@ export function DungeonGrid({
         if (isAdjacent) cellClass += ' adj';
       }
 
+      const spriteStyle = tile !== undefined ? gidCellStyle(tile.gid, tilesets, spriteScale) : null;
+
       gridCells.push(
         <div
           key={`${x},${y}`}
           className={cellClass}
+          style={spriteStyle ?? undefined}
+          data-cell-x={x}
+          data-cell-y={y}
           onClick={() => {
             if (isWalkable && !isPlayer) onCellClick(x, y);
           }}
@@ -100,8 +118,11 @@ export function DungeonGrid({
         {
           '--dw': dungeon.width,
           '--dh': dungeon.height,
-          gridTemplateColumns: `repeat(${dungeon.width}, 1fr)`,
-          gridTemplateRows: `repeat(${dungeon.height}, 1fr)`,
+          '--cell-size': `${cellSize}px`,
+          gridTemplateColumns: `repeat(${dungeon.width}, ${cellSize}px)`,
+          gridTemplateRows: `repeat(${dungeon.height}, ${cellSize}px)`,
+          width: `${dungeon.width * cellSize}px`,
+          height: `${dungeon.height * cellSize}px`,
         } as CSSProperties
       }
     >

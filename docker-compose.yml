@@ -67,6 +67,7 @@ services:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
       - scenedata:/app/backend/data/scenes
+      - tilesetdata:/app/backend/data/tilesets
       - ./backend/data/catalog:/app/backend/data/catalog
       - ./frontend/public/assets/arenas:/app/frontend/public/assets/arenas
     healthcheck:
@@ -161,3 +162,4 @@ volumes:
   assetdata:
   scrapecache:
   scenedata:
+  tilesetdata:

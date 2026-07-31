@@ -1,0 +1,158 @@
+{
+  "type": "map",
+  "version": "1.10",
+  "tiledversion": "1.10.2",
+  "orientation": "orthogonal",
+  "renderorder": "right-down",
+  "width": 10,
+  "height": 8,
+  "tilewidth": 32,
+  "tileheight": 32,
+  "infinite": false,
+  "nextlayerid": 3,
+  "nextobjectid": 7,
+  "tilesets": [],
+  "properties": [
+    { "name": "biome", "type": "string", "value": "forest" },
+    { "name": "randomEncountersEnabled", "type": "bool", "value": true },
+    { "name": "randomEncounterRate", "type": "float", "value": 0.12 },
+    { "name": "randomMinLevel", "type": "int", "value": 3 },
+    { "name": "randomMaxLevel", "type": "int", "value": 8 },
+    { "name": "randomMaxStage", "type": "string", "value": "Rookie" }
+  ],
+  "layers": [
+    {
+      "type": "tilelayer",
+      "id": 1,
+      "name": "walkable",
+      "width": 10,
+      "height": 8,
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 1, 1, 1, 1, 1, 1, 1, 0, 0,
+        0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 1, 1, 1, 1, 1, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ]
+    },
+    {
+      "type": "objectgroup",
+      "id": 2,
+      "name": "pois",
+      "opacity": 1,
+      "visible": true,
+      "x": 0,
+      "y": 0,
+      "draworder": "topdown",
+      "objects": [
+        {
+          "id": 1,
+          "name": "start",
+          "type": "spawn",
+          "class": "spawn",
+          "x": 32,
+          "y": 32,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true
+        },
+        {
+          "id": 2,
+          "name": "gate",
+          "type": "door",
+          "class": "door",
+          "x": 128,
+          "y": 32,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            { "name": "keyItemId", "type": "string", "value": "itm-quest-shard-plant" },
+            { "name": "label", "type": "string", "value": "Verdant Gate" }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "loot",
+          "type": "item",
+          "class": "item",
+          "x": 192,
+          "y": 32,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            { "name": "itemId", "type": "string", "value": "itm-quest-shard-plant" },
+            { "name": "qty", "type": "int", "value": 1 }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "goblin-ambush",
+          "type": "encounter",
+          "class": "encounter",
+          "x": 224,
+          "y": 32,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            { "name": "difficulty", "type": "string", "value": "normal" },
+            { "name": "digimon", "type": "string", "value": "[{\"catalogId\":\"skb-317\",\"level\":4}]" },
+            { "name": "loots", "type": "string", "value": "[{\"itemId\":\"itm-quest-shard-plant\",\"qty\":1,\"chance\":0.25}]" },
+            { "name": "label", "type": "string", "value": "Grove Guardian" }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "spike-trap",
+          "type": "trap",
+          "class": "trap",
+          "x": 96,
+          "y": 96,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            { "name": "kind", "type": "string", "value": "damage" },
+            { "name": "severity", "type": "int", "value": 10 },
+            { "name": "label", "type": "string", "value": "Hidden spikes" }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "exit",
+          "type": "warp",
+          "class": "warp",
+          "x": 224,
+          "y": 128,
+          "width": 0,
+          "height": 0,
+          "point": true,
+          "rotation": 0,
+          "visible": true,
+          "properties": [
+            { "name": "label", "type": "string", "value": "Return to the World" }
+          ]
+        }
+      ]
+    }
+  ]
+}

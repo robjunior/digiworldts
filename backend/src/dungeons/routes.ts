@@ -1,7 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import {
+  applyTiledImportNew,
+  applyTiledImportReplace,
   completeRun,
   createDungeon,
   createEncounter,
@@ -29,7 +32,9 @@ import {
   updateEncounter,
   updateWarp,
 } from './repo.js';
+import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { BIOMES } from '@digiworld/shared/world';
 import {
   asCreateDungeonPayload,
   CreateDungeonInputSchema,
@@ -53,6 +58,17 @@ import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-
 import type { WildMon } from '../world/engine.js';
 import { randomEncounterMatchesDungeonConfig } from './random.js';
 
+const ImportTiledNewInputSchema = z.object({
+  tiledJson: z.unknown(),
+  name: z.string().trim().min(1).max(120),
+  description: z.string().trim().max(2000).optional(),
+  biome: z.union([z.enum(BIOMES), z.literal('null')]),
+});
+
+const ImportTiledReplaceInputSchema = z.object({
+  tiledJson: z.unknown(),
+});
+
 export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/dungeons', async (req, reply) => {
     await requireAdmin(req, reply);
@@ -66,6 +82,64 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const dungeon = await createDungeon(asCreateDungeonPayload(parsed.data));
     log.info('admin.dungeon.create', { adminId: admin.id, id: dungeon.id, name: dungeon.name });
     return reply.code(201).send({ dungeon });
+  });
+
+  app.post('/api/admin/dungeons/import-tiled', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsedBody = ImportTiledNewInputSchema.safeParse(req.body);
+    if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
+    const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
+    if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
+    const payload = tiledMapToImportPayload(parsedTiled.map);
+    if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
+    const result = await applyTiledImportNew({
+      name: parsedBody.data.name,
+      biome: parsedBody.data.biome,
+      ...(parsedBody.data.description !== undefined ? { description: parsedBody.data.description } : {}),
+      payload: payload.payload,
+    });
+    if (!result.ok) return reply.code(409).send({ error: result.error, missing: result.missing });
+    log.info('admin.dungeon.import.new', {
+      adminId: admin.id,
+      id: result.dungeon.id,
+      tiles: payload.payload.tiles.length,
+      tilesets: payload.payload.tilesets.length,
+      encounters: payload.payload.encounters.length,
+      items: payload.payload.items.length,
+      doors: payload.payload.doors.length,
+      warps: payload.payload.warps.length,
+      traps: payload.payload.traps.length,
+    });
+    return reply.code(201).send({ dungeon: result.dungeon, warnings: payload.warnings });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/import-tiled', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsedBody = ImportTiledReplaceInputSchema.safeParse(req.body);
+    if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
+    const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
+    if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
+    const existing = await getDungeon(req.params.id);
+    if (!existing) return reply.code(404).send({ error: 'not-found' });
+    const payload = tiledMapToImportPayload(parsedTiled.map, { currentSpawn: { x: existing.spawnX, y: existing.spawnY } });
+    if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
+    const result = await applyTiledImportReplace(req.params.id, payload.payload);
+    if (!result.ok) {
+      if (result.error === 'not-found') return reply.code(404).send({ error: 'not-found' });
+      return reply.code(409).send({ error: result.error, missing: result.missing });
+    }
+    log.info('admin.dungeon.import.replace', {
+      adminId: admin.id,
+      id: req.params.id,
+      tiles: payload.payload.tiles.length,
+      tilesets: payload.payload.tilesets.length,
+      encounters: payload.payload.encounters.length,
+      items: payload.payload.items.length,
+      doors: payload.payload.doors.length,
+      warps: payload.payload.warps.length,
+      traps: payload.payload.traps.length,
+    });
+    return reply.send({ view: result.view, warnings: payload.warnings });
   });
 
   app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id', async (req, reply) => {
