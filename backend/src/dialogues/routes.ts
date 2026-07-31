@@ -6,9 +6,14 @@ import { parseTwee } from '@digiworld/shared/dialogue-parser';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import { deleteDialogue, getDialogue, listDialogues, saveDialogue } from './repo.js';
+import { abandonDialogue, advanceDialogue, startDialogue } from './session.js';
 import { syncDialogueFolder } from './sync.js';
 
 const DialogueIdSchema = z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9._/-]+$/, 'dialogue id may only contain letters, numbers, dot, underscore, slash, hyphen');
+
+const AdvanceSchema = z.object({
+  choiceId: z.string().trim().min(1).max(200),
+});
 
 const ImportSchema = z.object({
   dialogueId: DialogueIdSchema,
@@ -31,6 +36,31 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     const dialogue = await getDialogue(req.params.id);
     if (dialogue === null) return reply.code(404).send({ error: 'dialogue-not-found' });
     return reply.send({ dialogue });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dialogues/:id/start', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const result = await startDialogue(user.id, user.displayName, req.params.id);
+    if (!result.ok) return reply.code(result.error === 'busy' ? 409 : 404).send({ error: result.error });
+    return reply.send({ view: result.view });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dialogues/:id/advance', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const parsed = AdvanceSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-body' });
+    const result = await advanceDialogue(user.id, user.displayName, req.params.id, parsed.data.choiceId);
+    if (!result.ok) {
+      const code = result.error === 'busy' ? 409 : result.error === 'choice-not-available' ? 403 : 404;
+      return reply.code(code).send({ error: result.error });
+    }
+    return reply.send({ view: result.view });
+  });
+
+  app.post('/api/dialogues/abandon', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    await abandonDialogue(user.id);
+    return reply.send({ ok: true });
   });
 
   app.post('/api/admin/dialogues/preview', async (req, reply) => {
