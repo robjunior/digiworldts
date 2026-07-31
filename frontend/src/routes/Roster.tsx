@@ -8,6 +8,7 @@ import { Pagination } from '../components/roster/Pagination';
 import { PartyPicker } from '../components/roster/PartyPicker';
 import { RenameDialog } from '../components/roster/RenameDialog';
 import { RosterList } from '../components/roster/RosterList';
+import { SlotPickerDialog } from '../components/roster/SlotPickerDialog';
 import { SubstitutionDialog } from '../components/roster/SubstitutionDialog';
 import type { ActivityByMon, RosterActions, RosterMon } from '../components/roster/types';
 import { isDowned } from '../components/roster/types';
@@ -39,6 +40,7 @@ export function Roster(): JSX.Element {
   const [evolveMonId, setEvolveMonId] = useState<string | null>(null);
   const [evolutionGate, setEvolutionGate] = useState<EvolutionGate | null>(null);
   const [substituteFor, setSubstituteFor] = useState<RosterMon | null>(null);
+  const [pickForSlot, setPickForSlot] = useState<number | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -102,6 +104,7 @@ export function Roster(): JSX.Element {
     return slots;
   }, [roster]);
   const actions: RosterActions = {
+    onPickForSlot: setPickForSlot,
     onAssign: (monId, slot) => { if (monId.length > 0) assignMutation.mutate({ monId, slot }); },
     onRemoveSlot: (slot) => removeMutation.mutate(slot),
     onAddToParty: (mon) => {
@@ -149,6 +152,17 @@ export function Roster(): JSX.Element {
         onPick={(slot) => {
           if (substituteFor === null) return;
           assignMutation.mutate({ monId: substituteFor.id, slot }, { onSuccess: () => setSubstituteFor(null) });
+        }}
+      />
+      <SlotPickerDialog
+        slot={pickForSlot}
+        roster={roster}
+        now={now}
+        busy={assignMutation.isPending}
+        onClose={() => setPickForSlot(null)}
+        onPick={(monId) => {
+          if (pickForSlot === null) return;
+          assignMutation.mutate({ monId, slot: pickForSlot }, { onSuccess: () => setPickForSlot(null) });
         }}
       />
     </>

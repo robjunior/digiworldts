@@ -26,6 +26,7 @@ export type PercentStyle = CSSProperties & {
 };
 
 export type RosterActions = {
+  readonly onPickForSlot: (slot: number) => void;
   readonly onAssign: (monId: string, slot: number) => void;
   readonly onRemoveSlot: (slot: number) => void;
   readonly onAddToParty: (mon: RosterMon) => void;

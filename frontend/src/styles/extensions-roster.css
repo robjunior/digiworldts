@@ -731,6 +731,32 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   cursor: pointer;
 }
 .master .party-slot .slot-actions .btn:hover { color: var(--signal); border-color: var(--signal); }
+.master .party-slot .slot-actions .slot-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--hair);
+  color: var(--muted);
+  cursor: pointer;
+  clip-path: polygon(2px 0, 100% 0, 100% calc(100% - 2px), calc(100% - 2px) 100%, 0 100%, 0 2px);
+  transition: color 0.12s, border-color 0.12s;
+}
+.master .party-slot .slot-actions .slot-add svg {
+  width: 14px;
+  height: 14px;
+}
+.master .party-slot .slot-actions .slot-add:hover,
+.master .party-slot .slot-actions .slot-add:focus-visible {
+  color: var(--signal);
+  border-color: var(--signal);
+}
+.master .party-slot .slot-actions .slot-add:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
 .master .party-slot.is-downed { opacity: .6; filter: grayscale(.4); }
 .master .party-slot .down-badge {
   position: absolute;

@@ -33,7 +33,11 @@ function PartySlot({ slot, mon, now, actions }: { readonly slot: number; readonl
           <div className="name">Slot {slot + 1}</div>
           <div className="sub">empty</div>
         </div>
-        <div className="slot-actions" />
+        <div className="slot-actions">
+          <button type="button" className="slot-add" aria-label={`Assign a Digimon to slot ${slot + 1}`} onClick={() => actions.onPickForSlot(slot)}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
       </div>
     );
   }
