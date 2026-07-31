@@ -44,8 +44,6 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 }
 .lights{display:flex;gap:8px}
 .lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
-.app-mark{font:800 13px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
-.app-mark .bit{color:var(--signal)}
 .win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
 .roster-layout{flex:1 1 auto;display:grid;grid-template-columns:360px 1fr;min-height:0;height:100%;}
