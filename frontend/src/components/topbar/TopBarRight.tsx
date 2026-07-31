@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -6,6 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLocale, useT } from '../../hooks/useLocale';
 import { getFriends } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
+import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
 
 type MenuKind = 'notif' | 'user' | null;
 
@@ -22,6 +23,7 @@ export function TopBarRight(): JSX.Element | null {
   const t = useT();
   useLocale();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [openMenu, setOpenMenu] = useState<MenuKind>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,6 +41,20 @@ export function TopBarRight(): JSX.Element | null {
     enabled: authed,
     staleTime: 30_000,
   });
+  const trainingQuery = useQuery({
+    queryKey: ['training'] as const,
+    queryFn: getTraining,
+    enabled: authed,
+    staleTime: 15_000,
+  });
+
+  const collectTrainingMutation = useMutation({
+    mutationFn: collectTrainingStation,
+    onSuccess: (result) => {
+      queryClient.setQueryData<TrainingView>(['training'], result.view);
+      void queryClient.invalidateQueries({ queryKey: ['roster'] });
+    },
+  });
 
   const notifications: NotificationItem[] = [];
   const buildings = farmQuery.data?.buildings ?? [];
@@ -53,6 +69,21 @@ export function TopBarRight(): JSX.Element | null {
       onAction: () => {
         setOpenMenu(null);
         void navigate('/farm');
+      },
+    });
+  }
+  for (const station of trainingQuery.data?.stations ?? []) {
+    const active = station.active;
+    if (active === null || !active.readyToCollect) continue;
+    const stats = active.statKinds.map((k) => k.toUpperCase()).join('+');
+    notifications.push({
+      id: `training-${station.buildingId}`,
+      title: t('topbar.notif.training.title'),
+      detail: t('topbar.notif.training.detail', { name: active.monNickname, stats }),
+      actionLabel: t('topbar.notif.training.action'),
+      onAction: () => {
+        collectTrainingMutation.mutate(station.buildingId);
+        setOpenMenu(null);
       },
     });
   }
