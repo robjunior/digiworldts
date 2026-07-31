@@ -15,6 +15,7 @@ import { runDeferredCommand, type CommandInteraction, type ReplyActionRow } from
 
 const SHORTCUT_BRL_AMOUNTS = [10, 25, 50, 100] as const;
 export const BUY_BUTTON_PREFIX = 'buy:amount:';
+export const BUY_CONFIRM_PREFIX = 'buy:confirm:';
 
 type BuyInteraction = CommandInteraction & {
   readonly guildId?: string | null;
@@ -64,6 +65,37 @@ export function parseBuyButtonCents(customId: string): number | null {
   if (!customId.startsWith(BUY_BUTTON_PREFIX)) return null;
   const raw = Number.parseInt(customId.slice(BUY_BUTTON_PREFIX.length), 10);
   return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+}
+
+export function parseBuyConfirmCents(customId: string): number | null {
+  if (!customId.startsWith(BUY_CONFIRM_PREFIX)) return null;
+  const raw = Number.parseInt(customId.slice(BUY_CONFIRM_PREFIX.length), 10);
+  return Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+}
+
+function confirmRow(amountBrlCents: number, locale: Locale): ReplyActionRow {
+  return {
+    type: 1,
+    components: [{
+      type: 2,
+      style: 3,
+      label: t('discord.buy.accept_button', {}, locale),
+      custom_id: `${BUY_CONFIRM_PREFIX}${amountBrlCents}`,
+    }],
+  };
+}
+
+async function promptConsent(interaction: CommandInteraction, amountBrlCents: number, locale: Locale): Promise<void> {
+  await interaction.editReply({
+    embeds: [{
+      title: t('discord.buy.terms_title', {}, locale),
+      description: t('discord.buy.terms_body', {
+        amount: brl(amountBrlCents),
+        credits: creditsForCents(amountBrlCents),
+      }, locale),
+    }],
+    components: [confirmRow(amountBrlCents, locale)],
+  });
 }
 
 function createPendingSession(input: { readonly userId: string; readonly discordId: string; readonly guildId: string; readonly amountBrlCents: number; readonly creditsAmount: number; readonly expiresAt: number; readonly now: number }): PurchaseSession {
@@ -158,7 +190,7 @@ async function createPixPurchase(interaction: CommandInteraction & { readonly gu
     ticketUrl: payment.ticketUrl,
     expiresAt,
     state: 'awaiting_payment',
-    metadataJson: JSON.stringify({ creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL, innerPaymentId: payment.innerPaymentId }),
+    metadataJson: JSON.stringify({ creditsAmount, creditsPerBrl: config.CREDITS_PER_BRL, innerPaymentId: payment.innerPaymentId, termsAcceptedAt: now() }),
     updatedAt: now(),
   });
 
@@ -174,6 +206,24 @@ async function guardSalesOpen(db: Queryable, interaction: CommandInteraction, lo
   if (!(await isSalesPaused(db))) return true;
   await interaction.editReply({ content: t('discord.buy.sales_paused', {}, locale) });
   return false;
+}
+
+async function guardNoDebt(db: Queryable, backendClient: Pick<BackendGateway, 'userByDiscord'>, interaction: CommandInteraction, locale: Locale): Promise<boolean> {
+  const linkedUser = await backendClient.userByDiscord(interaction.user.id);
+  const debt = await getCreditDebt(db, linkedUser.userId);
+  if (debt === null) return true;
+  await interaction.editReply({ content: t('discord.buy.debt_blocked', { credits: debt.amount }, locale) });
+  return false;
+}
+
+function amountRejection(amountBrlCents: number): { readonly key: string; readonly params: Record<string, string> } | null {
+  if (amountBrlCents < Math.round(config.BUY_MIN_BRL * 100)) {
+    return { key: 'discord.buy.amount_too_low', params: { min: config.BUY_MIN_BRL.toFixed(2) } };
+  }
+  if (amountBrlCents > Math.round(config.BUY_MAX_BRL * 100)) {
+    return { key: 'discord.buy.amount_too_high', params: { max: config.BUY_MAX_BRL.toFixed(2) } };
+  }
+  return null;
 }
 
 export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCommandDeps = {}): Promise<void> {
@@ -195,7 +245,14 @@ export async function handleBuyCommand(interaction: BuyInteraction, deps: BuyCom
       });
       return;
     }
-    await createPixPurchase(interaction, Math.round(valor * 100), locale, deps);
+    const amountBrlCents = Math.round(valor * 100);
+    const rejection = amountRejection(amountBrlCents);
+    if (rejection !== null) {
+      await interaction.editReply({ content: t(rejection.key, rejection.params, locale) });
+      return;
+    }
+    if (!(await guardNoDebt(db, deps.backendClient ?? createBackendClient(), interaction, locale))) return;
+    await promptConsent(interaction, amountBrlCents, locale);
   }, { kind: 'buy' });
 }
 
@@ -204,6 +261,25 @@ export async function handleBuyButton(interaction: BuyButtonInteraction, deps: B
   await runDeferredCommand(interaction, async ({ locale }) => {
     if (!(await guardSalesOpen(db, interaction, locale))) return;
     const cents = parseBuyButtonCents(interaction.customId);
+    if (cents === null) {
+      await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
+      return;
+    }
+    const rejection = amountRejection(cents);
+    if (rejection !== null) {
+      await interaction.editReply({ content: t(rejection.key, rejection.params, locale) });
+      return;
+    }
+    if (!(await guardNoDebt(db, deps.backendClient ?? createBackendClient(), interaction, locale))) return;
+    await promptConsent(interaction, cents, locale);
+  }, { kind: 'buy' });
+}
+
+export async function handleBuyConfirm(interaction: BuyButtonInteraction, deps: BuyCommandDeps = {}): Promise<void> {
+  const db = deps.db ?? { query };
+  await runDeferredCommand(interaction, async ({ locale }) => {
+    if (!(await guardSalesOpen(db, interaction, locale))) return;
+    const cents = parseBuyConfirmCents(interaction.customId);
     if (cents === null) {
       await interaction.editReply({ content: t('discord.errors.internal', {}, locale) });
       return;

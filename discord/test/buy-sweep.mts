@@ -96,7 +96,7 @@ function lastEdit(calls: readonly string[]): string {
 }
 
 async function main(): Promise<void> {
-  const { handleBuyCommand, handleBuyButton, parseBuyButtonCents, BUY_BUTTON_PREFIX } = await import('../src/commands/buy.js');
+  const { handleBuyCommand, handleBuyButton, handleBuyConfirm, parseBuyButtonCents, BUY_BUTTON_PREFIX, BUY_CONFIRM_PREFIX } = await import('../src/commands/buy.js');
 
   const guideDb = new PurchaseDb();
   const guide = interaction(null, 'buyer-guide');
@@ -110,19 +110,30 @@ async function main(): Promise<void> {
   assert(guideReply.includes('"custom_id":"buy:amount:10000"'), '/buy guide offers the BRL 100 shortcut button');
   assertEqual(guideDb.sessions.length, 0, '/buy guide creates no purchase session');
 
+  // /buy valor:X now stops at the terms. Money only moves after an explicit accept.
   const captured: { amountBrlCents?: number } = {};
   const buyDb = new PurchaseDb();
   const buy = interaction(37.5, 'buyer-ok');
   await handleBuyCommand(buy, { db: buyDb, backendClient: backendMock, paymentProvider: paymentMock(captured), payer, now: () => 1_000 });
-  assertEqual(captured.amountBrlCents, 3750, '/buy valor:37.5 converts to 3750 centavos');
-  assertEqual(buyDb.sessions[0]?.state, 'awaiting_payment', '/buy persists awaiting_payment');
+  const termsReply = lastEdit(buy.calls);
+  assert(termsReply.includes('already spent cannot be refunded'), '/buy valor shows the refund terms before taking money');
+  assert(termsReply.includes('3750 DigiCredits'), '/buy terms state exactly what is being bought');
+  assert(termsReply.includes(`"custom_id":"${BUY_CONFIRM_PREFIX}3750"`), '/buy terms carry an accept button for that exact amount');
+  assertEqual(captured.amountBrlCents, undefined, 'no PIX order is created before the player accepts');
+  assertEqual(buyDb.sessions.length, 0, 'no session is created before the player accepts');
+
+  const confirm = buttonInteraction(`${BUY_CONFIRM_PREFIX}3750`, 'buyer-ok-confirm');
+  await handleBuyConfirm(confirm, { db: buyDb, backendClient: backendMock, paymentProvider: paymentMock(captured), payer, now: () => 1_000 });
+  assertEqual(captured.amountBrlCents, 3750, 'accepting the terms converts to 3750 centavos');
+  assertEqual(buyDb.sessions[0]?.state, 'awaiting_payment', 'accepted purchase persists awaiting_payment');
   assertEqual(buyDb.sessions[0]?.amount_brl_cents, 3750, 'session stores the exact centavos charged');
   assertEqual(buyDb.sessions[0]?.sku, 'CREDITS_3750', 'session sku encodes the amount');
-  const metadata = JSON.parse(String(buyDb.sessions[0]?.metadata_json)) as { readonly creditsAmount: number; readonly creditsPerBrl: number; readonly innerPaymentId: string };
+  const metadata = JSON.parse(String(buyDb.sessions[0]?.metadata_json)) as { readonly creditsAmount: number; readonly creditsPerBrl: number; readonly innerPaymentId: string; readonly termsAcceptedAt: number };
   assertEqual(metadata.creditsAmount, 3750, 'creditsAmount frozen at 100 credits per BRL (R$37.50 -> 3750)');
   assertEqual(metadata.creditsPerBrl, 100, 'rate frozen in metadata for auditability');
   assertEqual(metadata.innerPaymentId, 'pay_inner_1', 'innerPaymentId persisted for the refund path (REV-1.4)');
-  assert(lastEdit(buy.calls).includes('3750 DigiCredits'), '/buy QR embed states the credits being bought');
+  assertEqual(metadata.termsAcceptedAt, 1_000, 'consent timestamp is recorded on the session');
+  assert(lastEdit(confirm.calls).includes('3750 DigiCredits'), 'QR embed states the credits being bought');
 
   const lowDb = new PurchaseDb();
   const low = interaction(1, 'buyer-low');
@@ -160,8 +171,8 @@ async function main(): Promise<void> {
   // created BEFORE the row existed, so a crash in between left a payable QR with no
   // session to deliver against. The session must survive a provider failure.
   const orphanDb = new PurchaseDb();
-  const orphan = interaction(50, 'buyer-orphan');
-  await handleBuyCommand(orphan, {
+  const orphan = buttonInteraction(`${BUY_CONFIRM_PREFIX}5000`, 'buyer-orphan');
+  await handleBuyConfirm(orphan, {
     db: orphanDb,
     backendClient: backendMock,
     paymentProvider: { createPixPayment: async () => { throw new Error('MP down'); } },
@@ -176,10 +187,15 @@ async function main(): Promise<void> {
 
   const buttonCaptured: { amountBrlCents?: number } = {};
   const buttonDb = new PurchaseDb();
-  const button = buttonInteraction(`${BUY_BUTTON_PREFIX}2500`);
+  const button = buttonInteraction(`${BUY_BUTTON_PREFIX}2500`, 'buyer-shortcut');
   await handleBuyButton(button, { db: buttonDb, backendClient: backendMock, paymentProvider: paymentMock(buttonCaptured), payer, now: () => 1_000 });
-  assertEqual(buttonCaptured.amountBrlCents, 2500, 'shortcut button creates a BRL 25 purchase');
-  assertEqual(buttonDb.sessions[0]?.amount_brl_cents, 2500, 'button purchase persists the right amount');
+  assert(lastEdit(button.calls).includes(`"custom_id":"${BUY_CONFIRM_PREFIX}2500"`), 'shortcut button routes through the terms, not straight to PIX');
+  assertEqual(buttonDb.sessions.length, 0, 'shortcut button alone creates no session');
+
+  const shortcutConfirm = buttonInteraction(`${BUY_CONFIRM_PREFIX}2500`, 'buyer-shortcut-ok');
+  await handleBuyConfirm(shortcutConfirm, { db: buttonDb, backendClient: backendMock, paymentProvider: paymentMock(buttonCaptured), payer, now: () => 1_000 });
+  assertEqual(buttonCaptured.amountBrlCents, 2500, 'accepting the shortcut terms creates a BRL 25 purchase');
+  assertEqual(buttonDb.sessions[0]?.amount_brl_cents, 2500, 'shortcut purchase persists the right amount');
 
   const { startPurchaseSweep } = await import('../src/purchase/sweep.js');
   const sweepDb = new PurchaseDb();
