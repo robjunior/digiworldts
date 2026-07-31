@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     payer: { email: 'buyer@test.local', name: 'Test', lastName: 'Buyer', identificationType: 'CPF', identificationNumber: '12345678909' },
     backendClient: { products: async () => { calls.push('products'); return { products: [{ id: 'backend-item', name: 'Backend Item', description: '', priceCredits: 0, kind: 'item', class: 'product', payload: {} }] }; }, userByDiscord: async () => { calls.push('userByDiscord'); return { userId: 'user-1', displayName: 'User', discordId: 'discord-1', credits: 0, premiumUntil: null, locale: 'en' }; } },
     loadCatalog: async () => ({ products: [{ sku: 'SKU_ITEM', displayName: { pt: 'Item', en: 'Item' }, priceBrlCents: 100, shopItemId: 'backend-item', kind: 'item', enabled: true }] }),
-    paymentProvider: { createPixPayment: async () => { calls.push('payment'); return { provider: 'mercadopago', providerPaymentId: 'pay_1', status: 'pending', qrCode: 'qr-code', qrCodeBase64: 'base64', ticketUrl: 'ticket', expiresAt: null, idempotencyKey: 'idem-1' }; } },
+    paymentProvider: { createPixPayment: async () => { calls.push('payment'); return { provider: 'mercadopago', providerPaymentId: 'pay_1', innerPaymentId: 'pay_inner_1', status: 'pending', qrCode: 'qr-code', qrCodeBase64: 'base64', ticketUrl: 'ticket', expiresAt: null, idempotencyKey: 'idem-1' }; } },
   });
   assertEqual(buy.calls[0] ?? '', 'defer', '/buy defers before all work');
   assertEqual(calls.join('|'), 'products|userByDiscord|payment', '/buy network order is products then user then payment');

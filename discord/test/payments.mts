@@ -76,6 +76,7 @@ async function main(): Promise<void> {
   const payment = await provider.createPixPayment({ amountBrlCents: 123, payer: { email: 'buyer@test.local', name: 'Test', lastName: 'Buyer', identificationType: 'CPF', identificationNumber: '12345678909' }, description: 'DigiWorld SKU', notificationUrl: 'http://local/webhooks/mercadopago', expiresAt: new Date('2026-07-30T14:30:00.000Z') });
 
   assertEqual(payment.providerPaymentId, 'order_1', 'orders API — providerPaymentId is the order id, not the opaque payment id');
+  assertEqual(payment.innerPaymentId, 'pay_opaque_1', 'orders API — innerPaymentId is the payment id inside the order (for /v1/payments/{id}/refunds addressability, REV-1.4)');
   assertEqual(payment.status, 'action_required', 'initial order status is action_required (waiting_transfer)');
   assertEqual(payment.qrCode, 'pix-code', 'PIX qr_code parsed from transactions.payments[0].payment_method');
   assertEqual(payment.qrCodeBase64, 'pix-base64', 'PIX qr_code_base64 parsed');
@@ -123,6 +124,11 @@ async function main(): Promise<void> {
     'manifest with all fields matches the documented MercadoPago template',
   );
   assertEqual(
+    buildMercadoPagoManifest({ dataId: 'ORDTST01KYTJ69C18Z806VPPN8SMSBEF', requestId: 'req_9', ts: '12345' }),
+    'id:ordtst01kytj69c18z806vppn8smsbef;request-id:req_9;ts:12345;',
+    'alphanumeric dataId (ORD* Orders API era) lowercased before HMAC per MP support 2026-07-31',
+  );
+  assertEqual(
     buildMercadoPagoManifest({ dataId: 'order_1', requestId: undefined, ts: '12345' }),
     'id:order_1;ts:12345;',
     'missing request-id drops the whole segment, never emits undefined',
@@ -143,6 +149,12 @@ async function main(): Promise<void> {
   assert(
     provider.verifyWebhook({ signatureHeader: `ts=12345,v1=${vectorNoRequestId}`, requestId: undefined, dataId: 'order_1' }),
     'independently computed signature verifies with x-request-id absent',
+  );
+
+  const vectorUppercaseOrder = createHmac('sha256', 'secret').update('id:ordtst01kytj69c18z806vppn8smsbef;request-id:req_9;ts:12345;').digest('hex');
+  assert(
+    provider.verifyWebhook({ signatureHeader: `ts=12345,v1=${vectorUppercaseOrder}`, requestId: 'req_9', dataId: 'ORDTST01KYTJ69C18Z806VPPN8SMSBEF' }),
+    'verifyWebhook lowercases alphanumeric dataId to match MP signature contract (MP support 2026-07-31)',
   );
 
   assert(
