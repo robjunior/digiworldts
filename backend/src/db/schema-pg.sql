@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   spd_bonus     INTEGER NOT NULL DEFAULT 0,
   mood          INTEGER NOT NULL DEFAULT 50 CHECK (mood BETWEEN 0 AND 100),
   status        TEXT NOT NULL DEFAULT 'resting'
-                CHECK (status IN ('resting', 'training', 'party', 'adventure')),
+                CHECK (status IN ('resting', 'training', 'party', 'adventure', 'nursery')),
   slot_index    INTEGER,
   revive_at     BIGINT,
   pets_today    INTEGER NOT NULL DEFAULT 0,
@@ -104,6 +104,9 @@ CREATE TABLE IF NOT EXISTS player_roster (
   evolution_history TEXT,
   equipped_skill_ids TEXT,
   stage_pools   TEXT,
+  nursery_stage TEXT,
+  nursery_evolve_at BIGINT,
+  nursery_chain TEXT,
   created_at    BIGINT NOT NULL,
   updated_at    BIGINT NOT NULL,
   CONSTRAINT roster_unique_slot UNIQUE (user_id, slot_index)
@@ -111,6 +114,9 @@ CREATE TABLE IF NOT EXISTS player_roster (
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS evolution_history TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS equipped_skill_ids TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS stage_pools TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_stage TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_evolve_at BIGINT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_chain TEXT;
 CREATE INDEX IF NOT EXISTS idx_roster_user ON player_roster(user_id);
 CREATE INDEX IF NOT EXISTS idx_roster_status ON player_roster(user_id, status);
 

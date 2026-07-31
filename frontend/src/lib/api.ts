@@ -31,7 +31,7 @@ export type RosterView = {
   readonly xpNext: number;
   readonly statBonus: BaseStats;
   readonly mood: number;
-  readonly status: 'resting' | 'training' | 'party' | 'adventure';
+  readonly status: 'resting' | 'training' | 'party' | 'adventure' | 'nursery';
   readonly slot: number | null;
   readonly reviveAt: number | null;
   readonly currentHp: number | null;

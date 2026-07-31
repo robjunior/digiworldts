@@ -1440,3 +1440,30 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 @media (prefers-reduced-motion: reduce) {
   .digiv, .digiv * { animation: none !important; transition: none !important; }
 }
+
+.row.row--nursery {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.row.row--nursery:hover { opacity: 0.72; }
+.row.row--nursery .mug img { filter: grayscale(0.6); }
+.row-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-radius: 3px;
+  background: rgba(230, 0, 31, 0.18);
+  color: #ff5a4a;
+  border: 1px solid rgba(230, 0, 31, 0.35);
+  white-space: nowrap;
+}
+.row-badge--nursery {
+  background: rgba(76, 154, 255, 0.16);
+  color: #7db6ff;
+  border-color: rgba(76, 154, 255, 0.35);
+}
