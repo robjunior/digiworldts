@@ -171,7 +171,7 @@ async function main(): Promise<void> {
   const insertUser = grabConst('auth/routes.ts', 'SQL_INSERT_USER');
   if (insertUser) {
     await runCheck('insert user (real SQL_INSERT_USER)', async () => {
-      await db.query(insertUser, [userId, 'pgtestuser', 'PGtest User', 'hash', 0, now, now]);
+      await db.query(insertUser, [userId, 'pgtestuser', 'PGtest User', 'hash', 0, now, now, 'PGtest', 'User', 'pgtest@example.com']);
     });
   } else {
     checks.push({ name: 'find SQL_INSERT_USER', ok: false, err: 'constant not found' });
