@@ -12,6 +12,9 @@ dist/
 .env
 .env.local
 .env.*.local
+# CI-materialized envs (scripts/materialize-env.sh) — never commit
+/.env.staging
+/.env.production
 backend/data/.session-secret
 cookie.txt
 cookies.txt
