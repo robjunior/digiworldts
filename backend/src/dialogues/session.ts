@@ -3,7 +3,8 @@ import { DIALOGUE_END_NODE } from '@digiworld/shared/dialogue';
 
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
-import { partyRating } from '../world/engine.js';
+import { partyLeadElement, partyRating } from '../world/engine.js';
+import { getBalances } from '../wallet/repo.js';
 import { getDialogue } from './repo.js';
 import { applyEntryActions, evaluateCondition, visibleChoices, type DialogueRuntimeContext } from './runtime.js';
 import { bumpTalkObjectives } from '../quests/repo.js';
@@ -42,11 +43,20 @@ export type DialogueResult =
   | { readonly ok: false; readonly error: AdvanceFailure };
 
 async function buildContext(userId: string, displayName: string, dialogueId: string): Promise<DialogueRuntimeContext> {
-  const rating = await partyRating(userId);
+  const [rating, balances, leadElement] = await Promise.all([
+    partyRating(userId),
+    getBalances(userId),
+    partyLeadElement(userId),
+  ]);
   return {
     userId,
     dialogueId,
-    facts: { level: rating.meanLevel },
+    facts: {
+      level: rating.meanLevel,
+      ntc: balances.netcore,
+      credits: balances.credits,
+      party_lead_element: leadElement ?? '',
+    },
     variables: { player_name: displayName },
   };
 }

@@ -13,6 +13,10 @@ export type SimulatorFactOverrides = {
   readonly playerName?: string | undefined;
   readonly flags?: readonly string[] | undefined;
   readonly items?: Readonly<Record<string, number>> | undefined;
+  readonly ntc?: number | undefined;
+  readonly credits?: number | undefined;
+  readonly partyLeadElement?: string | undefined;
+  readonly partyElements?: readonly string[] | undefined;
 };
 
 export type SimulatorStep = {
@@ -53,6 +57,10 @@ export type SimulatorView = {
   readonly jumpTrail: readonly string[];
   readonly flags: readonly string[];
   readonly items: Readonly<Record<string, number>>;
+  readonly ntc: number;
+  readonly credits: number;
+  readonly partyLeadElement: string | null;
+  readonly teleportedTo: { readonly x: number; readonly y: number } | null;
 };
 
 export type SimulatorFailure =
@@ -70,14 +78,33 @@ type State = {
   readonly variables: Record<string, SimulatorScalar>;
   readonly flags: Set<string>;
   readonly items: Map<string, number>;
+  ntc: number;
+  credits: number;
+  readonly partyElements: readonly string[];
+  readonly partyLeadElement: string | null;
+  teleportedTo: { x: number; y: number } | null;
 };
 
 function initialState(overrides: SimulatorFactOverrides): State {
+  const ntc = overrides.ntc ?? 0;
+  const credits = overrides.credits ?? 0;
+  const partyElements = overrides.partyElements ?? (overrides.partyLeadElement ? [overrides.partyLeadElement] : []);
+  const partyLeadElement = overrides.partyLeadElement ?? (partyElements[0] ?? null);
   return {
-    facts: { level: overrides.level ?? 1 },
+    facts: {
+      level: overrides.level ?? 1,
+      ntc,
+      credits,
+      party_lead_element: partyLeadElement ?? '',
+    },
     variables: { player_name: overrides.playerName ?? 'Player' },
     flags: new Set(overrides.flags ?? []),
     items: new Map(Object.entries(overrides.items ?? {})),
+    ntc,
+    credits,
+    partyElements,
+    partyLeadElement,
+    teleportedTo: null,
   };
 }
 
@@ -121,6 +148,17 @@ function evaluate(condition: DialogueCondition, state: State): boolean {
   if (condition.name === 'flag_enabled') return state.flags.has(asString(args[0]!));
   if (condition.name === 'player_has_item') {
     return (state.items.get(asString(args[0]!)) ?? 0) >= asCount(args[1]);
+  }
+  if (condition.name === 'has_ntc') {
+    const amount = args[0];
+    return typeof amount === 'number' ? state.ntc >= amount : false;
+  }
+  if (condition.name === 'has_credits') {
+    const amount = args[0];
+    return typeof amount === 'number' ? state.credits >= amount : false;
+  }
+  if (condition.name === 'party_has_element') {
+    return state.partyElements.includes(asString(args[0]!));
   }
   return false;
 }
@@ -177,6 +215,31 @@ function applyAction(action: DialogueAction, state: State): SimulatedActionPrevi
   if (action.name === 'start_quest') {
     return { ...base, appliedSuccessfully: true, note: 'quest would be started' };
   }
+  if (action.name === 'add_ntc') {
+    const amount = args[0];
+    if (typeof amount !== 'number' || amount <= 0) {
+      return { ...base, appliedSuccessfully: false, note: 'positive amount required' };
+    }
+    state.ntc += amount;
+    state.facts.ntc = state.ntc;
+    return { ...base, appliedSuccessfully: true, note: `netcore → ${state.ntc}` };
+  }
+  if (action.name === 'add_xp') {
+    return { ...base, appliedSuccessfully: true, note: 'party mons would gain XP (no simulated level-up)' };
+  }
+  if (action.name === 'teleport') {
+    const x = args[0];
+    const y = args[1];
+    if (typeof x !== 'number' || typeof y !== 'number') {
+      return { ...base, appliedSuccessfully: false, note: 'x, y must be numbers' };
+    }
+    state.teleportedTo = { x, y };
+    return { ...base, appliedSuccessfully: true, note: `moved to (${x}, ${y})` };
+  }
+  if (action.name === 'unlock_area') {
+    state.flags.add(`area.unlocked.${asString(args[0]!)}`);
+    return { ...base, appliedSuccessfully: true, note: 'area flag set' };
+  }
   return { ...base, appliedSuccessfully: false, note: 'unknown action (parser gate should have caught this)' };
 }
 
@@ -230,6 +293,10 @@ function buildView(
     jumpTrail: trail,
     flags: [...state.flags].sort(),
     items: Object.fromEntries([...state.items.entries()].sort(([a], [b]) => a.localeCompare(b))),
+    ntc: state.ntc,
+    credits: state.credits,
+    partyLeadElement: state.partyLeadElement,
+    teleportedTo: state.teleportedTo,
   };
 }
 
@@ -245,6 +312,10 @@ function endView(trail: readonly string[], state: State): SimulatorView {
     jumpTrail: trail,
     flags: [...state.flags].sort(),
     items: Object.fromEntries([...state.items.entries()].sort(([a], [b]) => a.localeCompare(b))),
+    ntc: state.ntc,
+    credits: state.credits,
+    partyLeadElement: state.partyLeadElement,
+    teleportedTo: state.teleportedTo,
   };
 }
 
