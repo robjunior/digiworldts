@@ -137,9 +137,25 @@ export async function pruneExpired(): Promise<number> {
 // ============================================================================
 
 const IS_DEV = config.NODE_ENV === 'development';
+const HAS_CORS_ORIGINS = config.CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0).length > 0;
 
-function cookieOpts(): { path: string; httpOnly: boolean; sameSite: 'lax'; secure: boolean; maxAge: number; signed: boolean } {
-  return { path: '/', httpOnly: true, sameSite: 'lax', secure: !IS_DEV, maxAge: TTL_SEC, signed: true };
+/**
+ * Cookie options are conditional on whether the backend accepts cross-origin
+ * requests:
+ *   - `CORS_ORIGINS` empty (single-origin monolith): SameSite=Lax, Secure only
+ *     in prod. Preserves the historical, cheapest-to-audit behaviour.
+ *   - `CORS_ORIGINS` non-empty (standalone admin panel or other CORS client on
+ *     a different origin): SameSite=None + Secure — the only combination
+ *     browsers will send on a cross-site fetch. Requires HTTPS end-to-end;
+ *     in dev the admin bypasses this via the Vite proxy in
+ *     `admin/vite.config.ts` (see the `set-cookie` rewrite there).
+ * `Secure` is always forced when SameSite=None because the spec rejects that
+ * combination otherwise.
+ */
+function cookieOpts(): { path: string; httpOnly: boolean; sameSite: 'lax' | 'none'; secure: boolean; maxAge: number; signed: boolean } {
+  const sameSite: 'lax' | 'none' = HAS_CORS_ORIGINS ? 'none' : 'lax';
+  const secure = HAS_CORS_ORIGINS ? true : !IS_DEV;
+  return { path: '/', httpOnly: true, sameSite, secure, maxAge: TTL_SEC, signed: true };
 }
 
 export function setSessionCookie(reply: FastifyReply, token: string): void {
