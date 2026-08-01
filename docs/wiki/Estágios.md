@@ -1,0 +1,4 @@
+Rookie
+Champion
+Ultimate 
+Mega
