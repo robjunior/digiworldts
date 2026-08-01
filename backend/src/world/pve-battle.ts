@@ -22,6 +22,7 @@ import { pickSceneForElements } from '../scenes/picker.js';
 import { getScene } from '../scenes/store.js';
 import type { Element } from '@digiworld/shared/digimon';
 import { emit } from '../telemetry/emit.js';
+import { bumpCaptureObjectives } from '../quests/repo.js';
 
 const MAX_WILD_ACTIONS_PER_TURN = 6;
 
@@ -641,6 +642,11 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
             mon_id: monId,
           },
         });
+        if (tpl) {
+          try {
+            await bumpCaptureObjectives(userId, wildUnit.wildInfo.catalogId, tpl.stage);
+          } catch { /* best-effort — a quest bump failure never blocks a capture */ }
+        }
       }
     }
     const dungeonWinPromise = markWonDungeonEncounter(userId, battle);

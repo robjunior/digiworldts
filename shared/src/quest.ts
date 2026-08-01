@@ -1,4 +1,4 @@
-import type { Element } from './digimon.js';
+import type { Element, Stage } from './digimon.js';
 import type { Biome } from './world.js';
 
 export type EnemyConfig = {
@@ -38,6 +38,24 @@ export type QuestObjective =
       readonly kind: 'defeat';
       readonly biome: Biome;
       readonly element?: Element;
+      readonly count: number;
+      readonly text: string;
+    }
+  | {
+      readonly kind: 'talk';
+      readonly npcId: string;
+      readonly text: string;
+    }
+  | {
+      readonly kind: 'collect';
+      readonly itemId: string;
+      readonly qty: number;
+      readonly text: string;
+    }
+  | {
+      readonly kind: 'capture';
+      readonly catalogId?: string;
+      readonly stage?: Stage;
       readonly count: number;
       readonly text: string;
     };
