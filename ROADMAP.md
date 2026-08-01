@@ -132,10 +132,9 @@ See Shipped ▸ Combat. Backend: [`backend/src/battle/spectate.ts`](backend/src/
 ### N5 — Merge `feat/combat3d` → `main`
 - Rebase check, one review pass, merge. Followed by a tag.
 
-### N6 — Migrate multi-node compose to `DATABASE=postgres`
-- Compose file currently ships `DATABASE=sqlite` with a shared volume for a zero-external-dep demo — see [`docker-compose.multinode.yml`](docker-compose.multinode.yml).
-- Flip to Postgres so the demo matches the recommended production shape.
-- Uncovers real network latency in `q()` / `one()` — worth a soak-test on the hot paths (queue tick, battle mutation, presence broadcast).
+### N6 — ~~Migrate multi-node compose to `DATABASE=postgres`~~ ✅ shipped
+
+[`docker-compose.multinode.yml`](docker-compose.multinode.yml) already ships `DATABASE: postgres` + `DATABASE_URL: postgres://...` as the active values under both `game-node1` (lines 82-83) and `game-node2` (lines 105-106), with a commented `# DATABASE: sqlite` line kept beside each as the zero-external-dep fallback for local demos. Cross-DB portability is regression-guarded by [`test/postgres-portability.mts`](backend/test/postgres-portability.mts): every migration applies against real Postgres 18 via pglite + every `SQL_*` constant PREPAREs cleanly against the resulting schema. Soak-testing the hot paths (`q()` / `one()` / queue tick / battle mutation / presence broadcast) under real network latency remains a follow-up.
 
 ---
 
