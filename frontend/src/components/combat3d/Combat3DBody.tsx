@@ -83,6 +83,7 @@ export function Combat3DBody(): JSX.Element | null {
   const [pveResults, setPveResults] = useState<{ readonly xpAwards: readonly XpAward[]; readonly itemDrops?: readonly ItemDrop[]; readonly netcoreGained?: number; readonly bitsGained?: number } | null>(null);
   const [endModalOpen, setEndModalOpen] = useState<boolean>(false);
   const [autobattle, setAutobattle] = useState<boolean>(() => readAutobattlePref());
+  const [feedOpen, setFeedOpen] = useState<boolean>(false);
 
   const sceneRef = useRef<Combat3DSceneHandle | null>(null);
   const seenEventCountRef = useRef(0);
@@ -304,9 +305,20 @@ export function Combat3DBody(): JSX.Element | null {
       <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
       
       <div className="overlay">
-        <div className="side-badge">
-          <SideBadge battle={activeBattle} />
-          <BattleFeed events={displayEvents} battle={activeBattle} />
+        <div className={`side-badge ${feedOpen ? 'open' : ''}`}>
+          <button 
+            className="mobile-feed-toggle" 
+            aria-label="Open battle log" 
+            aria-expanded={feedOpen} 
+            onClick={() => setFeedOpen(!feedOpen)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/></svg>
+          </button>
+          <div className="side-badge-content">
+            <SideBadge battle={activeBattle} />
+            <BattleFeed events={displayEvents} battle={activeBattle} />
+            {feedOpen && <button className="mobile-feed-close" onClick={() => setFeedOpen(false)}>Close</button>}
+          </div>
         </div>
 
         <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
