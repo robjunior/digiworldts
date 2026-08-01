@@ -12,8 +12,8 @@ type AuthTab = 'signin' | 'register';
 
 const AUTH_STATUS_QUERY_KEY = ['auth', 'status'] as const;
 
-function targetForUser(user: PublicUser, nextTarget: string): string {
-  return user.onboardingCompleted ? nextTarget : '/intro';
+function targetForUser(_user: PublicUser, nextTarget: string): string {
+  return nextTarget;
 }
 
 export function Login(): JSX.Element {
