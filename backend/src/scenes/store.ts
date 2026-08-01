@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 import { ARENA_KEY_TO_ELEMENTS, LEGACY_ARENA_KEYS, type LegacyArenaKey, type SceneEntity } from '@digiworld/shared/scene';
+import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
 import { config } from '../config.js';
 import { log } from '../util/log.js';
@@ -14,13 +15,22 @@ const LEGACY_DEFAULTS_PATH = resolve(config.paths.dataDir, 'scenes', 'scene-defa
 
 type SceneFileEnvelope = {
   readonly version: 2;
-  readonly scenes: readonly SceneEntity[];
+  readonly scenes: readonly SceneFileRecord[];
+};
+
+type SceneFileRecord = SceneEntity & {
+  readonly weather: WeatherConfig | null;
+  readonly timeOfDay: TimeOfDayConfig | null;
 };
 
 let cache: readonly SceneEntity[] | null = null;
 
 function isElement(value: unknown): value is Element {
   return typeof value === 'string' && (ELEMENTS as readonly string[]).includes(value);
+}
+
+function coerceNullableObject<T>(value: unknown): T | null {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? { ...(value as T & object) } : null;
 }
 
 function coerceScene(raw: unknown): SceneEntity | null {
@@ -35,6 +45,8 @@ function coerceScene(raw: unknown): SceneEntity | null {
     ? { ...(settingsRaw as Record<string, unknown>) }
     : {};
   const useGlb = rec['useGlbSettings'] === true;
+  const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
+  const timeOfDay = coerceNullableObject<TimeOfDayConfig>(rec['timeOfDay']);
   const created = typeof rec['createdAt'] === 'number' ? rec['createdAt'] : Date.now();
   const updated = typeof rec['updatedAt'] === 'number' ? rec['updatedAt'] : created;
   return {
@@ -43,8 +55,18 @@ function coerceScene(raw: unknown): SceneEntity | null {
     elements,
     settings,
     useGlbSettings: useGlb,
+    weather,
+    timeOfDay,
     createdAt: created,
     updatedAt: updated,
+  };
+}
+
+function sceneToRecord(scene: SceneEntity): SceneFileRecord {
+  return {
+    ...scene,
+    weather: scene.weather ?? null,
+    timeOfDay: scene.timeOfDay ?? null,
   };
 }
 
@@ -67,6 +89,8 @@ async function seedFromLegacyDefaults(): Promise<SceneEntity[]> {
         elements: ARENA_KEY_TO_ELEMENTS[key as LegacyArenaKey],
         settings: { ...(arenaSettings as Record<string, unknown>) },
         useGlbSettings: false,
+        weather: null,
+        timeOfDay: null,
         createdAt: now,
         updatedAt: now,
       });
@@ -113,7 +137,7 @@ async function readEnvelope(): Promise<readonly SceneEntity[]> {
 
 async function writeEnvelope(scenes: readonly SceneEntity[]): Promise<void> {
   await mkdir(dirname(SCENES_PATH), { recursive: true });
-  const envelope: SceneFileEnvelope = { version: 2, scenes };
+  const envelope: SceneFileEnvelope = { version: 2, scenes: scenes.map(sceneToRecord) };
   await writeFile(SCENES_PATH, JSON.stringify(envelope, null, 2), 'utf8');
   cache = scenes;
 }
@@ -132,6 +156,8 @@ export type SceneWriteInput = {
   readonly elements: readonly Element[];
   readonly settings: Readonly<Record<string, unknown>>;
   readonly useGlbSettings?: boolean;
+  readonly weather?: WeatherConfig | null;
+  readonly timeOfDay?: TimeOfDayConfig | null;
 };
 
 export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEntity> {
@@ -143,6 +169,8 @@ export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEnt
     elements: [...input.elements],
     settings: { ...input.settings },
     useGlbSettings: input.useGlbSettings === true,
+    weather: input.weather ?? null,
+    timeOfDay: input.timeOfDay ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -161,6 +189,8 @@ export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInpu
     elements: patch.elements !== undefined ? [...patch.elements] : existing.elements,
     settings: patch.settings !== undefined ? { ...patch.settings } : existing.settings,
     useGlbSettings: patch.useGlbSettings !== undefined ? patch.useGlbSettings === true : (existing.useGlbSettings ?? false),
+    weather: patch.weather !== undefined ? patch.weather : (existing.weather ?? null),
+    timeOfDay: patch.timeOfDay !== undefined ? patch.timeOfDay : (existing.timeOfDay ?? null),
     createdAt: existing.createdAt,
     updatedAt: Date.now(),
   };
@@ -178,6 +208,8 @@ export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
     elements: source.elements,
     settings: source.settings,
     useGlbSettings: source.useGlbSettings === true,
+    weather: source.weather ?? null,
+    timeOfDay: source.timeOfDay ?? null,
   });
 }
 

@@ -11,6 +11,7 @@
  */
 
 import type { Action, BattleEvent, BattleOutcome, BattleView } from './battle.js';
+import type { WeatherConfig } from './weather.js';
 
 // ============================================================================
 // Presence
@@ -125,6 +126,15 @@ export type WSServerMessage =
       type: 'scene-updated';
       /** ms epoch when the scene CRUD write completed on the server. */
       at: number;
+    }
+  | {
+      type: 'weather-triggered';
+      at: number;
+      sceneId: string | null;
+      matchId: string | null;
+      weather: WeatherConfig;
+      durationMs: number;
+      startedAt: number;
     }
   | { type: 'error'; code: WSErrorCode; message: string };
 

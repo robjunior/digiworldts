@@ -3,8 +3,10 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 import { ELEMENT_TO_ARENA_KEY, type SceneEntity } from '@digiworld/shared/scene';
+import { WEATHER_PRESETS, TIME_PHASES, type WeatherConfig, type TimeOfDayConfig, type WeatherPreset, type TimePhase } from '@digiworld/shared/weather';
 
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
+import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '../../scene3d/arena-urls';
 import type { SceneSettings } from '../../scene3d/scene';
 import { ScenePreview } from './ScenePreview';
@@ -54,6 +56,8 @@ type SceneDraft = {
   readonly elements: readonly Element[];
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
+  readonly weather: WeatherConfig | null;
+  readonly timeOfDay: TimeOfDayConfig | null;
 };
 
 function draftFromScene(scene: SceneEntity): SceneDraft {
@@ -62,6 +66,8 @@ function draftFromScene(scene: SceneEntity): SceneDraft {
     elements: scene.elements,
     useGlbSettings: scene.useGlbSettings === true,
     settings: (scene.settings as Partial<SceneSettings>) ?? {},
+    weather: scene.weather ?? null,
+    timeOfDay: scene.timeOfDay ?? null,
   };
 }
 
@@ -91,6 +97,8 @@ function draftsEqual(a: SceneDraft, b: SceneDraft): boolean {
   for (const k of aKeys) {
     if ((a.settings as Record<string, unknown>)[k] !== (b.settings as Record<string, unknown>)[k]) return false;
   }
+  if (JSON.stringify(a.weather) !== JSON.stringify(b.weather)) return false;
+  if (JSON.stringify(a.timeOfDay) !== JSON.stringify(b.timeOfDay)) return false;
   return true;
 }
 
@@ -101,6 +109,10 @@ export function SceneSettingsAdmin(): JSX.Element {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [busy, setBusy] = useState<'copy' | 'delete' | 'create' | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [triggerPreset, setTriggerPreset] = useState<WeatherPreset>('rain');
+  const [triggerDurationMs, setTriggerDurationMs] = useState(10000);
+  const [triggerStatus, setTriggerStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +218,26 @@ export function SceneSettingsAdmin(): JSX.Element {
     }
   };
 
+  const handleTrigger = async (): Promise<void> => {
+    if (selectedId === null) return;
+    setTriggerStatus('sending');
+    try {
+      await apiFetch('/api/admin/weather/trigger', {
+        method: 'POST',
+        body: {
+          sceneId: selectedId,
+          weather: { preset: triggerPreset, emitters: [], lighting: {}, transitionMs: 2000 },
+          durationMs: triggerDurationMs
+        }
+      });
+      setTriggerStatus('success');
+      window.setTimeout(() => setTriggerStatus('idle'), 3000);
+    } catch {
+      setTriggerStatus('error');
+      window.setTimeout(() => setTriggerStatus('idle'), 3000);
+    }
+  };
+
   const handleDelete = async (): Promise<void> => {
     if (selectedId === null) return;
     if (!window.confirm(`Delete scene "${selectedScene?.name ?? selectedId}"? This cannot be undone.`)) return;
@@ -239,7 +271,9 @@ export function SceneSettingsAdmin(): JSX.Element {
         elements: draft.elements,
         settings: draft.settings,
         useGlbSettings: draft.useGlbSettings,
-      });
+        weather: draft.weather,
+        timeOfDay: draft.timeOfDay,
+      } as any);
       const list = await getScenes(true);
       setScenes(list);
       setDraft(draftFromScene(res.scene));
@@ -294,6 +328,17 @@ export function SceneSettingsAdmin(): JSX.Element {
             <ScenePreview arenaKey={previewArenaKey} settings={effectiveSettings} />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
+            <div className="scene-admin-trigger-tile" style={{ padding: '12px 16px', borderBottom: '1px solid #2a3441', display: 'flex', alignItems: 'center', gap: '16px', background: '#171e28' }}>
+              <span className="scene-admin-label" style={{ minWidth: 'max-content', margin: 0 }}>Trigger event:</span>
+              <select value={triggerPreset} onChange={(e) => setTriggerPreset(e.currentTarget.value as WeatherPreset)}>
+                {WEATHER_PRESETS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+              <input type="range" min={5000} max={300000} step={1000} value={triggerDurationMs} onChange={(e) => setTriggerDurationMs(Number(e.currentTarget.value))} style={{ width: '100px' }} />
+              <span className="scene-admin-value" style={{ width: '60px', textAlign: 'right' }}>{triggerDurationMs}ms</span>
+              <button type="button" onClick={() => { void handleTrigger(); }} disabled={triggerStatus === 'sending'} style={{ marginLeft: 'auto' }}>
+                {triggerStatus === 'sending' ? 'Broadcasting…' : triggerStatus === 'success' ? 'Sent ✓' : triggerStatus === 'error' ? 'Error' : 'Broadcast'}
+              </button>
+            </div>
             <header className="scene-admin-header">
               <div>
                 <h2>Editing: {draft.name}</h2>
@@ -458,6 +503,97 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Exposure" value={effectiveSettings.exposure} min={0.2} max={2.5} step={0.02} onChange={(v) => patchSettings({ exposure: v })} />
                 <SliderRow label="Dust opacity" value={effectiveSettings.dustOpacity} min={0} max={1} step={0.02} onChange={(v) => patchSettings({ dustOpacity: v })} />
               </Section>
+
+              <Section title="Weather">
+                {draft.weather === null ? (
+                  <div className="scene-admin-row">
+                    <button type="button" onClick={() => setDraft((p) => p === null ? p : { ...p, weather: { preset: 'rain', emitters: [], lighting: {}, transitionMs: 2000 } })}>
+                      Add weather
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <StringSelectRow label="Preset" value={draft.weather.preset} options={['none', ...WEATHER_PRESETS]} onChange={(v) => {
+                      if (v === 'none') {
+                        setDraft((p) => p === null ? p : { ...p, weather: null });
+                      } else {
+                        setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, preset: v as WeatherPreset } });
+                      }
+                    }} />
+                    <SliderRow label="Transition (ms)" value={draft.weather.transitionMs ?? 2000} min={200} max={10000} step={100} decimals={0} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, transitionMs: v } })} />
+                    
+                    <div style={{ marginTop: '12px', padding: '12px', background: '#1c2431', borderRadius: '4px' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#9ca3af' }}>Lighting Overrides</h4>
+                      <ColorRow label="Sun color" value={draft.weather.lighting.sunColor ?? 0xffffff} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, sunColor: v } } })} />
+                      <SliderRow label="Sun mult" value={draft.weather.lighting.sunIntensityMult ?? 1} min={0} max={3} step={0.05} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, sunIntensityMult: v } } })} />
+                      <ColorRow label="Ambient tint" value={draft.weather.lighting.ambientTint ?? 0xffffff} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, ambientTint: v } } })} />
+                      <SliderRow label="Ambient dim" value={draft.weather.lighting.ambientDimMult ?? 1} min={0} max={3} step={0.05} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, ambientDimMult: v } } })} />
+                      <ToggleRow label="Fog override" value={draft.weather.lighting.fogEnabled ?? false} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, fogEnabled: v } } })} />
+                      {draft.weather.lighting.fogEnabled ? (
+                        <>
+                          <ColorRow label="Fog color" value={draft.weather.lighting.fogColor ?? 0xffffff} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, fogColor: v } } })} />
+                          <SliderRow label="Fog density" value={draft.weather.lighting.fogDensity ?? 0.05} min={0} max={0.2} step={0.005} decimals={3} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, fogDensity: v } } })} />
+                        </>
+                      ) : null}
+                      <SliderRow label="Exposure mult" value={draft.weather.lighting.exposureMult ?? 1} min={0.2} max={2} step={0.05} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, exposureMult: v } } })} />
+                    </div>
+
+                    {(draft.weather.preset === 'thunderstorm' || draft.weather.preset === 'lightstorm') && (
+                      <div style={{ marginTop: '12px', padding: '12px', background: '#1c2431', borderRadius: '4px' }}>
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#9ca3af' }}>Thunder</h4>
+                        <ToggleRow label="Enabled" value={draft.weather.lighting.thunder?.enabled ?? false} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...(p.weather!.lighting.thunder ?? { intervalMs: [5000, 15000], flashColor: 0xffffff, flashIntensity: 4, durationMs: 500, stutterCount: 3 }), enabled: v } } } })} />
+                        {draft.weather.lighting.thunder?.enabled && (
+                          <>
+                            <SliderRow label="Interval (min)" value={draft.weather.lighting.thunder.intervalMs[0]} min={500} max={30000} step={100} decimals={0} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, intervalMs: [v, p.weather!.lighting.thunder!.intervalMs[1]] } } } })} />
+                            <SliderRow label="Interval (max)" value={draft.weather.lighting.thunder.intervalMs[1]} min={500} max={30000} step={100} decimals={0} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, intervalMs: [p.weather!.lighting.thunder!.intervalMs[0], v] } } } })} />
+                            <ColorRow label="Flash color" value={draft.weather.lighting.thunder.flashColor} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, flashColor: v } } } })} />
+                            <SliderRow label="Intensity" value={draft.weather.lighting.thunder.flashIntensity} min={0} max={8} step={0.1} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, flashIntensity: v } } } })} />
+                            <SliderRow label="Duration (ms)" value={draft.weather.lighting.thunder.durationMs} min={100} max={2000} step={50} decimals={0} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, durationMs: v } } } })} />
+                            <SliderRow label="Stutters" value={draft.weather.lighting.thunder.stutterCount} min={1} max={6} step={1} decimals={0} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, lighting: { ...p.weather!.lighting, thunder: { ...p.weather!.lighting.thunder!, stutterCount: v } } } })} />
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    <details style={{ marginTop: '12px' }}>
+                      <summary style={{ cursor: 'pointer', color: '#60a5fa', fontSize: '13px' }}>Advanced: edit emitters JSON</summary>
+                      <EmitterJsonEditor emitters={draft.weather.emitters} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, emitters: v } })} />
+                    </details>
+                  </>
+                )}
+              </Section>
+
+              <Section title="Time of day">
+                {draft.timeOfDay === null ? (
+                  <div className="scene-admin-row">
+                    <button type="button" onClick={() => setDraft((p) => p === null ? p : { ...p, timeOfDay: { mode: 'fixed', fixedPhase: 'noon' } })}>
+                      Add time of day
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <RadioRow label="Mode" value={draft.timeOfDay.mode} options={[{ label: 'None', value: 'none' }, { label: 'Fixed', value: 'fixed' }, { label: 'Auto', value: 'auto' }, { label: 'Server', value: 'server' }]} onChange={(v) => {
+                      if (v === 'none') {
+                        setDraft((p) => p === null ? p : { ...p, timeOfDay: null });
+                      } else {
+                        setDraft((p) => p === null ? p : { ...p, timeOfDay: { mode: v as 'fixed' | 'auto' | 'server', fixedPhase: 'noon' } });
+                      }
+                    }} />
+                    {draft.timeOfDay.mode === 'fixed' && (
+                      <StringSelectRow label="Phase" value={draft.timeOfDay.fixedPhase ?? 'noon'} options={TIME_PHASES} onChange={(v) => setDraft((p) => p === null ? p : { ...p, timeOfDay: { ...p.timeOfDay!, fixedPhase: v as TimePhase } })} />
+                    )}
+                    {draft.timeOfDay.mode === 'auto' && (
+                      <>
+                        <StringSelectRow label="Start phase" value={draft.timeOfDay.startPhase ?? 'dawn'} options={TIME_PHASES} onChange={(v) => setDraft((p) => p === null ? p : { ...p, timeOfDay: { ...p.timeOfDay!, startPhase: v as TimePhase } })} />
+                        <SliderRow label="Cycle (min)" value={(draft.timeOfDay.cycleDurationMs ?? 60000) / 60000} min={0.5} max={60} step={0.5} decimals={1} onChange={(v) => setDraft((p) => p === null ? p : { ...p, timeOfDay: { ...p.timeOfDay!, cycleDurationMs: v * 60000 } })} />
+                      </>
+                    )}
+                    {draft.timeOfDay.mode === 'server' && (
+                      <p className="scene-admin-note" style={{ margin: '8px 16px' }}>Server mode follows the globally broadcast auto-cycle.</p>
+                    )}
+                  </>
+                )}
+              </Section>
             </fieldset>
           </aside>
         </>
@@ -572,6 +708,61 @@ function RadioRow({ label, value, options, onChange }: {
           </label>
         ))}
       </div>
+    </div>
+  );
+}
+
+function StringSelectRow({ label, value, options, onChange }: {
+  readonly label: string;
+  readonly value: string;
+  readonly options: readonly string[];
+  readonly onChange: (value: string) => void;
+}): JSX.Element {
+  return (
+    <label className="scene-admin-row scene-admin-row--select">
+      <span className="scene-admin-label">{label}</span>
+      <select value={value} onChange={(e) => onChange(e.currentTarget.value)}>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      <span className="scene-admin-value">{value}</span>
+    </label>
+  );
+}
+
+function EmitterJsonEditor({ emitters, onChange }: { readonly emitters: readonly any[]; readonly onChange: (emitters: readonly any[]) => void }): JSX.Element {
+  const [text, setText] = useState(() => JSON.stringify(emitters, null, 2));
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setText(JSON.stringify(emitters, null, 2));
+    setError(null);
+  }, [emitters]);
+
+  const handleBlur = () => {
+    try {
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Emitters must be an array');
+      onChange(parsed);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid JSON');
+      alert('Invalid emitter JSON: reverting.');
+      setText(JSON.stringify(emitters, null, 2));
+    }
+  };
+
+  return (
+    <div className="scene-admin-row" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '12px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
+        <span className="scene-admin-label">Emitters JSON</span>
+        {error !== null && <span style={{ color: '#f87171', fontSize: '0.8rem' }}>{error}</span>}
+      </div>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.currentTarget.value)}
+        onBlur={handleBlur}
+        style={{ width: '100%', minHeight: '200px', fontFamily: 'monospace', fontSize: '13px', background: '#0d1117', color: '#e5e7eb', border: '1px solid #374151', padding: '8px', borderRadius: '4px' }}
+      />
     </div>
   );
 }

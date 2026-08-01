@@ -1,10 +1,20 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three-stdlib';
 
+import type {
+  ParticleEmitterConfig,
+  TimeOfDayConfig,
+  WeatherConfig,
+} from '@digiworld/shared/weather';
+
 import { RUNNERS } from './attack-runners';
 import type { AnimatedElement, AttackEffect3D, Runner3D } from './attack-runners/types';
 import { DEFAULT_EFFECT_DURATION_S, ELEMENT_LIGHT_COLOR } from './attack-runners/types';
 import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPosition, type SpriteRigConfig, type SpriteSide } from './sprite-rig';
+import { ParticleEmitter } from './particles/ParticleEmitter';
+import { ThunderFlashController } from './particles/ThunderFlashController';
+import { WEATHER_EMITTER_PRESETS } from './particles/presets';
+import { TimeOfDayDriver, interpolatePhases, type PhasePreset } from './time-of-day';
 
 export type SpriteInit = SpriteRigConfig;
 
@@ -457,6 +467,17 @@ export class SceneManager {
   private currentArenaOffsetZ = 0;
   private currentCameraType: 'ortho' | 'perspective' = 'ortho';
   private currentCamFov = 45;
+
+  private readonly activeEmitters: Map<string, ParticleEmitter> = new Map();
+  private readonly fadingEmitters: Array<{ emitter: ParticleEmitter; elapsedS: number; durationS: number }> = [];
+  private currentWeather: WeatherConfig | null = null;
+  private thunder: ThunderFlashController | null = null;
+  private weatherFade: { elapsedS: number; durationS: number; active: boolean } = { elapsedS: 0, durationS: 0, active: false };
+  private baseSunColor = 0xfff2d0;
+  private baseSunIntensity = 1.0;
+  private baseHemiIntensity = 0.62;
+  private timeDriver: TimeOfDayDriver | null = null;
+  private phaseBlend: { fromPreset: PhasePreset; toPreset: PhasePreset; elapsedS: number; durationS: number; active: boolean } | null = null;
   private currentArenaUrl: string | null = null;
   private currentArenaKey: string | null = null;
   private readonly heightFogUniforms = { fogHeight: { value: 2.0 } };
@@ -844,6 +865,160 @@ export class SceneManager {
     this.rimLight.intensity = 0.0;
     this.fillLight.intensity = 0.0;
     await this.loadArenaModel(url);
+  }
+
+  /**
+   * Apply a weather config: install new particle emitters, fade out old ones,
+   * apply lighting override, wire the thunder controller when requested.
+   * A null config clears weather back to the current scene atmosphere.
+   */
+  setWeather(config: WeatherConfig | null): void {
+    if (this.disposedFlag) return;
+
+    // Fade out current emitters over the transitionMs of the OUTGOING config
+    // (fall back to the incoming one, then a safe default).
+    const outgoingFadeMs = this.currentWeather?.transitionMs ?? config?.transitionMs ?? 2000;
+    for (const emitter of this.activeEmitters.values()) {
+      this.fadingEmitters.push({ emitter, elapsedS: 0, durationS: outgoingFadeMs / 1000 });
+    }
+    this.activeEmitters.clear();
+
+    if (this.thunder !== null) {
+      this.thunder.dispose();
+      this.thunder = null;
+    }
+
+    if (config === null) {
+      this.currentWeather = null;
+      this.weatherFade = { elapsedS: 0, durationS: outgoingFadeMs / 1000, active: true };
+      return;
+    }
+
+    // Resolve emitter list — inline emitters replace preset; empty falls back to preset.
+    const emitters: readonly ParticleEmitterConfig[] =
+      config.emitters.length > 0
+        ? config.emitters
+        : (WEATHER_EMITTER_PRESETS[config.preset]?.emitters ?? []);
+
+    for (const emCfg of emitters) {
+      const emitter = new ParticleEmitter(this.scene, emCfg);
+      emitter.setCameraReference(this.camera);
+      emitter.setOpacityMultiplier(0);
+      this.activeEmitters.set(emCfg.id, emitter);
+    }
+
+    this.applyWeatherLighting(config);
+
+    if (config.lighting.thunder?.enabled === true) {
+      this.thunder = new ThunderFlashController(config.lighting.thunder, this.keyLight, this.hemi);
+    }
+
+    this.currentWeather = config;
+    const transitionMs = config.transitionMs ?? 2000;
+    this.weatherFade = { elapsedS: 0, durationS: transitionMs / 1000, active: true };
+  }
+
+  private applyWeatherLighting(config: WeatherConfig): void {
+    const lighting = config.lighting;
+    if (lighting.sunColor !== undefined) this.keyLight.color.setHex(lighting.sunColor);
+    if (lighting.sunIntensityMult !== undefined) {
+      this.keyLight.intensity = this.baseSunIntensity * lighting.sunIntensityMult;
+    }
+    if (lighting.ambientTint !== undefined) this.hemi.color.setHex(lighting.ambientTint);
+    if (lighting.ambientDimMult !== undefined) {
+      this.hemi.intensity = this.baseHemiIntensity * lighting.ambientDimMult;
+    }
+    if (lighting.fogEnabled === true) {
+      const color = lighting.fogColor ?? this.atmosphere.fogColor;
+      const density = lighting.fogDensity ?? 0.04;
+      this.scene.fog = new THREE.FogExp2(color, density);
+    } else if (lighting.fogEnabled === false) {
+      this.scene.fog = null;
+    }
+    if (lighting.exposureMult !== undefined) {
+      this.renderer.toneMappingExposure = this.atmosphere.exposure * lighting.exposureMult;
+    }
+  }
+
+  /**
+   * Configure the time-of-day driver. Null clears it and restores the current
+   * atmosphere's baseline. A change kicks off a crossfade between the last
+   * phase preset and the new driver's first preset.
+   */
+  setTimeOfDay(config: TimeOfDayConfig | null): void {
+    if (this.disposedFlag) return;
+    if (config === null) {
+      this.timeDriver = null;
+      this.phaseBlend = null;
+      return;
+    }
+    const nextDriver = new TimeOfDayDriver(config);
+    nextDriver.tick(performance.now());
+    const from = this.phaseBlend?.toPreset ?? this.timeDriver?.currentPreset ?? nextDriver.currentPreset;
+    this.timeDriver = nextDriver;
+    this.phaseBlend = {
+      fromPreset: from,
+      toPreset: nextDriver.currentPreset,
+      elapsedS: 0,
+      durationS: 2.0,
+      active: true,
+    };
+  }
+
+  private tickWeather(dt: number): void {
+    const OPACITY_FLOOR = 0.001;
+    if (this.weatherFade.active) {
+      this.weatherFade.elapsedS += dt;
+      const t = Math.min(1, this.weatherFade.elapsedS / Math.max(0.0001, this.weatherFade.durationS));
+      for (const emitter of this.activeEmitters.values()) emitter.setOpacityMultiplier(t);
+      if (t >= 1) this.weatherFade.active = false;
+    }
+    for (const emitter of this.activeEmitters.values()) emitter.tick(dt);
+
+    for (let i = this.fadingEmitters.length - 1; i >= 0; i -= 1) {
+      const entry = this.fadingEmitters[i]!;
+      entry.elapsedS += dt;
+      const t = 1 - Math.min(1, entry.elapsedS / Math.max(0.0001, entry.durationS));
+      entry.emitter.setOpacityMultiplier(t);
+      entry.emitter.tick(dt);
+      if (t <= OPACITY_FLOOR) {
+        entry.emitter.dispose();
+        this.fadingEmitters.splice(i, 1);
+      }
+    }
+
+    if (this.thunder !== null) this.thunder.tick(dt, performance.now());
+  }
+
+  private tickTimeOfDay(dt: number): void {
+    if (this.timeDriver === null) return;
+    this.timeDriver.tick(performance.now());
+
+    let preset = this.timeDriver.currentPreset;
+    if (this.phaseBlend?.active === true) {
+      this.phaseBlend.elapsedS += dt;
+      const t = Math.min(1, this.phaseBlend.elapsedS / this.phaseBlend.durationS);
+      preset = interpolatePhases(this.phaseBlend.fromPreset, this.phaseBlend.toPreset, t);
+      if (t >= 1) {
+        this.phaseBlend.active = false;
+        this.phaseBlend.fromPreset = this.phaseBlend.toPreset;
+      }
+    }
+
+    // Apply preset to sun / hemi / exposure. Weather lighting overrides these,
+    // so time-of-day only writes when NO weather is currently active.
+    if (this.currentWeather === null) {
+      this.keyLight.color.setHex(preset.sunColor);
+      this.keyLight.intensity = preset.sunIntensity;
+      this.keyLight.position.set(preset.sunPosition[0], preset.sunPosition[1], preset.sunPosition[2]);
+      this.hemi.color.setHex(preset.hemiSky);
+      this.hemi.groundColor.setHex(preset.hemiGround);
+      this.hemi.intensity = preset.hemiIntensity;
+      this.renderer.toneMappingExposure = this.atmosphere.exposure * preset.exposureMultiplier;
+      this.baseSunColor = preset.sunColor;
+      this.baseSunIntensity = preset.sunIntensity;
+      this.baseHemiIntensity = preset.hemiIntensity;
+    }
   }
 
   private normalizeArenaTransform(root: THREE.Object3D): void {
@@ -1282,6 +1457,8 @@ export class SceneManager {
         basePos[2] + Math.cos(swayPhase) * 0.35,
       );
       this.hemi.intensity = this.atmosphere.hemiIntensity + Math.sin(elapsed * 0.28) * 0.03;
+      this.tickTimeOfDay(dt);
+      this.tickWeather(dt);
       const toRemove: string[] = [];
       for (const [id, ctx] of this.effects.entries()) {
         ctx.elapsed += dt;
@@ -1325,6 +1502,14 @@ export class SceneManager {
     if (this.disposedFlag) return;
     this.disposedFlag = true;
     this.stopLoop();
+    for (const emitter of this.activeEmitters.values()) emitter.dispose();
+    this.activeEmitters.clear();
+    for (const entry of this.fadingEmitters) entry.emitter.dispose();
+    this.fadingEmitters.length = 0;
+    if (this.thunder !== null) {
+      this.thunder.dispose();
+      this.thunder = null;
+    }
     for (const ctx of this.effects.values()) ctx.runner.dispose();
     this.effects.clear();
     for (const sprite of this.sprites.values()) sprite.dispose();
