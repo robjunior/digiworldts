@@ -99,6 +99,8 @@ export type WorldObject = {
   readonly elements?: readonly Element[];
   readonly minLevel?: number;
   readonly maxLevel?: number;
+  /** Object is hidden from listWorldObjects until this flag is set on the caller. NULL = always visible. */
+  readonly hiddenUntilFlag?: string;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
