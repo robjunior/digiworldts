@@ -13,6 +13,8 @@ import { config } from '../../config.js';
 import { log } from '../../util/log.js';
 
 import { DiscordOAuthProvider } from './discord.js';
+import { FacebookOAuthProvider } from './facebook.js';
+import { GoogleOAuthProvider } from './google.js';
 import type { OAuthProvider } from './types.js';
 
 let registryCache: ReadonlyMap<string, OAuthProvider> | null = null;
@@ -22,6 +24,12 @@ function buildRegistry(): ReadonlyMap<string, OAuthProvider> {
   const map = new Map<string, OAuthProvider>();
   if (enabled.has('discord')) {
     map.set('discord', new DiscordOAuthProvider());
+  }
+  if (enabled.has('google')) {
+    map.set('google', new GoogleOAuthProvider());
+  }
+  if (enabled.has('facebook')) {
+    map.set('facebook', new FacebookOAuthProvider());
   }
   log.info('oauth.registry.built', { providers: [...map.keys()] });
   return map;

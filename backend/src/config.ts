@@ -67,6 +67,12 @@ const ConfigSchema = z.object({
   DISCORD_OAUTH_CLIENT_ID: z.string().optional(),
   DISCORD_OAUTH_CLIENT_SECRET: z.string().optional(),
   DISCORD_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  FACEBOOK_OAUTH_CLIENT_ID: z.string().optional(),
+  FACEBOOK_OAUTH_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_OAUTH_REDIRECT_URI: z.string().url().optional(),
 }).refine((c) => c.CLUSTER !== 'redis' || (c.REDIS_URL && c.REDIS_URL.length > 0), {
   message: 'REDIS_URL is required when CLUSTER=redis',
   path: ['REDIS_URL'],
@@ -80,6 +86,22 @@ const ConfigSchema = z.object({
   {
     message: 'DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET are required when OAUTH_ENABLED_PROVIDERS includes discord',
     path: ['DISCORD_OAUTH_CLIENT_ID'],
+  },
+).refine(
+  (c) => !c.OAUTH_ENABLED_PROVIDERS.includes('google')
+    || (c.GOOGLE_OAUTH_CLIENT_ID && c.GOOGLE_OAUTH_CLIENT_ID.length > 0
+        && c.GOOGLE_OAUTH_CLIENT_SECRET && c.GOOGLE_OAUTH_CLIENT_SECRET.length > 0),
+  {
+    message: 'GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET are required when OAUTH_ENABLED_PROVIDERS includes google',
+    path: ['GOOGLE_OAUTH_CLIENT_ID'],
+  },
+).refine(
+  (c) => !c.OAUTH_ENABLED_PROVIDERS.includes('facebook')
+    || (c.FACEBOOK_OAUTH_CLIENT_ID && c.FACEBOOK_OAUTH_CLIENT_ID.length > 0
+        && c.FACEBOOK_OAUTH_CLIENT_SECRET && c.FACEBOOK_OAUTH_CLIENT_SECRET.length > 0),
+  {
+    message: 'FACEBOOK_OAUTH_CLIENT_ID and FACEBOOK_OAUTH_CLIENT_SECRET are required when OAUTH_ENABLED_PROVIDERS includes facebook',
+    path: ['FACEBOOK_OAUTH_CLIENT_ID'],
   },
 );
 
