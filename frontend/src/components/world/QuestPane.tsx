@@ -85,6 +85,10 @@ function QuestCard({ quest, biomeMeta, busy, onAreaClick, onAccept, onClaim, onL
   const total = quest.objectives.length;
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   const firstUnfinished = quest.objectives.find((o) => o.doneAt === null);
+  const firstUnfinishedBiome = firstUnfinished !== undefined
+    && (firstUnfinished.kind === 'travel' || firstUnfinished.kind === 'defeat')
+    ? firstUnfinished.biome
+    : null;
   const showProgress = quest.state === 'active' || quest.state === 'completed';
 
   return (
@@ -113,7 +117,7 @@ function QuestCard({ quest, biomeMeta, busy, onAreaClick, onAccept, onClaim, onL
       <QuestFooter
         quest={quest}
         busy={busy}
-        firstUnfinishedBiome={firstUnfinished?.biome ?? null}
+        firstUnfinishedBiome={firstUnfinishedBiome}
         onAccept={onAccept}
         onClaim={onClaim}
         onLocate={onLocate}

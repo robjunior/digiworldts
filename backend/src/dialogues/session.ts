@@ -6,6 +6,7 @@ import { log } from '../util/log.js';
 import { partyRating } from '../world/engine.js';
 import { getDialogue } from './repo.js';
 import { applyEntryActions, evaluateCondition, visibleChoices, type DialogueRuntimeContext } from './runtime.js';
+import { bumpTalkObjectives } from '../quests/repo.js';
 import { emit } from '../telemetry/emit.js';
 
 const CURSOR_TTL_SEC = 30 * 60;
@@ -82,6 +83,7 @@ async function enter(
 ): Promise<DialogueView> {
   await applyEntryActions(node, ctx);
   if (node.speaker !== null) {
+    await bumpTalkObjectives(ctx.userId, node.speaker.npcId);
     emit({
       event: 'dialogue.choice',
       userId: ctx.userId,

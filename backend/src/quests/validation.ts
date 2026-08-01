@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Quest, QuestObjective, QuestStep, WorldObject } from '@digiworld/shared/quest';
-import { ELEMENTS } from '@digiworld/shared/digimon';
+import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { BIOMES } from '@digiworld/shared/world';
 
 const DialogueIdSchema = z.string().trim().min(1).max(120);
@@ -50,6 +50,24 @@ const QuestObjectiveSchema = z.discriminatedUnion('kind', [
     kind: z.literal('defeat'),
     biome: z.enum(BIOMES),
     element: z.enum(ELEMENTS).optional(),
+    count: z.number().int().min(1).max(999),
+    text: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    kind: z.literal('talk'),
+    npcId: z.string().trim().min(1).max(80),
+    text: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    kind: z.literal('collect'),
+    itemId: z.string().trim().min(1).max(80),
+    qty: z.number().int().min(1).max(999),
+    text: z.string().trim().min(1).max(500),
+  }),
+  z.object({
+    kind: z.literal('capture'),
+    catalogId: z.string().trim().min(1).max(80).optional(),
+    stage: z.enum(STAGES).optional(),
     count: z.number().int().min(1).max(999),
     text: z.string().trim().min(1).max(500),
   }),
@@ -132,16 +150,30 @@ function strictQuestStep(input: QuestInput['steps'][number]): QuestStep {
 }
 
 function strictQuestObjective(input: NonNullable<QuestInput['objectives']>[number]): QuestObjective {
-  if (input.kind === 'travel') {
-    return { kind: 'travel', biome: input.biome, text: input.text };
+  switch (input.kind) {
+    case 'travel':
+      return { kind: 'travel', biome: input.biome, text: input.text };
+    case 'defeat':
+      return {
+        kind: 'defeat',
+        biome: input.biome,
+        count: input.count,
+        text: input.text,
+        ...(input.element !== undefined ? { element: input.element } : {}),
+      };
+    case 'talk':
+      return { kind: 'talk', npcId: input.npcId, text: input.text };
+    case 'collect':
+      return { kind: 'collect', itemId: input.itemId, qty: input.qty, text: input.text };
+    case 'capture':
+      return {
+        kind: 'capture',
+        count: input.count,
+        text: input.text,
+        ...(input.catalogId !== undefined ? { catalogId: input.catalogId } : {}),
+        ...(input.stage !== undefined ? { stage: input.stage } : {}),
+      };
   }
-  return {
-    kind: 'defeat',
-    biome: input.biome,
-    count: input.count,
-    text: input.text,
-    ...(input.element !== undefined ? { element: input.element } : {}),
-  };
 }
 
 export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt' | 'updatedAt'> {

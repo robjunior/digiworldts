@@ -9,7 +9,7 @@ import type {
   WorldObjectAdjacent,
 } from '@digiworld/shared/quest';
 import type { Biome } from '@digiworld/shared/world';
-import type { Element } from '@digiworld/shared/digimon';
+import type { Element, Stage } from '@digiworld/shared/digimon';
 import type { DbExecutor } from '../db/executor.js';
 import { one, q, run, tx } from '../db/index.js';
 import { newId } from '../util/ids.js';
@@ -509,6 +509,58 @@ export async function bumpDefeatObjectives(
       const p = progress[i];
       if (!p || p.doneAt !== null) return;
       const next = Math.min(obj.count, p.counter + hits);
+      progress[i] = { counter: next, doneAt: next >= obj.count ? now : null };
+      changed = true;
+    });
+    return { changed, progress };
+  });
+}
+
+export async function bumpTalkObjectives(userId: string, npcId: string): Promise<void> {
+  await applyObjectiveUpdate(userId, (quest, progress) => {
+    let changed = false;
+    const now = Date.now();
+    quest.objectives?.forEach((obj, i) => {
+      if (obj.kind !== 'talk') return;
+      if (obj.npcId !== npcId) return;
+      const p = progress[i];
+      if (!p || p.doneAt !== null) return;
+      progress[i] = { counter: 1, doneAt: now };
+      changed = true;
+    });
+    return { changed, progress };
+  });
+}
+
+export async function bumpCollectObjectives(userId: string, itemId: string, qty = 1): Promise<void> {
+  if (qty <= 0) return;
+  await applyObjectiveUpdate(userId, (quest, progress) => {
+    let changed = false;
+    const now = Date.now();
+    quest.objectives?.forEach((obj, i) => {
+      if (obj.kind !== 'collect') return;
+      if (obj.itemId !== itemId) return;
+      const p = progress[i];
+      if (!p || p.doneAt !== null) return;
+      const next = Math.min(obj.qty, p.counter + qty);
+      progress[i] = { counter: next, doneAt: next >= obj.qty ? now : null };
+      changed = true;
+    });
+    return { changed, progress };
+  });
+}
+
+export async function bumpCaptureObjectives(userId: string, catalogId: string, stage: Stage): Promise<void> {
+  await applyObjectiveUpdate(userId, (quest, progress) => {
+    let changed = false;
+    const now = Date.now();
+    quest.objectives?.forEach((obj, i) => {
+      if (obj.kind !== 'capture') return;
+      if (obj.catalogId !== undefined && obj.catalogId !== catalogId) return;
+      if (obj.stage !== undefined && obj.stage !== stage) return;
+      const p = progress[i];
+      if (!p || p.doneAt !== null) return;
+      const next = Math.min(obj.count, p.counter + 1);
       progress[i] = { counter: next, doneAt: next >= obj.count ? now : null };
       changed = true;
     });

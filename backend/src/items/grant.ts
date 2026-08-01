@@ -1,5 +1,6 @@
 import type { DbExecutor } from '../db/executor.js';
 import { execOne, execRun } from '../db/executor.js';
+import { bumpCollectObjectives } from '../quests/repo.js';
 
 const SQL_GRANT = `
   INSERT INTO player_inventory (user_id, item_id, qty, updated_at)
@@ -23,6 +24,11 @@ function assertPositive(qty: number, caller: string): void {
 export async function grantItem(userId: string, itemId: string, qty = 1, now = Date.now(), ex?: DbExecutor): Promise<void> {
   assertPositive(qty, 'grantItem');
   await execRun(ex, SQL_GRANT, [userId, itemId, qty, now]);
+  if (ex === undefined) {
+    try {
+      await bumpCollectObjectives(userId, itemId, qty);
+    } catch { /* best-effort — a quest-bump failure never blocks an item grant */ }
+  }
 }
 
 /**
