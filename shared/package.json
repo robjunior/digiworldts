@@ -70,6 +70,10 @@
       "types": "./dist/dialogue-expr.d.ts",
       "import": "./dist/dialogue-expr.js"
     },
+    "./npc": {
+      "types": "./dist/npc.d.ts",
+      "import": "./dist/npc.js"
+    },
     "./telemetry": {
       "types": "./dist/telemetry.d.ts",
       "import": "./dist/telemetry.js"

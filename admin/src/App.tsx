@@ -9,6 +9,7 @@ const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admi
 const AdminWorld = lazy(() => import('./routes/AdminWorld').then((m) => ({ default: m.AdminWorld })));
 const AdminDungeon = lazy(() => import('./routes/AdminDungeon').then((m) => ({ default: m.AdminDungeon })));
 const AdminParticleEditor = lazy(() => import('./routes/AdminParticleEditor').then((m) => ({ default: m.AdminParticleEditor })));
+const AdminSimulator = lazy(() => import('./routes/AdminSimulator').then((m) => ({ default: m.AdminSimulator })));
 
 /**
  * Admin app root.
@@ -55,6 +56,14 @@ export function App(): JSX.Element {
             element={
               <AdminGuard>
                 <AdminParticleEditor />
+              </AdminGuard>
+            }
+          />
+          <Route
+            path="/dialogues/:id/simulate"
+            element={
+              <AdminGuard>
+                <AdminSimulator />
               </AdminGuard>
             }
           />

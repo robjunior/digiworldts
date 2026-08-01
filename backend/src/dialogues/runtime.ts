@@ -11,6 +11,8 @@ import { tx } from '../db/index.js';
 import { clearFlag, hasFlag, setFlag } from '../flags/repo.js';
 import { grantItem, hasItem, removeItem } from '../items/grant.js';
 import { startQuestWithin } from '../quests/repo.js';
+import type { CrossRefChecker } from './xref.js';
+import { unresolvedReferences } from './xref.js';
 
 export class DialogueRuntimeError extends Error {}
 
@@ -228,4 +230,23 @@ export function parseAndValidate(source: string, dialogueId: string): DialoguePa
   const unsupported = unsupportedNames(result.definition);
   if (unsupported.length === 0) return result;
   return { ...result, definition: null, errors: [...result.errors, ...unsupported] };
+}
+
+/**
+ * Extended validation that additionally cross-references every symbolic id
+ * against the DB (see xref.ts). Callers that have a `CrossRefChecker` on hand
+ * should prefer this; a fresh checker is a one-round-trip prefetch, so a
+ * caller processing many files (like the folder sync) builds it ONCE and
+ * hands it in on every parse.
+ */
+export function parseAndValidateWithRefs(
+  source: string,
+  dialogueId: string,
+  checker: CrossRefChecker,
+): DialogueParseResult {
+  const parsed = parseAndValidate(source, dialogueId);
+  if (parsed.definition === null) return parsed;
+  const unresolved = unresolvedReferences(parsed.definition, checker);
+  if (unresolved.length === 0) return parsed;
+  return { ...parsed, definition: null, errors: [...parsed.errors, ...unresolved] };
 }

@@ -5,6 +5,8 @@ import { AdminGuard } from '../components/admin/AdminGuard';
 import { CatalogTable } from '../components/admin/CatalogTable';
 import { DungeonsAdmin } from '../components/admin/DungeonsAdmin';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
+import { NpcsAdmin } from '../components/admin/NpcsAdmin';
+import { OnboardingAdmin } from '../components/admin/OnboardingAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
 import { QuestsAdmin } from '../components/admin/QuestsAdmin';
 import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
@@ -26,10 +28,12 @@ const ADMIN_TABS = [
   { id: 'scraped', label: 'Scraped' },
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
+  { id: 'npcs', label: 'NPCs' },
   { id: 'shop', label: 'Shop Admin' },
   { id: 'quests', label: 'Quests' },
   { id: 'dungeons', label: 'Dungeons' },
   { id: 'tilesets', label: 'Tilesets' },
+  { id: 'onboarding', label: 'Onboarding' },
   { id: 'scene', label: 'Scene' },
   { id: 'settings', label: 'Settings' },
 ] as const;
@@ -89,6 +93,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <CatalogTable />;
     case 'skills':
       return <SkillsAdmin />;
+    case 'npcs':
+      return <NpcsAdmin />;
     case 'shop':
       return <ShopAdmin />;
     case 'quests':
@@ -97,6 +103,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <DungeonsAdmin />;
     case 'tilesets':
       return <TilesetsAdmin />;
+    case 'onboarding':
+      return <OnboardingAdmin />;
     case 'scene':
       return <SceneSettingsAdmin />;
     case 'settings':

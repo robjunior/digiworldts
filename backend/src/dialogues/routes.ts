@@ -5,9 +5,11 @@ import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import { deleteDialogue, getDialogue, listDialogues, saveDialogue } from './repo.js';
-import { parseAndValidate } from './runtime.js';
+import { parseAndValidateWithRefs } from './runtime.js';
 import { abandonDialogue, advanceDialogue, startDialogue } from './session.js';
+import { simulate } from './simulate.js';
 import { syncDialogueFolder } from './sync.js';
+import { buildCrossRefChecker } from './xref.js';
 
 const DialogueIdSchema = z.string().trim().min(1).max(120).regex(/^[A-Za-z0-9._/-]+$/, 'dialogue id may only contain letters, numbers, dot, underscore, slash, hyphen');
 
@@ -23,6 +25,23 @@ const ImportSchema = z.object({
 const PreviewSchema = z.object({
   dialogueId: DialogueIdSchema.optional(),
   source: z.string().min(1).max(1_000_000),
+});
+
+const SimulatorStepSchema = z.object({
+  nodeId: z.string().trim().min(1).max(200),
+  choiceId: z.string().trim().min(1).max(200),
+});
+
+const SimulatorOverridesSchema = z.object({
+  level: z.number().int().min(1).max(999).optional(),
+  playerName: z.string().trim().min(1).max(64).optional(),
+  flags: z.array(z.string().trim().min(1).max(200)).max(200).optional(),
+  items: z.record(z.string().trim().min(1).max(200), z.number().int().nonnegative().max(1_000_000)).optional(),
+});
+
+const SimulatorRequestSchema = z.object({
+  overrides: SimulatorOverridesSchema.default({}),
+  history: z.array(SimulatorStepSchema).max(500).default([]),
 });
 
 export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> => {
@@ -67,7 +86,8 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     await requireAdmin(req, reply);
     const parsed = PreviewSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
-    const result = parseAndValidate(parsed.data.source, parsed.data.dialogueId ?? 'preview');
+    const checker = await buildCrossRefChecker();
+    const result = parseAndValidateWithRefs(parsed.data.source, parsed.data.dialogueId ?? 'preview', checker);
     return reply.send({
       ok: result.definition !== null,
       stats: result.stats,
@@ -83,7 +103,8 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     await requireAdmin(req, reply);
     const parsed = ImportSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
-    const result = parseAndValidate(parsed.data.source, parsed.data.dialogueId);
+    const checker = await buildCrossRefChecker();
+    const result = parseAndValidateWithRefs(parsed.data.source, parsed.data.dialogueId, checker);
     if (result.definition === null) {
       return reply.code(400).send({ error: 'invalid-twee', errors: result.errors, warnings: result.warnings });
     }
@@ -112,5 +133,21 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     if (!removed) return reply.code(404).send({ error: 'dialogue-not-found' });
     log.info('dialogue.delete.ok', { dialogueId: req.params.id });
     return reply.send({ ok: true });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dialogues/:id/simulate', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const parsed = SimulatorRequestSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    const result = await simulate({
+      dialogueId: req.params.id,
+      overrides: parsed.data.overrides,
+      history: parsed.data.history,
+    });
+    if (!result.ok) {
+      const code = result.failure.kind === 'unknown-dialogue' ? 404 : 400;
+      return reply.code(code).send({ error: result.failure.kind, failure: result.failure });
+    }
+    return reply.send({ view: result.view });
   });
 };

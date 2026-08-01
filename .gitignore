@@ -55,6 +55,8 @@ data/*.db-shm
 # assets: keep folder shape but not the downloaded blobs (regenerated on startup)
 backend/public/assets/digimon/*/
 !backend/public/assets/digimon/.keep
+backend/public/assets/npc/
+backend/data/scenes/
 
 # frontend build output (created in later phase)
 frontend/dist/

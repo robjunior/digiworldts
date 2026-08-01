@@ -14,13 +14,15 @@ import { log } from '../util/log.js';
 
 const SQL_GET_CONFIG = `SELECT * FROM onboarding_config WHERE id = 1`;
 const SQL_UPSERT_CONFIG = `
-  INSERT INTO onboarding_config (id, intro_dialogue, bg_image, updated_at)
-       VALUES (1, ?, ?, ?)
+  INSERT INTO onboarding_config (id, intro_dialogue, bg_image, intro_dialogue_id, updated_at)
+       VALUES (1, ?, ?, ?, ?)
     ON CONFLICT (id) DO UPDATE
-       SET intro_dialogue = excluded.intro_dialogue,
-           bg_image       = excluded.bg_image,
-           updated_at     = excluded.updated_at
+       SET intro_dialogue    = excluded.intro_dialogue,
+           bg_image          = excluded.bg_image,
+           intro_dialogue_id = excluded.intro_dialogue_id,
+           updated_at        = excluded.updated_at
 `;
+const SQL_DIALOGUE_EXISTS = `SELECT dialogue_id FROM dialogue_definitions WHERE dialogue_id = ?`;
 
 const SQL_LIST_ENABLED = `SELECT * FROM onboarding_teams WHERE enabled = 1 ORDER BY sort_order, name`;
 const SQL_LIST_ALL = `SELECT * FROM onboarding_teams ORDER BY sort_order, name`;
@@ -88,6 +90,7 @@ export type OnboardingTeamView = {
 export type OnboardingConfigView = {
   introDialogue: string;
   bgImage: string;
+  introDialogueId: string | null;
   updatedAt: number | null;
 };
 
@@ -169,12 +172,14 @@ function rowToConfigView(row: OnboardingConfigRow | null): OnboardingConfigView 
     return {
       introDialogue: DEFAULT_INTRO_DIALOGUE,
       bgImage: DEFAULT_BG_IMAGE,
+      introDialogueId: null,
       updatedAt: null,
     };
   }
   return {
     introDialogue: row.intro_dialogue,
     bgImage: row.bg_image,
+    introDialogueId: row.intro_dialogue_id,
     updatedAt: row.updated_at,
   };
 }
@@ -184,7 +189,11 @@ export async function getConfig(): Promise<OnboardingConfigView> {
   return rowToConfigView(row);
 }
 
-export async function updateConfig(input: { introDialogue: string; bgImage: string }): Promise<OnboardingOutcome<OnboardingConfigView>> {
+export async function updateConfig(input: {
+  introDialogue: string;
+  bgImage: string;
+  introDialogueId?: string | null | undefined;
+}): Promise<OnboardingOutcome<OnboardingConfigView>> {
   const dialogue = input.introDialogue?.trim();
   if (!dialogue || dialogue.length < 1 || dialogue.length > 4000) {
     return { ok: false, error: 'invalid-input', message: 'introDialogue must be 1-4000 chars' };
@@ -206,9 +215,20 @@ export async function updateConfig(input: { introDialogue: string; bgImage: stri
       return { ok: false, error: 'invalid-input', message: 'bgImage must not contain quotes, backslashes, angle brackets, or whitespace' };
     }
   }
+  const rawId = input.introDialogueId;
+  const normalisedId: string | null = typeof rawId === 'string' && rawId.trim().length > 0 ? rawId.trim() : null;
+  if (normalisedId !== null) {
+    if (normalisedId.length > 120 || !/^[A-Za-z0-9._/-]+$/.test(normalisedId)) {
+      return { ok: false, error: 'invalid-input', message: 'introDialogueId must be a valid dialogue id (letters, numbers, dot, underscore, slash, hyphen; max 120)' };
+    }
+    const found = await one<{ dialogue_id: string }>(SQL_DIALOGUE_EXISTS, normalisedId);
+    if (found === null) {
+      return { ok: false, error: 'invalid-input', message: `introDialogueId "${normalisedId}" is not in the dialogue registry — import it first, or clear the field to fall back to paragraphs.` };
+    }
+  }
   const now = Date.now();
-  await run(SQL_UPSERT_CONFIG, [dialogue, bg, now]);
-  log.info('onboarding.config.update', { bgSet: bg.length > 0 });
+  await run(SQL_UPSERT_CONFIG, [dialogue, bg, normalisedId, now]);
+  log.info('onboarding.config.update', { bgSet: bg.length > 0, introDialogueIdSet: normalisedId !== null });
   return { ok: true, value: await getConfig() };
 }
 
@@ -403,7 +423,7 @@ export async function seedDefaultOnboarding(): Promise<{ configSeeded: boolean; 
   const configRow = await one<OnboardingConfigRow>(SQL_GET_CONFIG);
   let configSeeded = false;
   if (!configRow) {
-    await run(SQL_UPSERT_CONFIG, [DEFAULT_INTRO_DIALOGUE, DEFAULT_BG_IMAGE, now]);
+    await run(SQL_UPSERT_CONFIG, [DEFAULT_INTRO_DIALOGUE, DEFAULT_BG_IMAGE, null, now]);
     configSeeded = true;
   }
 
