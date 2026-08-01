@@ -1,6 +1,7 @@
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
 import { ELEMENT_TO_ARENA_KEY } from '@digiworld/shared/scene';
 import type { SceneEntity } from '@digiworld/shared/scene';
+import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
@@ -10,6 +11,7 @@ import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
 import { useAuth } from '../../hooks/useAuth';
+import { useWsStore } from '../../state/wsStore';
 
 const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   plant: 'plant',
@@ -61,6 +63,8 @@ type SceneResolution = {
   readonly modelUrl: string | undefined;
   readonly useGlbSettings: boolean;
   readonly settingsPatch: Partial<SceneSettings>;
+  readonly weather: WeatherConfig | null;
+  readonly timeOfDay: TimeOfDayConfig | null;
 };
 
 export type Combat3DSceneHandle = {
@@ -136,6 +140,8 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
             modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey],
             useGlbSettings,
             settingsPatch: useGlbSettings ? {} : extractPatch(scene.settings),
+            weather: scene.weather ?? null,
+            timeOfDay: scene.timeOfDay ?? null,
           });
           return;
         }
@@ -151,6 +157,8 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
         modelUrl,
         useGlbSettings: false,
         settingsPatch: extractPatch(arenaDefaults),
+        weather: null,
+        timeOfDay: null,
       });
     }
     void resolve();
@@ -191,6 +199,32 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
       if (Object.keys(patchToApply).length > 0) manager.applySettings(patchToApply);
     }
   }, [resolution, isAdmin]);
+
+  useEffect(() => {
+    const manager = sceneRef.current;
+    if (manager === null || resolution === null) return;
+    manager.setWeather(resolution.weather);
+    manager.setTimeOfDay(resolution.timeOfDay);
+  }, [resolution]);
+
+  const weatherOverride = useWsStore((s) => s.weatherOverride);
+  useEffect(() => {
+    const manager = sceneRef.current;
+    if (manager === null || resolution === null) return;
+    if (weatherOverride === null) return;
+    const targetsThisScene =
+      (weatherOverride.sceneId === null && weatherOverride.matchId === null) ||
+      (weatherOverride.sceneId !== null && weatherOverride.sceneId === (battle.sceneId ?? null)) ||
+      (weatherOverride.matchId !== null && weatherOverride.matchId === battle.id);
+    if (!targetsThisScene) return;
+    manager.setWeather(weatherOverride.weather);
+    const revertAfter = Math.max(0, weatherOverride.startedAt + weatherOverride.durationMs - Date.now());
+    const t = window.setTimeout(() => {
+      const m = sceneRef.current;
+      if (m !== null) m.setWeather(resolution.weather);
+    }, revertAfter);
+    return () => window.clearTimeout(t);
+  }, [weatherOverride, resolution, battle.id, battle.sceneId]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -92,6 +92,7 @@ function pageScopeFor(pathname: string): string {
   if (pathname.startsWith('/dungeon/')) return 'dungeon-page';
   if (pathname.startsWith('/admin/dungeons/')) return 'admin-dungeon-layout';
   if (pathname === '/admin/world') return 'admin-world-layout';
+  if (pathname === '/admin/particles') return 'admin-layout';
   return '';
 }
 
@@ -159,11 +160,11 @@ const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
     id: 'world',
     label: 'World',
     entries: [
-      { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
-      { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_DIGIDEX, tab: 'tilesets' },
-      { to: '/admin?tab=biomes', label: 'Biome scenes', svg: ICON_WORLD, tab: 'biomes' },
-      { to: '/admin?tab=scene', label: 'Scene (per-arena)', svg: ICON_ARENA, tab: 'scene' },
       { to: '/admin/world', label: 'World Map Editor', svg: ICON_WORLD, route: '/admin/world' },
+      { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
+      { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_FARM, tab: 'tilesets' },
+      { to: '/admin?tab=scene', label: 'Scene', svg: ICON_NURSERY, tab: 'scene' },
+      { to: '/admin/particles', label: 'Particles', svg: ICON_FACTORY, route: '/admin/particles' },
     ],
   },
   {

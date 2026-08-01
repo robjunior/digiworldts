@@ -1,5 +1,6 @@
 import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
+import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
 
 import { invalidateSceneDefaultsCache } from '../lib/scene-defaults';
@@ -24,6 +25,14 @@ type WelcomeState = {
   readonly activeMatches: number;
 };
 
+type WeatherOverrideState = {
+  readonly sceneId: string | null;
+  readonly matchId: string | null;
+  readonly weather: WeatherConfig;
+  readonly durationMs: number;
+  readonly startedAt: number;
+};
+
 type WsState = {
   readonly presence: PresenceUser[];
   readonly presenceCount: number;
@@ -35,6 +44,7 @@ type WsState = {
   readonly battleEvents: BattleEvent[];
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
+  readonly weatherOverride: WeatherOverrideState | null;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
@@ -54,6 +64,7 @@ const initialState = {
   battleEvents: [],
   battleOutcome: null,
   welcome: null,
+  weatherOverride: null,
 } satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -137,6 +148,17 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'scene-updated':
         invalidateScenesCache();
+        return;
+      case 'weather-triggered':
+        set({
+          weatherOverride: {
+            sceneId: msg.sceneId,
+            matchId: msg.matchId,
+            weather: msg.weather,
+            durationMs: msg.durationMs,
+            startedAt: msg.startedAt,
+          },
+        });
         return;
       case 'error':
         return;

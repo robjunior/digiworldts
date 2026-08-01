@@ -1,4 +1,5 @@
 import type { Element } from './digimon.js';
+import type { TimeOfDayConfig, WeatherConfig } from './weather.js';
 
 /**
  * A named scene entity. Scenes are the CRUD-managed replacement for the old
@@ -27,6 +28,8 @@ export type SceneEntity = {
    * GLB provides none, so a bare-geometry GLB won't render pitch-black.
    */
   readonly useGlbSettings?: boolean;
+  readonly weather?: WeatherConfig | null;
+  readonly timeOfDay?: TimeOfDayConfig | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };

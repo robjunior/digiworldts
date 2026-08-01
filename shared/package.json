@@ -22,6 +22,10 @@
       "types": "./dist/scene.d.ts",
       "import": "./dist/scene.js"
     },
+    "./weather": {
+      "types": "./dist/weather.d.ts",
+      "import": "./dist/weather.js"
+    },
     "./auth": {
       "types": "./dist/auth.d.ts",
       "import": "./dist/auth.js"
