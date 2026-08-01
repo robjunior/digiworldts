@@ -11,6 +11,8 @@ import { tx } from '../db/index.js';
 import { clearFlag, hasFlag, setFlag } from '../flags/repo.js';
 import { grantItem, hasItem, removeItem } from '../items/grant.js';
 import { startQuestWithin } from '../quests/repo.js';
+import { addNetcore, hasCredits, hasNetcore } from '../wallet/repo.js';
+import { partyElements, teleportPlayer } from '../world/engine.js';
 import type { CrossRefChecker } from './xref.js';
 import { unresolvedReferences } from './xref.js';
 
@@ -30,6 +32,14 @@ const SQL_CLAIM_ACTION = `
        VALUES (?, ?, ?)
   ON CONFLICT (user_id, action_id) DO NOTHING
 `;
+
+const SQL_BUMP_PARTY_XP = `
+  UPDATE player_roster
+     SET xp = xp + ?, updated_at = ?
+   WHERE user_id = ? AND status = 'party'
+`;
+
+const AREA_FLAG_PREFIX = 'area.unlocked.';
 
 function resolveValue(ref: DialogueValueRef, ctx: DialogueRuntimeContext): DialogueScalar {
   if (ref.kind === 'literal') return ref.value;
@@ -54,12 +64,33 @@ function asCount(value: DialogueScalar | undefined, where: string): number {
   return value;
 }
 
+function asAmount(value: DialogueScalar | undefined, where: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new DialogueRuntimeError(`${where} expects a positive integer amount`);
+  }
+  return value;
+}
+
+function asCoordinate(value: DialogueScalar | undefined, where: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value)) {
+    throw new DialogueRuntimeError(`${where} expects an integer coordinate`);
+  }
+  return value;
+}
+
 type Predicate = (ctx: DialogueRuntimeContext, args: readonly DialogueScalar[], ex?: DbExecutor) => Promise<boolean>;
 
 const PREDICATES: Readonly<Record<string, Predicate>> = {
   flag_enabled: (ctx, args, ex) => hasFlag(ctx.userId, asString(args[0]!, 'flag_enabled'), ex),
   player_has_item: (ctx, args, ex) =>
     hasItem(ctx.userId, asString(args[0]!, 'player_has_item'), asCount(args[1], 'player_has_item'), ex),
+  has_ntc: (ctx, args, ex) => hasNetcore(ctx.userId, asAmount(args[0], 'has_ntc'), ex),
+  has_credits: (ctx, args, ex) => hasCredits(ctx.userId, asAmount(args[0], 'has_credits'), ex),
+  party_has_element: async (ctx, args) => {
+    const target = asString(args[0]!, 'party_has_element');
+    const elements = await partyElements(ctx.userId);
+    return elements.includes(target as (typeof elements)[number]);
+  },
 };
 
 /**
@@ -87,6 +118,23 @@ const ACTIONS: Readonly<Record<string, ActionHandler>> = {
   start_quest: async (ctx, args, ex) => {
     const started = await startQuestWithin(ex, ctx.userId, asString(args[0]!, 'start_quest'));
     return started !== null;
+  },
+  add_ntc: async (ctx, args, ex) => {
+    await addNetcore(ctx.userId, asAmount(args[0], 'add_ntc'), ex);
+    return true;
+  },
+  add_xp: async (ctx, args, ex) => {
+    const delta = asAmount(args[0], 'add_xp');
+    const result = await execRun(ex, SQL_BUMP_PARTY_XP, [delta, Date.now(), ctx.userId]);
+    return result.changes > 0;
+  },
+  teleport: async (ctx, args, ex) => {
+    await teleportPlayer(ctx.userId, asCoordinate(args[0], 'teleport'), asCoordinate(args[1], 'teleport'), ex);
+    return true;
+  },
+  unlock_area: async (ctx, args, ex) => {
+    await setFlag(ctx.userId, `${AREA_FLAG_PREFIX}${asString(args[0]!, 'unlock_area')}`, Date.now(), ex);
+    return true;
   },
 };
 

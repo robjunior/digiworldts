@@ -1,5 +1,7 @@
 import { loadCatalog } from '../digimon/xml.js';
 import { one, q, run, type RosterRow, type ShopItemRow, type WorldPositionRow } from '../db/index.js';
+import type { DbExecutor } from '../db/executor.js';
+import { execRun } from '../db/executor.js';
 import type { BaseStats, Element, Stage, TemplateDigimon } from '../digimon/types.js';
 import { EVOLUTION_LEVELS } from '../digimon/types.js';
 import { MAX_LEVEL, scaleStatsForLevel, STAGE_MULTIPLIER } from '../digimon/element.js';
@@ -21,6 +23,15 @@ const SQL_UPSERT_POSITION = `
 const SQL_SELECT_PARTY = `SELECT * FROM player_roster WHERE user_id = ? AND status = 'party' ORDER BY slot_index`;
 const SQL_COUNT_ALIVE_PARTY = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ? AND status = 'party' AND (revive_at IS NULL OR revive_at <= ?)`;
 const SQL_SELECT_ENABLED_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'item'`;
+const SQL_TELEPORT_UPSERT = `
+  INSERT INTO world_position (user_id, world_seed, x, y, steps_taken, last_move_at, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE
+       SET x = excluded.x,
+           y = excluded.y,
+           last_move_at = excluded.last_move_at,
+           updated_at = excluded.updated_at
+`;
 
 const ENCOUNTER_RATE = 0.18;
 const ITEM_DROP_RATE = 0.08;
@@ -45,6 +56,45 @@ export async function loadOrInitPosition(userId: string): Promise<Position> {
 export async function savePosition(userId: string, pos: Position, stepsTaken: number): Promise<void> {
   const now = Date.now();
   await run(SQL_UPSERT_POSITION, [userId, pos.seed, pos.x, pos.y, stepsTaken, now, now]);
+}
+
+/**
+ * Direct tile-set for the `@do teleport(x, y)` dialogue action.
+ * The `world_seed` in VALUES is only consumed on INSERT (first-init);
+ * on UPDATE the ON CONFLICT clause overrides x/y/timestamps and leaves
+ * the existing seed intact.
+ */
+export async function teleportPlayer(userId: string, x: number, y: number, ex?: DbExecutor): Promise<void> {
+  const now = Date.now();
+  const seed = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+  await execRun(ex, SQL_TELEPORT_UPSERT, [userId, seed, x, y, now, now]);
+}
+
+/**
+ * First party slot's element for the `party_lead_element` dialogue fact.
+ * Returns null when the user has no party — callers can compare against
+ * "fire" etc. without a defensive undefined-check.
+ */
+export async function partyLeadElement(userId: string): Promise<Element | null> {
+  const rows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
+  if (rows.length === 0) return null;
+  const catalog = loadCatalog();
+  const templateById = new Map(catalog.digimons.map((t) => [t.id, t] as const));
+  const lead = rows[0]!;
+  return templateById.get(lead.catalog_id)?.element ?? null;
+}
+
+export async function partyElements(userId: string): Promise<readonly Element[]> {
+  const rows = await q<RosterRow>(SQL_SELECT_PARTY, userId);
+  if (rows.length === 0) return [];
+  const catalog = loadCatalog();
+  const templateById = new Map(catalog.digimons.map((t) => [t.id, t] as const));
+  const out: Element[] = [];
+  for (const r of rows) {
+    const el = templateById.get(r.catalog_id)?.element;
+    if (el !== undefined) out.push(el);
+  }
+  return out;
 }
 
 export async function hasAliveParty(userId: string): Promise<boolean> {
