@@ -34,6 +34,8 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Bind-mounted catalog dir (host XML edits picked up on restart) | commit `1a6ef11` |
 | Session secret persistence + argon2id auth | [`auth/password.ts`](backend/src/auth/password.ts), [`auth/session.ts`](backend/src/auth/session.ts) |
 | First-user-is-admin bootstrap | [`auth/routes.ts`](backend/src/auth/routes.ts) |
+| Numbered schema migrations + dialect suffixes + `schema_versions` ledger | [`db/migrator.ts`](backend/src/db/migrator.ts), 46 migrations under [`db/migrations/`](backend/src/db/migrations/) |
+| Telemetry infra (jsonl + PostHog HTTP sinks, fire-and-forget emit, shutdown flush) | [`shared/src/telemetry.ts`](shared/src/telemetry.ts), [`backend/src/telemetry/emit.ts`](backend/src/telemetry/emit.ts), commit `bc55731` |
 
 ### Combat
 
@@ -66,6 +68,8 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Market | [`market/routes.ts`](backend/src/market/routes.ts) |
 | Digdex | [`dex/routes.ts`](backend/src/dex/routes.ts) |
 | Quests + world objects | [`quests/routes.ts`](backend/src/quests/routes.ts), [`world/routes.ts`](backend/src/world/routes.ts) |
+| Quest objectives (travel, defeat, talk, collect, capture) | [`shared/src/quest.ts`](shared/src/quest.ts), [`backend/src/quests/repo.ts`](backend/src/quests/repo.ts), commit `4e70621` |
+| Narrative persistence via flags (quest gate + auto-set on claim + world-object hiding) | [`backend/src/flags/repo.ts`](backend/src/flags/repo.ts), migration [`046_world_objects_hidden_flag.sql`](backend/src/db/migrations/046_world_objects_hidden_flag.sql), commits `ad0ab62` + `f7247dd` |
 | Onboarding flow (post-starter guided tour) | [`onboarding/engine.ts`](backend/src/onboarding/engine.ts), commit `c995a09` |
 
 ### Meta / social
@@ -90,6 +94,7 @@ Grounded in code reality (see [README.md](README.md) for context). Each row is a
 | Import/export tooling (scoped: all, items, blueprints, catalog, scraped) | [`admin/impex.ts`](backend/src/admin/impex.ts) |
 | Scene + biome save-to-server | commit `e855098` |
 | Local override auto-invalidation + reset button | commit `2554aa5` |
+| Quest editor: typed objectives + narrative flag chips + giver/rewardText/lockHint | [`admin/src/components/admin/QuestsAdmin.tsx`](admin/src/components/admin/QuestsAdmin.tsx), commit `fd77cc5` |
 
 ---
 
@@ -112,10 +117,9 @@ Ordered by size × user impact, smallest × highest first.
 
 See Shipped ▸ Meta / social. Admin-issued token flow at [`auth/reset.ts`](backend/src/auth/reset.ts) (routes `POST /api/admin/users/:id/reset-token` + `POST /api/auth/reset-consume`), hard-reset at [`admin/users.ts:170`](backend/src/admin/users.ts:170). Frontend consume page at [`frontend/src/routes/Reset.tsx`](frontend/src/routes/Reset.tsx).
 
-### N2 — Drop legacy SQLite tables
-- `active_matches` and `matchmaking_queue` are retained only as a one-shot migration source (battle) and admin import/export snapshots. See [`schema.sql:326-333,362-368`](backend/src/db/schema.sql:326).
-- Once we're confident no live deployment predates the cluster refactor, `DROP TABLE` in a schema migration.
-- Blocker: needs a migration story ([`schema.sql`](backend/src/db/schema.sql) has no versioning today — [`db/init.ts`](backend/src/db/init.ts) is idempotent `CREATE TABLE IF NOT EXISTS`).
+### N2 — ~~Drop legacy SQLite tables~~ ✅ shipped
+
+Migration [`001_drop_legacy_tables.sql`](backend/src/db/migrations/001_drop_legacy_tables.sql) drops both `active_matches` and `matchmaking_queue` with `IF EXISTS` guards — portable across SQLite and Postgres, no-op on fresh installs where the baseline schemas never mention them. Regression guard in [`test/migrator-smoke.mts`](backend/test/migrator-smoke.mts) seeds a pre-cluster SQLite DB with the legacy tables + a stale row, applies migrations, and asserts both tables are gone. Blocker (schema migration story) resolved by S6 shipping first.
 
 ### N3 — ~~Chat rooms + DMs~~ ✅ shipped
 
@@ -159,11 +163,13 @@ These have real intent but no scoped design yet.
 - Match log is already persisted (last 120 events per match — see [`SQL_INSERT_MATCH`](backend/src/battle/routes.ts:55)).
 - Add a viewer that plays the log back through the same 3D pipeline.
 
-### S6 — Schema migration framework
-- Prereq for **N2**. Numbered up-migrations + a `schema_versions` table. Straightforward but nobody's owned it yet.
+### S6 — ~~Schema migration framework~~ ✅ shipped
+
+Numbered `NNN_description.sql` files under [`backend/src/db/migrations/`](backend/src/db/migrations/) applied once each in order, tracked in a `schema_versions (version TEXT PK, applied_at BIGINT)` ledger. Runner in [`backend/src/db/migrator.ts`](backend/src/db/migrator.ts) is dialect-aware (`.sqlite.sql`, `.pg.sql`, plain `.sql`) and executes each migration in a transaction; PK-conflict-on-ledger-insert is the race-safe multi-node-boot guard. Wired into both `SqliteAdapter.init` and `PgAdapter.init` after the baseline schema. 46 migrations shipped through `046_world_objects_hidden_flag.sql`. Regression coverage: [`test/migrator-smoke.mts`](backend/test/migrator-smoke.mts) (SQLite legacy-table drop) + [`test/postgres-portability.mts`](backend/test/postgres-portability.mts) (every migration applied against real Postgres 18 via pglite, 420/420 SQL_* constants PREPARE cleanly against the resulting schema).
 
 ### S7 — Observability
-- Structured logs exist ([`util/log.ts`](backend/src/util/log.ts)) but no metrics / traces. Prom exporter + basic dashboards on cluster ops (queue depth, pair latency, match count).
+- **Telemetry infra shipped** — fire-and-forget emitter with 5 s flush window + 100-event batch cap + jsonl sink + PostHog HTTP sink + shutdown flush. Instrumented sites: `auth.signup/login`, `battle.start/end`, `capture.success`, `world.move`, `quest.accept/claim`, `daily.claim`, `market.list/sold`, `flag.set/cleared`. See [`shared/src/telemetry.ts`](shared/src/telemetry.ts) + [`backend/src/telemetry/emit.ts`](backend/src/telemetry/emit.ts) + [`backend/src/telemetry/sink.ts`](backend/src/telemetry/sink.ts). Covers the retention/funnel side.
+- **Still missing** — SRE metrics/traces for the multi-node ops layer. Prometheus exporter + Grafana dashboards on cluster ops (queue depth, pair latency, match count, cross-node WS delivery rate) is the natural next step.
 
 ---
 
