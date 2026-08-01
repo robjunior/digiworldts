@@ -74,6 +74,8 @@ import { startSeasonsTicker, stopSeasonsTicker } from './seasons/ticker.js';
 import { playerPlugin } from './player/routes.js';
 import { servicePlugin } from './service/routes.js';
 import { linkPlugin } from './link/routes.js';
+import { npcsPlugin } from './npcs/routes.js';
+import { seedInitialNpcs } from './npcs/seed.js';
 
 async function main(): Promise<void> {
   ensureDirs();
@@ -123,6 +125,7 @@ async function main(): Promise<void> {
   await seedDefaultGameSettings();
   await seedDefaultWorldObjects();
   await seedDefaultQuests();
+  await seedInitialNpcs();
   await seedSkillsCatalogFromXml();
   if (config.SKILLS_V2_ENABLED) {
     const v2Result = await seedSkillsCatalogV2();
@@ -173,6 +176,12 @@ async function main(): Promise<void> {
     decorateReply: false,
   });
 
+  await app.register(fastifyStatic, {
+    root: config.paths.npcPortraitsDir,
+    prefix: '/assets/npc/',
+    decorateReply: false,
+  });
+
   if (existsSync(config.paths.frontendDistDir)) {
     await app.register(fastifyStatic, {
       root: config.paths.frontendDistDir,
@@ -216,6 +225,7 @@ async function main(): Promise<void> {
   await app.register(seasonsPlugin);
   await app.register(playerPlugin);
   await app.register(linkPlugin);
+  await app.register(npcsPlugin);
   await app.register(servicePlugin);
   await app.register(lobbyPlugin);
 
@@ -296,7 +306,7 @@ async function main(): Promise<void> {
 }
 
 function ensureDirs(): void {
-  for (const p of [config.paths.dataDir, config.paths.scrapeCacheDir, config.paths.assetsDir]) {
+  for (const p of [config.paths.dataDir, config.paths.scrapeCacheDir, config.paths.assetsDir, config.paths.npcPortraitsDir]) {
     if (!existsSync(p)) mkdirSync(p, { recursive: true });
   }
 }

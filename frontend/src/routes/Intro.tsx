@@ -4,6 +4,7 @@ import { Navigate, useNavigate } from 'react-router';
 
 import { DialogueLayer } from '../components/onboarding/DialogueLayer';
 import { FallbackMessage } from '../components/onboarding/FallbackMessage';
+import { InteractiveIntro } from '../components/onboarding/InteractiveIntro';
 import { TeamsLayer } from '../components/onboarding/TeamsLayer';
 import { TransitionOverlay } from '../components/onboarding/TransitionOverlay';
 import { AUTH_ME_KEY, useAuth } from '../hooks/useAuth';
@@ -31,6 +32,9 @@ export function Intro(): JSX.Element {
   const teams = data?.completed === false ? data.teams : [];
   const paragraphs = useMemo(() => splitDialogue(config?.introDialogue ?? INTRO_FALLBACK), [config?.introDialogue]);
   const showFallback = shouldShowFallback(introQuery.error, data, teams);
+  const [interactiveFailed, setInteractiveFailed] = useState(false);
+  const introDialogueId = config?.introDialogueId ?? null;
+  const useInteractive = introDialogueId !== null && introDialogueId.length > 0 && !interactiveFailed;
 
   useEffect(() => {
     document.body.classList.add('onboarding');
@@ -97,7 +101,17 @@ export function Intro(): JSX.Element {
       {selectionError ? <div className="auth-error fallback-msg" role="alert">{selectionError}</div> : null}
       {data?.completed === false && teams.length > 0 ? (
         <>
-          <DialogueLayer paragraphs={paragraphs} visible={!teamsVisible} dismissed={dialogueDismissed} onSkip={revealTeams} />
+          {useInteractive && introDialogueId !== null ? (
+            <InteractiveIntro
+              dialogueId={introDialogueId}
+              playerName={user?.displayName ?? user?.username ?? 'Tamer'}
+              visible={!teamsVisible}
+              onFinish={revealTeams}
+              onUnrecoverable={() => setInteractiveFailed(true)}
+            />
+          ) : (
+            <DialogueLayer paragraphs={paragraphs} visible={!teamsVisible} dismissed={dialogueDismissed} onSkip={revealTeams} />
+          )}
           <TeamsLayer teams={teams} visible={teamsVisible} locked={selectedTeamId !== null} selectedTeamId={selectedTeamId} onSelect={(team) => void selectTeam(team)} />
         </>
       ) : null}

@@ -1,7 +1,8 @@
 import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { resolve, sep } from 'node:path';
 
-import { parseAndValidate } from './runtime.js';
+import { parseAndValidateWithRefs } from './runtime.js';
+import { buildCrossRefChecker } from './xref.js';
 import { DIALOGUE_SCHEMA_VERSION } from '@digiworld/shared/dialogue';
 import type { DialogueDiagnostic } from '@digiworld/shared/dialogue';
 
@@ -56,6 +57,8 @@ export async function syncDialogueFolder(): Promise<SyncReport> {
 
   const files = entries.filter((name) => ALLOWED_EXT.some((ext) => name.toLowerCase().endsWith(ext)));
 
+  const checker = await buildCrossRefChecker();
+
   for (const name of files) {
     const full = await safeResolve(root, name);
     if (full === null) {
@@ -82,7 +85,7 @@ export async function syncDialogueFolder(): Promise<SyncReport> {
       continue;
     }
 
-    const parsed = parseAndValidate(source, dialogueId);
+    const parsed = parseAndValidateWithRefs(source, dialogueId, checker);
     if (parsed.definition === null) {
       results.push({ file: name, status: 'failed', errors: parsed.errors });
       continue;

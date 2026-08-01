@@ -86,7 +86,7 @@ export const onboardingPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({ config: await getConfig() });
   });
 
-  app.put<{ Body: { introDialogue?: string; bgImage?: string } }>('/api/admin/onboarding/config', async (req, reply) => {
+  app.put<{ Body: { introDialogue?: string; bgImage?: string; introDialogueId?: string | null } }>('/api/admin/onboarding/config', async (req, reply) => {
     const admin = await requireAdmin(req, reply);
     const body = req.body ?? {};
     if (typeof body.introDialogue !== 'string') {
@@ -95,6 +95,7 @@ export const onboardingPlugin: FastifyPluginAsync = async (app) => {
     const result = await updateConfig({
       introDialogue: body.introDialogue,
       bgImage: typeof body.bgImage === 'string' ? body.bgImage : '',
+      introDialogueId: body.introDialogueId === undefined ? undefined : body.introDialogueId,
     });
     if (!result.ok) {
       return reply.code(statusForOnboardingError(result.error)).send({ error: result.error, message: result.message });

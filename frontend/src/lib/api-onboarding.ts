@@ -29,6 +29,7 @@ export type OnboardingTeamView = {
 export type OnboardingConfigView = {
   readonly introDialogue: string;
   readonly bgImage: string;
+  readonly introDialogueId: string | null;
   readonly updatedAt: number | null;
 };
 

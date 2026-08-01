@@ -285,6 +285,7 @@ export type OnboardingConfigRow = {
   id: 1;
   intro_dialogue: string;
   bg_image: string;
+  intro_dialogue_id: string | null;
   updated_at: number;
 };
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { JSX } from 'react';
 import { useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   deleteDialogue,
@@ -67,6 +68,7 @@ function DialogueRow({ dialogue, onDelete, busy }: {
       <td>{dialogue.npcIds.length > 0 ? dialogue.npcIds.join(', ') : <span className="dlg-muted">—</span>}</td>
       <td>{formatDate(dialogue.updatedAt)}</td>
       <td className="dlg-actions">
+        <Link className="btn btn--secondary btn--sm" to={`/dialogues/${encodeURIComponent(dialogue.dialogueId)}/simulate`}>Simulate</Link>
         <a className="btn btn--secondary btn--sm" href={dialogueExportUrl(dialogue.dialogueId)} download>Export</a>
         <button
           className="btn btn--secondary btn--sm"

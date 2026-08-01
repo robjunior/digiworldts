@@ -90,3 +90,64 @@ export function abandonDialogueSession(): Promise<{ readonly ok: true }> {
 export function dialogueExportUrl(dialogueId: string): string {
   return `/api/admin/dialogues/${encodeURIComponent(dialogueId)}/export`;
 }
+
+export type SimulatorStep = {
+  readonly nodeId: string;
+  readonly choiceId: string;
+};
+
+export type SimulatorFactOverrides = {
+  readonly level?: number;
+  readonly playerName?: string;
+  readonly flags?: readonly string[];
+  readonly items?: Readonly<Record<string, number>>;
+};
+
+export type SimulatorRequest = {
+  readonly overrides?: SimulatorFactOverrides;
+  readonly history?: readonly SimulatorStep[];
+};
+
+export type SimulatedActionPreview = {
+  readonly id: string;
+  readonly name: string;
+  readonly args: readonly (string | number | boolean)[];
+  readonly appliedSuccessfully: boolean;
+  readonly note: string | null;
+};
+
+export type SimulatedChoicePreview = {
+  readonly id: string;
+  readonly label: string;
+  readonly target: string;
+  readonly visible: boolean;
+  readonly conditionSummary: string | null;
+};
+
+export type SimulatorSpeaker = {
+  readonly npcId: string;
+  readonly expression: string;
+};
+
+export type SimulatorView = {
+  readonly nodeId: string;
+  readonly speaker: SimulatorSpeaker | null;
+  readonly tags: readonly string[];
+  readonly text: string;
+  readonly actionsAtEntry: readonly SimulatedActionPreview[];
+  readonly choices: readonly SimulatedChoicePreview[];
+  readonly done: boolean;
+  readonly jumpTrail: readonly string[];
+  readonly flags: readonly string[];
+  readonly items: Readonly<Record<string, number>>;
+};
+
+export function simulateDialogue(
+  dialogueId: string,
+  input: SimulatorRequest,
+): Promise<{ readonly view: SimulatorView }> {
+  return apiFetch<{ readonly view: SimulatorView }>(
+    `/api/admin/dialogues/${encodeURIComponent(dialogueId)}/simulate`,
+    { method: 'POST', body: input },
+  );
+}
