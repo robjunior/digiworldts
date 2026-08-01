@@ -21,6 +21,7 @@ import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemD
 import { pickSceneForElements } from '../scenes/picker.js';
 import { getScene } from '../scenes/store.js';
 import type { Element } from '@digiworld/shared/digimon';
+import { emit } from '../telemetry/emit.js';
 
 const MAX_WILD_ACTIONS_PER_TURN = 6;
 
@@ -235,6 +236,20 @@ export async function startPveBattleFromEncounter(userId: string, wilds: WildMon
     catalogIds: wilds.map((w) => w.catalogId),
     levels: wilds.map((w) => w.level),
     rareCount: wilds.filter((w) => w.rare).length,
+  });
+  emit({
+    event: 'battle.start',
+    userId,
+    distinctId: userId,
+    props: {
+      mode: 'pve',
+      match_id: battle.id,
+      wild_count: wilds.length,
+      wild_levels: wilds.map((w) => w.level),
+      wild_elements: wilds.map((w) => w.element),
+      rare_count: wilds.filter((w) => w.rare).length,
+      in_dungeon: dungeonContext.has(userId),
+    },
   });
   return { ok: true, view: serializeForSide(battle, 'a') };
 }
@@ -517,6 +532,27 @@ async function awardPveBattleRewards(
       bitsGained,
     });
   }
+  emit({
+    event: 'battle.end',
+    userId,
+    distinctId: userId,
+    props: {
+      mode: 'pve',
+      match_id: battle.id,
+      outcome,
+      result: matchOutcome,
+      rounds: battle.round,
+      duration_s: battle.endedAt !== null ? Math.round((battle.endedAt - battle.startedAt) / 100) / 10 : null,
+      netcore_gained: netcoreGained,
+      bits_gained: bitsGained,
+      xp_awards_count: xpAwards.length,
+      items_dropped_count: itemDrops.length,
+      leveled_up_count: xpAwards.filter((a) => a.gainedLevels > 0).length,
+      downed_allies_count: downedIds.length,
+      species_awards_count: speciesAwards.length,
+      in_dungeon: dungeonContext.has(userId),
+    },
+  });
 
   const result: { xpAwards: XpAward[]; itemDrops?: ItemDrop[]; speciesAwards?: SpeciesAward[]; netcoreGained?: number; bitsGained?: number } = { xpAwards };
   if (itemDrops.length > 0) result.itemDrops = itemDrops;
@@ -593,6 +629,17 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
           monId,
           catalogId: wildUnit.wildInfo.catalogId,
           level: wildUnit.level,
+        });
+        emit({
+          event: 'capture.success',
+          userId,
+          distinctId: userId,
+          props: {
+            catalog_id: wildUnit.wildInfo.catalogId,
+            level: wildUnit.level,
+            rare: wildUnit.wildInfo.rare,
+            mon_id: monId,
+          },
         });
       }
     }

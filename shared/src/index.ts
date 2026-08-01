@@ -13,3 +13,4 @@ export * from './tileset.js';
 export * from './dialogue.js';
 export * from './dialogue-expr.js';
 export * from './dialogue-parser.js';
+export * from './telemetry.js';

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import type { WorldObject } from '@digiworld/shared/quest';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
+import { emit } from '../telemetry/emit.js';
 import { partyRating } from '../world/engine.js';
 import { updateDungeon } from '../dungeons/repo.js';
 import {
@@ -123,6 +124,17 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const quest = await acceptQuest(user.id, req.params.id, rating.meanLevel);
     if (!quest) return reply.code(404).send({ error: 'not-found-or-locked' });
     log.info('quest.accept', { userId: user.id, questId: req.params.id });
+    emit({
+      event: 'quest.accept',
+      userId: user.id,
+      distinctId: user.id,
+      props: {
+        quest_id: req.params.id,
+        quest_name: quest.name,
+        player_mean_level: rating.meanLevel,
+        required_level: quest.requiredLevel,
+      },
+    });
     return reply.code(201).send({ quest });
   });
 
@@ -131,6 +143,16 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const result = await claimQuest(user.id, req.params.id);
     if (!result.ok) return reply.code(409).send({ error: 'not-completed-or-already-claimed' });
     log.info('quest.claim', { userId: user.id, questId: req.params.id, netcoreGranted: result.netcoreGranted, itemsGranted: result.itemsGranted.length });
+    emit({
+      event: 'quest.claim',
+      userId: user.id,
+      distinctId: user.id,
+      props: {
+        quest_id: req.params.id,
+        netcore_granted: result.netcoreGranted,
+        items_granted_count: result.itemsGranted.length,
+      },
+    });
     return reply.send({ ok: true, netcoreGranted: result.netcoreGranted, itemsGranted: result.itemsGranted });
   });
 

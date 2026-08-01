@@ -26,6 +26,7 @@ import { existsSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config } from './config.js';
 import { log } from './util/log.js';
+import { flushAndShutdown } from './telemetry/emit.js';
 import { closeDb, db } from './db/index.js';
 import { loadCatalog } from './digimon/xml.js';
 import { verifyCatalogAssets } from './scraper/verifier.js';
@@ -267,6 +268,11 @@ async function main(): Promise<void> {
     stopSeasonsTicker();
     await stopLobbyLoops();
     clearInterval(pruneTimer);
+    try {
+      await flushAndShutdown();
+    } catch (err) {
+      log.warn('server.shutdown.telemetry.fail', { err: err instanceof Error ? err.message : String(err) });
+    }
     try {
       await app.close();
     } catch (err) {

@@ -15,6 +15,7 @@ import { z } from 'zod';
 import { one, run, tx, type UserRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import { emit } from '../telemetry/emit.js';
 import { hashPassword, verifyPassword, validatePasswordPolicy } from './password.js';
 import {
   clearSessionCookie,
@@ -249,6 +250,12 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     }
 
     log.info('auth.register.ok', { userId: user.id, isAdmin: user.is_admin === 1 });
+    emit({
+      event: 'auth.signup',
+      userId: user.id,
+      distinctId: user.id,
+      props: { method: 'password', is_admin: user.is_admin === 1 },
+    });
     return reply.code(201).send({ user: await toPublic(user) });
   });
 
@@ -278,12 +285,24 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     }
 
     const now = Date.now();
+    const daysSinceLastLogin = user.last_login_at !== null
+      ? Math.floor((now - user.last_login_at) / (24 * 60 * 60 * 1000))
+      : null;
     await run(SQL_UPDATE_LAST_LOGIN, now, now, user.id);
     const session = await createSession({ userId: user.id, userAgent: req.headers['user-agent'], ip });
     setSessionCookie(reply, session.token);
     await recordLoginAttempt(username, ip, true);
 
     log.info('auth.login.ok', { userId: user.id });
+    emit({
+      event: 'auth.login',
+      userId: user.id,
+      distinctId: user.id,
+      props: {
+        method: 'password',
+        ...(daysSinceLastLogin !== null ? { days_since_last_login: daysSinceLastLogin } : {}),
+      },
+    });
     return reply.send({ user: await toPublic(user) });
   });
 

@@ -73,6 +73,11 @@ const ConfigSchema = z.object({
   FACEBOOK_OAUTH_CLIENT_ID: z.string().optional(),
   FACEBOOK_OAUTH_CLIENT_SECRET: z.string().optional(),
   FACEBOOK_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  TELEMETRY_ENABLED: z.string().default('false').transform((v) => v === 'true' || v === '1'),
+  TELEMETRY_SINK: z.enum(['file', 'posthog']).default('file'),
+  TELEMETRY_FILE_PATH: z.string().default('data/telemetry.jsonl'),
+  POSTHOG_HOST: z.string().url().optional(),
+  POSTHOG_KEY: z.string().optional(),
 }).refine((c) => c.CLUSTER !== 'redis' || (c.REDIS_URL && c.REDIS_URL.length > 0), {
   message: 'REDIS_URL is required when CLUSTER=redis',
   path: ['REDIS_URL'],
@@ -102,6 +107,13 @@ const ConfigSchema = z.object({
   {
     message: 'FACEBOOK_OAUTH_CLIENT_ID and FACEBOOK_OAUTH_CLIENT_SECRET are required when OAUTH_ENABLED_PROVIDERS includes facebook',
     path: ['FACEBOOK_OAUTH_CLIENT_ID'],
+  },
+).refine(
+  (c) => !(c.TELEMETRY_ENABLED && c.TELEMETRY_SINK === 'posthog')
+    || (c.POSTHOG_HOST && c.POSTHOG_HOST.length > 0 && c.POSTHOG_KEY && c.POSTHOG_KEY.length > 0),
+  {
+    message: 'POSTHOG_HOST and POSTHOG_KEY are required when TELEMETRY_ENABLED=true and TELEMETRY_SINK=posthog',
+    path: ['POSTHOG_KEY'],
   },
 );
 
