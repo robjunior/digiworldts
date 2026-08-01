@@ -20,6 +20,7 @@ import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
 import { Nursery } from './routes/Nursery';
+import { OAuthDecide } from './routes/OAuthDecide';
 import { Reset } from './routes/Reset';
 import { Roster } from './routes/Roster';
 import { Shop } from './routes/Shop';
@@ -27,6 +28,7 @@ import { Spectate } from './routes/Spectate';
 import { Training } from './routes/Training';
 import { useWsStore } from './state/wsStore';
 import './styles/extensions-tutorial.css';
+import './styles/extensions-auth.css';
 
 const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
 const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
@@ -72,6 +74,7 @@ export function App(): JSX.Element {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/reset" element={<Reset />} />
+          <Route path="/oauth/decide" element={<OAuthDecide />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/intro" element={<Intro />} />
             <Route path="/combat" element={<Combat />} />

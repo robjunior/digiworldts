@@ -1,0 +1,192 @@
+/* ---------- OAuth buttons ---------- */
+
+.oauth-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.oauth-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 120ms ease, border-color 120ms ease, transform 60ms ease;
+  cursor: pointer;
+}
+.oauth-btn:hover,
+.oauth-btn:focus-visible {
+  border-color: color-mix(in oklab, var(--gold) 40%, var(--hairline));
+  outline: none;
+}
+.oauth-btn:active {
+  transform: translateY(1px);
+}
+
+.oauth-btn--discord {
+  background: #5865F2;
+  border-color: #4752c4;
+  color: #ffffff;
+}
+.oauth-btn--discord:hover,
+.oauth-btn--discord:focus-visible {
+  background: #4752c4;
+  border-color: #3c45a5;
+  color: #ffffff;
+}
+.oauth-btn--discord svg { color: #ffffff; }
+
+/* ---------- OAuth decide page ---------- */
+
+.oauth-decide-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--bg);
+}
+
+.oauth-decide-card {
+  width: 100%;
+  max-width: 520px;
+  padding: 2px;
+  background: var(--hairline);
+}
+.oauth-decide-card-in {
+  background: var(--panel);
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.oauth-decide-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.oauth-decide-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  object-fit: cover;
+}
+.oauth-decide-avatar-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--gold) 24%, var(--bg));
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.oauth-decide-who {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.oauth-decide-who h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.oauth-decide-who .lede {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.oauth-decide-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+}
+.oauth-decide-choice h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.oauth-decide-choice p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.oauth-decide-choice.is-disabled {
+  opacity: 0.55;
+}
+
+.oauth-decide-error {
+  color: var(--signal);
+  font-size: 12px;
+  min-height: 16px;
+}
+
+@media (max-width: 768px) {
+  .auth-shell {
+    padding: 16px;
+  }
+  .auth-card-in {
+    padding: 20px 18px 18px;
+    gap: 14px;
+  }
+  .oauth-decide-shell {
+    padding: 16px;
+  }
+  .oauth-decide-card-in {
+    padding: 20px 18px 18px;
+    gap: 14px;
+  }
+  .oauth-decide-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .oauth-decide-avatar,
+  .oauth-decide-avatar-fallback {
+    width: 48px;
+    height: 48px;
+  }
+  .oauth-decide-who h1 {
+    font-size: 18px;
+  }
+  .oauth-decide-choice {
+    padding: 12px;
+  }
+}

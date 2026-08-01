@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router';
 
 import { useAuth } from '../hooks/useAuth';
 import { ApiError, authMe, authStatus } from '../lib/api';
+import { OAuthButtons } from '../components/auth/OAuthButtons';
 
 type AuthTab = 'signin' | 'register';
 
@@ -199,6 +200,8 @@ export function Login(): JSX.Element {
               Create account
             </button>
           </form>
+
+          <OAuthButtons mode="login" returnTo={nextTarget} label="ou continue com" />
         </div>
       </section>
     </main>

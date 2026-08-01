@@ -30,6 +30,7 @@ import { closeDb, db } from './db/index.js';
 import { loadCatalog } from './digimon/xml.js';
 import { verifyCatalogAssets } from './scraper/verifier.js';
 import { authPlugin } from './auth/routes.js';
+import { oauthPlugin } from './auth/oauth/routes.js';
 import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogFromXml } from './skills/seed.js';
@@ -185,6 +186,7 @@ async function main(): Promise<void> {
   }
 
   await app.register(authPlugin);
+  await app.register(oauthPlugin);
   await app.register(rosterPlugin);
   await app.register(farmPlugin);
   await app.register(adminPlugin);

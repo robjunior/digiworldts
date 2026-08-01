@@ -61,13 +61,27 @@ const ConfigSchema = z.object({
   CORS_ORIGINS: z.string().default(''),
   SKILLS_V2_ENABLED: z.string().default('false').transform((v) => v === 'true' || v === '1'),
   SERVICE_TOKEN_DISCORD: z.string().min(32).optional(),
+  OAUTH_ENABLED_PROVIDERS: z.string().default('').transform((v) =>
+    v.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
+  ),
+  DISCORD_OAUTH_CLIENT_ID: z.string().optional(),
+  DISCORD_OAUTH_CLIENT_SECRET: z.string().optional(),
+  DISCORD_OAUTH_REDIRECT_URI: z.string().url().optional(),
 }).refine((c) => c.CLUSTER !== 'redis' || (c.REDIS_URL && c.REDIS_URL.length > 0), {
   message: 'REDIS_URL is required when CLUSTER=redis',
   path: ['REDIS_URL'],
 }).refine((c) => c.DATABASE !== 'postgres' || (c.DATABASE_URL && c.DATABASE_URL.length > 0), {
   message: 'DATABASE_URL is required when DATABASE=postgres',
   path: ['DATABASE_URL'],
-});
+}).refine(
+  (c) => !c.OAUTH_ENABLED_PROVIDERS.includes('discord')
+    || (c.DISCORD_OAUTH_CLIENT_ID && c.DISCORD_OAUTH_CLIENT_ID.length > 0
+        && c.DISCORD_OAUTH_CLIENT_SECRET && c.DISCORD_OAUTH_CLIENT_SECRET.length > 0),
+  {
+    message: 'DISCORD_OAUTH_CLIENT_ID and DISCORD_OAUTH_CLIENT_SECRET are required when OAUTH_ENABLED_PROVIDERS includes discord',
+    path: ['DISCORD_OAUTH_CLIENT_ID'],
+  },
+);
 
 const parsed = ConfigSchema.safeParse({
   ...process.env,

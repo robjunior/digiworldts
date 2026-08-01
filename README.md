@@ -112,6 +112,10 @@ pnpm start
 | `SCRAPER_USER_AGENT` | see `src/config.ts` | identifies us to upstream hosts |
 | `MAX_LOBBY_CONNECTIONS` | `1200` | hard cap on live WS sockets |
 | `MAX_CONCURRENT_MATCHES` | `200` | hard cap on live 3v3 battles |
+| `OAUTH_ENABLED_PROVIDERS` | — (empty) | comma-separated list of OAuth providers to enable — e.g. `discord`. Empty disables OAuth entirely. See [Sign in with Discord (OAuth2)](#sign-in-with-discord-oauth2). |
+| `DISCORD_OAUTH_CLIENT_ID` | — | required when `discord` is in `OAUTH_ENABLED_PROVIDERS`. Copy from https://discord.com/developers/applications → your app → OAuth2. |
+| `DISCORD_OAUTH_CLIENT_SECRET` | — | required when Discord OAuth is enabled. Rotates in the same panel. |
+| `DISCORD_OAUTH_REDIRECT_URI` | — | required when Discord OAuth is enabled. Must exactly match one entry in the Discord app's OAuth2 Redirects list. Format: `https://your-host/api/auth/oauth/discord/callback`. |
 
 ---
 
@@ -465,6 +469,86 @@ pnpm --filter @digiworld/backend test:pg-portability
 - **Regular user password recovery** goes through the admin: `POST /api/admin/users/:id/reset-token` issues a 15-minute cluster-stored token; the user consumes it at `/reset?token=...` and picks a new password. Alternatively the admin can hard-reset directly via `POST /api/admin/users/:id/reset-password` (admin types the new password). Either way, all live sessions for that user are revoked on success.
 - **A totally-lost *admin* password** still requires a manual `UPDATE users SET password_hash = ...` on the DB — there's no anonymous "I forgot my admin password" path by design.
 - The admin is the ONLY user who can add/edit/remove Digimon templates. Regular players can only pick from what the admin has curated in `data/catalog/digimons.xml`.
+
+---
+
+## Sign in with Discord (OAuth2)
+
+Optional. Adds a "Continue with Discord" button on `/login` alongside the password-based sign-in, plus a per-user "Link Discord" flow. Extensible to Google / Facebook / anything else by implementing one interface — see below.
+
+### What the flow does
+
+Two entry points, one shared codepath:
+
+- **Login (unauthenticated user)** — `GET /api/auth/oauth/discord/login?returnTo=/lobby` → 302 to Discord → user authorizes → callback lands at `GET /api/auth/oauth/discord/callback?code=&state=`. Backend exchanges the code for tokens, fetches the Discord identity, then:
+  - If the Discord ID is already in `oauth_tokens` → issue session, redirect to `returnTo`.
+  - If it's in the legacy `users.discord_id` column (from the code-based link at [`backend/src/auth/discord-link.ts`](backend/src/auth/discord-link.ts)) → on-the-fly migrate to `oauth_tokens`, issue session, redirect.
+  - Otherwise → issue a 10-minute pending token, redirect to `/oauth/decide?token=…` where the user picks **"Create a new account"** or **"Log in and link to my existing account"**.
+- **Link (authenticated user)** — `GET /api/auth/oauth/discord/link?returnTo=/account` → same handshake, but the state carries the `initiatorUserId` so the callback links the Discord identity to their existing DigiWorld user (or 302s to `returnTo?oauth_error=already-linked` if that Discord ID belongs to a different DigiWorld user).
+
+Every write to `oauth_tokens` also mirrors `users.discord_id` so the Discord bot's existing `SELECT users WHERE discord_id = ?` lookup ([`backend/src/service/routes.ts`](backend/src/service/routes.ts)) keeps working with no changes.
+
+### ADMIN_BOOTSTRAP still gates account creation
+
+The **"Create a new account"** branch on the decide page respects the same `ADMIN_BOOTSTRAP` gate as `/api/auth/register`. When `ADMIN_BOOTSTRAP=closed` (the production default), Discord login for an unknown identity can still **link** to an existing account but cannot mint a new one — the decide page hides the create option and the `POST /api/auth/oauth/decide` endpoint returns `403 registration-closed`. This prevents OAuth becoming a backdoor around the closed-registration policy.
+
+### Setting up the Discord app
+
+1. Go to https://discord.com/developers/applications, click **New Application**.
+2. In **OAuth2 → General**, copy `CLIENT ID` and generate `CLIENT SECRET`.
+3. Under **Redirects**, add one entry that exactly matches your deploy: `https://<your-host>/api/auth/oauth/discord/callback` (localhost is `http://localhost:3000/api/auth/oauth/discord/callback`).
+4. No scopes need selecting in the portal — the backend requests `identify` on every authorize URL.
+5. Put the four values in your `.env`:
+
+```bash
+OAUTH_ENABLED_PROVIDERS=discord
+DISCORD_OAUTH_CLIENT_ID=<from step 2>
+DISCORD_OAUTH_CLIENT_SECRET=<from step 2>
+DISCORD_OAUTH_REDIRECT_URI=https://<your-host>/api/auth/oauth/discord/callback
+```
+
+Boot fails fast (before the port binds) if `discord` is in `OAUTH_ENABLED_PROVIDERS` and any of the other three values is missing.
+
+### HTTP surface
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| GET | `/api/auth/oauth/providers` | — | `{ providers: string[] }` — the enabled provider ids the frontend should render buttons for |
+| GET | `/api/auth/oauth/:provider/login` | — | 302 to the provider's authorize URL. `?returnTo=/path` optional |
+| GET | `/api/auth/oauth/:provider/link` | cookie | same as `/login` but binds the resulting identity to the authenticated user |
+| GET | `/api/auth/oauth/:provider/callback` | — | provider redirects here with `code` + `state`. Emits either a session cookie + redirect, or a 302 to `/oauth/decide?token=…` |
+| GET | `/api/auth/oauth/pending/:token` | — | preview `{ provider, providerUsername, providerAvatar, canCreate, returnTo, expiresAt }` for the decide page — does not consume the token |
+| POST | `/api/auth/oauth/decide` | — | `{ pendingToken, choice: 'create' \| 'link', username?, password? }`. Consumes the pending token, sets a session cookie, returns `{ ok, userId, returnTo }` |
+| DELETE | `/api/auth/oauth/:provider` | cookie | unlink — deletes the `oauth_tokens` row and clears `users.discord_id` if provider is Discord |
+| GET | `/api/auth/oauth/mine` | cookie | `{ identities }` — every provider the authenticated user has linked |
+
+### Storage
+
+- One migration: [`045_oauth_tokens.sql`](backend/src/db/migrations/045_oauth_tokens.sql). Portable between SQLite and Postgres. Primary key `(user_id, provider)` gives one identity per user per provider; secondary `UNIQUE (provider, provider_user_id)` gives the inverse — one DigiWorld user per Discord ID — as an atomic race-safe constraint, mirroring the semantics `users.discord_id UNIQUE` already enforces.
+- Short-lived cluster KV: `oauth:state:{token}` (CSRF, 10 min, single-use) and `oauth:pending:{token}` (hybrid decision, 10 min, single-use). Same tokens as `discordlink:code:*` — 256-bit opaque random.
+- OAuth-only users get a placeholder `password_hash` set to `argon2id(randomBytes(48))`. The plaintext is discarded, so no password sign-in can ever succeed against it — the user always comes back via Discord (or via a future "set password" recovery flow).
+
+### Adding Google, Facebook, ...
+
+Purely a matter of implementing [`OAuthProvider`](backend/src/auth/oauth/types.ts) and registering the instance in [`registry.ts`](backend/src/auth/oauth/registry.ts). The routes, state manager, store, and frontend button component are all provider-agnostic — the frontend renders whatever `GET /api/auth/oauth/providers` returns.
+
+Sketch for a new provider `foo`:
+
+```ts
+// backend/src/auth/oauth/foo.ts
+export class FooOAuthProvider implements OAuthProvider {
+  public readonly id = 'foo' as const;
+  authorizationUrl(state) { /* build https://foo.example/authorize?... */ }
+  async exchangeCode(code) { /* POST foo token endpoint */ }
+  async refreshTokens(refreshToken) { /* POST foo token endpoint */ }
+  async fetchUserInfo(accessToken) { /* GET foo /me */ }
+}
+
+// backend/src/auth/oauth/registry.ts
+if (enabled.has('foo')) map.set('foo', new FooOAuthProvider());
+```
+
+Add `foo` to `OAUTH_ENABLED_PROVIDERS`, add `FOO_OAUTH_CLIENT_ID` + `_CLIENT_SECRET` + `_REDIRECT_URI` to [`config.ts`](backend/src/config.ts), and the "Continue with Foo" button auto-appears on `/login`. No frontend change needed for a plain provider.
 
 ---
 
