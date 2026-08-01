@@ -23,6 +23,7 @@ cookies.txt
 .omo/run-continuation/
 .playwright-mcp/
 _archive/
+.qa/
 
 # ad-hoc screenshots at repo root
 /*.png
@@ -35,6 +36,7 @@ _archive/
 /patch_*.sh
 /scratch_*
 /scratch/
+/take-screens.mjs
 
 # data (SQLite + cached scraper artifacts)
 backend/data/*.db
@@ -45,6 +47,10 @@ backend/data/*.db.bak
 backend/data/*.db.pre-*.bak
 backend/data/cache/
 !backend/data/catalog/
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
 
 # assets: keep folder shape but not the downloaded blobs (regenerated on startup)
 backend/public/assets/digimon/*/
