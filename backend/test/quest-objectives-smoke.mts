@@ -12,6 +12,7 @@ import {
   bumpDefeatObjectives,
   bumpTalkObjectives,
   bumpTravelObjectives,
+  claimQuest,
   createQuest,
   listQuestsForUser,
 } from '../src/quests/repo.ts';
@@ -233,6 +234,54 @@ await test('bumps never re-touch an already-completed objective', async () => {
   await bumpTalkObjectives('usr_obj_a', 'npc_locked');
   const secondDoneAt = (await readObjective('usr_obj_a', quest.id, 0)).doneAt;
   assert(secondDoneAt === firstDoneAt, 'doneAt must be preserved on subsequent bumps');
+});
+
+await test('partial objective completion keeps the quest in active state', async () => {
+  const quest = await seedAndAccept('usr_obj_a', 'MultiPartial', [
+    { kind: 'talk', npcId: 'npc_partial_a', text: 'first' },
+    { kind: 'talk', npcId: 'npc_partial_b', text: 'second' },
+  ]);
+  await bumpTalkObjectives('usr_obj_a', 'npc_partial_a');
+  const list = await listQuestsForUser('usr_obj_a', meanLevel);
+  const found = list.find((q) => q.id === quest.id);
+  assert(found !== undefined, 'quest should still be visible');
+  assert(found?.state === 'active', `expected state=active, got ${found?.state}`);
+  assert(found?.completedAt === null, 'completedAt should stay null until all objectives are done');
+});
+
+await test('all objectives done auto-sets completedAt and state=completed', async () => {
+  const quest = await seedAndAccept('usr_obj_a', 'MultiFull', [
+    { kind: 'talk', npcId: 'npc_full_a', text: 'first' },
+    { kind: 'talk', npcId: 'npc_full_b', text: 'second' },
+  ]);
+  await bumpTalkObjectives('usr_obj_a', 'npc_full_a');
+  await bumpTalkObjectives('usr_obj_a', 'npc_full_b');
+  const list = await listQuestsForUser('usr_obj_a', meanLevel);
+  const found = list.find((q) => q.id === quest.id);
+  assert(found !== undefined, 'quest should still be visible before claim');
+  assert(found?.state === 'completed', `expected state=completed, got ${found?.state}`);
+  assert(found?.completedAt !== null, 'completedAt should be set once all objectives are done');
+});
+
+await test('full lifecycle: bump all objectives, complete, claim, and receive netcore reward', async () => {
+  const quest = await createQuest({
+    name: 'RewardLifecycle',
+    description: '',
+    requiredLevel: 1,
+    introDialogueId: null,
+    steps: [],
+    finalReward: { items: [], pickCount: 0, guaranteedNetcore: 250 },
+    unlocksQuestIds: [],
+    objectives: [{ kind: 'talk', npcId: 'npc_reward', text: 'reward talk' }],
+  });
+  const accepted = await acceptQuest('usr_obj_a', quest.id, meanLevel);
+  assert(accepted !== null, 'precondition: accept the quest');
+  await bumpTalkObjectives('usr_obj_a', 'npc_reward');
+  const result = await claimQuest('usr_obj_a', quest.id);
+  assert(result.ok, 'claim should succeed after auto-completion');
+  assert(result.netcoreGranted === 250, `expected 250 netcore, got ${result.netcoreGranted}`);
+  const afterClaim = await listQuestsForUser('usr_obj_a', meanLevel);
+  assert(!afterClaim.some((q) => q.id === quest.id), 'claimed quest should drop off listQuestsForUser');
 });
 
 await closeDb();
