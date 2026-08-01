@@ -37,7 +37,8 @@ export type TelemetryEventName =
   | 'shop.buy'
   | 'market.list' | 'market.sold'
   | 'coinmarket.offer_post' | 'coinmarket.fill'
-  | 'daily.claim' | 'daily.break';
+  | 'daily.claim' | 'daily.break'
+  | 'flag.set' | 'flag.cleared';
 
 export type TelemetryEvent = {
   readonly event: TelemetryEventName | (string & { readonly __brand?: 'custom' });

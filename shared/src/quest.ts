@@ -73,6 +73,10 @@ export type Quest = {
   readonly giver?: string;
   readonly rewardText?: string;
   readonly lockHint?: string;
+  /** AND-gated: every flag must be set on the user for the quest to appear + accept. */
+  readonly requiredFlags?: readonly string[];
+  /** Set on the user automatically when this quest is claimed (not accepted). */
+  readonly completesFlag?: string;
   readonly createdAt: number;
   readonly updatedAt: number;
 };

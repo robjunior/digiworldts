@@ -12,6 +12,7 @@ import type { Biome } from '@digiworld/shared/world';
 import type { Element, Stage } from '@digiworld/shared/digimon';
 import type { DbExecutor } from '../db/executor.js';
 import { one, q, run, tx } from '../db/index.js';
+import { hasFlag, listFlags, setFlag } from '../flags/repo.js';
 import { newId } from '../util/ids.js';
 
 type QuestRow = {
@@ -192,6 +193,19 @@ export async function listQuests(locale?: 'en' | 'pt'): Promise<Quest[]> {
   return (await q<QuestRow>(SQL_LIST_QUESTS)).map((row) => questFromRow(row, locale));
 }
 
+function questFlagsSatisfied(quest: Quest, userFlagSet: ReadonlySet<string>): boolean {
+  if (!quest.requiredFlags || quest.requiredFlags.length === 0) return true;
+  return quest.requiredFlags.every((f) => userFlagSet.has(f));
+}
+
+async function questFlagsSatisfiedTx(t: DbExecutor, quest: Quest, userId: string): Promise<boolean> {
+  if (!quest.requiredFlags || quest.requiredFlags.length === 0) return true;
+  for (const flag of quest.requiredFlags) {
+    if (!(await hasFlag(userId, flag, t))) return false;
+  }
+  return true;
+}
+
 export async function getQuest(id: string, locale?: 'en' | 'pt'): Promise<Quest | null> {
   const row = await one<QuestRow>(SQL_GET_QUEST, id);
   return row ? questFromRow(row, locale) : null;
@@ -223,7 +237,12 @@ export async function deleteQuest(id: string): Promise<boolean> {
 }
 
 export async function listAvailableQuests(userId: string, requiredLevel: number, locale?: 'en' | 'pt'): Promise<Quest[]> {
-  return (await q<QuestRow>(SQL_LIST_AVAILABLE_QUESTS, requiredLevel, userId)).map((row) => questFromRow(row, locale));
+  const [rows, userFlags] = await Promise.all([
+    q<QuestRow>(SQL_LIST_AVAILABLE_QUESTS, requiredLevel, userId),
+    listFlags(userId),
+  ]);
+  const userFlagSet = new Set(userFlags);
+  return rows.map((row) => questFromRow(row, locale)).filter((quest) => questFlagsSatisfied(quest, userFlagSet));
 }
 
 export type StartQuestResult = { readonly quest: Quest; readonly progress: UserQuestProgress } | null;
@@ -240,6 +259,7 @@ export async function startQuestWithin(t: DbExecutor, userId: string, questId: s
   const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
   if (existing) return { quest: questFromRow(questRow), progress: progressFromRow(existing) };
   const quest = questFromRow(questRow);
+  if (!(await questFlagsSatisfiedTx(t, quest, userId))) return null;
   const now = Date.now();
   const firstDialogue = quest.introDialogueId;
   const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0
@@ -347,15 +367,18 @@ function formatRewardText(quest: Quest): string {
 }
 
 export async function listQuestsForUser(userId: string, meanLevel: number, locale?: 'en' | 'pt'): Promise<QuestWithProgress[]> {
-  const [quests, progressRows] = await Promise.all([
+  const [quests, progressRows, userFlags] = await Promise.all([
     q<QuestRow>(SQL_LIST_QUESTS),
     q<ProgressRow>(SQL_LIST_PROGRESS_FOR_USER, userId),
+    listFlags(userId),
   ]);
   const progressByQuestId = new Map<string, ProgressRow>();
   for (const row of progressRows) progressByQuestId.set(row.quest_id, row);
+  const userFlagSet = new Set(userFlags);
   return quests
     .map((row) => questFromRow(row, locale))
     .filter((quest) => quest.objectives !== undefined && quest.objectives.length > 0)
+    .filter((quest) => progressByQuestId.has(quest.id) || questFlagsSatisfied(quest, userFlagSet))
     .map((quest) => questWithProgress(quest, meanLevel, progressByQuestId.get(quest.id) ?? null))
     .filter((q) => q.state !== 'claimed');
 }
@@ -366,6 +389,7 @@ export async function acceptQuest(userId: string, questId: string, meanLevel: nu
     if (!questRow) return null;
     const quest = questFromRow(questRow);
     if (quest.requiredLevel > meanLevel) return null;
+    if (!(await questFlagsSatisfiedTx(t, quest, userId))) return null;
     const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
     if (existing) return questWithProgress(quest, meanLevel, existing);
     const now = Date.now();
@@ -420,6 +444,10 @@ export async function claimQuest(userId: string, questId: string): Promise<Quest
     const now = Date.now();
     const marked = await t.run(SQL_MARK_CLAIMED, [now, userId, questId]);
     if (marked.changes === 0) return { ok: false, netcoreGranted: 0, itemsGranted: [] };
+
+    if (quest.completesFlag) {
+      await setFlag(userId, quest.completesFlag, now, t);
+    }
 
     let netcoreGranted = 0;
     const guaranteedNetcore = quest.finalReward.guaranteedNetcore ?? 0;
