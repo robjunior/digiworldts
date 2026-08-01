@@ -9,6 +9,9 @@
     "dev": "pnpm shared:build && pnpm --filter @digiworld/backend dev",
     "dev:backend": "pnpm --filter @digiworld/backend dev",
     "dev:frontend": "pnpm --filter @digiworld/frontend dev",
+    "dev:admin": "pnpm --filter @digiworld/admin dev",
+    "dev:admin:staging": "pnpm --filter @digiworld/admin dev:staging",
+    "dev:admin:production": "pnpm --filter @digiworld/admin dev:production",
     "build": "pnpm -r build",
     "typecheck": "pnpm shared:build && pnpm -r typecheck",
     "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native"

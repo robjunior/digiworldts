@@ -11,7 +11,7 @@ but consume their values from different sources.
 | production | GitHub Actions Environment `production` secrets + vars | Tag `vX.Y.Z`, or manual dispatch | always (deploy step) |
 
 The shared runtime is: `POSTGRES` + `Redis` + `backend` + `frontend` + `discord-bot`
-(the last one is behind the `discord` compose profile).
++ optional `admin` (the last two are behind the `discord` and `admin` compose profiles).
 
 ---
 
@@ -96,7 +96,7 @@ For **each** of `staging` and `production`:
 | ---------------------------- | ------------ | ----------- |
 | `ADMIN_BOOTSTRAP`            | `closed`     | Briefly set to `open` when bootstrapping the first admin, then flip back and re-deploy |
 | `HOST_PORT`                  | `8080`       | Only if colocating multiple envs on one machine |
-| `CORS_ORIGINS`               | empty (off)  | Set to the frontend origin(s), comma-separated |
+| `CORS_ORIGINS`               | empty (off)  | Set to the frontend origin(s), comma-separated. **Non-empty flips the session cookie to `SameSite=None; Secure`** so the standalone admin (`admin.example.com`) can authenticate against the game backend (`example.com`). Requires HTTPS end-to-end in production. |
 | `DISCORD_ADMIN_ROLE_IDS`     | empty        | Comma-separated Discord role IDs allowed to use `/admin` commerce commands |
 | `MP_PAYER_ID_TYPE`           | `CPF`        | Change only if the payer identity type differs |
 | `PIX_EXPIRATION_MINUTES`     | `30`         | Aligned with MP defaults |
@@ -212,3 +212,60 @@ cat /tmp/dw.env
 
 Omitting any required variable prints a targeted error and exits non-zero — the
 same failure mode CI produces when a GH secret is missing.
+
+---
+
+## 5. Admin panel — split into its own service
+
+The admin UI lives in a **standalone Vite/React workspace** (`admin/`) that is
+independent of the player frontend. Two consequences:
+
+- **Player bundle no longer ships admin JS.** Every `/admin/*` route was
+  removed from `frontend/src/App.tsx`; the workspace has no admin components,
+  libs, or types. Regular players cannot even reach a lazy-loaded admin
+  chunk.
+- **Admin can point at ANY environment.** Set `VITE_BACKEND_URL` at admin dev
+  time and the Vite proxy tunnels `/api` + `/ws` to that origin. Cookies flow
+  transparently because the browser sees same-origin (`http://localhost:5174`).
+
+### Local dev — connect the admin to any backend
+
+```bash
+# Connect to your local `pnpm --filter @digiworld/backend dev` on :3000
+pnpm --filter @digiworld/admin dev
+
+# Connect to staging (edit admin/.env.staging with the real host first)
+pnpm --filter @digiworld/admin dev:staging
+
+# Connect to production — prints a red banner + confirm dialog on boot
+pnpm --filter @digiworld/admin dev:production
+```
+
+The Vite dev proxy in [`admin/vite.config.ts`](../admin/vite.config.ts) rewrites
+`Set-Cookie` from remote backends (strips `Domain=` and `Secure`, coerces
+`SameSite=None` → `Lax`) so a production `HttpOnly; Secure; SameSite=None`
+cookie is still accepted by the local dev browser on plain HTTP.
+
+### Deployed admin — separate origin (opt-in)
+
+Bundled `admin` compose service builds `admin/dist` and serves it via nginx on
+`${ADMIN_HOST_PORT:-8090}`. Behind the `admin` compose profile, so `docker
+compose up` ignores it unless you opt in:
+
+```bash
+docker compose --profile admin up -d --build
+# admin at http://localhost:8090
+```
+
+For a real production deploy on a subdomain (e.g. `admin.example.com`), set:
+
+- `CORS_ORIGINS=https://admin.example.com,https://example.com` (or whatever
+  the frontend origin is). Any non-empty value flips the backend session
+  cookie to `SameSite=None; Secure` so cross-site fetches from the admin
+  are authenticated. HTTPS end-to-end is mandatory once this is on.
+- Point `admin.example.com` at the admin nginx (docker-compose `admin` service
+  or your own bucket + CDN serving `admin/dist`).
+
+The admin does **not** require its own database, Redis, or environment
+secrets — it's a stateless SPA that talks to the game backend via the same
+authenticated `/api/*` surface as before.

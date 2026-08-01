@@ -1,0 +1,39 @@
+/**
+ * Minimal admin shell CSS.
+ *
+ * Frontend has a full `app-shell.css`, but the admin never renders the
+ * player AppShell (no bottom nav, no realtime bridge). This stylesheet
+ * covers only what the admin routes need directly:
+ *   - EnvBadge top-offset so page content doesn't hide behind the banner
+ *   - AdminGuard loading placeholder
+ *   - Suspense fallback background
+ */
+
+:root {
+  --admin-banner-height: 26px;
+}
+
+body {
+  margin: 0;
+  background: var(--surface-1, #0b0d12);
+  color: var(--text-strong, #f0f0f0);
+  font-family: Inter, system-ui, sans-serif;
+  padding-top: var(--admin-banner-height);
+  min-height: 100vh;
+}
+
+.admin-guard-loading {
+  min-height: 100vh;
+  background: var(--surface-1, #0b0d12);
+}
+
+.admin-boot-fallback {
+  min-height: calc(100vh - var(--admin-banner-height));
+  background: var(--surface-1, #0b0d12);
+}
+
+/* EnvBadge banner-owned styles complement the inline styles in EnvBadge.tsx */
+.admin-env-badge {
+  height: var(--admin-banner-height);
+  box-sizing: border-box;
+}

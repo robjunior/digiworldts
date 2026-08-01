@@ -31,10 +31,6 @@ import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
 
 const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
-const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
-const AdminWorld = lazy(() => import('./routes/AdminWorld').then((m) => ({ default: m.AdminWorld })));
-const AdminDungeon = lazy(() => import('./routes/AdminDungeon').then((m) => ({ default: m.AdminDungeon })));
-const AdminParticleEditor = lazy(() => import('./routes/AdminParticleEditor').then((m) => ({ default: m.AdminParticleEditor })));
 const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
 
 function RealtimeBridge(): JSX.Element | null {
@@ -97,10 +93,6 @@ export function App(): JSX.Element {
               <Route path="/dungeon" element={<Navigate to="/world" replace />} />
               <Route path="/dungeon/:id" element={<Dungeon />} />
               <Route path="/spectate" element={<Spectate />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/admin/world" element={<AdminWorld />} />
-              <Route path="/admin/dungeons/:id" element={<AdminDungeon />} />
-              <Route path="/admin/particles" element={<AdminParticleEditor />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

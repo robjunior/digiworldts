@@ -14,7 +14,7 @@ import type { ActivityByMon, RosterActions, RosterMon } from '../components/rost
 import { isDowned } from '../components/roster/types';
 import { useAuth } from '../hooks/useAuth';
 import { getRoster } from '../lib/api';
-import { getCatalog } from '../lib/api-admin';
+import { getCatalog } from '../lib/api-catalog';
 import { evolveRosterMon, getEvolutionGate, getTrainingStatus, removeFromParty, renameRosterMon, reviveRosterMon, seedStarterRoster, setPartySlot } from '../lib/api-roster';
 import type { EvolutionGate } from '../lib/api-roster';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';

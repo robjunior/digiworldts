@@ -152,6 +152,21 @@ services:
       - ./frontend/public/assets/arenas:/usr/share/nginx/html/assets/arenas:ro
     restart: unless-stopped
 
+  admin:
+    profiles: ["admin"]
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    container_name: digiworld-admin-1
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${ADMIN_HOST_PORT:-8090}:8080"
+    volumes:
+      - ./frontend/public/assets/arenas:/usr/share/nginx/html/assets/arenas:ro
+    restart: unless-stopped
+
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared
