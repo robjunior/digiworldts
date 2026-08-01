@@ -1,4 +1,5 @@
 packages:
+  - "admin"
   - "backend"
   - "discord"
   - "frontend"

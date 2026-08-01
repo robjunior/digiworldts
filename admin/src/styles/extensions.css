@@ -1,0 +1,431 @@
+/* ============================================================
+   DigiWorld — Global extensions layer
+   Load order (see src/main.tsx):
+     tokens.css → components.css → extensions.css
+   Rules here override components.css. Per-page extensions live
+   under ./extensions-{page}.css and are imported by the route.
+   ============================================================ */
+
+/* -------- App shell nav (redesigned) --------
+   Overrides the minimal .app-nav rules in tokens.css with:
+     - subtle vertical gradient so the nav visually separates from content
+     - larger brand block with a small notch mark for identity
+     - clearly-grouped .nav-links / .nav-context / .nav-account regions
+     - active-tab underline in the signal color
+     - user chip with a small online-dot instead of "signed in as X" text
+*/
+
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px clamp(14px, 3vw, 24px);
+  background:
+    linear-gradient(180deg,
+      var(--bg) 0%,
+      color-mix(in oklab, var(--panel) 55%, var(--bg)) 100%);
+  border-bottom: 1px solid var(--hairline);
+  box-shadow: inset 0 -1px 0 color-mix(in oklab, var(--hairline) 60%, transparent);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-wrap: wrap;
+}
+
+.app-nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  padding: 4px 8px 4px 4px;
+  margin-right: 4px;
+  transition: filter 0.15s;
+}
+.app-nav .brand:hover { filter: brightness(1.05); }
+.app-nav .brand b { color: var(--signal); }
+.app-nav .brand-word { line-height: 1; }
+.app-nav .brand-mark {
+  width: 16px;
+  height: 16px;
+  background: linear-gradient(135deg, var(--signal) 0%, color-mix(in oklab, var(--signal) 60%, var(--el-nature)) 100%);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--ink) 15%, transparent);
+}
+
+.app-nav .nav-links {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hairline);
+}
+
+.app-nav .nav-link {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 7px 10px;
+  background: transparent;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+.app-nav .nav-link:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--panel) 70%, transparent);
+}
+.app-nav .nav-link.is-active {
+  color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 8%, var(--panel));
+  box-shadow: inset 0 -2px 0 var(--signal);
+}
+.app-nav .nav-link--admin {
+  color: var(--gold);
+}
+.app-nav .nav-link--admin.is-active {
+  color: var(--gold);
+  background: color-mix(in oklab, var(--gold) 12%, var(--panel));
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+.app-nav .nav-link--parent {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding-right: 8px;
+  user-select: none;
+  /* clip-path from .nav-link would also clip the absolutely-positioned
+     .nav-submenu below the tab, making it non-hit-testable. */
+  clip-path: none;
+}
+.app-nav .nav-link--parent .nav-link-chev {
+  font-size: 9px;
+  color: currentColor;
+  opacity: 0.65;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.app-nav .nav-link--parent:hover .nav-link-chev,
+.app-nav .nav-link--parent.is-open .nav-link-chev {
+  transform: translateY(1px);
+  opacity: 1;
+}
+.app-nav .nav-link--parent.is-open .nav-link-chev {
+  transform: rotate(180deg);
+}
+.app-nav .nav-submenu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  display: none;
+  flex-direction: column;
+  gap: 1px;
+  z-index: 200;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.app-nav .nav-link--parent:hover .nav-submenu,
+.app-nav .nav-link--parent.is-open .nav-submenu {
+  display: flex;
+}
+.app-nav .nav-submenu-item {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s, background 0.12s;
+}
+.app-nav .nav-submenu-item:hover {
+  color: var(--ink);
+  background: color-mix(in oklab, var(--signal) 12%, var(--panel));
+}
+.app-nav .nav-submenu-item.is-active {
+  color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 18%, var(--panel));
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+
+.app-nav .nav-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  margin-left: 4px;
+  border-left: 1px solid var(--hairline);
+  min-height: 32px;
+  flex-wrap: wrap;
+}
+
+.app-nav .nav-account {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid var(--hairline);
+}
+
+.app-nav .nav-locale {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--hairline) 20%, transparent);
+}
+.app-nav .nav-locale-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.app-nav .nav-locale-btn:hover { color: var(--ink); }
+.app-nav .nav-locale-btn.is-active {
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--ink) 12%, transparent);
+}
+
+.app-nav .nav-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  max-width: 180px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app-nav .nav-user b { color: var(--ink); font-weight: 600; }
+.app-nav .nav-user-mmr {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in oklab, var(--signal) 12%, transparent);
+  border: 1px solid color-mix(in oklab, var(--signal) 30%, var(--hairline));
+  border-radius: 3px;
+}
+.app-nav .nav-user-mmr b {
+  font-variant-numeric: tabular-nums;
+  color: var(--signal);
+  font-size: 12px;
+}
+.app-nav .nav-user-dot {
+  width: 7px; height: 7px;
+  background: var(--el-nature);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--el-nature) 22%, transparent);
+  flex: none;
+}
+
+.app-nav .nav-logout { padding: 5px 12px; }
+
+@media (max-width: 900px) {
+  .app-nav .nav-user { max-width: 120px; }
+  .app-nav .nav-links { padding-left: 6px; }
+  .app-nav .nav-link { padding: 6px 8px; letter-spacing: 0.05em; }
+}
+@media (max-width: 640px) {
+  .app-nav .nav-user b { display: none; }
+  .app-nav .nav-user::after { content: attr(title); font-size: 0; }
+}
+
+/* -------- NavStat (reusable page-context pill) --------
+   Consumed by pages via <NavStat label="..." value="..." tone="..." />
+   Tones map to closed design palette (see tokens.css).
+*/
+
+.nav-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  transition: border-color 0.15s;
+}
+.nav-stat:hover { border-color: color-mix(in oklab, var(--rc, var(--muted)) 40%, var(--hairline)); }
+
+.nav-stat .nav-stat-dot {
+  width: 7px; height: 7px;
+  background: var(--rc, var(--muted));
+  flex: none;
+}
+.nav-stat .nav-stat-lbl {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.nav-stat .nav-stat-val { color: var(--ink); font-weight: 700; }
+
+.nav-stat--meat    { --rc: var(--res-meat); }
+.nav-stat--bits    { --rc: var(--res-bits); }
+.nav-stat--data    { --rc: var(--res-data); }
+.nav-stat--credits { --rc: var(--credits); }
+.nav-stat--signal  { --rc: var(--signal); }
+.nav-stat--battle  { --rc: var(--battle); }
+.nav-stat--gold    { --rc: var(--gold); }
+.nav-stat--nature  { --rc: var(--el-nature); }
+.nav-stat--muted   { --rc: var(--muted); }
+
+/* -------- PageStrip (reusable per-page status bar) --------
+   Consumed by pages via <PageStrip name="..." tone="..." metrics={[...]} />
+   Lives here (global) so every route inherits the same visual language
+   without pulling in per-page extension sheets. Tones mirror the design
+   palette: action=signal, reward=gold, warn=battle.
+
+   Angles + border technique:
+     clip-path polygon chamfers the top-left + bottom-right corners.
+     Standard 1px CSS borders get sliced off at the diagonal cut, so
+     they're replaced by a 4-way drop-shadow filter that follows the
+     ACTUAL clipped outline (the chamfered polygon), giving a clean
+     1px hairline that survives the corner cuts. Tone accent is a
+     3px left stripe painted via linear-gradient (respects the clip
+     so the chamfer looks intentional at the top-left).
+*/
+
+.page-strip { --_tone: transparent;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 16px;
+  align-items: center; min-height: 40px;
+  padding: 0 clamp(16px, 4vw, 32px);
+  margin: 0 0 20px;
+  background: linear-gradient(90deg, var(--_tone) 0 3px, var(--bg) 3px);
+  clip-path: polygon(var(--notch) 0, 100% 0, 100% calc(100% - var(--notch)), calc(100% - var(--notch)) 100%, 0 100%, 0 var(--notch));
+  filter:
+    drop-shadow( 1px  0 0 var(--hairline))
+    drop-shadow(-1px  0 0 var(--hairline))
+    drop-shadow( 0    1px 0 var(--hairline))
+    drop-shadow( 0   -1px 0 var(--hairline));
+  transition: background .3s var(--ease); }
+.page-strip.is-action { --_tone: var(--signal); }
+.page-strip.is-reward { --_tone: var(--gold); }
+.page-strip.is-warn   { --_tone: var(--battle); }
+
+.page-strip .ps-name {
+  font-size: 10px; font-weight: 700; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted);
+  padding-right: 14px; border-right: 1px solid var(--hairline); }
+.page-strip .ps-body {
+  font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  min-width: 0; }
+.page-strip .ps-body .sep    { color: var(--hairline); user-select: none; }
+.page-strip .ps-body .mono   { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 11px; }
+.page-strip .ps-body b       { color: var(--ink); font-weight: 600; }
+.page-strip .ps-body .muted  { color: var(--muted); }
+.page-strip .ps-body .accent { color: var(--signal); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+.page-strip .ps-body .warn   { color: var(--battle); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 11px; }
+.page-strip .ps-body .reward { color: var(--gold);   font-weight: 700; }
+.page-strip .ps-actions { display: inline-flex; align-items: center; gap: 8px; }
+.page-strip .ps-actions .btn--sm { padding: 5px 12px; font-size: 11px; }
+
+.page-strip .ps-actor {
+  display: inline-block; min-width: 8ch; font-weight: 600;
+  transition: opacity .18s var(--ease); }
+.page-strip .ps-actor.is-swap { opacity: 0; }
+
+.ps-res { display: inline-flex; align-items: center; gap: 6px; }
+.ps-res .ps-dot { width: 7px; height: 7px; background: var(--rc, var(--muted)); flex: none; }
+.ps-res .ps-lbl { font-size: 9px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ps-res--meat { --rc: var(--res-meat); }
+.ps-res--bits { --rc: var(--res-bits); }
+.ps-res--data { --rc: var(--res-data); }
+
+@media (max-width: 640px) {
+  .page-strip { grid-template-columns: 1fr auto; row-gap: 4px;
+    padding: 8px clamp(12px, 4vw, 20px); min-height: 0;
+    clip-path: polygon(var(--notch-sm) 0, 100% 0, 100% calc(100% - var(--notch-sm)), calc(100% - var(--notch-sm)) 100%, 0 100%, 0 var(--notch-sm)); }
+  .page-strip .ps-name { grid-column: 1 / -1; border-right: 0;
+    padding: 0 0 4px 0; border-bottom: 1px solid var(--hairline); margin-bottom: 4px; }
+  .page-strip .ps-body { grid-column: 1; font-size: 11px; }
+  .page-strip .ps-actions { grid-column: 2; align-self: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-strip, .page-strip .ps-actor { transition: none; }
+}
+
+/* -------- DigiCredits (cyber-golden credit badge) --------
+   Consumed via <DigiCredits value={credits} /> anywhere credits matter
+   (typically inside <PageStrip> actions). Low-opacity goldenrod, chamfered
+   corners, drop-shadow-as-border so the outline follows the clipped shape.
+*/
+
+.digi-credits { --_c: var(--goldenrod);
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 11px 4px 9px;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, monospace;
+  font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: color-mix(in oklab, var(--_c) 92%, var(--ink));
+  background: color-mix(in oklab, var(--_c) 10%, transparent);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  filter:
+    drop-shadow( 1px  0 0 color-mix(in oklab, var(--_c) 45%, transparent))
+    drop-shadow(-1px  0 0 color-mix(in oklab, var(--_c) 45%, transparent))
+    drop-shadow( 0    1px 0 color-mix(in oklab, var(--_c) 45%, transparent))
+    drop-shadow( 0   -1px 0 color-mix(in oklab, var(--_c) 45%, transparent));
+  transition: background .2s var(--ease), filter .2s var(--ease); }
+.digi-credits:hover {
+  background: color-mix(in oklab, var(--_c) 18%, transparent);
+  filter:
+    drop-shadow( 1px  0 0 color-mix(in oklab, var(--_c) 65%, transparent))
+    drop-shadow(-1px  0 0 color-mix(in oklab, var(--_c) 65%, transparent))
+    drop-shadow( 0    1px 0 color-mix(in oklab, var(--_c) 65%, transparent))
+    drop-shadow( 0   -1px 0 color-mix(in oklab, var(--_c) 65%, transparent))
+    drop-shadow( 0    0   6px color-mix(in oklab, var(--_c) 35%, transparent)); }
+
+.digi-credits .dc-mark {
+  width: 7px; height: 7px; flex: none;
+  background: var(--_c);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  opacity: .78; }
+.digi-credits .dc-val { font-weight: 700; }
+.digi-credits .dc-lbl {
+  font-size: 9px; letter-spacing: .14em;
+  color: color-mix(in oklab, var(--_c) 55%, transparent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .digi-credits { transition: none; }
+  .digi-credits:hover { filter: none; }
+}

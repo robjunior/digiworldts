@@ -1,0 +1,441 @@
+import type { Attribute, BaseStats, Element, EvolveEdge, ResistanceMap, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
+
+import { apiFetch } from './api';
+
+export type ScrapedEntry = {
+  readonly skullbot_id: number;
+  readonly name: string;
+  readonly stage: string | null;
+  readonly attribute: string | null;
+  readonly portrait_url: string | null;
+  readonly dot_url: string | null;
+  readonly wikimon_slug: string | null;
+  readonly raw_json: string | null;
+  readonly scraped_at: number;
+  readonly in_catalog: number;
+};
+
+export type ScrapedListQuery = {
+  readonly search?: string;
+  readonly stage?: string;
+  readonly attribute?: string;
+  readonly limit?: number;
+  readonly offset?: number;
+};
+
+export type ScrapedListResponse = {
+  readonly total: number;
+  readonly offset: number;
+  readonly limit: number;
+  readonly entries: readonly ScrapedEntry[];
+};
+
+export type CatalogResponse = {
+  readonly version: string;
+  readonly updatedAt: number;
+  readonly digimons: readonly TemplateDigimon[];
+};
+
+export type AdminStats = {
+  readonly users: number;
+  readonly activeMatches: number;
+  readonly catalogTemplates: number;
+  readonly buildingBlueprints: number;
+  readonly totalPlayerBuildings: number;
+  readonly totalPlayerMons: number;
+};
+
+export type ShopItemKind = 'consumable' | 'cosmetic' | 'evolve' | 'building_placement' | 'ticket' | 'revive';
+
+export type ShopItemClass = 'product' | 'item';
+
+export type ShopItemView = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly priceCredits: number;
+  readonly kind: ShopItemKind;
+  readonly class: ShopItemClass;
+  readonly payload: Record<string, unknown>;
+  readonly enabled: boolean;
+  readonly isQuestItem?: boolean;
+  readonly createdAt: number;
+};
+
+export type ShopItemInput = {
+  readonly name: string;
+  readonly description?: string;
+  readonly priceCredits: number;
+  readonly kind: ShopItemKind;
+  readonly class: ShopItemClass;
+  readonly payload?: Record<string, unknown>;
+  readonly enabled?: boolean;
+  readonly isQuestItem?: boolean;
+};
+
+export type UserListEntry = {
+  readonly id: string;
+  readonly username: string;
+  readonly displayName: string;
+  readonly isAdmin: boolean;
+  readonly disabled: boolean;
+  readonly createdAt: number;
+  readonly lastLoginAt: number | null;
+  readonly credits: number;
+  readonly monCount: number;
+};
+
+export type UserDetail = UserListEntry & {
+  readonly updatedAt: number;
+  readonly wallet: {
+    readonly credits: number;
+    readonly streakDay: number;
+    readonly lastClaimAt: number | null;
+    readonly premiumUntil: number | null;
+    readonly updatedAt: number;
+  } | null;
+};
+
+export type UserListResponse = {
+  readonly users: readonly UserListEntry[];
+  readonly total: number;
+  readonly hasMore: boolean;
+};
+
+export type AdminRosterStatus = 'resting' | 'training' | 'party';
+
+export type AdminRosterView = {
+  readonly id: string;
+  readonly userId: string;
+  readonly ownerUsername: string | null;
+  readonly catalogId: string;
+  readonly catalogName: string | null;
+  readonly catalogStage: string | null;
+  readonly catalogPortrait: string | null;
+  readonly nickname: string;
+  readonly level: number;
+  readonly xp: number;
+  readonly statBonus: BaseStats;
+  readonly mood: number;
+  readonly status: AdminRosterStatus;
+  readonly slot: number | null;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type RosterInput = {
+  readonly nickname?: string;
+  readonly level?: number;
+  readonly xp?: number;
+  readonly statBonus?: Partial<BaseStats>;
+  readonly mood?: number;
+  readonly status?: AdminRosterStatus;
+  readonly slot?: number | null;
+};
+
+export type TemplateDraft = {
+  readonly id: string;
+  readonly name: string;
+  readonly stage: Stage;
+  readonly attribute: Attribute;
+  readonly element: Element;
+  readonly type?: string;
+  readonly baseStats: BaseStats;
+  readonly skillPool: readonly Skill[];
+  readonly assets: {
+    readonly portrait: string;
+    readonly dot: string;
+  };
+  readonly sourceUrl?: string;
+  readonly wikimonSlug?: string;
+  readonly evolvesInto?: readonly EvolveEdge[];
+  readonly resistances?: ResistanceMap;
+};
+
+export function getAdminStats(): Promise<AdminStats> {
+  return apiFetch<AdminStats>('/api/admin/stats');
+}
+
+export function getCatalog(): Promise<CatalogResponse> {
+  return apiFetch<CatalogResponse>('/api/catalog');
+}
+
+export function getScrapedList(query: ScrapedListQuery): Promise<ScrapedListResponse> {
+  return apiFetch<ScrapedListResponse>(`/api/admin/scraped-list?${toQueryString(query)}`);
+}
+
+export function refreshScrapedList(): Promise<{ readonly entries: number }> {
+  return apiFetch<{ readonly entries: number }>('/api/admin/scrape/refresh', { method: 'POST' });
+}
+
+export function addCatalogFromScraped(skullbotId: number, enrich: boolean): Promise<{ readonly template: TemplateDigimon }> {
+  return apiFetch<{ readonly template: TemplateDigimon }>('/api/admin/catalog/from-scraped', { method: 'POST', body: { skullbotId, enrich } });
+}
+
+export function createCustomTemplate(template: TemplateDraft): Promise<{ readonly template: TemplateDigimon }> {
+  return apiFetch<{ readonly template: TemplateDigimon }>('/api/admin/catalog/custom', { method: 'POST', body: template });
+}
+
+export function replaceTemplate(id: string, template: TemplateDraft): Promise<{ readonly template: TemplateDigimon }> {
+  return apiFetch<{ readonly template: TemplateDigimon }>(`/api/admin/catalog/${encodeURIComponent(id)}`, { method: 'PUT', body: template });
+}
+
+export function deleteTemplate(id: string): Promise<{ readonly ok: true }> {
+  return apiFetch<{ readonly ok: true }>(`/api/admin/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function downloadTemplateAssets(id: string): Promise<{ readonly result: Record<string, unknown> }> {
+  return apiFetch<{ readonly result: Record<string, unknown> }>(`/api/admin/assets/${encodeURIComponent(id)}/download`, { method: 'POST' });
+}
+
+export function getShopItems(): Promise<{ readonly items: readonly ShopItemView[] }> {
+  return apiFetch<{ readonly items: readonly ShopItemView[] }>('/api/admin/shop');
+}
+
+export function createShopItem(input: ShopItemInput): Promise<{ readonly ok: true; readonly item: ShopItemView }> {
+  return apiFetch<{ readonly ok: true; readonly item: ShopItemView }>('/api/admin/shop', { method: 'POST', body: input });
+}
+
+export function updateShopItem(id: string, input: ShopItemInput): Promise<{ readonly ok: true; readonly item: ShopItemView }> {
+  return apiFetch<{ readonly ok: true; readonly item: ShopItemView }>(`/api/admin/shop/${encodeURIComponent(id)}`, { method: 'PUT', body: input });
+}
+
+export function deleteShopItem(id: string): Promise<{ readonly ok: true; readonly item: { readonly id: string } }> {
+  return apiFetch<{ readonly ok: true; readonly item: { readonly id: string } }>(`/api/admin/shop/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function getUsers(query: { readonly q?: string; readonly limit?: number; readonly offset?: number }): Promise<UserListResponse> {
+  return apiFetch<UserListResponse>(`/api/admin/users?${toQueryString(query)}`);
+}
+
+export function updateUserFlags(id: string, flags: { readonly isAdmin?: boolean; readonly disabled?: boolean }): Promise<{ readonly ok: true; readonly user: UserDetail }> {
+  return apiFetch<{ readonly ok: true; readonly user: UserDetail }>(`/api/admin/users/${encodeURIComponent(id)}/flags`, { method: 'PATCH', body: flags });
+}
+
+export function updateUserCredits(id: string, credits: number): Promise<{ readonly ok: true; readonly user: UserDetail }> {
+  return apiFetch<{ readonly ok: true; readonly user: UserDetail }>(`/api/admin/users/${encodeURIComponent(id)}/credits`, { method: 'PATCH', body: { credits } });
+}
+
+export type AdminResetTokenResponse = {
+  readonly token: string;
+  readonly expiresAt: number;
+  readonly url: string;
+};
+
+export function issueUserResetToken(id: string): Promise<AdminResetTokenResponse> {
+  return apiFetch<AdminResetTokenResponse>(`/api/admin/users/${encodeURIComponent(id)}/reset-token`, { method: 'POST' });
+}
+
+export function getUserRoster(userId: string): Promise<{ readonly roster: readonly AdminRosterView[] }> {
+  return apiFetch<{ readonly roster: readonly AdminRosterView[] }>(`/api/admin/users/${encodeURIComponent(userId)}/roster`);
+}
+
+export function spawnRosterMon(userId: string, input: { readonly catalogId: string; readonly nickname?: string; readonly level?: number }): Promise<{ readonly ok: true; readonly mon: AdminRosterView }> {
+  return apiFetch<{ readonly ok: true; readonly mon: AdminRosterView }>(`/api/admin/users/${encodeURIComponent(userId)}/roster/spawn`, { method: 'POST', body: input });
+}
+
+export function updateRosterMon(monId: string, input: RosterInput): Promise<{ readonly ok: true; readonly mon: AdminRosterView }> {
+  return apiFetch<{ readonly ok: true; readonly mon: AdminRosterView }>(`/api/admin/roster/${encodeURIComponent(monId)}`, { method: 'PATCH', body: input });
+}
+
+export function deleteRosterMon(monId: string): Promise<{ readonly ok: true; readonly mon: { readonly id: string } }> {
+  return apiFetch<{ readonly ok: true; readonly mon: { readonly id: string } }>(`/api/admin/roster/${encodeURIComponent(monId)}`, { method: 'DELETE' });
+}
+
+export type SkillElement = 'fire' | 'water' | 'plant' | 'ice' | 'electricity' | 'earth' | 'steel' | 'wind' | 'light' | 'dark' | 'null';
+
+export type SkillView = {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+  readonly element: SkillElement;
+  readonly energyCost: number;
+  readonly cooldown?: number;
+  readonly actions: readonly Record<string, unknown>[];
+  readonly tags?: readonly string[];
+  readonly animation?: string;
+  readonly enabled?: boolean;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type SkillInput = {
+  readonly name: string;
+  readonly description?: string;
+  readonly element: SkillElement;
+  readonly energyCost: number;
+  readonly cooldown?: number;
+  readonly actions: readonly Record<string, unknown>[];
+  readonly tags?: readonly string[];
+  readonly animation?: string;
+  readonly enabled?: boolean;
+};
+
+export function getSkills(): Promise<{ readonly skills: readonly SkillView[] }> {
+  return apiFetch<{ readonly skills: readonly SkillView[] }>('/api/admin/skills');
+}
+
+export function createSkill(input: SkillInput): Promise<{ readonly ok: true; readonly skill: SkillView }> {
+  return apiFetch<{ readonly ok: true; readonly skill: SkillView }>('/api/admin/skills', { method: 'POST', body: input });
+}
+
+export function updateSkill(id: string, input: SkillInput): Promise<{ readonly ok: true; readonly skill: SkillView }> {
+  return apiFetch<{ readonly ok: true; readonly skill: SkillView }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'PUT', body: input });
+}
+
+export function deleteSkill(id: string): Promise<{ readonly ok: true; readonly id: string }> {
+  return apiFetch<{ readonly ok: true; readonly id: string }>(`/api/admin/skills/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export type CatalogSkillMeta = {
+  readonly id: string;
+  readonly name: string;
+  readonly name_pt: string;
+  readonly description: string | null;
+  readonly description_pt: string | null;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly cooldown: number;
+  readonly stage: Stage;
+  readonly slot_role: string | null;
+  readonly tier_2: boolean;
+  readonly upgrade_of: string | null;
+};
+
+export function getCatalogSkills(): Promise<{ readonly skills: readonly CatalogSkillMeta[] }> {
+  return apiFetch<{ readonly skills: readonly CatalogSkillMeta[] }>('/api/admin/skills-catalog');
+}
+
+export type ArenaFileMeta = {
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+  readonly thumb?: {
+    readonly url: string;
+    readonly mtime: number;
+  };
+};
+
+export function getArenas(): Promise<{ readonly arenas: readonly ArenaFileMeta[] }> {
+  return apiFetch<{ readonly arenas: readonly ArenaFileMeta[] }>('/api/admin/arenas');
+}
+
+export type UploadArenaResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+};
+
+export function uploadArena(file: File, overwrite: boolean): Promise<UploadArenaResponse> {
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  return apiFetch<UploadArenaResponse>(`/api/admin/arenas?overwrite=${overwrite ? '1' : '0'}`, {
+    method: 'POST',
+    body: fd,
+  });
+}
+
+export type UploadThumbnailResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly thumb: {
+    readonly url: string;
+    readonly mtime: number;
+  };
+};
+
+export function uploadArenaThumbnail(file: string, png: Blob): Promise<UploadThumbnailResponse> {
+  const fd = new FormData();
+  fd.append('file', png, `${file.replace(/\.glb$/, '')}.png`);
+  return apiFetch<UploadThumbnailResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}/thumbnail`,
+    { method: 'POST', body: fd },
+  );
+}
+
+export function deleteArena(file: string): Promise<{ readonly ok: true; readonly file: string }> {
+  return apiFetch<{ readonly ok: true; readonly file: string }>(
+    `/api/admin/arenas/${encodeURIComponent(file)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export type RenameArenaResponse = {
+  readonly ok: true;
+  readonly file: string;
+  readonly size: number;
+  readonly mtime: number;
+  readonly cascaded: boolean;
+};
+
+export function renameArena(file: string, newFile: string): Promise<RenameArenaResponse> {
+  return apiFetch<RenameArenaResponse>(
+    `/api/admin/arenas/${encodeURIComponent(file)}`,
+    { method: 'PATCH', body: { newFile } },
+  );
+}
+
+export type LootEntryView = {
+  readonly id: string;
+  readonly itemId: string;
+  readonly dropPct: number;
+  readonly qtyMin: number;
+  readonly qtyMax: number;
+  readonly updatedAt: number;
+};
+
+export type LootEntryInput = {
+  readonly itemId: string;
+  readonly dropPct: number;
+  readonly qtyMin?: number;
+  readonly qtyMax?: number;
+};
+
+export type LootTableResponse = {
+  readonly catalogId: string;
+  readonly entries: readonly LootEntryView[];
+};
+
+export function getCatalogLoot(catalogId: string): Promise<LootTableResponse> {
+  return apiFetch<LootTableResponse>(`/api/admin/catalog-loot/${encodeURIComponent(catalogId)}`);
+}
+
+export function putCatalogLoot(catalogId: string, entries: readonly LootEntryInput[]): Promise<{ readonly ok: true } & LootTableResponse> {
+  return apiFetch<{ readonly ok: true } & LootTableResponse>(`/api/admin/catalog-loot/${encodeURIComponent(catalogId)}`, {
+    method: 'PUT',
+    body: { entries },
+  });
+}
+
+export type AdminGameSettings = {
+  readonly xpRate: number;
+  readonly damageRate: number;
+  readonly updatedAt: number;
+};
+
+export const ADMIN_XP_RATE_MIN = 0.1;
+export const ADMIN_XP_RATE_MAX = 10.0;
+
+export const ADMIN_DAMAGE_RATE_MIN = 0.25;
+export const ADMIN_DAMAGE_RATE_MAX = 5.0;
+
+export function getAdminGameSettings(): Promise<{ readonly settings: AdminGameSettings }> {
+  return apiFetch<{ readonly settings: AdminGameSettings }>('/api/admin/game-settings');
+}
+
+export function updateAdminGameSettings(
+  input: { readonly xpRate?: number; readonly damageRate?: number },
+): Promise<{ readonly settings: AdminGameSettings }> {
+  return apiFetch<{ readonly settings: AdminGameSettings }>('/api/admin/game-settings', { method: 'PUT', body: input });
+}
+
+function toQueryString(query: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') {
+      params.set(key, String(value));
+    }
+  }
+  return params.toString();
+}
