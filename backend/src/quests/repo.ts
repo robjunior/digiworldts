@@ -43,6 +43,7 @@ type WorldObjectRow = {
   readonly elements: string | null;
   readonly min_level: number | null;
   readonly max_level: number | null;
+  readonly hidden_until_flag: string | null;
   readonly created_at: number;
   readonly updated_at: number;
 };
@@ -74,6 +75,7 @@ type WorldObjectInput = {
   readonly elements?: readonly Element[];
   readonly minLevel?: number;
   readonly maxLevel?: number;
+  readonly hiddenUntilFlag?: string;
 };
 
 const SQL_LIST_QUESTS = `SELECT * FROM quests ORDER BY created_at DESC`;
@@ -92,8 +94,8 @@ const SQL_LIST_AVAILABLE_QUESTS = `
 `;
 const SQL_LIST_WORLD_OBJECTS = `SELECT * FROM world_objects ORDER BY created_at DESC`;
 const SQL_GET_WORLD_OBJECT = `SELECT * FROM world_objects WHERE id = ?`;
-const SQL_INSERT_WORLD_OBJECT = `INSERT INTO world_objects (id, x, y, lat, lon, kind, scale, tint, quest_id, dungeon_id, passable, label, elements, min_level, max_level, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_WORLD_OBJECT = `UPDATE world_objects SET x = ?, y = ?, lat = ?, lon = ?, kind = ?, scale = ?, tint = ?, quest_id = ?, dungeon_id = ?, passable = ?, label = ?, elements = ?, min_level = ?, max_level = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_WORLD_OBJECT = `INSERT INTO world_objects (id, x, y, lat, lon, kind, scale, tint, quest_id, dungeon_id, passable, label, elements, min_level, max_level, hidden_until_flag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_WORLD_OBJECT = `UPDATE world_objects SET x = ?, y = ?, lat = ?, lon = ?, kind = ?, scale = ?, tint = ?, quest_id = ?, dungeon_id = ?, passable = ?, label = ?, elements = ?, min_level = ?, max_level = ?, hidden_until_flag = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_WORLD_OBJECT = `DELETE FROM world_objects WHERE id = ?`;
 const SQL_BLOCKING_WORLD_OBJECT_AT = `SELECT * FROM world_objects WHERE x = ? AND y = ? AND passable = 0 LIMIT 1`;
 const SQL_ADJACENT_QUEST = `
@@ -174,6 +176,7 @@ function worldObjectFromRow(row: WorldObjectRow): WorldObject {
     ...(parsedElements !== null && parsedElements.length > 0 ? { elements: parsedElements } : {}),
     ...(row.min_level !== null ? { minLevel: row.min_level } : {}),
     ...(row.max_level !== null ? { maxLevel: row.max_level } : {}),
+    ...(row.hidden_until_flag !== null ? { hiddenUntilFlag: row.hidden_until_flag } : {}),
   };
 }
 
@@ -613,8 +616,10 @@ export async function getQuestProgress(userId: string, questId: string): Promise
   return row ? progressFromRow(row) : null;
 }
 
-export async function listWorldObjects(): Promise<WorldObject[]> {
-  return (await q<WorldObjectRow>(SQL_LIST_WORLD_OBJECTS)).map(worldObjectFromRow);
+export async function listWorldObjects(userId: string): Promise<WorldObject[]> {
+  const [rows, userFlags] = await Promise.all([q<WorldObjectRow>(SQL_LIST_WORLD_OBJECTS), listFlags(userId)]);
+  const userFlagSet = new Set(userFlags);
+  return rows.map(worldObjectFromRow).filter((obj) => obj.hiddenUntilFlag === undefined || userFlagSet.has(obj.hiddenUntilFlag));
 }
 
 export async function getWorldObject(id: string): Promise<WorldObject | null> {
@@ -626,7 +631,7 @@ export async function createWorldObject(input: WorldObjectInput): Promise<WorldO
   const now = Date.now();
   const object: WorldObject = { ...input, id: newId('obj'), createdAt: now, updatedAt: now };
   const elementsJson = input.elements && input.elements.length > 0 ? JSON.stringify(input.elements) : null;
-  await run(SQL_INSERT_WORLD_OBJECT, object.id, object.x, object.y, object.lat, object.lon, object.kind, object.scale, object.tint ?? null, object.questId ?? null, object.dungeonId ?? null, object.passable ? 1 : 0, object.label ?? null, elementsJson, object.minLevel ?? null, object.maxLevel ?? null, now, now);
+  await run(SQL_INSERT_WORLD_OBJECT, object.id, object.x, object.y, object.lat, object.lon, object.kind, object.scale, object.tint ?? null, object.questId ?? null, object.dungeonId ?? null, object.passable ? 1 : 0, object.label ?? null, elementsJson, object.minLevel ?? null, object.maxLevel ?? null, object.hiddenUntilFlag ?? null, now, now);
   return object;
 }
 
@@ -635,7 +640,7 @@ export async function updateWorldObject(id: string, input: WorldObjectInput): Pr
   if (!existing) return null;
   const now = Date.now();
   const elementsJson = input.elements && input.elements.length > 0 ? JSON.stringify(input.elements) : null;
-  const result = await run(SQL_UPDATE_WORLD_OBJECT, input.x, input.y, input.lat, input.lon, input.kind, input.scale, input.tint ?? null, input.questId ?? null, input.dungeonId ?? null, input.passable ? 1 : 0, input.label ?? null, elementsJson, input.minLevel ?? null, input.maxLevel ?? null, now, id);
+  const result = await run(SQL_UPDATE_WORLD_OBJECT, input.x, input.y, input.lat, input.lon, input.kind, input.scale, input.tint ?? null, input.questId ?? null, input.dungeonId ?? null, input.passable ? 1 : 0, input.label ?? null, elementsJson, input.minLevel ?? null, input.maxLevel ?? null, input.hiddenUntilFlag ?? null, now, id);
   if (result.changes === 0) return null;
   return { ...input, id, createdAt: existing.createdAt, updatedAt: now };
 }

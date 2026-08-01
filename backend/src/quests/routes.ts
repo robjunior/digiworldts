@@ -157,8 +157,8 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   });
 
   app.get('/api/world/objects', async (req, reply) => {
-    await requireAuth(req, reply);
-    return reply.send({ objects: await listWorldObjects() });
+    const user = await requireAuth(req, reply);
+    return reply.send({ objects: await listWorldObjects(user.id) });
   });
 
   app.get<{ Params: { id: string } }>('/api/admin/world-objects/:id', async (req, reply) => {

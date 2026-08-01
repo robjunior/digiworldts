@@ -110,6 +110,7 @@ export const WorldObjectInputSchema = z.object({
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length).optional(),
   minLevel: z.number().int().min(1).max(999).optional(),
   maxLevel: z.number().int().min(1).max(999).optional(),
+  hiddenUntilFlag: z.string().trim().min(1).max(120).optional(),
 }).superRefine((input, ctx) => {
   if (input.minLevel !== undefined && input.maxLevel !== undefined && input.maxLevel < input.minLevel) {
     ctx.addIssue({ code: 'custom', path: ['maxLevel'], message: 'maxLevel must be >= minLevel' });
@@ -212,6 +213,7 @@ export function asWorldObjectPayload(input: WorldObjectInput): Omit<WorldObject,
     ...(input.elements !== undefined && input.elements.length > 0 ? { elements: input.elements } : {}),
     ...(input.minLevel !== undefined ? { minLevel: input.minLevel } : {}),
     ...(input.maxLevel !== undefined ? { maxLevel: input.maxLevel } : {}),
+    ...(input.hiddenUntilFlag !== undefined ? { hiddenUntilFlag: input.hiddenUntilFlag } : {}),
   };
 }
 
