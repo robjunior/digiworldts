@@ -1,0 +1,7 @@
+# Obsidian per-workspace state — pane layout, open tabs, split sizes.
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/workspaces.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+.trash/
