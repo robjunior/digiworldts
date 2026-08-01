@@ -13,6 +13,8 @@ import {
 
 const PROVIDER_LABELS: Readonly<Record<string, string>> = {
   discord: 'Discord',
+  google: 'Google',
+  facebook: 'Facebook',
 };
 
 export function OAuthDecide(): JSX.Element {

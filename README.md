@@ -112,10 +112,16 @@ pnpm start
 | `SCRAPER_USER_AGENT` | see `src/config.ts` | identifies us to upstream hosts |
 | `MAX_LOBBY_CONNECTIONS` | `1200` | hard cap on live WS sockets |
 | `MAX_CONCURRENT_MATCHES` | `200` | hard cap on live 3v3 battles |
-| `OAUTH_ENABLED_PROVIDERS` | — (empty) | comma-separated list of OAuth providers to enable — e.g. `discord`. Empty disables OAuth entirely. See [Sign in with Discord (OAuth2)](#sign-in-with-discord-oauth2). |
+| `OAUTH_ENABLED_PROVIDERS` | — (empty) | comma-separated list of OAuth providers to enable — e.g. `discord,google,facebook`. Empty disables OAuth entirely. See [Sign in with Discord (OAuth2)](#sign-in-with-discord-oauth2). |
 | `DISCORD_OAUTH_CLIENT_ID` | — | required when `discord` is in `OAUTH_ENABLED_PROVIDERS`. Copy from https://discord.com/developers/applications → your app → OAuth2. |
 | `DISCORD_OAUTH_CLIENT_SECRET` | — | required when Discord OAuth is enabled. Rotates in the same panel. |
 | `DISCORD_OAUTH_REDIRECT_URI` | — | required when Discord OAuth is enabled. Must exactly match one entry in the Discord app's OAuth2 Redirects list. Format: `https://your-host/api/auth/oauth/discord/callback`. |
+| `GOOGLE_OAUTH_CLIENT_ID` | — | required when `google` is in `OAUTH_ENABLED_PROVIDERS`. Copy from https://console.cloud.google.com → APIs & Services → Credentials → OAuth 2.0 Client IDs. |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | — | required when Google OAuth is enabled. Shown on the same credential row. |
+| `GOOGLE_OAUTH_REDIRECT_URI` | — | required when Google OAuth is enabled. Must match one entry in the OAuth client's Authorized redirect URIs. Format: `https://your-host/api/auth/oauth/google/callback`. |
+| `FACEBOOK_OAUTH_CLIENT_ID` | — | required when `facebook` is in `OAUTH_ENABLED_PROVIDERS`. Copy from https://developers.facebook.com/apps → your app → Settings → Basic → App ID. |
+| `FACEBOOK_OAUTH_CLIENT_SECRET` | — | required when Facebook OAuth is enabled. Same page → App secret (click Show). |
+| `FACEBOOK_OAUTH_REDIRECT_URI` | — | required when Facebook OAuth is enabled. Must match one entry under Facebook Login → Settings → Valid OAuth Redirect URIs. Format: `https://your-host/api/auth/oauth/facebook/callback`. |
 
 ---
 
@@ -509,6 +515,36 @@ DISCORD_OAUTH_REDIRECT_URI=https://<your-host>/api/auth/oauth/discord/callback
 
 Boot fails fast (before the port binds) if `discord` is in `OAUTH_ENABLED_PROVIDERS` and any of the other three values is missing.
 
+### Setting up the Google app
+
+1. Go to https://console.cloud.google.com → **APIs & Services** → **Credentials**.
+2. Create an **OAuth 2.0 Client ID** (type: Web application).
+3. Under **Authorized redirect URIs**, add `https://<your-host>/api/auth/oauth/google/callback`.
+4. No scopes need to be enabled beyond `openid` + `profile` — Google grants them by default. The backend adds `access_type=offline` + `prompt=consent` on the authorize URL so a refresh token is always issued.
+5. Copy `Client ID` + `Client secret` and put them in `.env`:
+
+```bash
+OAUTH_ENABLED_PROVIDERS=discord,google
+GOOGLE_OAUTH_CLIENT_ID=<from step 5>
+GOOGLE_OAUTH_CLIENT_SECRET=<from step 5>
+GOOGLE_OAUTH_REDIRECT_URI=https://<your-host>/api/auth/oauth/google/callback
+```
+
+### Setting up the Facebook app
+
+1. Go to https://developers.facebook.com/apps → **Create App** (type: Consumer). Under **Add products**, enable **Facebook Login → Web**.
+2. In **Facebook Login → Settings**, add `https://<your-host>/api/auth/oauth/facebook/callback` to **Valid OAuth Redirect URIs**.
+3. In **App settings → Basic**, copy **App ID** + **App secret** and put them in `.env`:
+
+```bash
+OAUTH_ENABLED_PROVIDERS=discord,google,facebook
+FACEBOOK_OAUTH_CLIENT_ID=<App ID>
+FACEBOOK_OAUTH_CLIENT_SECRET=<App secret>
+FACEBOOK_OAUTH_REDIRECT_URI=https://<your-host>/api/auth/oauth/facebook/callback
+```
+
+The scope is `public_profile` — granted by default without App Review. Because Facebook doesn't issue refresh_tokens, the backend chains a `fb_exchange_token` call right after the initial code exchange so the stored access token is the ~60-day long-lived version instead of the ~2-hour short-lived one. Subsequent `refreshTokens()` calls do another `fb_exchange_token` round-trip using the current token. See [`backend/src/auth/oauth/facebook.ts`](backend/src/auth/oauth/facebook.ts) for the quirks.
+
 ### HTTP surface
 
 | Method | Path | Auth | Purpose |
@@ -528,7 +564,7 @@ Boot fails fast (before the port binds) if `discord` is in `OAUTH_ENABLED_PROVID
 - Short-lived cluster KV: `oauth:state:{token}` (CSRF, 10 min, single-use) and `oauth:pending:{token}` (hybrid decision, 10 min, single-use). Same tokens as `discordlink:code:*` — 256-bit opaque random.
 - OAuth-only users get a placeholder `password_hash` set to `argon2id(randomBytes(48))`. The plaintext is discarded, so no password sign-in can ever succeed against it — the user always comes back via Discord (or via a future "set password" recovery flow).
 
-### Adding Google, Facebook, ...
+### Adding more providers (Twitter, GitHub, Apple, ...)
 
 Purely a matter of implementing [`OAuthProvider`](backend/src/auth/oauth/types.ts) and registering the instance in [`registry.ts`](backend/src/auth/oauth/registry.ts). The routes, state manager, store, and frontend button component are all provider-agnostic — the frontend renders whatever `GET /api/auth/oauth/providers` returns.
 
