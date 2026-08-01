@@ -1,6 +1,7 @@
 import type { DbExecutor } from '../db/executor.js';
 import { execOne, execRun } from '../db/executor.js';
 import { q } from '../db/index.js';
+import { emit } from '../telemetry/emit.js';
 
 const SQL_SET = `
   INSERT INTO user_flags (user_id, flag, set_at)
@@ -25,10 +26,12 @@ function escapeLikePrefix(prefix: string): string {
  */
 export async function setFlag(userId: string, flag: string, now = Date.now(), ex?: DbExecutor): Promise<void> {
   await execRun(ex, SQL_SET, [userId, flag, now]);
+  emit({ event: 'flag.set', userId, distinctId: userId, ts: now, props: { flag } });
 }
 
 export async function clearFlag(userId: string, flag: string, ex?: DbExecutor): Promise<void> {
   await execRun(ex, SQL_CLEAR, [userId, flag]);
+  emit({ event: 'flag.cleared', userId, distinctId: userId, props: { flag } });
 }
 
 export async function hasFlag(userId: string, flag: string, ex?: DbExecutor): Promise<boolean> {

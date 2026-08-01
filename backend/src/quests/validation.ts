@@ -85,6 +85,8 @@ export const QuestInputSchema = z.object({
   giver: z.string().trim().min(1).max(80).optional(),
   rewardText: z.string().trim().min(1).max(200).optional(),
   lockHint: z.string().trim().min(1).max(200).optional(),
+  requiredFlags: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+  completesFlag: z.string().trim().min(1).max(120).optional(),
 });
 
 export const QuestImportSchema = QuestInputSchema.extend({
@@ -189,6 +191,8 @@ export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt
     ...(input.giver !== undefined ? { giver: input.giver } : {}),
     ...(input.rewardText !== undefined ? { rewardText: input.rewardText } : {}),
     ...(input.lockHint !== undefined ? { lockHint: input.lockHint } : {}),
+    ...(input.requiredFlags !== undefined && input.requiredFlags.length > 0 ? { requiredFlags: input.requiredFlags } : {}),
+    ...(input.completesFlag !== undefined ? { completesFlag: input.completesFlag } : {}),
   };
 }
 
