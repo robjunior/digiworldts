@@ -7,6 +7,7 @@ import { getDefaultEquippedForStage } from '../skills/pool.js';
 import type { TemplateDigimon } from '../digimon/types.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import { emit } from '../telemetry/emit.js';
 
 const MIN_PRICE = 10;
 const MAX_PRICE = 1_000_000;
@@ -243,6 +244,18 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
       await t.run(SQL_SET_MON_LISTED, [now, now, monId, user.id]);
     });
     log.info('market.list.ok', { userId: user.id, monId, listingId, price });
+    emit({
+      event: 'market.list',
+      userId: user.id,
+      distinctId: user.id,
+      props: {
+        listing_id: listingId,
+        mon_id: monId,
+        catalog_id: mon.catalog_id,
+        level: mon.level,
+        price_netcore: price,
+      },
+    });
     return reply.code(201).send({ ok: true, listingId, monId, price });
   });
 
@@ -303,6 +316,19 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
     log.info('market.buy.ok', {
       buyerId: user.id, sellerId: listing.seller_id,
       listingId: listing.id, monId: listing.mon_id, price: listing.price_netcore,
+    });
+    const daysListed = Math.max(0, Math.floor((now - listing.listed_at) / (24 * 60 * 60 * 1000)));
+    emit({
+      event: 'market.sold',
+      userId: listing.seller_id,
+      distinctId: listing.seller_id,
+      props: {
+        listing_id: listing.id,
+        mon_id: listing.mon_id,
+        buyer_id: user.id,
+        price_netcore: listing.price_netcore,
+        days_listed: daysListed,
+      },
     });
     return reply.send({ ok: true, monId: listing.mon_id, price: listing.price_netcore });
   });

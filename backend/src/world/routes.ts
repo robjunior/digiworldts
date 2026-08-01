@@ -4,6 +4,7 @@ import { requireAuth } from '../auth/routes.js';
 import type { Action } from '../battle/types.js';
 import { q } from '../db/index.js';
 import { log } from '../util/log.js';
+import { emit } from '../telemetry/emit.js';
 import { biomeAt, BIOME_COLOR, BIOME_COORDS, BIOME_DANGER, BIOME_ELEMENT, BIOME_LABEL, BIOMES, tilesAround, type Biome } from './biomes.js';
 import {
   currentBiome,
@@ -146,8 +147,21 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
 
     const current = await loadOrInitPosition(user.id);
     const nextPos = nextPosition(current, dir);
+    const biomeFrom = currentBiome(current);
     const blocker = await blockingWorldObjectAt(nextPos.x, nextPos.y);
     if (blocker) {
+      emit({
+        event: 'world.move',
+        userId: user.id,
+        distinctId: user.id,
+        props: {
+          biome_from: biomeFrom,
+          dir,
+          blocked: true,
+          blocker_label: blocker.label ?? null,
+          steps_total: await getStepsTaken(user.id),
+        },
+      });
       return reply.code(409).send({
         error: 'blocked',
         message: blocker.label ? `${blocker.label} blocks the way.` : 'A world object blocks the way.',
@@ -181,6 +195,24 @@ export const worldPlugin: FastifyPluginAsync = async (app) => {
         log.warn('world.encounter.start-fail', { userId: user.id, error: started.error });
       }
     }
+
+    emit({
+      event: 'world.move',
+      userId: user.id,
+      distinctId: user.id,
+      props: {
+        biome_from: biomeFrom,
+        biome_to: biome,
+        dir,
+        blocked: false,
+        encounter_kind: encounter.kind,
+        party_rating: rating.rating,
+        steps_total: steps,
+        wild_count: encounter.kind === 'wild-mon' ? encounter.mons.length : 0,
+        rare_count: encounter.kind === 'wild-mon' ? encounter.mons.filter((m) => m.rare).length : 0,
+        battle_started: battleView !== null,
+      },
+    });
 
     return reply.send({
       position: positionView(nextPos),

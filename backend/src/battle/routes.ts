@@ -44,6 +44,7 @@ import { getCluster } from '../cluster/index.js';
 import { clearSpectators, listSpectators } from './spectate.js';
 import { pickSceneForElements } from '../scenes/picker.js';
 import type { Element } from '@digiworld/shared/digimon';
+import { emit } from '../telemetry/emit.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -432,6 +433,34 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
     mmrA: pvpMmr?.a,
     mmrB: pvpMmr?.b,
   });
+  const durationS = (battle.endedAt! - battle.startedAt) / 1000;
+  const rewardsFor = (result: typeof summary.aResult): { netcore: number; bits: number } => {
+    if (result === 'win') return { netcore: CREDITS_PER_WIN, bits: BITS_PER_WIN };
+    if (result === 'loss') return { netcore: CREDITS_PER_LOSS, bits: BITS_PER_LOSS };
+    if (result === 'draw') return { netcore: CREDITS_PER_DRAW, bits: BITS_PER_DRAW };
+    return { netcore: 0, bits: 0 };
+  };
+  const emitFor = (userId: string, side: 'a' | 'b', result: typeof summary.aResult, mmr: { before: number; after: number; delta: number } | null): void => {
+    const rw = rewardsFor(result);
+    emit({
+      event: 'battle.end',
+      userId,
+      distinctId: userId,
+      props: {
+        mode: battle.mode,
+        match_id: battle.id,
+        side,
+        result,
+        rounds: battle.round,
+        duration_s: Math.round(durationS * 10) / 10,
+        netcore_gained: rw.netcore,
+        bits_gained: rw.bits,
+        ...(mmr !== null ? { mmr_before: mmr.before, mmr_after: mmr.after, mmr_delta: mmr.delta } : {}),
+      },
+    });
+  };
+  emitFor(battle.playerA, 'a', summary.aResult, pvpMmr?.a ?? null);
+  emitFor(battle.playerB, 'b', summary.bResult, pvpMmr?.b ?? null);
   return pvpMmr;
 }
 

@@ -69,6 +69,10 @@
     "./dialogue-expr": {
       "types": "./dist/dialogue-expr.d.ts",
       "import": "./dist/dialogue-expr.js"
+    },
+    "./telemetry": {
+      "types": "./dist/telemetry.d.ts",
+      "import": "./dist/telemetry.js"
     }
   },
   "files": [

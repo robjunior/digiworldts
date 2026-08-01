@@ -14,6 +14,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
 import { one, run, tx, type WalletRow } from '../db/index.js';
 import { log } from '../util/log.js';
+import { emit } from '../telemetry/emit.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const GRACE_MS = 48 * 60 * 60 * 1000;
@@ -109,6 +110,19 @@ export const dailyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       if (reward.data) await t.run(SQL_UPSERT_RESOURCE, [me.id, 'Data', reward.data, now]);
     });
     log.info('daily.claim', { userId: me.id, day: step.nextDay, reset: step.reset });
+    emit({
+      event: 'daily.claim',
+      userId: me.id,
+      distinctId: me.id,
+      props: {
+        streak_day: step.nextDay,
+        streak_reset: step.reset,
+        netcore_reward: reward.netcore ?? 0,
+        meat_reward: reward.meat ?? 0,
+        bits_reward: reward.bits ?? 0,
+        data_reward: reward.data ?? 0,
+      },
+    });
     return reply.send({
       streakDay: step.nextDay,
       reset: step.reset,

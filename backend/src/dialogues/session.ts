@@ -6,6 +6,7 @@ import { log } from '../util/log.js';
 import { partyRating } from '../world/engine.js';
 import { getDialogue } from './repo.js';
 import { applyEntryActions, evaluateCondition, visibleChoices, type DialogueRuntimeContext } from './runtime.js';
+import { emit } from '../telemetry/emit.js';
 
 const CURSOR_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 10;
@@ -80,6 +81,18 @@ async function enter(
   ctx: DialogueRuntimeContext,
 ): Promise<DialogueView> {
   await applyEntryActions(node, ctx);
+  if (node.speaker !== null) {
+    emit({
+      event: 'dialogue.choice',
+      userId: ctx.userId,
+      distinctId: ctx.userId,
+      props: {
+        dialogue_id: definition.dialogueId,
+        node_id: node.id,
+        npc_id: node.speaker.npcId,
+      },
+    });
+  }
   const choices = await visibleChoices(node, ctx);
   return {
     dialogueId: definition.dialogueId,
