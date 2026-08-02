@@ -15,7 +15,6 @@ grounded-in:
   - backend/src/digimon/xml.ts
 verified-at-commit: 13dc16b
 ---
-
 # Bootstrap a fresh scraped catalog
 
 > [!info] When to use this
