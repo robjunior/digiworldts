@@ -58,7 +58,9 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 - [[OAuth]] — Discord/Google/Facebook, hybrid decide flow, `oauth_tokens`
   table, legacy discord_id mirroring
 - [[Dialogues]] — Twee-authored trees, ledger-guarded actions, predicate
-  + action registries
+  + action registries, cross-ref validation, dialogue simulator
+- [[NPC Registry]] — speaker registry with per-NPC expression keys +
+  PNG portraits, cross-referenced by dialogue import
 - [[Nursery and Pen]] — species data collection, direct + mix hatch,
   Baby → In-Training → Rookie growth arc
 - [[Roster and Party]] — one row per mon, 3-slot party, evolution with
