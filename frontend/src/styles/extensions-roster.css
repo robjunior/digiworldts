@@ -37,7 +37,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 [data-el="electricity"]{--el:color-mix(in oklab,var(--signal) 65%,var(--ink))}
 [data-el="wind"]{--el:color-mix(in oklab,var(--signal) 30%,var(--ink))}
 
-.win{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.win{height:auto;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 .titlebar{
   height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;
   padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none;

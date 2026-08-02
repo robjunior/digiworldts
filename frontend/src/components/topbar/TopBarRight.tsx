@@ -19,7 +19,7 @@ type NotificationItem = {
 };
 
 export function TopBarRight(): JSX.Element | null {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const t = useT();
   useLocale();
   const navigate = useNavigate();
@@ -127,6 +127,13 @@ export function TopBarRight(): JSX.Element | null {
     void navigate(path);
   }, [navigate]);
 
+  const handleLogout = useCallback((): void => {
+    setOpenMenu(null);
+    void logout().finally(() => {
+      void navigate('/login');
+    });
+  }, [logout, navigate]);
+
   if (!authed) return null;
 
   const initialLetter = (user.displayName?.[0] ?? user.username?.[0] ?? '?').toUpperCase();
@@ -204,6 +211,10 @@ export function TopBarRight(): JSX.Element | null {
             <SettingsIcon />
             <span>{t('topbar.menu.settings')}</span>
           </button>
+          <button type="button" className="mi" role="menuitem" onClick={handleLogout} data-od-id="tb-logout">
+            <LogoutIcon />
+            <span>{t('topbar.menu.logout')}</span>
+          </button>
         </div>
       </div>
     </div>
@@ -251,6 +262,16 @@ function SettingsIcon(): JSX.Element {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
       <path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7 7 0 0 0-1.7-1l-.3-2.6H9.5l-.3 2.6a7 7 0 0 0-1.7 1l-2.4-1-2 3.4L5 11a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 2.6h4.9l.3-2.6a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.6a7 7 0 0 0 .1-1z" />
+    </svg>
+  );
+}
+
+function LogoutIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <path d="M15 17l5-5-5-5" />
+      <path d="M20 12H9" />
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
     </svg>
   );
 }
