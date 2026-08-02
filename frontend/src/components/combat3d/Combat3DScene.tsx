@@ -51,10 +51,10 @@ function pickArenaKey(battle: BattleView): string {
   return ARENA_FALLBACK;
 }
 
-function arenaKeyForScene(scene: SceneEntity, battle: BattleView): string {
+function arenaKeyForScene(scene: SceneEntity, fallbackArenaKey: string): string {
   const first = scene.elements[0];
   if (first !== undefined) return ELEMENT_TO_ARENA_KEY[first];
-  return pickArenaKey(battle);
+  return fallbackArenaKey;
 }
 
 type SceneResolution = {
@@ -131,7 +131,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           const settings = scene.settings as Partial<SceneSettings>;
           const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
           const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : undefined;
-          const arenaKey = arenaKeyForScene(scene, battle);
+          const arenaKey = arenaKeyForScene(scene, fallbackArenaKey);
           const useGlbSettings = scene.useGlbSettings === true;
           if (cancelled) return;
           setResolution({
@@ -163,18 +163,23 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     }
     void resolve();
     return () => { cancelled = true; };
-  }, [battle, sceneId, fallbackArenaKey]);
+  }, [sceneId, fallbackArenaKey]);
 
   useEffect(() => {
     const manager = sceneRef.current;
     if (manager === null || resolution === null) return;
+    let cancelled = false;
     manager.clearArenaModel();
     if (resolution.modelUrl !== undefined) {
       const url = resolution.modelUrl;
       const loader = resolution.useGlbSettings
         ? manager.loadArenaModelBare(url)
         : manager.loadArenaModelWithAtmosphere(url, resolution.arenaKey);
-      void loader.catch((err) => { console.warn('arena.load.fail', url, err); });
+      void loader
+        .then(() => {
+          if (cancelled) manager.clearArenaModel();
+        })
+        .catch((err) => { console.warn('arena.load.fail', url, err); });
     }
     if (!resolution.useGlbSettings) {
       const localKeys = new Set<string>();
@@ -198,6 +203,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
       }
       if (Object.keys(patchToApply).length > 0) manager.applySettings(patchToApply);
     }
+    return () => { cancelled = true; };
   }, [resolution, isAdmin]);
 
   useEffect(() => {
