@@ -133,6 +133,8 @@ const EvolveEdgeInputSchema = z.object({
   requiredLevel: z.number().int().min(0).max(999).optional(),
   requiredMood: z.number().int().min(0).max(100).optional(),
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
+  requiredItemId: z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i, 'requiredItemId must be alphanumeric with -_').optional(),
+  requiredItemQty: z.number().int().min(1).max(999).optional(),
 });
 
 const ResistanceMultZ = z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(1.5), z.literal(2)]);
@@ -206,6 +208,10 @@ function toStrictTemplate(raw: ParsedTemplate): TemplateDigimon {
       if (edge.requiredLevel !== undefined) e.requiredLevel = edge.requiredLevel;
       if (edge.requiredMood !== undefined) e.requiredMood = edge.requiredMood;
       if (edge.requiredAttribute !== undefined) e.requiredAttribute = edge.requiredAttribute;
+      if (edge.requiredItemId !== undefined) {
+        e.requiredItemId = edge.requiredItemId;
+        e.requiredItemQty = edge.requiredItemQty ?? 1;
+      }
       return e;
     });
   }

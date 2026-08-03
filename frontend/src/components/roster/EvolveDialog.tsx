@@ -82,6 +82,10 @@ function reasonDetail(reason: EvolutionReason | undefined, option: EvolutionOpti
       return `Needs mood ${option.requiredMood} (currently ${gate.currentMood})`;
     case 'attribute-mismatch':
       return `Requires ${option.requiredAttribute ?? '?'} attribute`;
+    case 'missing-item': {
+      const label = option.requiredItemName ?? option.requiredItemId ?? 'item';
+      return `Needs ${option.requiredItemQty} × ${label} (have ${option.itemQtyAvailable})`;
+    }
     case 'no-paths':
     case 'stage-cap':
       return 'No path';
@@ -515,6 +519,13 @@ function EvoConditions({
           <div className="req-line">
             <span className={`rq2 ${met ? (levelOk ? 'ok' : 'bad') : ''}`}>Lv <span className="rn">{requiredLevel}</span></span>
             <span className={`rq2 ${met ? 'ok' : ''}`}><span className="rn">{meatCost.toLocaleString('en-US')}</span> Meat</span>
+            {selectedOption?.requiredItemId ? (
+              <span className={`rq2 ${selectedOption.itemQtyAvailable >= selectedOption.requiredItemQty ? 'ok' : 'bad'}`} title={selectedOption.requiredItemName ?? selectedOption.requiredItemId}>
+                <span className="rn">{selectedOption.requiredItemQty}</span> × {selectedOption.requiredItemName ?? selectedOption.requiredItemId}
+                {' '}
+                <span className="rn">({selectedOption.itemQtyAvailable})</span>
+              </span>
+            ) : null}
             <span className="rq2">{targetStage}</span>
           </div>
         </div>

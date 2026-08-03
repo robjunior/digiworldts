@@ -85,6 +85,8 @@ const EvolveEntryZ = z.object({
   '@_requiredLevel': z.coerce.number().int().nonnegative().optional(),
   '@_requiredMood': z.coerce.number().int().min(0).max(100).optional(),
   '@_requiredAttribute': z.enum(ATTRIBUTES).optional(),
+  '@_requiredItemId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i, 'requiredItemId must be alphanumeric with -_').optional(),
+  '@_requiredItemQty': z.coerce.number().int().min(1).max(999).optional(),
 });
 
 const EvolutionsZ = z.union([
@@ -217,6 +219,10 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
       if (e['@_requiredLevel'] !== undefined) edge.requiredLevel = e['@_requiredLevel'];
       if (e['@_requiredMood'] !== undefined) edge.requiredMood = e['@_requiredMood'];
       if (e['@_requiredAttribute'] !== undefined) edge.requiredAttribute = e['@_requiredAttribute'] as Attribute;
+      if (e['@_requiredItemId'] !== undefined) {
+        edge.requiredItemId = e['@_requiredItemId'];
+        edge.requiredItemQty = e['@_requiredItemQty'] ?? 1;
+      }
       return edge;
     });
     if (edges.length > 0) tpl.evolvesInto = edges;
@@ -282,6 +288,10 @@ function fromTemplate(t: TemplateDigimon): unknown {
         if (edge.requiredLevel !== undefined) attrs['@_requiredLevel'] = edge.requiredLevel;
         if (edge.requiredMood !== undefined) attrs['@_requiredMood'] = edge.requiredMood;
         if (edge.requiredAttribute !== undefined) attrs['@_requiredAttribute'] = edge.requiredAttribute;
+        if (edge.requiredItemId !== undefined) {
+          attrs['@_requiredItemId'] = edge.requiredItemId;
+          attrs['@_requiredItemQty'] = edge.requiredItemQty ?? 1;
+        }
         return attrs;
       }),
     };
