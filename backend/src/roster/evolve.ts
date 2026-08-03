@@ -1,4 +1,4 @@
-import { one, tx, type RosterRow } from '../db/index.js';
+import { one, q, tx, type RosterRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
 import {
   EVOLUTION_LEVELS,
@@ -17,6 +17,7 @@ import {
 } from '../digimon/types.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { computeMetSet } from '../dex/met.js';
+import { countItem, removeItem } from '../items/grant.js';
 import { log } from '../util/log.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
@@ -55,7 +56,8 @@ export type EvolveReason =
   | 'level-too-low'
   | 'stage-cap'
   | 'no-mood'
-  | 'attribute-mismatch';
+  | 'attribute-mismatch'
+  | 'missing-item';
 
 export type EvolutionOption = {
   catalogId: string;
@@ -69,6 +71,10 @@ export type EvolutionOption = {
   requiredLevel: number;
   requiredMood: number;
   requiredAttribute: Attribute | null;
+  requiredItemId: string | null;
+  requiredItemName: string | null;
+  requiredItemQty: number;
+  itemQtyAvailable: number;
 };
 
 export type EvolutionGate = {
@@ -87,11 +93,15 @@ function resolveEdgeRequirements(edge: EvolveEdge, targetStage: Stage): {
   requiredLevel: number;
   requiredMood: number;
   requiredAttribute: Attribute | null;
+  requiredItemId: string | null;
+  requiredItemQty: number;
 } {
   const requiredLevel = edge.requiredLevel ?? EVOLUTION_LEVELS[targetStage];
   const requiredMood = edge.requiredMood ?? MOOD_MIN_FOR_STAGE[targetStage] ?? 0;
   const requiredAttribute = edge.requiredAttribute ?? null;
-  return { requiredLevel, requiredMood, requiredAttribute };
+  const requiredItemId = edge.requiredItemId ?? null;
+  const requiredItemQty = requiredItemId === null ? 0 : Math.max(1, edge.requiredItemQty ?? 1);
+  return { requiredLevel, requiredMood, requiredAttribute, requiredItemId, requiredItemQty };
 }
 
 export async function getEvolutionOptions(monId: string, userId: string): Promise<EvolutionGate | null> {
@@ -105,16 +115,38 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
   const metSet = await computeMetSet(userId);
 
   const edges = current.evolvesInto ?? [];
+  const itemIdsNeeded = new Set<string>();
+  for (const edge of edges) {
+    if (edge.requiredItemId !== undefined) itemIdsNeeded.add(edge.requiredItemId);
+  }
+  const itemCounts = new Map<string, number>();
+  for (const itemId of itemIdsNeeded) {
+    itemCounts.set(itemId, await countItem(userId, itemId));
+  }
+  const itemNames = new Map<string, string>();
+  if (itemIdsNeeded.size > 0) {
+    const ids = Array.from(itemIdsNeeded);
+    const placeholders = ids.map(() => '?').join(', ');
+    const rows = await q<{ readonly id: string; readonly name: string }>(
+      `SELECT id, name FROM shop_items WHERE id IN (${placeholders})`,
+      ...ids,
+    );
+    for (const row of rows) itemNames.set(row.id, row.name);
+  }
+
   const options: EvolutionOption[] = [];
   for (const edge of edges) {
     const target = templateById.get(edge.targetId);
     if (!target) continue;
     const req = resolveEdgeRequirements(edge, target.stage);
+    const itemQtyAvailable = req.requiredItemId === null ? 0 : itemCounts.get(req.requiredItemId) ?? 0;
+    const requiredItemName = req.requiredItemId === null ? null : itemNames.get(req.requiredItemId) ?? req.requiredItemId;
 
     let reason: EvolveReason | undefined;
     if (req.requiredAttribute !== null && current.attribute !== req.requiredAttribute) reason = 'attribute-mismatch';
     else if (row.level < req.requiredLevel) reason = 'level-too-low';
     else if (row.mood < req.requiredMood) reason = 'no-mood';
+    else if (req.requiredItemId !== null && itemQtyAvailable < req.requiredItemQty) reason = 'missing-item';
 
     const option: EvolutionOption = {
       catalogId: target.id,
@@ -126,6 +158,10 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
       requiredLevel: req.requiredLevel,
       requiredMood: req.requiredMood,
       requiredAttribute: req.requiredAttribute,
+      requiredItemId: req.requiredItemId,
+      requiredItemName,
+      requiredItemQty: req.requiredItemQty,
+      itemQtyAvailable,
     };
     if (reason !== undefined) option.reason = reason;
     options.push(option);
@@ -194,11 +230,22 @@ export async function evolveRoster(
       const stagePoolsJson = JSON.stringify(frozenPools);
       const swap = await t.run(SQL_SWAP_CATALOG, [target.id, newNickname, historyJson, equippedJson, stagePoolsJson, now, monId, userId, current.id]);
       if (swap.changes === 0) throw new Error('race-conflict');
+      if (selectedOption.requiredItemId !== null) {
+        const removed = await removeItem(userId, selectedOption.requiredItemId, selectedOption.requiredItemQty, now, t);
+        if (!removed) throw new Error('missing-item');
+      }
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'tx-failed';
     return { ok: false, error: msg };
   }
-  log.info('roster.evolved', { userId, monId, from: current.id, to: target.id, nickname: newNickname });
+  log.info('roster.evolved', {
+    userId,
+    monId,
+    from: current.id,
+    to: target.id,
+    nickname: newNickname,
+    ...(selectedOption.requiredItemId !== null ? { consumedItemId: selectedOption.requiredItemId, consumedItemQty: selectedOption.requiredItemQty } : {}),
+  });
   return { ok: true, monId, fromCatalogId: current.id, toCatalogId: target.id, nickname: newNickname, level: row.level, stage: target.stage };
 }

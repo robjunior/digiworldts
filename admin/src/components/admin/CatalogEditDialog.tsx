@@ -3,7 +3,7 @@ import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 
-import type { TemplateDraft } from '../../lib/api-admin';
+import type { ShopItemView, TemplateDraft } from '../../lib/api-admin';
 import { Field } from './AdminShared';
 
 const DEFAULT_STAGE: Stage = 'Rookie';
@@ -113,6 +113,10 @@ function draftToPayload(draft: DraftState, original?: TemplateDigimon): Template
       if (e.requiredLevel !== undefined) edge.requiredLevel = e.requiredLevel;
       if (e.requiredMood !== undefined) edge.requiredMood = e.requiredMood;
       if (e.requiredAttribute !== undefined) edge.requiredAttribute = e.requiredAttribute;
+      if (e.requiredItemId !== undefined) {
+        edge.requiredItemId = e.requiredItemId;
+        edge.requiredItemQty = Math.max(1, e.requiredItemQty ?? 1);
+      }
       return edge;
     });
   }
@@ -127,6 +131,7 @@ export function CatalogEditDialog({
   mode,
   initial,
   catalogList,
+  shopItems,
   onClose,
   onSubmit,
 }: {
@@ -134,6 +139,7 @@ export function CatalogEditDialog({
   readonly mode: CatalogDialogMode;
   readonly initial?: TemplateDigimon;
   readonly catalogList: readonly TemplateDigimon[];
+  readonly shopItems: readonly ShopItemView[];
   readonly onClose: () => void;
   readonly onSubmit: (draft: TemplateDraft) => Promise<void>;
 }): JSX.Element | null {
@@ -331,6 +337,9 @@ export function CatalogEditDialog({
                 + Add edge
               </button>
             </div>
+            <p className="muted evolve-note">
+              Items are shared definitions — the same item can gate any number of evolutions across the catalog. Only <b>one player-owned copy</b> is consumed per evolution action (using the qty on the specific edge the player triggers).
+            </p>
             {draft.edges.length === 0 ? (
               <p className="muted">No evolutions configured. Click <b>+ Add edge</b> to link a target.</p>
             ) : (
@@ -340,6 +349,7 @@ export function CatalogEditDialog({
                     <EdgeEditor
                       edge={edge}
                       catalog={targetOptions}
+                      shopItems={shopItems}
                       onChange={(next) => {
                         const list = draft.edges.slice();
                         list[idx] = next;
@@ -367,21 +377,30 @@ export function CatalogEditDialog({
 function EdgeEditor({
   edge,
   catalog,
+  shopItems,
   onChange,
   onRemove,
 }: {
   readonly edge: EvolveEdge;
   readonly catalog: readonly TemplateDigimon[];
+  readonly shopItems: readonly ShopItemView[];
   readonly onChange: (next: EvolveEdge) => void;
   readonly onRemove: () => void;
 }): JSX.Element {
   const targetTpl = catalog.find((t) => t.id === edge.targetId);
+  const itemOptions = useMemo(
+    () => [...shopItems].filter((i) => i.enabled !== false).sort((a, b) => a.name.localeCompare(b.name)),
+    [shopItems],
+  );
+  const selectedItem = edge.requiredItemId !== undefined ? shopItems.find((i) => i.id === edge.requiredItemId) : undefined;
 
   const buildEdge = (overrides: {
     targetId?: string;
     requiredLevel?: number | null;
     requiredMood?: number | null;
     requiredAttribute?: Attribute | null;
+    requiredItemId?: string | null;
+    requiredItemQty?: number | null;
   }): EvolveEdge => {
     const merged: EvolveEdge = { targetId: overrides.targetId ?? edge.targetId };
     const level = 'requiredLevel' in overrides ? overrides.requiredLevel : edge.requiredLevel;
@@ -390,6 +409,12 @@ function EdgeEditor({
     if (mood !== null && mood !== undefined) merged.requiredMood = mood;
     const attr = 'requiredAttribute' in overrides ? overrides.requiredAttribute : edge.requiredAttribute;
     if (attr !== null && attr !== undefined) merged.requiredAttribute = attr;
+    const itemId = 'requiredItemId' in overrides ? overrides.requiredItemId : edge.requiredItemId;
+    if (itemId !== null && itemId !== undefined && itemId !== '') {
+      merged.requiredItemId = itemId;
+      const qty = 'requiredItemQty' in overrides ? overrides.requiredItemQty : edge.requiredItemQty;
+      merged.requiredItemQty = Math.max(1, qty ?? edge.requiredItemQty ?? 1);
+    }
     return merged;
   };
 
@@ -444,6 +469,41 @@ function EdgeEditor({
             {ATTRIBUTES.map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
         </Field>
+      </div>
+      <div className="row evolve-edge-item-row">
+        <Field label="Required item">
+          <select
+            className="input"
+            value={edge.requiredItemId ?? ''}
+            onChange={(e) => onChange(buildEdge({ requiredItemId: e.target.value === '' ? null : e.target.value }))}
+          >
+            <option value="">none</option>
+            {itemOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} · {item.kind}{item.priceCredits > 0 ? ` · ${item.priceCredits}c` : ''}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Qty">
+          <input
+            className="input"
+            type="number"
+            min="1"
+            max="999"
+            value={edge.requiredItemQty ?? ''}
+            placeholder={edge.requiredItemId !== undefined ? '1' : '—'}
+            disabled={edge.requiredItemId === undefined}
+            onChange={(e) => onChange(buildEdge({ requiredItemQty: e.target.value === '' ? null : Number(e.target.value) }))}
+          />
+        </Field>
+        {selectedItem !== undefined ? (
+          <span className="muted evolve-edge-item-hint">
+            Consumes {edge.requiredItemQty ?? 1} × <b>{selectedItem.name}</b> from the player's inventory when this edge fires.
+          </span>
+        ) : (
+          <span className="muted evolve-edge-item-hint">Leave empty for no item cost.</span>
+        )}
       </div>
     </div>
   );

@@ -71,6 +71,9 @@ export type EvolveEdge = {
   requiredLevel?: number;
   requiredMood?: number;
   requiredAttribute?: Attribute;
+  /** Item CONSUMED (not just checked) inside the evolve tx. Both fields paired. */
+  requiredItemId?: string;
+  requiredItemQty?: number;
 };
 
 export type TemplateDigimon = {

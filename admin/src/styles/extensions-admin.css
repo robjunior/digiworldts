@@ -2916,3 +2916,170 @@
   gap: var(--sp-2);
   align-items: stretch;
 }
+
+/* ============================================================
+   Catalog filter bar (admin digimon editor)
+   ============================================================ */
+.catalog-filter-bar {
+  display: grid;
+  grid-template-columns: minmax(180px, 2fr) repeat(4, minmax(120px, 1fr)) auto;
+  gap: var(--sp-2);
+  align-items: end;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+  border: 1px solid var(--hairline);
+  background: var(--bg);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.catalog-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.catalog-filter-field > span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.catalog-filter-field .input {
+  width: 100%;
+  min-width: 0;
+}
+
+.catalog-filter-reset {
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   Evolve edge item picker row + note
+   ============================================================ */
+.evolve-note {
+  margin: 0 0 var(--sp-2);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 2px solid color-mix(in oklab, var(--signal) 60%, transparent);
+  background: color-mix(in oklab, var(--signal) 6%, transparent);
+}
+
+.evolve-edge-item-row {
+  align-items: flex-end;
+}
+
+.evolve-edge-item-hint {
+  flex: 1 1 240px;
+  font-size: 11px;
+  line-height: 1.4;
+  align-self: center;
+}
+
+/* ============================================================
+   Responsive breakpoints for older editors
+   ============================================================ */
+
+@media (max-width: 960px) {
+  .catalog-filter-bar {
+    grid-template-columns: minmax(180px, 1fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  }
+  .catalog-filter-field--search {
+    grid-column: 1 / -1;
+  }
+  .catalog-filter-reset {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 720px) {
+  /* Modals: CatalogEditDialog, LootEditorDialog */
+  .modal-overlay {
+    padding: var(--sp-2);
+  }
+  .modal-card,
+  .modal-card--wide {
+    padding: var(--sp-3);
+    max-height: 94dvh;
+  }
+  .modal-header {
+    margin-bottom: var(--sp-3);
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Skills + evolutions rows inside CatalogEditDialog */
+  .skill-editor-row .row,
+  .evolve-edge .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .skill-editor-row .field,
+  .evolve-edge .field {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .evolve-edge-target {
+    display: block;
+    margin: 4px 0;
+  }
+  .evolve-edge-item-hint {
+    flex-basis: auto;
+  }
+
+  /* Tabular admin panels: ShopAdmin, SkillsAdmin, UserTable, OverviewTab, ScrapedTable */
+  .admin-inline-form,
+  .admin-pager {
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
+  .admin-inline-form > *,
+  .admin-pager > * {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .admin-actions-cell,
+  .admin-section-actions {
+    justify-content: flex-start;
+  }
+  .admin-section-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Catalog filter bar: full stack */
+  .catalog-filter-bar {
+    grid-template-columns: 1fr;
+  }
+  .catalog-filter-field--search,
+  .catalog-filter-reset {
+    grid-column: 1;
+  }
+
+  /* CatalogTable row body: wrap chip lines */
+  .catalog-row-body {
+    padding: var(--sp-2);
+  }
+  .catalog-stats span,
+  .catalog-skills span,
+  .catalog-evolution-tag {
+    font-size: 10px;
+  }
+}
+
+/* Legacy tables (Shop/Skills/Users/Scraped): horizontal scroll on narrow screens */
+@media (max-width: 720px) {
+  .admin-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .admin-scroll .admin-table {
+    min-width: 620px;
+  }
+}

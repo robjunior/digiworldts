@@ -122,6 +122,8 @@ const ManifestEvolveEdgeSchema = z.object({
   requiredLevel: z.number().int().min(0).max(999).optional(),
   requiredMood: z.number().int().min(0).max(100).optional(),
   requiredAttribute: z.enum(ATTRIBUTES).optional(),
+  requiredItemId: z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
+  requiredItemQty: z.number().int().min(1).max(999).optional(),
 });
 
 const ManifestResistanceMultZ = z.union([z.literal(0), z.literal(0.5), z.literal(1), z.literal(1.5), z.literal(2)]);
@@ -194,6 +196,10 @@ function toStrictManifestTemplate(raw: ManifestTemplate): TemplateDigimon {
       if (edge.requiredLevel !== undefined) out.requiredLevel = edge.requiredLevel;
       if (edge.requiredMood !== undefined) out.requiredMood = edge.requiredMood;
       if (edge.requiredAttribute !== undefined) out.requiredAttribute = edge.requiredAttribute;
+      if (edge.requiredItemId !== undefined) {
+        out.requiredItemId = edge.requiredItemId;
+        out.requiredItemQty = edge.requiredItemQty ?? 1;
+      }
       return out;
     });
   }

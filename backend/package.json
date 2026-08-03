@@ -25,6 +25,7 @@
     "test:quest-flags": "DB_PATH=/tmp/dw-quest-flags-smoke.db tsx test/quest-flags-smoke.mts",
     "test:quest-objectives": "DB_PATH=/tmp/dw-quest-objectives-smoke.db tsx test/quest-objectives-smoke.mts",
     "test:items": "DB_PATH=/tmp/dw-items-smoke.db tsx test/items-grant-smoke.mts",
+    "test:evolve-item": "DB_PATH=/tmp/dw-evolve-item-smoke.db CATALOG_XML=/tmp/dw-evolve-item-smoke-catalog.xml tsx test/evolve-item-smoke.mts",
     "test:dialogue-runtime": "DB_PATH=/tmp/dw-dlg-runtime.db tsx test/dialogue-runtime-smoke.mts",
     "test:dialogue-session": "DB_PATH=/tmp/dw-dlg-session.db tsx test/dialogue-session-smoke.mts",
     "test:npc-registry": "DB_PATH=/tmp/dw-npc-registry.db tsx test/npc-registry-smoke.mts",
