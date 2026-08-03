@@ -117,6 +117,10 @@ typecheck passes. Wire the actual rollout with ONE of the patterns below.
 
 ### Pattern A — SSH from a hosted GitHub runner to a VPS
 
+**For a fresh VPS**, follow [`ssh-host-setup.md`](ssh-host-setup.md) first — it
+covers user creation, Docker install, SSH hardening, key exchange, and the
+initial repo clone in ~30 commands. Then come back here.
+
 Add three secrets to the target Environment: `DEPLOY_HOST`, `DEPLOY_USER`,
 `DEPLOY_SSH_KEY` (private key). Then replace the TODO step with:
 

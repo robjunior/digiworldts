@@ -1,0 +1,51 @@
+# Staging override for docker-compose.yml
+#
+# Isolates every colliding resource so `staging.xenon.dev.br` can run on the
+# same host as the `soul.xenon.dev.br` production stack.
+#
+# Usage (in a separate working tree, e.g. ~/digiworld-staging):
+#   docker compose -f docker-compose.yml -f docker-compose.staging.override.yml \
+#     --profile discord up -d --build
+#
+# Or, easier — set COMPOSE_FILE + COMPOSE_PROJECT_NAME in .env and drop the -f:
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.staging.override.yml
+#   COMPOSE_PROJECT_NAME=digiworld-staging
+
+name: digiworld-staging
+
+services:
+  db:
+    container_name: digiworld-staging-db-1
+    # No host port — only reachable inside the staging docker network.
+    ports: !reset []
+
+  redis:
+    container_name: digiworld-staging-redis-1
+    ports: !reset []
+
+  backend:
+    container_name: digiworld-staging-backend-1
+    # Cloudflared reaches this via `http://backend:3000` on the staging network.
+    # Removing the host binding avoids the 3001 collision with prod.
+    ports: !reset []
+
+  frontend:
+    container_name: digiworld-staging-frontend-1
+    ports: !reset []
+
+  discord-bot:
+    container_name: digiworld-staging-discord-bot-1
+    ports: !reset []
+
+  admin:
+    container_name: digiworld-staging-admin-1
+    ports: !reset []
+
+  cloudflared:
+    # Prod's cloudflared container is literally named `cloudflared` — override.
+    container_name: cloudflared-staging
+
+volumes:
+  # Named volumes are project-scoped (compose prefixes them with the project
+  # name), so pgdata/redisdata/... automatically become
+  # `digiworld-staging_pgdata` etc. No override needed.
