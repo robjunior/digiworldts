@@ -112,8 +112,17 @@ For **each** of `staging` and `production`:
 
 ## 3. Deploy step — wire your target
 
-The deploy workflows stop at a `TODO` step after `.env` is materialized and
-typecheck passes. Wire the actual rollout with ONE of the patterns below.
+Both deploy workflows are pre-wired for **Pattern B (self-hosted runner)** —
+`runs-on: [self-hosted, staging]` / `[self-hosted, production]` with a
+`docker compose --profile discord up -d --build --remove-orphans` deploy step.
+Follow [`ssh-host-setup.md`](ssh-host-setup.md) to bootstrap the host, install
+the runner as a systemd service, and register it against the repo. No workflow
+edits required.
+
+Pattern A (SSH from a hosted `ubuntu-latest` runner to a public VPS) is still
+supported — the setup steps live in [`ssh-host-setup.md § 3–4`](ssh-host-setup.md).
+To use it, revert `runs-on:` back to `ubuntu-latest` and replace the deploy
+step with the scp-action + ssh-action snippet documented there.
 
 ### Pattern A — SSH from a hosted GitHub runner to a VPS
 
@@ -122,7 +131,7 @@ covers user creation, Docker install, SSH hardening, key exchange, and the
 initial repo clone in ~30 commands. Then come back here.
 
 Add three secrets to the target Environment: `DEPLOY_HOST`, `DEPLOY_USER`,
-`DEPLOY_SSH_KEY` (private key). Then replace the TODO step with:
+`DEPLOY_SSH_KEY` (private key). Then replace the deploy step with:
 
 ```yaml
 - name: Copy .env and compose files to the host
@@ -150,20 +159,20 @@ Add three secrets to the target Environment: `DEPLOY_HOST`, `DEPLOY_USER`,
 
 ### Pattern B — self-hosted runner directly on the host
 
-Register a self-hosted runner on the deploy machine (`Settings > Actions >
-Runners > New self-hosted runner`), then change the workflow's `runs-on:` from
-`ubuntu-latest` to `[self-hosted, digiworld-staging]` (add matching labels on
-the runner). Replace the TODO step with:
+**Already wired into both workflows.** See [`ssh-host-setup.md § 5`](ssh-host-setup.md)
+for runner install/register/service commands. The `runs-on:` labels the
+workflows target are `staging` and `production` respectively — match those when
+registering the runners.
+
+The runner has repo checkout + the freshly-materialized `.env` in
+`$GITHUB_WORKSPACE`, so the compose invocation is a simple:
 
 ```yaml
 - name: Roll containers in place
   run: |
-    docker compose --profile discord pull
     docker compose --profile discord up -d --build --remove-orphans
-    docker compose --profile discord ps
+    docker compose ps
 ```
-
-The runner already has repo checkout + the freshly-materialized `.env` in `$GITHUB_WORKSPACE`.
 
 ### Pattern C — GHCR image push + pull on host
 
