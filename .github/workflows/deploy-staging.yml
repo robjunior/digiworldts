@@ -14,7 +14,7 @@ concurrency:
 jobs:
   deploy:
     name: Materialize env, validate, deploy
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, staging]
 
     # The `staging` GH Environment gates secrets + optional approval rules.
     # Configure at:  Settings > Environments > staging
@@ -82,13 +82,10 @@ jobs:
       - name: Typecheck (validates every Zod config schema parses)
         run: pnpm typecheck
 
-      - name: Deploy (TODO — wire your deploy method here)
+      - name: Roll containers in place
+        # Self-hosted runner IS the deploy host. .env was materialized into
+        # $GITHUB_WORKSPACE above; COMPOSE_FILE and COMPOSE_PROJECT_NAME in
+        # .env layer the staging override on top of docker-compose.yml.
         run: |
-          echo "─────────────────────────────────────────────────────────"
-          echo "  .env materialized. Typecheck passed."
-          echo
-          echo "  TODO: wire the deploy step. See docs/environments.md for"
-          echo "  worked examples (SSH-to-VPS, self-hosted runner, GHCR image push)."
-          echo "─────────────────────────────────────────────────────────"
-          ls -la .env
-          wc -l .env
+          docker compose --profile discord up -d --build --remove-orphans
+          docker compose ps
