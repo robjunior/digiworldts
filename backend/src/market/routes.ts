@@ -4,10 +4,21 @@ import { requireAuth } from '../auth/routes.js';
 import { one, q, run, tx, type MarketListingRow, type RosterRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
-import type { TemplateDigimon } from '../digimon/types.js';
+import type { StagePools, TemplateDigimon } from '../digimon/types.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { emit } from '../telemetry/emit.js';
+
+function parseStagePools(raw: string | null): StagePools | null {
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return parsed as StagePools;
+  } catch {
+    return null;
+  }
+}
 
 const MIN_PRICE = 10;
 const MAX_PRICE = 1_000_000;
@@ -30,6 +41,7 @@ const SQL_SELECT_ACTIVE_MARKET = `
   SELECT l.id AS listing_id, l.price_netcore, l.listed_at, l.seller_id,
          m.id AS mon_id, m.catalog_id, m.nickname, m.level, m.xp,
          m.hp_bonus, m.en_bonus, m.atk_bonus, m.def_bonus, m.int_bonus, m.spd_bonus, m.mood,
+         m.stage_pools,
          u.display_name AS seller_name
     FROM market_listings l
     JOIN player_roster m ON m.id = l.mon_id
@@ -44,7 +56,7 @@ const SQL_SELECT_ACTIVE_MARKET = `
 const SQL_SELECT_MY_LISTINGS = `
   SELECT l.id AS listing_id, l.price_netcore, l.listed_at, l.sold_at, l.canceled_at, l.sold_to,
          m.id AS mon_id, m.catalog_id, m.nickname, m.level, m.hp_bonus, m.en_bonus,
-         m.atk_bonus, m.def_bonus, m.int_bonus, m.spd_bonus
+         m.atk_bonus, m.def_bonus, m.int_bonus, m.spd_bonus, m.stage_pools
     FROM market_listings l
     JOIN player_roster m ON m.id = l.mon_id
    WHERE l.seller_id = ?
@@ -69,6 +81,7 @@ type MarketRowJoined = {
   int_bonus: number;
   spd_bonus: number;
   mood: number;
+  stage_pools: string | null;
 };
 
 type MarketListingView = {
@@ -80,6 +93,7 @@ type MarketListingView = {
   xp: number;
   mood: number;
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
+  stagePools: StagePools | null;
   price: number;
   listedAt: number;
   seller: { id: string; displayName: string };
@@ -93,6 +107,8 @@ type MyListingView = {
   catalogId: string;
   nickname: string;
   level: number;
+  statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
+  stagePools: StagePools | null;
   price: number;
   listedAt: number;
   status: 'active' | 'sold' | 'canceled';
@@ -157,6 +173,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
             hp: row.hp_bonus, en: row.en_bonus, atk: row.atk_bonus,
             def: row.def_bonus, int: row.int_bonus, spd: row.spd_bonus,
           },
+          stagePools: parseStagePools(row.stage_pools),
           price: row.price_netcore,
           listedAt: row.listed_at,
           seller: { id: row.seller_id, displayName: row.seller_name },
@@ -192,6 +209,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
       mon_id: string; catalog_id: string; nickname: string; level: number;
       hp_bonus: number; en_bonus: number; atk_bonus: number;
       def_bonus: number; int_bonus: number; spd_bonus: number;
+      stage_pools: string | null;
     }>(SQL_SELECT_MY_LISTINGS, user.id);
     const catalog = loadCatalog();
     const templateById = new Map<string, TemplateDigimon>();
@@ -202,6 +220,11 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
       catalogId: row.catalog_id,
       nickname: row.nickname,
       level: row.level,
+      statBonus: {
+        hp: row.hp_bonus, en: row.en_bonus, atk: row.atk_bonus,
+        def: row.def_bonus, int: row.int_bonus, spd: row.spd_bonus,
+      },
+      stagePools: parseStagePools(row.stage_pools),
       price: row.price_netcore,
       listedAt: row.listed_at,
       status: row.sold_at ? 'sold' : row.canceled_at ? 'canceled' : 'active',
