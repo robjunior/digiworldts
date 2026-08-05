@@ -942,7 +942,7 @@ body:has(.combat3d-shell) {
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 .win{height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .titlebar{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--hair);z-index:30}
 .lights{display:flex;gap:7px}
