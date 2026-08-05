@@ -7,7 +7,7 @@ import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState }
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 import type { AnimatedElement } from '../../scene3d/attack-runners/types';
 import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
+import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '../../scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
 import { useAuth } from '../../hooks/useAuth';
@@ -124,8 +124,8 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   useEffect(() => {
     let cancelled = false;
     async function resolve(): Promise<void> {
+      const scenes = await getScenes(false).catch(() => [] as readonly SceneEntity[]);
       if (sceneId !== null) {
-        const scenes = await getScenes(false).catch(() => [] as readonly SceneEntity[]);
         const scene = scenes.find((s) => s.id === sceneId) ?? null;
         if (scene !== null) {
           const settings = scene.settings as Partial<SceneSettings>;
@@ -137,7 +137,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           setResolution({
             source: 'scene-entity',
             arenaKey,
-            modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey],
+            modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey] ?? DEFAULT_ARENA_MODEL,
             useGlbSettings,
             settingsPatch: useGlbSettings ? {} : extractPatch(scene.settings),
             weather: scene.weather ?? null,
@@ -150,15 +150,18 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
       if (cancelled) return;
       const arenaDefaults = all[fallbackArenaKey] ?? {};
       const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
-      const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey];
+      const modelUrl = (modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey]) ?? DEFAULT_ARENA_MODEL;
+      // Arena comes from unit elements, not from the scene entity: without this the ambience of
+      // a battle whose elements match no scene would silently vanish.
+      const ambienceScene = scenes.find((s) => s.elements.length > 0 && arenaKeyForScene(s, fallbackArenaKey) === fallbackArenaKey) ?? null;
       setResolution({
         source: 'arena-defaults',
         arenaKey: fallbackArenaKey,
         modelUrl,
         useGlbSettings: false,
         settingsPatch: extractPatch(arenaDefaults),
-        weather: null,
-        timeOfDay: null,
+        weather: ambienceScene?.weather ?? null,
+        timeOfDay: ambienceScene?.timeOfDay ?? null,
       });
     }
     void resolve();

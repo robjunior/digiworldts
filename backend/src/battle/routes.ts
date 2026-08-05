@@ -188,10 +188,10 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   const buffsB = await applyPreBattleBuffs(loadB);
 
   const damageRate = await getDamageRate();
-  const partyElements = Array.from(new Set<Element>([
+  const partyElements: readonly Element[] = [
     ...loadA.members.map((m) => m.template.element as Element),
     ...loadB.members.map((m) => m.template.element as Element),
-  ]));
+  ];
   const pickedScene = await pickSceneForElements(partyElements);
   const battle = await initBattle({
     matchId: newId('mtc'),
