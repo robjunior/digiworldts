@@ -61,10 +61,11 @@ export function executeDSL(
   primaryTarget: BattleUnit | null,
   skillName: string,
   actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[] = [],
 ): ExecuteDSLResult {
   const eventsBefore = battle.log.length;
   for (const action of actions) {
-    execAction(battle, actor, action, primaryTarget, skillName, actingSide);
+    execAction(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
   }
   return { events: battle.log.slice(eventsBefore) };
 }
@@ -95,6 +96,7 @@ function resolveTargets(
   actor: BattleUnit,
   target: Target,
   primaryTarget: BattleUnit | null,
+  extraPicks: readonly BattleUnit[],
 ): BattleUnit[] {
   const enemySide: BattleSide = actor.side === 'a' ? 'b' : 'a';
   switch (target) {
@@ -153,6 +155,15 @@ function resolveTargets(
       const slot = Number(target.slice(-1)) as SlotIndex;
       const u = unitAtSlot(battle, enemySide, slot);
       return u === null ? [] : [u];
+    }
+    case 'player_pick_2':
+    case 'player_pick_3': {
+      const picks: BattleUnit[] = [];
+      if (primaryTarget !== null && primaryTarget.hp > 0) picks.push(primaryTarget);
+      for (const u of extraPicks) {
+        if (u.hp > 0 && !picks.some((p) => p.id === u.id)) picks.push(u);
+      }
+      return picks;
     }
     default: {
       const exhaustive: never = target;
@@ -282,52 +293,53 @@ function execAction(
   primaryTarget: BattleUnit | null,
   skillName: string,
   actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[],
 ): void {
   switch (action.kind) {
     case 'deal_damage':
-      execDealDamage(battle, actor, action, primaryTarget, skillName, actingSide);
+      execDealDamage(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
       return;
     case 'heal':
-      execHeal(battle, actor, action, primaryTarget, skillName);
+      execHeal(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'apply_status':
-      execApplyStatus(battle, actor, action, primaryTarget, skillName);
+      execApplyStatus(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'modify_stat':
-      execModifyStat(battle, actor, action, primaryTarget, skillName);
+      execModifyStat(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'consume_en':
-      execEnergy(battle, actor, action, primaryTarget, -action.amount, skillName);
+      execEnergy(battle, actor, action, primaryTarget, -action.amount, skillName, extraPicks);
       return;
     case 'restore_en':
-      execEnergy(battle, actor, action, primaryTarget, action.amount, skillName);
+      execEnergy(battle, actor, action, primaryTarget, action.amount, skillName, extraPicks);
       return;
     case 'shift_initiative':
-      execShiftInitiative(battle, actor, action, primaryTarget, skillName);
+      execShiftInitiative(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'schedule':
       // TODO(P2/Tier2): implement scheduled-action queue on Battle state.
       // For now schedule fires immediately (delay ignored) so callers can rely
       // on eventual execution without needing engine state changes.
-      execAction(battle, actor, action.action, primaryTarget, skillName, actingSide);
+      execAction(battle, actor, action.action, primaryTarget, skillName, actingSide, extraPicks);
       return;
     case 'conditional':
-      execConditional(battle, actor, action, primaryTarget, skillName, actingSide);
+      execConditional(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
       return;
     case 'drain':
-      execDrain(battle, actor, action, primaryTarget, skillName, actingSide);
+      execDrain(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
       return;
     case 'apply_buff':
-      execApplyBuff(battle, actor, action, primaryTarget, skillName);
+      execApplyBuff(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'cleanse':
-      execCleanse(battle, actor, action, primaryTarget, skillName);
+      execCleanse(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'dispel':
-      execDispel(battle, actor, action, primaryTarget, skillName);
+      execDispel(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'extra_turn':
-      execExtraTurn(battle, actor, action, primaryTarget, skillName);
+      execExtraTurn(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     default: {
       const exhaustive: never = action;
@@ -343,8 +355,9 @@ function execDealDamage(
   primaryTarget: BattleUnit | null,
   skillName: string,
   actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const element: Element = action.element ?? actor.element;
   const now = Date.now();
   const baseAmount = Math.max(0, resolveAmount(actor, action.amount));
@@ -429,8 +442,9 @@ function execHeal(
   action: Extract<Action, { kind: 'heal' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const amount = Math.max(0, resolveAmount(actor, action.amount));
   const now = Date.now();
   for (const target of targets) {
@@ -461,8 +475,9 @@ function execApplyStatus(
   action: Extract<Action, { kind: 'apply_status' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   const turns = action.turns > 0 ? action.turns : AILMENT_TURNS_DEFAULT;
   for (const target of targets) {
@@ -493,8 +508,9 @@ function execModifyStat(
   action: Extract<Action, { kind: 'modify_stat' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   const kind = (action.delta >= 0 ? `${action.stat}_up` : `${action.stat}_down`) as
     | 'atk_up' | 'def_up' | 'spd_up' | 'int_up'
@@ -528,8 +544,9 @@ function execEnergy(
   primaryTarget: BattleUnit | null,
   delta: number,
   _skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   for (const target of targets) {
     target.en = clamp(target.en + delta, 0, target.enMax);
   }
@@ -541,8 +558,9 @@ function execShiftInitiative(
   action: Extract<Action, { kind: 'shift_initiative' }>,
   primaryTarget: BattleUnit | null,
   _skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   for (const target of targets) {
     shiftInitiative(battle, target.id as UnitId, action.delta);
   }
@@ -555,12 +573,13 @@ function execConditional(
   primaryTarget: BattleUnit | null,
   skillName: string,
   actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[],
 ): void {
   const subject = primaryTarget ?? actor;
   const branch = evalCondition(subject, action.if) ? action.then : action.else;
   if (branch === undefined) return;
   for (const inner of branch) {
-    execAction(battle, actor, inner, primaryTarget, skillName, actingSide);
+    execAction(battle, actor, inner, primaryTarget, skillName, actingSide, extraPicks);
   }
 }
 
@@ -594,8 +613,9 @@ function execDrain(
   primaryTarget: BattleUnit | null,
   skillName: string,
   actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const element: Element = action.element ?? actor.element;
   const now = Date.now();
   const baseAmount = Math.max(0, resolveAmount(actor, action.damage));
@@ -662,8 +682,9 @@ function execApplyBuff(
   action: Extract<Action, { kind: 'apply_buff' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   for (const target of targets) {
     if (target.hp <= 0) continue;
@@ -686,8 +707,9 @@ function execCleanse(
   action: Extract<Action, { kind: 'cleanse' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   for (const target of targets) {
     const before = target.ailments.length;
@@ -711,8 +733,9 @@ function execDispel(
   action: Extract<Action, { kind: 'dispel' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   for (const target of targets) {
     const buffs = target.activeBuffs ?? [];
@@ -737,8 +760,9 @@ function execExtraTurn(
   action: Extract<Action, { kind: 'extra_turn' }>,
   primaryTarget: BattleUnit | null,
   skillName: string,
+  extraPicks: readonly BattleUnit[],
 ): void {
-  const targets = resolveTargets(battle, actor, action.target, primaryTarget);
+  const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const now = Date.now();
   for (const target of targets) {
     if (target.hp <= 0) continue;
