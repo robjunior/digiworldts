@@ -349,12 +349,13 @@ export function Combat3DBody(): JSX.Element | null {
             mode={commandMode}
             actor={actor}
             target={selectedTarget}
+            aliveEnemies={aliveEnemies}
             friendly={activeBattle.friendly}
             yourTurn={canAct}
             pveMode={activeBattle.mode === 'pve'}
             onMode={setCommandMode}
             onFight={(targetId) => actor && dispatchAction({ type: 'fight', unitId: actor.id, targetId })}
-            onSkill={(skillId, targetId) => actor && dispatchAction({ type: 'skill', unitId: actor.id, skillId, targetId })}
+            onSkill={(skillId, targetId, extraTargetIds) => actor && dispatchAction(extraTargetIds ? { type: 'skill', unitId: actor.id, skillId, targetId, extraTargetIds } : { type: 'skill', unitId: actor.id, skillId, targetId })}
             onUseItem={(itemId, targetId) => actor && dispatchAction({ type: 'use_item', unitId: actor.id, targetId, itemId })}
             onFlee={() => dispatchAction({ type: 'flee' })}
           />
