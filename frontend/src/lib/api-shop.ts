@@ -106,6 +106,10 @@ export function buyBundle(id: string): Promise<BuyResponse> {
   return apiFetch<BuyResponse>(`/api/shop/buy/bundle/${id}`, { method: 'POST' });
 }
 
+export function coinClass(currency: ShopCurrency): 'gem' | 'cred' {
+  return currency === 'credits' ? 'gem' : 'cred';
+}
+
 export function applyShopItem(itemId: string, monId?: string): Promise<ApplyResponse> {
   const body = monId === undefined ? { itemId } : { itemId, monId };
   return apiFetch<ApplyResponse>('/api/shop/apply', { method: 'POST', body });

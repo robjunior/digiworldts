@@ -5,7 +5,7 @@ import { ApplyDialog } from '../components/shop/ApplyDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 import { getRoster } from '../lib/api';
-import { applyShopItem, buyShopItem, buyBundle, getShop } from '../lib/api-shop';
+import { applyShopItem, buyShopItem, buyBundle, coinClass, getShop } from '../lib/api-shop';
 import type { InventoryItemView, ShopItemView, BundleView } from '../lib/api-shop';
 import { ApiError } from '../lib/api';
 import '../styles/extensions-shop.css';
@@ -39,10 +39,8 @@ function Thumb({ item }: { readonly item: ShopItemView }): JSX.Element {
 }
 
 function PriceLine({ item }: { readonly item: ShopItemView }): JSX.Element {
-  const isPremium = item.currency === 'credits'; 
-  const cssClass = isPremium ? 'gem' : 'cred';
   return (
-    <span className={`price ${cssClass}`}>
+    <span className={`price ${coinClass(item.currency)}`}>
       <span className="coin" />{fmt(item.price)}
     </span>
   );
@@ -324,11 +322,11 @@ export function Shop(): JSX.Element {
               <div className="foot">
                 <div className="bundle-price-line">
                   <span className="bundle-price-strike">
-                    <span className={`coin ${bundle.currency === 'credits' ? 'gem' : 'cred'}`} />
+                    <span className={`coin ${coinClass(bundle.currency)}`} />
                     {fmt(bundle.originalPrice)}
                   </span>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 12, height: 12, color: 'var(--muted)' }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                  <span className={`bundle-price-final ${bundle.currency === 'credits' ? 'gem' : 'cred'}`}>
+                  <span className={`bundle-price-final ${coinClass(bundle.currency)}`}>
                     <span className="coin" />
                     {fmt(bundle.discountedPrice)}
                     <span className="discount-badge">-{bundle.discountPct}%</span>
@@ -435,7 +433,7 @@ export function Shop(): JSX.Element {
                 <div className="n">{confirmBundle.name}</div>
                 <div className="s">{confirmBundle.items.map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
               </div>
-              <span className={`price ${confirmBundle.currency === 'credits' ? 'gem' : 'cred'}`}>
+              <span className={`price ${coinClass(confirmBundle.currency)}`}>
                 <span className="coin" />{fmt(confirmBundle.discountedPrice)}
               </span>
             </div>
