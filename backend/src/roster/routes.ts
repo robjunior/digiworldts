@@ -380,6 +380,9 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
 
   app.post('/api/roster/seed', async (req, reply) => {
     const user = await requireAuth(req, reply);
+    if (!user.onboardingCompleted) {
+      return reply.code(409).send({ error: 'not-onboarded', message: 'Pick a starter team from /intro first.' });
+    }
     const outcome = await seedStarterRoster(user.id);
     if (outcome.seeded === 0 && outcome.reason === 'catalog-empty') {
       return reply.code(409).send({ error: 'catalog-empty', message: 'catalog is empty — ask the admin to seed it' });
