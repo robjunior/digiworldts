@@ -258,7 +258,7 @@ export function AppShell(): JSX.Element {
   const mainClassName = pageScope ? `main ${pageScope}` : 'main';
 
   return (
-    <div className={`win${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
+    <div className={`win win--fill${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
       <header className="titlebar">
         <button
           type="button"
