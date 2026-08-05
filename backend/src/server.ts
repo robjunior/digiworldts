@@ -149,6 +149,18 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyCookie, { secret: config.SESSION_SECRET });
+
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    if (req.url.startsWith('/api/auth/')) {
+      reply.header('Cache-Control', 'no-store');
+      reply.header('Pragma', 'no-cache');
+    }
+  });
+
   const corsOrigins = config.CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
   if (corsOrigins.length > 0) {
     await app.register(fastifyCors, {
