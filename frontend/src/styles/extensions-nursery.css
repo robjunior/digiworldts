@@ -11,12 +11,12 @@
   --uncommon:color-mix(in oklab,var(--signal) 55%,var(--ink));
   --rare:color-mix(in oklab,var(--signal) 80%,#fff);
 
-  margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); min-height: 100dvh; user-select: none;
+  margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); min-height: 0; user-select: none;
 }
 .nursery-page * { box-sizing: border-box; }
 .nursery-page button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
 
-.nursery-page .main { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg); }
+.nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
 
 /* resource balance bar */
 .nursery-page .balbar { flex: 0 0 auto; display: flex; align-items: center; gap: 0; padding: 14px 28px; border-bottom: 1px solid var(--hair); background: var(--panel); }
