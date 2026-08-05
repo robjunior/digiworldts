@@ -6,10 +6,11 @@
 -- call the provider's API later (e.g., check Discord guild membership).
 --
 -- Portable across SQLite and Postgres:
---   - INTEGER (SQLite) and BIGINT (Postgres) are both accepted for millisecond
---     timestamps by every driver in the stack; the migrator loads schema.sql
---     for SQLite and schema-pg.sql for Postgres, so the migration only needs
---     to be dialect-agnostic in its own DDL.
+--   - BIGINT is 8 bytes on Postgres AND accepted by better-sqlite3, which
+--     stores it as a native 64-bit integer. Millisecond timestamps are ~1.78e12
+--     in the 2020s, so INTEGER (INT4, max 2.1e9) overflows on Postgres — do
+--     NOT downgrade these columns. The historical INTEGER declaration was
+--     patched by migration 049_oauth_tokens_bigint.pg.sql for existing dbs.
 --   - `REFERENCES users(id) ON DELETE CASCADE` is standard SQL, both accept.
 --   - `PRIMARY KEY (user_id, provider)` gives us one identity per user per
 --     provider; the extra UNIQUE(provider, provider_user_id) guarantees the
@@ -25,10 +26,10 @@ CREATE TABLE IF NOT EXISTS oauth_tokens (
   provider_avatar   TEXT,
   access_token      TEXT NOT NULL,
   refresh_token     TEXT,
-  expires_at        INTEGER,
+  expires_at        BIGINT,
   scope             TEXT NOT NULL,
-  linked_at         INTEGER NOT NULL,
-  updated_at        INTEGER NOT NULL,
+  linked_at         BIGINT NOT NULL,
+  updated_at        BIGINT NOT NULL,
   PRIMARY KEY (user_id, provider),
   UNIQUE (provider, provider_user_id)
 );
