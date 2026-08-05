@@ -1,11 +1,13 @@
-import { useQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import type { Attribute } from '@digiworld/shared/digimon';
 
 import { AvatarPicker, type AvatarPickChoice } from '../components/account/AvatarPicker';
 import { useAuth } from '../hooks/useAuth';
 import { useLocale, useT } from '../hooks/useLocale';
 import { getRoster, type RosterView } from '../lib/api';
+import { fetchLinkedIdentities, oauthLinkUrl, unlinkProvider } from '../lib/api-oauth';
 import { getPlayerCareer, getPvpHistory, type PlayerCareer, type PvpMatchSummary } from '../lib/api-player';
 import { fmtRelative } from '../lib/format';
 import { setLocale, type Locale } from '../lib/locale';
@@ -101,15 +103,58 @@ function matchStateClass(match: PvpMatchSummary): string {
   return match.win ? 'win' : 'loss';
 }
 
+const OAUTH_MINE_KEY = ['oauth', 'mine'] as const;
+
+function oauthErrorMessageFor(code: string, t: (k: string) => string): string {
+  switch (code) {
+    case 'already-linked': return t('account.discord.err.already_linked');
+    case 'provider-fetch-failed': return t('account.discord.err.provider_fetch_failed');
+    case 'state-expired': return t('account.discord.err.state_expired');
+    case 'provider-error': return t('account.discord.err.provider_error');
+    case 'missing-params': return t('account.discord.err.missing_params');
+    case 'link-context-lost': return t('account.discord.err.link_context_lost');
+    default: return t('account.discord.err.generic');
+  }
+}
+
 export function Account(): JSX.Element {
   const t = useT();
   const locale = useLocale();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [avatarChoice, setAvatarChoice] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState<boolean>(false);
-  const [discordLinked, setDiscordLinked] = useState<boolean>(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const authed = user !== null;
+
+  const identitiesQuery = useQuery({
+    queryKey: OAUTH_MINE_KEY,
+    queryFn: fetchLinkedIdentities,
+    enabled: authed,
+    staleTime: 30_000,
+  });
+  const discordIdentity = identitiesQuery.data?.identities.find((i) => i.provider === 'discord') ?? null;
+  const discordLinked = discordIdentity !== null;
+
+  const unlinkMutation = useMutation({
+    mutationFn: () => unlinkProvider('discord'),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: OAUTH_MINE_KEY });
+    },
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const err = params.get('oauth_error');
+    if (err !== null) {
+      setOauthError(err);
+      navigate('/account', { replace: true });
+    }
+    void queryClient.invalidateQueries({ queryKey: OAUTH_MINE_KEY });
+  }, [location.search, navigate, queryClient]);
   const careerQuery = useQuery({
     queryKey: ['player-career'] as const,
     queryFn: getPlayerCareer,
@@ -185,6 +230,19 @@ export function Account(): JSX.Element {
 
   return (
     <div className="account-page">
+      {oauthError !== null ? (
+        <div className="acc-oauth-err" role="alert">
+          <span>{oauthErrorMessageFor(oauthError, t)}</span>
+          <button
+            type="button"
+            className="acc-oauth-err-close"
+            onClick={() => setOauthError(null)}
+            aria-label={t('account.discord.err.dismiss')}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <header className="acc-topbar" aria-label={t('account.topbar.aria')}>
         <div className="acc-brand">
           <span className="bk">{t('account.brand.kicker')}</span>
@@ -207,8 +265,17 @@ export function Account(): JSX.Element {
             className={`acc-dcard${discordLinked ? ' linked' : ''}`}
             aria-pressed={discordLinked}
             aria-label={discordLinked ? t('account.discord.connected') : t('account.discord.connect')}
-            onClick={() => setDiscordLinked((v) => !v)}
-            title={t('account.discord.coming_soon')}
+            onClick={() => {
+              if (discordIdentity !== null) {
+                if (window.confirm(t('account.discord.unlink_confirm'))) {
+                  unlinkMutation.mutate();
+                }
+                return;
+              }
+              window.location.href = oauthLinkUrl('discord', '/account');
+            }}
+            disabled={identitiesQuery.isLoading || unlinkMutation.isPending}
+            title={discordLinked ? t('account.discord.unlink_title') : t('account.discord.link_title')}
           >
             <span className="dic">
               <svg viewBox="0 0 24 24" fill="currentColor">
@@ -218,7 +285,7 @@ export function Account(): JSX.Element {
             <span className="dtx">
               <span className="dk">{discordLinked ? t('account.discord.connected_kick') : t('account.discord.connect_kick')}</span>
               <span className="dv">
-                {discordLinked ? user.username : t('account.discord.connect')}
+                {discordLinked ? (discordIdentity?.providerUsername ?? user.username) : t('account.discord.connect')}
                 {discordLinked ? <span className="dot" /> : null}
               </span>
             </span>
