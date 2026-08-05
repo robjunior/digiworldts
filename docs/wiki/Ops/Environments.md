@@ -6,7 +6,7 @@ aliases:
   - Dev Staging Prod
   - Env Matrix
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-03
 grounded-in:
   - docs/environments.md
   - .env.example
@@ -14,6 +14,11 @@ grounded-in:
   - .github/workflows/deploy-production.yml
   - scripts/materialize-env.sh
   - backend/src/config.ts
+  - admin/vite.config.ts
+  - frontend/vite.config.ts
+  - admin/.env.dev
+  - frontend/.env.development
+  - docker-compose.yml
 verified-at-commit: 97f72ba
 ---
 
@@ -64,6 +69,92 @@ docker compose --profile discord up -d --build
 ```
 
 `.env` is git-ignored — never commit it.
+
+### Local dev-time port matrix (the ONE-backend layout)
+
+When both the Docker `backend` container AND the Vite dev servers are
+running against it, the local host exposes six ports. Every one has a
+distinct purpose — the redundancy is deliberate, but you should know which
+is which so no orphan process piles up.
+
+| Host port | Service                                           | DB / target                     | HMR? |
+| --------- | ------------------------------------------------- | ------------------------------- | ---- |
+| **`:3001`** | Docker `backend` (Fastify)                      | **Postgres** (`digiworld-db-1`) | no   |
+| `:5173`   | Vite dev of [`frontend/`](../frontend)             | proxies `/api` + `/ws` → `:3001`| **yes** |
+| `:5174`   | Vite dev of [`admin/`](../admin)                   | proxies `/api` + `/ws` → `:3001`| **yes** |
+| `:8080`   | Docker `frontend` (nginx serving `dist/`)          | talks → `:3001`. **Cloudflared points here** for `soul.xenon.dev.br`. | no |
+| `:8090`   | Docker `admin` (nginx serving `dist/`)             | talks → `:3001`.                | no |
+| `:3100`   | Docker `discord-bot`                               | talks → `:3001` on internal net.| no |
+
+> [!warning] `:3000` is intentionally free
+> The old habit of spawning `pnpm dev` at the repo root would bind a
+> SECOND backend (SQLite, throwaway data) on `:3000`. That instance is
+> redundant once `:3001` is up — kill it. If you need SQLite-isolated
+> dev data, spin it up but bind a non-conflicting port and update
+> `.env.development` accordingly.
+
+The public URL `https://soul.xenon.dev.br` is served by cloudflared
+routing `soul.xenon.dev.br → http://frontend:8080` (verified via
+`docker logs cloudflared` — see ingress config). Do NOT stop the Docker
+`frontend` container without a rebuild pipeline ready, or the public URL
+breaks until you `docker compose up -d --build frontend`.
+
+### Sharing the Docker Postgres backend from local dev
+
+The Vite proxy in both [`frontend/vite.config.ts`](../frontend/vite.config.ts)
+and [`admin/vite.config.ts`](../admin/vite.config.ts) can point at ANY
+backend origin via `VITE_BACKEND_URL`. The default in dev now points at
+the **Docker Postgres backend on `:3001`** so HMR-driven UI iteration hits
+the same data as `soul.xenon.dev.br`.
+
+```bash
+# One-time setup — env files are already committed at these paths:
+#   frontend/.env.development → VITE_BACKEND_URL=http://localhost:3001
+#   admin/.env.dev            → VITE_BACKEND_URL=http://localhost:3001
+
+# Start the shared Postgres-backed backend (Docker):
+docker compose up -d backend db redis
+
+# Launch HMR dev servers (they proxy /api + /ws to :3001):
+pnpm --filter @digiworld/frontend dev   # → http://localhost:5173
+pnpm --filter @digiworld/admin dev      # → http://localhost:5174
+```
+
+> [!warning] Every write on `:5173/:5174` hits real Postgres
+> There's no isolation — user creation, roster changes, currency spend,
+> admin edits all commit to the same DB `soul.xenon.dev.br` reads.
+> Use a throwaway admin account (or spin up isolated SQLite dev if you
+> need a sandbox — see the `:3000` warning above).
+
+### The Vite proxy Set-Cookie rewrite
+
+The Docker backend runs `NODE_ENV=production` (per
+[`docker-compose.yml`](../docker-compose.yml)) so its session cookie is
+served with `Secure` and (when `CORS_ORIGINS` is set) `SameSite=None` —
+a plain-HTTP `localhost:5173/5174` browser rejects that. Both Vite dev
+proxies solve this the same way — see the `configure: (proxy) => {...}`
+block in each vite.config.ts:
+
+```typescript
+// admin/vite.config.ts + frontend/vite.config.ts
+configure: (proxy) => {
+  proxy.on('proxyRes', (proxyRes) => {
+    const setCookie = proxyRes.headers['set-cookie'];
+    if (!setCookie) return;
+    proxyRes.headers['set-cookie'] = setCookie.map((cookie) =>
+      cookie
+        .replace(/;\s*Domain=[^;]+/i, '')
+        .replace(/;\s*Secure/i, '')
+        .replace(/SameSite=None/i, 'SameSite=Lax'),
+    );
+  });
+},
+```
+
+`changeOrigin: true` is also required so the backend sees the proxy's
+origin, not the browser's — otherwise CORS 403s the login.
+
+See [[Run dev against production Postgres]] for the full walkthrough.
 
 ## Staging + production
 
