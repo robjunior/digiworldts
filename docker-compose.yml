@@ -59,12 +59,25 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
+      SESSION_ABSOLUTE_CAP_DAYS: ${SESSION_ABSOLUTE_CAP_DAYS:-30}
       ADMIN_BOOTSTRAP: ${ADMIN_BOOTSTRAP:-open}
       MAX_LOBBY_CONNECTIONS: ${MAX_LOBBY_CONNECTIONS:-1200}
       MAX_CONCURRENT_MATCHES: ${MAX_CONCURRENT_MATCHES:-200}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       # Must hold the same value as discord-bot below; unset disables /api/service/* by design.
       SERVICE_TOKEN_DISCORD: ${SERVICE_TOKEN_DISCORD:-}
+      # OAuth2 sign-in providers. See `.env` for the enabled list + per-provider secrets.
+      # Unset OAUTH_ENABLED_PROVIDERS disables OAuth entirely (buttons hidden on /login).
+      OAUTH_ENABLED_PROVIDERS: ${OAUTH_ENABLED_PROVIDERS:-}
+      DISCORD_OAUTH_CLIENT_ID: ${DISCORD_OAUTH_CLIENT_ID:-}
+      DISCORD_OAUTH_CLIENT_SECRET: ${DISCORD_OAUTH_CLIENT_SECRET:-}
+      DISCORD_OAUTH_REDIRECT_URI: ${DISCORD_OAUTH_REDIRECT_URI:-}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
+      FACEBOOK_OAUTH_CLIENT_ID: ${FACEBOOK_OAUTH_CLIENT_ID:-}
+      FACEBOOK_OAUTH_CLIENT_SECRET: ${FACEBOOK_OAUTH_CLIENT_SECRET:-}
+      FACEBOOK_OAUTH_REDIRECT_URI: ${FACEBOOK_OAUTH_REDIRECT_URI:-}
     volumes:
       - assetdata:/app/backend/public/assets/digimon
       - scrapecache:/app/backend/data/cache
