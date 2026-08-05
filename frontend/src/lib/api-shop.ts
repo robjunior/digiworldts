@@ -27,10 +27,36 @@ export type InventoryItemView = {
   readonly qty: number;
 };
 
+export type BundleItemView = {
+  readonly itemId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly qty: number;
+  readonly unitPrice: number;
+  readonly sprite: string | null;
+  readonly mono: string | null;
+};
+
+export type BundleView = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly currency: ShopCurrency;
+  readonly discountPct: number;
+  readonly shopCategory: string;
+  readonly featured: boolean;
+  readonly quickOffer: boolean;
+  readonly items: readonly BundleItemView[];
+  readonly originalPrice: number;
+  readonly discountedPrice: number;
+  readonly savings: number;
+};
+
 export type ShopResponse = {
   readonly featured: ShopItemView | null;
   readonly quick: readonly ShopItemView[];
   readonly catalog: readonly ShopItemView[];
+  readonly bundles: readonly BundleView[];
   readonly categories: readonly string[];
   readonly wallet: {
     readonly credits: number;
@@ -74,6 +100,10 @@ export function getItems(): Promise<ItemsResponse> {
 
 export function buyShopItem(itemId: string, qty: number): Promise<BuyResponse> {
   return apiFetch<BuyResponse>('/api/shop/buy', { method: 'POST', body: { itemId, qty } });
+}
+
+export function buyBundle(id: string): Promise<BuyResponse> {
+  return apiFetch<BuyResponse>(`/api/shop/buy/bundle/${id}`, { method: 'POST' });
 }
 
 export function applyShopItem(itemId: string, monId?: string): Promise<ApplyResponse> {
