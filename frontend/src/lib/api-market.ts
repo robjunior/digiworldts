@@ -1,4 +1,4 @@
-import type { BaseStats, TemplateDigimon } from '@digiworld/shared/digimon';
+import type { BaseStats, StagePools, TemplateDigimon } from '@digiworld/shared/digimon';
 
 import { apiFetch, type RosterResponse } from './api';
 
@@ -36,6 +36,7 @@ export type MarketListing = {
   readonly xp: number;
   readonly mood: number;
   readonly statBonus: BaseStats;
+  readonly stagePools: StagePools | null;
   readonly price: number;
   readonly listedAt: number;
   readonly seller: MarketSeller;
@@ -59,6 +60,8 @@ export type MyMarketListing = {
   readonly catalogId: string;
   readonly nickname: string;
   readonly level: number;
+  readonly statBonus: BaseStats;
+  readonly stagePools: StagePools | null;
   readonly price: number;
   readonly listedAt: number;
   readonly status: MyListingStatus;

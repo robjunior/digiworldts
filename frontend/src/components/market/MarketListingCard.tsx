@@ -1,5 +1,6 @@
 import type { RosterView } from '../../lib/api';
 import type { MarketListing, MyMarketListing } from '../../lib/api-market';
+import { perStatTrainingProgress } from '../roster/types';
 
 type CardMode =
   | { readonly kind: 'browse'; readonly listing: MarketListing; readonly onBuy: (listing: MarketListing) => void }
@@ -16,7 +17,7 @@ export function MarketListingCard(props: CardMode): JSX.Element {
   const status = props.kind === 'mine' ? props.listing.status : null;
   const isMine = props.kind === 'browse' ? props.listing.isMine : props.kind === 'mine';
 
-  const bonus = 'statBonus' in listing ? listing.statBonus : null;
+  const training = perStatTrainingProgress(listing);
 
   return (
     <article
@@ -36,14 +37,14 @@ export function MarketListingCard(props: CardMode): JSX.Element {
         </div>
       </div>
 
-      {bonus ? (
+      {training ? (
         <div className="statgrid">
-          <div className="stat"><div className="sk">HP</div><div className={`sv ${bonus.hp > 0 ? 'pos' : ''}`}>+{bonus.hp}</div></div>
-          <div className="stat"><div className="sk">EN</div><div className={`sv ${bonus.en > 0 ? 'pos' : ''}`}>+{bonus.en}</div></div>
-          <div className="stat"><div className="sk">ATK</div><div className={`sv ${bonus.atk > 0 ? 'pos' : ''}`}>+{bonus.atk}</div></div>
-          <div className="stat"><div className="sk">DEF</div><div className={`sv ${bonus.def > 0 ? 'pos' : ''}`}>+{bonus.def}</div></div>
-          <div className="stat"><div className="sk">INT</div><div className={`sv ${bonus.int > 0 ? 'pos' : ''}`}>+{bonus.int}</div></div>
-          <div className="stat"><div className="sk">SPD</div><div className={`sv ${bonus.spd > 0 ? 'pos' : ''}`}>+{bonus.spd}</div></div>
+          <div className="stat"><div className="sk">HP</div><div className={`sv ${training.hp.filled > 0 ? 'pos' : ''}`}>{training.hp.filled}/{training.hp.cap}</div></div>
+          <div className="stat"><div className="sk">EN</div><div className={`sv ${training.en.filled > 0 ? 'pos' : ''}`}>{training.en.filled}/{training.en.cap}</div></div>
+          <div className="stat"><div className="sk">ATK</div><div className={`sv ${training.atk.filled > 0 ? 'pos' : ''}`}>{training.atk.filled}/{training.atk.cap}</div></div>
+          <div className="stat"><div className="sk">DEF</div><div className={`sv ${training.def.filled > 0 ? 'pos' : ''}`}>{training.def.filled}/{training.def.cap}</div></div>
+          <div className="stat"><div className="sk">INT</div><div className={`sv ${training.int.filled > 0 ? 'pos' : ''}`}>{training.int.filled}/{training.int.cap}</div></div>
+          <div className="stat"><div className="sk">SPD</div><div className={`sv ${training.spd.filled > 0 ? 'pos' : ''}`}>{training.spd.filled}/{training.spd.cap}</div></div>
         </div>
       ) : null}
 
