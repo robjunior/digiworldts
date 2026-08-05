@@ -583,6 +583,7 @@ export function applyAction(
       damage: 0,
       skillName: skill.name,
       skillElement: skill.element,
+      ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}),
       cue: 'miss',
     });
     battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: false };
@@ -654,6 +655,7 @@ export function applyAction(
       cue,
     };
     if (applied.length > 0) hitEvent.applied = applied;
+    if (skill.vfxPresetId !== undefined) hitEvent.vfxPresetId = skill.vfxPresetId;
     pushEvent(battle, hitEvent);
     battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: true };
     if (target.hp === 0) {

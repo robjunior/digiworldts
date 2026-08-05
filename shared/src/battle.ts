@@ -86,6 +86,7 @@ export type BattleEvent =
       damage?: number;
       skillName?: string;
       skillElement?: Element;
+      vfxPresetId?: string;
       cue: ActionCue;
       applied?: Ailmented[];
       captureChance?: number;

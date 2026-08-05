@@ -38,6 +38,9 @@ export const PARTICLE_SHADERS = [
 ] as const;
 export type ParticleShaderKind = (typeof PARTICLE_SHADERS)[number];
 
+export const PARTICLE_EMISSION_MODES = ['continuous', 'burst', 'oneshot'] as const;
+export type ParticleEmissionMode = (typeof PARTICLE_EMISSION_MODES)[number];
+
 export const SPAWN_SHAPES = ['box', 'disc', 'sphere', 'point', 'cone'] as const;
 export type SpawnShape = (typeof SPAWN_SHAPES)[number];
 
@@ -106,6 +109,17 @@ export type ParticleEmitterConfig = {
 
   readonly softParticles?: boolean;
   readonly castShadow?: boolean;
+
+  /**
+   * How the emitter releases particles over its life.
+   *   `continuous` (default) — steady stream at `emissionRate` particles/s.
+   *   `burst`      — spawn `burstCount` at t=0, then nothing more.
+   *   `oneshot`    — same as `burst` PLUS auto-dispose at `totalLifetimeMs`.
+   * Continuous is the weather idiom; burst/oneshot are the skill-VFX idiom.
+   */
+  readonly emissionMode?: ParticleEmissionMode;
+  readonly burstCount?: number;
+  readonly totalLifetimeMs?: number;
 };
 
 export const WEATHER_PRESETS = [
@@ -269,6 +283,9 @@ const ParticleEmitterConfigBaseZ = z.object({
   bounciness: z.number().min(0).max(1).optional(),
   softParticles: z.boolean().optional(),
   castShadow: z.boolean().optional(),
+  emissionMode: z.enum(PARTICLE_EMISSION_MODES).optional(),
+  burstCount: z.number().int().min(1).max(1_000).optional(),
+  totalLifetimeMs: z.number().int().min(1).max(10_000).optional(),
 }).strict();
 
 export const ParticleEmitterConfigZ: z.ZodType<WeatherConfig['emitters'][number]> = ParticleEmitterConfigBaseZ.transform((value): WeatherConfig['emitters'][number] => ({
@@ -298,6 +315,9 @@ export const ParticleEmitterConfigZ: z.ZodType<WeatherConfig['emitters'][number]
   ...(value.bounciness !== undefined ? { bounciness: value.bounciness } : {}),
   ...(value.softParticles !== undefined ? { softParticles: value.softParticles } : {}),
   ...(value.castShadow !== undefined ? { castShadow: value.castShadow } : {}),
+  ...(value.emissionMode !== undefined ? { emissionMode: value.emissionMode } : {}),
+  ...(value.burstCount !== undefined ? { burstCount: value.burstCount } : {}),
+  ...(value.totalLifetimeMs !== undefined ? { totalLifetimeMs: value.totalLifetimeMs } : {}),
 }));
 
 const ThunderFlashConfigZ = z.object({
