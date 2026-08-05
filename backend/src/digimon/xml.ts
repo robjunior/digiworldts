@@ -72,6 +72,7 @@ const SkillZ = z.object({
   '@_cost': z.coerce.number().int().nonnegative(),
   '@_power': z.coerce.number().int().nonnegative(),
   '@_description': z.string().optional(),
+  '@_vfxPresetId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
   effect: SkillEffectZ.optional(),
 });
 
@@ -173,6 +174,7 @@ function toSkill(raw: ParsedSkill): Skill {
     power: raw['@_power'],
   };
   if (raw['@_description']) skill.description = raw['@_description'];
+  if (raw['@_vfxPresetId']) skill.vfxPresetId = raw['@_vfxPresetId'];
   if (raw.effect) {
     const eff: SkillEffect = {
       kind: raw.effect['@_kind'],
@@ -249,6 +251,7 @@ function fromSkill(s: Skill): unknown {
     '@_power': s.power,
   };
   if (s.description) out['@_description'] = s.description;
+  if (s.vfxPresetId) out['@_vfxPresetId'] = s.vfxPresetId;
   if (s.effect) {
     out.effect = {
       '@_kind': s.effect.kind,

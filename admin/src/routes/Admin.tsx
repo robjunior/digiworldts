@@ -45,6 +45,7 @@ const ADMIN_TABS = [
 const ADMIN_EXTERNAL_LINKS = [
   { to: '/world', label: 'World Editor' },
   { to: '/particles', label: 'Particles' },
+  { to: '/skill-vfx', label: 'Skill VFX' },
 ] as const;
 
 type AdminTab = (typeof ADMIN_TABS)[number]['id'];

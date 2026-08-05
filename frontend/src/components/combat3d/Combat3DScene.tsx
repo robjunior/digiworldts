@@ -68,7 +68,7 @@ type SceneResolution = {
 };
 
 export type Combat3DSceneHandle = {
-  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, onImpact?: () => void): void;
+  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: { readonly onImpact?: () => void; readonly vfxPresetId?: string }): void;
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
   getSettings(): SceneSettings | null;
   applySettings(patch: Partial<SceneSettings>): void;
@@ -301,11 +301,10 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   }, [battle]);
 
   useImperativeHandle(ref, () => ({
-    playEffect(element, sourceId, targetId, onImpact) {
+    playEffect(element, sourceId, targetId, opts) {
       const manager = sceneRef.current;
       if (manager === null) return;
-      const opts: { readonly onImpact?: () => void } = onImpact ? { onImpact } : {};
-      manager.playEffect(element, sourceId, targetId, opts);
+      manager.playEffect(element, sourceId, targetId, opts ?? {});
     },
     screenPositionOf(unitId) {
       const manager = sceneRef.current;

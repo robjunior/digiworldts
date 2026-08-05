@@ -55,11 +55,18 @@ function pickAutoAction(actor: FriendlyUnitView, enemies: readonly EnemyUnitView
   return { type: 'fight', unitId: actor.id, targetId: target.id };
 }
 
-function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement } | null {
+function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action): { readonly sourceId: UnitId; readonly targetId: UnitId; readonly element: AnimatedElement; readonly vfxPresetId?: string } | null {
   if (actor === null) return null;
   if (action.type === 'skill') {
     const skill = actor.skills.find((s) => s.id === action.skillId);
-    if (skill && isAnimatedElement(skill.element)) return { sourceId: actor.id, targetId: action.targetId, element: skill.element };
+    if (skill && isAnimatedElement(skill.element)) {
+      return {
+        sourceId: actor.id,
+        targetId: action.targetId,
+        element: skill.element,
+        ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}),
+      };
+    }
     return null;
   }
   if (action.type === 'fight' && isAnimatedElement(actor.element)) {
@@ -167,7 +174,7 @@ export function Combat3DBody(): JSX.Element | null {
       spawnFloater(targetId, damage > 0 ? String(damage) : event.cue === 'miss' ? 'MISS' : event.cue === 'resist' ? 'RESIST' : '0', kind);
     }
     if (!actorIsFriendly && isAnimatedElement(event.skillElement) && (damage ?? 0) > 0) {
-      sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId);
+      sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId, event.vfxPresetId !== undefined ? { vfxPresetId: event.vfxPresetId } : undefined);
     }
   }, [activeBattle?.yourSide, spawnFloater]);
 
@@ -256,7 +263,7 @@ export function Combat3DBody(): JSX.Element | null {
     const vfx = extractPlayerVfx(actor, action);
     if (vfx !== null && sceneRef.current !== null) {
       dispatchPendingRef.current = true;
-      sceneRef.current.playEffect(vfx.element, vfx.sourceId, vfx.targetId);
+      sceneRef.current.playEffect(vfx.element, vfx.sourceId, vfx.targetId, vfx.vfxPresetId !== undefined ? { vfxPresetId: vfx.vfxPresetId } : undefined);
       setCommandMode('menu');
       window.setTimeout(() => {
         runServerDispatch(action);

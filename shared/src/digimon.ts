@@ -59,6 +59,9 @@ export type Skill = {
   cooldown?: number;
   /** DSL actions_json parsed. Loose at shared boundary; backend casts to Action[] after Zod. Non-empty = DSL path. */
   actions?: unknown[];
+  /** Opaque reference to a SkillVfxPreset. When present, combat3d uses the preset
+   *  runner instead of the element's hardcoded shader runner. Missing preset → fallback. */
+  vfxPresetId?: string;
 };
 
 export type Assets = {

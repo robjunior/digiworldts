@@ -50,6 +50,7 @@ import { tutorialPlugin } from './tutorial/routes.js';
 import { gameSettingsPlugin } from './settings/routes.js';
 import { scenesPlugin } from './scenes/routes.js';
 import { particlePresetsPlugin } from './particle-presets/routes.js';
+import { skillVfxPresetsPlugin } from './skill-vfx/routes.js';
 import { seedDefaultGameSettings } from './settings/engine.js';
 import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
 import { worldPlugin } from './world/routes.js';
@@ -222,6 +223,7 @@ async function main(): Promise<void> {
   await app.register(gameSettingsPlugin);
   await app.register(scenesPlugin);
   await app.register(particlePresetsPlugin);
+  await app.register(skillVfxPresetsPlugin);
   await app.register(questsPlugin);
   await app.register(dungeonsPlugin);
   await app.register(dialoguesPlugin);

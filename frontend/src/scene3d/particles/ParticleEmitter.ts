@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 import type {
   ParticleBlending,
+  ParticleEmissionMode,
   ParticleEmitterConfig,
   ParticleGeometry,
   ParticleShaderKind,
@@ -61,12 +62,24 @@ export class ParticleEmitter {
   private elapsedS = 0;
   private opacityMultiplier = 1;
 
+  private readonly emissionMode: ParticleEmissionMode;
+  private readonly burstCount: number;
+  private readonly totalLifetimeS: number | null;
+  private burstFired = false;
+
+  private readonly spawnCenterOverride = new THREE.Vector3();
+  private useSpawnOverride = false;
+
   constructor(scene: THREE.Scene, config: ParticleEmitterConfig) {
     this.scene = scene;
     this.config = config;
 
     // Clamp capacity — combat-only rendering budget.
     this.capacity = Math.min(Math.max(1, config.maxParticles), 10000);
+
+    this.emissionMode = config.emissionMode ?? 'continuous';
+    this.burstCount = Math.min(Math.max(1, config.burstCount ?? 20), this.capacity);
+    this.totalLifetimeS = config.totalLifetimeMs !== undefined ? config.totalLifetimeMs / 1000 : null;
 
     const geometry = buildInstanceGeometry(config.geometry);
     const material = buildMaterial(config, this.elapsedS);
@@ -133,19 +146,45 @@ export class ParticleEmitter {
     }
   }
 
+  /**
+   * Override the spawn's world-space center for NEW particles only. Existing
+   * particles continue their own integration in world space (so a projectile
+   * emitter leaves a trail behind as the runner moves the center along a path).
+   * Called by preset runner each tick for slots with `followTrajectory: true`.
+   */
+  setSpawnCenter(x: number, y: number, z: number): void {
+    this.spawnCenterOverride.set(x, y, z);
+    this.useSpawnOverride = true;
+  }
+
   tick(dtS: number): void {
     if (this.disposed) return;
     this.elapsedS += dtS;
+
+    if (this.emissionMode === 'oneshot' && this.totalLifetimeS !== null && this.elapsedS >= this.totalLifetimeS) {
+      this.dispose();
+      return;
+    }
     const cfg = this.config;
 
     if (this.cameraRef !== null && cfg.spawn.followCamera === true) {
       this.cameraTargetXZ.set(this.cameraRef.position.x, this.cameraRef.position.z);
     }
 
-    // Emission accumulator (particles per second → this frame's spawn count).
-    this.emissionAcc.value += cfg.emissionRate * dtS;
-    let spawnBudget = Math.floor(this.emissionAcc.value);
-    this.emissionAcc.value -= spawnBudget;
+    // Emission accumulator — mode-dependent.
+    //   continuous: steady stream from emissionRate.
+    //   burst / oneshot: spawn burstCount at t=0, zero after that.
+    let spawnBudget: number;
+    if (this.emissionMode === 'continuous') {
+      this.emissionAcc.value += cfg.emissionRate * dtS;
+      spawnBudget = Math.floor(this.emissionAcc.value);
+      this.emissionAcc.value -= spawnBudget;
+    } else if (!this.burstFired) {
+      spawnBudget = this.burstCount;
+      this.burstFired = true;
+    } else {
+      spawnBudget = 0;
+    }
 
     const gravity = cfg.gravity;
     const wind = cfg.wind;
@@ -231,6 +270,11 @@ export class ParticleEmitter {
     // Position — sample spawn shape.
     const px = i * 3;
     samplePosition(cfg.spawn, this.posVec, this.cameraTargetXZ, cfg.spawn.followCamera === true);
+    if (this.useSpawnOverride) {
+      this.posVec.x += this.spawnCenterOverride.x - cfg.spawn.center[0];
+      this.posVec.y += this.spawnCenterOverride.y - cfg.spawn.center[1];
+      this.posVec.z += this.spawnCenterOverride.z - cfg.spawn.center[2];
+    }
     this.positions[px] = this.posVec.x;
     this.positions[px + 1] = this.posVec.y;
     this.positions[px + 2] = this.posVec.z;
@@ -273,6 +317,22 @@ export class ParticleEmitter {
     this.scaleVec.set(0, 0, 0);
     this.matrix.compose(this.posVec.set(0, -1000, 0), this.quat.identity(), this.scaleVec);
     this.mesh.setMatrixAt(i, this.matrix);
+  }
+
+  /**
+   * True when a one-shot emitter has run to completion. Continuous emitters
+   * return false forever. Preset runner polls this each tick to know when to
+   * dispose the emitter and remove it from its slot list.
+   */
+  hasFinished(): boolean {
+    if (this.disposed) return true;
+    if (this.emissionMode === 'continuous') return false;
+    if (this.totalLifetimeS !== null && this.elapsedS >= this.totalLifetimeS) return true;
+    if (!this.burstFired) return false;
+    for (let i = 0; i < this.capacity; i += 1) {
+      if (this.ages[i]! >= 0) return false;
+    }
+    return true;
   }
 
   dispose(): void {
