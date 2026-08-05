@@ -9,6 +9,8 @@ const SHOP_QUERY_KEY = ['admin', 'shop'] as const;
 const SHOP_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
 const SHOP_CLASSES = ['product', 'item'] as const;
 
+import { ShopBundlesSection } from './ShopBundlesSection';
+
 export function ShopAdmin(): JSX.Element {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ShopItemView | null>(null);
@@ -29,27 +31,30 @@ export function ShopAdmin(): JSX.Element {
 
   return (
     <div className="admin-two-column">
-      <AdminSection title="Shop items" lede="Manage combat consumables, evolution items, tickets, cosmetics, and building placements.">
-        <ErrorText error={shopQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
-        <div className="admin-scroll">
-          <table className="admin-table">
-            <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td><b>{item.name}</b><br /><span className="muted">{item.description}</span></td>
-                  <td><span className={`badge badge-${item.class}`}>{item.class}</span></td>
-                  <td><span className="badge">{item.kind}</span></td>
-                  <td>{item.priceCredits}</td>
-                  <td>{item.enabled ? 'yes' : 'no'}</td>
-                  <td className="admin-actions-cell"><button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button><button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {shopQuery.isPending ? <AdminMessage tone="muted">Loading shop items…</AdminMessage> : null}
-      </AdminSection>
+      <div className="stack">
+        <AdminSection title="Shop items" lede="Manage combat consumables, evolution items, tickets, cosmetics, and building placements.">
+          <ErrorText error={shopQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
+          <div className="admin-scroll">
+            <table className="admin-table">
+              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr key={item.id}>
+                    <td><b>{item.name}</b><br /><span className="muted">{item.description}</span></td>
+                    <td><span className={`badge badge-${item.class}`}>{item.class}</span></td>
+                    <td><span className="badge">{item.kind}</span></td>
+                    <td>{item.priceCredits}</td>
+                    <td>{item.enabled ? 'yes' : 'no'}</td>
+                    <td className="admin-actions-cell"><button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button><button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {shopQuery.isPending ? <AdminMessage tone="muted">Loading shop items…</AdminMessage> : null}
+        </AdminSection>
+        <ShopBundlesSection />
+      </div>
       <ShopItemForm key={editing?.id ?? 'new'} item={editing} busy={createMutation.isPending || updateMutation.isPending} onCancel={() => setEditing(null)} onSubmit={submit} />
     </div>
   );
