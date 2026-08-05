@@ -264,14 +264,6 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
       log.warn('auth.register.seed-training.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
     }
     try {
-      // Dynamic: roster/routes.ts imports requireAuth from here — a static import would close a cycle.
-      const { seedStarterRoster } = await import('../roster/routes.js');
-      const seeded = await seedStarterRoster(user.id);
-      log.info('auth.register.seed-roster', { userId: user.id, ...seeded });
-    } catch (err) {
-      log.warn('auth.register.seed-roster.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
-    }
-    try {
       await seedFactoryStarterForUser(user.id);
     } catch (err) {
       log.warn('auth.register.seed-factory.fail', { userId: user.id, err: err instanceof Error ? err.message : String(err) });
