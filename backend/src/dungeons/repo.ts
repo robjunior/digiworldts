@@ -76,7 +76,9 @@ const SQL_UPDATE_WARP = `UPDATE dungeon_warps SET target_dungeon_id = ?, label =
 const SQL_DELETE_WARP = `DELETE FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_RUN = `SELECT * FROM user_dungeon_runs WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_INSERT_RUN = `INSERT INTO user_dungeon_runs (user_id, dungeon_id, current_x, current_y, defeated_encounters, collected_items, unlocked_doors, started_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`;
-const SQL_UPDATE_RUN_POSITION = `UPDATE user_dungeon_runs SET current_x = ?, current_y = ?, collected_items = ?, oneshot_triggered_ids = ? WHERE user_id = ? AND dungeon_id = ?`;
+// Position-guarded write: two concurrent moves must not both pass the
+// adjacency check against the same stale position and both apply.
+const SQL_UPDATE_RUN_POSITION_CAS = `UPDATE user_dungeon_runs SET current_x = ?, current_y = ?, collected_items = ?, oneshot_triggered_ids = ? WHERE user_id = ? AND dungeon_id = ? AND current_x = ? AND current_y = ?`;
 const SQL_UPDATE_RUN_DEFEATED = `UPDATE user_dungeon_runs SET defeated_encounters = ? WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_UPDATE_RUN_UNLOCKED_DOORS = `UPDATE user_dungeon_runs SET unlocked_doors = ? WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_COMPLETE_RUN = `UPDATE user_dungeon_runs SET completed_at = ? WHERE user_id = ? AND dungeon_id = ?`;
@@ -481,13 +483,18 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     if (!cataloged) {
       log.warn('dungeon.pickup.uncataloged', { dungeonId, itemRowId: item.id, itemId: item.item_id });
     }
+    let applied = false;
     await tx(async (t) => {
       const now = Date.now();
-      await t.run(SQL_UPDATE_RUN_POSITION, [landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId]);
+      const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY]);
+      if (moveResult.changes === 0) return;
+      applied = true;
       if (cataloged) await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
     });
+    if (!applied) return { kind: 'not-adjacent' };
   } else {
-    await run(SQL_UPDATE_RUN_POSITION, landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId);
+    const moveResult = await run(SQL_UPDATE_RUN_POSITION_CAS, landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY);
+    if (moveResult.changes === 0) return { kind: 'not-adjacent' };
   }
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return { kind: 'not-found' };

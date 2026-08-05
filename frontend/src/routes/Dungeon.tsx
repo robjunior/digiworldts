@@ -11,10 +11,12 @@ import {
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
 import { ApiError, getRoster } from '../lib/api';
+import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
 import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
+import type { TemplateDigimon } from '@digiworld/shared/digimon';
 import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
@@ -54,6 +56,11 @@ export function Dungeon(): JSX.Element {
 
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
   const shopQuery = useQuery({ queryKey: ['shop'] as const, queryFn: getShop, staleTime: 15_000 });
+  const catalogQuery = useQuery({ queryKey: ['catalog'] as const, queryFn: getCatalog, staleTime: 5 * 60 * 1000 });
+  const templateById = useMemo<ReadonlyMap<string, TemplateDigimon>>(
+    () => new Map((catalogQuery.data?.digimons ?? []).map((entry) => [entry.id, entry] as const)),
+    [catalogQuery.data],
+  );
   const party = useMemo(() => {
     const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
     return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
@@ -62,6 +69,11 @@ export function Dungeon(): JSX.Element {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
+  // Not moveMutation.isPending: React state commits a render too late, so
+  // several keydowns in one tick all read false and fire duplicate moves off
+  // the same stale position. Refs flip synchronously.
+  const movePendingRef = useRef(false);
+  const wildStartPendingRef = useRef(false);
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
   const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
@@ -165,9 +177,10 @@ export function Dungeon(): JSX.Element {
         setActiveEncounterId(res.triggeredEncounterId);
       }
       if (res.randomEncounter) {
-        const mons = res.randomEncounter.map((m) => `${m.nickname ?? m.catalogId} Lv ${m.level}`).join(', ');
+        const mons = res.randomEncounter.map((m) => `${m.nickname || templateById.get(m.catalogId)?.name || m.catalogId} Lv ${m.level}`).join(', ');
         pushLog(`Wild encounter: ${mons}.`, 'hit');
-        if (!startRandomEncounterMutation.isPending) {
+        if (!wildStartPendingRef.current) {
+          wildStartPendingRef.current = true;
           startRandomEncounterMutation.mutate(res.randomEncounter);
         }
       }
@@ -177,6 +190,9 @@ export function Dungeon(): JSX.Element {
     },
     onError: (err: Error) => {
       flashToast(err.message || 'Cannot move there.');
+    },
+    onSettled: () => {
+      movePendingRef.current = false;
     },
   });
 
@@ -230,6 +246,9 @@ export function Dungeon(): JSX.Element {
     },
     onError: (err: Error) => {
       flashToast(err.message || 'Could not start wild battle.');
+    },
+    onSettled: () => {
+      wildStartPendingRef.current = false;
     },
   });
 
@@ -321,7 +340,7 @@ export function Dungeon(): JSX.Element {
       flashToast('Resolve the encounter first.');
       return;
     }
-    if (moveMutation.isPending) return;
+    if (movePendingRef.current) return;
     const cx = data?.run.currentX ?? 0;
     const cy = data?.run.currentY ?? 0;
     const nx = cx + dx;
@@ -332,6 +351,7 @@ export function Dungeon(): JSX.Element {
       // Just silently do nothing if trying to move into a wall
       return;
     }
+    movePendingRef.current = true;
     moveMutation.mutate({ x: nx, y: ny });
   }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen, flashToast]);
 
@@ -491,9 +511,14 @@ export function Dungeon(): JSX.Element {
           <DungeonEncounterCard
             activeEncounter={activeEncounter}
             activeRandomEncounter={activeRandomEncounter}
+            templateById={templateById}
             isStartingRandom={startRandomEncounterMutation.isPending}
             isStartingEncounter={startEncounterMutation.isPending}
-            onStartRandom={(mon) => startRandomEncounterMutation.mutate(mon)}
+            onStartRandom={(mon) => {
+              if (wildStartPendingRef.current) return;
+              wildStartPendingRef.current = true;
+              startRandomEncounterMutation.mutate(mon);
+            }}
             onCancelRandom={() => setActiveRandomEncounter(null)}
             onStartEncounter={(encId) => startEncounterMutation.mutate(encId)}
           />
