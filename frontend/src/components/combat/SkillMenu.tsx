@@ -1,5 +1,5 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
-import type { Element, Skill } from '@digiworld/shared/digimon';
+import type { Element } from '@digiworld/shared/digimon';
 import { useState } from 'react';
 
 import { useLocale } from '../../hooks/useLocale';
@@ -14,6 +14,7 @@ type SkillMenuProps = {
 
 export function SkillMenu({ unit, target, onSkill, onBack }: SkillMenuProps): JSX.Element {
   const [hoveredDesc, setHoveredDesc] = useState<string | null>(null);
+  const locale = useLocale();
 
   return (
     <>
@@ -23,18 +24,24 @@ export function SkillMenu({ unit, target, onSkill, onBack }: SkillMenuProps): JS
         {unit.skills.map((skill) => {
           const canAfford = skill.energyCost <= unit.en;
           const disabled = !canAfford || target === null;
+          const name = localizedName(skill, locale);
+          const description = localizedDescription(skill, locale) ?? `${skill.element} attack · ${skill.power} power`;
+          const affinityCue = target ? affinity(skill.element, target) : 'none';
           return (
             <button
               key={skill.id}
               className={`mrow ${disabled ? 'disabled' : ''}`}
               type="button"
               disabled={disabled}
-              onMouseEnter={() => setHoveredDesc(skill.description ?? null)}
+              onMouseEnter={() => setHoveredDesc(description)}
               onMouseLeave={() => setHoveredDesc(null)}
               onClick={() => target && onSkill(skill.id, target.id)}
             >
               <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-              <div className="mnm">{skill.name}</div>
+              <div className="mtxt">
+                <div className="mnm">{name}<AffinityCue cue={affinityCue} /></div>
+                <div className="mdesc">{description}</div>
+              </div>
               <div className="mtag" style={{ ['--el' as string]: `var(--el-${skill.element})` }}>{skill.element}</div>
               <div className={`men ${canAfford ? '' : 'short'}`}>{skill.energyCost} EN</div>
             </button>
@@ -46,31 +53,6 @@ export function SkillMenu({ unit, target, onSkill, onBack }: SkillMenuProps): JS
         </button>
       </div>
     </>
-  );
-}
-
-function SkillRow({ skill, unit, target, onSkill }: {
-  readonly skill: Skill;
-  readonly unit: FriendlyUnitView;
-  readonly target: EnemyUnitView | null;
-  readonly onSkill: (skillId: string, targetId: UnitId) => void;
-}): JSX.Element {
-  const disabled = target === null || skill.energyCost > unit.en;
-  const affinityCue = target ? affinity(skill.element, target) : 'none';
-  const locale = useLocale();
-  const name = localizedName(skill, locale);
-  const description = localizedDescription(skill, locale) ?? `${skill.element} attack · ${skill.power} power`;
-
-  return (
-    <button className="skill-row" type="button" role="menuitem" disabled={disabled} onClick={() => target && onSkill(skill.id, target.id)} data-od-id={`skill-${skill.id}`}>
-      <span className="stack" style={{ gap: '2px' }}>
-        <span className="s-name">
-          {name} <AffinityCue cue={affinityCue} />
-        </span>
-        <span className="s-desc">{description}</span>
-      </span>
-      <span className="s-cost">{skill.energyCost} EN</span>
-    </button>
   );
 }
 
