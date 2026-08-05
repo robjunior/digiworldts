@@ -275,7 +275,7 @@ const ParticleEmitterConfigBaseZ = z.object({
   velocity: Vec3RangeZ,
   gravity: Vec3Z,
   wind: Vec3Z,
-  drag: z.number().min(0).max(1),
+  drag: z.number().min(0).max(10),
   spawn: ParticleSpawnZ,
   blending: z.enum(PARTICLE_BLENDINGS),
   rotationSpeed: NumRangeZ.optional(),
