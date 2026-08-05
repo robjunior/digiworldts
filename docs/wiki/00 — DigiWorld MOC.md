@@ -5,7 +5,7 @@ aliases:
   - DigiWorld Home
   - Home
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-03
 grounded-in:
   - README.md
   - ROADMAP.md
@@ -81,10 +81,14 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 ## Cross-cutting
 
 - [[Session cookies]] — argon2id, signed cookies, cluster storage,
-  throttle, cross-origin policy
+  login/register/reset throttle, weak-password blocklist, absolute
+  30-day session cap, global security headers, cross-origin policy
 
 ## ADRs (Architecture Decisions)
 
+- [[2026-08-05 — Login security hardening]] — register throttle,
+  OAuth-decide throttle, weak-password blocklist, absolute session cap,
+  security headers
 - [[2026-07-31 — Standalone Admin SPA]] — split admin out of the player
   frontend, cross-origin cookie contract
 - [[2026-07-31 — OAuth hybrid decide]] — pending token + decide page
@@ -116,6 +120,8 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
   cutover, rolling multi-node
 - [[Deploy the admin panel to a subdomain]] — CORS + cookie contract,
   Vite proxy for dev
+- [[Run dev against production Postgres]] — HMR-driven Vite dev pointed
+  at the shared Docker Postgres backend, cookie-rewrite proxy
 - [[Bootstrap a fresh scraped catalog]] — CLI-first vs register-first
   catalog seeding
 - [[Recover a stuck matchmaking queue]] — dequeue single user vs full
