@@ -1,0 +1,415 @@
+/* =========================================================================
+   DIGIWORLD INVENTORY — aggregated bag on the shared AppShell.
+   Ports base/new layout/inventory.html. Only page-level chrome is here;
+   .win / .titlebar / .side are provided by AppShell.
+   Dense filterable item list: categories (consumable/chip/egg/cosmetic/material),
+   per-item actions Use/Sell/Detail, detail modal with sprite + effect metadata.
+   NOTE: no unified /inventory endpoint on the backend — the component aggregates
+   /api/shop (inventory + wallet + catalog for kind) + /api/farm (Meat balance)
+   and classifies items client-side. Faithful to the mockup markup + registered
+   palette (--credits / --meat) so the cyberpunk notch stays consistent with the
+   rest of the game shell.
+   ========================================================================= */
+
+.inventory-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.inventory-page .mbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--hair);
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+.inventory-page .mtitle {
+  font: 800 10px/1 var(--font);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+
+.inventory-page .search {
+  position: relative;
+  margin-left: 6px;
+}
+.inventory-page .search input {
+  height: 32px;
+  width: 220px;
+  padding: 0 12px 0 32px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  font: 500 12px/1 var(--font);
+  outline: none;
+}
+.inventory-page .search input:focus { border-color: var(--signal); }
+.inventory-page .search input::placeholder { color: var(--muted); }
+.inventory-page .search svg {
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  width: 15px;
+  height: 15px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.inventory-page .sel {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  font: 600 11px/1 var(--font);
+  letter-spacing: .04em;
+  outline: none;
+  cursor: pointer;
+}
+.inventory-page .sel:focus { border-color: var(--signal); }
+
+.inventory-page .clearf {
+  height: 32px;
+  padding: 0 12px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  font: 700 9px/1 var(--font);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: .12s;
+  cursor: pointer;
+}
+.inventory-page .clearf:hover { border-color: var(--muted); color: var(--ink); }
+
+.inventory-page .wallet {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+}
+.inventory-page .bal {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  font: 800 13px/1 var(--font);
+}
+.inventory-page .bal .k {
+  font: 700 9px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.inventory-page .bal .coin {
+  width: 12px;
+  height: 12px;
+  clip-path: var(--notch-sm);
+  flex: none;
+}
+.inventory-page .coin.cred { background: var(--credits); }
+.inventory-page .coin.net { background: var(--meat); }
+
+/* category tabs */
+.inventory-page .cats {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+  padding: 12px 24px 0;
+  flex-wrap: wrap;
+}
+.inventory-page .cat {
+  padding: 8px 13px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  font: 700 10px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  transition: .12s;
+  cursor: pointer;
+}
+.inventory-page .cat:hover { color: var(--ink); border-color: var(--muted); }
+.inventory-page .cat[aria-selected="true"] {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+}
+.inventory-page .cat .c-n { margin-left: 6px; opacity: .7; }
+
+/* list header + dense rows */
+.inventory-page .sechd {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 14px 24px 10px;
+}
+.inventory-page .sechd h3 {
+  font: 800 13px/1 var(--font);
+  letter-spacing: .04em;
+}
+.inventory-page .sechd .cnt {
+  font: 700 10px/1 var(--font);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.inventory-page .scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+  scrollbar-width: thin;
+}
+.inventory-page .scroll::-webkit-scrollbar { width: 8px; }
+.inventory-page .scroll::-webkit-scrollbar-thumb { background: var(--hair); }
+
+.inventory-page .irow {
+  display: grid;
+  grid-template-columns: 1fr 96px 96px 260px;
+  gap: 14px;
+  align-items: center;
+  padding: 11px 14px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  margin-top: 8px;
+  position: relative;
+  transition: border-color .12s;
+}
+.inventory-page .irow:first-child { margin-top: 2px; }
+.inventory-page .irow:hover { border-color: var(--signal); }
+.inventory-page .irow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--el, var(--hair));
+}
+.inventory-page .irow .nm { min-width: 0; }
+.inventory-page .irow .nm .t {
+  font: 800 13px/1.15 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.inventory-page .irow .nm .d {
+  font: 600 11px/1.3 var(--font);
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.inventory-page .rowtag { text-align: right; }
+.inventory-page .tagpill {
+  display: inline-flex;
+  align-items: center;
+  font: 700 9px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.inventory-page .qty {
+  text-align: right;
+  font: 900 15px/1 var(--font);
+  color: var(--ink);
+}
+.inventory-page .qty .x {
+  font: 700 10px/1 var(--font);
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.inventory-page .acts {
+  display: flex;
+  gap: 7px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.inventory-page .abtn {
+  padding: 8px 12px;
+  clip-path: var(--notch-sm);
+  font: 800 9px/1 var(--font);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  border: 1px solid var(--hair);
+  color: var(--muted);
+  transition: .12s;
+  white-space: nowrap;
+  cursor: pointer;
+  background: none;
+}
+.inventory-page .abtn:hover { border-color: var(--signal); color: var(--ink); }
+.inventory-page .abtn.use {
+  background: var(--signal);
+  color: #fff;
+  border-color: var(--signal);
+}
+.inventory-page .abtn.use:hover { background: color-mix(in oklab, var(--signal) 82%, #fff); }
+.inventory-page .abtn:disabled {
+  opacity: .4;
+  cursor: default;
+  border-color: var(--hair);
+  color: var(--muted);
+  background: none;
+}
+
+.inventory-page .empty-line {
+  font: 600 12px/1.6 var(--font);
+  color: var(--muted);
+  padding: 22px 14px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* detail modal — mockup .cov / .cmodal */
+.inventory-page .cov {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  display: none;
+  place-items: center;
+  z-index: 90;
+  padding: 24px;
+}
+.inventory-page .cov.show { display: grid; }
+.inventory-page .cmodal {
+  width: min(420px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch);
+  padding: 22px;
+}
+.inventory-page .cmodal .ek {
+  font: 800 9px/1 var(--font);
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--signal);
+  margin-bottom: 8px;
+}
+.inventory-page .cmodal h3 {
+  font: 800 19px/1.1 var(--font);
+  letter-spacing: -.01em;
+}
+
+.inventory-page .cline {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 16px 0;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+}
+.inventory-page .cline .ico {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--el, var(--signal));
+  clip-path: var(--notch-sm);
+}
+.inventory-page .cline .ico svg {
+  width: 26px;
+  height: 26px;
+  color: var(--el, var(--signal));
+}
+.inventory-page .cline .ico img {
+  width: 74%;
+  height: 74%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.inventory-page .cline .ci { min-width: 0; flex: 1; }
+.inventory-page .cline .ci .t { font: 800 14px/1.1 var(--font); }
+.inventory-page .cline .ci .s {
+  font: 600 11px/1.3 var(--font);
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.inventory-page .cmeta {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+.inventory-page .cmeta .mr {
+  display: flex;
+  justify-content: space-between;
+  font: 600 12px/1 var(--font);
+  color: var(--muted);
+}
+.inventory-page .cmeta .mr b { color: var(--ink); font-weight: 800; }
+
+.inventory-page .cdesc {
+  font: 600 12px/1.5 var(--font);
+  color: var(--ink);
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm);
+  margin-bottom: 18px;
+}
+
+.inventory-page .cactions { display: flex; gap: 10px; }
+.inventory-page .cactions .abtn {
+  flex: 1;
+  text-align: center;
+  justify-content: center;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+}
+
+.inventory-page .toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel);
+  border: 1px solid var(--signal);
+  clip-path: var(--notch-sm);
+  padding: 11px 18px;
+  font: 700 12px/1 var(--font);
+  color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  z-index: 100;
+}
+.inventory-page .toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 1080px) {
+  .inventory-page .irow { grid-template-columns: 1fr 70px 190px; }
+  .inventory-page .rowtag { display: none; }
+  .inventory-page .acts { flex-wrap: wrap; }
+}
