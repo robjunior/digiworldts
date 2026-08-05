@@ -852,19 +852,27 @@ export class SceneManager {
 
   /**
    * "Bare" arena load: intended for scenes with `useGlbSettings=true`.
-   * Skips `setArenaAtmosphere`, disables scene fog, and dims the default
-   * scene lights so the GLB's own lights / environment / cameras dominate
-   * the look. A bare-geometry GLB (no lights) still gets a dim key + hemi
-   * from the manager so it doesn't render pitch-black.
+   * Skips `setArenaAtmosphere` and disables scene fog so the GLB drives the look.
+   * The manager's own rig is only surrendered when the GLB actually ships
+   * KHR_lights_punctual lights; most biome exports carry none, and dimming
+   * unconditionally left those arenas rendering in near-darkness.
    */
   async loadArenaModelBare(url: string): Promise<void> {
     this.currentArenaKey = null;
-    this.scene.fog = null;
-    this.hemi.intensity = 0.15;
-    this.keyLight.intensity = 0.35;
-    this.rimLight.intensity = 0.0;
-    this.fillLight.intensity = 0.0;
     await this.loadArenaModel(url);
+    let glbLightCount = 0;
+    this.arenaGroup.traverse((obj) => {
+      if (obj instanceof THREE.Light) glbLightCount += 1;
+    });
+    if (glbLightCount > 0) {
+      this.hemi.intensity = 0.15;
+      this.keyLight.intensity = 0.35;
+      this.rimLight.intensity = 0.0;
+      this.fillLight.intensity = 0.0;
+    } else {
+      this.applyAtmosphere(DEFAULT_ATMOSPHERE);
+    }
+    this.scene.fog = null;
   }
 
   /**

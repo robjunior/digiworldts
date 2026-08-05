@@ -1,4 +1,4 @@
-const modules = import.meta.glob('../assets/arenas/*.glb', {
+const modules = import.meta.glob('../../../frontend/src/assets/arenas/*.glb', {
   query: '?url',
   import: 'default',
   eager: true,
@@ -19,15 +19,20 @@ export function getArenaUrl(filename: string): string | undefined {
 }
 
 export const ARENA_MODEL_BY_KEY: Readonly<Record<string, string | undefined>> = Object.freeze({
-  plant: urlsByFilename['plant.glb'],
-  steel: urlsByFilename['steel.glb'],
-  water: urlsByFilename['water.glb'],
-  rock: urlsByFilename['rock.glb'],
-  dark: urlsByFilename['dark.glb'],
-  fire: urlsByFilename['fire.glb'],
-  ice: urlsByFilename['ice.glb'],
-  field: urlsByFilename['field.glb'],
-  null: urlsByFilename['null.glb'],
-  wind: urlsByFilename['wind.glb'],
-  light: urlsByFilename['light.glb'],
+  plant: urlsByFilename['forest_biome.glb'],
+  steel: urlsByFilename['factory_biome.glb'],
+  water: urlsByFilename['frost_biome.glb'],
+  rock: urlsByFilename['rock_biome.glb'],
+  dark: urlsByFilename['dark_biome.glb'],
+  fire: urlsByFilename['lava_river_biome.glb'],
+  ice: urlsByFilename['frost_biome.glb'],
+  field: urlsByFilename['toytown_biome.glb'],
+  null: urlsByFilename['dark_lodge_biome.glb'],
+  wind: urlsByFilename['forest_biome.glb'],
+  light: urlsByFilename['toytown_biome.glb'],
 });
+
+export const DEFAULT_ARENA_MODEL: string | undefined =
+  urlsByFilename['forest_biome.glb']
+  ?? urlsByFilename['toytown_biome.glb']
+  ?? Object.values(urlsByFilename)[0];
