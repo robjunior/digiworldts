@@ -9,6 +9,8 @@
  */
 import * as argon2 from 'argon2';
 
+import { isCommonPassword, passwordContainsUsername } from './blocklist.js';
+
 /**
  * Deliberate defaults. Tune upward if you have CPU headroom.
  * - memoryCost: 19 MiB (OWASP min for argon2id).
@@ -51,14 +53,43 @@ export async function verifyPassword(stored: string, submitted: string): Promise
 }
 
 /**
- * Quick sanity policy — deliberately lenient (NIST 800-63B): length matters,
- * arbitrary "must have symbol" rules do NOT. Rejects obviously broken input.
+ * Policy check context. `username` (when present) is used to reject passwords
+ * that trivially contain the username — the top user-specific weak pattern.
+ * Callers with no username (admin hard-reset, OAuth placeholder) pass no
+ * context and get length + blocklist checks only.
  */
-export function validatePasswordPolicy(password: string): { ok: true } | { ok: false; reason: string } {
+export type PasswordPolicyContext = {
+  readonly username?: string;
+};
+
+/**
+ * Quick sanity policy — NIST 800-63B style: length matters, arbitrary
+ * "must have symbol" rules do NOT. What this function DOES check, in order:
+ *
+ *   1. Type + length bounds (8 ≤ len ≤ 256).
+ *   2. Not a single repeated character.
+ *   3. Not in the top ~300 well-known breached passwords (see blocklist.ts).
+ *   4. Does not contain the caller's username as a substring (top user-specific
+ *      weak pattern — only enforced when `context.username` is provided).
+ *
+ * Steps 3-4 are the additions NIST explicitly recommends: a small breach
+ * blocklist + a per-user context check catches the cheapest attacks
+ * (credential-stuffing, dictionary sprays) that length + argon2id do NOT.
+ */
+export function validatePasswordPolicy(
+  password: string,
+  context: PasswordPolicyContext = {},
+): { ok: true } | { ok: false; reason: string } {
   if (typeof password !== 'string') return { ok: false, reason: 'password must be a string' };
   if (password.length < 8) return { ok: false, reason: 'password must be at least 8 characters' };
   if (password.length > 256) return { ok: false, reason: 'password must be 256 characters or fewer' };
   // strip trivial patterns
   if (/^(.)\1+$/.test(password)) return { ok: false, reason: 'password cannot be a single repeated character' };
+  if (isCommonPassword(password)) {
+    return { ok: false, reason: 'password is too common — pick something less obvious' };
+  }
+  if (context.username !== undefined && passwordContainsUsername(password, context.username)) {
+    return { ok: false, reason: 'password cannot contain your username' };
+  }
   return { ok: true };
 }

@@ -41,7 +41,7 @@ import { one, tx, type UserRow } from '../../db/index.js';
 import { log } from '../../util/log.js';
 import { newId } from '../../util/ids.js';
 import { hashPassword, verifyPassword } from '../password.js';
-import { createSession, SESSION_COOKIE_NAME, setSessionCookie } from '../session.js';
+import { checkLoginThrottle, createSession, recordLoginAttempt, SESSION_COOKIE_NAME, setSessionCookie } from '../session.js';
 import { currentUser, requireAuth } from '../routes.js';
 
 import { getProvider, listEnabledProviderIds } from './registry.js';
@@ -230,12 +230,19 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
       return reply.send({ ok: true, userId: user.userId, returnTo: pending.returnTo ?? '/' });
     }
 
-    const existing = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, body.data.username);
-    if (existing === null) {
-      return reply.code(401).send({ error: 'invalid-credentials' });
+    const throttle = await checkLoginThrottle(body.data.username, req.ip);
+    if (!throttle.allowed) {
+      return reply
+        .code(429)
+        .header('Retry-After', String(throttle.retryInSec))
+        .send({ error: throttle.reason });
     }
-    const ok = await verifyPassword(existing.password_hash, body.data.password);
-    if (!ok) {
+
+    const existing = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, body.data.username);
+    const stored = existing?.password_hash ?? '$argon2id$v=19$m=19456,t=2,p=1$aaaaaaaaaaaaaaaaaaaaaa$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const ok = await verifyPassword(stored, body.data.password);
+    if (existing === null || !ok || existing.disabled === 1) {
+      await recordLoginAttempt(body.data.username, req.ip, false);
       return reply.code(401).send({ error: 'invalid-credentials' });
     }
     const linkResult = await linkExistingUserToProvider(existing.id, pending);
@@ -244,6 +251,7 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
     }
     const sessionToken = await createUserSessionAndTouch(existing.id, req);
     setSessionCookie(reply, sessionToken);
+    await recordLoginAttempt(body.data.username, req.ip, true);
     return reply.send({ ok: true, userId: existing.id, returnTo: pending.returnTo ?? '/' });
   });
 
