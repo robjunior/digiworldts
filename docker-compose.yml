@@ -48,7 +48,10 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - "3001:3000"
+      # Loopback-only: backend is reached externally through nginx (frontend:8080).
+      # Publishing to 0.0.0.0 while `trustProxy: 1` is set would let attackers spoof
+      # X-Forwarded-For directly and bypass per-IP rate limits (auth throttle, register).
+      - "127.0.0.1:3001:3000"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

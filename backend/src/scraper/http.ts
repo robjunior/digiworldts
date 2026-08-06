@@ -20,6 +20,14 @@ const RETRY_STATUS = new Set([408, 425, 429, 500, 502, 503, 504]);
 const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 3;
 
+// Hard byte caps on the response body. Larger than any real portrait
+// (`.webp`, ~10-40 KB), dot sprite (`.gif`, ~5-15 KB), or wikimon HTML page
+// (~200-800 KB), so a benign upstream never trips them. A hostile mirror
+// serving an unbounded chunked stream is bounded to `maxBytes` of heap
+// pressure per concurrent request rather than the socket read buffer.
+const MAX_ASSET_BYTES = 8 * 1024 * 1024;
+const MAX_TEXT_BYTES = 4 * 1024 * 1024;
+
 let lastRequestAt = 0;
 
 async function throttle(): Promise<void> {
@@ -140,6 +148,49 @@ async function tryFetch(url: string, opts: FetchOptions): Promise<Response> {
 }
 
 /**
+ * Read a response body with a hard byte cap enforced in TWO places:
+ *   (1) Content-Length header (if present) — reject before streaming.
+ *   (2) Running total across streamed chunks — reject on any header lie
+ *       or chunked-encoded server that omits Content-Length.
+ *
+ * Excess data cancels the reader immediately so peak memory is bounded by
+ * `maxBytes`, not by the underlying socket read buffer. Preserves the
+ * partial-chunks-then-concat pattern so we return a contiguous Uint8Array.
+ */
+async function readBodyCapped(res: Response, maxBytes: number): Promise<Uint8Array> {
+  const cl = res.headers.get('content-length');
+  if (cl !== null) {
+    const declared = Number(cl);
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      throw new Error(`response too large: content-length ${declared} > ${maxBytes}`);
+    }
+  }
+  const body = res.body;
+  if (body === null) return new Uint8Array(0);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value === undefined) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try { await reader.cancel(); } catch {}
+      throw new Error(`response too large: streamed ${total} > ${maxBytes}`);
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
+/**
  * Fetch HTML text with polite retries. Returns the body string on success,
  * or `null` on final failure. Emits log lines for each attempt.
  */
@@ -156,7 +207,8 @@ export async function fetchText(url: string, opts: FetchOptions = {}): Promise<S
       const res = await tryFetch(url, opts);
       lastStatus = res.status;
       if (res.ok || (res.status === 403 && acceptHtmlOn403)) {
-        const text = await res.text();
+        const buf = await readBodyCapped(res, MAX_TEXT_BYTES);
+        const text = new TextDecoder('utf-8').decode(buf);
         return { ok: true, status: res.status, url, data: text };
       }
       if (!RETRY_STATUS.has(res.status)) {
@@ -191,7 +243,7 @@ export async function fetchBytes(url: string, opts: FetchOptions = {}): Promise<
       const res = await tryFetch(url, { ...opts, acceptBody: 'bytes' });
       lastStatus = res.status;
       if (res.ok) {
-        const buf = new Uint8Array(await res.arrayBuffer());
+        const buf = await readBodyCapped(res, MAX_ASSET_BYTES);
         return { ok: true, status: res.status, url, data: buf };
       }
       if (!RETRY_STATUS.has(res.status)) {

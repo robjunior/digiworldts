@@ -328,7 +328,7 @@ export const marketPlugin: FastifyPluginAsync = async (app) => {
         const sold = await t.run(SQL_MARK_LISTING_SOLD, [now, user.id, listing.id]);
         if (sold.changes === 0) throw new Error('market-buy-race');
         await t.run(SQL_UPSERT_WALLET_NETCORE, [listing.seller_id, listing.price_netcore, now]);
-        await t.run(SQL_TRANSFER_MON, [user.id, now, listing.mon_id]);
+        await t.run(SQL_TRANSFER_MON, [user.id, equippedJson, now, listing.mon_id]);
       });
     } catch (err) {
       if (err instanceof Error && err.message === 'market-buy-race') {

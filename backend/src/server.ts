@@ -164,12 +164,24 @@ async function main(): Promise<void> {
 
   const corsOrigins = config.CORS_ORIGINS.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
   if (corsOrigins.length > 0) {
+    // Refuse wildcard-with-credentials: `origin: true` reflects the request's
+    // Origin header verbatim, and combined with `credentials: true` that's a
+    // session-hijack primitive — an attacker page can call any authenticated
+    // API cross-origin under the victim's cookie. The browser CORS spec
+    // explicitly allows this combination (unlike `*` + credentials), so this
+    // must be rejected at config load, not left to the operator to remember.
+    if (corsOrigins.includes('*')) {
+      throw new Error(
+        'CORS_ORIGINS cannot include "*" — credentials-enabled reflect-any is a session-hijack primitive. List explicit origins instead.',
+      );
+    }
     await app.register(fastifyCors, {
-      origin: corsOrigins.includes('*') ? true : corsOrigins,
+      origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
-      exposedHeaders: ['Set-Cookie'],
+      // `Set-Cookie` is never readable from JS regardless of exposedHeaders —
+      // removing this drops a misleading signal that suggested otherwise.
       maxAge: 86400,
     });
     log.info('boot.cors', { origins: corsOrigins });

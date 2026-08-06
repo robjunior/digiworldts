@@ -84,7 +84,7 @@ services:
       # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
       # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
-      ADMIN_BOOTSTRAP: open
+      ADMIN_BOOTSTRAP: ${ADMIN_BOOTSTRAP:-closed}
     volumes:
       - gamedata:/data
       - ./backend/public/assets/digimon:/app/backend/public/assets/digimon
@@ -107,7 +107,7 @@ services:
       # DATABASE: sqlite            # SQLite fallback — uncomment (and comment postgres above) to switch
       # DB_PATH: /data/digiworld.db # shared via the `gamedata` volume below
       SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required min 32 chars - copy .env.example to .env and edit}
-      ADMIN_BOOTSTRAP: open
+      ADMIN_BOOTSTRAP: ${ADMIN_BOOTSTRAP:-closed}
 
   nginx:
     image: nginx:1.27-alpine

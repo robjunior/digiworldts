@@ -542,16 +542,19 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     let onMessage: (raw: unknown) => void = (raw) => { buffered.push(raw); };
     socket.on('message', (raw: unknown) => { onMessage(raw); });
 
+    // Fast-path saturation reject BEFORE session resolution: prevents an
+    // unauthenticated flood from spending event-loop budget on Redis/DB
+    // session lookups once the per-node cap is already met.
+    if (connections.size >= config.MAX_LOBBY_CONNECTIONS) {
+      safeSend(socket, { type: 'error', code: 'lobby-full', message: 'lobby full — try later' });
+      try { socket.close(4503, 'lobby-full'); } catch {}
+      return;
+    }
     const token = readSessionCookie(req);
     const session = await resolveSession(token ?? undefined);
     if (!session) {
       safeSend(socket, { type: 'error', code: 'unauth', message: 'sign in first' });
       try { socket.close(4401, 'unauthenticated'); } catch {}
-      return;
-    }
-    if (connections.size >= config.MAX_LOBBY_CONNECTIONS) {
-      safeSend(socket, { type: 'error', code: 'lobby-full', message: 'lobby full — try later' });
-      try { socket.close(4503, 'lobby-full'); } catch {}
       return;
     }
 
