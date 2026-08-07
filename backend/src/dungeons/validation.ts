@@ -1,4 +1,5 @@
 import type { Dungeon, EncounterDigimon, EncounterSkillOverride, EncounterStatOverride } from '@digiworld/shared';
+import { LAYER_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { BIOMES } from '@digiworld/shared/world';
 import { z } from 'zod';
@@ -104,6 +105,7 @@ export const TileSchema = z.object({
   y: z.number().int().min(0).max(199),
   /** GID into the dungeon's joined tilesets; defaults so legacy clients that omit it stay valid. */
   gid: z.number().int().min(1).max(1_000_000).default(1),
+  layerKind: z.enum(LAYER_KINDS).default('floor'),
 });
 
 export const TilesInputSchema = z.object({
@@ -248,5 +250,6 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     randomMaxPartySize: input.randomMaxPartySize,
     randomAllowedElements: input.randomAllowedElements,
     challenge: input.challenge ?? { kind: 'none' as const },
+    walkableMask: null,
   };
 }

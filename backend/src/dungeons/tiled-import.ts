@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import type { EncounterDigimon, EncounterLoot, TiledMap, TiledObject, TrapKind } from '@digiworld/shared';
-import { getObjectClass, getProperty, isObjectGroup, isTileLayer, tiledTilesetKey, TRAP_KINDS } from '@digiworld/shared';
+import type { EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind } from '@digiworld/shared';
+import { getObjectClass, getProperty, isObjectGroup, isTileLayer, LAYER_KINDS, tiledTilesetKey, TRAP_KINDS, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES, type Element, type Stage } from '@digiworld/shared/digimon';
 import { BIOMES, type Biome } from '@digiworld/shared/world';
 
@@ -109,7 +109,7 @@ export function parseTiledJson(input: unknown): TiledParseResult {
   return { ok: true, map };
 }
 
-export type ImportedTile = { readonly x: number; readonly y: number; readonly gid: number };
+export type ImportedTile = { readonly x: number; readonly y: number; readonly gid: number; readonly layerKind: LayerKind };
 export type ImportedTilesetRef = { readonly name: string; readonly firstgid: number };
 export type ImportedEncounter = {
   readonly x: number;
@@ -179,7 +179,7 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
   const biome = readBiomeProp(map.properties, errors);
   const randomSettings = readRandomSettings(map.properties, errors);
 
-  const tiles = extractTiles(map, warnings);
+  const tiles = extractTiles(map, warnings, errors);
   const tilesets = extractTilesets(map, warnings);
 
   const encounters: ImportedEncounter[] = [];
@@ -280,26 +280,59 @@ function pixelToTile(obj: { readonly x: number; readonly y: number; readonly gid
   return { x: Math.floor(obj.x / tw), y: Math.floor((obj.y - yShift) / th) };
 }
 
-function extractTiles(map: TiledMap, warnings: string[]): ImportedTile[] {
+function extractTiles(map: TiledMap, warnings: string[], errors: string[]): ImportedTile[] {
   const tileLayers = map.layers.filter(isTileLayer);
   if (tileLayers.length === 0) {
-    warnings.push('no tile layer found; dungeon will have no walkable tiles');
+    errors.push('no tile layer found; a Tiled map must have at least one tile layer classified as "floor"');
     return [];
   }
-  const walkable = tileLayers.find((l) => l.name.toLowerCase() === 'walkable') ?? tileLayers[0];
-  if (walkable === undefined) return [];
-  if (walkable.width !== map.width || walkable.height !== map.height) {
-    warnings.push(`tile layer "${walkable.name}" is ${walkable.width}×${walkable.height}, expected ${map.width}×${map.height}; using layer dimensions`);
-  }
   const out: ImportedTile[] = [];
-  for (let i = 0; i < walkable.data.length; i += 1) {
-    const gid = walkable.data[i] ?? 0;
-    if (gid === 0) continue;
-    const x = i % walkable.width;
-    const y = Math.floor(i / walkable.width);
-    if (x < map.width && y < map.height) out.push({ x, y, gid });
+  const positionKindWins = new Map<string, LayerKind>();
+  let sawFloor = false;
+  for (const layer of tileLayers) {
+    const layerKind = classifyLayer(layer, warnings);
+    if (layer.width !== map.width || layer.height !== map.height) {
+      warnings.push(`tile layer "${layer.name}" is ${layer.width}×${layer.height}, expected ${map.width}×${map.height}; using layer dimensions`);
+    }
+    if (layerKind === 'floor') sawFloor = true;
+    for (let i = 0; i < layer.data.length; i += 1) {
+      const gid = layer.data[i] ?? 0;
+      if (gid === 0) continue;
+      const x = i % layer.width;
+      const y = Math.floor(i / layer.width);
+      if (x >= map.width || y >= map.height) continue;
+      const key = `${x},${y}`;
+      const winnerKind = layerKindPriority(positionKindWins.get(key) ?? null, layerKind);
+      positionKindWins.set(key, winnerKind);
+      out.push({ x, y, gid, layerKind });
+    }
+  }
+  if (!sawFloor) {
+    errors.push('no tile layer classified as "floor"; name a layer "floor"/"walkable" or set the layer\'s dw_kind property to "floor"');
   }
   return out;
+}
+
+function classifyLayer(layer: TiledTileLayer, warnings: string[]): LayerKind {
+  const override = getProperty(layer.properties, 'dw_kind');
+  if (typeof override === 'string') {
+    const normalized = override.trim().toLowerCase();
+    if ((LAYER_KINDS as readonly string[]).includes(normalized)) return normalized as LayerKind;
+    warnings.push(`tile layer "${layer.name}": dw_kind="${override}" is not a valid layer kind; falling back to name convention`);
+  }
+  const name = layer.name.trim().toLowerCase();
+  if (name === 'walkable' || name === 'floor') return 'floor';
+  if ((LAYER_KINDS as readonly string[]).includes(name)) return name as LayerKind;
+  warnings.push(`tile layer "${layer.name}": name does not match any known layer kind and no dw_kind property is set; defaulting to "decoration"`);
+  return 'decoration';
+}
+
+function layerKindPriority(existing: LayerKind | null, incoming: LayerKind): LayerKind {
+  if (existing === null) return incoming;
+  const walkableIncoming = (WALKABLE_LAYER_KINDS as readonly string[]).includes(incoming);
+  const walkableExisting = (WALKABLE_LAYER_KINDS as readonly string[]).includes(existing);
+  if (walkableIncoming && !walkableExisting) return incoming;
+  return existing;
 }
 
 function extractTilesets(map: TiledMap, warnings: string[]): ImportedTilesetRef[] {
