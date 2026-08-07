@@ -18,6 +18,7 @@ import { scaleStatsForLevel } from '../digimon/element.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { addPendingBuff, type BuffKind } from './buffs.js';
+import { rarityFromRankOrCommon } from '@digiworld/shared/item-rarity';
 
 // ============================================================================
 // SQL
@@ -25,12 +26,12 @@ import { addPendingBuff, type BuffKind } from './buffs.js';
 const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING`;
-const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.rarity
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
-const SQL_SELECT_INVENTORY_ITEMS = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.class
+const SQL_SELECT_INVENTORY_ITEMS = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.class, s.rarity
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? AND s.class = 'item' AND i.qty > 0 ORDER BY s.name`;
 const SQL_SELECT_INVENTORY_ITEM = `SELECT * FROM player_inventory WHERE user_id = ? AND item_id = ?`;
@@ -162,7 +163,7 @@ async function loadBundlesForShop(): Promise<BundleView[]> {
 // ============================================================================
 // Seed items
 // ============================================================================
-type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item'> & {
+type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item' | 'rarity'> & {
   currency?: string;
   price?: number;
   shop_category?: string;
@@ -170,6 +171,7 @@ type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item'> & 
   quick_offer?: number;
   one_time?: number;
   sort_order?: number;
+  rarity?: number;
 };
 
 const SEED_ITEMS: Array<SeedItem> = [
@@ -348,7 +350,8 @@ export async function seedShopItems(): Promise<void> {
       await t.run(SQL_INSERT_ITEM, [
         item.id, item.name, item.description, item.price_credits, item.price ?? item.price_credits,
         item.currency ?? 'credits', item.shop_category ?? 'misc', item.featured ?? 0, item.quick_offer ?? 0,
-        item.one_time ?? 0, item.sort_order ?? 0, item.kind, item.class, item.payload, now
+        item.one_time ?? 0, item.sort_order ?? 0, item.kind, item.class, item.payload,
+        (item as { rarity?: number }).rarity ?? 0, now
       ]);
     }
   });
@@ -371,6 +374,7 @@ export async function insertCustomItem(input: {
   quickOffer?: number;
   oneTime?: number;
   sortOrder?: number;
+  rarity?: number;
 }): Promise<string> {
   const id = newId('itm');
   const now = Date.now();
@@ -380,7 +384,7 @@ export async function insertCustomItem(input: {
       id, input.name, input.description, input.priceCredits, input.price ?? input.priceCredits,
       input.currency ?? 'credits', input.shopCategory ?? 'misc', input.featured ?? 0,
       input.quickOffer ?? 0, input.oneTime ?? 0, input.sortOrder ?? 0,
-      input.kind, input.class, JSON.stringify(input.payload), now
+      input.kind, input.class, JSON.stringify(input.payload), input.rarity ?? 0, now
     ]
   );
   return id;
@@ -421,7 +425,7 @@ function decodeItemEffect(payloadJson: string): EffectDecoded {
 // ============================================================================
 // Plugin
 // ============================================================================
-type InventoryJoinRow = InventoryRow & { name: string; description: string };
+type InventoryJoinRow = InventoryRow & { name: string; description: string; rarity: number };
 type ExtendedShopItemRow = ShopItemRow & { currency: string, price: number, shop_category: string, featured: number, quick_offer: number, one_time: number, sort_order: number };
 
 export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
@@ -446,6 +450,7 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
         shopCategory: i.shop_category,
         oneTime: i.one_time === 1,
         owned: i.one_time === 1 ? ownedSet.has(i.id) : false,
+        rarity: rarityFromRankOrCommon(i.rarity),
         ...displayPayload
       };
     };
@@ -463,15 +468,15 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       bundles,
       categories,
       wallet: { credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 },
-      inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
+      inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty, rarity: rarityFromRankOrCommon(i.rarity) })),
     });
   });
 
   app.get('/api/items', async (req, reply) => {
     const me = await requireAuth(req, reply);
-    const items = await q<InventoryJoinRow & { class?: string }>(SQL_SELECT_INVENTORY_ITEMS, me.id);
+    const items = await q<InventoryJoinRow & { class?: string; rarity?: number }>(SQL_SELECT_INVENTORY_ITEMS, me.id);
     return reply.send({
-      items: items.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
+      items: items.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty, rarity: rarityFromRankOrCommon(i.rarity ?? 0) })),
     });
   });
 

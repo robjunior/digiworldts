@@ -1,4 +1,5 @@
 import type { Attribute, BaseStats, Element, EvolveEdge, ResistanceMap, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
+import type { Rarity } from '@digiworld/shared/item-rarity';
 
 import { apiFetch } from './api';
 
@@ -66,6 +67,7 @@ export type ShopItemView = {
   readonly payload: Record<string, unknown>;
   readonly enabled: boolean;
   readonly isQuestItem?: boolean;
+  readonly rarity: Rarity;
   readonly createdAt: number;
 };
 
@@ -78,6 +80,7 @@ export type ShopItemInput = {
   readonly payload?: Record<string, unknown>;
   readonly enabled?: boolean;
   readonly isQuestItem?: boolean;
+  readonly rarity?: Rarity;
 };
 
 export type UserListEntry = {

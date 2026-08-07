@@ -81,6 +81,10 @@
     "./telemetry": {
       "types": "./dist/telemetry.d.ts",
       "import": "./dist/telemetry.js"
+    },
+    "./item-rarity": {
+      "types": "./dist/item-rarity.d.ts",
+      "import": "./dist/item-rarity.js"
     }
   },
   "files": [
