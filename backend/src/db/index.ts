@@ -313,6 +313,7 @@ export type UserDungeonRunRow = {
   stash_meat: number;
   stash_bits: number;
   stash_data: number;
+  challenge_progress: string | null;
 };
 
 export type DungeonWarpRow = {
