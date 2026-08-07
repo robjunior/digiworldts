@@ -123,6 +123,7 @@ export type Dungeon = {
   readonly randomMaxPartySize: number;
   readonly randomAllowedElements: readonly Element[] | null;
   readonly unlockRequiresItems: readonly string[] | null;
+  readonly challenge: ChallengeConfig;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -144,6 +145,17 @@ export type RunState = (typeof RUN_STATES)[number];
 export const EXTRACTION_KINDS = ['walked_out', 'teleport_scroll', 'challenge_win'] as const;
 export type ExtractionKind = (typeof EXTRACTION_KINDS)[number];
 
+export const CHALLENGE_KINDS = ['none', 'boss_defeated', 'all_encounters_defeated', 'reach_tile', 'collect_item', 'survive_waves'] as const;
+export type ChallengeKind = (typeof CHALLENGE_KINDS)[number];
+
+export type ChallengeConfig =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'boss_defeated'; readonly bossEncounterId: string }
+  | { readonly kind: 'all_encounters_defeated' }
+  | { readonly kind: 'reach_tile'; readonly targetX: number; readonly targetY: number }
+  | { readonly kind: 'collect_item'; readonly itemId: string; readonly qty: number }
+  | { readonly kind: 'survive_waves'; readonly waveCount: number };
+
 export type UserDungeonRun = {
   readonly userId: string;
   readonly dungeonId: string;
@@ -161,6 +173,7 @@ export type UserDungeonRun = {
   readonly stashMeat: number;
   readonly stashBits: number;
   readonly stashData: number;
+  readonly challengeProgress: Record<string, unknown> | null;
 };
 
 export const TRAP_KINDS = ['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter'] as const;

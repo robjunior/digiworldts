@@ -6,6 +6,15 @@ import { z } from 'zod';
 const IdSchema = z.string().trim().min(1).max(80);
 const OptionalNullableIdSchema = IdSchema.nullable().optional();
 const RandomAllowedElementsSchema = z.array(z.enum(ELEMENTS)).max(ELEMENTS.length).nullable();
+
+const ChallengeConfigSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('none') }),
+  z.object({ kind: z.literal('boss_defeated'), bossEncounterId: z.string().min(1).max(80) }),
+  z.object({ kind: z.literal('all_encounters_defeated') }),
+  z.object({ kind: z.literal('reach_tile'), targetX: z.number().int().min(0).max(199), targetY: z.number().int().min(0).max(199) }),
+  z.object({ kind: z.literal('collect_item'), itemId: z.string().min(1).max(80), qty: z.number().int().positive().max(9999) }),
+  z.object({ kind: z.literal('survive_waves'), waveCount: z.number().int().positive().max(999) }),
+]);
 const RandomEncounterSettingsShape = {
   randomEncountersEnabled: z.boolean().default(false),
   randomEncounterRate: z.number().min(0).max(1).default(0.12),
@@ -63,6 +72,7 @@ export const CreateDungeonInputSchema = z.object({
   questId: OptionalNullableIdSchema,
   parentId: OptionalNullableIdSchema,
   biomeRegion: z.enum(BIOMES).nullable().optional(),
+  challenge: ChallengeConfigSchema.optional(),
   ...RandomEncounterSettingsShape,
 }).superRefine(refineRandomEncounterSettings);
 
@@ -86,6 +96,7 @@ export const UpdateDungeonInputSchema = z.object({
   randomMinPartySize: z.number().int().min(1).max(3).optional(),
   randomMaxPartySize: z.number().int().min(1).max(3).optional(),
   randomAllowedElements: RandomAllowedElementsSchema.optional(),
+  challenge: ChallengeConfigSchema.optional(),
 }).superRefine(refineRandomEncounterSettings);
 
 export const TileSchema = z.object({
@@ -236,5 +247,6 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     randomMinPartySize: input.randomMinPartySize,
     randomMaxPartySize: input.randomMaxPartySize,
     randomAllowedElements: input.randomAllowedElements,
+    challenge: input.challenge ?? { kind: 'none' as const },
   };
 }
