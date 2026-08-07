@@ -272,6 +272,30 @@ export type InventoryRow = {
   updated_at: number;
 };
 
+export type DungeonKitRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: number;
+  updated_at: number;
+};
+
+export type DungeonKitItemRow = {
+  kit_id: string;
+  item_id: string;
+  qty: number;
+  slot_order: number;
+};
+
+export type DungeonRunStashRow = {
+  user_id: string;
+  dungeon_id: string;
+  item_id: string;
+  qty: number;
+  origin: 'kit' | 'loot';
+  updated_at: number;
+};
+
 export type PendingBuffRow = {
   id: string;
   user_id: string;

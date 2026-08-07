@@ -1,6 +1,23 @@
 import type { Attribute, BaseStats, Element, EvolveEdge, ResistanceMap, Skill, Stage, TemplateDigimon } from '@digiworld/shared/digimon';
 import type { Rarity } from '@digiworld/shared/item-rarity';
 
+export const ITEM_TYPES = [
+  'consumable',
+  'evolution_key',
+  'fragment',
+  'chip',
+  'door_key',
+  'extraction',
+  'buff_material',
+  'quest',
+  'cosmetic',
+  'misc',
+] as const;
+export type ItemType = (typeof ITEM_TYPES)[number];
+
+export const KIT_CLASSES = ['consumable', 'revive', 'buff', 'utility', 'extraction'] as const;
+export type KitClass = (typeof KIT_CLASSES)[number];
+
 import { apiFetch } from './api';
 
 export type ScrapedEntry = {
@@ -68,6 +85,9 @@ export type ShopItemView = {
   readonly enabled: boolean;
   readonly isQuestItem?: boolean;
   readonly rarity: Rarity;
+  readonly itemType: ItemType;
+  readonly kitClass: KitClass | null;
+  readonly kitMaxQty: number | null;
   readonly createdAt: number;
 };
 
@@ -81,6 +101,9 @@ export type ShopItemInput = {
   readonly enabled?: boolean;
   readonly isQuestItem?: boolean;
   readonly rarity?: Rarity;
+  readonly itemType?: ItemType;
+  readonly kitClass?: KitClass | null;
+  readonly kitMaxQty?: number | null;
 };
 
 export type UserListEntry = {

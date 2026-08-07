@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
-import { createShopItem, deleteShopItem, getShopItems, updateShopItem, type ShopItemClass, type ShopItemInput, type ShopItemKind, type ShopItemView } from '../../lib/api-admin';
+import { createShopItem, deleteShopItem, getShopItems, updateShopItem, type ItemType, type KitClass, type ShopItemClass, type ShopItemInput, type ShopItemKind, type ShopItemView, ITEM_TYPES, KIT_CLASSES } from '../../lib/api-admin';
 import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
 import { RARITIES, RARITY_LABEL_EN, RARITY_COLOR, type Rarity } from '@digiworld/shared/item-rarity';
 
@@ -37,14 +37,16 @@ export function ShopAdmin(): JSX.Element {
           <ErrorText error={shopQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
           <div className="admin-scroll">
             <table className="admin-table">
-              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Rarity</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Type</th><th>Rarity</th><th>Kit</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td><b>{item.name}</b><br /><span className="muted">{item.description}</span></td>
                     <td><span className={`badge badge-${item.class}`}>{item.class}</span></td>
                     <td><span className="badge">{item.kind}</span></td>
+                    <td><span className="badge">{item.itemType}</span></td>
                     <td><span className="badge" style={{ borderColor: RARITY_COLOR[item.rarity], color: RARITY_COLOR[item.rarity] }}>{RARITY_LABEL_EN[item.rarity]}</span></td>
+                    <td>{item.kitClass ? <span className="badge">{item.kitClass}{item.kitMaxQty !== null ? ` ≤${item.kitMaxQty}` : ''}</span> : <span className="muted">—</span>}</td>
                     <td>{item.priceCredits}</td>
                     <td>{item.enabled ? 'yes' : 'no'}</td>
                     <td className="admin-actions-cell"><button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button><button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button></td>
@@ -83,7 +85,10 @@ function ShopItemForm({ item, busy, onCancel, onSubmit }: { readonly item: ShopI
         <Field label="Description"><textarea className="input" name="description" defaultValue={item?.description ?? ''} rows={3} /></Field>
         <Field label="Class"><select className="input" name="class" defaultValue={item?.class ?? 'product'}>{SHOP_CLASSES.map((cls) => <option key={cls} value={cls}>{cls}</option>)}</select></Field>
         <Field label="Kind"><select className="input" name="kind" defaultValue={item?.kind ?? 'consumable'}>{SHOP_KINDS.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></Field>
+        <Field label="Item type"><select className="input" name="itemType" defaultValue={item?.itemType ?? 'consumable'}>{ITEM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></Field>
         <Field label="Rarity"><select className="input" name="rarity" defaultValue={item?.rarity ?? 'common'}>{RARITIES.map((r) => <option key={r} value={r}>{RARITY_LABEL_EN[r]}</option>)}</select></Field>
+        <Field label="Kit class (optional)"><select className="input" name="kitClass" defaultValue={item?.kitClass ?? ''}><option value="">— none —</option>{KIT_CLASSES.map((k) => <option key={k} value={k}>{k}</option>)}</select></Field>
+        <Field label="Kit max qty (optional, 1-999)"><input className="input" name="kitMaxQty" type="number" min="1" max="999" defaultValue={item?.kitMaxQty ?? ''} placeholder="uncapped" /></Field>
         <Field label="Price"><input className="input" name="priceCredits" type="number" min="0" defaultValue={item?.priceCredits ?? 100} required /></Field>
         <Field label="Payload JSON"><textarea className="input mono" name="payload" rows={6} defaultValue={JSON.stringify(item?.payload ?? {}, null, 2)} /></Field>
         <label className="admin-checkbox"><input type="checkbox" name="enabled" defaultChecked={item?.enabled ?? true} /> Enabled</label>
@@ -101,7 +106,21 @@ function buildInput(form: FormData): ShopItemInput | null {
   const payload = parsePayload(readString(form, 'payload') ?? '{}');
   if (payload === null) return null;
   const description = readString(form, 'description') ?? '';
-  return { name, description, priceCredits, kind: readKind(form), class: readClass(form), payload, enabled: form.get('enabled') === 'on', rarity: readRarity(form) };
+  const kitMaxQtyRaw = readNumber(form, 'kitMaxQty');
+  const kitMaxQty = kitMaxQtyRaw !== null && kitMaxQtyRaw >= 1 ? kitMaxQtyRaw : null;
+  return {
+    name,
+    description,
+    priceCredits,
+    kind: readKind(form),
+    class: readClass(form),
+    payload,
+    enabled: form.get('enabled') === 'on',
+    rarity: readRarity(form),
+    itemType: readItemType(form),
+    kitClass: readKitClass(form),
+    kitMaxQty,
+  };
 }
 
 function parsePayload(text: string): Record<string, unknown> | null {
@@ -143,4 +162,16 @@ function readClass(form: FormData): ShopItemClass {
 function readRarity(form: FormData): Rarity {
   const value = readString(form, 'rarity');
   return RARITIES.find((r) => r === value) ?? 'common';
+}
+
+function readItemType(form: FormData): ItemType {
+  const value = readString(form, 'itemType');
+  return ITEM_TYPES.find((t) => t === value) ?? 'consumable';
+}
+
+function readKitClass(form: FormData): KitClass | null {
+  const value = readString(form, 'kitClass');
+  if (value === null) return null;
+  const found = KIT_CLASSES.find((k) => k === value);
+  return found ?? null;
 }
