@@ -5,7 +5,7 @@ import { STAGES, type Stage } from '@digiworld/shared/digimon';
 export function tileKey(tile: DungeonTile): string { return `${tile.x},${tile.y}`; }
 export function cellKey(cell: Cell): string { return `${cell.x},${cell.y}`; }
 export function tileGidMap(tiles: readonly DungeonTile[]): Map<string, number> { return new Map(tiles.map((tile) => [tileKey(tile), tile.gid])); }
-export function tilesFromMap(gidByCoord: ReadonlyMap<string, number>): readonly DungeonTile[] { return [...gidByCoord].map(([key, gid]) => { const [rawX, rawY] = key.split(','); return { x: Number(rawX), y: Number(rawY), gid }; }).sort((a, b) => a.y - b.y || a.x - b.x); }
+export function tilesFromMap(gidByCoord: ReadonlyMap<string, number>): readonly DungeonTile[] { return [...gidByCoord].map(([key, gid]) => { const [rawX, rawY] = key.split(','); return { x: Number(rawX), y: Number(rawY), gid, layerKind: 'floor' as const }; }).sort((a, b) => a.y - b.y || a.x - b.x); }
 export function titleCase(value: string): string { return value.charAt(0) + value.slice(1).toLowerCase(); }
 export function pathIcon(value: PathTool): string { switch (value) { case 'PAINT': return '◆'; case 'LINE': return '╱'; case 'RECTANGLE': return '▣'; default: return assertNever(value); } }
 export function rectangleFill(a: Cell, b: Cell): readonly Cell[] { const cells: Cell[] = []; for (let y = Math.min(a.y, b.y); y <= Math.max(a.y, b.y); y += 1) for (let x = Math.min(a.x, b.x); x <= Math.max(a.x, b.x); x += 1) cells.push({ x, y }); return cells; }
