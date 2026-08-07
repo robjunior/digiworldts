@@ -261,6 +261,7 @@ export type ShopItemRow = {
   payload: string;
   enabled: 0 | 1;
   is_quest_item: 0 | 1;
+  rarity: number;
   created_at: number;
 };
 

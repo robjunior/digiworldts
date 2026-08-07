@@ -9,13 +9,14 @@
 import { one, q, run, tx, type ShopItemRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import { rarityFromRankOrCommon, RARITY_RANK, type Rarity } from '@digiworld/shared/item-rarity';
 
 const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
-const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ? WHERE id = ?`;
+const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ?, rarity = ? WHERE id = ?`;
 const SQL_SOFT_DELETE = `UPDATE shop_items SET enabled = 0 WHERE id = ?`;
 
 const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
@@ -51,6 +52,7 @@ export type ShopItemView = {
   payload: Record<string, unknown>;
   enabled: boolean;
   isQuestItem: boolean;
+  rarity: Rarity;
   createdAt: number;
 };
 
@@ -70,6 +72,7 @@ export type ShopItemInput = {
   payload?: Record<string, unknown> | undefined;
   enabled?: boolean | undefined;
   isQuestItem?: boolean | undefined;
+  rarity?: Rarity | undefined;
 };
 
 function parsePayload(raw: string): Record<string, unknown> {
@@ -101,6 +104,7 @@ function rowToView(row: ExtendedShopItemRow): ShopItemView {
     payload: parsePayload(row.payload),
     enabled: row.enabled === 1,
     isQuestItem: row.is_quest_item === 1,
+    rarity: rarityFromRankOrCommon(row.rarity),
     createdAt: row.created_at,
   };
 }
@@ -123,6 +127,7 @@ export type ShopItemError =
   | 'invalid-kind'
   | 'invalid-class'
   | 'invalid-payload'
+  | 'invalid-rarity'
   | 'duplicate-name'
   | 'not-found';
 
@@ -146,6 +151,9 @@ function validateInput(input: ShopItemInput): ShopItemError | null {
   if (input.payload != null && (typeof input.payload !== 'object' || Array.isArray(input.payload))) {
     return 'invalid-payload';
   }
+  if (input.rarity !== undefined && !(input.rarity in RARITY_RANK)) {
+    return 'invalid-rarity';
+  }
   return null;
 }
 
@@ -158,6 +166,7 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
   const id = newId('itm');
   
   const price = Math.max(0, Math.floor(input.price));
+  const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : 0;
   const row: ExtendedShopItemRow = {
     id,
     name: input.name.trim(),
@@ -175,14 +184,15 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
     payload: JSON.stringify(input.payload ?? {}),
     enabled: input.enabled === false ? 0 : 1,
     is_quest_item: input.isQuestItem === true ? 1 : 0,
+    rarity: rarityRank,
     created_at: now,
   };
   await run(SQL_INSERT, [
     row.id, row.name, row.description, row.price_credits, row.price, row.currency, row.shop_category,
     row.featured, row.quick_offer, row.one_time, row.sort_order, row.kind, row.class, row.payload,
-    row.enabled, row.is_quest_item, row.created_at,
+    row.enabled, row.is_quest_item, row.rarity, row.created_at,
   ]);
-  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1 });
+  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1, rarity: row.rarity });
   return { ok: true, item: rowToView(row) };
 }
 
@@ -195,6 +205,7 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
   if (nameCollide && nameCollide.id !== id) return { ok: false, error: 'duplicate-name' };
   
   const price = Math.max(0, Math.floor(input.price));
+  const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : existing.rarity;
   const merged: ExtendedShopItemRow = {
     ...existing,
     name: input.name.trim(),
@@ -212,13 +223,14 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
     payload: JSON.stringify(input.payload ?? parsePayload(existing.payload)),
     enabled: input.enabled === true ? 1 : input.enabled === false ? 0 : existing.enabled,
     is_quest_item: input.isQuestItem === true ? 1 : input.isQuestItem === false ? 0 : existing.is_quest_item,
+    rarity: rarityRank,
   };
   await run(SQL_UPDATE, [
     merged.name, merged.description, merged.price_credits, merged.price, merged.currency,
     merged.shop_category, merged.featured, merged.quick_offer, merged.one_time, merged.sort_order,
-    merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, id,
+    merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, merged.rarity, id,
   ]);
-  log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1 });
+  log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1, rarity: merged.rarity });
   return { ok: true, item: rowToView(merged) };
 }
 

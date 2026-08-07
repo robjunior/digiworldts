@@ -337,7 +337,9 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
     const user = await currentUser(req);
     if (!user) return reply.code(401).send({ error: 'not authenticated' });
     const registrationOpen = config.ADMIN_BOOTSTRAP !== 'closed';
-    return reply.send({ user, registrationOpen });
+    const { listFlags } = await import('../flags/repo.js');
+    const flags = await listFlags(user.id);
+    return reply.send({ user, registrationOpen, flags });
   });
 
   app.put('/api/auth/locale-pref', async (req, reply) => {

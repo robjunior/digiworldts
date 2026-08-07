@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { createShopItem, deleteShopItem, getShopItems, updateShopItem, type ShopItemClass, type ShopItemInput, type ShopItemKind, type ShopItemView } from '../../lib/api-admin';
 import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
+import { RARITIES, RARITY_LABEL_EN, RARITY_COLOR, type Rarity } from '@digiworld/shared/item-rarity';
 
 const SHOP_QUERY_KEY = ['admin', 'shop'] as const;
 const SHOP_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
@@ -36,13 +37,14 @@ export function ShopAdmin(): JSX.Element {
           <ErrorText error={shopQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
           <div className="admin-scroll">
             <table className="admin-table">
-              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Rarity</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
                     <td><b>{item.name}</b><br /><span className="muted">{item.description}</span></td>
                     <td><span className={`badge badge-${item.class}`}>{item.class}</span></td>
                     <td><span className="badge">{item.kind}</span></td>
+                    <td><span className="badge" style={{ borderColor: RARITY_COLOR[item.rarity], color: RARITY_COLOR[item.rarity] }}>{RARITY_LABEL_EN[item.rarity]}</span></td>
                     <td>{item.priceCredits}</td>
                     <td>{item.enabled ? 'yes' : 'no'}</td>
                     <td className="admin-actions-cell"><button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button><button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button></td>
@@ -81,6 +83,7 @@ function ShopItemForm({ item, busy, onCancel, onSubmit }: { readonly item: ShopI
         <Field label="Description"><textarea className="input" name="description" defaultValue={item?.description ?? ''} rows={3} /></Field>
         <Field label="Class"><select className="input" name="class" defaultValue={item?.class ?? 'product'}>{SHOP_CLASSES.map((cls) => <option key={cls} value={cls}>{cls}</option>)}</select></Field>
         <Field label="Kind"><select className="input" name="kind" defaultValue={item?.kind ?? 'consumable'}>{SHOP_KINDS.map((kind) => <option key={kind} value={kind}>{kind}</option>)}</select></Field>
+        <Field label="Rarity"><select className="input" name="rarity" defaultValue={item?.rarity ?? 'common'}>{RARITIES.map((r) => <option key={r} value={r}>{RARITY_LABEL_EN[r]}</option>)}</select></Field>
         <Field label="Price"><input className="input" name="priceCredits" type="number" min="0" defaultValue={item?.priceCredits ?? 100} required /></Field>
         <Field label="Payload JSON"><textarea className="input mono" name="payload" rows={6} defaultValue={JSON.stringify(item?.payload ?? {}, null, 2)} /></Field>
         <label className="admin-checkbox"><input type="checkbox" name="enabled" defaultChecked={item?.enabled ?? true} /> Enabled</label>
@@ -98,7 +101,7 @@ function buildInput(form: FormData): ShopItemInput | null {
   const payload = parsePayload(readString(form, 'payload') ?? '{}');
   if (payload === null) return null;
   const description = readString(form, 'description') ?? '';
-  return { name, description, priceCredits, kind: readKind(form), class: readClass(form), payload, enabled: form.get('enabled') === 'on' };
+  return { name, description, priceCredits, kind: readKind(form), class: readClass(form), payload, enabled: form.get('enabled') === 'on', rarity: readRarity(form) };
 }
 
 function parsePayload(text: string): Record<string, unknown> | null {
@@ -135,4 +138,9 @@ function readKind(form: FormData): ShopItemKind {
 function readClass(form: FormData): ShopItemClass {
   const value = readString(form, 'class');
   return SHOP_CLASSES.find((cls) => cls === value) ?? 'product';
+}
+
+function readRarity(form: FormData): Rarity {
+  const value = readString(form, 'rarity');
+  return RARITIES.find((r) => r === value) ?? 'common';
 }
