@@ -1,6 +1,7 @@
 import { q, type SkillCatalogRow } from '../db/index.js';
 import type { Element, Skill, Stage } from '@digiworld/shared/digimon';
 import { EQUIPPED_SLOTS_PER_STAGE } from '@digiworld/shared/digimon';
+import { RARITY_RANK, type Rarity } from '@digiworld/shared/item-rarity';
 import { parseActions } from './dsl.js';
 
 const STAGE_ORDINAL: Record<Stage, number> = {
@@ -60,16 +61,36 @@ export async function getLearnedPoolIds(element: Element, stage: Stage): Promise
  * Slices `EQUIPPED_SLOTS_PER_STAGE[stage]` (4/6/8/10) off the front of the
  * ordered learned pool.
  *
- * Concrete result for Fire (with all 264 skills seeded):
- * - Rookie (cap 4): pa/sd/ct/bs from Rookie tier (drops utility + identity_finisher)
- * - Champion (cap 6): all 6 Champion role skills (pa/sd/ct/bs/ut/id)
- * - Ultimate (cap 8): 6 Ultimate + Champion pa + Champion sd
- * - Mega (cap 10): 6 Mega + Ultimate pa/sd/ct/bs
+ * `evolutionRarity` (F7): when set to epic or legendary, biases the sort so
+ * `tier_2=true` skills float to the front of each stage tier before slot-role
+ * ordering. Legendary additionally forces `identity_finisher` roles to the
+ * absolute front so they always survive the slice cap. common/uncommon/rare
+ * leave the pre-F7 ordering untouched.
  */
-export async function getDefaultEquippedForStage(element: Element, stage: Stage): Promise<string[]> {
-  const ordered = await getLearnedPoolIds(element, stage);
+export async function getDefaultEquippedForStage(element: Element, stage: Stage, evolutionRarity?: Rarity): Promise<string[]> {
+  const currentOrd = STAGE_ORDINAL[stage];
+  const rows = await q<SkillCatalogRow>(SQL_SELECT_POOL_BY_ELEMENT, element);
+  const rarityRank = evolutionRarity ? RARITY_RANK[evolutionRarity] : -1;
+  const filtered = rows.filter((r) => r.stage !== null && STAGE_ORDINAL[r.stage as Stage] <= currentOrd);
+  filtered.sort((a, b) => {
+    const stageDiff = STAGE_ORDINAL[b.stage as Stage] - STAGE_ORDINAL[a.stage as Stage];
+    if (stageDiff !== 0) return stageDiff;
+    if (rarityRank >= 4) {
+      const idA = a.slot_role === 'identity_finisher' ? 0 : 1;
+      const idB = b.slot_role === 'identity_finisher' ? 0 : 1;
+      if (idA !== idB) return idA - idB;
+    }
+    if (rarityRank >= 3) {
+      const t2A = a.tier_2 === 1 ? 0 : 1;
+      const t2B = b.tier_2 === 1 ? 0 : 1;
+      if (t2A !== t2B) return t2A - t2B;
+    }
+    const roleA = a.slot_role ? (SLOT_ROLE_ORDINAL[a.slot_role] ?? 99) : 99;
+    const roleB = b.slot_role ? (SLOT_ROLE_ORDINAL[b.slot_role] ?? 99) : 99;
+    return roleA - roleB;
+  });
   const cap = EQUIPPED_SLOTS_PER_STAGE[stage];
-  return ordered.slice(0, cap);
+  return filtered.slice(0, cap).map((r) => r.id);
 }
 
 export type CatalogSkillMeta = {
