@@ -136,6 +136,34 @@ export async function createRarityTable(input: RarityTable): Promise<void> {
   );
 }
 
+const SQL_LIST_RARITY_TABLES = `SELECT * FROM dungeon_rarity_tables ORDER BY id`;
+const SQL_UPDATE_RARITY_TABLE = `UPDATE dungeon_rarity_tables SET weights = ?, pool_tag = ?, min_rolls = ?, max_rolls = ? WHERE id = ?`;
+const SQL_DELETE_RARITY_TABLE = `DELETE FROM dungeon_rarity_tables WHERE id = ?`;
+
+export async function listRarityTables(): Promise<readonly RarityTable[]> {
+  const rows = await q<RarityTableRow>(SQL_LIST_RARITY_TABLES);
+  return rows.map(rowToTable);
+}
+
+export async function updateRarityTable(id: string, input: Omit<RarityTable, 'id'>): Promise<boolean> {
+  const existing = await getRarityTable(id);
+  if (existing === null) return false;
+  await run(
+    SQL_UPDATE_RARITY_TABLE,
+    JSON.stringify(input.weights),
+    input.poolTag,
+    input.minRolls,
+    input.maxRolls,
+    id,
+  );
+  return true;
+}
+
+export async function deleteRarityTable(id: string): Promise<boolean> {
+  const info = await run(SQL_DELETE_RARITY_TABLE, id);
+  return info.changes > 0;
+}
+
 const SQL_SELECT_POOL_ITEMS_BY_RARITY = `SELECT id FROM shop_items WHERE drop_pool = ? AND rarity = ? AND enabled = 1`;
 
 function pickWeightedRarity(weights: Readonly<Record<number, number>>): number | null {
