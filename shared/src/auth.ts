@@ -38,6 +38,7 @@ export type AuthStatusResponse = {
 export type AuthMeResponse = {
   user: PublicUser;
   registrationOpen: boolean;
+  flags?: readonly string[];
 };
 
 /** POST /api/auth/{login,register} — sets cookie on 200/201. */

@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import type { OkResponse } from './api-roster';
+import type { Rarity } from '@digiworld/shared/item-rarity';
 
 export type ShopItemKind = 'consumable' | 'evolve' | 'building_placement' | 'cosmetic' | 'xp_mult' | 'revive' | string;
 export type ShopItemClass = 'product' | 'item';
@@ -18,6 +19,7 @@ export type ShopItemView = {
   readonly owned?: boolean;
   readonly sprite?: string | null;
   readonly mono?: string | null;
+  readonly rarity?: Rarity;
 };
 
 export type InventoryItemView = {
@@ -25,6 +27,7 @@ export type InventoryItemView = {
   readonly name: string;
   readonly description: string;
   readonly qty: number;
+  readonly rarity?: Rarity;
 };
 
 export type BundleItemView = {
