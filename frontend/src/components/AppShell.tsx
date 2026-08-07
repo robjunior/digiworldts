@@ -75,6 +75,7 @@ const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/training': 'training-page',
   '/market': 'market-page',
   '/shop': 'shop-page',
+  '/items': 'inventory-page',
   '/digdex': 'digdex-container',
   '/dungeon': 'dungeon-page',
   '/world': 'world-page-layout',
@@ -258,7 +259,7 @@ export function AppShell(): JSX.Element {
   const mainClassName = pageScope ? `main ${pageScope}` : 'main';
 
   return (
-    <div className={`win${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
+    <div className={`win win--fill${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
       <header className="titlebar">
         <button
           type="button"

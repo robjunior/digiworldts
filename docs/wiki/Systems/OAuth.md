@@ -10,7 +10,7 @@ aliases:
   - Google OAuth
   - Facebook OAuth
 created: 2026-08-01
-updated: 2026-08-01
+updated: 2026-08-05
 grounded-in:
   - backend/src/auth/oauth/types.ts
   - backend/src/auth/oauth/registry.ts
@@ -21,7 +21,7 @@ grounded-in:
   - backend/src/auth/discord-link.ts
   - backend/src/db/migrations/045_oauth_tokens.sql
   - README.md
-verified-at-commit: 97f72ba
+verified-at-commit: HEAD
 ---
 
 # OAuth
@@ -218,6 +218,48 @@ unknown identity can still **link** to an existing account but cannot
 `POST /api/auth/oauth/decide` returns `403 registration-closed`. This
 prevents OAuth becoming a backdoor around closed registration.
 
+### Decide throttle
+
+The `link` branch of `POST /api/auth/oauth/decide` is a password-verify
+endpoint — a stolen or self-issued pending token gives an attacker an
+otherwise-unrated password-guess surface against any username. As of
+[[2026-08-05 — Login security hardening]] the link branch calls the
+SAME `checkLoginThrottle` / `recordLoginAttempt` used by
+`/api/auth/login`:
+
+```typescript
+const throttle = await checkLoginThrottle(body.data.username, req.ip);
+if (!throttle.allowed) {
+  return reply.code(429).header('Retry-After', String(throttle.retryInSec))
+    .send({ error: throttle.reason });
+}
+```
+
+See [`oauth/routes.ts:236-242`](backend/src/auth/oauth/routes.ts:236).
+Counters live at `loginfail:user:{name}` and `loginfail:ip:{ip}` — the
+same keys the password login path uses. An attacker cannot split
+brute-force between `/api/auth/login` and `/api/auth/oauth/decide` to
+avoid the cap: 8 fails on either endpoint (from any node) lock the
+account for 15 minutes.
+
+The link branch also uses the [`/api/auth/login`
+dummy-hash pattern](backend/src/auth/routes.ts:288) — argon2 verify
+ALWAYS runs, even when the username misses, so the response time
+doesn't leak account existence:
+
+```typescript
+const existing = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, body.data.username);
+const stored = existing?.password_hash ?? '$argon2id$v=19$m=19456,...';
+const ok = await verifyPassword(stored, body.data.password);
+if (existing === null || !ok || existing.disabled === 1) {
+  await recordLoginAttempt(body.data.username, req.ip, false);
+  return reply.code(401).send({ error: 'invalid-credentials' });
+}
+```
+
+See [`oauth/routes.ts:244-251`](backend/src/auth/oauth/routes.ts:244).
+Constant-time under the hood.
+
 ## Storage — `oauth_tokens` ([migration 045](backend/src/db/migrations/045_oauth_tokens.sql))
 
 ```sql
@@ -359,7 +401,10 @@ recovery flow.
 ## Related
 
 - [[Session cookies]] — the cookie contract OAuth uses is identical to
-  the password path
+  the password path; the decide-link branch now shares its login throttle
 - [[HTTP Surface#Auth — OAuth (Discord / Google / Facebook)]]
 - [[Cluster Coordination Layer]] — `oauth:state:*` + `oauth:pending:*`
 - [[Environments#Required secrets]] — where the provider secrets belong
+- [[2026-07-31 — OAuth hybrid decide]] — the ADR behind the decide flow
+- [[2026-08-05 — Login security hardening]] — the ADR behind the
+  decide-link throttle and dummy-hash timing defence

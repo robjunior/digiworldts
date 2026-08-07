@@ -10,10 +10,32 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-loadDotenv({ quiet: true });
-
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const projectRoot = resolve(__dirname, '..');
+const repoRoot = resolve(projectRoot, '..');
+
+// Load env from CWD first (backend/.env if present, or repo-root .env if the
+// server was started from the repo root). Then load the repo-root .env as a
+// deterministic fallback — dotenv is additive, first-load-wins, so a
+// backend/.env still overrides the shared repo .env when both exist.
+loadDotenv({ quiet: true });
+loadDotenv({ quiet: true, path: resolve(repoRoot, '.env') });
+
+/**
+ * Docker-compose passes `${VAR:-}` as an empty string when VAR is unset.
+ * Zod's `.optional()` accepts `undefined` but rejects `""`, so `.url()` and
+ * refinements read empty strings as "present but invalid" and fail boot.
+ * Coerce empty strings to undefined before validation — matches the pattern
+ * already used in discord/src/config.ts.
+ */
+const optionalUrl = z.preprocess(
+  (v) => (typeof v === 'string' && v.length === 0 ? undefined : v),
+  z.string().url().optional(),
+);
+const optionalSecret = z.preprocess(
+  (v) => (typeof v === 'string' && v.length === 0 ? undefined : v),
+  z.string().optional(),
+);
 
 /**
  * Persist a generated session secret so restarts don't invalidate every
@@ -54,6 +76,7 @@ const ConfigSchema = z.object({
   DIALOGUES_DIR: z.string().default('data/dialogues'),
   SESSION_SECRET: z.string().min(32),
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(24 * 7),
+  SESSION_ABSOLUTE_CAP_DAYS: z.coerce.number().int().positive().default(30),
   ADMIN_BOOTSTRAP: z.enum(['open', 'closed']).default('open'),
   SCRAPER_USER_AGENT: z.string().default('DigiWorld/0.1 (self-hosted; contact via game admin)'),
   SCRAPER_MIN_DELAY_MS: z.coerce.number().int().nonnegative().default(150),
@@ -65,15 +88,15 @@ const ConfigSchema = z.object({
   OAUTH_ENABLED_PROVIDERS: z.string().default('').transform((v) =>
     v.split(',').map((s) => s.trim()).filter((s) => s.length > 0),
   ),
-  DISCORD_OAUTH_CLIENT_ID: z.string().optional(),
-  DISCORD_OAUTH_CLIENT_SECRET: z.string().optional(),
-  DISCORD_OAUTH_REDIRECT_URI: z.string().url().optional(),
-  GOOGLE_OAUTH_CLIENT_ID: z.string().optional(),
-  GOOGLE_OAUTH_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_OAUTH_REDIRECT_URI: z.string().url().optional(),
-  FACEBOOK_OAUTH_CLIENT_ID: z.string().optional(),
-  FACEBOOK_OAUTH_CLIENT_SECRET: z.string().optional(),
-  FACEBOOK_OAUTH_REDIRECT_URI: z.string().url().optional(),
+  DISCORD_OAUTH_CLIENT_ID: optionalSecret,
+  DISCORD_OAUTH_CLIENT_SECRET: optionalSecret,
+  DISCORD_OAUTH_REDIRECT_URI: optionalUrl,
+  GOOGLE_OAUTH_CLIENT_ID: optionalSecret,
+  GOOGLE_OAUTH_CLIENT_SECRET: optionalSecret,
+  GOOGLE_OAUTH_REDIRECT_URI: optionalUrl,
+  FACEBOOK_OAUTH_CLIENT_ID: optionalSecret,
+  FACEBOOK_OAUTH_CLIENT_SECRET: optionalSecret,
+  FACEBOOK_OAUTH_REDIRECT_URI: optionalUrl,
   TELEMETRY_ENABLED: z.string().default('false').transform((v) => v === 'true' || v === '1'),
   TELEMETRY_SINK: z.enum(['file', 'posthog']).default('file'),
   TELEMETRY_FILE_PATH: z.string().default('data/telemetry.jsonl'),

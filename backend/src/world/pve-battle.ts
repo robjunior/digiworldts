@@ -169,7 +169,7 @@ async function resolveSceneId(explicit: string | null, wilds: readonly WildMon[]
     const scene = await getScene(explicit);
     if (scene !== null) return scene.id;
   }
-  const elements = Array.from(new Set(wilds.map((w) => w.element as Element)));
+  const elements = wilds.map((w) => w.element as Element);
   const picked = await pickSceneForElements(elements);
   return picked?.id ?? null;
 }

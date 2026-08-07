@@ -12,7 +12,8 @@ type AuthTab = 'signin' | 'register';
 
 const AUTH_STATUS_QUERY_KEY = ['auth', 'status'] as const;
 
-function targetForUser(_user: PublicUser, nextTarget: string): string {
+function targetForUser(user: PublicUser, nextTarget: string): string {
+  if (user.onboardingCompleted !== true) return '/intro';
   return nextTarget;
 }
 

@@ -19,8 +19,18 @@ import { unlinkSync, existsSync } from 'node:fs';
 
 import { one, q, run, closeDb } from '../src/db/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
-import { hashPassword, verifyPassword } from '../src/auth/password.ts';
-import { createSession, resolveSession, destroyAllSessionsForUser } from '../src/auth/session.ts';
+import { hashPassword, verifyPassword, validatePasswordPolicy } from '../src/auth/password.ts';
+import {
+  createSession,
+  resolveSession,
+  destroyAllSessionsForUser,
+  checkLoginThrottle,
+  recordLoginAttempt,
+  checkRegisterThrottle,
+  recordRegisterAttempt,
+} from '../src/auth/session.ts';
+import { isCommonPassword, passwordContainsUsername } from '../src/auth/blocklist.ts';
+import { config } from '../src/config.ts';
 import {
   issueResetToken,
   resolveResetToken,
@@ -557,6 +567,78 @@ async function main(): Promise<void> {
     check('battle:user:{non-fler} deleted', (await cluster.get(`battle:user:${nonFlerId}`)) === null);
 
     console.log(`  info: side-${flerSide} fled, non-fler MMR = ${nonFlerMmr?.mmr}`);
+  }
+
+  console.log('\n=== Security hardening: blocklist + throttle + absolute session cap ===');
+  {
+    check('isCommonPassword("password") is true', isCommonPassword('password') === true);
+    check('isCommonPassword("password123") strips digits → true', isCommonPassword('password123') === true);
+    check('isCommonPassword("password!") strips punct → true', isCommonPassword('password!') === true);
+    check('isCommonPassword("PASSWORD") lowercases → true', isCommonPassword('PASSWORD') === true);
+    check('isCommonPassword("correcthorsebattery") is false', isCommonPassword('correcthorsebattery') === false);
+    check('isCommonPassword("") is false', isCommonPassword('') === false);
+
+    check('passwordContainsUsername matches ignoring case', passwordContainsUsername('IAmAlice2024', 'alice') === true);
+    check('passwordContainsUsername skips short usernames', passwordContainsUsername('abc12345', 'ab') === false);
+    check('passwordContainsUsername false when unrelated', passwordContainsUsername('unrelatedpw', 'alice') === false);
+
+    const blockedPolicy = validatePasswordPolicy('password123');
+    check('validatePasswordPolicy rejects blocklist entry', blockedPolicy.ok === false, blockedPolicy.ok ? 'accepted!' : blockedPolicy.reason);
+    const containsUsername = validatePasswordPolicy('SuperAlice2024', { username: 'alice' });
+    check('validatePasswordPolicy rejects password containing username', containsUsername.ok === false, containsUsername.ok ? 'accepted!' : containsUsername.reason);
+    const shortPolicy = validatePasswordPolicy('abc');
+    check('validatePasswordPolicy still rejects < 8 chars', shortPolicy.ok === false, shortPolicy.ok ? 'accepted!' : shortPolicy.reason);
+    const goodPolicy = validatePasswordPolicy('X7q!lm9zPvA2vk');
+    check('validatePasswordPolicy accepts strong password', goodPolicy.ok === true);
+    const noContextPolicy = validatePasswordPolicy('X7q!lm9zPvA2vk');
+    check('validatePasswordPolicy is backward-compatible (no context arg)', noContextPolicy.ok === true);
+
+    const regIp = '10.0.0.99';
+    const preThrottle = await checkRegisterThrottle(regIp);
+    check('register throttle starts allowed', preThrottle.allowed === true);
+    for (let i = 0; i < 5; i++) await recordRegisterAttempt(regIp);
+    const postThrottle = await checkRegisterThrottle(regIp);
+    check('register throttle blocks after 5 attempts', postThrottle.allowed === false);
+    if (!postThrottle.allowed) {
+      check('register throttle reports retryInSec ~ 15min', postThrottle.retryInSec === 15 * 60);
+    }
+    const otherIpAllowed = await checkRegisterThrottle('10.0.0.100');
+    check('register throttle is per-IP (other IP still allowed)', otherIpAllowed.allowed === true);
+    const noIpAllowed = await checkRegisterThrottle(undefined);
+    check('register throttle no-op when ip is undefined', noIpAllowed.allowed === true);
+
+    const oauthVictim = 'oauth_decide_victim';
+    const oauthIp = '10.0.0.101';
+    const preLoginThrottle = await checkLoginThrottle(oauthVictim, oauthIp);
+    check('login throttle starts allowed (shared with oauth-decide)', preLoginThrottle.allowed === true);
+    for (let i = 0; i < 8; i++) await recordLoginAttempt(oauthVictim, oauthIp, false);
+    const postLoginThrottle = await checkLoginThrottle(oauthVictim, oauthIp);
+    check('login throttle blocks after 8 fails (blocks /oauth/decide link brute-force too)', postLoginThrottle.allowed === false);
+
+    const eveId = 'usr_security_smoke';
+    await insertUser(eveId, 'security_smoke', oldPw);
+    const freshSession = await createSession({ userId: eveId });
+    const cluster = await getCluster();
+    const stored = await cluster.get(`session:${freshSession.token}`);
+    check('session persisted in cluster', stored !== null);
+    if (stored !== null) {
+      const parsed = JSON.parse(stored) as { userId: string; createdAt: number; expiresAt: number; userAgent: string | null; ip: string | null };
+      const ancientCreatedAt = Date.now() - (config.SESSION_ABSOLUTE_CAP_DAYS + 1) * 24 * 60 * 60 * 1000;
+      parsed.createdAt = ancientCreatedAt;
+      await cluster.set(`session:${freshSession.token}`, JSON.stringify(parsed), 3600);
+      const resolved = await resolveSession(freshSession.token);
+      check('absolute session cap: session > cap-days old returns null', resolved === null);
+      const afterResolve = await cluster.get(`session:${freshSession.token}`);
+      check('absolute session cap: expired session is cleared from cluster', afterResolve === null);
+    }
+
+    const cappedSession = await createSession({ userId: eveId });
+    const cappedResolved = await resolveSession(cappedSession.token);
+    check('fresh session inside cap still resolves', cappedResolved?.user.id === eveId);
+    if (cappedResolved) {
+      const maxExpiresAt = cappedSession.expiresAt + 1000;
+      check('fresh session expiresAt is within TTL bounds', cappedResolved.expiresAt <= maxExpiresAt);
+    }
   }
 
   await closeCluster();

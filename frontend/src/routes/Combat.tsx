@@ -13,7 +13,7 @@ export function Combat(): JSX.Element {
 
   if (activeBattle === null) {
     return (
-      <div className="win">
+      <div className="win win--fill">
         <div className="titlebar" data-od-id="title-bar">
           <div className="lights"><i /><i /><i /></div>
           <div className="win-meta">Tamer Terminal · Battle</div>
@@ -34,7 +34,7 @@ export function Combat(): JSX.Element {
   }
 
   return (
-    <div className="win">
+    <div className="win win--fill">
       <div className="titlebar" data-od-id="title-bar">
         <div className="lights"><i /><i /><i /></div>
         <div className="win-meta">Tamer Terminal · Battle</div>

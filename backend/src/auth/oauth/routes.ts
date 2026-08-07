@@ -41,16 +41,19 @@ import { one, tx, type UserRow } from '../../db/index.js';
 import { log } from '../../util/log.js';
 import { newId } from '../../util/ids.js';
 import { hashPassword, verifyPassword } from '../password.js';
-import { createSession, SESSION_COOKIE_NAME, setSessionCookie } from '../session.js';
+import { checkLoginThrottle, createSession, recordLoginAttempt, SESSION_COOKIE_NAME, setSessionCookie } from '../session.js';
 import { currentUser, requireAuth } from '../routes.js';
 
 import { getProvider, listEnabledProviderIds } from './registry.js';
 import {
+  attachStateCookie,
+  clearStateCookie,
   consumePending,
   consumeState,
   issuePending,
   issueState,
   readPending,
+  verifyStateCookie,
 } from './state.js';
 import {
   findByProviderUserId,
@@ -117,6 +120,7 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
 
       const returnTo = sanitizeReturnTo(query.data.returnTo);
       const state = await issueState({ provider: provider.id, mode: 'login', ...(returnTo ? { returnTo } : {}) });
+      attachStateCookie(reply, state.token);
       return reply.redirect(provider.authorizationUrl(state.token));
     },
   );
@@ -140,6 +144,7 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
         initiatorUserId: user.id,
         ...(returnTo ? { returnTo } : {}),
       });
+      attachStateCookie(reply, state.token);
       return reply.redirect(provider.authorizationUrl(state.token));
     },
   );
@@ -165,8 +170,19 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
       }
 
       if (!query.data.code || !query.data.state) {
+        clearStateCookie(reply);
         return redirectWithError(reply, '/', 'missing-params');
       }
+
+      // CSRF guard: the callback must ride the SAME browser that started
+      // the flow. Bare knowledge of a valid state token (URL leak, hostile
+      // initiate-then-hand-off attack) is insufficient without the signed
+      // HttpOnly cookie set by attachStateCookie at issueState time.
+      if (!verifyStateCookie(req, query.data.state)) {
+        clearStateCookie(reply);
+        return redirectWithError(reply, '/', 'state-cookie-mismatch');
+      }
+      clearStateCookie(reply);
 
       const state = await consumeState(query.data.state);
       if (state === null || state.provider !== provider.id) {
@@ -187,7 +203,16 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
       }
 
       if (state.mode === 'link') {
-        return handleLinkCallback(req, reply, provider.id, state.initiatorUserId ?? null, state.returnTo ?? null, userInfo, tokens);
+        // Belt-and-suspenders: the state cookie already proves the browser
+        // is the initiator, but link-mode also requires the CURRENT session
+        // to still be that user — otherwise an attacker who somehow forged
+        // both the cookie and state pair still can't land in a different
+        // user's link callback.
+        const me = await currentUser(req);
+        if (me === null || me.id !== state.initiatorUserId) {
+          return redirectWithError(reply, state.returnTo ?? '/', 'link-context-lost');
+        }
+        return handleLinkCallback(req, reply, provider.id, me.id, state.returnTo ?? null, userInfo, tokens);
       }
       return handleLoginCallback(req, reply, provider.id, state.returnTo ?? null, userInfo, tokens);
     },
@@ -230,12 +255,19 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
       return reply.send({ ok: true, userId: user.userId, returnTo: pending.returnTo ?? '/' });
     }
 
-    const existing = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, body.data.username);
-    if (existing === null) {
-      return reply.code(401).send({ error: 'invalid-credentials' });
+    const throttle = await checkLoginThrottle(body.data.username, req.ip);
+    if (!throttle.allowed) {
+      return reply
+        .code(429)
+        .header('Retry-After', String(throttle.retryInSec))
+        .send({ error: throttle.reason });
     }
-    const ok = await verifyPassword(existing.password_hash, body.data.password);
-    if (!ok) {
+
+    const existing = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, body.data.username);
+    const stored = existing?.password_hash ?? '$argon2id$v=19$m=19456,t=2,p=1$aaaaaaaaaaaaaaaaaaaaaa$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const ok = await verifyPassword(stored, body.data.password);
+    if (existing === null || !ok || existing.disabled === 1) {
+      await recordLoginAttempt(body.data.username, req.ip, false);
       return reply.code(401).send({ error: 'invalid-credentials' });
     }
     const linkResult = await linkExistingUserToProvider(existing.id, pending);
@@ -244,6 +276,7 @@ export const oauthPlugin: FastifyPluginAsync = async (app) => {
     }
     const sessionToken = await createUserSessionAndTouch(existing.id, req);
     setSessionCookie(reply, sessionToken);
+    await recordLoginAttempt(body.data.username, req.ip, true);
     return reply.send({ ok: true, userId: existing.id, returnTo: pending.returnTo ?? '/' });
   });
 

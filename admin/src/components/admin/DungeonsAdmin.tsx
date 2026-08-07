@@ -82,7 +82,7 @@ export function DungeonsAdmin(): JSX.Element {
       await queryClient.invalidateQueries({ queryKey: DUNGEONS_QUERY_KEY });
       setCreating(false);
       setDraft(EMPTY_DRAFT);
-      navigate(`/admin/dungeons/${dungeon.id}`);
+      navigate(`/dungeons/${dungeon.id}`);
     },
   });
   const deleteMutation = useMutation({
@@ -140,7 +140,7 @@ export function DungeonsAdmin(): JSX.Element {
             onImported={async (dungeonId) => {
               await queryClient.invalidateQueries({ queryKey: DUNGEONS_QUERY_KEY });
               setImporting(false);
-              navigate(`/admin/dungeons/${dungeonId}`);
+              navigate(`/dungeons/${dungeonId}`);
             }}
           />
         </div>
@@ -232,7 +232,7 @@ export function DungeonsAdmin(): JSX.Element {
                     {!d.worldObjectId && !d.questId && !d.biomeRegion ? <span className="muted">—</span> : null}
                   </td>
                   <td className="admin-actions-cell">
-                    <Link to={`/admin/dungeons/${d.id}`} className="btn btn--secondary btn--sm">Edit</Link>
+                    <Link to={`/dungeons/${d.id}`} className="btn btn--secondary btn--sm">Edit</Link>
                     <button type="button" className="btn btn--danger btn--sm" onClick={() => onDelete(d.id, d.name)} disabled={deleteMutation.isPending}>Delete</button>
                   </td>
                 </tr>

@@ -65,17 +65,15 @@ export const AilmentBadgesLayer = memo(function AilmentBadgesLayer({ battle, sce
           }}
           data-side={unit.side}
           className="c3d-ailment-group"
-          style={{ position: 'absolute', top: 0, left: 0, display: 'flex', gap: '2px', opacity: 0 }}
         >
           {unit.ailments.map((a) => (
             <span
               key={a.kind}
-              className={`tag`}
+              className={`c3d-ailment c3d-ailment--${a.kind}`}
               title={`${AILMENT_LABEL[a.kind]} · ${a.turnsLeft} turn${a.turnsLeft === 1 ? '' : 's'} left`}
-              style={{ background: 'var(--panel)', border: '1px solid var(--hair)', padding: '2px 4px', fontSize: '10px' }}
             >
-              <span aria-hidden="true" style={{ marginRight: '4px' }}>{AILMENT_ICON[a.kind]}</span>
-              <span>{a.turnsLeft}</span>
+              <span className="c3d-ailment-icon" aria-hidden="true">{AILMENT_ICON[a.kind]}</span>
+              <span className="c3d-ailment-tl">{a.turnsLeft}</span>
             </span>
           ))}
         </div>

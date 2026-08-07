@@ -1,4 +1,5 @@
 .win{height:auto;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
+.win.win--fill{height:100dvh}
 .titlebar{height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none}
 .lights{display:flex;gap:8px}
 .lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
@@ -7,7 +8,7 @@
 .body{flex:1 1 auto;display:grid;grid-template-columns:220px 1fr;min-height:0}
 
 /* ---- sidebar (matches roster) ------------------------------------------ */
-.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px;gap:4px;min-height:0}
+.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px 0;gap:4px;min-height:0}
 .side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
 .navbtn{display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;text-decoration:none}
 .navbtn svg{width:18px;height:18px}
@@ -27,7 +28,7 @@
 .hud .pill b{color:var(--ink);font-weight:800}
 
 /* admin link */
-.admin-link{display:block;text-align:center;font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-decoration:none;margin-top:8px;padding:4px}
+.admin-link{display:block;text-align:center;font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);text-decoration:none;margin-top:8px;padding:14px 4px 18px}
 .admin-link:hover{color:var(--ink)}
 
 /* ---- main ---- */

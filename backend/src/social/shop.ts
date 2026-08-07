@@ -50,6 +50,115 @@ WHERE id = ? AND enabled = 1 AND class = 'product' AND one_time = 1
 ON CONFLICT(user_id, item_id) DO NOTHING`;
 const SQL_SELECT_PURCHASES = `SELECT item_id FROM player_shop_purchases WHERE user_id = ?`;
 
+const SQL_SELECT_BUNDLES = `SELECT * FROM shop_bundles WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
+const SQL_SELECT_BUNDLE = `SELECT * FROM shop_bundles WHERE id = ? AND enabled = 1`;
+const SQL_SELECT_BUNDLE_ITEMS = `SELECT bi.bundle_id, bi.item_id, bi.qty, bi.sort_order,
+       s.name, s.description, s.price, s.currency, s.kind, s.class, s.payload, s.shop_category
+  FROM shop_bundle_items bi
+  JOIN shop_items s ON s.id = bi.item_id
+ WHERE bi.bundle_id = ? AND s.enabled = 1
+ ORDER BY bi.sort_order ASC, s.name ASC`;
+
+type BundleRow = {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  discount_pct: number;
+  shop_category: string;
+  sort_order: number;
+  featured: number;
+  quick_offer: number;
+  enabled: number;
+  created_at: number;
+  updated_at: number;
+};
+
+type BundleItemJoinRow = {
+  bundle_id: string;
+  item_id: string;
+  qty: number;
+  sort_order: number;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  kind: string;
+  class: string;
+  payload: string;
+  shop_category: string;
+};
+
+type BundleItemView = {
+  itemId: string;
+  name: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  sprite: string | null;
+  mono: string | null;
+};
+
+type BundleView = {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  discountPct: number;
+  shopCategory: string;
+  featured: boolean;
+  quickOffer: boolean;
+  items: BundleItemView[];
+  originalPrice: number;
+  discountedPrice: number;
+  savings: number;
+};
+
+function bundlePriceFromItems(items: readonly { price: number; qty: number }[], discountPct: number): { originalPrice: number; discountedPrice: number } {
+  const originalPrice = items.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const clamped = Math.max(0, Math.min(100, discountPct));
+  const discountedPrice = Math.max(0, Math.round(originalPrice * (1 - clamped / 100)));
+  return { originalPrice, discountedPrice };
+}
+
+async function loadBundlesForShop(): Promise<BundleView[]> {
+  const bundles = await q<BundleRow>(SQL_SELECT_BUNDLES);
+  const result: BundleView[] = [];
+  for (const b of bundles) {
+    const items = await q<BundleItemJoinRow>(SQL_SELECT_BUNDLE_ITEMS, b.id);
+    if (items.length === 0) continue;
+    const itemViews: BundleItemView[] = items.map((it) => {
+      let payload: { sprite?: string; mono?: string } = {};
+      try { payload = JSON.parse(it.payload) as { sprite?: string; mono?: string }; } catch {}
+      return {
+        itemId: it.item_id,
+        name: it.name,
+        description: it.description,
+        qty: it.qty,
+        unitPrice: it.price,
+        sprite: payload.sprite ?? null,
+        mono: payload.mono ?? null,
+      };
+    });
+    const { originalPrice, discountedPrice } = bundlePriceFromItems(items, b.discount_pct);
+    result.push({
+      id: b.id,
+      name: b.name,
+      description: b.description,
+      currency: b.currency,
+      discountPct: b.discount_pct,
+      shopCategory: b.shop_category,
+      featured: b.featured === 1,
+      quickOffer: b.quick_offer === 1,
+      items: itemViews,
+      originalPrice,
+      discountedPrice,
+      savings: originalPrice - discountedPrice,
+    });
+  }
+  return result;
+}
+
 // ============================================================================
 // Seed items
 // ============================================================================
@@ -345,11 +454,13 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const featuredRaw = products.find(p => p.featured === 1);
     const featured = featuredRaw ? mapItem(featuredRaw) : null;
     const quick = products.filter(p => p.quick_offer === 1).map(mapItem);
+    const bundles = await loadBundlesForShop();
 
     return reply.send({
       featured,
       quick,
       catalog: products.map(mapItem),
+      bundles,
       categories,
       wallet: { credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 },
       inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty })),
@@ -430,6 +541,55 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     }
 
     log.info('shop.buy', { userId: me.id, itemId: itemIdStr, qty: parsed.data.qty });
+    const wallet = await one<WalletRow & { netcore: number }>(SQL_SELECT_WALLET, me.id);
+    return reply.send({ ok: true, credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/shop/buy/bundle/:id', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const bundleId = req.params.id;
+    const now = Date.now();
+    try {
+      await tx(async (t) => {
+        const bundle = await t.one<BundleRow>(SQL_SELECT_BUNDLE, [bundleId]);
+        if (!bundle) throw new Error('NOT_FOUND');
+        const items = await t.query<BundleItemJoinRow>(SQL_SELECT_BUNDLE_ITEMS, [bundleId]);
+        if (items.length === 0) throw new Error('EMPTY_BUNDLE');
+        if (bundle.currency !== 'credits' && bundle.currency !== 'netcore') {
+          throw new Error('INVALID_CURRENCY');
+        }
+        const { discountedPrice } = bundlePriceFromItems(items, bundle.discount_pct);
+        if (!Number.isSafeInteger(discountedPrice) || discountedPrice < 0 || discountedPrice > 2147483647) {
+          throw new Error('TOTAL_OVERFLOW');
+        }
+        const walletUpdateSql = bundle.currency === 'credits' ? SQL_UPDATE_WALLET_CREDITS : SQL_UPDATE_WALLET_NETCORE;
+        const walletInfo = await t.run(walletUpdateSql, [discountedPrice, now, me.id, discountedPrice]);
+        if (walletInfo.changes === 0) throw new Error('INSUFFICIENT_FUNDS');
+        for (const it of items) {
+          if (it.kind === 'building_placement') {
+            let payload: { buildingType?: string; kind?: string } = {};
+            try { payload = JSON.parse(it.payload) as { buildingType?: string; kind?: string }; } catch {}
+            const buildingType = payload.buildingType === 'training_premium' ? 'training_premium' : 'training';
+            const kind = payload.kind ?? 'Training Station';
+            for (let i = 0; i < it.qty; i++) {
+              await t.run(SQL_INSERT_TRAINING_BUILDING, [newId('bld'), me.id, kind, buildingType, now, it.price, now]);
+            }
+          } else {
+            await t.run(SQL_UPSERT_INVENTORY, [me.id, it.item_id, it.qty, now]);
+          }
+        }
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown';
+      log.warn('shop.buy.bundle.failed', { userId: me.id, bundleId, reason: message });
+      if (message === 'NOT_FOUND') return reply.code(404).send({ error: 'bundle not found' });
+      if (message === 'EMPTY_BUNDLE') return reply.code(409).send({ error: 'empty bundle' });
+      if (message === 'INSUFFICIENT_FUNDS') return reply.code(402).send({ error: 'insufficient funds' });
+      if (message === 'INVALID_CURRENCY') return reply.code(500).send({ error: 'data error: invalid currency' });
+      if (message === 'TOTAL_OVERFLOW') return reply.code(400).send({ error: 'total price overflow' });
+      return reply.code(409).send({ error: 'purchase conflicted — try again' });
+    }
+    log.info('shop.buy.bundle.ok', { userId: me.id, bundleId });
     const wallet = await one<WalletRow & { netcore: number }>(SQL_SELECT_WALLET, me.id);
     return reply.send({ ok: true, credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 });
   });

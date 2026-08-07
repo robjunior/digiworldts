@@ -153,5 +153,6 @@ function rowToSkill(row: SkillCatalogRow): Skill {
   if (row.name_pt) skill.name_pt = row.name_pt;
   if (row.description_pt) skill.description_pt = row.description_pt;
   if (row.cooldown > 0) skill.cooldown = row.cooldown;
+  if (row.vfx_preset_id) skill.vfxPresetId = row.vfx_preset_id;
   return skill;
 }

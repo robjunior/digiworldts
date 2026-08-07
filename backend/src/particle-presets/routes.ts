@@ -2,10 +2,10 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import type { ParticleEmitterConfig } from '@digiworld/shared/weather';
+import { ParticleEmitterConfigZ } from '@digiworld/shared/weather';
 
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
-import { ParticleEmitterConfigZ } from '../scenes/routes.js';
 import {
   createParticlePreset,
   deleteParticlePreset,

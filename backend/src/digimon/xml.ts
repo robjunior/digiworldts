@@ -23,7 +23,7 @@
  *     </digimon>
  *   </catalog>
  */
-import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { XMLBuilder, XMLParser } from 'fast-xml-parser';
 import { z } from 'zod';
@@ -72,6 +72,7 @@ const SkillZ = z.object({
   '@_cost': z.coerce.number().int().nonnegative(),
   '@_power': z.coerce.number().int().nonnegative(),
   '@_description': z.string().optional(),
+  '@_vfxPresetId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
   effect: SkillEffectZ.optional(),
 });
 
@@ -173,6 +174,7 @@ function toSkill(raw: ParsedSkill): Skill {
     power: raw['@_power'],
   };
   if (raw['@_description']) skill.description = raw['@_description'];
+  if (raw['@_vfxPresetId']) skill.vfxPresetId = raw['@_vfxPresetId'];
   if (raw.effect) {
     const eff: SkillEffect = {
       kind: raw.effect['@_kind'],
@@ -249,6 +251,7 @@ function fromSkill(s: Skill): unknown {
     '@_power': s.power,
   };
   if (s.description) out['@_description'] = s.description;
+  if (s.vfxPresetId) out['@_vfxPresetId'] = s.vfxPresetId;
   if (s.effect) {
     out.effect = {
       '@_kind': s.effect.kind,
@@ -348,11 +351,25 @@ export function loadCatalog(): Catalog {
   return catalog;
 }
 
-/** Persist the catalog. Overwrites atomically-ish (write then rename). */
+// Monotonic counter for temp filename uniqueness within a single process —
+// avoids collisions when saveCatalog is called twice in the same millisecond.
+let saveCatalogCounter = 0;
+
+/**
+ * Persist the catalog with a real atomic write: write to a unique temp file
+ * in the same directory, then rename(2) it over the target path.
+ *
+ * On POSIX, rename(2) is atomic — a reader sees either the old file or the
+ * new one, never a partial write. The per-invocation unique temp name (PID
+ * + timestamp + monotonic counter) prevents concurrent writers on the same
+ * volume (e.g. multi-process multinode deploys) from clobbering each
+ * other's temp files mid-write. On failure the temp is best-effort deleted
+ * and the error re-thrown so callers can react.
+ */
 export function saveCatalog(catalog: Catalog): void {
   const path = config.paths.catalogXml;
   mkdirSync(dirname(path), { recursive: true });
-  const tmp = `${path}.tmp`;
+  const tmp = `${path}.${process.pid}.${Date.now()}.${saveCatalogCounter++}.tmp`;
   const root = {
     '?xml': { '@_version': '1.0', '@_encoding': 'UTF-8' },
     catalog: {
@@ -362,11 +379,13 @@ export function saveCatalog(catalog: Catalog): void {
     },
   };
   const xml = builder.build(root);
-  writeFileSync(tmp, xml, 'utf8');
-  writeFileSync(path, xml, 'utf8');
   try {
-    unlinkSync(tmp);
-  } catch {}
+    writeFileSync(tmp, xml, 'utf8');
+    renameSync(tmp, path);
+  } catch (err) {
+    try { unlinkSync(tmp); } catch {}
+    throw err;
+  }
   log.info('catalog.save.ok', { path, count: catalog.digimons.length });
 }
 

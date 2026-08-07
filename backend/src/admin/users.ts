@@ -186,10 +186,10 @@ export async function updateUserNetcore(id: string, netcore: number): Promise<Us
 }
 
 export async function resetUserPassword(id: string, newPassword: string): Promise<UserOutcome<UserDetail>> {
-  const policy = validatePasswordPolicy(newPassword);
-  if (!policy.ok) return { ok: false, error: 'invalid-password', message: policy.reason };
   const existing = await one<UserRow>(SQL_SELECT_BY_ID, id);
   if (!existing) return { ok: false, error: 'not-found' };
+  const policy = validatePasswordPolicy(newPassword, { username: existing.username });
+  if (!policy.ok) return { ok: false, error: 'invalid-password', message: policy.reason };
   const hash = await hashPassword(newPassword);
   await run(SQL_UPDATE_PASSWORD, [hash, Date.now(), id]);
   await destroyAllSessionsForUser(id);

@@ -26,6 +26,10 @@
       "types": "./dist/weather.d.ts",
       "import": "./dist/weather.js"
     },
+    "./skill-vfx": {
+      "types": "./dist/skill-vfx.d.ts",
+      "import": "./dist/skill-vfx.js"
+    },
     "./auth": {
       "types": "./dist/auth.d.ts",
       "import": "./dist/auth.js"
@@ -89,5 +93,8 @@
   },
   "devDependencies": {
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

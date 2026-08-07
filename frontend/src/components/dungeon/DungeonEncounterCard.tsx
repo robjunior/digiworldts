@@ -1,9 +1,11 @@
 import type { ReactElement } from 'react';
 import type { DungeonEncounter, EncounterDigimon } from '@digiworld/shared';
+import type { TemplateDigimon } from '@digiworld/shared/digimon';
 
 type DungeonEncounterCardProps = {
   readonly activeEncounter: DungeonEncounter | null;
   readonly activeRandomEncounter: readonly EncounterDigimon[] | null;
+  readonly templateById: ReadonlyMap<string, TemplateDigimon>;
   readonly isStartingRandom: boolean;
   readonly isStartingEncounter: boolean;
   readonly onStartRandom: (digimon: readonly EncounterDigimon[]) => void;
@@ -14,12 +16,15 @@ type DungeonEncounterCardProps = {
 export function DungeonEncounterCard({
   activeEncounter,
   activeRandomEncounter,
+  templateById,
   isStartingRandom,
   isStartingEncounter,
   onStartRandom,
   onCancelRandom,
   onStartEncounter,
 }: DungeonEncounterCardProps): ReactElement | null {
+  const displayName = (mon: EncounterDigimon): string =>
+    mon.nickname || templateById.get(mon.catalogId)?.name || mon.catalogId;
   if (activeRandomEncounter) {
     return (
       <div className="ecard wild-card">
@@ -29,10 +34,10 @@ export function DungeonEncounterCard({
           {activeRandomEncounter.map((mon, index) => (
             <div key={`${mon.catalogId}-${index}`} className="emon">
               <span className="esprite" aria-hidden="true">
-                {mon.catalogId.charAt(0).toUpperCase()}
+                {displayName(mon).charAt(0).toUpperCase()}
               </span>
               <span className="enm">
-                {mon.nickname || mon.catalogId}
+                {displayName(mon)}
                 <span className="elv">Lv {mon.level}</span>
               </span>
             </div>
@@ -67,10 +72,10 @@ export function DungeonEncounterCard({
           {activeEncounter.digimon.map((m, i) => (
             <div key={i} className="emon">
               <span className="esprite" aria-hidden="true">
-                {m.catalogId.charAt(0).toUpperCase()}
+                {displayName(m).charAt(0).toUpperCase()}
               </span>
               <span className="enm">
-                {m.nickname || m.catalogId}
+                {displayName(m)}
                 <span className="elv">Lv {m.level}</span>
               </span>
             </div>

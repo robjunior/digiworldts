@@ -57,6 +57,7 @@ import {
   type UnitId,
   type WildInfo,
   MAX_WILD_PARTY_SIZE,
+  skillPlayerPickCount,
 } from './types.js';
 
 // ----- Loadout / unit construction ------------------------------------------
@@ -507,6 +508,7 @@ export function applyAction(
   }
 
   let skill: Skill;
+  let extraPicks: BattleUnit[] = [];
   if (action.type === 'skill') {
     const s = actor.skills.find((sk) => sk.id === action.skillId);
     if (!s) return { ok: false, error: 'unknown skill', code: 'skill-invalid' };
@@ -518,6 +520,28 @@ export function applyAction(
     if (cooldownRemaining > 0) {
       const turnWord = cooldownRemaining === 1 ? 'turn' : 'turns';
       return { ok: false, error: `skill on cooldown (${cooldownRemaining} more ${turnWord})`, code: 'on-cooldown' };
+    }
+    const pickCount = skillPlayerPickCount(s);
+    if (pickCount > 1) {
+      const extras = action.extraTargetIds ?? [];
+      if (extras.length !== pickCount - 1) {
+        return { ok: false, error: `this skill requires ${pickCount} targets (${extras.length + 1} provided)`, code: 'target-invalid' };
+      }
+      const enemySide = opponentOf(actingSide);
+      const seen = new Set<UnitId>([action.targetId]);
+      for (const extraId of extras) {
+        if (seen.has(extraId)) {
+          return { ok: false, error: 'duplicate target', code: 'target-invalid' };
+        }
+        seen.add(extraId);
+        const extraUnit = unitBy(battle, extraId);
+        if (!extraUnit || extraUnit.side !== enemySide || extraUnit.hp <= 0) {
+          return { ok: false, error: 'invalid extra target', code: 'target-invalid' };
+        }
+        extraPicks.push(extraUnit);
+      }
+    } else if (action.extraTargetIds !== undefined && action.extraTargetIds.length > 0) {
+      return { ok: false, error: 'this skill takes exactly one target', code: 'target-invalid' };
     }
     skill = s;
   } else {
@@ -538,7 +562,7 @@ export function applyAction(
   }
 
   if (skill.actions !== undefined && skill.actions.length > 0) {
-    executeDSL(battle, actor, skill.actions as DSLAction[], target, skill.name, actingSide);
+    executeDSL(battle, actor, skill.actions as DSLAction[], target, skill.name, actingSide, extraPicks);
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };
@@ -559,6 +583,7 @@ export function applyAction(
       damage: 0,
       skillName: skill.name,
       skillElement: skill.element,
+      ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}),
       cue: 'miss',
     });
     battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: false };
@@ -630,6 +655,7 @@ export function applyAction(
       cue,
     };
     if (applied.length > 0) hitEvent.applied = applied;
+    if (skill.vfxPresetId !== undefined) hitEvent.vfxPresetId = skill.vfxPresetId;
     pushEvent(battle, hitEvent);
     battle.lastAction = { side: actingSide, element: skill.element, attribute: actor.attribute, wasHit: true };
     if (target.hp === 0) {

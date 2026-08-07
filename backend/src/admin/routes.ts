@@ -49,6 +49,12 @@ import {
   listShopItems,
   updateShopItem,
   type ShopItemError,
+  createBundle,
+  deleteBundle,
+  getBundle,
+  listBundles,
+  updateBundle,
+  type BundleError,
 } from './shop.js';
 import {
   deleteUser,
@@ -681,6 +687,48 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const result = await deleteShopItem(req.params.id);
     if (!result.ok) return reply.code(statusForShopItemError(result.error)).send({ error: result.error });
     log.info('admin.shop.delete', { adminId: admin.id, id: req.params.id });
+    return reply.send(result);
+  });
+
+  function statusForBundleError(err: BundleError): number {
+    if (err === 'not-found' || err === 'invalid-item-ref') return 404;
+    if (err === 'currency-mismatch' || err === 'duplicate-item') return 409;
+    return 400;
+  }
+
+  app.get('/api/admin/shop/bundles', async (req, reply) => {
+    await requireAdmin(req, reply);
+    return reply.send({ bundles: await listBundles() });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/shop/bundles/:id', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const bundle = await getBundle(req.params.id);
+    if (!bundle) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ bundle });
+  });
+
+  app.post('/api/admin/shop/bundles', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await createBundle(req.body as never);
+    if (!result.ok) return reply.code(statusForBundleError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.shop.bundle.create', { adminId: admin.id, id: result.bundle.id, name: result.bundle.name });
+    return reply.code(201).send(result);
+  });
+
+  app.put<{ Params: { id: string } }>('/api/admin/shop/bundles/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await updateBundle(req.params.id, req.body as never);
+    if (!result.ok) return reply.code(statusForBundleError(result.error)).send({ error: result.error, message: result.message });
+    log.info('admin.shop.bundle.update', { adminId: admin.id, id: result.bundle.id });
+    return reply.send(result);
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/admin/shop/bundles/:id', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const result = await deleteBundle(req.params.id);
+    if (!result.ok) return reply.code(statusForBundleError(result.error)).send({ error: result.error });
+    log.info('admin.shop.bundle.delete', { adminId: admin.id, id: req.params.id });
     return reply.send(result);
   });
 
