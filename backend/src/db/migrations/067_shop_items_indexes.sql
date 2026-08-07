@@ -1,0 +1,12 @@
+-- F8 — Admin perf index for filtered shop-item dropdowns.
+--
+-- Every admin dropdown that filters shop_items now includes an
+-- `item_type` predicate (evolve-edge picker → 'evolution_key',
+-- door key picker → 'door_key', pickup picker → NOT IN craft
+-- materials, etc.). This composite index lets the query planner
+-- satisfy those `WHERE item_type = ? AND rarity = ? AND enabled = 1`
+-- filters via a single index probe instead of a full scan of
+-- 500+ shop_items rows.
+--
+-- Portable across SQLite and Postgres.
+CREATE INDEX IF NOT EXISTS idx_shop_items_type_rarity ON shop_items(item_type, rarity, enabled);
