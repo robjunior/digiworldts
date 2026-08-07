@@ -74,6 +74,8 @@ export const CreateDungeonInputSchema = z.object({
   parentId: OptionalNullableIdSchema,
   biomeRegion: z.enum(BIOMES).nullable().optional(),
   challenge: ChallengeConfigSchema.optional(),
+  dungeonGroupId: z.string().trim().min(1).max(120).nullable().optional(),
+  floorIndex: z.number().int().min(0).max(99).nullable().optional(),
   ...RandomEncounterSettingsShape,
 }).superRefine(refineRandomEncounterSettings);
 
@@ -98,6 +100,8 @@ export const UpdateDungeonInputSchema = z.object({
   randomMaxPartySize: z.number().int().min(1).max(3).optional(),
   randomAllowedElements: RandomAllowedElementsSchema.optional(),
   challenge: ChallengeConfigSchema.optional(),
+  dungeonGroupId: z.string().trim().min(1).max(120).nullable().optional(),
+  floorIndex: z.number().int().min(0).max(99).nullable().optional(),
 }).superRefine(refineRandomEncounterSettings);
 
 export const TileSchema = z.object({
@@ -251,5 +255,7 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     randomAllowedElements: input.randomAllowedElements,
     challenge: input.challenge ?? { kind: 'none' as const },
     walkableMask: null,
+    dungeonGroupId: input.dungeonGroupId ?? null,
+    floorIndex: input.floorIndex ?? null,
   };
 }
