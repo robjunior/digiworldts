@@ -712,6 +712,9 @@ function applyItemEffect(target: BattleUnit, effect: ItemEffect): ActionCue {
       target.ailments = [];
       return 'item-revive';
     }
+    case 'extract_dungeon': {
+      throw new Error('extract_dungeon is not usable during combat; reject before applyItemEffect');
+    }
   }
 }
 

@@ -15,6 +15,7 @@ import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { awardSpeciesData, type SpeciesAward } from '../nursery/data.js';
 import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { grantItem } from '../items/grant.js';
+import { hasFlag } from '../flags/repo.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { generateItemDrop, hasAnyLootRulesFor, rollLootForCatalogIds, type ItemDrop, type WildMon } from './engine.js';
@@ -33,6 +34,9 @@ const SQL_SELECT_SHOP_ITEM_FOR_USE = `SELECT * FROM shop_items WHERE id = ? AND 
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
 const SQL_REFUND_INVENTORY = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
+const SQL_DECREMENT_STASH_ITEM = `UPDATE dungeon_run_stash SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND dungeon_id = ? AND item_id = ? AND qty >= 1`;
+const SQL_REFUND_STASH_ITEM = `INSERT INTO dungeon_run_stash (user_id, dungeon_id, item_id, qty, origin, updated_at) VALUES (?, ?, ?, 1, 'kit', ?)
+     ON CONFLICT(user_id, dungeon_id, item_id, origin) DO UPDATE SET qty = dungeon_run_stash.qty + 1, updated_at = excluded.updated_at`;
 const SQL_INSERT_MON = `
   INSERT INTO player_roster
       (id, user_id, catalog_id, nickname,
@@ -291,6 +295,24 @@ async function markWonDungeonEncounter(userId: string, battle: Battle): Promise<
       }),
     ),
   );
+}
+
+async function markWipedDungeonRun(userId: string, battle: Battle): Promise<void> {
+  if (battle.outcome !== 'win_b' && battle.outcome !== 'fled_a') return;
+  const ctx = dungeonContext.get(userId);
+  if (!ctx) return;
+  const flagOn = await hasFlag(userId, 'dungeon-extraction');
+  if (!flagOn) return;
+  const { wipeRun } = await import('../dungeons/repo.js');
+  const result = await wipeRun(userId, ctx.dungeonId);
+  if (result) {
+    log.info('dungeon.run.wipe.confirmed', {
+      userId,
+      dungeonId: ctx.dungeonId,
+      purgedItemCount: result.purgedItemCount,
+      purgedResources: result.purgedResources,
+    });
+  }
 }
 
 export type XpAward = {
@@ -567,23 +589,38 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
   const battle = activeByUser.get(userId);
   if (!battle) return { ok: false, error: 'no active PVE battle', code: 'no-battle' };
 
-  let itemContext: { readonly itemEffect: ItemEffect; readonly itemId: string } | null = null;
+  let itemContext: { readonly itemEffect: ItemEffect; readonly itemId: string; readonly dungeonId: string | null } | null = null;
   if (action.type === 'use_item') {
     const item = await one<ShopItemRow>(SQL_SELECT_SHOP_ITEM_FOR_USE, action.itemId);
     if (!item) return { ok: false, error: 'item not found or not a combat item', code: 'item-invalid' };
     const effect = decodeItemEffect(item.payload);
     if (!effect) return { ok: false, error: 'item has no in-combat effect', code: 'item-invalid' };
-    const decrementInfo = await run(SQL_DECREMENT_INVENTORY, Date.now(), userId, action.itemId);
-    if (decrementInfo.changes === 0) {
-      return { ok: false, error: 'you do not own that item', code: 'item-invalid' };
+
+    const ctx = dungeonContext.get(userId);
+    const redirectToStash = ctx !== undefined && (await hasFlag(userId, 'dungeon-extraction'));
+    if (redirectToStash) {
+      const decrementInfo = await run(SQL_DECREMENT_STASH_ITEM, Date.now(), userId, ctx.dungeonId, action.itemId);
+      if (decrementInfo.changes === 0) {
+        return { ok: false, error: 'you do not have that item in the stash', code: 'item-invalid' };
+      }
+      itemContext = { itemEffect: effect, itemId: action.itemId, dungeonId: ctx.dungeonId };
+    } else {
+      const decrementInfo = await run(SQL_DECREMENT_INVENTORY, Date.now(), userId, action.itemId);
+      if (decrementInfo.changes === 0) {
+        return { ok: false, error: 'you do not own that item', code: 'item-invalid' };
+      }
+      itemContext = { itemEffect: effect, itemId: action.itemId, dungeonId: null };
     }
-    itemContext = { itemEffect: effect, itemId: action.itemId };
   }
 
   const result = applyAction(battle, 'a', action, itemContext ? { itemEffect: itemContext.itemEffect } : undefined);
   if (!result.ok) {
     if (itemContext) {
-      await run(SQL_REFUND_INVENTORY, userId, itemContext.itemId, Date.now());
+      if (itemContext.dungeonId !== null) {
+        await run(SQL_REFUND_STASH_ITEM, userId, itemContext.dungeonId, itemContext.itemId, Date.now());
+      } else {
+        await run(SQL_REFUND_INVENTORY, userId, itemContext.itemId, Date.now());
+      }
     }
     return { ok: false, error: result.error, ...(result.code ? { code: result.code } : {}) };
   }
@@ -650,6 +687,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
       }
     }
     const dungeonWinPromise = markWonDungeonEncounter(userId, battle);
+    const dungeonWipePromise = markWipedDungeonRun(userId, battle);
     try {
       const rewards = await awardPveBattleRewards(userId, battle);
       xpAwards = rewards.xpAwards;
@@ -658,6 +696,7 @@ export async function actInPveBattle(userId: string, action: Action): Promise<Ac
       netcoreGained = rewards.netcoreGained;
       bitsGained = rewards.bitsGained;
       await dungeonWinPromise;
+      await dungeonWipePromise;
     } finally {
       dungeonContext.delete(userId);
       activeByUser.delete(userId);

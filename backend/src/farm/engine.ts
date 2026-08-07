@@ -295,6 +295,7 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-def-buff', item_id: 'itm-def-buff', meat: 20, bits: 20, data: 0, craft_time_ms: 240_000, category: 'chip' },
   { id: 'rcp-heal-large', item_id: 'itm-heal-large', meat: 20, bits: 40, data: 10, craft_time_ms: 300_000, category: 'med' },
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
+  { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
 ];
 
