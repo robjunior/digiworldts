@@ -33,6 +33,7 @@ import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.
 import type { TrapTriggered } from '@digiworld/shared';
 import { rollRandomEncounter } from './random.js';
 import { evaluateChallenge } from './challenge.js';
+import { getRarityTable, rollRarityTable, type RarityTable } from './rarity-tables.js';
 export { createDoor, deleteDoor, updateDoor } from './doors.js';
 
 type DungeonRow = {
@@ -49,7 +50,7 @@ type DungeonRow = {
 type TileRow = { readonly x: number; readonly y: number; readonly gid: number; readonly layer_kind: string };
 type EncounterRow = {
   readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly difficulty: DungeonEncounter['difficulty'];
-  readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly loots: string | readonly EncounterLoot[]; readonly scene_id: string | null; readonly created_at: number; readonly updated_at: number;
+  readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly loots: string | readonly EncounterLoot[]; readonly scene_id: string | null; readonly rarity_table_id: string | null; readonly created_at: number; readonly updated_at: number;
 };
 type ItemRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly item_id: string; readonly qty: number; readonly created_at: number };
 type WarpRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly target_dungeon_id: string | null; readonly label: string | null; readonly is_exit: 0 | 1; readonly created_at: number; readonly updated_at: number };
@@ -699,6 +700,20 @@ export async function defeatEncounter(userId: string, dungeonId: string, encId: 
         await run(SQL_GRANT_REWARD_ITEM, userId, loot.itemId, loot.qty, now);
       }
       grantedLoots.push({ itemId: loot.itemId, qty: loot.qty });
+    }
+    if (encounterRow.rarity_table_id !== null) {
+      const table = await getRarityTable(encounterRow.rarity_table_id);
+      if (table !== null) {
+        const rolled = await rollRarityTable(table);
+        for (const drop of rolled) {
+          if (redirectToStash) {
+            await run(SQL_GRANT_STASH_ITEM, userId, dungeonId, drop.itemId, drop.qty, now);
+          } else {
+            await run(SQL_GRANT_REWARD_ITEM, userId, drop.itemId, drop.qty, now);
+          }
+          grantedLoots.push(drop);
+        }
+      }
     }
   }
   const postGrantRow = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
