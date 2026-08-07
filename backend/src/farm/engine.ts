@@ -44,6 +44,7 @@ import {
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
+import { hasFlag } from '../flags/repo.js';
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -85,9 +86,9 @@ const SQL_SELECT_RECIPES = `SELECT r.*, s.name AS item_name, s.description AS it
      WHERE r.enabled = 1 AND s.enabled = 1 AND s.class = 'item'
      ORDER BY r.meat_cost + r.bits_cost + r.data_cost ASC`;
 const SQL_SELECT_RECIPE = `SELECT * FROM farm_recipes WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, craft_time_ms, category, enabled, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
-     ON CONFLICT (id) DO UPDATE SET craft_time_ms = excluded.craft_time_ms, category = excluded.category`;
+const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, craft_time_ms, category, requires_items, inherit_rarity_from, unlock_condition, enabled, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+     ON CONFLICT (id) DO UPDATE SET craft_time_ms = excluded.craft_time_ms, category = excluded.category, requires_items = excluded.requires_items, inherit_rarity_from = excluded.inherit_rarity_from, unlock_condition = excluded.unlock_condition`;
 const SQL_DEDUCT_RESOURCE = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = ? AND amount >= ?`;
 const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
@@ -279,6 +280,46 @@ const FACTORY_TYPE_METADATA: Record<FactoryTypeId, FactoryTypeInfo> = {
 
 const QUEUE_MAX_TOTAL_MS = 8 * 60 * 60 * 1000;
 
+const CYPHER_RECIPE_ELEMENTS = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
+const CYPHER_RECIPE_TIERS = [1, 2, 3] as const;
+const EVOLUTION_CRAFTING_FLAG_CONDITION = JSON.stringify({ kind: 'flag', flag: 'evolution-crafting' });
+
+function generateCypherRecipes(): ReadonlyArray<{
+  id: string;
+  item_id: string;
+  meat: number;
+  bits: number;
+  data: number;
+  craft_time_ms: number;
+  category: FactoryTypeId;
+  requires_items: string;
+  inherit_rarity_from: string;
+  unlock_condition: string;
+}> {
+  const out: ReturnType<typeof generateCypherRecipes>[number][] = [];
+  for (const element of CYPHER_RECIPE_ELEMENTS) {
+    for (const tier of CYPHER_RECIPE_TIERS) {
+      const shardCount = 3 + tier;
+      const requires = JSON.stringify([
+        { itemId: `itm-shard-${element}-r0`, qty: shardCount },
+      ]);
+      out.push({
+        id: `rcp-cypher-${element}-t${tier}`,
+        item_id: `itm-cypher-${element}-t${tier}-r0`,
+        meat: 100 * tier,
+        bits: 200 * tier,
+        data: 150 * tier,
+        craft_time_ms: 1_800_000 * tier,
+        category: 'rare',
+        requires_items: requires,
+        inherit_rarity_from: 'fragment',
+        unlock_condition: EVOLUTION_CRAFTING_FLAG_CONDITION,
+      });
+    }
+  }
+  return out;
+}
+
 const SEED_RECIPES: ReadonlyArray<{
   id: string;
   item_id: string;
@@ -287,6 +328,9 @@ const SEED_RECIPES: ReadonlyArray<{
   data: number;
   craft_time_ms: number;
   category: FactoryTypeId;
+  requires_items?: string;
+  inherit_rarity_from?: string;
+  unlock_condition?: string;
 }> = [
   { id: 'rcp-heal-small', item_id: 'itm-heal-small', meat: 5, bits: 10, data: 0, craft_time_ms: 60_000, category: 'med' },
   { id: 'rcp-energy-drink', item_id: 'itm-energy-drink', meat: 0, bits: 15, data: 5, craft_time_ms: 120_000, category: 'med' },
@@ -297,13 +341,20 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
   { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
+  ...generateCypherRecipes(),
 ];
 
 export async function seedFarmRecipes(): Promise<void> {
   const now = Date.now();
   await tx(async (t) => {
     for (const r of SEED_RECIPES) {
-      await t.run(SQL_INSERT_RECIPE, [r.id, r.item_id, r.meat, r.bits, r.data, r.craft_time_ms, r.category, now]);
+      await t.run(SQL_INSERT_RECIPE, [
+        r.id, r.item_id, r.meat, r.bits, r.data, r.craft_time_ms, r.category,
+        r.requires_items ?? '[]',
+        r.inherit_rarity_from ?? null,
+        r.unlock_condition ?? null,
+        now,
+      ]);
     }
   });
   log.info('farm.recipes.seed.ok', { count: SEED_RECIPES.length });
@@ -853,6 +904,29 @@ export async function cancelJob(
   return { ok: true, refunded, balances };
 }
 
+async function filterRecipesByUnlockCondition<T extends { readonly unlock_condition: string | null }>(userId: string, rows: readonly T[]): Promise<T[]> {
+  const out: T[] = [];
+  const flagCache = new Map<string, boolean>();
+  for (const row of rows) {
+    if (row.unlock_condition === null) {
+      out.push(row);
+      continue;
+    }
+    let condition: { kind?: unknown; flag?: unknown } = {};
+    try { const raw: unknown = JSON.parse(row.unlock_condition); if (raw && typeof raw === 'object' && !Array.isArray(raw)) condition = raw as typeof condition; }
+    catch { out.push(row); continue; }
+    if (condition.kind !== 'flag' || typeof condition.flag !== 'string') { out.push(row); continue; }
+    const flagName = condition.flag;
+    let on = flagCache.get(flagName);
+    if (on === undefined) {
+      on = await hasFlag(userId, flagName);
+      flagCache.set(flagName, on);
+    }
+    if (on) out.push(row);
+  }
+  return out;
+}
+
 export async function readFactoryPage(userId: string): Promise<FactoryPageView> {
   await advanceAllFactories(userId);
   const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
@@ -860,7 +934,8 @@ export async function readFactoryPage(userId: string): Promise<FactoryPageView> 
 
   type RecipeJoinRow = FarmRecipeRow & { item_name: string; item_description: string };
   const recipeRows = await q<RecipeJoinRow>(SQL_SELECT_RECIPES);
-  const recipes: RecipeView[] = recipeRows.map((row) => ({
+  const visibleRows = await filterRecipesByUnlockCondition(userId, recipeRows);
+  const recipes: RecipeView[] = visibleRows.map((row) => ({
     id: row.id,
     itemId: row.item_id,
     itemName: row.item_name,
