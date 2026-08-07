@@ -18,6 +18,9 @@ import {
 import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { computeMetSet } from '../dex/met.js';
 import { countItem, removeItem } from '../items/grant.js';
+import { hasFlag } from '../flags/repo.js';
+import { rarityFromRankOrCommon, type Rarity } from '@digiworld/shared/item-rarity';
+import { applyRarityEvolutionBonus } from './rarity-bonus.js';
 import { log } from '../util/log.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
@@ -218,7 +221,22 @@ export async function evolveRoster(
 
   const newNickname = row.nickname === current.name ? target.name : row.nickname;
   const now = Date.now();
-  const equippedDefaults = await getDefaultEquippedForStage(target.element, target.stage);
+
+  let consumedRarity: Rarity | null = null;
+  let applyBonusEnabled = false;
+  if (selectedOption.requiredItemId !== null) {
+    const itemRow = await one<{ rarity: number }>('SELECT rarity FROM shop_items WHERE id = ?', selectedOption.requiredItemId);
+    if (itemRow) {
+      consumedRarity = rarityFromRankOrCommon(itemRow.rarity);
+      applyBonusEnabled = consumedRarity !== 'common' && await hasFlag(userId, 'rarity-bonuses');
+    }
+  }
+
+  const equippedDefaults = await getDefaultEquippedForStage(
+    target.element,
+    target.stage,
+    applyBonusEnabled ? consumedRarity ?? undefined : undefined,
+  );
   const equippedJson = JSON.stringify(equippedDefaults);
 
   try {
@@ -234,6 +252,9 @@ export async function evolveRoster(
         const removed = await removeItem(userId, selectedOption.requiredItemId, selectedOption.requiredItemQty, now, t);
         if (!removed) throw new Error('missing-item');
       }
+      if (applyBonusEnabled && consumedRarity !== null) {
+        await applyRarityEvolutionBonus(monId, userId, consumedRarity, now, t);
+      }
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'tx-failed';
@@ -246,6 +267,7 @@ export async function evolveRoster(
     to: target.id,
     nickname: newNickname,
     ...(selectedOption.requiredItemId !== null ? { consumedItemId: selectedOption.requiredItemId, consumedItemQty: selectedOption.requiredItemQty } : {}),
+    ...(applyBonusEnabled && consumedRarity !== null ? { rarityBonus: consumedRarity } : {}),
   });
   return { ok: true, monId, fromCatalogId: current.id, toCatalogId: target.id, nickname: newNickname, level: row.level, stage: target.stage };
 }
