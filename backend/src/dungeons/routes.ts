@@ -34,7 +34,11 @@ import {
 } from './repo.js';
 import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { createKit, deleteKit, getKitWithItems, listKitsForUser, updateKit, type KitOutcome } from './kits.js';
+import { escrowKitToStash, readStash } from './stash.js';
+import { hasFlag } from '../flags/repo.js';
 import { BIOMES } from '@digiworld/shared/world';
+import type { Kit, KitError } from '@digiworld/shared/dungeon';
 import {
   asCreateDungeonPayload,
   CreateDungeonInputSchema,
@@ -69,6 +73,34 @@ const ImportTiledNewInputSchema = z.object({
 const ImportTiledReplaceInputSchema = z.object({
   tiledJson: z.unknown(),
 });
+
+const KitItemSchema = z.object({
+  itemId: z.string().min(1),
+  qty: z.number().int().positive(),
+  slotOrder: z.number().int(),
+});
+
+const KitInputSchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  items: z.array(KitItemSchema).max(20),
+});
+
+const EnterDungeonInputSchema = z.object({
+  kitId: z.string().min(1).optional(),
+});
+
+function kitErrorHttpCode(err: KitError): number {
+  switch (err) {
+    case 'not-found':
+      return 404;
+    case 'duplicate-name':
+    case 'duplicate-item':
+      return 409;
+    case 'invalid-name':
+    case 'invalid-items':
+      return 400;
+  }
+}
 
 export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/dungeons', async (req, reply) => {
@@ -467,5 +499,60 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const view = await getDungeonView(req.params.id);
     if (!view) return reply.code(404).send({ error: 'not-found' });
     return reply.send({ view });
+  });
+
+  app.get('/api/dungeon/kits', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const kits = await listKitsForUser(me.id);
+    return reply.send({ kits });
+  });
+
+  app.post('/api/dungeon/kits', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = KitInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    const result: KitOutcome<Kit> = await createKit(me.id, parsed.data);
+    if (!result.ok) return reply.code(kitErrorHttpCode(result.error)).send({ error: result.error });
+    return reply.send({ kit: result.kit });
+  });
+
+  app.put<{ Params: { id: string } }>('/api/dungeon/kits/:id', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = KitInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    const result: KitOutcome<Kit> = await updateKit(me.id, req.params.id, parsed.data);
+    if (!result.ok) return reply.code(kitErrorHttpCode(result.error)).send({ error: result.error });
+    return reply.send({ kit: result.kit });
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/dungeon/kits/:id', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const removed = await deleteKit(me.id, req.params.id);
+    if (!removed) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ ok: true });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dungeon/:id/enter', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = EnterDungeonInputSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+
+    if (parsed.data.kitId !== undefined) {
+      const flagOn = await hasFlag(me.id, 'dungeon-kit-enabled');
+      if (!flagOn) return reply.code(403).send({ error: 'kit-flag-disabled' });
+      const kit = await getKitWithItems(me.id, parsed.data.kitId);
+      if (!kit) return reply.code(404).send({ error: 'kit-not-found' });
+      const escrow = await escrowKitToStash(me.id, req.params.id, kit);
+      if (!escrow.ok) return reply.code(402).send({ error: escrow.error, missing: escrow.missing });
+      const view = await startOrGetRun(me.id, req.params.id);
+      if (!view) return reply.code(404).send({ error: 'dungeon-not-found' });
+      log.info('dungeon.enter', { userId: me.id, dungeonId: req.params.id, kitId: parsed.data.kitId });
+      return reply.send({ view, stash: escrow.stash });
+    }
+
+    const view = await startOrGetRun(me.id, req.params.id);
+    if (!view) return reply.code(404).send({ error: 'dungeon-not-found' });
+    const stash = await readStash(me.id, req.params.id);
+    return reply.send({ view, stash });
   });
 };

@@ -190,3 +190,68 @@ export type DungeonRunView = {
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
 export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly trapTriggered?: TrapTriggered };
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };
+
+export type KitItem = {
+  readonly itemId: string;
+  readonly qty: number;
+  readonly slotOrder: number;
+};
+
+export type Kit = {
+  readonly id: string;
+  readonly userId: string;
+  readonly name: string;
+  readonly items: readonly KitItem[];
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type KitInput = {
+  readonly name: string;
+  readonly items: readonly KitItem[];
+};
+
+export type KitListResponse = { readonly kits: readonly Kit[] };
+export type KitResponse = { readonly kit: Kit };
+
+export type KitError =
+  | 'not-found'
+  | 'invalid-name'
+  | 'invalid-items'
+  | 'duplicate-name'
+  | 'duplicate-item';
+
+export type StashOrigin = 'kit' | 'loot';
+
+export type RunStashRow = {
+  readonly itemId: string;
+  readonly qty: number;
+  readonly origin: StashOrigin;
+  readonly updatedAt: number;
+};
+
+export type RunStashView = {
+  readonly items: readonly RunStashRow[];
+  readonly meat: number;
+  readonly bits: number;
+  readonly data: number;
+};
+
+export type EnterDungeonRequest = { readonly kitId?: string };
+
+export type EnterDungeonResponse = {
+  readonly view: DungeonRunView;
+  readonly stash: RunStashView;
+};
+
+export type EnterDungeonError =
+  | 'kit-not-found'
+  | 'insufficient-items'
+  | 'active-run-exists'
+  | 'dungeon-not-found';
+
+export type InsufficientKitItem = {
+  readonly itemId: string;
+  readonly needed: number;
+  readonly have: number;
+};
