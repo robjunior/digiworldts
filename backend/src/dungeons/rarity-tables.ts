@@ -17,7 +17,7 @@
  * downstream work can attach an encounter to a table without a further
  * migration.
  */
-import { one, run, tx } from '../db/index.js';
+import { one, q, run, tx } from '../db/index.js';
 import { log } from '../util/log.js';
 
 const SQL_INSERT_RARITY_TABLE = `INSERT INTO dungeon_rarity_tables (id, weights, pool_tag, min_rolls, max_rolls)
@@ -134,4 +134,42 @@ export async function createRarityTable(input: RarityTable): Promise<void> {
     input.minRolls,
     input.maxRolls,
   );
+}
+
+const SQL_SELECT_POOL_ITEMS_BY_RARITY = `SELECT id FROM shop_items WHERE drop_pool = ? AND rarity = ? AND enabled = 1`;
+
+function pickWeightedRarity(weights: Readonly<Record<number, number>>): number | null {
+  const entries = Object.entries(weights)
+    .map(([k, v]) => [Number.parseInt(k, 10), v] as const)
+    .filter(([rank, weight]) => Number.isFinite(rank) && rank >= 0 && rank <= 4 && weight > 0);
+  if (entries.length === 0) return null;
+  const total = entries.reduce((acc, [, weight]) => acc + weight, 0);
+  let roll = Math.random() * total;
+  for (const [rank, weight] of entries) {
+    roll -= weight;
+    if (roll <= 0) return rank;
+  }
+  return entries[entries.length - 1]![0];
+}
+
+export async function rollRarityTable(table: RarityTable): Promise<readonly { readonly itemId: string; readonly qty: number }[]> {
+  const range = Math.max(0, table.maxRolls - table.minRolls);
+  const rollCount = table.minRolls + Math.floor(Math.random() * (range + 1));
+  if (rollCount <= 0) return [];
+  const out: { itemId: string; qty: number }[] = [];
+  const poolCache = new Map<number, readonly string[]>();
+  for (let i = 0; i < rollCount; i += 1) {
+    const rarity = pickWeightedRarity(table.weights);
+    if (rarity === null) continue;
+    let pool = poolCache.get(rarity);
+    if (pool === undefined) {
+      const rows = await q<{ id: string }>(SQL_SELECT_POOL_ITEMS_BY_RARITY, table.poolTag, rarity);
+      pool = rows.map((r) => r.id);
+      poolCache.set(rarity, pool);
+    }
+    if (pool.length === 0) continue;
+    const picked = pool[Math.floor(Math.random() * pool.length)]!;
+    out.push({ itemId: picked, qty: 1 });
+  }
+  return out;
 }
