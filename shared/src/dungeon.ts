@@ -142,6 +142,8 @@ export type Dungeon = {
   readonly unlockRequiresItems: readonly string[] | null;
   readonly challenge: ChallengeConfig;
   readonly walkableMask: readonly (readonly [number, number])[] | null;
+  readonly dungeonGroupId: string | null;
+  readonly floorIndex: number | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
