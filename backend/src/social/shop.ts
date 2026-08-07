@@ -26,8 +26,8 @@ import { rarityFromRankOrCommon } from '@digiworld/shared/item-rarity';
 const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.rarity
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
@@ -172,6 +172,7 @@ type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item' | '
   one_time?: number;
   sort_order?: number;
   rarity?: number;
+  item_type?: string;
 };
 
 const SEED_ITEMS: Array<SeedItem> = [
@@ -207,6 +208,19 @@ const SEED_ITEMS: Array<SeedItem> = [
     kind: 'revive',
     class: 'item',
     payload: JSON.stringify({ revive: true }),
+  },
+  {
+    id: 'itm-extraction-scroll',
+    name: 'Extraction Scroll',
+    description: 'Teleport out of any dungeon instantly with your stash intact. Cannot be used during combat. Very expensive to craft.',
+    price_credits: 2500,
+    price: 2500,
+    currency: 'credits',
+    kind: 'ticket',
+    class: 'item',
+    payload: JSON.stringify({ extract_dungeon: true }),
+    rarity: 3,
+    item_type: 'extraction',
   },
   {
     id: 'itm-energy-drink',
@@ -351,7 +365,9 @@ export async function seedShopItems(): Promise<void> {
         item.id, item.name, item.description, item.price_credits, item.price ?? item.price_credits,
         item.currency ?? 'credits', item.shop_category ?? 'misc', item.featured ?? 0, item.quick_offer ?? 0,
         item.one_time ?? 0, item.sort_order ?? 0, item.kind, item.class, item.payload,
-        (item as { rarity?: number }).rarity ?? 0, now
+        (item as { rarity?: number }).rarity ?? 0,
+        (item as { item_type?: string }).item_type ?? 'consumable',
+        now,
       ]);
     }
   });
@@ -375,6 +391,7 @@ export async function insertCustomItem(input: {
   oneTime?: number;
   sortOrder?: number;
   rarity?: number;
+  itemType?: string;
 }): Promise<string> {
   const id = newId('itm');
   const now = Date.now();
@@ -384,7 +401,8 @@ export async function insertCustomItem(input: {
       id, input.name, input.description, input.priceCredits, input.price ?? input.priceCredits,
       input.currency ?? 'credits', input.shopCategory ?? 'misc', input.featured ?? 0,
       input.quickOffer ?? 0, input.oneTime ?? 0, input.sortOrder ?? 0,
-      input.kind, input.class, JSON.stringify(input.payload), input.rarity ?? 0, now
+      input.kind, input.class, JSON.stringify(input.payload), input.rarity ?? 0,
+      input.itemType ?? 'consumable', now
     ]
   );
   return id;
