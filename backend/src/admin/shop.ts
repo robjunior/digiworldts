@@ -12,6 +12,7 @@ import { log } from '../util/log.js';
 import { rarityFromRankOrCommon, RARITY_RANK, type Rarity } from '@digiworld/shared/item-rarity';
 
 const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
+const SQL_SELECT_ALL_BY_TYPE = `SELECT * FROM shop_items WHERE item_type = ? ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
 const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, item_type, kit_class, kit_max_qty, created_at)
@@ -146,8 +147,39 @@ function rowToView(row: ExtendedShopItemRow): ShopItemView {
   };
 }
 
-export async function listShopItems(): Promise<ShopItemView[]> {
-  const rows = await q<ExtendedShopItemRow>(SQL_SELECT_ALL);
+export type ShopItemFilter = {
+  readonly itemType?: string;
+  readonly itemTypeIn?: readonly string[];
+  readonly itemTypeNotIn?: readonly string[];
+};
+
+export async function listShopItems(filter: ShopItemFilter = {}): Promise<ShopItemView[]> {
+  const conditions: string[] = [];
+  const args: unknown[] = [];
+  if (filter.itemType !== undefined) {
+    if (!(VALID_ITEM_TYPES as readonly string[]).includes(filter.itemType)) return [];
+    conditions.push('item_type = ?');
+    args.push(filter.itemType);
+  }
+  if (filter.itemTypeIn && filter.itemTypeIn.length > 0) {
+    const valid = filter.itemTypeIn.filter((t): t is string => (VALID_ITEM_TYPES as readonly string[]).includes(t));
+    if (valid.length === 0) return [];
+    conditions.push(`item_type IN (${valid.map(() => '?').join(', ')})`);
+    args.push(...valid);
+  }
+  if (filter.itemTypeNotIn && filter.itemTypeNotIn.length > 0) {
+    const valid = filter.itemTypeNotIn.filter((t): t is string => (VALID_ITEM_TYPES as readonly string[]).includes(t));
+    if (valid.length > 0) {
+      conditions.push(`item_type NOT IN (${valid.map(() => '?').join(', ')})`);
+      args.push(...valid);
+    }
+  }
+  if (conditions.length === 0) {
+    const rows = await q<ExtendedShopItemRow>(SQL_SELECT_ALL);
+    return rows.map(rowToView);
+  }
+  const sql = `SELECT * FROM shop_items WHERE ${conditions.join(' AND ')} ORDER BY kind, name`;
+  const rows = await q<ExtendedShopItemRow>(sql, ...args);
   return rows.map(rowToView);
 }
 
