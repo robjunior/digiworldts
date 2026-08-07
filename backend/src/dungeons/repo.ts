@@ -1,4 +1,6 @@
 import type {
+  ChallengeConfig,
+  ChallengeKind,
   Dungeon,
   DungeonEncounter,
   DungeonItem,
@@ -14,6 +16,7 @@ import type {
   TilesetGrant,
   UserDungeonRun,
 } from '@digiworld/shared';
+import { CHALLENGE_KINDS } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
 import { one, q, run, tx, type DungeonRunStashRow } from '../db/index.js';
 import { hasFlag } from '../flags/repo.js';
@@ -28,6 +31,7 @@ import { getDoorAt, getDoorById, listDoors } from './doors.js';
 import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.js';
 import type { TrapTriggered } from '@digiworld/shared';
 import { rollRandomEncounter } from './random.js';
+import { evaluateChallenge } from './challenge.js';
 export { createDoor, deleteDoor, updateDoor } from './doors.js';
 
 type DungeonRow = {
@@ -37,6 +41,7 @@ type DungeonRow = {
   readonly random_min_level: number; readonly random_max_level: number; readonly random_max_stage: Dungeon['randomMaxStage'];
   readonly random_min_party_size: number; readonly random_max_party_size: number; readonly random_allowed_elements: string | readonly Element[] | null;
   readonly unlock_requires_items: string | readonly string[] | null;
+  readonly challenge_kind: string; readonly challenge_config: string | null;
   readonly created_at: number; readonly updated_at: number;
 };
 type TileRow = { readonly x: number; readonly y: number; readonly gid: number };
@@ -52,12 +57,13 @@ type RunRow = {
   readonly defeated_encounters: string | readonly string[]; readonly collected_items: string | readonly string[]; readonly unlocked_doors: string | readonly string[]; readonly oneshot_triggered_ids: string | readonly string[] | null; readonly started_at: number; readonly completed_at: number | null;
   readonly state: string; readonly ended_at: number | null; readonly extraction_kind: string | null;
   readonly stash_meat: number; readonly stash_bits: number; readonly stash_data: number;
+  readonly challenge_progress: string | null;
 };
 
 const SQL_LIST_DUNGEONS = `SELECT * FROM dungeons ORDER BY created_at DESC`;
 const SQL_GET_DUNGEON = `SELECT * FROM dungeons WHERE id = ?`;
-const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, parent_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, parent_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, updated_at = ? WHERE id = ?`;
+const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, parent_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, challenge_kind, challenge_config, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, parent_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, challenge_kind = ?, challenge_config = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_DUNGEON = `DELETE FROM dungeons WHERE id = ?`;
 const SQL_LIST_TILES = `SELECT x, y, gid FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_LIST_DUNGEON_TILESETS = `SELECT t.id, t.name, t.image_filename, t.tile_width, t.tile_height, t.image_width, t.image_height, t.columns, t.tile_count, t.created_at, t.updated_at, dt.firstgid FROM dungeon_tilesets dt JOIN tilesets t ON t.id = dt.tileset_id WHERE dt.dungeon_id = ? ORDER BY dt.firstgid`;
@@ -133,7 +139,46 @@ function parseAllowedElementsSafe(value: string | readonly Element[] | null): re
 }
 
 function dungeonFromRow(row: DungeonRow): Dungeon {
-  return { id: row.id, worldObjectId: row.world_object_id, questId: row.quest_id, parentId: row.parent_id, name: row.name, description: row.description, biome: row.biome, width: row.width, height: row.height, spawnX: row.spawn_x, spawnY: row.spawn_y, biomeRegion: row.biome_region, randomEncountersEnabled: row.random_encounters_enabled === 1, randomEncounterRate: row.random_encounter_rate, randomMinLevel: row.random_min_level, randomMaxLevel: row.random_max_level, randomMaxStage: row.random_max_stage, randomMinPartySize: row.random_min_party_size, randomMaxPartySize: row.random_max_party_size, randomAllowedElements: parseAllowedElementsSafe(row.random_allowed_elements), unlockRequiresItems: parseStringArraySafe(row.unlock_requires_items), createdAt: row.created_at, updatedAt: row.updated_at };
+  return { id: row.id, worldObjectId: row.world_object_id, questId: row.quest_id, parentId: row.parent_id, name: row.name, description: row.description, biome: row.biome, width: row.width, height: row.height, spawnX: row.spawn_x, spawnY: row.spawn_y, biomeRegion: row.biome_region, randomEncountersEnabled: row.random_encounters_enabled === 1, randomEncounterRate: row.random_encounter_rate, randomMinLevel: row.random_min_level, randomMaxLevel: row.random_max_level, randomMaxStage: row.random_max_stage, randomMinPartySize: row.random_min_party_size, randomMaxPartySize: row.random_max_party_size, randomAllowedElements: parseAllowedElementsSafe(row.random_allowed_elements), unlockRequiresItems: parseStringArraySafe(row.unlock_requires_items), challenge: parseChallengeSafe(row.challenge_kind ?? 'none', row.challenge_config ?? null), createdAt: row.created_at, updatedAt: row.updated_at };
+}
+
+export function parseChallengeSafe(kind: string, config: string | null): ChallengeConfig {
+  const parsedKind: ChallengeKind = (CHALLENGE_KINDS as readonly string[]).includes(kind) ? (kind as ChallengeKind) : 'none';
+  let params: Record<string, unknown> = {};
+  if (config) {
+    try {
+      const raw: unknown = JSON.parse(config);
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) params = raw as Record<string, unknown>;
+    } catch { /* fall through with empty params */ }
+  }
+  switch (parsedKind) {
+    case 'none':
+    case 'all_encounters_defeated':
+      return { kind: parsedKind };
+    case 'boss_defeated':
+      return { kind: 'boss_defeated', bossEncounterId: typeof params.bossEncounterId === 'string' ? params.bossEncounterId : '' };
+    case 'reach_tile':
+      return { kind: 'reach_tile', targetX: typeof params.targetX === 'number' ? params.targetX : 0, targetY: typeof params.targetY === 'number' ? params.targetY : 0 };
+    case 'collect_item':
+      return { kind: 'collect_item', itemId: typeof params.itemId === 'string' ? params.itemId : '', qty: typeof params.qty === 'number' ? params.qty : 1 };
+    case 'survive_waves':
+      return { kind: 'survive_waves', waveCount: typeof params.waveCount === 'number' ? params.waveCount : 1 };
+  }
+}
+
+export function serializeChallenge(challenge: ChallengeConfig): { readonly kind: ChallengeKind; readonly configJson: string | null } {
+  const { kind, ...rest } = challenge;
+  const params = rest as Record<string, unknown>;
+  return { kind, configJson: Object.keys(params).length > 0 ? JSON.stringify(params) : null };
+}
+
+function parseChallengeProgressSafe(json: string | null): Record<string, unknown> | null {
+  if (json === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(json);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+  } catch { /* fall through */ }
+  return null;
 }
 
 function parseStringArraySafe(value: string | readonly string[] | null): readonly string[] | null {
@@ -213,6 +258,7 @@ function runFromRow(row: RunRow): UserDungeonRun {
     stashMeat: row.stash_meat ?? 0,
     stashBits: row.stash_bits ?? 0,
     stashData: row.stash_data ?? 0,
+    challengeProgress: parseChallengeProgressSafe(row.challenge_progress ?? null),
   };
 }
 
@@ -253,7 +299,8 @@ export async function getRun(userId: string, dungeonId: string): Promise<UserDun
 export async function createDungeon(input: Omit<Dungeon, 'id' | 'createdAt' | 'updatedAt'>): Promise<Dungeon> {
   const now = Date.now();
   const dungeon: Dungeon = { ...input, id: newId('dun'), createdAt: now, updatedAt: now };
-  await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion, dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate, dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage, dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements), now, now);
+  const { kind: challengeKind, configJson: challengeConfigJson } = serializeChallenge(dungeon.challenge);
+  await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion, dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate, dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage, dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements), challengeKind, challengeConfigJson, now, now);
   return dungeon;
 }
 
@@ -282,11 +329,13 @@ export async function updateDungeon(id: string, input: UpdateDungeonInput): Prom
     randomMinPartySize: input.randomMinPartySize ?? existing.randomMinPartySize,
     randomMaxPartySize: input.randomMaxPartySize ?? existing.randomMaxPartySize,
     randomAllowedElements: input.randomAllowedElements === undefined ? existing.randomAllowedElements : input.randomAllowedElements,
+    challenge: input.challenge === undefined ? existing.challenge : input.challenge,
     createdAt: existing.createdAt,
     updatedAt: Date.now(),
   };
   if (updated.parentId === id) return null;
-  await run(SQL_UPDATE_DUNGEON, updated.worldObjectId, updated.questId, updated.parentId, updated.name, updated.description, updated.biome, updated.width, updated.height, updated.spawnX, updated.spawnY, updated.biomeRegion, updated.randomEncountersEnabled ? 1 : 0, updated.randomEncounterRate, updated.randomMinLevel, updated.randomMaxLevel, updated.randomMaxStage, updated.randomMinPartySize, updated.randomMaxPartySize, JSON.stringify(updated.randomAllowedElements), updated.updatedAt, id);
+  const { kind: challengeKind, configJson: challengeConfigJson } = serializeChallenge(updated.challenge);
+  await run(SQL_UPDATE_DUNGEON, updated.worldObjectId, updated.questId, updated.parentId, updated.name, updated.description, updated.biome, updated.width, updated.height, updated.spawnX, updated.spawnY, updated.biomeRegion, updated.randomEncountersEnabled ? 1 : 0, updated.randomEncounterRate, updated.randomMinLevel, updated.randomMaxLevel, updated.randomMaxStage, updated.randomMinPartySize, updated.randomMaxPartySize, JSON.stringify(updated.randomAllowedElements), challengeKind, challengeConfigJson, updated.updatedAt, id);
   return updated;
 }
 
@@ -531,9 +580,10 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   const triggeredEncounterId = encounter && !current.defeatedEncounters.includes(encounter.id) ? encounter.id : null;
   const dungeon = await getDungeon(dungeonId);
   const randomEncounter = dungeon && triggeredEncounterId === null && !warp && !door && !trapTriggered ? rollRandomEncounter(dungeon, loadCatalog()) : null;
+  const runAfterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, dungeonId, runFromRow(row));
   return {
     kind: 'ok',
-    run: runFromRow(row),
+    run: runAfterAutoExtract,
     triggeredEncounterId,
     pickedUpItemId: isNewPickup ? item.id : null,
     ...(randomEncounter ? { randomEncounter } : {}),
@@ -555,7 +605,22 @@ const SQL_UPSERT_INVENTORY_FROM_STASH = `INSERT INTO player_inventory (user_id, 
 const SQL_UPSERT_RESOURCE_FROM_STASH = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 
-export async function defeatEncounter(userId: string, dungeonId: string, encId: string): Promise<{ readonly run: UserDungeonRun; readonly grantedLoots: readonly { readonly itemId: string; readonly qty: number }[] } | null> {
+async function maybeAutoExtractOnChallengeWin(userId: string, dungeonId: string, run: UserDungeonRun): Promise<UserDungeonRun> {
+  if (run.state !== 'active') return run;
+  const flagOn = await hasFlag(userId, 'dungeon-challenge');
+  if (!flagOn) return run;
+  const dungeon = await getDungeon(dungeonId);
+  if (!dungeon) return run;
+  if (dungeon.challenge.kind === 'none') return run;
+  const verdict = await evaluateChallenge(dungeon, run);
+  if (verdict !== 'cleared') return run;
+  const result = await extractRun(userId, dungeonId, 'challenge_win');
+  if (!result) return run;
+  log.info('dungeon.challenge.cleared', { userId, dungeonId, kind: dungeon.challenge.kind });
+  return result.run;
+}
+
+export async function defeatEncounter(userId: string, dungeonId: string, encId: string): Promise<{ readonly run: UserDungeonRun; readonly grantedLoots: readonly { readonly itemId: string; readonly qty: number }[]; readonly challengeCleared?: boolean } | null> {
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   const encounterRow = await one<EncounterRow>(SQL_GET_ENCOUNTER, dungeonId, encId);
   if (!existing || !encounterRow) return null;
@@ -582,8 +647,15 @@ export async function defeatEncounter(userId: string, dungeonId: string, encId: 
       grantedLoots.push({ itemId: loot.itemId, qty: loot.qty });
     }
   }
-  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
-  return row ? { run: runFromRow(row), grantedLoots } : null;
+  const postGrantRow = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  if (!postGrantRow) return null;
+  const afterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, dungeonId, runFromRow(postGrantRow));
+  const challengeCleared = afterAutoExtract.state === 'cleared_challenge';
+  return {
+    run: afterAutoExtract,
+    grantedLoots,
+    ...(challengeCleared ? { challengeCleared: true } : {}),
+  };
 }
 
 export type WipeRunResult = { readonly run: UserDungeonRun; readonly purgedItemCount: number; readonly purgedResources: { readonly meat: number; readonly bits: number; readonly data: number } };
@@ -809,6 +881,7 @@ export async function applyTiledImportNew(input: {
     randomMinPartySize: rs.randomMinPartySize ?? 1,
     randomMaxPartySize: rs.randomMaxPartySize ?? 1,
     randomAllowedElements: rs.randomAllowedElements ?? null,
+    challenge: { kind: 'none' as const },
     createdAt: now,
     updatedAt: now,
   };
@@ -819,6 +892,7 @@ export async function applyTiledImportNew(input: {
       dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate,
       dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage,
       dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements),
+      'none', null,
       dungeon.createdAt, dungeon.updatedAt,
     ]);
     for (const link of resolved.links) await t.run(SQL_INSERT_DUNGEON_TILESET, [dungeon.id, link.tilesetId, link.firstgid]);
