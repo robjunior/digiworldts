@@ -14,9 +14,9 @@ import { rarityFromRankOrCommon, RARITY_RANK, type Rarity } from '@digiworld/sha
 const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
-const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ?, rarity = ? WHERE id = ?`;
+const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, item_type, kit_class, kit_max_qty, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ?, rarity = ?, item_type = ?, kit_class = ?, kit_max_qty = ? WHERE id = ?`;
 const SQL_SOFT_DELETE = `UPDATE shop_items SET enabled = 0 WHERE id = ?`;
 
 const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
@@ -24,6 +24,23 @@ type ShopKind = (typeof VALID_KINDS)[number];
 
 const VALID_CLASSES = ['product', 'item'] as const;
 type ShopClass = (typeof VALID_CLASSES)[number];
+
+export const VALID_ITEM_TYPES = [
+  'consumable',
+  'evolution_key',
+  'fragment',
+  'chip',
+  'door_key',
+  'extraction',
+  'buff_material',
+  'quest',
+  'cosmetic',
+  'misc',
+] as const;
+export type ItemType = (typeof VALID_ITEM_TYPES)[number];
+
+export const VALID_KIT_CLASSES = ['consumable', 'revive', 'buff', 'utility', 'extraction'] as const;
+export type KitClass = (typeof VALID_KIT_CLASSES)[number];
 
 type ExtendedShopItemRow = ShopItemRow & {
   currency?: string;
@@ -33,6 +50,9 @@ type ExtendedShopItemRow = ShopItemRow & {
   quick_offer?: number;
   one_time?: number;
   sort_order?: number;
+  item_type?: string;
+  kit_class?: string | null;
+  kit_max_qty?: number | null;
 };
 
 export type ShopItemView = {
@@ -53,6 +73,9 @@ export type ShopItemView = {
   enabled: boolean;
   isQuestItem: boolean;
   rarity: Rarity;
+  itemType: ItemType;
+  kitClass: KitClass | null;
+  kitMaxQty: number | null;
   createdAt: number;
 };
 
@@ -73,6 +96,9 @@ export type ShopItemInput = {
   enabled?: boolean | undefined;
   isQuestItem?: boolean | undefined;
   rarity?: Rarity | undefined;
+  itemType?: ItemType | undefined;
+  kitClass?: KitClass | null | undefined;
+  kitMaxQty?: number | null | undefined;
 };
 
 function parsePayload(raw: string): Record<string, unknown> {
@@ -87,6 +113,14 @@ function parsePayload(raw: string): Record<string, unknown> {
 }
 
 function rowToView(row: ExtendedShopItemRow): ShopItemView {
+  const kitClassRaw = row.kit_class ?? null;
+  const kitClass = kitClassRaw !== null && (VALID_KIT_CLASSES as readonly string[]).includes(kitClassRaw)
+    ? (kitClassRaw as KitClass)
+    : null;
+  const itemTypeRaw = row.item_type ?? 'consumable';
+  const itemType = (VALID_ITEM_TYPES as readonly string[]).includes(itemTypeRaw)
+    ? (itemTypeRaw as ItemType)
+    : 'consumable';
   return {
     id: row.id,
     name: row.name,
@@ -105,6 +139,9 @@ function rowToView(row: ExtendedShopItemRow): ShopItemView {
     enabled: row.enabled === 1,
     isQuestItem: row.is_quest_item === 1,
     rarity: rarityFromRankOrCommon(row.rarity),
+    itemType,
+    kitClass,
+    kitMaxQty: row.kit_max_qty ?? null,
     createdAt: row.created_at,
   };
 }
@@ -128,6 +165,9 @@ export type ShopItemError =
   | 'invalid-class'
   | 'invalid-payload'
   | 'invalid-rarity'
+  | 'invalid-item-type'
+  | 'invalid-kit-class'
+  | 'invalid-kit-max-qty'
   | 'duplicate-name'
   | 'not-found';
 
@@ -154,6 +194,17 @@ function validateInput(input: ShopItemInput): ShopItemError | null {
   if (input.rarity !== undefined && !(input.rarity in RARITY_RANK)) {
     return 'invalid-rarity';
   }
+  if (input.itemType !== undefined && !(VALID_ITEM_TYPES as readonly string[]).includes(input.itemType)) {
+    return 'invalid-item-type';
+  }
+  if (input.kitClass !== undefined && input.kitClass !== null && !(VALID_KIT_CLASSES as readonly string[]).includes(input.kitClass)) {
+    return 'invalid-kit-class';
+  }
+  if (input.kitMaxQty !== undefined && input.kitMaxQty !== null) {
+    if (!Number.isSafeInteger(input.kitMaxQty) || input.kitMaxQty < 1 || input.kitMaxQty > 999) {
+      return 'invalid-kit-max-qty';
+    }
+  }
   return null;
 }
 
@@ -167,6 +218,9 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
   
   const price = Math.max(0, Math.floor(input.price));
   const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : 0;
+  const itemType: ItemType = input.itemType ?? 'consumable';
+  const kitClass: KitClass | null = input.kitClass ?? null;
+  const kitMaxQty: number | null = input.kitMaxQty ?? null;
   const row: ExtendedShopItemRow = {
     id,
     name: input.name.trim(),
@@ -185,14 +239,17 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
     enabled: input.enabled === false ? 0 : 1,
     is_quest_item: input.isQuestItem === true ? 1 : 0,
     rarity: rarityRank,
+    item_type: itemType,
+    kit_class: kitClass,
+    kit_max_qty: kitMaxQty,
     created_at: now,
   };
   await run(SQL_INSERT, [
     row.id, row.name, row.description, row.price_credits, row.price, row.currency, row.shop_category,
     row.featured, row.quick_offer, row.one_time, row.sort_order, row.kind, row.class, row.payload,
-    row.enabled, row.is_quest_item, row.rarity, row.created_at,
+    row.enabled, row.is_quest_item, row.rarity, itemType, kitClass, kitMaxQty, row.created_at,
   ]);
-  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1, rarity: row.rarity });
+  log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1, rarity: row.rarity, itemType, kitClass, kitMaxQty });
   return { ok: true, item: rowToView(row) };
 }
 
@@ -206,6 +263,15 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
   
   const price = Math.max(0, Math.floor(input.price));
   const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : existing.rarity;
+  const existingItemType = (existing.item_type ?? 'consumable') as ItemType;
+  const existingKitClassRaw = existing.kit_class ?? null;
+  const existingKitClass: KitClass | null =
+    existingKitClassRaw !== null && (VALID_KIT_CLASSES as readonly string[]).includes(existingKitClassRaw)
+      ? (existingKitClassRaw as KitClass)
+      : null;
+  const itemType: ItemType = input.itemType !== undefined ? input.itemType : existingItemType;
+  const kitClass: KitClass | null = input.kitClass !== undefined ? input.kitClass : existingKitClass;
+  const kitMaxQty: number | null = input.kitMaxQty !== undefined ? input.kitMaxQty : (existing.kit_max_qty ?? null);
   const merged: ExtendedShopItemRow = {
     ...existing,
     name: input.name.trim(),
@@ -224,13 +290,17 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
     enabled: input.enabled === true ? 1 : input.enabled === false ? 0 : existing.enabled,
     is_quest_item: input.isQuestItem === true ? 1 : input.isQuestItem === false ? 0 : existing.is_quest_item,
     rarity: rarityRank,
+    item_type: itemType,
+    kit_class: kitClass,
+    kit_max_qty: kitMaxQty,
   };
   await run(SQL_UPDATE, [
     merged.name, merged.description, merged.price_credits, merged.price, merged.currency,
     merged.shop_category, merged.featured, merged.quick_offer, merged.one_time, merged.sort_order,
-    merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, merged.rarity, id,
+    merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, merged.rarity,
+    itemType, kitClass, kitMaxQty, id,
   ]);
-  log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1, rarity: merged.rarity });
+  log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1, rarity: merged.rarity, itemType, kitClass, kitMaxQty });
   return { ok: true, item: rowToView(merged) };
 }
 
