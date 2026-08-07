@@ -16,3 +16,4 @@ export * from './dialogue-expr.js';
 export * from './dialogue-parser.js';
 export * from './npc.js';
 export * from './telemetry.js';
+export * from './item-rarity.js';

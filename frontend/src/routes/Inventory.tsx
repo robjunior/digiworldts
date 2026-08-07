@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'reac
 import { useNavigate } from 'react-router';
 
 import { ApplyDialog } from '../components/shop/ApplyDialog';
+import { RarityBadge } from '../components/inventory/RarityBadge';
 import { getRoster } from '../lib/api';
 import { ApiError } from '../lib/api';
 import { applyShopItem, getShop } from '../lib/api-shop';
@@ -420,7 +421,7 @@ export function Inventory(): JSX.Element {
             return (
               <div key={it.itemId} className="irow" style={style} data-od-id={`inv-${it.itemId}`}>
                 <div className="nm">
-                  <div className="t">{it.name}</div>
+                  <div className="t">{it.name}<RarityBadge rarity={it.rarity} /></div>
                   <div className="d">{it.description}</div>
                 </div>
                 <div className="qty">

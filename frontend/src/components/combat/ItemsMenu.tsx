@@ -2,6 +2,7 @@ import type { FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { getItems } from '../../lib/api-shop';
+import { RarityBadge } from '../inventory/RarityBadge';
 
 type ItemsMenuProps = {
   readonly actor: FriendlyUnitView;
@@ -68,7 +69,7 @@ export function ItemsMenu({ actor, friendly, onUseItem, onBack }: ItemsMenuProps
             title={item.description}
           >
             <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
-            <div className="mnm">{item.name}</div>
+            <div className="mnm">{item.name}<RarityBadge rarity={item.rarity} /></div>
             <div className="men">x{item.qty}</div>
           </button>
         ))}

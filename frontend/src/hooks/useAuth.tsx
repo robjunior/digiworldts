@@ -12,6 +12,7 @@ type AuthContextValue = {
   readonly user: PublicUser | null;
   readonly status: AuthStatus;
   readonly registrationOpen: boolean;
+  readonly flags: readonly string[];
   readonly login: (body: LoginBody) => Promise<PublicUser>;
   readonly register: (body: RegisterBody) => Promise<PublicUser>;
   readonly logout: () => Promise<void>;
@@ -80,6 +81,7 @@ export function AuthProvider({ children }: { readonly children: ReactNode }): JS
       user,
       status,
       registrationOpen: registrationOpenFromQuery(meQuery.data),
+      flags: meQuery.data?.flags ?? [],
       login: async (body) => {
         const session = await loginMutation.mutateAsync(body);
         return session.user;
