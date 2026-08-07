@@ -26,8 +26,8 @@ import { rarityFromRankOrCommon } from '@digiworld/shared/item-rarity';
 const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
-const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, drop_pool, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.rarity
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
@@ -173,6 +173,7 @@ type SeedItem = Omit<ShopItemRow, 'created_at' | 'enabled' | 'is_quest_item' | '
   sort_order?: number;
   rarity?: number;
   item_type?: string;
+  drop_pool?: string | null;
 };
 
 const SEED_ITEMS: Array<SeedItem> = [
@@ -356,22 +357,120 @@ const SEED_ITEMS: Array<SeedItem> = [
   },
 ];
 
+const ELEMENT_FAMILIES = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
+const ATTRIBUTE_FAMILIES = ['vaccine', 'virus', 'data', 'free', 'unknown'] as const;
+const FRAGMENT_FAMILIES: readonly string[] = [...ELEMENT_FAMILIES, ...ATTRIBUTE_FAMILIES];
+const CYPHER_TIERS = [1, 2, 3] as const;
+const RARITY_RANKS = [0, 1, 2, 3, 4] as const;
+const RARITY_LABELS: Record<number, string> = { 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Epic', 4: 'Legendary' };
+const TIER_ROMAN: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III' };
+const FRAGMENT_BASE_PRICE = 40;
+const CHIP_BASE_PRICE = 500;
+const CYPHER_BASE_PRICE = 800;
+
+function titleCase(value: string): string {
+  return value.length === 0 ? value : value[0]!.toUpperCase() + value.slice(1);
+}
+
+function generateFragmentItems(): SeedItem[] {
+  const out: SeedItem[] = [];
+  for (const family of FRAGMENT_FAMILIES) {
+    for (const rarity of RARITY_RANKS) {
+      const label = titleCase(family);
+      const rlabel = RARITY_LABELS[rarity]!;
+      const priceScale = 1 + rarity * 2;
+      out.push({
+        id: `itm-shard-${family}-r${rarity}`,
+        name: `${rlabel} ${label} Shard`,
+        description: `A ${rlabel.toLowerCase()} crystalline fragment aligned to ${label}. Used with Chips at the Rare Factory to craft Cyphers of matching rarity.`,
+        price_credits: FRAGMENT_BASE_PRICE * priceScale,
+        price: FRAGMENT_BASE_PRICE * priceScale,
+        currency: 'credits',
+        shop_category: 'fragment',
+        kind: 'consumable',
+        class: 'item',
+        payload: JSON.stringify({ fragment: family }),
+        rarity,
+        item_type: 'fragment',
+        drop_pool: 'shards',
+        sort_order: rarity * 100,
+      });
+    }
+  }
+  return out;
+}
+
+function generateChipItems(): SeedItem[] {
+  const chips: readonly { readonly grade: string; readonly stage: string; readonly level: number; readonly price: number }[] = [
+    { grade: 'A', stage: 'Champion', level: 20, price: CHIP_BASE_PRICE },
+    { grade: 'B', stage: 'Ultimate', level: 40, price: CHIP_BASE_PRICE * 3 },
+    { grade: 'C', stage: 'Mega', level: 60, price: CHIP_BASE_PRICE * 8 },
+  ];
+  return chips.map((chip) => ({
+    id: `itm-chip-${chip.grade.toLowerCase()}`,
+    name: `${chip.grade}-Class Digi-Chip`,
+    description: `A universal Digi-Chip. Combines with an element-tuned Cypher at the Rare Factory to digivolve a Digimon into ${chip.stage} (requires level ${chip.level}).`,
+    price_credits: chip.price,
+    price: chip.price,
+    currency: 'credits',
+    shop_category: 'chip',
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ chip_grade: chip.grade, target_stage: chip.stage }),
+    item_type: 'chip',
+    drop_pool: 'chips',
+    sort_order: chip.grade === 'A' ? 0 : chip.grade === 'B' ? 1 : 2,
+  }));
+}
+
+function generateCypherItems(): SeedItem[] {
+  const out: SeedItem[] = [];
+  for (const family of ELEMENT_FAMILIES) {
+    for (const tier of CYPHER_TIERS) {
+      for (const rarity of RARITY_RANKS) {
+        const label = titleCase(family);
+        const rlabel = RARITY_LABELS[rarity]!;
+        const priceScale = 1 + rarity * 2;
+        out.push({
+          id: `itm-cypher-${family}-t${tier}-r${rarity}`,
+          name: `${rlabel} ${label} Cypher ${TIER_ROMAN[tier]}`,
+          description: `A ${rlabel.toLowerCase()} evolution key tuned to ${label}, tier ${TIER_ROMAN[tier]}. Consume during evolution to grant an element-affinity bonus.`,
+          price_credits: CYPHER_BASE_PRICE * priceScale * tier,
+          price: CYPHER_BASE_PRICE * priceScale * tier,
+          currency: 'credits',
+          shop_category: 'cypher',
+          kind: 'evolve',
+          class: 'item',
+          payload: JSON.stringify({ cypher: family, tier, rarity }),
+          rarity,
+          item_type: 'evolution_key',
+          drop_pool: 'cyphers',
+          sort_order: tier * 1000 + rarity * 100,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 /** Called once at server boot. Idempotent (ON CONFLICT DO NOTHING). */
 export async function seedShopItems(): Promise<void> {
   const now = Date.now();
+  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateChipItems(), ...generateCypherItems()];
   await tx(async (t) => {
-    for (const item of SEED_ITEMS) {
+    for (const item of generated) {
       await t.run(SQL_INSERT_ITEM, [
         item.id, item.name, item.description, item.price_credits, item.price ?? item.price_credits,
         item.currency ?? 'credits', item.shop_category ?? 'misc', item.featured ?? 0, item.quick_offer ?? 0,
         item.one_time ?? 0, item.sort_order ?? 0, item.kind, item.class, item.payload,
         (item as { rarity?: number }).rarity ?? 0,
         (item as { item_type?: string }).item_type ?? 'consumable',
+        (item as { drop_pool?: string | null }).drop_pool ?? null,
         now,
       ]);
     }
   });
-  log.info('shop.seed.ok', { items: SEED_ITEMS.length });
+  log.info('shop.seed.ok', { items: generated.length });
 }
 
 /** Custom item creation for the admin (kept internal — no HTTP route yet). */
@@ -392,6 +491,7 @@ export async function insertCustomItem(input: {
   sortOrder?: number;
   rarity?: number;
   itemType?: string;
+  dropPool?: string | null;
 }): Promise<string> {
   const id = newId('itm');
   const now = Date.now();
@@ -402,7 +502,7 @@ export async function insertCustomItem(input: {
       input.currency ?? 'credits', input.shopCategory ?? 'misc', input.featured ?? 0,
       input.quickOffer ?? 0, input.oneTime ?? 0, input.sortOrder ?? 0,
       input.kind, input.class, JSON.stringify(input.payload), input.rarity ?? 0,
-      input.itemType ?? 'consumable', now
+      input.itemType ?? 'consumable', input.dropPool ?? null, now
     ]
   );
   return id;
