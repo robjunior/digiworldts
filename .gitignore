@@ -25,6 +25,15 @@ cookies.txt
 _archive/
 .qa/
 
+# local dev-only compose overrides — never commit
+/docker-compose.dev.override.yml
+
+# reference material (assets, layouts, .blend files) — not tracked
+/base/
+
+# runtime-uploaded tilesets (server-generated ids, safe to regenerate)
+backend/data/tilesets/tst_*
+
 # ad-hoc screenshots at repo root
 /*.png
 

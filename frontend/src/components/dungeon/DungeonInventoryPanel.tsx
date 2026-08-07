@@ -1,7 +1,17 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useT } from '../../hooks/useLocale';
 import type { InventoryItemView, ShopItemView } from '../../lib/api-shop';
+
+type TipState = {
+  readonly name: string;
+  readonly description: string;
+  readonly action: string;
+  readonly x: number;
+  readonly y: number;
+  readonly below: boolean;
+};
 
 type DungeonInventoryPanelProps = {
   readonly inventory: readonly InventoryItemView[];
@@ -13,6 +23,7 @@ type DungeonInventoryPanelProps = {
 
 const NON_USABLE_KINDS = new Set(['evolve', 'cosmetic', 'building_placement']);
 const GLOBAL_KINDS = new Set(['xp_mult']);
+const TIP_FLIP_MARGIN_PX = 120;
 
 function inferKind(product: ShopItemView | undefined, name: string): string {
   if (product) return product.kind;
@@ -47,12 +58,26 @@ function elementForItem(kind: string, name: string): string {
 
 export function DungeonInventoryPanel({ inventory, productById, selectedItemId, busy, onSelectItem }: DungeonInventoryPanelProps): ReactElement {
   const t = useT();
+  const [tip, setTip] = useState<TipState | null>(null);
   const usable = inventory.filter((entry) => {
     if (entry.qty <= 0) return false;
     const product = productById.get(entry.itemId);
     if (product && NON_USABLE_KINDS.has(product.kind)) return false;
     return true;
   });
+
+  const openTip = (anchor: HTMLElement, name: string, description: string, action: string): void => {
+    const rect = anchor.getBoundingClientRect();
+    const below = rect.top < TIP_FLIP_MARGIN_PX;
+    setTip({
+      name,
+      description,
+      action,
+      x: rect.left + rect.width / 2,
+      y: below ? rect.bottom + 8 : rect.top - 8,
+      below,
+    });
+  };
 
   return (
     <div className="dp-inv">
@@ -71,6 +96,7 @@ export function DungeonInventoryPanel({ inventory, productById, selectedItemId, 
             const isGlobal = GLOBAL_KINDS.has(kind);
             const element = elementForItem(kind, entry.name);
             const description = entry.description || product?.description || '';
+            const action = isGlobal ? 'Click to activate now' : 'Click, then pick a party member';
             return (
               <button
                 key={entry.itemId}
@@ -79,22 +105,35 @@ export function DungeonInventoryPanel({ inventory, productById, selectedItemId, 
                 data-element={element}
                 style={{ ['--el' as string]: `var(--el-${element})` }}
                 onClick={() => onSelectItem(entry.itemId, !isGlobal)}
+                onMouseEnter={(e) => openTip(e.currentTarget, entry.name, description, action)}
+                onMouseLeave={() => setTip(null)}
+                onFocus={(e) => openTip(e.currentTarget, entry.name, description, action)}
+                onBlur={() => setTip(null)}
                 disabled={busy}
                 aria-pressed={isSelected}
                 aria-label={`${entry.name}, ${entry.qty} in stock${isGlobal ? ' — activate now' : ' — click then pick a party member'}`}
               >
                 <span className="dp-tile-ic" aria-hidden="true">{kindGlyph(kind)}</span>
                 <span className="dp-tile-qty">×{entry.qty}</span>
-                <span className="dp-tip" role="tooltip">
-                  <span className="dp-tip-nm">{entry.name}</span>
-                  {description ? <span className="dp-tip-ds">{description}</span> : null}
-                  <span className="dp-tip-act">{isGlobal ? 'Click to activate now' : 'Click, then pick a party member'}</span>
-                </span>
               </button>
             );
           })}
         </div>
       )}
+      {tip !== null
+        ? createPortal(
+            <div
+              className={`dp-tip-float${tip.below ? ' is-below' : ''}`}
+              role="tooltip"
+              style={{ left: `${tip.x}px`, top: `${tip.y}px` }}
+            >
+              <span className="dp-tip-nm">{tip.name}</span>
+              {tip.description ? <span className="dp-tip-ds">{tip.description}</span> : null}
+              <span className="dp-tip-act">{tip.action}</span>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

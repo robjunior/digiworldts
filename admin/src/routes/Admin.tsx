@@ -1,8 +1,9 @@
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { CatalogTable } from '../components/admin/CatalogTable';
+import { DialoguesAdmin } from '../components/admin/DialoguesAdmin';
 import { DungeonsAdmin } from '../components/admin/DungeonsAdmin';
 import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { NpcsAdmin } from '../components/admin/NpcsAdmin';
@@ -29,6 +30,7 @@ const ADMIN_TABS = [
   { id: 'catalog', label: 'Catalog' },
   { id: 'skills', label: 'Skills' },
   { id: 'npcs', label: 'NPCs' },
+  { id: 'dialogues', label: 'Dialogues' },
   { id: 'shop', label: 'Shop Admin' },
   { id: 'quests', label: 'Quests' },
   { id: 'dungeons', label: 'Dungeons' },
@@ -38,22 +40,22 @@ const ADMIN_TABS = [
   { id: 'settings', label: 'Settings' },
 ] as const;
 
+// Standalone admin routes registered in App.tsx that live outside the tab shell
+// (each is a full-viewport editor with its own layout).
+const ADMIN_EXTERNAL_LINKS = [
+  { to: '/world', label: 'World Editor' },
+  { to: '/particles', label: 'Particles' },
+  { to: '/skill-vfx', label: 'Skill VFX' },
+] as const;
+
 type AdminTab = (typeof ADMIN_TABS)[number]['id'];
 
 export function Admin(): JSX.Element {
   const { user, logout } = useAuth();
   void user;
   void logout;
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = toAdminTab(searchParams.get('tab'));
-
-  if (activeTab === 'scene') {
-    return (
-      <AdminGuard>
-        <SceneSettingsAdmin />
-      </AdminGuard>
-    );
-  }
 
   return (
     <AdminGuard>
@@ -66,9 +68,30 @@ export function Admin(): JSX.Element {
             { label: <><b>{activeTab}</b> tab</> },
           ]}
         />
-        <section className="admin-content" aria-live="polite">
-          <AdminTabPanel tab={activeTab} />
-        </section>
+        <div className="admin-body">
+          <nav className="admin-sidebar-left" aria-label="Admin sections">
+            {ADMIN_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                className={`admin-nav-item${tab.id === activeTab ? ' is-active' : ''}`}
+                aria-current={tab.id === activeTab ? 'page' : undefined}
+                onClick={() => setSearchParams({ tab: tab.id })}
+              >
+                {tab.label}
+              </button>
+            ))}
+            <hr className="admin-nav-divider" role="separator" />
+            {ADMIN_EXTERNAL_LINKS.map((link) => (
+              <Link key={link.to} to={link.to} className="admin-nav-item">
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+          <section className="admin-content" aria-live="polite">
+            <AdminTabPanel tab={activeTab} />
+          </section>
+        </div>
       </>
     </AdminGuard>
   );
@@ -95,6 +118,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <SkillsAdmin />;
     case 'npcs':
       return <NpcsAdmin />;
+    case 'dialogues':
+      return <DialoguesAdmin />;
     case 'shop':
       return <ShopAdmin />;
     case 'quests':

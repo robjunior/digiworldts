@@ -159,15 +159,13 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
     ? `Defeated · ${award.delta} xp`
     : award.delta > 0 ? `+${award.delta} xp` : award.delta < 0 ? `${award.delta} xp` : 'no xp';
   const [done, setDone] = useState(false);
-  const startedRef = useRef(false);
   const onDoneRef = useRef(onDone);
   const fillRef = useRef<HTMLDivElement | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
 
   useEffect(() => {
-    if (!active || startedRef.current) return;
-    startedRef.current = true;
+    if (!active) return;
     const writePct = (pct: number): void => {
       if (fillRef.current !== null) fillRef.current.style.width = `${pct}%`;
       if (wrapperRef.current !== null) {

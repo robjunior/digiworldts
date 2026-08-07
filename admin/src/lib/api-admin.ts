@@ -54,6 +54,13 @@ export type ShopItemView = {
   readonly name: string;
   readonly description: string;
   readonly priceCredits: number;
+  readonly price: number;
+  readonly currency: string;
+  readonly shopCategory: string;
+  readonly featured: boolean;
+  readonly quickOffer: boolean;
+  readonly oneTime: boolean;
+  readonly sortOrder: number;
   readonly kind: ShopItemKind;
   readonly class: ShopItemClass;
   readonly payload: Record<string, unknown>;
@@ -202,6 +209,74 @@ export function updateShopItem(id: string, input: ShopItemInput): Promise<{ read
 
 export function deleteShopItem(id: string): Promise<{ readonly ok: true; readonly item: { readonly id: string } }> {
   return apiFetch<{ readonly ok: true; readonly item: { readonly id: string } }>(`/api/admin/shop/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export type BundleAdminItem = {
+  readonly itemId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly qty: number;
+  readonly unitPrice: number;
+  readonly currency: string;
+  readonly sortOrder: number;
+};
+
+export type BundleAdminView = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly currency: string;
+  readonly discountPct: number;
+  readonly shopCategory: string;
+  readonly sortOrder: number;
+  readonly featured: boolean;
+  readonly quickOffer: boolean;
+  readonly enabled: boolean;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly items: readonly BundleAdminItem[];
+  readonly originalPrice: number;
+  readonly discountedPrice: number;
+  readonly savings: number;
+};
+
+export type BundleItemInput = {
+  readonly itemId: string;
+  readonly qty: number;
+  readonly sortOrder?: number;
+};
+
+export type BundleInput = {
+  readonly name: string;
+  readonly description?: string;
+  readonly currency: 'credits' | 'netcore';
+  readonly discountPct?: number;
+  readonly shopCategory?: string;
+  readonly sortOrder?: number;
+  readonly featured?: boolean;
+  readonly quickOffer?: boolean;
+  readonly enabled?: boolean;
+  readonly items: readonly BundleItemInput[];
+};
+
+export function listBundles(): Promise<{ readonly bundles: readonly BundleAdminView[] }> {
+  return apiFetch<{ readonly bundles: readonly BundleAdminView[] }>('/api/admin/shop/bundles');
+}
+
+export function getBundle(id: string): Promise<{ readonly bundle: BundleAdminView }> {
+  return apiFetch<{ readonly bundle: BundleAdminView }>(`/api/admin/shop/bundles/${encodeURIComponent(id)}`);
+}
+
+export function createBundle(input: BundleInput): Promise<{ readonly ok: true; readonly bundle: BundleAdminView }> {
+  return apiFetch<{ readonly ok: true; readonly bundle: BundleAdminView }>('/api/admin/shop/bundles', { method: 'POST', body: input });
+}
+
+export function updateBundle(id: string, input: BundleInput): Promise<{ readonly ok: true; readonly bundle: BundleAdminView }> {
+  return apiFetch<{ readonly ok: true; readonly bundle: BundleAdminView }>(`/api/admin/shop/bundles/${encodeURIComponent(id)}`, { method: 'PUT', body: input });
+}
+
+export function deleteBundle(id: string): Promise<{ readonly ok: true; readonly bundle: { readonly id: string } }> {
+  return apiFetch<{ readonly ok: true; readonly bundle: { readonly id: string } }>(`/api/admin/shop/bundles/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
 export function getUsers(query: { readonly q?: string; readonly limit?: number; readonly offset?: number }): Promise<UserListResponse> {

@@ -8,8 +8,10 @@ import type {
 } from '@digiworld/shared/weather';
 
 import { RUNNERS } from './attack-runners';
+import { buildPresetRunner } from './attack-runners/preset';
 import type { AnimatedElement, AttackEffect3D, Runner3D } from './attack-runners/types';
 import { DEFAULT_EFFECT_DURATION_S, ELEMENT_LIGHT_COLOR } from './attack-runners/types';
+import { getSkillVfxPresetSync } from '../lib/api-skill-vfx-presets';
 import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPosition, type SpriteRigConfig, type SpriteSide } from './sprite-rig';
 import { ParticleEmitter } from './particles/ParticleEmitter';
 import { ThunderFlashController } from './particles/ThunderFlashController';
@@ -852,19 +854,27 @@ export class SceneManager {
 
   /**
    * "Bare" arena load: intended for scenes with `useGlbSettings=true`.
-   * Skips `setArenaAtmosphere`, disables scene fog, and dims the default
-   * scene lights so the GLB's own lights / environment / cameras dominate
-   * the look. A bare-geometry GLB (no lights) still gets a dim key + hemi
-   * from the manager so it doesn't render pitch-black.
+   * Skips `setArenaAtmosphere` and disables scene fog so the GLB drives the look.
+   * The manager's own rig is only surrendered when the GLB actually ships
+   * KHR_lights_punctual lights; most biome exports carry none, and dimming
+   * unconditionally left those arenas rendering in near-darkness.
    */
   async loadArenaModelBare(url: string): Promise<void> {
     this.currentArenaKey = null;
-    this.scene.fog = null;
-    this.hemi.intensity = 0.15;
-    this.keyLight.intensity = 0.35;
-    this.rimLight.intensity = 0.0;
-    this.fillLight.intensity = 0.0;
     await this.loadArenaModel(url);
+    let glbLightCount = 0;
+    this.arenaGroup.traverse((obj) => {
+      if (obj instanceof THREE.Light) glbLightCount += 1;
+    });
+    if (glbLightCount > 0) {
+      this.hemi.intensity = 0.15;
+      this.keyLight.intensity = 0.35;
+      this.rimLight.intensity = 0.0;
+      this.fillLight.intensity = 0.0;
+    } else {
+      this.applyAtmosphere(DEFAULT_ATMOSPHERE);
+    }
+    this.scene.fog = null;
   }
 
   /**
@@ -1371,7 +1381,7 @@ export class SceneManager {
     element: AnimatedElement,
     sourceUnitId: string | null,
     targetUnitId: string,
-    options: { readonly durationS?: number; readonly onImpact?: () => void } = {},
+    options: { readonly durationS?: number; readonly onImpact?: () => void; readonly vfxPresetId?: string } = {},
   ): string | null {
     const target = this.sprites.get(targetUnitId);
     if (target === undefined) return null;
@@ -1402,6 +1412,15 @@ export class SceneManager {
         originalOnImpact?.();
       },
     };
+
+    if (options.vfxPresetId !== undefined) {
+      const preset = getSkillVfxPresetSync(options.vfxPresetId);
+      if (preset !== null) {
+        const runner = buildPresetRunner(this.scene, wrappedEffect, preset);
+        this.effects.set(id, { runner, elapsed: 0, duration: preset.totalDurationMs / 1000 });
+        return id;
+      }
+    }
 
     const builder = RUNNERS[element];
     const runner = builder(this.scene, wrappedEffect);

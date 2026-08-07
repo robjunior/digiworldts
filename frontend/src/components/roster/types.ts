@@ -137,7 +137,7 @@ export type PerStatTraining = Record<TrainingStat, PoolProgress>;
  *
  * Returns null when the mon has no template (nothing to gate stage on).
  */
-export function perStatTrainingProgress(mon: RosterMon): PerStatTraining | null {
+export function perStatTrainingProgress(mon: Pick<RosterMon, 'template' | 'statBonus' | 'stagePools'>): PerStatTraining | null {
   const stage = mon.template?.stage;
   if (stage === undefined) return null;
   const priorPools: StagePools = mon.stagePools ?? {};

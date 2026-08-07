@@ -5,8 +5,8 @@ import { ApplyDialog } from '../components/shop/ApplyDialog';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 import { getRoster } from '../lib/api';
-import { applyShopItem, buyShopItem, getShop } from '../lib/api-shop';
-import type { InventoryItemView, ShopItemView } from '../lib/api-shop';
+import { applyShopItem, buyShopItem, buyBundle, coinClass, getShop } from '../lib/api-shop';
+import type { InventoryItemView, ShopItemView, BundleView } from '../lib/api-shop';
 import { ApiError } from '../lib/api';
 import '../styles/extensions-shop.css';
 
@@ -39,13 +39,33 @@ function Thumb({ item }: { readonly item: ShopItemView }): JSX.Element {
 }
 
 function PriceLine({ item }: { readonly item: ShopItemView }): JSX.Element {
-  const isPremium = item.currency === 'credits'; 
-  const cssClass = isPremium ? 'gem' : 'cred';
   return (
-    <span className={`price ${cssClass}`}>
+    <span className={`price ${coinClass(item.currency)}`}>
       <span className="coin" />{fmt(item.price)}
     </span>
   );
+}
+
+function BundleThumb({ bundle }: { readonly bundle: BundleView }): JSX.Element {
+  const firstItem = bundle.items[0];
+  if (firstItem?.sprite) {
+    return (
+      <div className="thumb">
+        <img 
+          src={`https://api.skullbot.fr/img/digimon/dot/${firstItem.sprite}.png`} 
+          alt="" 
+          onError={(e) => {
+            const target = e.currentTarget;
+            const span = document.createElement('span');
+            span.className = 'mono';
+            span.textContent = firstItem.mono || bundle.name[0] || '?';
+            target.replaceWith(span);
+          }} 
+        />
+      </div>
+    );
+  }
+  return <div className="thumb"><span className="mono">{firstItem?.mono || bundle.name[0]}</span></div>;
 }
 
 export function Shop(): JSX.Element {
@@ -59,12 +79,15 @@ export function Shop(): JSX.Element {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [confirmItem, setConfirmItem] = useState<ShopItemView | null>(null);
   const [successItem, setSuccessItem] = useState<ShopItemView | null>(null);
+  const [confirmBundle, setConfirmBundle] = useState<BundleView | null>(null);
+  const [successBundle, setSuccessBundle] = useState<BundleView | null>(null);
   const [applyingItem, setApplyingItem] = useState<InventoryItemView | null>(null);
 
   const data = shopQuery.data;
   const featured = data?.featured ?? null;
   const quickOffers = data?.quick ?? [];
   const catalog = data?.catalog ?? [];
+  const bundles = data?.bundles ?? [];
   const categories = data?.categories ?? [];
   const wallet = data?.wallet ?? { credits: 0, netcore: 0 };
   const inventory = data?.inventory ?? [];
@@ -87,6 +110,8 @@ export function Shop(): JSX.Element {
       if (e.key === 'Escape') {
         setConfirmItem(null);
         setSuccessItem(null);
+        setConfirmBundle(null);
+        setSuccessBundle(null);
       }
     };
     document.addEventListener('keydown', handleKey);
@@ -122,6 +147,30 @@ export function Shop(): JSX.Element {
     }
   });
 
+  const buyBundleMutation = useMutation({
+    mutationFn: ({ bundleId }: { readonly bundleId: string }) => buyBundle(bundleId),
+    onSuccess: (_result, variables) => {
+      invalidateShop();
+      setConfirmBundle(null);
+      const bundle = bundles.find(b => b.id === variables.bundleId);
+      if (bundle) {
+        setSuccessBundle(bundle);
+        setToastMsg(`${bundle.name} comprado ✓`);
+      }
+    },
+    onError: (err: unknown) => {
+      setConfirmBundle(null);
+      if (err instanceof ApiError) {
+        if (err.status === 402) setToastMsg('Saldo insuficiente');
+        else if (err.status === 404) setToastMsg('Pacote não encontrado');
+        else if (err.status === 409) setToastMsg('Conflito na compra — tente novamente');
+        else setToastMsg(`Erro: ${err.message}`);
+      } else {
+        setToastMsg('Erro desconhecido');
+      }
+    }
+  });
+
   const applyMutation = useMutation({
     mutationFn: ({ itemId, monId }: { readonly itemId: string; readonly monId?: string }) => applyShopItem(itemId, monId),
     onSuccess: () => {
@@ -149,6 +198,16 @@ export function Shop(): JSX.Element {
       return;
     }
     setConfirmItem(item);
+  };
+
+  const attemptBuyBundle = (bundle: BundleView) => {
+    const balance = bundle.currency === 'credits' ? wallet.credits : wallet.netcore;
+    if (balance < bundle.discountedPrice) {
+      const curName = bundle.currency === 'credits' ? t('currency.credits') : t('currency.netcore');
+      setToastMsg(`Saldo insuficiente · faltam ${fmt(bundle.discountedPrice - balance)} ${curName}`);
+      return;
+    }
+    setConfirmBundle(bundle);
   };
 
   return (
@@ -244,6 +303,48 @@ export function Shop(): JSX.Element {
         </div>
       </div>
 
+      {bundles.length > 0 && (
+        <div className="bundle-section" data-od-id="shop-bundles">
+          <div className="sechd">
+            <h3>Pacotes</h3>
+            <span className="cnt">{bundles.length} {bundles.length === 1 ? 'pacote' : 'pacotes'}</span>
+          </div>
+          {bundles.map(bundle => (
+            <article className="bundle-card" key={bundle.id}>
+              <BundleThumb bundle={bundle} />
+              <div className="cinfo">
+                <div className="cnm">{bundle.name}</div>
+                <div className="csub">{bundle.description}</div>
+                <div className="bundle-items">
+                  {bundle.items.map(i => `${i.qty}× ${i.name}`).join(' · ')}
+                </div>
+              </div>
+              <div className="foot">
+                <div className="bundle-price-line">
+                  <span className="bundle-price-strike">
+                    <span className={`coin ${coinClass(bundle.currency)}`} />
+                    {fmt(bundle.originalPrice)}
+                  </span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 12, height: 12, color: 'var(--muted)' }}><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  <span className={`bundle-price-final ${coinClass(bundle.currency)}`}>
+                    <span className="coin" />
+                    {fmt(bundle.discountedPrice)}
+                    <span className="discount-badge">-{bundle.discountPct}%</span>
+                  </span>
+                </div>
+                <button 
+                  className="buy" 
+                  disabled={buyBundleMutation.isPending}
+                  onClick={() => attemptBuyBundle(bundle)}
+                >
+                  Comprar Pacote
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
       <div className="sechd">
         <h3>{t('shop.catalog')}</h3>
         <span className="cnt" id="cat-count">{filteredCatalog.length} {t('shop.items')}</span>
@@ -254,9 +355,8 @@ export function Shop(): JSX.Element {
           {filteredCatalog.map(item => (
             <article className="card" key={item.id} data-od-id={`shop-card-${item.id}`}>
               <Thumb item={item} />
+              <div className="cnm">{item.name}<span className="csub">{item.description}</span></div>
               <span className="tagpill">{item.shopCategory || 'Item'}</span>
-              <div className="cnm">{item.name}</div>
-              <div className="csub">{item.description}</div>
               <div className="foot">
                 <PriceLine item={item} />
                 {inventory.find(i => i.itemId === item.id && i.qty > 0) ? (
@@ -322,6 +422,45 @@ export function Shop(): JSX.Element {
         </div>
       )}
 
+      {confirmBundle && (
+        <div className="cov show" role="dialog" aria-modal="true" aria-labelledby="cbTitle" onClick={(e) => { if (e.target === e.currentTarget) setConfirmBundle(null); }}>
+          <div className="cmodal">
+            <div className="ek">Confirmar compra de pacote</div>
+            <h3 id="cbTitle">{confirmBundle.name}</h3>
+            <div className="cline">
+              <BundleThumb bundle={confirmBundle} />
+              <div className="cinfo">
+                <div className="n">{confirmBundle.name}</div>
+                <div className="s">{confirmBundle.items.map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+              </div>
+              <span className={`price ${coinClass(confirmBundle.currency)}`}>
+                <span className="coin" />{fmt(confirmBundle.discountedPrice)}
+              </span>
+            </div>
+            <div className="cwallet">
+              <div className="wr">
+                <span>Saldo atual</span>
+                <b>{fmt(confirmBundle.currency === 'credits' ? wallet.credits : wallet.netcore)} {confirmBundle.currency === 'credits' ? t('currency.credits') : t('currency.netcore')}</b>
+              </div>
+              <div className="wr">
+                <span>Custo</span>
+                <b>−{fmt(confirmBundle.discountedPrice)}</b>
+              </div>
+              <div className="wr after">
+                <span>Saldo após compra</span>
+                <b>{fmt((confirmBundle.currency === 'credits' ? wallet.credits : wallet.netcore) - confirmBundle.discountedPrice)}</b>
+              </div>
+            </div>
+            <div className="cactions">
+              <button className="buy ghost" onClick={() => setConfirmBundle(null)}>Cancelar</button>
+              <button className="buy" onClick={() => buyBundleMutation.mutate({ bundleId: confirmBundle.id })} disabled={buyBundleMutation.isPending}>
+                {buyBundleMutation.isPending ? 'Comprando...' : 'Confirmar compra'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {successItem && (
         <div className="cov show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setSuccessItem(null); }}>
           <div className="cmodal">
@@ -333,6 +472,23 @@ export function Shop(): JSX.Element {
               <p>{successItem.name} · {fmt(successItem.price)} {successItem.currency === 'credits' ? t('currency.credits') : t('currency.netcore')}<br/>{t('shop.acquired')}</p>
               <div className="cactions">
                 <button className="buy" onClick={() => setSuccessItem(null)}>Continuar comprando</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {successBundle && (
+        <div className="cov show" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) setSuccessBundle(null); }}>
+          <div className="cmodal">
+            <div className="csuccess">
+              <div className="badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4}><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+              <h3>Pacote comprado</h3>
+              <p>{successBundle.name} · {fmt(successBundle.discountedPrice)} {successBundle.currency === 'credits' ? t('currency.credits') : t('currency.netcore')}<br/>{t('shop.acquired')}</p>
+              <div className="cactions">
+                <button className="buy" onClick={() => setSuccessBundle(null)}>Continuar comprando</button>
               </div>
             </div>
           </div>

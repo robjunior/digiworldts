@@ -1,9 +1,11 @@
 import type { JSX } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 import { ELEMENT_TO_ARENA_KEY, type SceneEntity } from '@digiworld/shared/scene';
-import { WEATHER_PRESETS, TIME_PHASES, type WeatherConfig, type TimeOfDayConfig, type WeatherPreset, type TimePhase } from '@digiworld/shared/weather';
+import { WEATHER_PRESETS, TIME_PHASES, WeatherConfigZ, type WeatherConfig, type TimeOfDayConfig, type WeatherPreset, type TimePhase } from '@digiworld/shared/weather';
+
+import { WEATHER_EMITTER_PRESETS } from '../../scene3d/particles/presets';
 
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
@@ -286,7 +288,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   return (
-    <div className="scene-admin scene-admin-fullsize scene-admin-crud">
+    <div className="scene-admin scene-admin-crud">
       <aside className="scene-admin-list-panel" aria-label="Scene list">
         <header className="scene-admin-list-header">
           <h2>Scenes</h2>
@@ -325,7 +327,12 @@ export function SceneSettingsAdmin(): JSX.Element {
       ) : (
         <>
           <section className="scene-admin-canvas-layer" aria-label="Live scene preview">
-            <ScenePreview arenaKey={previewArenaKey} settings={effectiveSettings} />
+            <ScenePreview
+              arenaKey={previewArenaKey}
+              settings={effectiveSettings}
+              weather={draft.weather}
+              timeOfDay={draft.timeOfDay}
+            />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
             <div className="scene-admin-trigger-tile" style={{ padding: '12px 16px', borderBottom: '1px solid #2a3441', display: 'flex', alignItems: 'center', gap: '16px', background: '#171e28' }}>
@@ -556,8 +563,8 @@ export function SceneSettingsAdmin(): JSX.Element {
                     )}
 
                     <details style={{ marginTop: '12px' }}>
-                      <summary style={{ cursor: 'pointer', color: '#60a5fa', fontSize: '13px' }}>Advanced: edit emitters JSON</summary>
-                      <EmitterJsonEditor emitters={draft.weather.emitters} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: { ...p.weather!, emitters: v } })} />
+                      <summary style={{ cursor: 'pointer', color: '#60a5fa', fontSize: '13px' }}>Advanced: edit full weather JSON</summary>
+                      <WeatherJsonEditor weather={draft.weather} onChange={(v) => setDraft((p) => p === null ? p : { ...p, weather: v })} />
                     </details>
                   </>
                 )}
@@ -729,40 +736,94 @@ function StringSelectRow({ label, value, options, onChange }: {
   );
 }
 
-function EmitterJsonEditor({ emitters, onChange }: { readonly emitters: readonly any[]; readonly onChange: (emitters: readonly any[]) => void }): JSX.Element {
-  const [text, setText] = useState(() => JSON.stringify(emitters, null, 2));
-  const [error, setError] = useState<string | null>(null);
+function WeatherJsonEditor({ weather, onChange }: { readonly weather: WeatherConfig; readonly onChange: (weather: WeatherConfig) => void }): JSX.Element {
+  const serialized = useMemo(() => JSON.stringify(weather, null, 2), [weather]);
+  const [text, setText] = useState(serialized);
+  const [issues, setIssues] = useState<readonly string[]>([]);
+
+  // Resync textarea from prop changes (sliders/preset) only when the buffer has no in-progress edits to lose.
+  const lastApplied = useRef(serialized);
+  const dirty = text !== lastApplied.current;
 
   useEffect(() => {
-    setText(JSON.stringify(emitters, null, 2));
-    setError(null);
-  }, [emitters]);
-
-  const handleBlur = () => {
-    try {
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) throw new Error('Emitters must be an array');
-      onChange(parsed);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid JSON');
-      alert('Invalid emitter JSON: reverting.');
-      setText(JSON.stringify(emitters, null, 2));
+    if (!dirty) {
+      lastApplied.current = serialized;
+      setText(serialized);
+      setIssues([]);
     }
+  }, [serialized, dirty]);
+
+  const parse = (value: string): { readonly ok: true; readonly data: WeatherConfig } | { readonly ok: false; readonly issues: readonly string[] } => {
+    let raw: unknown;
+    try {
+      raw = JSON.parse(value);
+    } catch (err) {
+      return { ok: false, issues: [err instanceof Error ? `JSON parse error: ${err.message}` : 'Invalid JSON'] };
+    }
+    const result = WeatherConfigZ.safeParse(raw);
+    if (result.success) return { ok: true, data: result.data };
+    return { ok: false, issues: result.error.issues.map((issue) => `${issue.path.length > 0 ? issue.path.join('.') : '(root)'}: ${issue.message}`) };
   };
+
+  const apply = (value: string): void => {
+    const parsed = parse(value);
+    if (!parsed.ok) {
+      setIssues(parsed.issues);
+      return;
+    }
+    onChange(parsed.data);
+    lastApplied.current = value;
+    setIssues([]);
+  };
+
+  const valid = issues.length === 0;
 
   return (
     <div className="scene-admin-row" style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '12px 16px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '8px' }}>
-        <span className="scene-admin-label">Emitters JSON</span>
-        {error !== null && <span style={{ color: '#f87171', fontSize: '0.8rem' }}>{error}</span>}
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '8px', alignItems: 'center' }}>
+        <span className="scene-admin-label">Weather JSON</span>
+        <span style={{ color: valid ? '#4ade80' : '#f87171', fontSize: '0.8rem' }}>
+          {valid ? '✓ valid' : `${issues.length} issue${issues.length === 1 ? '' : 's'}`}
+        </span>
       </div>
       <textarea
         value={text}
-        onChange={(e) => setText(e.currentTarget.value)}
-        onBlur={handleBlur}
+        spellCheck={false}
+        onChange={(e) => {
+          const value = e.currentTarget.value;
+          setText(value);
+          const parsed = parse(value);
+          setIssues(parsed.ok ? [] : parsed.issues);
+        }}
+        onKeyDown={(e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            apply(text);
+          }
+        }}
         style={{ width: '100%', minHeight: '200px', fontFamily: 'monospace', fontSize: '13px', background: '#0d1117', color: '#e5e7eb', border: '1px solid #374151', padding: '8px', borderRadius: '4px' }}
       />
+      <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+        <button
+          type="button"
+          onClick={() => {
+            const preset = WEATHER_EMITTER_PRESETS[weather.preset] ?? weather;
+            const value = JSON.stringify(preset, null, 2);
+            setText(value);
+            lastApplied.current = value;
+            setIssues([]);
+          }}
+        >
+          Load preset JSON
+        </button>
+        <button type="button" disabled={!valid} onClick={() => apply(text)}>Apply (Ctrl+Enter)</button>
+      </div>
+      {issues.length > 0 && (
+        <ul style={{ margin: '8px 0 0 0', paddingLeft: '18px', color: '#f87171', fontSize: '0.8rem', width: '100%', gridColumn: '1 / -1', overflowWrap: 'anywhere' }}>
+          {issues.slice(0, 8).map((issue) => <li key={issue}>{issue}</li>)}
+          {issues.length > 8 ? <li>… and {issues.length - 8} more</li> : null}
+        </ul>
+      )}
     </div>
   );
 }

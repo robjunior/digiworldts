@@ -26,6 +26,8 @@ import {
   setSessionCookie,
   checkLoginThrottle,
   recordLoginAttempt,
+  checkRegisterThrottle,
+  recordRegisterAttempt,
 } from './session.js';
 import { config } from '../config.js';
 import { seedFactoryStarterForUser, seedFarmForUser } from '../farm/engine.js';
@@ -189,16 +191,34 @@ export const authPlugin: FastifyPluginAsync = async (app: FastifyInstance): Prom
       });
     }
 
+    const ip = clientIp(req);
+    const throttle = await checkRegisterThrottle(ip);
+    if (!throttle.allowed) {
+      return reply
+        .code(429)
+        .header('Retry-After', String(throttle.retryInSec))
+        .send({ error: throttle.reason });
+    }
+
     const parsed = RegisterSchema.safeParse(req.body);
     if (!parsed.success) {
+      await recordRegisterAttempt(ip);
       return reply.code(400).send({ error: 'invalid registration', details: parsed.error.issues });
     }
     const { username, displayName, password, firstName, lastName, email } = parsed.data;
-    const policy = validatePasswordPolicy(password);
-    if (!policy.ok) return reply.code(400).send({ error: policy.reason });
+    const policy = validatePasswordPolicy(password, { username });
+    if (!policy.ok) {
+      await recordRegisterAttempt(ip);
+      return reply.code(400).send({ error: policy.reason });
+    }
 
     const existing = await one<UserRow>(SQL_SELECT_BY_USERNAME, username);
-    if (existing) return reply.code(409).send({ error: 'username is taken' });
+    if (existing) {
+      await recordRegisterAttempt(ip);
+      return reply.code(409).send({ error: 'username is taken' });
+    }
+
+    await recordRegisterAttempt(ip);
 
     const now = Date.now();
     const id = newId('usr');

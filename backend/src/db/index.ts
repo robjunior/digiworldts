@@ -228,6 +228,7 @@ export type SkillCatalogRow = {
   slot_role: string | null;
   upgrade_of: string | null;
   tier_2: 0 | 1;
+  vfx_preset_id: string | null;
 };
 
 export type MatchRow = {

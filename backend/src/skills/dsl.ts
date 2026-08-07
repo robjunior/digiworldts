@@ -37,6 +37,8 @@ export const TARGETS = [
   'enemy_slot_0',
   'enemy_slot_1',
   'enemy_slot_2',
+  'player_pick_2',
+  'player_pick_3',
 ] as const;
 export type Target = (typeof TARGETS)[number];
 const TargetSchema = z.enum(TARGETS);

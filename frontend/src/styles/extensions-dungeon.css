@@ -565,25 +565,23 @@
   clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
 }
 
-.dungeon-page .rail .dp-tip {
-  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+.dp-tip-float {
+  position: fixed; transform: translate(-50%, -100%);
   min-width: 180px; max-width: 240px; padding: 8px 10px;
   background: var(--bg); border: 1px solid var(--hair);
   clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   display: flex; flex-direction: column; gap: 4px;
-  opacity: 0; visibility: hidden; pointer-events: none; z-index: 10;
-  transition: opacity 0.12s;
+  pointer-events: none; z-index: 95;
   text-align: left;
 }
-.dungeon-page .rail .dp-tile:hover .dp-tip,
-.dungeon-page .rail .dp-tile:focus-visible .dp-tip { opacity: 1; visibility: visible; }
-.dungeon-page .rail .dp-tip-nm {
+.dp-tip-float.is-below { transform: translate(-50%, 0); }
+.dp-tip-float .dp-tip-nm {
   font: 800 11px/1.1 var(--font); color: var(--ink);
 }
-.dungeon-page .rail .dp-tip-ds {
+.dp-tip-float .dp-tip-ds {
   font: 500 10px/1.35 var(--font); color: var(--muted);
 }
-.dungeon-page .rail .dp-tip-act {
+.dp-tip-float .dp-tip-act {
   font: 700 8px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--signal); padding-top: 4px; border-top: 1px solid var(--hair);
 }

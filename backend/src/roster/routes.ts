@@ -3,7 +3,8 @@
  *
  * Contract:
  *   - Every player, on registration, gets THREE random Rookies from the
- *     XML catalog as a starter roster (auto-assigned to party slots 0/1/2).
+ *     XML catalog as a starter roster (auto-assigned to party slots 0/1/2),
+ *     plus a starter kit of healing and revive consumables.
  *     If the catalog has fewer than 3 usable templates the seed is deferred
  *     — the player sees a friendly "waiting for catalog" state and the
  *     admin can fill it in later.
@@ -47,6 +48,9 @@ const SQL_UPDATE_NICKNAME = `UPDATE player_roster SET nickname = ?, updated_at =
 const SQL_COUNT = `SELECT COUNT(*) AS n FROM player_roster WHERE user_id = ?`;
 const SQL_CLEAR_REVIVE_AT = `UPDATE player_roster SET revive_at = NULL, current_hp = NULL, current_en = NULL, updated_at = ? WHERE id = ? AND user_id = ?`;
 const SQL_SELECT_INVENTORY_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
+const SQL_GRANT_STARTER_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at)
+     SELECT ?, id, ?, ? FROM shop_items WHERE id = ? AND enabled = 1
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
 const SQL_UPDATE_EQUIPPED_SKILLS = `UPDATE player_roster SET equipped_skill_ids = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 
@@ -188,6 +192,12 @@ function rowToView(row: RosterRow, template: TemplateDigimon | null): RosterView
 // Seeding
 // ============================================================================
 
+const STARTER_ITEM_GRANTS: ReadonlyArray<readonly [itemId: string, qty: number]> = [
+  ['itm-heal-small', 5],
+  ['itm-heal-large', 5],
+  ['itm-digi-revive', 6],
+];
+
 function pickStarterTemplates(all: TemplateDigimon[], count: number): TemplateDigimon[] {
   const rookies = all.filter((t) => t.stage === 'Rookie');
   const pool = rookies.length >= count ? rookies : all;
@@ -222,8 +232,11 @@ export async function seedStarterRoster(userId: string): Promise<{ seeded: numbe
         now,
       ]);
     }
+    for (const [itemId, qty] of STARTER_ITEM_GRANTS) {
+      await t.run(SQL_GRANT_STARTER_ITEM, [userId, qty, now, itemId]);
+    }
   });
-  log.info('roster.seed.ok', { userId, count: starters.length });
+  log.info('roster.seed.ok', { userId, count: starters.length, items: STARTER_ITEM_GRANTS.length });
   return { seeded: starters.length };
 }
 
@@ -367,6 +380,9 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
 
   app.post('/api/roster/seed', async (req, reply) => {
     const user = await requireAuth(req, reply);
+    if (!user.onboardingCompleted) {
+      return reply.code(409).send({ error: 'not-onboarded', message: 'Pick a starter team from /intro first.' });
+    }
     const outcome = await seedStarterRoster(user.id);
     if (outcome.seeded === 0 && outcome.reason === 'catalog-empty') {
       return reply.code(409).send({ error: 'catalog-empty', message: 'catalog is empty — ask the admin to seed it' });

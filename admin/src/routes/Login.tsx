@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { useAuth } from '../hooks/useAuth';
@@ -24,9 +24,13 @@ export function Login(): JSX.Element {
 
   const nextParam = params.get('next');
   const nextPath = nextParam && nextParam.startsWith('/') ? nextParam : '/';
+  const alreadyAuthedAdmin = status === 'authed' && user?.isAdmin === true;
 
-  if (status === 'authed' && user?.isAdmin === true) {
-    navigate(nextPath, { replace: true });
+  useEffect(() => {
+    if (alreadyAuthedAdmin) navigate(nextPath, { replace: true });
+  }, [alreadyAuthedAdmin, nextPath, navigate]);
+
+  if (alreadyAuthedAdmin) {
     return <div aria-hidden="true" />;
   }
 

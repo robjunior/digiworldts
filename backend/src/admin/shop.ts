@@ -6,7 +6,7 @@
  *   it hides it from the shop and new purchases, but keeps existing inventory usable
  *   and preserves FKs.
  */
-import { one, q, run, type ShopItemRow } from '../db/index.js';
+import { one, q, run, tx, type ShopItemRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 
@@ -228,4 +228,257 @@ export async function deleteShopItem(id: string): Promise<ShopItemOutcome<{ id: 
   await run(SQL_SOFT_DELETE, id);
   log.info('shop.item.delete', { id, name: existing.name });
   return { ok: true, item: { id } };
+}
+
+const SQL_BUNDLE_LIST_ALL = `SELECT * FROM shop_bundles ORDER BY sort_order ASC, name ASC`;
+const SQL_BUNDLE_BY_ID = `SELECT * FROM shop_bundles WHERE id = ?`;
+const SQL_BUNDLE_INSERT = `INSERT INTO shop_bundles (id, name, description, currency, discount_pct, shop_category, sort_order, featured, quick_offer, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_BUNDLE_UPDATE = `UPDATE shop_bundles SET name = ?, description = ?, currency = ?, discount_pct = ?, shop_category = ?, sort_order = ?, featured = ?, quick_offer = ?, enabled = ?, updated_at = ? WHERE id = ?`;
+const SQL_BUNDLE_DELETE = `DELETE FROM shop_bundles WHERE id = ?`;
+const SQL_BUNDLE_ITEM_INSERT = `INSERT INTO shop_bundle_items (bundle_id, item_id, qty, sort_order) VALUES (?, ?, ?, ?)`;
+const SQL_BUNDLE_ITEM_DELETE_ALL = `DELETE FROM shop_bundle_items WHERE bundle_id = ?`;
+const SQL_BUNDLE_ITEM_JOIN = `SELECT bi.bundle_id, bi.item_id, bi.qty, bi.sort_order, s.name, s.description, s.price, s.currency
+  FROM shop_bundle_items bi JOIN shop_items s ON s.id = bi.item_id WHERE bi.bundle_id = ? ORDER BY bi.sort_order ASC, s.name ASC`;
+const SQL_ITEM_EXISTS = `SELECT id, currency FROM shop_items WHERE id = ? AND enabled = 1`;
+
+type BundleRow = {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  discount_pct: number;
+  shop_category: string;
+  sort_order: number;
+  featured: number;
+  quick_offer: number;
+  enabled: number;
+  created_at: number;
+  updated_at: number;
+};
+
+type BundleItemJoinRow = {
+  bundle_id: string;
+  item_id: string;
+  qty: number;
+  sort_order: number;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+};
+
+export type BundleAdminItem = {
+  itemId: string;
+  name: string;
+  description: string;
+  qty: number;
+  unitPrice: number;
+  currency: string;
+  sortOrder: number;
+};
+
+export type BundleAdminView = {
+  id: string;
+  name: string;
+  description: string;
+  currency: string;
+  discountPct: number;
+  shopCategory: string;
+  sortOrder: number;
+  featured: boolean;
+  quickOffer: boolean;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+  items: BundleAdminItem[];
+  originalPrice: number;
+  discountedPrice: number;
+  savings: number;
+};
+
+export type BundleItemInput = {
+  itemId: string;
+  qty: number;
+  sortOrder?: number;
+};
+
+export type BundleInput = {
+  name: string;
+  description?: string;
+  currency: string;
+  discountPct?: number;
+  shopCategory?: string;
+  sortOrder?: number;
+  featured?: boolean;
+  quickOffer?: boolean;
+  enabled?: boolean;
+  items: BundleItemInput[];
+};
+
+export type BundleError =
+  | 'not-found'
+  | 'invalid-name'
+  | 'invalid-currency'
+  | 'invalid-discount'
+  | 'invalid-items'
+  | 'invalid-item-ref'
+  | 'currency-mismatch'
+  | 'duplicate-item';
+
+export type BundleOutcome<T> =
+  | { ok: true; bundle: T }
+  | { ok: false; error: BundleError; message?: string };
+
+function bundleRowToView(row: BundleRow, items: BundleAdminItem[]): BundleAdminView {
+  const originalPrice = items.reduce((sum, it) => sum + it.unitPrice * it.qty, 0);
+  const clamped = Math.max(0, Math.min(100, row.discount_pct));
+  const discountedPrice = Math.max(0, Math.round(originalPrice * (1 - clamped / 100)));
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    currency: row.currency,
+    discountPct: row.discount_pct,
+    shopCategory: row.shop_category,
+    sortOrder: row.sort_order,
+    featured: row.featured === 1,
+    quickOffer: row.quick_offer === 1,
+    enabled: row.enabled === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    items,
+    originalPrice,
+    discountedPrice,
+    savings: originalPrice - discountedPrice,
+  };
+}
+
+async function fetchBundleItems(bundleId: string): Promise<BundleAdminItem[]> {
+  const rows = await q<BundleItemJoinRow>(SQL_BUNDLE_ITEM_JOIN, bundleId);
+  return rows.map((r) => ({
+    itemId: r.item_id,
+    name: r.name,
+    description: r.description,
+    qty: r.qty,
+    unitPrice: r.price,
+    currency: r.currency,
+    sortOrder: r.sort_order,
+  }));
+}
+
+function validateBundleInput(input: BundleInput): BundleError | null {
+  const name = input.name?.trim();
+  if (!name || name.length < 2 || name.length > 64) return 'invalid-name';
+  if (input.currency !== 'credits' && input.currency !== 'netcore') return 'invalid-currency';
+  if (input.discountPct !== undefined && (input.discountPct < 0 || input.discountPct > 100 || !Number.isFinite(input.discountPct))) return 'invalid-discount';
+  if (!Array.isArray(input.items) || input.items.length === 0) return 'invalid-items';
+  const seen = new Set<string>();
+  for (const it of input.items) {
+    if (typeof it.itemId !== 'string' || it.itemId.length === 0) return 'invalid-items';
+    if (typeof it.qty !== 'number' || it.qty < 1 || it.qty > 99 || !Number.isSafeInteger(it.qty)) return 'invalid-items';
+    if (seen.has(it.itemId)) return 'duplicate-item';
+    seen.add(it.itemId);
+  }
+  return null;
+}
+
+async function assertItemsMatchCurrency(items: BundleItemInput[], currency: string): Promise<BundleError | null> {
+  for (const it of items) {
+    const row = await one<{ id: string; currency: string }>(SQL_ITEM_EXISTS, it.itemId);
+    if (!row) return 'invalid-item-ref';
+    if (row.currency !== currency) return 'currency-mismatch';
+  }
+  return null;
+}
+
+export async function listBundles(): Promise<BundleAdminView[]> {
+  const rows = await q<BundleRow>(SQL_BUNDLE_LIST_ALL);
+  const views: BundleAdminView[] = [];
+  for (const row of rows) {
+    const items = await fetchBundleItems(row.id);
+    views.push(bundleRowToView(row, items));
+  }
+  return views;
+}
+
+export async function getBundle(id: string): Promise<BundleAdminView | null> {
+  const row = await one<BundleRow>(SQL_BUNDLE_BY_ID, id);
+  if (!row) return null;
+  const items = await fetchBundleItems(row.id);
+  return bundleRowToView(row, items);
+}
+
+export async function createBundle(input: BundleInput): Promise<BundleOutcome<BundleAdminView>> {
+  const validation = validateBundleInput(input);
+  if (validation) return { ok: false, error: validation };
+  const currencyErr = await assertItemsMatchCurrency(input.items, input.currency);
+  if (currencyErr) return { ok: false, error: currencyErr };
+  const id = newId('bnd');
+  const now = Date.now();
+  await tx(async (t) => {
+    await t.run(SQL_BUNDLE_INSERT, [
+      id,
+      input.name.trim(),
+      input.description?.trim() ?? '',
+      input.currency,
+      Math.max(0, Math.min(100, input.discountPct ?? 0)),
+      input.shopCategory?.trim() || 'bundle',
+      input.sortOrder ?? 0,
+      input.featured === true ? 1 : 0,
+      input.quickOffer === true ? 1 : 0,
+      input.enabled === false ? 0 : 1,
+      now,
+      now,
+    ]);
+    for (let i = 0; i < input.items.length; i++) {
+      const it = input.items[i]!;
+      await t.run(SQL_BUNDLE_ITEM_INSERT, [id, it.itemId, it.qty, it.sortOrder ?? i]);
+    }
+  });
+  const created = await getBundle(id);
+  if (!created) return { ok: false, error: 'not-found' };
+  log.info('shop.bundle.create', { id, name: created.name, itemCount: created.items.length });
+  return { ok: true, bundle: created };
+}
+
+export async function updateBundle(id: string, input: BundleInput): Promise<BundleOutcome<BundleAdminView>> {
+  const existing = await one<BundleRow>(SQL_BUNDLE_BY_ID, id);
+  if (!existing) return { ok: false, error: 'not-found' };
+  const validation = validateBundleInput(input);
+  if (validation) return { ok: false, error: validation };
+  const currencyErr = await assertItemsMatchCurrency(input.items, input.currency);
+  if (currencyErr) return { ok: false, error: currencyErr };
+  const now = Date.now();
+  await tx(async (t) => {
+    await t.run(SQL_BUNDLE_UPDATE, [
+      input.name.trim(),
+      input.description?.trim() ?? '',
+      input.currency,
+      Math.max(0, Math.min(100, input.discountPct ?? 0)),
+      input.shopCategory?.trim() || existing.shop_category,
+      input.sortOrder ?? existing.sort_order,
+      input.featured === true ? 1 : 0,
+      input.quickOffer === true ? 1 : 0,
+      input.enabled === false ? 0 : 1,
+      now,
+      id,
+    ]);
+    await t.run(SQL_BUNDLE_ITEM_DELETE_ALL, [id]);
+    for (let i = 0; i < input.items.length; i++) {
+      const it = input.items[i]!;
+      await t.run(SQL_BUNDLE_ITEM_INSERT, [id, it.itemId, it.qty, it.sortOrder ?? i]);
+    }
+  });
+  const updated = await getBundle(id);
+  if (!updated) return { ok: false, error: 'not-found' };
+  log.info('shop.bundle.update', { id, name: updated.name, itemCount: updated.items.length });
+  return { ok: true, bundle: updated };
+}
+
+export async function deleteBundle(id: string): Promise<BundleOutcome<{ id: string }>> {
+  const existing = await one<BundleRow>(SQL_BUNDLE_BY_ID, id);
+  if (!existing) return { ok: false, error: 'not-found' };
+  await run(SQL_BUNDLE_DELETE, id);
+  log.info('shop.bundle.delete', { id, name: existing.name });
+  return { ok: true, bundle: { id } };
 }

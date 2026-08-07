@@ -15,7 +15,7 @@ import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
 import { Intro } from './routes/Intro';
-import { Items } from './routes/Items';
+import { Inventory } from './routes/Inventory';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
@@ -85,7 +85,7 @@ export function App(): JSX.Element {
               <Route path="/adventure" element={<Adventure />} />
               <Route path="/training" element={<Training />} />
               <Route path="/shop" element={<Shop />} />
-              <Route path="/items" element={<Items />} />
+              <Route path="/items" element={<Inventory />} />
               <Route path="/market" element={<Market />} />
               <Route path="/nursery" element={<Nursery />} />
               <Route path="/world" element={<World />} />

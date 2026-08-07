@@ -28,11 +28,21 @@ export const SESSION_COOKIE_NAME = 'digiworld_sid';
 const TTL_MS = config.SESSION_TTL_HOURS * 60 * 60 * 1000;
 const TTL_SEC = Math.ceil(TTL_MS / 1000);
 const RENEW_THRESHOLD_MS = Math.floor(TTL_MS / 2);
+/**
+ * Absolute session ceiling. Sliding-renewal (above) keeps a live session alive
+ * as long as it's used, which is convenient but means a stolen cookie can live
+ * forever. The absolute cap forces every session to expire at a deterministic
+ * moment even under continuous use, bounding the blast radius of theft. On
+ * expiry the user re-authenticates (any auth method — password, reset token,
+ * OAuth). Configurable via SESSION_ABSOLUTE_CAP_DAYS (default 30).
+ */
+const ABSOLUTE_CAP_MS = config.SESSION_ABSOLUTE_CAP_DAYS * 24 * 60 * 60 * 1000;
 
 const K_SESSION = (token: string): string => `session:${token}`;
 const K_USER_SESSIONS = (userId: string): string => `usessions:${userId}`;
 const K_LOGIN_FAIL_USER = (name: string): string => `loginfail:user:${name.toLowerCase()}`;
 const K_LOGIN_FAIL_IP = (ip: string): string => `loginfail:ip:${ip}`;
+const K_REGISTER_FAIL_IP = (ip: string): string => `regfail:ip:${ip}`;
 
 const SQL_SELECT_USER_BY_ID = `SELECT * FROM users WHERE id = ?`;
 
@@ -93,6 +103,11 @@ export async function resolveSession(token: string | undefined): Promise<Session
     await cluster.zrem(K_USER_SESSIONS(stored.userId), token);
     return null;
   }
+  if (now - stored.createdAt > ABSOLUTE_CAP_MS) {
+    await cluster.del(K_SESSION(token));
+    await cluster.zrem(K_USER_SESSIONS(stored.userId), token);
+    return null;
+  }
   const user = await one<UserRow>(SQL_SELECT_USER_BY_ID, stored.userId);
   if (!user || user.disabled === 1) {
     await cluster.del(K_SESSION(token));
@@ -100,9 +115,11 @@ export async function resolveSession(token: string | undefined): Promise<Session
   }
   let expiresAt = stored.expiresAt;
   if (stored.expiresAt - now < RENEW_THRESHOLD_MS) {
-    expiresAt = now + TTL_MS;
+    const cappedExpiresAt = Math.min(now + TTL_MS, stored.createdAt + ABSOLUTE_CAP_MS);
+    expiresAt = cappedExpiresAt;
     stored.expiresAt = expiresAt;
-    await cluster.set(K_SESSION(token), JSON.stringify(stored), TTL_SEC);
+    const remainingSec = Math.max(1, Math.ceil((expiresAt - now) / 1000));
+    await cluster.set(K_SESSION(token), JSON.stringify(stored), remainingSec);
     await cluster.zadd(K_USER_SESSIONS(user.id), expiresAt, token);
   }
   return { token, user, expiresAt };
@@ -217,4 +234,30 @@ export async function checkLoginThrottle(username: string, ip: string | undefine
 /** No-op — cluster TTLs expire counters automatically. Kept for API parity. */
 export async function pruneOldLoginAttempts(): Promise<number> {
   return 0;
+}
+
+// ============================================================================
+// Register throttling (cluster counters with TTL — per-IP only)
+// ============================================================================
+
+const REGISTER_WINDOW_SEC = 15 * 60;
+const MAX_REGISTER_ATTEMPTS_PER_IP = 5;
+
+export async function recordRegisterAttempt(ip: string | undefined): Promise<void> {
+  if (!ip) return;
+  const cluster = await getCluster();
+  const key = K_REGISTER_FAIL_IP(ip);
+  const raw = await cluster.get(key);
+  const n = raw ? Number(raw) + 1 : 1;
+  await cluster.set(key, String(n), REGISTER_WINDOW_SEC);
+}
+
+export async function checkRegisterThrottle(ip: string | undefined): Promise<ThrottleCheck> {
+  if (!ip) return { allowed: true };
+  const cluster = await getCluster();
+  const n = Number((await cluster.get(K_REGISTER_FAIL_IP(ip))) ?? '0');
+  if (n >= MAX_REGISTER_ATTEMPTS_PER_IP) {
+    return { allowed: false, reason: 'too many registrations from your address', retryInSec: REGISTER_WINDOW_SEC };
+  }
+  return { allowed: true };
 }

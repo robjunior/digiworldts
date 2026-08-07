@@ -5,8 +5,8 @@ import { ALL_SKILL_SEEDS, type SkillSeed } from './seeds/index.js';
 
 const SQL_UPSERT_V2 = `INSERT INTO skills_catalog
   (id, name, description, element, energy_cost, cooldown, actions_json, tags_json, animation, enabled,
-   name_pt, description_pt, stage, slot_role, upgrade_of, tier_2, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+   name_pt, description_pt, stage, slot_role, upgrade_of, tier_2, vfx_preset_id, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT (name) DO NOTHING`;
 
 export type SeedV2Result = {
@@ -54,6 +54,7 @@ export async function seedSkillsCatalogV2(): Promise<SeedV2Result> {
       seed.slot_role,
       seed.upgrade_of ?? null,
       seed.tier_2 === true ? 1 : 0,
+      null,
       now,
       now,
     );

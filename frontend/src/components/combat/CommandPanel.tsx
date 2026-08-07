@@ -10,18 +10,19 @@ type CommandPanelProps = {
   readonly mode: CommandMode;
   readonly actor: FriendlyUnitView | null;
   readonly target: EnemyUnitView | null;
+  readonly aliveEnemies: readonly EnemyUnitView[];
   readonly friendly: readonly FriendlyUnitView[];
   readonly yourTurn: boolean;
   readonly pveMode: boolean;
   readonly onMode: (mode: CommandMode) => void;
   readonly onFight: (targetId: UnitId) => void;
-  readonly onSkill: (skillId: string, targetId: UnitId) => void;
+  readonly onSkill: (skillId: string, targetId: UnitId, extraTargetIds?: readonly UnitId[]) => void;
   readonly onUseItem: (itemId: string, targetId: UnitId) => void;
   readonly onFlee: () => void;
 };
 
 export function CommandPanel(props: CommandPanelProps): JSX.Element {
-  const { mode, actor, target, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
+  const { mode, actor, target, aliveEnemies, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
 
   if (!yourTurn) {
     return (
@@ -47,6 +48,7 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
       mode={mode}
       actor={actor}
       target={target}
+      aliveEnemies={aliveEnemies}
       friendly={friendly}
       pveMode={pveMode}
       onMode={onMode}
@@ -59,7 +61,7 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
 }
 
 function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly actor: FriendlyUnitView }): JSX.Element {
-  const { mode, actor, target, friendly, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
+  const { mode, actor, target, aliveEnemies, friendly, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
   switch (mode) {
     case 'menu':
       return (
@@ -72,7 +74,7 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
         />
       );
     case 'skills':
-      return <SkillMenu unit={actor} target={target} onSkill={onSkill} onBack={() => onMode('menu')} />;
+      return <SkillMenu unit={actor} target={target} aliveEnemies={aliveEnemies} onSkill={onSkill} onBack={() => onMode('menu')} />;
     case 'items':
       return <ItemsMenu actor={actor} friendly={friendly} onUseItem={onUseItem} onBack={() => onMode('menu')} />;
     case 'target-fight':
@@ -86,7 +88,7 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
         />
       );
     case 'target-skill':
-      return <SkillMenu unit={actor} target={target} onSkill={onSkill} onBack={() => onMode('menu')} />;
+      return <SkillMenu unit={actor} target={target} aliveEnemies={aliveEnemies} onSkill={onSkill} onBack={() => onMode('menu')} />;
     default:
       mode satisfies never;
       return (

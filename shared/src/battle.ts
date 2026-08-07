@@ -66,7 +66,7 @@ export type ItemEffect =
 
 export type Action =
   | { type: 'fight'; unitId: UnitId; targetId: UnitId }
-  | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId }
+  | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId; extraTargetIds?: readonly UnitId[] }
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
   | { type: 'use_item'; unitId: UnitId; targetId: UnitId; itemId: string }
   | { type: 'flee' };
@@ -86,6 +86,7 @@ export type BattleEvent =
       damage?: number;
       skillName?: string;
       skillElement?: Element;
+      vfxPresetId?: string;
       cue: ActionCue;
       applied?: Ailmented[];
       captureChance?: number;
@@ -199,4 +200,17 @@ export const CONTROL_AILMENTS: readonly Ailment[] = ['freeze', 'stun', 'sleep', 
 
 export function isControlAilment(ailment: Ailment): boolean {
   return CONTROL_AILMENTS.includes(ailment);
+}
+
+export function skillPlayerPickCount(skill: Skill): 1 | 2 | 3 {
+  const actions = skill.actions;
+  if (!Array.isArray(actions)) return 1;
+  let max: 1 | 2 | 3 = 1;
+  for (const raw of actions) {
+    if (raw === null || typeof raw !== 'object') continue;
+    const target = (raw as { target?: unknown }).target;
+    if (target === 'player_pick_3') return 3;
+    if (target === 'player_pick_2' && max < 2) max = 2;
+  }
+  return max;
 }

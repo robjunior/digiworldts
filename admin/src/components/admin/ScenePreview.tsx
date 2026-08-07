@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 
+import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
+
 import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
 import { SceneManager, type SceneSettings } from '../../scene3d/scene';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
   readonly settings: SceneSettings;
+  readonly weather?: WeatherConfig | null;
+  readonly timeOfDay?: TimeOfDayConfig | null;
 };
 
 const PLACEHOLDER_UNITS = [
@@ -16,7 +20,7 @@ const PLACEHOLDER_UNITS = [
   { unitId: 'preview:opp:1', side: 'opp' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-12/dot.gif' },
 ];
 
-export function ScenePreview({ arenaKey, settings }: ScenePreviewProps): JSX.Element {
+export function ScenePreview({ arenaKey, settings, weather, timeOfDay }: ScenePreviewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const managerRef = useRef<SceneManager | null>(null);
@@ -68,6 +72,14 @@ export function ScenePreview({ arenaKey, settings }: ScenePreviewProps): JSX.Ele
   useEffect(() => {
     managerRef.current?.applySettings(settings);
   }, [settings]);
+
+  useEffect(() => {
+    managerRef.current?.setWeather(weather ?? null);
+  }, [weather]);
+
+  useEffect(() => {
+    managerRef.current?.setTimeOfDay(timeOfDay ?? null);
+  }, [timeOfDay]);
 
   return (
     <div ref={containerRef} className="scene-admin-preview">
