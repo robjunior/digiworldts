@@ -40,6 +40,17 @@ export type EncounterLoot = {
   readonly chance: number;
 };
 
+export const LAYER_KINDS = ['floor', 'walls', 'doors', 'water', 'pit', 'decoration', 'hidden'] as const;
+export type LayerKind = (typeof LAYER_KINDS)[number];
+
+/**
+ * Layer kinds whose tiles contribute to the walkable mask. `walls`, `water`,
+ * `pit`, and `decoration` are visual overlays — the mask omits them so
+ * `moveRun` refuses to walk onto them. `hidden` is a fog-of-war layer that
+ * is walkable but drawn dimmed by the renderer.
+ */
+export const WALKABLE_LAYER_KINDS: readonly LayerKind[] = ['floor', 'doors', 'hidden'];
+
 export type DungeonTile = {
   readonly x: number;
   readonly y: number;
@@ -47,6 +58,12 @@ export type DungeonTile = {
    * of this dungeon. Defaults to `1` for tiles created via the admin editor
    * (which paints walkability without a specific sprite). */
   readonly gid: number;
+  /**
+   * Which TMJ tile layer this tile came from — drives walkability (via
+   * `WALKABLE_LAYER_KINDS`) and rendering. Defaults to `'floor'` for legacy
+   * tiles imported before F5.
+   */
+  readonly layerKind: LayerKind;
 };
 
 export type DungeonEncounter = {
@@ -124,6 +141,7 @@ export type Dungeon = {
   readonly randomAllowedElements: readonly Element[] | null;
   readonly unlockRequiresItems: readonly string[] | null;
   readonly challenge: ChallengeConfig;
+  readonly walkableMask: readonly (readonly [number, number])[] | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
