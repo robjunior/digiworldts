@@ -1,0 +1,15 @@
+-- F6 — Fragments, rarity tables, Cypher recipes, part 4: farm recipe unlock gating.
+--
+-- `unlock_condition` — optional expression the server evaluates before
+-- listing a recipe on `GET /api/farm/recipes`. Format is a JSON object:
+--   {"kind": "flag", "flag": "evolution-crafting"}
+--   {"kind": "item", "itemId": "itm-manual-cypher", "qty": 1}
+--   {"kind": "quest", "questId": "qst-tutorial-1"}
+-- NULL means "always unlocked" (default for legacy recipes).
+--
+-- The initial F6 pass uses the `flag` kind to gate the new evolution-
+-- crafting recipes behind `flag:evolution-crafting`. Quest / item unlocks
+-- ship in later content passes.
+--
+-- Portable across SQLite and Postgres.
+ALTER TABLE farm_recipes ADD COLUMN unlock_condition TEXT;

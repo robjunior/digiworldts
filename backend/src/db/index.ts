@@ -414,6 +414,9 @@ export type FarmRecipeRow = {
   data_cost: number;
   craft_time_ms: number;
   category: 'med' | 'chip' | 'rare' | 'pantry' | null;
+  requires_items: string;
+  inherit_rarity_from: string | null;
+  unlock_condition: string | null;
   enabled: 0 | 1;
   created_at: number;
 };

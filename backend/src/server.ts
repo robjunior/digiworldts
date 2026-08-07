@@ -41,6 +41,7 @@ import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
 import { friendsPlugin, setOnlineChecker } from './social/friends.js';
 import { seedShopItems, shopPlugin } from './social/shop.js';
+import { seedDefaultRarityTables } from './dungeons/rarity-tables.js';
 import { dailyPlugin } from './social/daily.js';
 import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot } from './lobby/ws.js';
@@ -120,6 +121,7 @@ async function main(): Promise<void> {
 
   await seedShopItems();
   await seedFarmRecipes();
+  await seedDefaultRarityTables();
   await backfillStarterFactoriesForExistingUsers();
   await seedInitialBlueprints();
   await seedDefaultOnboarding();
