@@ -296,6 +296,37 @@ export type DungeonRunStashRow = {
   updated_at: number;
 };
 
+export type UserDungeonRunRow = {
+  user_id: string;
+  dungeon_id: string;
+  current_x: number;
+  current_y: number;
+  defeated_encounters: string;
+  collected_items: string;
+  unlocked_doors: string;
+  oneshot_triggered_ids: string;
+  started_at: number;
+  completed_at: number | null;
+  state: string;
+  ended_at: number | null;
+  extraction_kind: string | null;
+  stash_meat: number;
+  stash_bits: number;
+  stash_data: number;
+};
+
+export type DungeonWarpRow = {
+  id: string;
+  dungeon_id: string;
+  x: number;
+  y: number;
+  target_dungeon_id: string | null;
+  label: string | null;
+  is_exit: 0 | 1;
+  created_at: number;
+  updated_at: number;
+};
+
 export type PendingBuffRow = {
   id: string;
   user_id: string;
@@ -420,17 +451,6 @@ export type AdventureRow = {
   seed: number;
   report: string | null;
   created_at: number;
-};
-
-export type DungeonWarpRow = {
-  id: string;
-  dungeon_id: string;
-  x: number;
-  y: number;
-  target_dungeon_id: string | null;
-  label: string | null;
-  created_at: number;
-  updated_at: number;
 };
 
 export type DungeonDoorRow = {

@@ -8,11 +8,15 @@ import type {
   DungeonView,
   EncounterDigimon,
   EncounterLoot,
+  ExtractionKind,
+  RunState,
+  RunStashRow,
   TilesetGrant,
   UserDungeonRun,
 } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
-import { one, q, run, tx } from '../db/index.js';
+import { one, q, run, tx, type DungeonRunStashRow } from '../db/index.js';
+import { hasFlag } from '../flags/repo.js';
 import { loadCatalog } from '../digimon/xml.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -41,11 +45,13 @@ type EncounterRow = {
   readonly digimon_data: string | readonly EncounterDigimon[]; readonly reward_item_id: string | null; readonly loots: string | readonly EncounterLoot[]; readonly scene_id: string | null; readonly created_at: number; readonly updated_at: number;
 };
 type ItemRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly item_id: string; readonly qty: number; readonly created_at: number };
-type WarpRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly target_dungeon_id: string | null; readonly label: string | null; readonly created_at: number; readonly updated_at: number };
+type WarpRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly target_dungeon_id: string | null; readonly label: string | null; readonly is_exit: 0 | 1; readonly created_at: number; readonly updated_at: number };
 type InventoryQtyRow = { readonly qty: number };
 type RunRow = {
   readonly user_id: string; readonly dungeon_id: string; readonly current_x: number; readonly current_y: number;
   readonly defeated_encounters: string | readonly string[]; readonly collected_items: string | readonly string[]; readonly unlocked_doors: string | readonly string[]; readonly oneshot_triggered_ids: string | readonly string[] | null; readonly started_at: number; readonly completed_at: number | null;
+  readonly state: string; readonly ended_at: number | null; readonly extraction_kind: string | null;
+  readonly stash_meat: number; readonly stash_bits: number; readonly stash_data: number;
 };
 
 const SQL_LIST_DUNGEONS = `SELECT * FROM dungeons ORDER BY created_at DESC`;
@@ -186,11 +192,28 @@ function itemFromRow(row: ItemRow): DungeonItem {
 }
 
 function warpFromRow(row: WarpRow): DungeonWarp {
-  return { id: row.id, dungeonId: row.dungeon_id, x: row.x, y: row.y, targetDungeonId: row.target_dungeon_id, label: row.label, createdAt: row.created_at, updatedAt: row.updated_at };
+  return { id: row.id, dungeonId: row.dungeon_id, x: row.x, y: row.y, targetDungeonId: row.target_dungeon_id, label: row.label, isExit: row.is_exit === 1, createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
 function runFromRow(row: RunRow): UserDungeonRun {
-  return { userId: row.user_id, dungeonId: row.dungeon_id, currentX: row.current_x, currentY: row.current_y, defeatedEncounters: parseStringArray(row.defeated_encounters, 'defeated_encounters'), collectedItems: parseStringArray(row.collected_items, 'collected_items'), unlockedDoors: parseStringArray(row.unlocked_doors, 'unlocked_doors'), oneshotTriggeredIds: parseStringArray(row.oneshot_triggered_ids ?? '[]', 'oneshot_triggered_ids'), startedAt: row.started_at, completedAt: row.completed_at };
+  return {
+    userId: row.user_id,
+    dungeonId: row.dungeon_id,
+    currentX: row.current_x,
+    currentY: row.current_y,
+    defeatedEncounters: parseStringArray(row.defeated_encounters, 'defeated_encounters'),
+    collectedItems: parseStringArray(row.collected_items, 'collected_items'),
+    unlockedDoors: parseStringArray(row.unlocked_doors, 'unlocked_doors'),
+    oneshotTriggeredIds: parseStringArray(row.oneshot_triggered_ids ?? '[]', 'oneshot_triggered_ids'),
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    state: (row.state ?? 'active') as RunState,
+    endedAt: row.ended_at ?? null,
+    extractionKind: (row.extraction_kind ?? null) as ExtractionKind | null,
+    stashMeat: row.stash_meat ?? 0,
+    stashBits: row.stash_bits ?? 0,
+    stashData: row.stash_data ?? 0,
+  };
 }
 
 export async function listDungeons(): Promise<Dungeon[]> {
@@ -483,13 +506,20 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     if (!cataloged) {
       log.warn('dungeon.pickup.uncataloged', { dungeonId, itemRowId: item.id, itemId: item.item_id });
     }
+    const redirectToStash = await hasFlag(userId, 'dungeon-extraction');
     let applied = false;
     await tx(async (t) => {
       const now = Date.now();
       const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY]);
       if (moveResult.changes === 0) return;
       applied = true;
-      if (cataloged) await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
+      if (cataloged) {
+        if (redirectToStash) {
+          await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, item.item_id, item.qty, now]);
+        } else {
+          await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
+        }
+      }
     });
     if (!applied) return { kind: 'not-adjacent' };
   } else {
@@ -514,6 +544,16 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
 
 const SQL_GRANT_REWARD_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
+const SQL_GRANT_STASH_ITEM = `INSERT INTO dungeon_run_stash (user_id, dungeon_id, item_id, qty, origin, updated_at) VALUES (?, ?, ?, ?, 'loot', ?)
+     ON CONFLICT(user_id, dungeon_id, item_id, origin) DO UPDATE SET qty = dungeon_run_stash.qty + excluded.qty, updated_at = excluded.updated_at`;
+const SQL_DELETE_STASH_BY_RUN = `DELETE FROM dungeon_run_stash WHERE user_id = ? AND dungeon_id = ?`;
+const SQL_SELECT_STASH_BY_RUN = `SELECT * FROM dungeon_run_stash WHERE user_id = ? AND dungeon_id = ?`;
+const SQL_WIPE_RUN = `UPDATE user_dungeon_runs SET state = 'wiped', ended_at = ?, stash_meat = 0, stash_bits = 0, stash_data = 0 WHERE user_id = ? AND dungeon_id = ? AND state = 'active'`;
+const SQL_EXTRACT_RUN = `UPDATE user_dungeon_runs SET state = ?, extraction_kind = ?, ended_at = ?, completed_at = ?, stash_meat = 0, stash_bits = 0, stash_data = 0 WHERE user_id = ? AND dungeon_id = ? AND state = 'active'`;
+const SQL_UPSERT_INVENTORY_FROM_STASH = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
+const SQL_UPSERT_RESOURCE_FROM_STASH = `INSERT INTO resources (user_id, resource, amount, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 
 export async function defeatEncounter(userId: string, dungeonId: string, encId: string): Promise<{ readonly run: UserDungeonRun; readonly grantedLoots: readonly { readonly itemId: string; readonly qty: number }[] } | null> {
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
@@ -527,20 +567,100 @@ export async function defeatEncounter(userId: string, dungeonId: string, encId: 
   if (!wasAlreadyDefeated) {
     const now = Date.now();
     const loots = parseLootsSafe(encounterRow.loots);
-    // Legacy fallback: encounters saved before migration 021 may have loots='[]'
-    // but a non-null reward_item_id. Treat that single item as a guaranteed drop.
     const legacyFallback: readonly EncounterLoot[] =
       loots.length === 0 && encounterRow.reward_item_id
         ? [{ itemId: encounterRow.reward_item_id, qty: 1, chance: 1 }]
         : [];
+    const redirectToStash = await hasFlag(userId, 'dungeon-extraction');
     for (const loot of loots.length > 0 ? loots : legacyFallback) {
       if (Math.random() >= loot.chance) continue;
-      await run(SQL_GRANT_REWARD_ITEM, userId, loot.itemId, loot.qty, now);
+      if (redirectToStash) {
+        await run(SQL_GRANT_STASH_ITEM, userId, dungeonId, loot.itemId, loot.qty, now);
+      } else {
+        await run(SQL_GRANT_REWARD_ITEM, userId, loot.itemId, loot.qty, now);
+      }
       grantedLoots.push({ itemId: loot.itemId, qty: loot.qty });
     }
   }
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   return row ? { run: runFromRow(row), grantedLoots } : null;
+}
+
+export type WipeRunResult = { readonly run: UserDungeonRun; readonly purgedItemCount: number; readonly purgedResources: { readonly meat: number; readonly bits: number; readonly data: number } };
+
+export async function wipeRun(userId: string, dungeonId: string): Promise<WipeRunResult | null> {
+  const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  if (!existing) return null;
+  if (existing.state !== 'active') return null;
+  const stashRows = await q<DungeonRunStashRow>(SQL_SELECT_STASH_BY_RUN, userId, dungeonId);
+  const meat = existing.stash_meat;
+  const bits = existing.stash_bits;
+  const data = existing.stash_data;
+  const now = Date.now();
+  let updated = false;
+  await tx(async (t) => {
+    const cas = await t.run(SQL_WIPE_RUN, [now, userId, dungeonId]);
+    if (cas.changes === 0) return;
+    await t.run(SQL_DELETE_STASH_BY_RUN, [userId, dungeonId]);
+    updated = true;
+  });
+  if (!updated) return null;
+  log.info('dungeon.run.wiped', { userId, dungeonId, purgedItemCount: stashRows.length, meat, bits, data });
+  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  if (!row) return null;
+  return {
+    run: runFromRow(row),
+    purgedItemCount: stashRows.length,
+    purgedResources: { meat, bits, data },
+  };
+}
+
+export type ExtractRunResult = {
+  readonly run: UserDungeonRun;
+  readonly extractedItems: readonly RunStashRow[];
+  readonly extractedResources: { readonly meat: number; readonly bits: number; readonly data: number };
+  readonly extractionKind: ExtractionKind;
+};
+
+const EXTRACTION_STATE_MAP: Record<ExtractionKind, RunState> = {
+  walked_out: 'extracted',
+  teleport_scroll: 'extracted_by_teleport',
+  challenge_win: 'cleared_challenge',
+};
+
+export async function extractRun(userId: string, dungeonId: string, kind: ExtractionKind): Promise<ExtractRunResult | null> {
+  const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  if (!existing) return null;
+  if (existing.state !== 'active') return null;
+  const stashRows = await q<DungeonRunStashRow>(SQL_SELECT_STASH_BY_RUN, userId, dungeonId);
+  const meat = existing.stash_meat;
+  const bits = existing.stash_bits;
+  const data = existing.stash_data;
+  const now = Date.now();
+  const newState = EXTRACTION_STATE_MAP[kind];
+  let updated = false;
+  await tx(async (t) => {
+    const cas = await t.run(SQL_EXTRACT_RUN, [newState, kind, now, now, userId, dungeonId]);
+    if (cas.changes === 0) return;
+    for (const row of stashRows) {
+      await t.run(SQL_UPSERT_INVENTORY_FROM_STASH, [userId, row.item_id, row.qty, now]);
+    }
+    if (meat > 0) await t.run(SQL_UPSERT_RESOURCE_FROM_STASH, [userId, 'Meat', meat, now]);
+    if (bits > 0) await t.run(SQL_UPSERT_RESOURCE_FROM_STASH, [userId, 'Bits', bits, now]);
+    if (data > 0) await t.run(SQL_UPSERT_RESOURCE_FROM_STASH, [userId, 'Data', data, now]);
+    await t.run(SQL_DELETE_STASH_BY_RUN, [userId, dungeonId]);
+    updated = true;
+  });
+  if (!updated) return null;
+  log.info('dungeon.run.extracted', { userId, dungeonId, kind, itemCount: stashRows.length, meat, bits, data });
+  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  if (!row) return null;
+  return {
+    run: runFromRow(row),
+    extractedItems: stashRows.map((r): RunStashRow => ({ itemId: r.item_id, qty: r.qty, origin: r.origin, updatedAt: r.updated_at })),
+    extractedResources: { meat, bits, data },
+    extractionKind: kind,
+  };
 }
 
 export async function completeRun(userId: string, dungeonId: string): Promise<{ readonly run: UserDungeonRun; readonly questCompleted: boolean } | null> {

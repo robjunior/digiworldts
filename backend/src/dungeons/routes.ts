@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
+import { one, run } from '../db/index.js';
 import {
   applyTiledImportNew,
   applyTiledImportReplace,
@@ -17,6 +18,7 @@ import {
   deleteEncounter,
   deleteItem,
   deleteWarp,
+  extractRun,
   getEncounter,
   getDungeon,
   getRun,
@@ -31,13 +33,13 @@ import {
   updateDungeon,
   updateEncounter,
   updateWarp,
+  wipeRun,
 } from './repo.js';
 import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
 import { createKit, deleteKit, getKitWithItems, listKitsForUser, updateKit, type KitOutcome } from './kits.js';
 import { escrowKitToStash, readStash } from './stash.js';
-import { hasFlag } from '../flags/repo.js';
-import { BIOMES } from '@digiworld/shared/world';
+import { hasFlag } from '../flags/repo.js';import { BIOMES } from '@digiworld/shared/world';
 import type { Kit, KitError } from '@digiworld/shared/dungeon';
 import {
   asCreateDungeonPayload,
@@ -87,6 +89,10 @@ const KitInputSchema = z.object({
 
 const EnterDungeonInputSchema = z.object({
   kitId: z.string().min(1).optional(),
+});
+
+const UseScrollInputSchema = z.object({
+  itemId: z.string().min(1),
 });
 
 function kitErrorHttpCode(err: KitError): number {
@@ -554,5 +560,76 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (!view) return reply.code(404).send({ error: 'dungeon-not-found' });
     const stash = await readStash(me.id, req.params.id);
     return reply.send({ view, stash });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dungeon/:id/extract', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'dungeon-not-found' });
+    const activeRun = await getRun(me.id, req.params.id);
+    if (!activeRun) return reply.code(404).send({ error: 'no-run' });
+    if (activeRun.state !== 'active') return reply.code(409).send({ error: 'run-not-active', state: activeRun.state });
+
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'dungeon-not-found' });
+    const onExit = view.warps.some((w) => w.isExit && w.x === activeRun.currentX && w.y === activeRun.currentY);
+    if (!onExit) return reply.code(409).send({ error: 'not-on-exit-tile', x: activeRun.currentX, y: activeRun.currentY });
+
+    const result = await extractRun(me.id, req.params.id, 'walked_out');
+    if (!result) return reply.code(409).send({ error: 'extract-failed' });
+    log.info('dungeon.extract.walked_out', { userId: me.id, dungeonId: req.params.id, itemCount: result.extractedItems.length });
+    return reply.send({
+      run: result.run,
+      extractedItems: result.extractedItems,
+      extractedResources: result.extractedResources,
+      extractionKind: result.extractionKind,
+    });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/dungeon/:id/use-scroll', async (req, reply) => {
+    const me = await requireAuth(req, reply);
+    const parsed = UseScrollInputSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'dungeon-not-found' });
+    const activeRun = await getRun(me.id, req.params.id);
+    if (!activeRun) return reply.code(404).send({ error: 'no-run' });
+    if (activeRun.state !== 'active') return reply.code(409).send({ error: 'run-not-active', state: activeRun.state });
+
+    const shopItem = await one<{ id: string; item_type: string }>(
+      "SELECT id, item_type FROM shop_items WHERE id = ? AND enabled = 1",
+      parsed.data.itemId,
+    );
+    if (!shopItem) return reply.code(404).send({ error: 'scroll-not-found' });
+    if (shopItem.item_type !== 'extraction') return reply.code(400).send({ error: 'not-extraction-scroll' });
+
+    const redirectToStash = await hasFlag(me.id, 'dungeon-extraction');
+    const now = Date.now();
+    let deducted = false;
+    if (redirectToStash) {
+      const decRes = await run(
+        "UPDATE dungeon_run_stash SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND dungeon_id = ? AND item_id = ? AND qty >= 1",
+        now, me.id, req.params.id, parsed.data.itemId,
+      );
+      deducted = decRes.changes > 0;
+    } else {
+      const decRes = await run(
+        "UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1",
+        now, me.id, parsed.data.itemId,
+      );
+      deducted = decRes.changes > 0;
+    }
+    if (!deducted) return reply.code(402).send({ error: 'insufficient-scroll' });
+
+    const result = await extractRun(me.id, req.params.id, 'teleport_scroll');
+    if (!result) return reply.code(409).send({ error: 'extract-failed' });
+    log.info('dungeon.extract.teleport_scroll', { userId: me.id, dungeonId: req.params.id, itemId: parsed.data.itemId, itemCount: result.extractedItems.length });
+    return reply.send({
+      run: result.run,
+      extractedItems: result.extractedItems,
+      extractedResources: result.extractedResources,
+      extractionKind: result.extractionKind,
+    });
   });
 };
