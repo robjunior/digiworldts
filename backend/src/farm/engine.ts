@@ -90,6 +90,8 @@ const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bit
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
      ON CONFLICT (id) DO UPDATE SET craft_time_ms = excluded.craft_time_ms, category = excluded.category, requires_items = excluded.requires_items, inherit_rarity_from = excluded.inherit_rarity_from, unlock_condition = excluded.unlock_condition`;
 const SQL_DEDUCT_RESOURCE = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = ? AND amount >= ?`;
+const SQL_DECREMENT_INVENTORY_QTY = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
+const SQL_SELECT_INVENTORY_BY_FAMILY = `SELECT i.item_id AS item_id, i.qty AS qty, s.rarity AS rarity FROM player_inventory i JOIN shop_items s ON s.id = i.item_id WHERE i.user_id = ? AND i.item_id LIKE ? AND i.qty > 0 ORDER BY s.rarity DESC, i.item_id ASC`;
 const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
 const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
@@ -717,6 +719,7 @@ export type QueueCraftError =
   | 'category-mismatch'
   | 'queue-full'
   | 'insufficient-resources'
+  | 'insufficient-items'
   | 'premium-required'
   | 'invalid-count';
 
@@ -774,8 +777,12 @@ export async function queueItem(
   const totalBits = recipe.bits_cost * requestedCount;
   const totalData = recipe.data_cost * requestedCount;
 
+  const requires = parseRequiresItemsSafe(recipe.requires_items).map((entry) => ({ itemId: entry.itemId, qty: entry.qty * requestedCount }));
+
   let deficit: Partial<Record<ResourceKind, number>> | null = null;
+  let itemDeficit: string | null = null;
   const insertedJobIds: string[] = [];
+  let outputItemId = recipe.item_id;
 
   await tx(async (t) => {
     const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
@@ -803,6 +810,36 @@ export async function queueItem(
       }
     }
 
+    let maxFragmentRarity = 0;
+    for (const req of requires) {
+      const familyPrefix = fragmentFamilyPrefix(req.itemId);
+      const rows = await t.query<{ readonly item_id: string; readonly qty: number; readonly rarity: number }>(
+        SQL_SELECT_INVENTORY_BY_FAMILY,
+        [userId, `${familyPrefix}-r%`],
+      );
+      let need = req.qty;
+      for (const row of rows) {
+        if (need <= 0) break;
+        const take = Math.min(need, row.qty);
+        const info = await t.run(SQL_DECREMENT_INVENTORY_QTY, [take, now, userId, row.item_id, take]);
+        if (info.changes === 0) {
+          itemDeficit = req.itemId;
+          throw new Error('craft-race');
+        }
+        if (recipe.inherit_rarity_from === 'fragment' && row.rarity > maxFragmentRarity) maxFragmentRarity = row.rarity;
+        need -= take;
+      }
+      if (need > 0) {
+        itemDeficit = req.itemId;
+        throw new Error('craft-race');
+      }
+    }
+
+    if (recipe.inherit_rarity_from === 'fragment' && maxFragmentRarity > 0) {
+      const remapped = remapRarityInItemId(recipe.item_id, maxFragmentRarity);
+      if (remapped !== null) outputItemId = remapped;
+    }
+
     const activeRows = await t.query<CraftingJobJoinRow>(SQL_SELECT_ACTIVE_JOB_BY_FACTORY, [factoryId]);
     const factoryHasActive = activeRows.length > 0;
 
@@ -817,7 +854,7 @@ export async function queueItem(
         id,
         userId,
         recipe.id,
-        recipe.item_id,
+        outputItemId,
         factoryId,
         startedAt,
         effectiveCraftMs,
@@ -830,6 +867,7 @@ export async function queueItem(
     throw err;
   });
 
+  if (itemDeficit !== null) return { ok: false, error: 'insufficient-items' };
   if (deficit) return { ok: false, error: 'insufficient-resources', missing: deficit };
   if (insertedJobIds.length === 0) {
     return { ok: false, error: 'insufficient-resources', missing: deficit ?? {} };
@@ -845,7 +883,8 @@ export async function queueItem(
     userId,
     factoryId,
     recipeId,
-    itemId: recipe.item_id,
+    itemId: outputItemId,
+    baseItemId: recipe.item_id,
     auto,
     count: requestedCount,
     firstJobId: firstId,
@@ -902,6 +941,34 @@ export async function cancelJob(
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
   log.info('farm.craft.cancel', { userId, jobId, factoryId: job.factory_id, refunded });
   return { ok: true, refunded, balances };
+}
+
+function parseRequiresItemsSafe(json: string): readonly { readonly itemId: string; readonly qty: number }[] {
+  try {
+    const raw: unknown = JSON.parse(json);
+    if (!Array.isArray(raw)) return [];
+    const out: { itemId: string; qty: number }[] = [];
+    for (const entry of raw) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const record = entry as Record<string, unknown>;
+      const itemId = record['itemId'];
+      const qty = record['qty'];
+      if (typeof itemId !== 'string' || typeof qty !== 'number' || !Number.isFinite(qty) || qty < 1) continue;
+      out.push({ itemId, qty: Math.max(1, Math.floor(qty)) });
+    }
+    return out;
+  } catch { return []; }
+}
+
+function fragmentFamilyPrefix(itemId: string): string {
+  const match = /^(.+)-r\d+$/.exec(itemId);
+  return match ? match[1]! : itemId;
+}
+
+function remapRarityInItemId(itemId: string, targetRarity: number): string | null {
+  const match = /^(.+)-r(\d+)$/.exec(itemId);
+  if (!match) return null;
+  return `${match[1]!}-r${targetRarity}`;
 }
 
 async function filterRecipesByUnlockCondition<T extends { readonly unlock_condition: string | null }>(userId: string, rows: readonly T[]): Promise<T[]> {
