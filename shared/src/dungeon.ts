@@ -85,6 +85,7 @@ export type DungeonWarp = {
   readonly y: number;
   readonly targetDungeonId: string | null;
   readonly label: string | null;
+  readonly isExit: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -137,6 +138,12 @@ export type DungeonView = {
   readonly traps: readonly DungeonTrap[];
 };
 
+export const RUN_STATES = ['active', 'extracted', 'wiped', 'extracted_by_teleport', 'cleared_challenge'] as const;
+export type RunState = (typeof RUN_STATES)[number];
+
+export const EXTRACTION_KINDS = ['walked_out', 'teleport_scroll', 'challenge_win'] as const;
+export type ExtractionKind = (typeof EXTRACTION_KINDS)[number];
+
 export type UserDungeonRun = {
   readonly userId: string;
   readonly dungeonId: string;
@@ -148,6 +155,12 @@ export type UserDungeonRun = {
   readonly oneshotTriggeredIds: readonly string[];
   readonly startedAt: number;
   readonly completedAt: number | null;
+  readonly state: RunState;
+  readonly endedAt: number | null;
+  readonly extractionKind: ExtractionKind | null;
+  readonly stashMeat: number;
+  readonly stashBits: number;
+  readonly stashData: number;
 };
 
 export const TRAP_KINDS = ['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter'] as const;

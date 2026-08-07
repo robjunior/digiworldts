@@ -62,7 +62,8 @@ export type ItemEffect =
   | { kind: 'clear_ailments' }
   | { kind: 'atk_bonus'; amount: number }
   | { kind: 'def_bonus'; amount: number }
-  | { kind: 'revive' };
+  | { kind: 'revive' }
+  | { kind: 'extract_dungeon' };
 
 export type Action =
   | { type: 'fight'; unitId: UnitId; targetId: UnitId }
