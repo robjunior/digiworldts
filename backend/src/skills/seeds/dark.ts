@@ -90,7 +90,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     energyCost: 15,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 2.0 }, element: 'dark' },
-      { kind: 'shift_initiative', target: 'primary_target', delta: -1 }
+      { kind: 'shift_initiative', target: 'primary_target', delta: 1 }
     ]
   }),
   d({
@@ -118,7 +118,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     energyCost: 16,
     actions: [
       { kind: 'deal_damage', target: 'enemy_front', amount: { base: 90, scale: 'atk', factor: 2.4 }, element: 'dark' },
-      { kind: 'shift_initiative', target: 'enemy_front', delta: -1 }
+      { kind: 'shift_initiative', target: 'enemy_front', delta: 1 }
     ]
   }),
   d({
@@ -173,7 +173,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     energyCost: 28,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 130, scale: 'atk', factor: 2.8 }, element: 'dark' },
-      { kind: 'shift_initiative', target: 'primary_target', delta: -2 }
+      { kind: 'shift_initiative', target: 'primary_target', delta: 2 }
     ]
   }),
   d({

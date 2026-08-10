@@ -71,7 +71,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 10,
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'evasion_up', amount: 20, turns: 3 },
-      { kind: 'shift_initiative', target: 'self', delta: 2 },
+      { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
   }),
   wi({
@@ -239,7 +239,7 @@ export const WIND_SKILLS: SkillSeed[] = [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'spd_up', amount: 40, turns: 4 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'crit_up', amount: 25, turns: 4 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'evasion_up', amount: 25, turns: 4 },
-      { kind: 'shift_initiative', target: 'caster_ally_all', delta: 2 },
+      { kind: 'shift_initiative', target: 'caster_ally_all', delta: -2 },
     ],
   }),
   wi({
@@ -321,7 +321,7 @@ export const WIND_SKILLS: SkillSeed[] = [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 45, scale: 'int', factor: 1.6 }, element: 'wind' },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'spd', delta: -25, turns: 4 },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.7, turns: 4 },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -2 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 2 },
     ],
   }),
   wi({
@@ -338,7 +338,7 @@ export const WIND_SKILLS: SkillSeed[] = [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'spd_up', amount: 60, turns: 4 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'crit_up', amount: 40, turns: 4 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'evasion_up', amount: 40, turns: 4 },
-      { kind: 'shift_initiative', target: 'caster_ally_all', delta: 3 },
+      { kind: 'shift_initiative', target: 'caster_ally_all', delta: -3 },
     ],
   }),
   wi({

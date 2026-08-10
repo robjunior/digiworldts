@@ -40,7 +40,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -1 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 1 },
     ],
   }),
   s({
@@ -128,7 +128,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 14,
     actions: [
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -2 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 2 },
       { kind: 'apply_status', target: 'enemy_all', status: 'silence', chance: 0.35, turns: 2 },
     ],
   }),
@@ -194,7 +194,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-pa-c',
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 45, scale: 'int', factor: 2.0 }, element: 'steel' },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -1 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 1 },
     ],
   }),
   s({
@@ -222,7 +222,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 18,
     actions: [
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -3 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 3 },
       { kind: 'apply_status', target: 'enemy_all', status: 'silence', chance: 0.6, turns: 2 },
     ],
   }),
@@ -288,7 +288,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-pa-u',
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 60, scale: 'int', factor: 2.8 }, element: 'steel' },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -2 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 2 },
     ],
   }),
   s({
@@ -316,7 +316,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 26,
     actions: [
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -4 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 4 },
       { kind: 'apply_status', target: 'enemy_all', status: 'silence', chance: 0.8, turns: 3 },
     ],
   }),

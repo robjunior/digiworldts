@@ -304,7 +304,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.8, turns: 3 },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.7, turns: 4 },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -2 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 2 },
     ],
   }),
   w({

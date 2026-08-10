@@ -233,7 +233,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'restore_en', target: 'caster_ally_all', amount: 20 },
       { kind: 'apply_status', target: 'enemy_all', status: 'silence', chance: 0.6, turns: 2 },
-      { kind: 'shift_initiative', target: 'self', delta: 2 },
+      { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
   }),
   n({
@@ -312,7 +312,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 26,
     actions: [
       { kind: 'apply_status', target: 'enemy_all', status: 'silence', chance: 0.9, turns: 3 },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -3 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 3 },
     ],
   }),
   n({
@@ -327,7 +327,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'restore_en', target: 'caster_ally_all', amount: 30 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'crit_up', amount: 30, turns: 4 },
-      { kind: 'shift_initiative', target: 'caster_ally_all', delta: 3 },
+      { kind: 'shift_initiative', target: 'caster_ally_all', delta: -3 },
     ],
   }),
   n({
