@@ -114,6 +114,14 @@ function pickAction(battle: Battle, side: BattleSide): Action | null {
   const enemy = battle.units.find((u) => u.side !== side && u.hp > 0);
   if (enemy === undefined) return null;
 
+  // A silenced unit cannot use skills — engine.ts::applyAction rejects the
+  // action outright rather than degrading it, and the sim treats any rejection
+  // as an aborted battle. A real player picks a basic attack instead; so does
+  // this AI, otherwise every silence-heavy element reads as a false draw.
+  if (unit.ailments.some((a) => a.kind === 'silence')) {
+    return { type: 'fight', unitId: unit.id, targetId: enemy.id };
+  }
+
   const affordable = unit.skills
     .filter((s) => s.energyCost > 0 && s.energyCost <= unit.en)
     .filter((s) => (unit.skillCooldowns?.[s.id] ?? 0) === 0);
