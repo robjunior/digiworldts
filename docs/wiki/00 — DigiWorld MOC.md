@@ -67,6 +67,8 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
   stage-pool freezing
 - [[Skills catalog]] — admin-editable skills, learned-pool
   carry-forward, XML → DB resolver
+- [[Skill Archetypes and Plant Pool]] — archetype design system (design-only,
+  not persisted), plant 36-skill re-author, signature schema, balance results
 - [[Seasons]] — cluster-locked auto-close ticker + admin CRUD, snapshot
   on close
 - [[Onboarding and Tutorial]] — 3-team starter picker + per-user
