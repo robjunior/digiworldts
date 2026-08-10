@@ -24,11 +24,15 @@ grounded-in:
   - backend/src/db/migrations/071_wipe_dark_skills.sql
   - backend/src/skills/seeds/light.ts
   - backend/src/db/migrations/072_wipe_light_skills.sql
+  - backend/src/skills/seeds/electricity.ts
+  - backend/src/skills/seeds/electricity-signatures.ts
+  - backend/src/db/migrations/073_wipe_electricity_skills.sql
+  - backend/test/initiative-sign.mts
   - backend/test/battle-sim.mts
   - backend/src/battle/engine.ts
   - backend/test/pool-smoke.mts
   - shared/src/digimon.ts
-verified-at-commit: 672a1b1
+verified-at-commit: f3d8f94
 ---
 
 # Skill Archetypes
@@ -396,6 +400,147 @@ archetypes split the kit by how it contributes to a win:
 
 ---
 
+## The electricity pool: 3 archetypes × 4 stages × 3 skills = 36
+
+Committed in `9161f04`. Wipe migration:
+[`073_wipe_electricity_skills.sql`](backend/src/db/migrations/073_wipe_electricity_skills.sql).
+
+> [!caution] The id prefix is `sk-elec-`, not `sk-electricity-`
+> The factory is `makeSkillFactory('electricity', 'elec')`, so every id comes
+> out as `sk-elec-*`. A wipe migration written against the element name would
+> have matched zero rows and silently left all 24 stale skills in place to
+> shadow the new pool — the seeder upserts `ON CONFLICT (name) DO NOTHING`, so
+> the survivors would have won. Check the factory's second argument before
+> writing the migration for any element.
+
+Electricity's element identity is **combos / chained attacks**:
+
+- **Combo** — multi-step sequences. `shift_initiative` on self to act sooner,
+  `conditional` follow-ups that pay off when a setup already landed, and the
+  file's only two `extra_turn` uses, both behind cooldowns.
+- **Chain** — damage that jumps across the enemy team via `enemy_all`,
+  `enemy_first_two` and `enemy_random`, with `restore_en` so chaining pays
+  for itself.
+- **Stun** — action denial via `stun`, `spd` shredding, and positive
+  `shift_initiative` on enemies to push them down the turn queue.
+
+This element carries stall risk in **both** directions. The Stun archetype can
+reproduce the plant Mega lock — mass `stun` on `enemy_all` at high chance
+across three Mega skills is a hard lock. But electricity's Mega baseline was
+only 5t, so over-scaled chain damage collapses matches into an initiative coin
+flip, which is its own failure. Both were watched; it lands at 7t.
+
+### Full electricity skill table
+
+⭐ marks the `tier_2: true` skill of each archetype at Mega.
+
+| id | Name | Nome (pt-BR) | Stage | Archetype | `slot_role` | EN |
+| -- | ---- | ------------ | ----- | --------- | ----------- | -- |
+| `sk-elec-chain-r-1` | Arcing Zap | Zap em Arco | Rookie | Chain | `primary_attack` | 8 |
+| `sk-elec-chain-r-2` | Chain Volt | Volt em Cadeia | Rookie | Chain | `identity_finisher` | 10 |
+| `sk-elec-chain-r-3` | Static Cling | Aderência Estática | Rookie | Chain | `sustain_dot` | 7 |
+| `sk-elec-combo-r-1` | Flash Strike | Golpe Relâmpago | Rookie | Combo | `primary_attack` | 9 |
+| `sk-elec-combo-r-2` | Spark Step | Passo de Faísca | Rookie | Combo | `utility` | 8 |
+| `sk-elec-combo-r-3` | Volt Charge | Carga de Volts | Rookie | Combo | `buff_support` | 8 |
+| `sk-elec-stun-r-1` | Taser Grip | Agarre de Taser | Rookie | Stun | `control` | 8 |
+| `sk-elec-stun-r-2` | Static Guard | Guarda Estática | Rookie | Stun | `buff_support` | 7 |
+| `sk-elec-stun-r-3` | Stun Gun | Arma de Choque | Rookie | Stun | `utility` | 8 |
+| `sk-elec-chain-c-1` | Branching Spark | Faísca Ramificada | Champion | Chain | `primary_attack` | 13 |
+| `sk-elec-chain-c-2` | Energy Relay | Revezamento de Energia | Champion | Chain | `buff_support` | 12 |
+| `sk-elec-chain-c-3` | Tesla Field | Campo de Tesla | Champion | Chain | `sustain_dot` | 12 |
+| `sk-elec-combo-c-1` | Lightning Dash | Investida Relâmpago | Champion | Combo | `primary_attack` | 14 |
+| `sk-elec-combo-c-2` | Volt Switch | Troca de Voltagem | Champion | Combo | `utility` | 12 |
+| `sk-elec-combo-c-3` | Kinetic Finish | Finalizador Cinético | Champion | Combo | `identity_finisher` | 15 |
+| `sk-elec-stun-c-1` | Volt Clamp | Grampo de Volts | Champion | Stun | `control` | 13 |
+| `sk-elec-stun-c-2` | Paralyzing Wire | Fio Paralisante | Champion | Stun | `sustain_dot` | 12 |
+| `sk-elec-stun-c-3` | Nerve Shock | Choque Nervoso | Champion | Stun | `utility` | 12 |
+| `sk-elec-chain-u-1` | Grid Surge | Surto na Rede | Ultimate | Chain | `primary_attack` | 20 |
+| `sk-elec-chain-u-2` | Conductive Web | Teia Condutora | Ultimate | Chain | `sustain_dot` | 18 |
+| `sk-elec-chain-u-3` | Chain Stagger | Retardo em Cadeia | Ultimate | Chain | `control` | 18 |
+| `sk-elec-combo-u-1` | Plasma Assault | Assalto de Plasma | Ultimate | Combo | `identity_finisher` | 22 |
+| `sk-elec-combo-u-2` | Speed Force | Força de Velocidade | Ultimate | Combo | `utility` | 18 |
+| `sk-elec-combo-u-3` | Circuit Overclock | Sobrecarga de Circuito | Ultimate | Combo | `buff_support` | 18 |
+| `sk-elec-stun-u-1` | Voltage Prison | Prisão de Voltagem | Ultimate | Stun | `control` | 20 |
+| `sk-elec-stun-u-2` | Electrocution | Eletrocussão | Ultimate | Stun | `primary_attack` | 20 |
+| `sk-elec-stun-u-3` | Faraday Cage | Gaiola de Faraday | Ultimate | Stun | `buff_support` | 18 |
+| `sk-elec-chain-m-1` | Neural Network ⭐ | Rede Neural | Mega | Chain | `primary_attack` | 36 |
+| `sk-elec-chain-m-2` | Infinite Conductivity | Condutividade Infinita | Mega | Chain | `sustain_dot` | 28 |
+| `sk-elec-chain-m-3` | Energy Harvest | Colheita de Energia | Mega | Chain | `utility` | 30 |
+| `sk-elec-combo-m-1` | Tachyon Execution ⭐ | Execução de Táquions | Mega | Combo | `identity_finisher` | 35 |
+| `sk-elec-combo-m-2` | Quantum Leap | Salto Quântico | Mega | Combo | `utility` | 38 |
+| `sk-elec-combo-m-3` | Lightning Reflexes | Reflexos de Relâmpago | Mega | Combo | `buff_support` | 25 |
+| `sk-elec-stun-m-1` | Synapse Lock ⭐ | Bloqueio de Sinapse | Mega | Stun | `control` | 35 |
+| `sk-elec-stun-m-2` | Ampere Bastion | Bastião de Ampère | Mega | Stun | `buff_support` | 28 |
+| `sk-elec-stun-m-3` | System Blackout | Apagão do Sistema | Mega | Stun | `sustain_dot` | 32 |
+
+### Notable electricity skill mechanics
+
+- 5 `conditional`, 14 `shift_initiative`, 2 `restore_en`, 2 `extra_turn`.
+- Every stage covers all six `slot_role` values.
+- Each archetype runs an `upgrade_of` chain from Rookie to Mega.
+
+---
+
+## Electricity signatures — 62 seeded
+
+Committed in `f3d8f94`. Two per each of the 31 electricity Digimon, same
+mechanism as the plant set: `signature: true` + `owner_template_id`, excluded
+from the generic pool by the `signature = 0` filter.
+
+Four names needed the collision suffix — the source material genuinely reuses
+attack names across Digimon. `Lightning Javelin` is shared by MegaSeadramon
+and SkullSeadramon; `Golden Triangle` by Rapidmon and its Armor form. The
+English `name` carries the owner in parentheses; `name_pt` stays clean.
+
+No electricity Digimon has an all-filler moveset — unlike plant, which had
+four — but **seventeen** had tiered move-pool filler (`Nanomachine Break II`,
+`Thunder Fall III`) as their second-best candidate. Those slots were authored
+originally instead: Vespa Voltage, Railgun Overrun, Hive Capacitor, Abyssal
+Thunder Coil, Chrome Capacitor, Reactor Jaw, Chaos Grid Barrage, Hi-Tension
+Barrier, Corrosion Spark, Royal Volt Guard, Stormwing Cry, Spark Anchor, Bone
+Current, Storm Hoof, Pilot Spark Net, Gold Radar Lock, Miracle Circuit.
+
+`slot_role` distribution: 19 `identity_finisher`, 16 `control`, 14
+`primary_attack`, 7 `sustain_dot`, 3 `buff_support`, 3 `utility`. Compare the
+plant set, which initially shipped 65 of 72 as `primary_attack` and had to be
+redone.
+
+| Digimon | owner | Stage | Signature 1 | Signature 2 |
+| ------- | ----- | ----- | ----------- | ----------- |
+| Betamon | `skb-389` | Rookie | Electric Shock | Water Tower |
+| Elecmon | `skb-564` | Rookie | Sparkling Thunder | Thunder Knife |
+| Kokuwamon | `skb-609` | Rookie | Mini Scissor Claw | Elect-Elect |
+| Lighdramon | `skb-139` | Rookie | Lightning Blade | Thunderbolt |
+| Rapidmon (Armor) | `skb-751` | Rookie | Golden Triangle (Rapidmon Armor) | Miracle Circuit |
+| Tentomon | `skb-303` | Rookie | Super Shocker | Katai Tsume |
+| Aegiomon | `skb-183` | Champion | Stun Beat Blow | Storm Hoof |
+| Centarumon | `skb-372` | Champion | Hunting Cannon | Energy Ray |
+| Kabuterimon | `skb-304` | Champion | Electro Shocker | Danger Sting |
+| Mekanorimon | `skb-615` | Champion | Twinkle Beam | Pilot Spark Net |
+| Waspmon | `skb-454` | Champion | Turbo Stinger | Vespa Voltage |
+| Wizardmon | `skb-377` | Champion | Thunder Cloud | Terror Illusion |
+| Aegiochusmon | `skb-184` | Ultimate | Bolt Break Knockdown | Lightning Pile |
+| Andromon | `skb-342` | Ultimate | Spiral Sword | Gatling Missile Rensha Mode |
+| CannonBeemon | `skb-727` | Ultimate | Nitro Stinger | Hive Capacitor |
+| MegaSeadramon | `skb-132` | Ultimate | Lightning Javelin (MegaSeadramon) | Abyssal Thunder Coil |
+| MetalMamemon | `skb-413` | Ultimate | Energy Bomb | Chrome Capacitor |
+| MetalTyrannomon | `skb-364` | Ultimate | Nuclear Laser | Reactor Jaw |
+| Parrotmon | `skb-414` | Ultimate | Mjölnir Thunder | Stormwing Cry |
+| Rapidmon | `skb-722` | Ultimate | Golden Triangle (Rapidmon) | Gold Radar Lock |
+| SkullSeadramon | `skb-908` | Ultimate | Lightning Javelin (SkullSeadramon) | Bone Current |
+| Zudomon | `skb-345` | Ultimate | None | Spark Anchor |
+| Chaosdramon | `skb-422` | Mega | Hyper Infinity Cannon | Chaos Grid Barrage |
+| GroundLocomon | `skb-704` | Mega | Destruction Crush | Railgun Overrun |
+| HerculesKabuterimon | `skb-306` | Mega | Giga Blaster | Kyodai Hasami |
+| HiAndromon | `skb-426` | Mega | Atomic Ray | Hi-Tension Barrier |
+| Machinedramon | `skb-385` | Mega | Infinity Cannon | Mugen Hand |
+| Ouryumon | `skb-193` | Mega | Eiseiryuojin | Golden Armor |
+| Ravemon | `skb-740` | Mega | Ame no Ohabari | Spiral Raven Claw |
+| RustTyrannomon | `skb-383` | Mega | Terrors Cluster | Corrosion Spark |
+| TigerVespamon | `skb-745` | Mega | Mach Stinger V | Royal Volt Guard |
+
+---
+
 ## Signature skills — 72 seeded for plant
 
 Migration [`069_skills_signature.sql`](backend/src/db/migrations/069_skills_signature.sql)
@@ -592,6 +737,52 @@ allowed to use. No skill, engine rule, or test expectation was changed.
 
 ---
 
+## `shift_initiative` had its sign backwards in 19 of 33 uses
+
+Fixed in `4f4188d`. This one was in the **content**, not the engine.
+
+[`engine.ts::shiftInitiative`](backend/src/battle/engine.ts) adds `delta` to
+the unit's index in `battle.turnQueue`:
+
+```ts
+const target = Math.max(startIdx, Math.min(battle.turnQueue.length - 1, entryIdx + delta));
+```
+
+A **lower index acts sooner**. So a negative delta is a boon and a positive
+delta is a penalty. The JSDoc says exactly that and always did — engine and
+documentation agreed with each other the whole time.
+
+The trap is that the intuitive reading is the opposite: *"negative pushes them
+back"*. An audit of all 33 uses across the seed files found **19 with the sign
+inverted**, in seven elements:
+
+| Element | Skills | What it actually did |
+| ------- | ------ | -------------------- |
+| dark    | Fatal Ambush, Unseen Terror, Time Assassination | gave the enemy an earlier turn |
+| plant   | Bramble Maze | gave the enemy an earlier turn |
+| steel   | 6 skills | gave the enemy an earlier turn |
+| water   | Maelstrom | gave the enemy an earlier turn |
+| ice     | Arctic Ring | gave the enemy an earlier turn |
+| wind    | Swift Flight, Winged Spirit | delayed its OWN caster and party |
+| null    | Void Engine, Nothing Reactor | delayed its own side |
+
+Every one did the exact opposite of what its own description promised. An
+"ambush that delays the target" was a free tempo gift to the opponent.
+
+**The invariant, now enforced:** enemy-facing targets (`enemy_*`,
+`primary_target`) take a **positive** delta; self and ally targets take a
+**negative** one.
+
+[`test:initiative-sign`](backend/test/initiative-sign.mts) parses the seed
+files and fails on any violation, so the next authoring pass cannot
+reintroduce it. It carries an `ALLOWED_EXCEPTIONS` set — empty today — for a
+skill that deliberately delays its own caster as a drawback.
+
+Balance impact across all 11 elements after the 19 flips: nothing moved
+outside 45/55 and no draw rate changed.
+
+---
+
 ## Balance evidence: mirror-match results
 
 Test suite: `pnpm --filter @digiworld/backend test:battle-sim`
@@ -652,6 +843,30 @@ at Postgres).
 | Ultimate  | 50  | 50   | 0%   | 19t       |
 | Mega      | 49  | 51   | 0%   | 15t       |
 
+### Electricity — post-rework
+
+| Stage     | Win | Loss | Draw | Avg turns |
+| --------- | --- | ---- | ---- | --------- |
+| Rookie    | 50  | 50   | 0%   | 45t       |
+| Champion  | 52  | 48   | 0%   | 35t       |
+| Ultimate  | 49  | 51   | 0%   | 16t       |
+| Mega      | 50  | 50   | 0%   | 7t        |
+
+### Electricity — pre-rework baseline
+
+| Stage     | Win | Loss | Draw | Avg turns |
+| --------- | --- | ---- | ---- | --------- |
+| Rookie    | 51  | 49   | 0%   | 45t       |
+| Champion  | 51  | 49   | 0%   | 17t       |
+| Ultimate  | 53  | 47   | 0%   | 26t       |
+| Mega      | 51  | 49   | 0%   | 5t        |
+
+> [!warning] Electricity Champion turn count
+> 35t against a 17t baseline is 2.06×, right at the edge of the 2× stall
+> heuristic. Flagged rather than force-tuned: it resolves at 0% draws and sits
+> beside plant Champion (31t) and steel Champion (38t). Same disposition as the
+> dark Ultimate note above.
+
 ### Reading the numbers
 
 Plant's Rookie turn count dropped substantially (47t to 41t), indicating
@@ -702,16 +917,16 @@ simulator fix in `e5d0451`, so they are directly comparable to each other.
 | Plant       | yes (P1)    | yes — 72 skills   |
 | Dark        | yes (P2)    | no                |
 | Light       | yes (P4)    | no                |
+| Electric    | yes (P5)    | yes — 62 skills   |
 | Fire        | no          | no                |
 | Water       | no          | no                |
 | Wind        | no          | no                |
-| Electric    | no          | no                |
 | Earth       | no          | no                |
 | Ice         | no          | no                |
 | Metal       | no          | no                |
 | Null        | no          | no                |
 
-The eight pending elements still run the original 24-skill grid: 4 stages × 6
+The seven pending elements still run the original 24-skill grid: 4 stages × 6
 slot roles, one skill per slot role per stage. Their IDs follow the legacy
 `sk-{element}-{slot_role_abbrev}-{stage_letter}` scheme — no archetype prefix.
 
@@ -814,6 +1029,18 @@ and draw rate under ~10% at all stages. The failure mode to watch for is mass
 CC on `enemy_all` at near-certain chance stacked with party-wide healing:
 mirrored sides lock and heal each other into a draw. The 92% plant Mega
 intermediate was exactly this pattern.
+
+Two traps this pipeline has already sprung, both cheap to avoid:
+
+1. **Check the factory's second argument before writing the wipe migration.**
+   `makeSkillFactory('electricity', 'elec')` produces `sk-elec-*` ids, not
+   `sk-electricity-*`. A migration written against the element name deletes
+   nothing, and the stale rows then shadow your new pool because the seeder
+   upserts `ON CONFLICT (name) DO NOTHING`.
+2. **`shift_initiative` deltas are counter-intuitive.** Negative makes a unit
+   act SOONER, positive makes it act LATER. Delaying an enemy takes a POSITIVE
+   delta. 19 of 33 uses had this backwards before it was caught;
+   `test:initiative-sign` now enforces it, so just run that test.
 
 If your element uses `silence`, note that the sim only reads it correctly from
 `e5d0451` onward — see [the simulator section](#the-simulator-was-under-reporting-silenced-units-aborted-battles).
