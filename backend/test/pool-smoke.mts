@@ -64,7 +64,7 @@ check(
 console.log(`\n=== Pool cumulative growth (per-element Mega pool size) ===`);
 // plant was re-authored around 3 design archetypes x 4 stages x 3 skills = 36;
 // every element still on the original 4 stages x 6 slot_roles grid stays at 24.
-const MEGA_POOL_SIZE: Record<string, number> = { plant: 36, dark: 36, light: 36, electricity: 36, water: 36 };
+const MEGA_POOL_SIZE: Record<string, number> = { plant: 36, dark: 36, light: 36, electricity: 36, water: 36, ice: 36 };
 const DEFAULT_MEGA_POOL_SIZE = 24;
 const elements = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
 for (const el of elements) {
