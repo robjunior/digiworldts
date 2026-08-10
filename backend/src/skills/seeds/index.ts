@@ -5,6 +5,7 @@ import { PLANT_SKILLS } from './plant.js';
 import { PLANT_SIGNATURES } from './plant-signatures.js';
 import { ICE_SKILLS } from './ice.js';
 import { ELECTRICITY_SKILLS } from './electricity.js';
+import { ELECTRICITY_SIGNATURES } from './electricity-signatures.js';
 import { EARTH_SKILLS } from './earth.js';
 import { STEEL_SKILLS } from './steel.js';
 import { WIND_SKILLS } from './wind.js';
@@ -19,6 +20,7 @@ export const ALL_SKILL_SEEDS: readonly SkillSeed[] = [
   ...PLANT_SIGNATURES,
   ...ICE_SKILLS,
   ...ELECTRICITY_SKILLS,
+  ...ELECTRICITY_SIGNATURES,
   ...EARTH_SKILLS,
   ...STEEL_SKILLS,
   ...WIND_SKILLS,
