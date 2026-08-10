@@ -22,9 +22,13 @@ grounded-in:
   - backend/src/db/migrations/069_skills_signature.sql
   - backend/src/db/migrations/070_wipe_plant_skills.sql
   - backend/src/db/migrations/071_wipe_dark_skills.sql
+  - backend/src/skills/seeds/light.ts
+  - backend/src/db/migrations/072_wipe_light_skills.sql
+  - backend/test/battle-sim.mts
+  - backend/src/battle/engine.ts
   - backend/test/pool-smoke.mts
   - shared/src/digimon.ts
-verified-at-commit: a6d0c74
+verified-at-commit: 672a1b1
 ---
 
 # Skill Archetypes
@@ -297,6 +301,101 @@ Derived verbatim from [`seeds/dark.ts`](backend/src/skills/seeds/dark.ts).
 
 ---
 
+## The light pool: 3 archetypes × 4 stages × 3 skills = 36
+
+Committed in `672a1b1`. Wipe migration:
+[`072_wipe_light_skills.sql`](backend/src/db/migrations/072_wipe_light_skills.sql),
+a direct mirror of 070 and 071 — null every `upgrade_of` pointing into
+`sk-light-%`, then delete those rows.
+
+Light's element identity is **buffs / healing / purification**. Its three
+archetypes split the kit by how it contributes to a win:
+
+- **Healer** — direct restoration. Single-target triage, party heals,
+  regeneration, and emergency saves gated on `hp_below_pct`.
+- **Buffer** — force multiplication. `atk_up` / `def_up` / `spd_up` /
+  `int_up` / `crit_up` / `accuracy_up`, shields, damage reduction. Wins by
+  making allies better rather than by out-healing incoming damage.
+- **Purifier** — `cleanse` on allies, `dispel` on enemies, and holy damage
+  that punishes the afflicted. This is the archetype that actually closes
+  fights.
+
+> [!danger] Light was the highest stall risk of all eleven elements
+> All three of light's archetypes are sustain-flavoured. That is precisely the
+> failure mode that broke an early plant draft into 92% draws — except light
+> can reach it on heals and shields **alone**, with no crowd control involved
+> at all. If party restoration per turn outpaces the enemy kit's damage per
+> turn, a mirror match simply never resolves.
+>
+> Four guardrails were designed in from the start rather than tuned in
+> afterwards:
+> 1. Party-wide (`caster_ally_all`) heals are strictly weaker per cast than
+>    single-target ones, and stay well under one enemy skill's damage.
+> 2. No skill pairs a full-party heal with `extra_turn`. That combination is
+>    a stall engine.
+> 3. `invulnerable` is 1 turn and narrow (`self` or `caster_ally_lowest_hp`),
+>    never `caster_ally_all` across multiple turns.
+> 4. The Purifier archetype carries real offensive scaling, so the element
+>    has a win condition instead of only a survival plan.
+>
+> The result held: 0% draws at every stage on the first authoring pass.
+
+### Full light skill table
+
+⭐ marks the `tier_2: true` skill of each archetype at Mega.
+
+| id | Name | Nome (pt-BR) | Stage | Archetype | `slot_role` | EN |
+| -- | ---- | ------------ | ----- | --------- | ----------- | -- |
+| `sk-light-buff-r-1` | Radiant Wall | Parede Radiante | Rookie | Buffer | `buff_support` | 8 |
+| `sk-light-buff-r-2` | Luminous Strike | Golpe Luminoso | Rookie | Buffer | `primary_attack` | 8 |
+| `sk-light-buff-r-3` | Dazzling Flash | Clarão Ofuscante | Rookie | Buffer | `control` | 9 |
+| `sk-light-heal-r-1` | Mending Light | Luz Reparadora | Rookie | Healer | `sustain_dot` | 6 |
+| `sk-light-heal-r-2` | Soft Glow | Brilho Suave | Rookie | Healer | `buff_support` | 8 |
+| `sk-light-heal-r-3` | Rescue Beacon | Farol de Resgate | Rookie | Healer | `utility` | 7 |
+| `sk-light-purify-r-1` | Cleansing Beam | Feixe Purificador | Rookie | Purifier | `primary_attack` | 9 |
+| `sk-light-purify-r-2` | Holy Wash | Banho Sagrado | Rookie | Purifier | `utility` | 8 |
+| `sk-light-purify-r-3` | Sun Smite | Golpe do Sol | Rookie | Purifier | `identity_finisher` | 10 |
+| `sk-light-buff-c-1` | Shining Barrier | Barreira Brilhante | Champion | Buffer | `buff_support` | 14 |
+| `sk-light-buff-c-2` | Brilliant Strike | Golpe Brilhante | Champion | Buffer | `primary_attack` | 14 |
+| `sk-light-buff-c-3` | Blinding Flash | Clarão Cegante | Champion | Buffer | `control` | 15 |
+| `sk-light-heal-c-1` | Restoring Light | Luz Restauradora | Champion | Healer | `sustain_dot` | 12 |
+| `sk-light-heal-c-2` | Warm Radiance | Radiância Quente | Champion | Healer | `buff_support` | 14 |
+| `sk-light-heal-c-3` | Savior's Beacon | Farol do Salvador | Champion | Healer | `utility` | 13 |
+| `sk-light-purify-c-1` | Expelling Beam | Feixe Expulsor | Champion | Purifier | `primary_attack` | 15 |
+| `sk-light-purify-c-2` | Sacred Wash | Banho Divino | Champion | Purifier | `utility` | 13 |
+| `sk-light-purify-c-3` | Solar Smite | Golpe Solar | Champion | Purifier | `identity_finisher` | 16 |
+| `sk-light-buff-u-1` | Aegis of Light | Égide de Luz | Ultimate | Buffer | `buff_support` | 22 |
+| `sk-light-buff-u-2` | Glorious Strike | Golpe Glorioso | Ultimate | Buffer | `primary_attack` | 22 |
+| `sk-light-buff-u-3` | Searing Flash | Clarão Cauterizante | Ultimate | Buffer | `control` | 20 |
+| `sk-light-heal-u-1` | Renewing Light | Luz Renovadora | Ultimate | Healer | `sustain_dot` | 18 |
+| `sk-light-heal-u-2` | Heavenly Radiance | Radiância Celestial | Ultimate | Healer | `buff_support` | 20 |
+| `sk-light-heal-u-3` | Guardian's Beacon | Farol do Guardião | Ultimate | Healer | `utility` | 18 |
+| `sk-light-purify-u-1` | Banishing Beam | Feixe Banidor | Ultimate | Purifier | `primary_attack` | 24 |
+| `sk-light-purify-u-2` | Divine Wash | Banho Celestial | Ultimate | Purifier | `utility` | 20 |
+| `sk-light-purify-u-3` | Astral Smite | Golpe Astral | Ultimate | Purifier | `identity_finisher` | 24 |
+| `sk-light-buff-m-1` | Bastion of Light ⭐ | Bastião de Luz | Mega | Buffer | `buff_support` | 34 |
+| `sk-light-buff-m-2` | Transcendent Strike | Golpe Transcendente | Mega | Buffer | `primary_attack` | 32 |
+| `sk-light-buff-m-3` | Supernova Flash | Clarão de Supernova | Mega | Buffer | `control` | 28 |
+| `sk-light-heal-m-1` | Eternal Light | Luz Eterna | Mega | Healer | `sustain_dot` | 28 |
+| `sk-light-heal-m-2` | Sovereign Radiance | Radiância Soberana | Mega | Healer | `buff_support` | 30 |
+| `sk-light-heal-m-3` | Seraph's Beacon ⭐ | Farol do Serafim | Mega | Healer | `utility` | 32 |
+| `sk-light-purify-m-1` | Eradicating Beam | Feixe Erradicador | Mega | Purifier | `primary_attack` | 36 |
+| `sk-light-purify-m-2` | Ultimate Wash | Banho Definitivo | Mega | Purifier | `utility` | 30 |
+| `sk-light-purify-m-3` | Genesis Smite ⭐ | Golpe da Gênese | Mega | Purifier | `identity_finisher` | 40 |
+
+### Notable light skill mechanics
+
+- `conditional` in 6 skills, `cleanse` in 6, `dispel` in 5 — the highest
+  cleanse/dispel density of any element so far, which is the Purifier
+  archetype expressed mechanically.
+- Every stage covers all six `slot_role` values. This matters more for light
+  than for any other element: because the default equip slices by slot-role
+  order, a stage stacked with `buff_support` would hand the mon a kit with no
+  damage and guarantee the stall described above.
+- Each archetype runs an `upgrade_of` chain from Rookie to Mega.
+
+---
+
 ## Signature skills — 72 seeded for plant
 
 Migration [`069_skills_signature.sql`](backend/src/db/migrations/069_skills_signature.sql)
@@ -446,6 +545,53 @@ lore, rather than shipping "Overdrive" as a named signature.
 
 ---
 
+## The simulator was under-reporting: silenced units aborted battles
+
+Fixed in `e5d0451`. **Any balance figure recorded before that commit, for an
+element that uses `silence`, should be treated as suspect.**
+
+`pickAction` in [`battle-sim.mts`](backend/test/battle-sim.mts) never checked
+for `silence` before choosing a skill. The engine rejects a skill used under
+silence outright — [`engine.ts:515`](backend/src/battle/engine.ts:515) returns
+`{ ok: false, error: 'silenced', code: 'silenced' }` — and the sim's run loop
+breaks on *any* rejection:
+
+```ts
+const r = applyAction(battle, active.side, action);
+if (!r.ok) break;
+```
+
+So the battle aborted mid-fight and was tallied as a draw. Balance was never
+the problem; the harness was. The two worst rows in the whole matrix turned
+out to be the two elements that lean hardest on `silence`:
+
+| Element | `silence` uses | Mega before | Mega after |
+| ------- | -------------- | ----------- | ---------- |
+| Null    | 11             | 0/0/**100%** — 1t | 51/49/**0%** — 10t |
+| Steel   | 3              | 23/27/**51%** — 30t | 53/48/**0%** — 38t |
+
+Null's Mega had been sitting at a 100% draw rate resolving in a *single* turn:
+the silence lands on the first action, the next skill attempt is rejected, the
+fight aborts. That row had been read as a broken pool for a long time.
+
+The fix mirrors what a real player does — a silenced unit can still throw a
+basic attack, so the AI does that instead of attempting a skill it is not
+allowed to use. No skill, engine rule, or test expectation was changed.
+
+> [!warning] Related engine sharp edge — NOT fixed
+> The rejection at `engine.ts:515` returns *before* `tickActorAilments` and
+> `advanceTurnQueue`. A client that keeps retrying skills while silenced
+> therefore never advances the turn, and the silence never expires. Real
+> players escape by choosing `fight`, so this is not player-facing today —
+> but it is why the ailment never decayed in the sim either. Only the test
+> harness was fixed in `e5d0451`; the engine path is untouched.
+
+> [!note] Still open — water Champion
+> Water Champion remains at roughly 33% draws across ~348 turns. That is a
+> genuine stall, unrelated to `silence`, and is not addressed here.
+
+---
+
 ## Balance evidence: mirror-match results
 
 Test suite: `pnpm --filter @digiworld/backend test:battle-sim`
@@ -488,6 +634,24 @@ at Postgres).
 | Ultimate  | 49  | 47   | 4%   | 10t       |
 | Mega      | 48  | 49   | 3%   | 7t        |
 
+### Light — post-rework
+
+| Stage     | Win | Loss | Draw | Avg turns |
+| --------- | --- | ---- | ---- | --------- |
+| Rookie    | 51  | 49   | 0%   | 39t       |
+| Champion  | 49  | 51   | 0%   | 17t       |
+| Ultimate  | 51  | 49   | 0%   | 14t       |
+| Mega      | 49  | 51   | 0%   | 16t       |
+
+### Light — pre-rework baseline
+
+| Stage     | Win | Loss | Draw | Avg turns |
+| --------- | --- | ---- | ---- | --------- |
+| Rookie    | 50  | 50   | 0%   | 47t       |
+| Champion  | 49  | 51   | 0%   | 24t       |
+| Ultimate  | 50  | 50   | 0%   | 19t       |
+| Mega      | 49  | 51   | 0%   | 15t       |
+
 ### Reading the numbers
 
 Plant's Rookie turn count dropped substantially (47t to 41t), indicating
@@ -521,6 +685,14 @@ steel Ultimate at 35t, so the spread across elements is wide by design.
 > 92% draw rate is obvious in the numbers and invisible in a playtesting
 > session.
 
+Light came in at 0% draws across all four stages on the first authoring pass,
+with turn counts at or below its own baseline. Given that all three of its
+archetypes are sustain-flavoured, that outcome is the payoff of designing the
+guardrails in up front rather than tuning a stall out afterwards.
+
+The plant, dark and light rows above were all re-measured **after** the
+simulator fix in `e5d0451`, so they are directly comparable to each other.
+
 ---
 
 ## Progress tracker
@@ -529,17 +701,17 @@ steel Ultimate at 35t, so the spread across elements is wide by design.
 | ----------- | ----------- | ----------------- |
 | Plant       | yes (P1)    | yes — 72 skills   |
 | Dark        | yes (P2)    | no                |
+| Light       | yes (P4)    | no                |
 | Fire        | no          | no                |
 | Water       | no          | no                |
 | Wind        | no          | no                |
 | Electric    | no          | no                |
 | Earth       | no          | no                |
 | Ice         | no          | no                |
-| Light       | no          | no                |
 | Metal       | no          | no                |
 | Null        | no          | no                |
 
-The nine pending elements still run the original 24-skill grid: 4 stages × 6
+The eight pending elements still run the original 24-skill grid: 4 stages × 6
 slot roles, one skill per slot role per stage. Their IDs follow the legacy
 `sk-{element}-{slot_role_abbrev}-{stage_letter}` scheme — no archetype prefix.
 
@@ -553,7 +725,22 @@ To re-author any of the remaining nine elements:
 
 Pick three thematic identities from the archetype table above. Give each
 archetype a short word prefix you'll use in the `idSuffix` (plant uses `dot`,
-`heal`, `zone`; dark uses `assassin`, `debuff`, `drain`).
+`heal`, `zone`; dark uses `assassin`, `debuff`, `drain`; light uses `heal`,
+`buff`, `purify`).
+
+> [!important] If all three archetypes are sustain, design the win condition first
+> Light was the first element where every archetype — Healer, Buffer,
+> Purifier — contributes by keeping allies alive rather than by killing.
+> An element shaped that way can stall on heals and shields alone, with no
+> crowd control anywhere in the kit, because a mirror match never resolves
+> once party restoration per turn exceeds the enemy kit's damage per turn.
+>
+> Two rules that came out of that run:
+> - Budget party-wide restoration against the **enemy kit's damage per turn**,
+>   not per skill in isolation. Three individually reasonable heals and a
+>   shield stack into an unkillable team.
+> - Deliberately assign one archetype the job of closing fights, and give it
+>   real offensive scaling. Light's Purifier plays that role.
 
 ### 2. Fill the grid: 3 archetypes × 4 stages × 3 skills
 
@@ -627,6 +814,11 @@ and draw rate under ~10% at all stages. The failure mode to watch for is mass
 CC on `enemy_all` at near-certain chance stacked with party-wide healing:
 mirrored sides lock and heal each other into a draw. The 92% plant Mega
 intermediate was exactly this pattern.
+
+If your element uses `silence`, note that the sim only reads it correctly from
+`e5d0451` onward — see [the simulator section](#the-simulator-was-under-reporting-silenced-units-aborted-battles).
+Before that commit a silenced unit aborted the battle and inflated the draw
+rate to the point of hiding real results.
 
 ---
 
