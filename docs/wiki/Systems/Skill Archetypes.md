@@ -27,12 +27,15 @@ grounded-in:
   - backend/src/skills/seeds/electricity.ts
   - backend/src/skills/seeds/electricity-signatures.ts
   - backend/src/db/migrations/073_wipe_electricity_skills.sql
+  - backend/src/skills/seeds/water.ts
+  - backend/src/skills/seeds/water-signatures.ts
+  - backend/src/db/migrations/074_wipe_water_skills.sql
   - backend/test/initiative-sign.mts
   - backend/test/battle-sim.mts
   - backend/src/battle/engine.ts
   - backend/test/pool-smoke.mts
   - shared/src/digimon.ts
-verified-at-commit: f3d8f94
+verified-at-commit: b039de9
 ---
 
 # Skill Archetypes
@@ -541,6 +544,177 @@ redone.
 
 ---
 
+## The water pool: 3 archetypes × 4 stages × 3 skills = 36
+
+Committed in `dd81a79`. Wipe migration:
+[`074_wipe_water_skills.sql`](backend/src/db/migrations/074_wipe_water_skills.sql).
+
+This rework did double duty — it also retired the worst row in the entire
+balance matrix. See [the Champion stall](#the-water-champion-stall-31-draws-over-339-turns)
+below.
+
+Water's element identity is **control / displacement**:
+
+- **Controller** — shaping what the enemy can do: `freeze`, `root`,
+  `confusion`, `blind`, accuracy and speed denial.
+- **Displacer** — turn-order and positioning manipulation. `shift_initiative`
+  on enemies to push them down the queue, plus `dispel`. Water's "wash them
+  away" fantasy.
+- **Sustain** — healing and cleansing, **deliberately budgeted**. This is the
+  archetype that broke the old pool, so it runs on the shortest leash:
+  single-target and `caster_ally_lowest_hp` heals over party-wide ones, and
+  the archetype carries real damage of its own.
+
+### Full water skill table
+
+⭐ marks the `tier_2: true` skill of each archetype at Mega.
+
+| id | Name | Nome (pt-BR) | Stage | Archetype | `slot_role` | EN |
+| -- | ---- | ------------ | ----- | --------- | ----------- | -- |
+| `sk-water-control-r-1` | Rime Bubble | Bolha de Geada | Rookie | Controller | `control` | 8 |
+| `sk-water-control-r-2` | Silt Snare | Laço de Lodo | Rookie | Controller | `utility` | 9 |
+| `sk-water-control-r-3` | Mirror Spray | Borrifo Espelhado | Rookie | Controller | `identity_finisher` | 10 |
+| `sk-water-displace-r-1` | Undertow Jab | Estocada de Ressaca | Rookie | Displacer | `primary_attack` | 8 |
+| `sk-water-displace-r-2` | Foam Break | Quebra-Espuma | Rookie | Displacer | `control` | 7 |
+| `sk-water-displace-r-3` | Backwash Feint | Finta de Refluxo | Rookie | Displacer | `utility` | 9 |
+| `sk-water-sustain-r-1` | Tidepatch | Remendo da Maré | Rookie | Sustain | `sustain_dot` | 6 |
+| `sk-water-sustain-r-2` | Clearwater Guard | Guarda de Água Clara | Rookie | Sustain | `buff_support` | 8 |
+| `sk-water-sustain-r-3` | Brackish Counter | Contra-Ataque Salobro | Rookie | Sustain | `primary_attack` | 9 |
+| `sk-water-control-c-1` | Glacial Bubble | Bolha Glacial | Champion | Controller | `control` | 13 |
+| `sk-water-control-c-2` | Quagmire Snare | Laço de Brejo | Champion | Controller | `utility` | 14 |
+| `sk-water-control-c-3` | Hall of Ripples | Salão de Ondulações | Champion | Controller | `identity_finisher` | 16 |
+| `sk-water-displace-c-1` | Riptide Spear | Lança de Correnteza | Champion | Displacer | `primary_attack` | 14 |
+| `sk-water-displace-c-2` | Breaker Foam | Espuma Rompente | Champion | Displacer | `control` | 12 |
+| `sk-water-displace-c-3` | Eddy Step | Passo do Remanso | Champion | Displacer | `utility` | 15 |
+| `sk-water-sustain-c-1` | Surgeon Tide | Maré Cirurgiã | Champion | Sustain | `sustain_dot` | 12 |
+| `sk-water-sustain-c-2` | Blueglass Ward | Proteção de Vidro Azul | Champion | Sustain | `buff_support` | 13 |
+| `sk-water-sustain-c-3` | Saltline Reprisal | Revide da Linha Salgada | Champion | Sustain | `primary_attack` | 15 |
+| `sk-water-control-u-1` | Cryo Sphere | Esfera Crio | Ultimate | Controller | `control` | 17 |
+| `sk-water-control-u-2` | Boglock Snare | Laço Trava-Brejo | Ultimate | Controller | `utility` | 19 |
+| `sk-water-control-u-3` | Labyrinth Current | Corrente Labiríntica | Ultimate | Controller | `identity_finisher` | 23 |
+| `sk-water-displace-u-1` | Riptide Lance | Lança da Maré Viva | Ultimate | Displacer | `primary_attack` | 18 |
+| `sk-water-displace-u-2` | Reefbreaker Foam | Espuma Quebra-Recife | Ultimate | Displacer | `control` | 16 |
+| `sk-water-displace-u-3` | Gyre Stride | Passada do Giro | Ultimate | Displacer | `utility` | 22 |
+| `sk-water-sustain-u-1` | Lifeboat Tide | Maré Bote-Salva-Vidas | Ultimate | Sustain | `sustain_dot` | 16 |
+| `sk-water-sustain-u-2` | Seaglass Bastion | Bastião de Vidro-Marinho | Ultimate | Sustain | `buff_support` | 18 |
+| `sk-water-sustain-u-3` | Brineblade Reprisal | Revide da Lâmina Salina | Ultimate | Sustain | `primary_attack` | 20 |
+| `sk-water-control-m-1` | Absolute Zero Sphere | Esfera de Zero Absoluto | Mega | Controller | `control` | 24 |
+| `sk-water-control-m-2` | Abyssal Quagmire | Brejo Abissal | Mega | Controller | `utility` | 28 |
+| `sk-water-control-m-3` | Leviathan Maze ⭐ | Labirinto do Leviatã | Mega | Controller | `identity_finisher` | 34 |
+| `sk-water-displace-m-1` | Maelstrom Harpoon | Arpão do Maelström | Mega | Displacer | `primary_attack` | 26 |
+| `sk-water-displace-m-2` | Tidebreaker Verdict | Veredito Quebra-Maré | Mega | Displacer | `control` | 24 |
+| `sk-water-displace-m-3` | Worldcurrent Overrun ⭐ | Atropelo da Corrente-Mundo | Mega | Displacer | `utility` | 36 |
+| `sk-water-sustain-m-1` | Mercy Tide | Maré da Misericórdia | Mega | Sustain | `sustain_dot` | 22 |
+| `sk-water-sustain-m-2` | Pearl Bastion | Bastião de Pérola | Mega | Sustain | `buff_support` | 25 |
+| `sk-water-sustain-m-3` | Abyssal Reprisal ⭐ | Revide Abissal | Mega | Sustain | `primary_attack` | 32 |
+
+### Notable water skill mechanics
+
+- 8 `conditional`, 11 `shift_initiative`, 4 `dispel`, 4 `cleanse`.
+- Every stage covers all six `slot_role` values.
+- Each archetype runs an `upgrade_of` chain from Rookie to Mega.
+
+---
+
+## The water Champion stall: 31% draws over 339 turns
+
+Fixed by the rework in `dd81a79`. Unlike the `silence` and `shift_initiative`
+findings, this one was neither a harness bug nor a sign error — the content
+was simply unwinnable.
+
+Water Champion resolved at **31% draws over ~339 turns**, against every other
+element's Champion finishing in 15-38. The Champion tier had exactly six
+skills and the default equip takes exactly six slots
+(`EQUIPPED_SLOTS_PER_STAGE.Champion === 6`), so **both mirrored sides equipped
+all of them** — and three of the six were heals:
+
+| Old Champion skill | What it did |
+| ------------------ | ----------- |
+| Torrential Wave | `enemy_all` 25 + 1.2×int — the only real AoE damage |
+| Healing Rain | `caster_ally_all` heal 50 + 0.6×int + `cleanse` |
+| Vital Current | `caster_ally_lowest_hp` heal 90 + 1.2×int + `def_up` |
+| Aquatic Blessing | `caster_ally_all` heal 110 + 1.4×int, plus 20 + 0.7×int damage |
+| Thick Fog | `blind` on `enemy_all` at 60% for 3 turns + `evasion_up` |
+| Whirlpool | 3 × (20 + 0.8×int) `enemy_random` + `weaken` |
+
+`Aquatic Blessing` alone restored 110 + 1.4×int to the entire party while the
+largest AoE dealt 25 + 1.2×int — roughly **four points of healing per point of
+damage** — and `Thick Fog` blinded every enemy at 60%, so the attacks that did
+happen frequently missed. Neither side could kill the other.
+
+**The lesson, now in the recipe:** budget sustain across the whole stage
+against that stage's damage output, not skill by skill. Three individually
+reasonable heals in one tier stack into an unkillable team, and the default
+equip guarantees a mon gets all of them.
+
+| Stage | Before | After |
+| ----- | ------ | ----- |
+| Rookie | 48/52/0% — 47t | 52/48/0% — 47t |
+| Champion | 31/38/**31%** — **339t** | 51/49/**0%** — **38t** |
+| Ultimate | 50/50/0% — 13t | 49/51/0% — 23t |
+| Mega | 51/49/0% — 67t | 49/51/0% — 18t |
+
+Mega's 67t coming down to 18t was a bonus of the same rebalance.
+
+---
+
+## Water signatures — 58 seeded
+
+Committed in `b039de9`. Two per each of the 29 water Digimon.
+
+Six names needed the collision suffix: `Rain Stream` and `Titanic Charge`
+(Lanamon), `Acid Bubbles` and `Tackle` (Tsunomon), `Water Jet` (Otamamon),
+`Water Shot` (Syakomon).
+
+Thirteen slots were authored originally rather than shipping tiered filler
+(`Overdrive`, `Ocean Wave I`, `Aqua Pressure II`) as a signature: Lunar Foam
+Snare, Kappa Deck Splash, Lagoon Tail Sweep, Abyssal Tithe, Reef Venom Barb,
+Sanzou River Seal, Whale Song Current, Volcano Bass Drop, Boiling Reef
+Breaker, Bubble Claw Trap, Siren Undertow Aria, Petal Foam Drift, Hangover
+Undertow.
+
+> [!note] First signatures below Rookie
+> This set includes four **In-Training** owners — Koromon, Motimon, Tsunomon
+> and Yokomon — costing 5-6 EN to match the stage. Nothing in the pool query
+> changes: signatures are excluded from it regardless of stage.
+
+`slot_role` distribution: 17 `identity_finisher`, 14 `primary_attack`, 13
+`control`, 8 `sustain_dot`, 4 `utility`, 2 `buff_support`.
+
+| Digimon | owner | Stage | Signature 1 | Signature 2 |
+| ------- | ----- | ----- | ----------- | ----------- |
+| Koromon | `skb-322` | In-Training | Bubbles | Poyoyon Tackle |
+| Motimon | `skb-388` | In-Training | Elastic Bubbles | Shinshukusei no Awa |
+| Tsunomon | `skb-438` | In-Training | Acid Bubbles (Tsunomon) | Tackle (Tsunomon) |
+| Yokomon | `skb-510` | In-Training | Soap Flower | Petal Foam Drift |
+| Crabmon | `skb-103` | Rookie | Scissors Execution | Bubble Claw Trap |
+| Gomamon | `skb-343` | Rookie | Marching Fishes | Sharp Edge |
+| Kamemon | `skb-52` | Rookie | Pointer Arrow | Koura Guard |
+| Lanamon | `skb-162` | Rookie | Rain Stream (Lanamon) | Titanic Charge (Lanamon) |
+| Lunamon | `skb-2` | Rookie | Tearing Shot | Lop-ear Ripple |
+| Otamamon | `skb-582` | Rookie | Lullaby Bubble | Water Jet (Otamamon) |
+| Submarimon | `skb-145` | Rookie | Oxygen Homing | Aqua Vulcan |
+| Syakomon | `skb-709` | Rookie | Black Pearl Blast | Water Shot (Syakomon) |
+| Coelamon | `skb-130` | Champion | Fossil Bite | Destructive Spear |
+| Gawappamon | `skb-51` | Champion | DJ Shooter | Kappa Deck Splash |
+| Gekomon | `skb-399` | Champion | Symphony Crusher | Noisy Echo |
+| Lekismon | `skb-3` | Champion | Moon Night Bomb | Lunar Foam Snare |
+| Shellmon | `skb-368` | Champion | Hydro Blaster | Spin Shelter |
+| Brachiomon | `skb-724` | Ultimate | Brachio Bubble | Lagoon Tail Sweep |
+| Dragomon | `skb-129` | Ultimate | Forbidden Trident | Abyssal Tithe |
+| Scorpiomon | `skb-605` | Ultimate | Stinger Surprise | Reef Venom Barb |
+| Shaujinmon | `skb-76` | Ultimate | Kouyoujou: Hydro Descent | Sanzou River Seal |
+| Sirenmon | `skb-232` | Ultimate | Symphony No. 3 | Siren Undertow Aria |
+| Volcanomon | `skb-59` | Ultimate | Volcano Bass Drop | Boiling Reef Breaker |
+| Whamon | `skb-21` | Ultimate | Tidal Wave | Whale Song Current |
+| Bacchusmon DM | `skb-767` | Mega | Reversal of the Dead | Hangover Undertow |
+| Dianamon | `skb-733` | Mega | Goodnight Moon | Arrow of Artemis |
+| JumboGamemon | `skb-98` | Mega | Megaton Hydro Laser | Jumbo Crater |
+| Leviamon | `skb-37` | Mega | Biting Crush | Tail Strike |
+| Neptunemon | `skb-75` | Mega | Vortex Penetration | Wave of Depth |
+
+---
+
 ## Signature skills — 72 seeded for plant
 
 Migration [`069_skills_signature.sql`](backend/src/db/migrations/069_skills_signature.sql)
@@ -867,6 +1041,24 @@ at Postgres).
 > beside plant Champion (31t) and steel Champion (38t). Same disposition as the
 > dark Ultimate note above.
 
+### Water — post-rework
+
+| Stage     | Win | Loss | Draw | Avg turns |
+| --------- | --- | ---- | ---- | --------- |
+| Rookie    | 52  | 48   | 0%   | 47t       |
+| Champion  | 51  | 49   | 0%   | 38t       |
+| Ultimate  | 49  | 51   | 0%   | 23t       |
+| Mega      | 49  | 51   | 0%   | 18t       |
+
+### Water — pre-rework baseline (the stall)
+
+| Stage     | Win | Loss | Draw    | Avg turns |
+| --------- | --- | ---- | ------- | --------- |
+| Rookie    | 48  | 52   | 0%      | 47t       |
+| Champion  | 31  | 38   | **31%** | **339t**  |
+| Ultimate  | 50  | 50   | 0%      | 13t       |
+| Mega      | 51  | 49   | 0%      | 67t       |
+
 ### Reading the numbers
 
 Plant's Rookie turn count dropped substantially (47t to 41t), indicating
@@ -918,15 +1110,15 @@ simulator fix in `e5d0451`, so they are directly comparable to each other.
 | Dark        | yes (P2)    | no                |
 | Light       | yes (P4)    | no                |
 | Electric    | yes (P5)    | yes — 62 skills   |
+| Water       | yes (P7)    | yes — 58 skills   |
 | Fire        | no          | no                |
-| Water       | no          | no                |
 | Wind        | no          | no                |
 | Earth       | no          | no                |
 | Ice         | no          | no                |
 | Metal       | no          | no                |
 | Null        | no          | no                |
 
-The seven pending elements still run the original 24-skill grid: 4 stages × 6
+The six pending elements still run the original 24-skill grid: 4 stages × 6
 slot roles, one skill per slot role per stage. Their IDs follow the legacy
 `sk-{element}-{slot_role_abbrev}-{stage_letter}` scheme — no archetype prefix.
 
@@ -1037,7 +1229,14 @@ Two traps this pipeline has already sprung, both cheap to avoid:
    `sk-electricity-*`. A migration written against the element name deletes
    nothing, and the stale rows then shadow your new pool because the seeder
    upserts `ON CONFLICT (name) DO NOTHING`.
-2. **`shift_initiative` deltas are counter-intuitive.** Negative makes a unit
+2. **Budget sustain across the whole stage, not per skill.** The default equip
+   takes 4/6/8/10 slots by stage, and a stage has 9 skills — so a mon gets most
+   of the tier at once. Three individually reasonable heals in one tier stack
+   into a team that cannot be killed. Water Champion shipped that way and sat
+   at 31% draws over 339 turns until it was rewritten. Compare the tier's total
+   healing throughput against its total damage throughput before you run
+   anything.
+3. **`shift_initiative` deltas are counter-intuitive.** Negative makes a unit
    act SOONER, positive makes it act LATER. Delaying an enemy takes a POSITIVE
    delta. 19 of 33 uses had this backwards before it was caught;
    `test:initiative-sign` now enforces it, so just run that test.
