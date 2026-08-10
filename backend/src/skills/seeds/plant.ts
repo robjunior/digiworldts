@@ -3,354 +3,552 @@ import { makeSkillFactory, type SkillSeed } from './types.js';
 const p = makeSkillFactory('plant', 'plant');
 
 export const PLANT_SKILLS: SkillSeed[] = [
+  // ---- DoT ----
   p({
-    idSuffix: 'pa-r',
-    name: 'Cutting Vine',
-    name_pt: 'Vinha Cortante',
-    description: 'A sharp vine lashes the target, dealing plant damage and possibly rooting them.',
-    description_pt: 'Uma vinha afiada chicoteia o alvo, causando dano de planta e podendo enraizá-lo.',
-    stage: 'Rookie',
-    slot_role: 'primary_attack',
-    energyCost: 8,
-    actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'int', factor: 1.0 }, element: 'plant' },
-      { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.25, turns: 2 },
-    ],
-  }),
-  p({
-    idSuffix: 'sd-r',
-    name: 'Parasitic Seeds',
-    name_pt: 'Sementes Parasitas',
-    description: 'Parasitic seeds burrow into the target, poisoning them for several turns.',
-    description_pt: 'Sementes parasitas se enterram no alvo, envenenando-o por várias rodadas.',
+    idSuffix: 'dot-r-1',
+    name: 'Toxic Seed',
+    name_pt: 'Semente Tóxica',
+    description: 'Plants a toxic seed that poisons the target.',
+    description_pt: 'Planta uma semente tóxica que envenena o alvo.',
     stage: 'Rookie',
     slot_role: 'sustain_dot',
-    energyCost: 6,
+    energyCost: 7,
     actions: [
-      { kind: 'apply_status', target: 'primary_target', status: 'poison', chance: 0.9, turns: 3 },
-    ],
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 10, scale: 'int', factor: 0.8 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.8, turns: 1 }
+    ]
   }),
   p({
-    idSuffix: 'ct-r',
-    name: 'Entanglement',
-    name_pt: 'Emaranhado',
-    description: 'Twisting roots entangle every enemy, slowing and rooting them.',
-    description_pt: 'Raízes retorcidas emaranham os inimigos, retardando-os e podendo enraizá-los.',
+    idSuffix: 'dot-r-2',
+    name: 'Thorny Whip',
+    name_pt: 'Chicote Espinhoso',
+    description: 'Strikes with thorns, dealing damage and occasionally poisoning.',
+    description_pt: 'Golpeia com espinhos, causando dano e envenenando ocasionalmente.',
     stage: 'Rookie',
-    slot_role: 'control',
-    energyCost: 8,
+    slot_role: 'primary_attack',
+    energyCost: 9,
     actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.4, turns: 2 },
-      { kind: 'modify_stat', target: 'enemy_all', stat: 'spd', delta: -10, turns: 3 },
-    ],
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 1.0 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.3, turns: 2 }
+    ]
   }),
   p({
-    idSuffix: 'bs-r',
-    name: 'Iron Bark',
-    name_pt: 'Casca de Ferro',
-    description: 'Hardens the user in iron-like bark, granting a shield and strengthening defenses.',
-    description_pt: 'Endurece o usuário em casca de ferro, concedendo um escudo e reforçando defesas.',
-    stage: 'Rookie',
-    slot_role: 'buff_support',
-    energyCost: 8,
-    actions: [
-      { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 60, turns: 3 },
-      { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 15, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'ut-r',
-    name: 'Creeping Thorns',
-    name_pt: 'Espinhos Rasteiros',
-    description: 'Creeping thorns tear at the front enemies, cutting and poisoning them.',
-    description_pt: 'Espinhos rasteiros dilaceram os inimigos da frente, cortando-os e envenenando-os.',
+    idSuffix: 'dot-r-3',
+    name: 'Creeping Mold',
+    name_pt: 'Mofo Rastejante',
+    description: 'Covers the enemy in mold, lowering defenses and cursing them.',
+    description_pt: 'Cobre o inimigo com mofo, reduzindo defesas e amaldiçoando-os.',
     stage: 'Rookie',
     slot_role: 'utility',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 10, scale: 'int', factor: 0.5 }, element: 'plant' },
-      { kind: 'apply_status', target: 'enemy_first_two', status: 'poison', chance: 0.4, turns: 3 },
-    ],
+      { kind: 'modify_stat', target: 'enemy_random', stat: 'def', delta: -15, turns: 3 },
+      { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.5, turns: 2 }
+    ]
   }),
   p({
-    idSuffix: 'id-r',
-    name: 'Root Absorption',
-    name_pt: 'Absorção Raiz',
-    description: 'Roots pierce the target and drain their vitality back to the user — plant’s signature survival move.',
-    description_pt: 'Raízes perfuram o alvo e drenam sua vitalidade de volta ao usuário — o movimento de sobrevivência assinatura da planta.',
-    stage: 'Rookie',
-    slot_role: 'identity_finisher',
-    energyCost: 10,
+    idSuffix: 'dot-c-1',
+    name: 'Venomous Bloom',
+    name_pt: 'Floração Venenosa',
+    description: 'A heavily toxic flower blooms, poisoning multiple targets.',
+    description_pt: 'Uma flor altamente tóxica desabrocha, envenenando múltiplos alvos.',
+    stage: 'Champion',
+    slot_role: 'sustain_dot',
+    upgrade_of: 'sk-plant-dot-r-1',
+    energyCost: 12,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 40, scale: 'int', factor: 1.2 }, heal_pct: 0.6, element: 'plant' },
-    ],
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 50, scale: 'int', factor: 1.8 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.6, turns: 2 }
+    ]
   }),
-
   p({
-    idSuffix: 'pa-c',
-    name: 'Thorned Cipó',
-    name_pt: 'Cipó Espinhoso',
-    description: 'A thorned cipó lashes every enemy, dealing plant damage with a chance to root.',
-    description_pt: 'Um cipó espinhoso açoita todos os inimigos, causando dano de planta e podendo enraizar.',
+    idSuffix: 'dot-c-2',
+    name: 'Acid Sap',
+    name_pt: 'Seiva Ácida',
+    description: 'Splashes corrosive sap. Deals extra damage if the target is poisoned.',
+    description_pt: 'Respinga seiva corrosiva. Causa dano extra se o alvo estiver envenenado.',
     stage: 'Champion',
     slot_role: 'primary_attack',
-    energyCost: 14,
-    upgrade_of: 'sk-plant-pa-r',
+    energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 25, scale: 'int', factor: 1.2 }, element: 'plant' },
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.3, turns: 2 },
-    ],
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 60, scale: 'int', factor: 2.0 }, element: 'plant' },
+      {
+        kind: 'conditional',
+        if: { kind: 'has_status', status: 'poison' },
+        then: [
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.5 }, element: 'plant' }
+        ]
+      }
+    ]
   }),
   p({
-    idSuffix: 'sd-c',
-    name: 'Root Corruption',
-    name_pt: 'Corrupção Radicular',
-    description: 'The soil turns hostile — every enemy is poisoned and weakened.',
-    description_pt: 'O solo se torna hostil — cada inimigo é envenenado e enfraquecido.',
+    idSuffix: 'dot-c-3',
+    name: 'Fungal Spores',
+    name_pt: 'Esporos Fúngicos',
+    description: 'Releases dark spores that curse the enemy frontline.',
+    description_pt: 'Libera esporos sombrios que amaldiçoam a linha de frente inimiga.',
     stage: 'Champion',
+    slot_role: 'utility',
+    energyCost: 11,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_front', status: 'curse', chance: 0.7, turns: 3 }
+    ]
+  }),
+  p({
+    idSuffix: 'dot-u-1',
+    name: 'Lethal Blossom',
+    name_pt: 'Pétala Letal',
+    description: 'Unleashes a deadly pollen cloud, poisoning all enemies.',
+    description_pt: 'Libera uma nuvem de pólen mortal, envenenando todos os inimigos.',
+    stage: 'Ultimate',
+    slot_role: 'identity_finisher',
+    upgrade_of: 'sk-plant-dot-c-1',
+    energyCost: 12,
+    actions: [
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 60, scale: 'int', factor: 1.8 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.5, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'dot-u-2',
+    name: 'Corrosive Vine',
+    name_pt: 'Vinha Corrosiva',
+    description: 'A thorny vine that drains life from the target and applies poison.',
+    description_pt: 'Uma vinha espinhosa que drena a vida do alvo e aplica veneno.',
+    stage: 'Ultimate',
     slot_role: 'sustain_dot',
     energyCost: 12,
     actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 0.7, turns: 4 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.4, turns: 3 },
-    ],
+      { kind: 'drain', target: 'enemy_random', damage: { base: 80, scale: 'int', factor: 2.2 }, heal_pct: 0.2, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.4, turns: 2 }
+    ]
   }),
   p({
-    idSuffix: 'ct-c',
-    name: 'Sylvan Prison',
-    name_pt: 'Prisão Silvestre',
-    description: 'A sylvan prison holds one enemy for a long time — sometimes turning them to stone.',
-    description_pt: 'Uma prisão silvestre segura um inimigo por muito tempo — às vezes petrificando-o.',
-    stage: 'Champion',
-    slot_role: 'control',
-    energyCost: 14,
-    actions: [
-      { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.9, turns: 4 },
-      { kind: 'apply_status', target: 'primary_target', status: 'petrify', chance: 0.25, turns: 2 },
-    ],
-  }),
-  p({
-    idSuffix: 'bs-c',
-    name: 'Moss Bastion',
-    name_pt: 'Bastião de Musgo',
-    description: 'A bastion of moss wraps the user in a heavy shield and thick damage reduction.',
-    description_pt: 'Um bastião de musgo envolve o usuário em um escudo pesado e forte redução de dano.',
-    stage: 'Champion',
-    slot_role: 'buff_support',
-    energyCost: 14,
-    actions: [
-      { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 140, turns: 4 },
-      { kind: 'apply_buff', target: 'self', buff: 'damage_reduction', amount: 25, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'ut-c',
-    name: 'Grove Breath',
-    name_pt: 'Sopro do Bosque',
-    description: 'A grove breath heals the party a little and washes away one debuff each.',
-    description_pt: 'Um sopro do bosque cura a equipe um pouco e remove um debuff de cada aliado.',
-    stage: 'Champion',
-    slot_role: 'utility',
-    energyCost: 16,
-    actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 60, scale: 'int', factor: 0.7 } },
-      { kind: 'cleanse', target: 'caster_ally_all' },
-    ],
-  }),
-  p({
-    idSuffix: 'id-c',
-    name: 'Vampiric Roots',
-    name_pt: 'Raízes Vampíricas',
-    description: 'Vampiric roots erupt beneath every enemy, tearing at them and channeling their essence into the user.',
-    description_pt: 'Raízes vampíricas irrompem sob todos os inimigos, dilacerando-os e canalizando sua essência para o usuário.',
-    stage: 'Champion',
-    slot_role: 'identity_finisher',
-    energyCost: 24,
-    upgrade_of: 'sk-plant-id-r',
-    actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 50, scale: 'int', factor: 1.6 }, heal_pct: 0.5, element: 'plant' },
-    ],
-  }),
-
-  p({
-    idSuffix: 'pa-u',
-    name: 'Sylvan Explosion',
-    name_pt: 'Explosão Selvática',
-    description: 'A sylvan explosion tears through the enemies, damaging them and locking them in place.',
-    description_pt: 'Uma explosão selvática atinge todos os inimigos, ferindo-os e prendendo-os no lugar.',
+    idSuffix: 'dot-u-3',
+    name: 'Rotting Roots',
+    name_pt: 'Raízes Apodrecidas',
+    description: 'Crushes enemies with decaying roots, hitting harder if they are cursed.',
+    description_pt: 'Esmaga os inimigos com raízes em decomposição, atingindo mais forte se estiverem amaldiçoados.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
-    energyCost: 24,
-    upgrade_of: 'sk-plant-pa-c',
+    energyCost: 13,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 45, scale: 'int', factor: 2.0 }, element: 'plant' },
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.6, turns: 3 },
-    ],
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 70, scale: 'int', factor: 1.8 }, element: 'plant' },
+      {
+        kind: 'conditional',
+        if: { kind: 'has_status', status: 'curse' },
+        then: [
+          { kind: 'deal_damage', target: 'enemy_front', amount: { base: 30, scale: 'int', factor: 0.7 }, element: 'plant' }
+        ]
+      }
+    ]
   }),
   p({
-    idSuffix: 'sd-u',
-    name: 'Fungal Plague',
-    name_pt: 'Praga Fungal',
-    description: 'A fungal plague spreads through every enemy — persistent poison, and sometimes a lingering curse.',
-    description_pt: 'Uma praga fungal se espalha por cada inimigo — veneno persistente e, às vezes, uma maldição.',
-    stage: 'Ultimate',
-    slot_role: 'sustain_dot',
-    energyCost: 14,
-    actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 1.0, turns: 5 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'curse', chance: 0.3, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'ct-u',
-    name: "Forest's Heart",
-    name_pt: 'Coração da Floresta',
-    description: "The forest's heart reaches out — every enemy is rooted and blinded.",
-    description_pt: 'O coração da floresta se estende — todos os inimigos são enraizados e cegados.',
-    stage: 'Ultimate',
-    slot_role: 'control',
-    energyCost: 18,
-    actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.8, turns: 3 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'blind', chance: 0.6, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'bs-u',
-    name: 'Elder Peak',
-    name_pt: 'Cume Ancião',
-    description: "An elder's peak crowns the party — every ally gains a great shield and hardened defenses.",
-    description_pt: 'O cume de um ancião coroa a equipe — cada aliado ganha um grande escudo e defesas endurecidas.',
-    stage: 'Ultimate',
-    slot_role: 'buff_support',
-    energyCost: 22,
-    actions: [
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 180, turns: 4 },
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'def_up', amount: 25, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'ut-u',
-    name: 'Vital Downpour',
-    name_pt: 'Aguaceiro Vital',
-    description: 'A vital downpour heals the party, purifies them, and layers a leafy shield on top.',
-    description_pt: 'Um aguaceiro vital cura a equipe, purifica-a e adiciona um escudo verde sobre cada aliado.',
-    stage: 'Ultimate',
-    slot_role: 'utility',
-    energyCost: 22,
-    actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 120, scale: 'int', factor: 1.4 } },
-      { kind: 'cleanse', target: 'caster_ally_all' },
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 100, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'id-u',
-    name: 'Grove Devourer',
-    name_pt: 'Devorador do Bosque',
-    description: 'The grove itself devours the enemies — a massive drain pulls immense vitality back to the user.',
-    description_pt: 'O próprio bosque devora os inimigos — uma drenagem massiva puxa vitalidade imensa de volta ao usuário.',
-    stage: 'Ultimate',
+    idSuffix: 'dot-m-1',
+    name: 'World Eaters Flower',
+    name_pt: 'Flor Devoradora de Mundos',
+    description: 'The ultimate parasitic bloom. Massively poisons and curses the entire enemy team.',
+    description_pt: 'A floração parasita suprema. Envenena e amaldiçoa maciçamente toda a equipe inimiga.',
+    stage: 'Mega',
     slot_role: 'identity_finisher',
-    energyCost: 32,
-    upgrade_of: 'sk-plant-id-c',
-    actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 80, scale: 'int', factor: 2.4 }, heal_pct: 0.7, element: 'plant' },
-    ],
-  }),
-
-  p({
-    idSuffix: 'pa-m',
-    name: 'Vegetal Cataclysm',
-    name_pt: 'Cataclismo Vegetal',
-    description: 'A vegetal cataclysm reshapes the battlefield — every enemy is devastated and locked in root.',
-    description_pt: 'Um cataclismo vegetal remodela o campo de batalha — todos os inimigos são devastados e presos por raízes.',
-    stage: 'Mega',
-    slot_role: 'primary_attack',
-    energyCost: 36,
-    upgrade_of: 'sk-plant-pa-u',
-    actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 60, scale: 'int', factor: 2.8 }, element: 'plant' },
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.9, turns: 3 },
-    ],
-  }),
-  p({
-    idSuffix: 'sd-m',
-    name: 'Perpetual Corruption',
-    name_pt: 'Corrupção Perpétua',
-    description: 'A perpetual corruption spreads across the enemies — deep poison, cursed weakness.',
-    description_pt: 'Uma corrupção perpétua se espalha pelos inimigos — veneno profundo, fraqueza amaldiçoada.',
-    stage: 'Mega',
-    slot_role: 'sustain_dot',
-    energyCost: 20,
-    actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 1.0, turns: 5 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'curse', chance: 0.6, turns: 4 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.6, turns: 4 },
-    ],
-  }),
-  p({
-    idSuffix: 'ct-m',
-    name: 'Rooted Realm',
-    name_pt: 'Reino Enraizado',
-    description: 'A rooted realm binds every enemy in stone and vine, while the user is cloaked in bark-armor.',
-    description_pt: 'Um reino enraizado prende todos os inimigos em pedra e vinha, enquanto o usuário se cobre de armadura de casca.',
-    stage: 'Mega',
-    slot_role: 'control',
-    energyCost: 26,
-    actions: [
-      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.9, turns: 3 },
-      { kind: 'apply_status', target: 'enemy_all', status: 'petrify', chance: 0.3, turns: 2 },
-      { kind: 'apply_buff', target: 'self', buff: 'damage_reduction', amount: 30, turns: 4 },
-    ],
-  }),
-  p({
-    idSuffix: 'bs-m',
-    name: 'Primordial Shield',
-    name_pt: 'Escudo Primordial',
-    description: 'A primordial shield rises around the party — massive absorption, hardened bodies, and a moment of invulnerability.',
-    description_pt: 'Um escudo primordial se ergue ao redor da equipe — absorção massiva, corpos endurecidos e um momento de invulnerabilidade.',
-    stage: 'Mega',
-    slot_role: 'buff_support',
-    energyCost: 26,
-    actions: [
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 260, turns: 4 },
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 30, turns: 4 },
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'invulnerable', amount: 1, turns: 1 },
-    ],
-  }),
-  p({
-    idSuffix: 'ut-m',
-    name: 'Green Symbiosis',
-    name_pt: 'Simbiose Verde',
-    description: 'Green symbiosis heals and cleanses the party, then grants the user another turn to chain their next move.',
-    description_pt: 'Uma simbiose verde cura e purifica a equipe, então concede ao usuário outro turno para encadear o próximo movimento.',
-    stage: 'Mega',
-    slot_role: 'utility',
-    energyCost: 32,
+    upgrade_of: 'sk-plant-dot-u-1',
     tier_2: true,
+    energyCost: 35,
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 200, scale: 'int', factor: 2.0 } },
-      { kind: 'cleanse', target: 'caster_ally_all' },
-      { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 120, turns: 3 },
-      { kind: 'extra_turn', target: 'self' },
-    ],
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 60, scale: 'int', factor: 1.5 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.8, turns: 1 },
+      { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.2, turns: 1 }
+    ]
   }),
   p({
-    idSuffix: 'id-m',
-    name: 'Ancestral Heart',
-    name_pt: 'Coração Ancestral',
-    description: 'The ancestral heart of the forest awakens — a devastating drain across every enemy, a full-party heal, and the wounded ally is briefly untouchable.',
-    description_pt: 'O coração ancestral da floresta desperta — uma drenagem devastadora sobre todos os inimigos, uma cura completa da equipe, e o aliado mais ferido se torna brevemente intocável.',
+    idSuffix: 'dot-m-2',
+    name: 'Bio-Toxin Drain',
+    name_pt: 'Dreno Biotóxico',
+    description: 'Drains heavy life from multiple targets while infecting them with lethal toxins.',
+    description_pt: 'Drena muita vida de múltiplos alvos enquanto os infecta com toxinas letais.',
+    stage: 'Mega',
+    slot_role: 'sustain_dot',
+    energyCost: 28,
+    actions: [
+      { kind: 'drain', target: 'primary_target', damage: { base: 100, scale: 'int', factor: 2.0 }, heal_pct: 0.15, element: 'plant' }
+    ]
+  }),
+  p({
+    idSuffix: 'dot-m-3',
+    name: 'Natures Decay',
+    name_pt: 'Decadência da Natureza',
+    description: 'A catastrophic strike of pure decay. Weakens poisoned targets further.',
+    description_pt: 'Um golpe catastrófico de pura decadência. Enfraquece ainda mais alvos envenenados.',
+    stage: 'Mega',
+    slot_role: 'primary_attack',
+    cooldown: 2,
+    energyCost: 38,
+    actions: [
+      {
+        kind: 'conditional',
+        if: { kind: 'has_status', status: 'poison' },
+        then: [
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 120, scale: 'int', factor: 3.0 }, element: 'plant', ignore_defense: true }
+        ],
+        else: [
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.5 }, element: 'plant' }
+        ]
+      }
+    ]
+  }),
+
+  // ---- Healer ----
+  p({
+    idSuffix: 'heal-r-1',
+    name: 'Healing Nectar',
+    name_pt: 'Néctar Curativo',
+    description: 'Drops of sweet nectar that heal a single ally.',
+    description_pt: 'Gotas de néctar doce que curam um único aliado.',
+    stage: 'Rookie',
+    slot_role: 'buff_support',
+    energyCost: 8,
+    actions: [
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 30, scale: 'int', factor: 1.5 } }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-r-2',
+    name: 'Leaf Shield',
+    name_pt: 'Escudo de Folhas',
+    description: 'Wraps an ally in sturdy leaves, providing a protective shield.',
+    description_pt: 'Envolve um aliado em folhas robustas, fornecendo um escudo protetor.',
+    stage: 'Rookie',
+    slot_role: 'utility',
+    energyCost: 9,
+    actions: [
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 50, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-r-3',
+    name: 'Purifying Dew',
+    name_pt: 'Orvalho Purificador',
+    description: 'Sprinkles morning dew that cleanses ailments from an ally.',
+    description_pt: 'Asperge orvalho matinal que purifica doenças de um aliado.',
+    stage: 'Rookie',
+    slot_role: 'identity_finisher',
+    energyCost: 7,
+    actions: [
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-c-1',
+    name: 'Rejuvenating Pollen',
+    name_pt: 'Pólen Rejuvenescedor',
+    description: 'Scatters healing pollen to restore health to the most injured ally.',
+    description_pt: 'Espalha pólen curativo para restaurar a saúde de toda a equipe.',
+    stage: 'Champion',
+    slot_role: 'buff_support',
+    upgrade_of: 'sk-plant-heal-r-1',
+    energyCost: 12,
+    actions: [
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-c-2',
+    name: 'Photosynthesis',
+    name_pt: 'Fotossíntese',
+    description: 'Absorbs sunlight to restore energy to an ally.',
+    description_pt: 'Absorve a luz do sol para restaurar a energia de um aliado.',
+    stage: 'Champion',
+    slot_role: 'utility',
+    energyCost: 12,
+    actions: [
+      { kind: 'restore_en', target: 'caster_ally_lowest_hp', amount: 3 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-c-3',
+    name: 'Bark Armor',
+    name_pt: 'Armadura de Casca',
+    description: 'Hardens the skin of the frontline, granting defense and a shield.',
+    description_pt: 'Endurece a pele da linha de frente, concedendo defesa e um escudo.',
+    stage: 'Champion',
+    slot_role: 'identity_finisher',
+    energyCost: 13,
+    actions: [
+      { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 40, turns: 2 },
+      { kind: 'modify_stat', target: 'self', stat: 'def', delta: 20, turns: 3 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-u-1',
+    name: 'Tree of Life',
+    name_pt: 'Árvore da Vida',
+    description: 'Summons an ethereal tree to heavily heal all allies. Bonus heal if they are critically injured.',
+    description_pt: 'Invoca uma árvore etérea para curar fortemente todos os aliados. Cura bônus se estiverem gravemente feridos.',
+    stage: 'Ultimate',
+    slot_role: 'buff_support',
+    upgrade_of: 'sk-plant-heal-c-1',
+    energyCost: 13,
+    actions: [
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } },
+      {
+        kind: 'conditional',
+        if: { kind: 'hp_below_pct', pct: 40 },
+        then: [
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.2 } }
+        ]
+      }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-u-2',
+    name: 'Natures Blessing',
+    name_pt: 'Bênção da Natureza',
+    description: 'A profound blessing that cleanses ailments and provides gradual recovery.',
+    description_pt: 'Uma bênção profunda que purifica doenças e fornece recuperação gradual.',
+    stage: 'Ultimate',
+    slot_role: 'utility',
+    energyCost: 12,
+    actions: [
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-u-3',
+    name: 'Sylvan Ward',
+    name_pt: 'Guarda Silvestre',
+    description: 'Creates a massive magical forest ward, shielding the entire team.',
+    description_pt: 'Cria uma imensa guarda mágica florestal, protegendo toda a equipe.',
+    stage: 'Ultimate',
+    slot_role: 'identity_finisher',
+    energyCost: 17,
+    actions: [
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 30, turns: 1 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-m-1',
+    name: 'Yggdrasils Embrace',
+    name_pt: 'Abraço de Yggdrasil',
+    description: 'The ultimate restorative magic, completely revitalizing the party and boosting defenses.',
+    description_pt: 'A magia restauradora suprema, revitalizando completamente a equipe e aumentando as defesas.',
+    stage: 'Mega',
+    slot_role: 'buff_support',
+    upgrade_of: 'sk-plant-heal-u-1',
+    tier_2: true,
+    energyCost: 35,
+    actions: [
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 80, scale: 'int', factor: 1.5 } },
+      { kind: 'modify_stat', target: 'self', stat: 'def', delta: 15, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-m-2',
+    name: 'Forest Sanctuary',
+    name_pt: 'Santuário Florestal',
+    description: 'Turns the battlefield into a sacred forest, making an ally briefly invulnerable.',
+    description_pt: 'Transforma o campo de batalha em uma floresta sagrada, tornando um aliado brevemente invulnerável.',
+    stage: 'Mega',
+    slot_role: 'utility',
+    cooldown: 3,
+    energyCost: 25,
+    actions: [
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 150, turns: 2 },
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'heal-m-3',
+    name: 'Miracle Harvest',
+    name_pt: 'Colheita Milagrosa',
+    description: 'Channels profound earth energy to heal immensely and grant an immediate extra action.',
+    description_pt: 'Canaliza profunda energia da terra para curar imensamente e conceder uma ação extra imediata.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
+    cooldown: 4,
     energyCost: 40,
-    cooldown: 2,
-    upgrade_of: 'sk-plant-id-u',
     actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 120, scale: 'int', factor: 3.2 }, heal_pct: 0.8, element: 'plant' },
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 200, scale: 'int', factor: 2.0 } },
-      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'invulnerable', amount: 1, turns: 2 },
-    ],
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 40, scale: 'int', factor: 0.8 } },
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
+    ]
   }),
+
+  // ---- Zone Control ----
+  p({
+    idSuffix: 'zone-r-1',
+    name: 'Tangleweed',
+    name_pt: 'Erva-Emaranhada',
+    description: 'Summons rapid-growing weeds to root an enemy in place.',
+    description_pt: 'Invoca ervas de crescimento rápido para enraizar um inimigo no lugar.',
+    stage: 'Rookie',
+    slot_role: 'control',
+    energyCost: 8,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_random', status: 'root', chance: 0.7, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-r-2',
+    name: 'Spore Cloud',
+    name_pt: 'Nuvem de Esporos',
+    description: 'Blows a cloud of irritating spores that blind the opponent.',
+    description_pt: 'Sopra uma nuvem de esporos irritantes que cegam o oponente.',
+    stage: 'Rookie',
+    slot_role: 'control',
+    energyCost: 7,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_random', status: 'blind', chance: 0.6, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-r-3',
+    name: 'Snapping Trap',
+    name_pt: 'Armadilha Mordedora',
+    description: 'A hidden plant trap snaps shut, dealing damage and slowing the target.',
+    description_pt: 'Uma armadilha de planta oculta se fecha, causando dano e retardando o alvo.',
+    stage: 'Rookie',
+    slot_role: 'primary_attack',
+    energyCost: 9,
+    actions: [
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 25, scale: 'int', factor: 1.0 }, element: 'plant' },
+      { kind: 'modify_stat', target: 'enemy_random', stat: 'spd', delta: -15, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-c-1',
+    name: 'Restricting Vines',
+    name_pt: 'Vinhas Restritivas',
+    description: 'Thick vines wrap around enemies, rooting them and ruining their speed.',
+    description_pt: 'Vinhas grossas envolvem os inimigos, enraizando-os e arruinando sua velocidade.',
+    stage: 'Champion',
+    slot_role: 'utility',
+    upgrade_of: 'sk-plant-zone-r-1',
+    energyCost: 12,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.4, turns: 1 },
+      { kind: 'modify_stat', target: 'enemy_random', stat: 'spd', delta: -10, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-c-2',
+    name: 'Paralyzing Stench',
+    name_pt: 'Odor Paralisante',
+    description: 'A foul-smelling flower paralyzes foes with its overwhelming scent.',
+    description_pt: 'Uma flor de cheiro forte paralisa os inimigos com seu odor avassalador.',
+    stage: 'Champion',
+    slot_role: 'control',
+    energyCost: 12,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_first_two', status: 'stun', chance: 0.3, turns: 1 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-c-3',
+    name: 'Flytrap Jaws',
+    name_pt: 'Mandíbulas de Dioneia',
+    description: 'Bites down hard on a target, draining life while rooting them in place.',
+    description_pt: 'Morde com força um alvo, drenando vida enquanto o enraíza no lugar.',
+    stage: 'Champion',
+    slot_role: 'control',
+    energyCost: 13,
+    actions: [
+      { kind: 'drain', target: 'enemy_random', damage: { base: 70, scale: 'int', factor: 2.0 }, heal_pct: 0.2, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_random', status: 'root', chance: 0.5, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-u-1',
+    name: 'Forest Prison',
+    name_pt: 'Prisão Florestal',
+    description: 'Erupts the ground into a prison of wood, rooting the entire enemy party.',
+    description_pt: 'Erupção no solo formando uma prisão de madeira, enraizando toda a equipe inimiga.',
+    stage: 'Ultimate',
+    slot_role: 'utility',
+    upgrade_of: 'sk-plant-zone-c-1',
+    energyCost: 13,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_front', status: 'root', chance: 0.4, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-u-2',
+    name: 'Petrifying Gaze',
+    name_pt: 'Olhar Petrificante',
+    description: 'An eerie bloom forces enemies to stare into it, petrifying them.',
+    description_pt: 'Uma floração sinistra força os inimigos a encará-la, petrificando-os.',
+    stage: 'Ultimate',
+    slot_role: 'control',
+    energyCost: 12,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_random', status: 'petrify', chance: 0.5, turns: 1 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-u-3',
+    name: 'Bramble Maze',
+    name_pt: 'Labirinto de Sarças',
+    description: 'Traps enemies in a thorny maze, dealing damage and delaying their turns.',
+    description_pt: 'Prende inimigos em um labirinto espinhoso, causando dano e atrasando seus turnos.',
+    stage: 'Ultimate',
+    slot_role: 'control',
+    energyCost: 17,
+    actions: [
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 100, scale: 'int', factor: 2.5 }, element: 'plant' },
+      { kind: 'shift_initiative', target: 'enemy_front', delta: -2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-m-1',
+    name: 'Jungles Grasp',
+    name_pt: 'Aperto da Selva',
+    description: 'The apex of battlefield control. An inescapable overgrowth that locks down enemies.',
+    description_pt: 'O ápice do controle de campo de batalha. Um crescimento excessivo inescapável que trava os inimigos.',
+    stage: 'Mega',
+    slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-u-1',
+    tier_2: true,
+    energyCost: 32,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_all', status: 'root', chance: 0.35, turns: 2 },
+      { kind: 'modify_stat', target: 'enemy_random', stat: 'spd', delta: -30, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-m-2',
+    name: 'Eternal Slumber',
+    name_pt: 'Sono Eterno',
+    description: 'Releases a mystical twilight pollen that puts enemies to sleep and saps their magic.',
+    description_pt: 'Libera um pólen místico de crepúsculo que faz os inimigos dormirem e drena sua magia.',
+    stage: 'Mega',
+    slot_role: 'control',
+    energyCost: 28,
+    actions: [
+      { kind: 'apply_status', target: 'enemy_all', status: 'sleep', chance: 0.3, turns: 1 },
+      { kind: 'modify_stat', target: 'enemy_random', stat: 'int', delta: -20, turns: 2 }
+    ]
+  }),
+  p({
+    idSuffix: 'zone-m-3',
+    name: 'Ecosystem Lockdown',
+    name_pt: 'Bloqueio do Ecossistema',
+    description: 'Seizes complete control of the area. Petrifies healthy foes or silences weak ones.',
+    description_pt: 'Toma controle total da área. Petrifica inimigos saudáveis ou silencia os fracos.',
+    stage: 'Mega',
+    slot_role: 'control',
+    cooldown: 3,
+    energyCost: 38,
+    actions: [
+      {
+        kind: 'conditional',
+        if: { kind: 'has_status', status: 'silence' },
+        then: [
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 120, scale: 'int', factor: 3.0 }, element: 'plant', ignore_defense: true }
+        ],
+        else: [
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.5 }, element: 'plant' },
+          { kind: 'apply_status', target: 'enemy_random', status: 'silence', chance: 0.4, turns: 2 }
+        ]
+      }
+    ]
+  })
 ];

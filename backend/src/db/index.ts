@@ -229,6 +229,8 @@ export type SkillCatalogRow = {
   upgrade_of: string | null;
   tier_2: 0 | 1;
   vfx_preset_id: string | null;
+  signature: 0 | 1;
+  owner_template_id: string | null;
 };
 
 export type MatchRow = {

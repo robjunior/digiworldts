@@ -24,7 +24,7 @@ const SLOT_ROLE_ORDINAL: Record<string, number> = {
 
 const CATALOG_ID_PREFIX = 'sk-';
 
-const SQL_SELECT_POOL_BY_ELEMENT = `SELECT * FROM skills_catalog WHERE element = ? AND stage IS NOT NULL AND enabled = 1`;
+const SQL_SELECT_POOL_BY_ELEMENT = `SELECT * FROM skills_catalog WHERE element = ? AND stage IS NOT NULL AND enabled = 1 AND signature = 0`;
 
 export function isCatalogSkillId(id: string): boolean {
   return id.startsWith(CATALOG_ID_PREFIX);
@@ -106,6 +106,8 @@ export type CatalogSkillMeta = {
   slot_role: string | null;
   tier_2: boolean;
   upgrade_of: string | null;
+  signature: boolean;
+  owner_template_id: string | null;
 };
 
 export async function getLearnedPoolMeta(element: Element, stage: Stage): Promise<CatalogSkillMeta[]> {
@@ -123,6 +125,13 @@ export async function getLearnedPoolMeta(element: Element, stage: Stage): Promis
 }
 
 const SQL_SELECT_ALL_CATALOG = `SELECT * FROM skills_catalog WHERE stage IS NOT NULL AND enabled = 1 ORDER BY element, stage, slot_role`;
+
+const SQL_SELECT_SIGNATURES_BY_TEMPLATE = `SELECT * FROM skills_catalog WHERE owner_template_id = ? AND signature = 1 AND enabled = 1 ORDER BY stage, slot_role`;
+
+export async function getSignatureSkillsForTemplate(templateId: string): Promise<CatalogSkillMeta[]> {
+  const rows = await q<SkillCatalogRow>(SQL_SELECT_SIGNATURES_BY_TEMPLATE, templateId);
+  return rows.map(rowToMeta);
+}
 
 export async function getAllCatalogSkillsMeta(): Promise<CatalogSkillMeta[]> {
   const rows = await q<SkillCatalogRow>(SQL_SELECT_ALL_CATALOG);
@@ -143,6 +152,8 @@ function rowToMeta(row: SkillCatalogRow): CatalogSkillMeta {
     slot_role: row.slot_role,
     tier_2: row.tier_2 === 1,
     upgrade_of: row.upgrade_of,
+    signature: row.signature === 1,
+    owner_template_id: row.owner_template_id,
   };
 }
 

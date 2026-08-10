@@ -17,6 +17,10 @@ export type SkillSeed = SkillInput & {
   slot_role: SlotRole;
   upgrade_of?: string;
   tier_2?: boolean;
+  /** Famous attack owned by a single template. Excluded from the generic element pool. */
+  signature?: boolean;
+  /** Catalog template id (e.g. `skb-348`) that owns this signature. Required when `signature`. */
+  owner_template_id?: string;
 };
 
 export type SkillFactoryParams = {
@@ -32,6 +36,8 @@ export type SkillFactoryParams = {
   upgrade_of?: string;
   tier_2?: boolean;
   cooldown?: number;
+  signature?: boolean;
+  owner_template_id?: string;
 };
 
 export function makeSkillFactory(element: Element, elementPrefix: string): (p: SkillFactoryParams) => SkillSeed {
@@ -49,5 +55,7 @@ export function makeSkillFactory(element: Element, elementPrefix: string): (p: S
     ...(p.upgrade_of !== undefined && { upgrade_of: p.upgrade_of }),
     ...(p.tier_2 !== undefined && { tier_2: p.tier_2 }),
     ...(p.cooldown !== undefined && { cooldown: p.cooldown }),
+    ...(p.signature !== undefined && { signature: p.signature }),
+    ...(p.owner_template_id !== undefined && { owner_template_id: p.owner_template_id }),
   });
 }
