@@ -247,7 +247,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 22,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 40, scale: 'int', factor: 1.4 }, element: 'ice' },
-      { kind: 'shift_initiative', target: 'enemy_all', delta: -2 },
+      { kind: 'shift_initiative', target: 'enemy_all', delta: 2 },
     ],
   }),
   i({

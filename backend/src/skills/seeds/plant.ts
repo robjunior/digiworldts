@@ -494,7 +494,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     energyCost: 17,
     actions: [
       { kind: 'deal_damage', target: 'enemy_random', amount: { base: 100, scale: 'int', factor: 2.5 }, element: 'plant' },
-      { kind: 'shift_initiative', target: 'enemy_front', delta: -2 }
+      { kind: 'shift_initiative', target: 'enemy_front', delta: 2 }
     ]
   }),
   p({
