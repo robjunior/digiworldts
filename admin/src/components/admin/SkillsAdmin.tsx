@@ -6,9 +6,11 @@ import { ELEMENTS } from '@digiworld/shared/digimon';
 import { useLocale } from '../../hooks/useLocale';
 import { localizedName, localizedDescription } from '../../lib/locale';
 import { createSkill, deleteSkill, getCatalogSkills, getSkills, updateSkill, type SkillElement, type SkillInput, type SkillView, type CatalogSkillMeta } from '../../lib/api-admin';
+import { getSkillVfxPresets } from '../../lib/api-skill-vfx-presets';
 import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
 
 const SKILLS_QUERY_KEY = ['admin', 'skills'] as const;
+const VFX_PRESETS_QUERY_KEY = ['admin', 'skill-vfx-presets'] as const;
 const SKILL_ELEMENTS: readonly SkillElement[] = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
 
 const ACTIONS_TEMPLATE = JSON.stringify(
@@ -104,6 +106,13 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
     }
   };
 
+  const vfxPresetsQuery = useQuery({
+    queryKey: VFX_PRESETS_QUERY_KEY,
+    queryFn: () => getSkillVfxPresets(),
+    staleTime: 60_000,
+  });
+  const vfxPresets = vfxPresetsQuery.data ?? [];
+
   const initialActions = skill ? JSON.stringify(skill.actions, null, 2) : ACTIONS_TEMPLATE;
   const initialTags = skill && skill.tags ? JSON.stringify(skill.tags, null, 2) : TAGS_TEMPLATE;
 
@@ -118,6 +127,21 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
           <Field label="Cooldown"><input className="input" name="cooldown" type="number" min="0" max="10" defaultValue={skill?.cooldown ?? 0} /></Field>
         </div>
         <Field label="Animation key (optional)"><input className="input" name="animation" defaultValue={skill?.animation ?? ''} maxLength={80} placeholder="e.g. slash-arc, flame-orb" /></Field>
+        <Field label="Visual effect (optional)">
+          <select className="input" name="vfxPresetId" defaultValue={skill?.vfxPresetId ?? ''}>
+            <option value="">Element default ({skill?.element ?? 'element'} runner)</option>
+            {vfxPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}{preset.element ? ` — ${preset.element}` : ''}
+              </option>
+            ))}
+          </select>
+          <p className="admin-hint">
+            Plays from the attacking Digimon onto each unit the skill hits. Leave on
+            “Element default” to keep the built-in per-element effect. Create presets in
+            the Skill VFX editor.
+          </p>
+        </Field>
         <Field label="Actions JSON (array, 1-20 items)"><textarea className="input mono" name="actions" rows={12} defaultValue={initialActions} spellCheck={false} required /></Field>
         <Field label="Tags JSON (optional string array)"><textarea className="input mono" name="tags" rows={3} defaultValue={initialTags} spellCheck={false} /></Field>
         <label className="admin-checkbox"><input type="checkbox" name="enabled" defaultChecked={skill?.enabled !== false} /> Enabled</label>
@@ -315,6 +339,10 @@ function buildInput(form: FormData): BuildResult {
   const description = readTrimmed(form, 'description') ?? undefined;
   const animationRaw = readTrimmed(form, 'animation');
   const animation = animationRaw && animationRaw.length > 0 ? animationRaw : undefined;
+  // Empty means "element default": omit the field entirely rather than sending
+  // an empty string, which the backend schema would reject as too short.
+  const vfxPresetRaw = readTrimmed(form, 'vfxPresetId');
+  const vfxPresetId = vfxPresetRaw && vfxPresetRaw.length > 0 ? vfxPresetRaw : undefined;
   const actionsRaw = readTrimmed(form, 'actions') ?? '';
   if (actionsRaw.length === 0) return { error: 'Actions JSON is required.' };
   const actions = parseJsonArray(actionsRaw);
@@ -337,6 +365,7 @@ function buildInput(form: FormData): BuildResult {
   };
   if (description !== undefined && description.length > 0) (input as Writable<SkillInput>).description = description;
   if (animation !== undefined) (input as Writable<SkillInput>).animation = animation;
+  if (vfxPresetId !== undefined) (input as Writable<SkillInput>).vfxPresetId = vfxPresetId;
   if (tags !== undefined) (input as Writable<SkillInput>).tags = tags;
   return { input };
 }

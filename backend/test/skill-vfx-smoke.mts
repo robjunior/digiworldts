@@ -204,9 +204,49 @@ function testZodValidation(): void {
   check('accepts missing element (optional)', missingElementOk.success, missingElementOk.success ? '' : JSON.stringify(missingElementOk.error.issues));
 }
 
+async function testSkillSelector(): Promise<void> {
+  console.log('\n=== Per-skill effect selection ===');
+  // The selector is only useful if the id survives the write path AND a typo is
+  // refused. A dangling preset id is invisible at runtime — playEffect silently
+  // falls back to the element runner — so the write is the only place it can be
+  // caught.
+  const { createSkill, updateSkill, getSkill } = await import('../src/skills/catalog.js');
+  const { createSkillVfxPreset } = await import('../src/skill-vfx/store.js');
+
+  const preset = await createSkillVfxPreset({
+    name: 'selector probe',
+    emitters: [{ emitter: sampleEmitter(), startAtMs: 0, followTrajectory: true }],
+    trajectory: 'straight',
+    totalDurationMs: 800,
+    impactAtMs: 400,
+  });
+
+  const base = {
+    name: 'Selector Probe Skill',
+    element: 'fire' as const,
+    energyCost: 10,
+    actions: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 10, scale: 'atk', factor: 1 } }],
+  };
+
+  const made = await createSkill({ ...base, vfxPresetId: preset.id });
+  check('skill accepts a real preset id', made.ok, made.ok ? '' : String((made as { error: string }).error));
+  if (!made.ok) return;
+  const readBack = await getSkill(made.skill.id);
+  check('preset id round-trips through the DB', readBack?.vfxPresetId === preset.id, `got ${String(readBack?.vfxPresetId)}`);
+
+  const bogus = await createSkill({ ...base, name: 'Bogus Preset Skill', vfxPresetId: 'svfx_does_not_exist_000000' });
+  check('unknown preset id is refused', !bogus.ok && bogus.error === 'unknown-vfx-preset',
+    bogus.ok ? 'accepted' : `error=${bogus.error}`);
+
+  const cleared = await updateSkill(made.skill.id, base);
+  check('omitting the field clears it back to element fallback',
+    cleared.ok && (await getSkill(made.skill.id))?.vfxPresetId === undefined);
+}
+
 try {
   await testStoreCrud();
   testZodValidation();
+  await testSkillSelector();
 } catch (err) {
   failed += 1;
   console.error(`\n  FATAL: ${err instanceof Error ? err.message : String(err)}`);
