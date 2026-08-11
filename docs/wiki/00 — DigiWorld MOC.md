@@ -67,8 +67,11 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
   stage-pool freezing
 - [[Skills catalog]] — admin-editable skills, learned-pool
   carry-forward, XML → DB resolver
-- [[Skill Archetypes]] — archetype design system (design-only, not persisted),
-  plant + dark 36-skill re-authors, 72 plant signatures, balance results
+- [[Skill Archetypes]] — the skill rework: archetype design system
+  (design-only, never persisted), the four classes of defect it surfaced,
+  balance history and open decisions
+- [[Skill Catalog Reference]] — generated tables: 396 pool skills and 868
+  signatures across all 434 Digimon
 - [[Seasons]] — cluster-locked auto-close ticker + admin CRUD, snapshot
   on close
 - [[Onboarding and Tutorial]] — 3-team starter picker + per-user
