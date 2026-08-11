@@ -553,13 +553,13 @@ change at Rookie swung the win rate 16 points. Final figures over three
 independent 1000-battle seeds: Rookie 47-50%, Champion 48-50%, Ultimate 49-50%,
 Mega 48-51%.
 
-> [!success] The turn-count tell is 3 for 3
-> Wind's mirror ran 17t at Rookie, electricity's 16t/7t at Ultimate/Mega, and
-> light's 39/17/14/11t — each the fastest in the game at the stage where that
-> element turned out to be dominant, against a field of 25-47t. In all three
-> cases the anomaly was visible in every run of the suite long before anyone
-> acted on it. It remains the cheapest available signal: read the turn column
-> before the win column.
+> [!success] The turn-count tell is 4 for 4
+> Wind's mirror ran 17t at Rookie, electricity's 16t/7t at Ultimate/Mega,
+> light's 39/17/14/11t, and dark's 9t at Mega — each the fastest in the game at
+> the stage where that element turned out to be dominant, against a field of
+> 20-47t. In all four cases the anomaly was visible in every run of the suite
+> long before anyone acted on it. It remains the cheapest available signal:
+> read the turn column before the win column.
 
 ### Light — a support kit that does nothing
 
@@ -601,6 +601,48 @@ Both overshoots on the way there were caught by the band-edge rule rather than
 by any failing test — one build sat at 46-47% at Ultimate, another at 45-49% at
 Champion, each technically inside 45/55 and each about a point from the floor.
 A 5% Ultimate bump then swung the result 8 points.
+
+### Dark — when the standard probe reads "unfixable"
+
+Dark inverted between adjacent tiers, at 71/64/32/99%. Its ablation profile
+looked, at first, like a structural defect rather than a balance problem:
+
+| ablation | Rookie | Champion | Ultimate | Mega |
+| -------- | ------ | -------- | -------- | ---- |
+| baseline | 71% | 64% | 32% | 99% |
+| damage 0.5x | **0%** | **0%** | **0%** | **81%** |
+| drain ~0 | 71% | 68% | 28% | 98% |
+| all buffs ~0 | 74% | 65% | 29% | 98% |
+| enemy debuffs ~0 | 68% | 66% | 28% | 98% |
+| statuses ~0 | 71% | 70% | 31% | 99% |
+
+Halving damage annihilates three tiers — all to 0% — while Mega drops only 99%
+to 81%. No other lever moves Mega at all.
+
+The reading that Mega was "unresponsive to damage" was wrong, and a second,
+deeper probe is what showed it: 0.50x gives 81%, **0.25x gives 15%**, 0.10x
+gives 0%. The cliff sits *between* 0.5x and 0.25x rather than above it, so the
+standard 0.5x probe lands on a plateau and reports no response.
+
+> [!tip] Probe twice before concluding a stage is structurally broken
+> A single 0.5x damage cut is enough to locate the lever on most elements, but
+> dark's Mega plateau makes it read as immune. When one probe shows little
+> movement, take a second at 0.25x before reaching for a bug hypothesis — that
+> is the difference between a tunable curve and a defect, and it costs 2s.
+
+Dark's `drain` is worth roughly nothing, exactly as light's healing was. That
+is now two of the four reconciled elements whose signature mechanic is
+mechanically inert while satisfying its identity floor — see
+[[#Light — a support kit that does nothing]]. Worth assuming it is the rule
+rather than the exception until an element proves otherwise.
+
+Final figures over three independent 1000-battle seeds, converged in one
+iteration past the screen: Rookie 49-51%, Champion 48-50%, Ultimate 48%,
+Mega 49-52%.
+
+> [!note] Watch item
+> Dark's Mega mirror draw rate is 4%, unchanged by the rebalance and now the
+> highest in the matrix since plant's fell to 0%.
 
 ### Documented pre-rework baselines
 
@@ -697,10 +739,10 @@ signatures. Tables in [[Skill Catalog Reference]].
 
 > [!info] "Complete" here means authored and internally coherent — not balanced
 > This section tracks content authoring only. Every element is written, passes
-> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Eight of
+> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Seven of
 > the eleven are still out of band on cross-element power** — see
-> [[#What this matrix does not prove]]. Three are reconciled: wind (`5b9d2fb`,
-> `cf22aad`), electricity (`c202929`) and light (`e4d3c0d`).
+> [[#What this matrix does not prove]]. Four are reconciled: wind (`5b9d2fb`,
+> `cf22aad`), electricity (`c202929`), light (`e4d3c0d`) and dark (`c32738d`).
 
 > [!note] Plant's signature set — diagnosed, then corrected
 > Plant looked damage-skewed at 65% `primary_attack`. Measuring the declared
