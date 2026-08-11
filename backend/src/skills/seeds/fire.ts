@@ -14,11 +14,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'atk', factor: 0.83 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'atk', factor: 0.82 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 9, scale: 'atk', factor: 0.33 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 9, scale: 'atk', factor: 0.32 }, element: 'fire' }],
       },
     ],
   }),
@@ -47,7 +47,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 32, scale: 'atk', factor: 1.05 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 31, scale: 'atk', factor: 1.03 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
@@ -66,11 +66,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-fire-berserk-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'atk', factor: 1.29 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'atk', factor: 1.13 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'atk', factor: 0.52 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'atk', factor: 0.47 }, element: 'fire' }],
       },
     ],
   }),
@@ -101,7 +101,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-fire-berserk-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 66, scale: 'atk', factor: 1.63 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 59, scale: 'atk', factor: 1.43 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
@@ -120,11 +120,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-fire-berserk-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 78, scale: 'atk', factor: 1.83 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 59, scale: 'atk', factor: 1.4 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'atk', factor: 0.67 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'atk', factor: 0.52 }, element: 'fire' }],
       },
     ],
   }),
@@ -156,7 +156,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-fire-berserk-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 98, scale: 'atk', factor: 2.09 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 75, scale: 'atk', factor: 1.59 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
@@ -175,11 +175,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 30,
     upgrade_of: 'sk-fire-berserk-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 132, scale: 'atk', factor: 2.84 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 114, scale: 'atk', factor: 2.41 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 38, scale: 'atk', factor: 0.95 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 32, scale: 'atk', factor: 0.81 }, element: 'fire' }],
       },
     ],
   }),
@@ -212,7 +212,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-fire-berserk-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 162, scale: 'atk', factor: 3.24 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 139, scale: 'atk', factor: 2.73 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 35 },
@@ -232,7 +232,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'int', factor: 1.05 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 27, scale: 'int', factor: 1.03 }, element: 'fire' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 8, turns: 2 },
     ],
   }),
@@ -246,7 +246,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 10, scale: 'int', factor: 0.41 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 10, scale: 'int', factor: 0.4 }, element: 'fire' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 1 },
     ],
   }),
@@ -261,7 +261,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 10,
     cooldown: 1,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 33, scale: 'int', factor: 1.14 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 32, scale: 'int', factor: 1.12 }, element: 'fire' },
       { kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.35, turns: 2 },
     ],
   }),
@@ -276,7 +276,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-fire-burst-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.68 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.47 }, element: 'fire' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 14, turns: 2 },
     ],
   }),
@@ -291,7 +291,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-fire-burst-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 27, scale: 'int', factor: 0.77 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 24, scale: 'int', factor: 0.7 }, element: 'fire' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 2 },
     ],
   }),
@@ -307,7 +307,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-fire-burst-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 69, scale: 'int', factor: 1.77 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.56 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'burn' },
@@ -327,7 +327,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-fire-burst-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 92, scale: 'int', factor: 2.19 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 71, scale: 'int', factor: 1.66 }, element: 'fire' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 20, turns: 2 },
     ],
   }),
@@ -342,7 +342,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-fire-burst-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 46, scale: 'int', factor: 1.06 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 34, scale: 'int', factor: 0.81 }, element: 'fire' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 3 },
     ],
   }),
@@ -358,11 +358,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-fire-burst-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 102, scale: 'int', factor: 2.32 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 78, scale: 'int', factor: 1.74 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'burn' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 0.67 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.52 }, element: 'fire' }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.55, turns: 3 }],
       },
     ],
@@ -378,7 +378,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 34,
     upgrade_of: 'sk-fire-burst-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'int', factor: 3.04 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 128, scale: 'int', factor: 2.56 }, element: 'fire' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 26, turns: 2 },
     ],
   }),
@@ -393,7 +393,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-fire-burst-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 82, scale: 'int', factor: 1.74 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 69, scale: 'int', factor: 1.49 }, element: 'fire' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 4 },
     ],
   }),
@@ -410,11 +410,11 @@ export const FIRE_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-fire-burst-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 166, scale: 'int', factor: 3.34 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 143, scale: 'int', factor: 2.82 }, element: 'fire' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'burn' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 0.95 }, element: 'fire' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 36, scale: 'int', factor: 0.81 }, element: 'fire' }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.65, turns: 3 }],
       },
     ],
@@ -431,7 +431,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 13, scale: 'int', factor: 0.5 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 13, scale: 'int', factor: 0.49 }, element: 'fire' },
       { kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.75, turns: 3 },
     ],
   }),
@@ -445,7 +445,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 7, scale: 'int', factor: 0.36 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 7, scale: 'int', factor: 0.35 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'blind', chance: 0.24, turns: 1 },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'accuracy_down', amount: 8, turns: 2 },
     ],
@@ -460,7 +460,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 11, scale: 'int', factor: 0.5 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 11, scale: 'int', factor: 0.49 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'burn', chance: 0.3, turns: 2 },
       {
         kind: 'conditional',
@@ -480,7 +480,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-fire-dot-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 33, scale: 'int', factor: 0.92 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'int', factor: 0.82 }, element: 'fire' },
       { kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.85, turns: 3 },
     ],
   }),
@@ -495,7 +495,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-fire-dot-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 21, scale: 'int', factor: 0.67 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 18, scale: 'int', factor: 0.6 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'blind', chance: 0.3, turns: 1 },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'accuracy_down', amount: 12, turns: 2 },
     ],
@@ -511,7 +511,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-fire-dot-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 25, scale: 'int', factor: 0.77 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 22, scale: 'int', factor: 0.7 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'burn', chance: 0.42, turns: 3 },
       {
         kind: 'conditional',
@@ -531,7 +531,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-fire-dot-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.29 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'int', factor: 0.98 }, element: 'fire' },
       { kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.9, turns: 4 },
     ],
   }),
@@ -546,7 +546,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-fire-dot-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 38, scale: 'int', factor: 0.98 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 28, scale: 'int', factor: 0.75 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'blind', chance: 0.36, turns: 1 },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'accuracy_down', amount: 18, turns: 2 },
     ],
@@ -562,7 +562,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-fire-dot-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 42, scale: 'int', factor: 1.06 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 32, scale: 'int', factor: 0.81 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'burn', chance: 0.5, turns: 3 },
       {
         kind: 'conditional',
@@ -582,7 +582,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-fire-dot-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 92, scale: 'int', factor: 2.09 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 79, scale: 'int', factor: 1.75 }, element: 'fire' },
       { kind: 'apply_status', target: 'primary_target', status: 'burn', chance: 0.95, turns: 4 },
     ],
   }),
@@ -597,7 +597,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-fire-dot-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 70, scale: 'int', factor: 1.65 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 59, scale: 'int', factor: 1.42 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'blind', chance: 0.42, turns: 1 },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'accuracy_down', amount: 24, turns: 2 },
     ],
@@ -615,7 +615,7 @@ export const FIRE_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-fire-dot-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 86, scale: 'int', factor: 1.94 }, element: 'fire' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 73, scale: 'int', factor: 1.65 }, element: 'fire' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'burn', chance: 0.6, turns: 4 },
       {
         kind: 'conditional',

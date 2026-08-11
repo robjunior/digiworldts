@@ -14,7 +14,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 12, scale: 'int', factor: 1.01 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 12, scale: 'int', factor: 0.99 }, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.8, turns: 1 }
     ]
   }),
@@ -28,7 +28,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 24, scale: 'int', factor: 1.26 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 24, scale: 'int', factor: 1.24 }, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.3, turns: 2 }
     ]
   }),
@@ -57,7 +57,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-r-1',
     energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 52, scale: 'int', factor: 1.84 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 49, scale: 'int', factor: 1.74 }, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.6, turns: 2 }
     ]
   }),
@@ -72,12 +72,12 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-r-2',
     energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 61, scale: 'int', factor: 2.05 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 58, scale: 'int', factor: 1.93 }, element: 'plant' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'poison' },
         then: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.52 }, element: 'plant' }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.49 }, element: 'plant' }
         ]
       }
     ]
@@ -107,7 +107,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-c-1',
     energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 68, scale: 'int', factor: 2.05 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 63, scale: 'int', factor: 1.92 }, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.5, turns: 2 }
     ]
   }),
@@ -122,7 +122,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-c-2',
     energyCost: 12,
     actions: [
-      { kind: 'drain', target: 'enemy_random', damage: { base: 92, scale: 'int', factor: 2.51 }, heal_pct: 0.2, element: 'plant' },
+      { kind: 'drain', target: 'enemy_random', damage: { base: 87, scale: 'int', factor: 2.34 }, heal_pct: 0.2, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.4, turns: 2 }
     ]
   }),
@@ -137,12 +137,12 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-c-3',
     energyCost: 13,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 80, scale: 'int', factor: 2.05 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 74, scale: 'int', factor: 1.92 }, element: 'plant' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'curse' },
         then: [
-          { kind: 'deal_damage', target: 'enemy_front', amount: { base: 34, scale: 'int', factor: 0.8 }, element: 'plant' }
+          { kind: 'deal_damage', target: 'enemy_front', amount: { base: 31, scale: 'int', factor: 0.74 }, element: 'plant' }
         ]
       }
     ]
@@ -159,7 +159,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     tier_2: true,
     energyCost: 35,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 71, scale: 'int', factor: 1.75 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 70, scale: 'int', factor: 1.73 }, element: 'plant' },
       { kind: 'apply_buff', target: 'enemy_all', buff: 'def_down', amount: 18, turns: 2 }
     ]
   }),
@@ -174,7 +174,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-dot-u-2',
     energyCost: 28,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 109, scale: 'int', factor: 2.16 }, heal_pct: 0.24, element: 'plant' }
+      { kind: 'drain', target: 'primary_target', damage: { base: 107, scale: 'int', factor: 2.13 }, heal_pct: 0.24, element: 'plant' }
     ]
   }),
   p({
@@ -193,10 +193,10 @@ export const PLANT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'has_status', status: 'poison' },
         then: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 111, scale: 'int', factor: 2.76 }, element: 'plant', ignore_defense: true }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 109, scale: 'int', factor: 2.71 }, element: 'plant', ignore_defense: true }
         ],
         else: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 120, scale: 'int', factor: 2.4 }, element: 'plant' }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 117, scale: 'int', factor: 2.35 }, element: 'plant' }
         ]
       }
     ]
@@ -213,7 +213,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     slot_role: 'buff_support',
     energyCost: 8,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 41, scale: 'int', factor: 0.81 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 41, scale: 'int', factor: 0.79 } }
     ]
   }),
   p({
@@ -254,7 +254,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-heal-r-1',
     energyCost: 12,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 63, scale: 'int', factor: 1.03 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 59, scale: 'int', factor: 0.99 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' }
     ]
   }),
@@ -299,12 +299,12 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-heal-c-1',
     energyCost: 13,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 118, scale: 'int', factor: 1.53 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 113, scale: 'int', factor: 1.44 } },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 41, scale: 'int', factor: 0.51 } }
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 37, scale: 'int', factor: 0.46 } }
         ]
       }
     ]
@@ -322,7 +322,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 },
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 94, scale: 'int', factor: 1.13 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 90, scale: 'int', factor: 1.08 } }
     ]
   }),
   p({
@@ -352,7 +352,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     tier_2: true,
     energyCost: 35,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 133, scale: 'int', factor: 1.65 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 130, scale: 'int', factor: 1.6 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'modify_stat', target: 'self', stat: 'def', delta: 15, turns: 2 }
     ]
@@ -385,7 +385,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     cooldown: 4,
     energyCost: 40,
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 59, scale: 'int', factor: 0.82 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 57, scale: 'int', factor: 0.79 } },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
     ]
   }),
@@ -427,7 +427,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 31, scale: 'int', factor: 1.26 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 31, scale: 'int', factor: 1.24 }, element: 'plant' },
       { kind: 'modify_stat', target: 'enemy_random', stat: 'spd', delta: -15, turns: 2 }
     ]
   }),
@@ -471,7 +471,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-zone-r-3',
     energyCost: 13,
     actions: [
-      { kind: 'drain', target: 'enemy_random', damage: { base: 71, scale: 'int', factor: 2.05 }, heal_pct: 0.2, element: 'plant' },
+      { kind: 'drain', target: 'enemy_random', damage: { base: 66, scale: 'int', factor: 1.93 }, heal_pct: 0.2, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_random', status: 'root', chance: 0.5, turns: 2 }
     ]
   }),
@@ -486,7 +486,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-zone-c-1',
     energyCost: 13,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 66, scale: 'int', factor: 1.65 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 61, scale: 'int', factor: 1.55 }, element: 'plant' },
       { kind: 'apply_status', target: 'enemy_front', status: 'root', chance: 0.55, turns: 2 },
       { kind: 'modify_stat', target: 'enemy_front', stat: 'spd', delta: -15, turns: 2 }
     ]
@@ -516,7 +516,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-plant-zone-c-3',
     energyCost: 17,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 113, scale: 'int', factor: 2.85 }, element: 'plant' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 108, scale: 'int', factor: 2.68 }, element: 'plant' },
       { kind: 'shift_initiative', target: 'enemy_front', delta: 2 }
     ]
   }),
@@ -567,10 +567,10 @@ export const PLANT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'has_status', status: 'root' },
         then: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 111, scale: 'int', factor: 2.76 }, element: 'plant', ignore_defense: true }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 109, scale: 'int', factor: 2.71 }, element: 'plant', ignore_defense: true }
         ],
         else: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 104, scale: 'int', factor: 2.16 }, element: 'plant' },
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 102, scale: 'int', factor: 2.13 }, element: 'plant' },
           { kind: 'apply_status', target: 'enemy_random', status: 'root', chance: 0.55, turns: 2 }
         ]
       }

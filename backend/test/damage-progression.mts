@@ -59,21 +59,21 @@ const MIN_GROWTH = 1.1;
  * amount of damage tuning resolves it — the fix is to stop AoE breadth growing
  * with tier, which changes what these elements are and is a design decision.
  *
- * Two of these (electricity, and wind before it was reworked) predate any
- * balance work. The rest were introduced by the cross-element sweep that
- * brought all 44 element/stage cells inside 46-53%.
+ * The list has been revised once. Rebalancing under a simulator that actually
+ * casts support skills REPAIRED six of the original eleven — electricity
+ * Ultimate->Mega, light Rookie->Champion and nullelem Champion->Ultimate — because
+ * elements no longer need their damage suppressed so hard to stay in band. It
+ * introduced four others at the top of the light and nullelem curves. Net 11 -> 9.
  */
 const KNOWN_INVERSIONS = new Set([
   'dark total Ultimate->Mega',
   'dark peak hit Ultimate->Mega',
   'electricity total Champion->Ultimate',
   'electricity peak hit Champion->Ultimate',
-  'electricity total Ultimate->Mega',
-  'electricity peak hit Ultimate->Mega',
-  'light total Rookie->Champion',
-  'light peak hit Rookie->Champion',
-  'nullelem total Champion->Ultimate',
-  'nullelem peak hit Champion->Ultimate',
+  'light peak hit Champion->Ultimate',
+  'light total Ultimate->Mega',
+  'nullelem total Ultimate->Mega',
+  'nullelem peak hit Ultimate->Mega',
   'plant peak hit Ultimate->Mega',
 ]);
 

@@ -95,6 +95,14 @@ const UNTRAINED: BaseStats = { hp: 0,   en: 0,  atk: 0,  def: 0,  int: 0,  spd: 
 //   Rookie hpenSum base   = 530 → +470 room = 400 hp + 70 en
 const TRAINED:   BaseStats = { hp: 400, en: 70, atk: 80, def: 80, int: 90, spd: 80 };
 
+function skillHas(skill: Skill, kind: string): boolean {
+  if (!Array.isArray(skill.actions)) return false;
+  for (const raw of skill.actions) {
+    if ((raw as { kind?: string })?.kind === kind) return true;
+  }
+  return false;
+}
+
 function isDamageSkill(skill: Skill): boolean {
   if (Array.isArray(skill.actions) && skill.actions.length > 0) {
     for (const raw of skill.actions) {
@@ -105,6 +113,11 @@ function isDamageSkill(skill: Skill): boolean {
   }
   return skill.power > 0;
 }
+
+/** Heal once the most injured ally drops below this share of max HP. */
+const HEAL_BELOW = 0.25;
+/** Buffs are opening moves; after this many rounds the AI just fights. */
+const BUFF_ROUNDS = 2;
 
 function pickAction(battle: Battle, side: BattleSide): Action | null {
   const active = battle.turnQueue[battle.turnCursor];
@@ -126,12 +139,61 @@ function pickAction(battle: Battle, side: BattleSide): Action | null {
   const affordable = unit.skills
     .filter((s) => s.energyCost > 0 && s.energyCost <= unit.en)
     .filter((s) => (unit.skillCooldowns?.[s.id] ?? 0) === 0);
+
+  // `applyAction` requires targetId to be a living enemy no matter what the
+  // skill does; a support skill's own `target` field (`self`, `caster_ally_all`,
+  // `caster_ally_lowest_hp`) is what routes the effect, and `resolveTargets`
+  // ignores the primary target for those. So every branch below passes `enemy`.
+  const use = (skill: Skill): Action => ({
+    type: 'skill',
+    unitId: unit.id,
+    skillId: skill.id,
+    targetId: enemy.id,
+  });
+  const costliest = (list: Skill[]): Skill | undefined =>
+    [...list].sort((a, b) => b.energyCost - a.energyCost)[0];
+
+  // This AI used to be `damageSkills[0] ?? fallback[0]`, which reached a support
+  // skill only when NO damage skill was affordable. Since support skills are
+  // generally the more expensive ones, that branch almost never fired: light's
+  // cheapest Mega damage skill costs EN22 against EN28-34 for its support, so
+  // six of its ten equipped skills were never cast in any battle ever simulated.
+  // Every cross-element number produced before this change was therefore a
+  // damage-only measurement, and it under-valued elements in proportion to how
+  // much support they carry.
+  const allies = battle.units.filter((u) => u.side === side && u.hp > 0);
+
+  // 1. Cleanse — a cure is worthless if nobody is afflicted, so gate on that.
+  if (allies.some((a) => a.ailments.length > 0)) {
+    const cleanse = costliest(affordable.filter((s) => skillHas(s, 'cleanse')));
+    if (cleanse !== undefined) return use(cleanse);
+  }
+
+  // 2. Heal — only when someone is actually hurt. Healing on a near-full party
+  //    is what `execHeal`'s `min(amount, hpMax - hp)` clamp throws away, and
+  //    healing indiscriminately is how mirrored sides stall into a draw.
+  const mostInjured = allies.reduce(
+    (worst, a) => (a.hp / a.hpMax < worst.hp / worst.hpMax ? a : worst),
+    allies[0] ?? unit,
+  );
+  if (mostInjured.hp / mostInjured.hpMax < HEAL_BELOW) {
+    const heal = costliest(affordable.filter((s) => skillHas(s, 'heal')));
+    if (heal !== undefined) return use(heal);
+  }
+
+  // 3. Buff — an opening investment. Kept to the first rounds so the AI cannot
+  //    loop buffs forever instead of closing the fight out.
+  if (battle.round <= BUFF_ROUNDS) {
+    const buff = costliest(
+      affordable.filter((s) => !isDamageSkill(s) && skillHas(s, 'apply_buff')),
+    );
+    if (buff !== undefined) return use(buff);
+  }
+
   const damageSkills = affordable.filter(isDamageSkill).sort((a, b) => b.energyCost - a.energyCost);
   const fallback = affordable.sort((a, b) => b.energyCost - a.energyCost);
   const best = damageSkills[0] ?? fallback[0];
-  if (best !== undefined) {
-    return { type: 'skill', unitId: unit.id, skillId: best.id, targetId: enemy.id };
-  }
+  if (best !== undefined) return use(best);
   return { type: 'fight', unitId: unit.id, targetId: enemy.id };
 }
 
