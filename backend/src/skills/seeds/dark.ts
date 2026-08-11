@@ -14,7 +14,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'atk', factor: 1.2 }, element: 'dark' }
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'atk', factor: 1.08 }, element: 'dark' }
     ]
   }),
   d({
@@ -41,12 +41,12 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'atk', factor: 1.0 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'atk', factor: 0.9 }, element: 'dark' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'atk', factor: 0.8 }, element: 'dark' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'atk', factor: 0.72 }, element: 'dark' }
         ]
       }
     ]
@@ -62,7 +62,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-r-1',
     energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'atk', factor: 1.6 }, element: 'dark' }
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'atk', factor: 1.47 }, element: 'dark' }
     ]
   }),
   d({
@@ -91,7 +91,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-r-3',
     energyCost: 15,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 2.0 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'atk', factor: 1.84 }, element: 'dark' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 1 }
     ]
   }),
@@ -106,7 +106,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-c-1',
     energyCost: 15,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 100, scale: 'atk', factor: 2.8 }, element: 'dark', ignore_defense: true }
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 112, scale: 'atk', factor: 3.14 }, element: 'dark', ignore_defense: true }
     ]
   }),
   d({
@@ -120,7 +120,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-c-2',
     energyCost: 16,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 90, scale: 'atk', factor: 2.4 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 100, scale: 'atk', factor: 2.69 }, element: 'dark' },
       { kind: 'shift_initiative', target: 'enemy_front', delta: 1 }
     ]
   }),
@@ -135,12 +135,12 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-c-3',
     energyCost: 20,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 120, scale: 'atk', factor: 3.0 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 135, scale: 'atk', factor: 3.36 }, element: 'dark' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 80, scale: 'atk', factor: 2.0 }, element: 'dark' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 90, scale: 'atk', factor: 2.24 }, element: 'dark' }
         ]
       }
     ]
@@ -156,12 +156,12 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-u-1',
     energyCost: 24,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 140, scale: 'atk', factor: 3.2 }, element: 'dark', ignore_defense: true },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 50, scale: 'atk', factor: 1.16 }, element: 'dark', ignore_defense: true },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 60 },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 80, scale: 'atk', factor: 2.0 }, element: 'dark' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'atk', factor: 0.72 }, element: 'dark' }
         ]
       }
     ]
@@ -177,7 +177,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-assassin-u-2',
     energyCost: 28,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 130, scale: 'atk', factor: 2.8 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 47, scale: 'atk', factor: 1.0 }, element: 'dark' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 }
     ]
   }),
@@ -194,7 +194,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     cooldown: 2,
     energyCost: 35,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 220, scale: 'atk', factor: 5.0 }, element: 'dark', ignore_defense: true }
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 80, scale: 'atk', factor: 1.8 }, element: 'dark', ignore_defense: true }
     ]
   }),
 
@@ -235,7 +235,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 1.0 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 18, scale: 'int', factor: 0.9 }, element: 'dark' },
       { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.5, turns: 2 }
     ]
   }),
@@ -250,7 +250,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-debuff-r-1',
     energyCost: 13,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 45, scale: 'int', factor: 1.8 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 42, scale: 'int', factor: 1.65 }, element: 'dark' },
       { kind: 'modify_stat', target: 'enemy_front', stat: 'spd', delta: -15, turns: 3 },
       { kind: 'apply_status', target: 'enemy_front', status: 'curse', chance: 0.5, turns: 2 }
     ]
@@ -267,7 +267,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     energyCost: 14,
     actions: [
       { kind: 'dispel', target: 'primary_target' },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 50, scale: 'int', factor: 1.6 }, element: 'dark' }
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 46, scale: 'int', factor: 1.47 }, element: 'dark' }
     ]
   }),
   d({
@@ -296,7 +296,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-debuff-c-1',
     energyCost: 18,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 130, scale: 'int', factor: 3.2 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 146, scale: 'int', factor: 3.59 }, element: 'dark' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.8, turns: 3 }
     ]
   }),
@@ -326,7 +326,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-debuff-c-3',
     energyCost: 20,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 80, scale: 'int', factor: 2.0 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'int', factor: 2.24 }, element: 'dark' },
       { kind: 'dispel', target: 'enemy_front' },
       {
         kind: 'conditional',
@@ -350,7 +350,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     cooldown: 2,
     energyCost: 35,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 140, scale: 'int', factor: 3.2 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 50, scale: 'int', factor: 1.16 }, element: 'dark' },
       { kind: 'apply_status', target: 'enemy_all', status: 'blind', chance: 0.4, turns: 2 },
       { kind: 'apply_status', target: 'enemy_all', status: 'curse', chance: 0.8, turns: 3 },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'def', delta: -50, turns: 3 }
@@ -382,7 +382,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-debuff-u-3',
     energyCost: 26,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'int', factor: 3.5 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.26 }, element: 'dark' },
       { kind: 'apply_status', target: 'primary_target', status: 'curse', chance: 1.0, turns: 4 },
       { kind: 'apply_status', target: 'primary_target', status: 'corruption', chance: 0.7, turns: 3 }
     ]
@@ -399,7 +399,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 8,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 25, scale: 'int', factor: 1.0 }, heal_pct: 0.1, element: 'dark' }
+      { kind: 'drain', target: 'primary_target', damage: { base: 22, scale: 'int', factor: 0.9 }, heal_pct: 0.1, element: 'dark' }
     ]
   }),
   d({
@@ -412,7 +412,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'atk', factor: 1.1 }, element: 'dark' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'atk', factor: 1.0 }, element: 'dark' },
       { kind: 'restore_en', target: 'self', amount: 2 }
     ]
   }),
@@ -426,7 +426,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 10,
     actions: [
-      { kind: 'drain', target: 'enemy_front', damage: { base: 15, scale: 'int', factor: 0.8 }, heal_pct: 0.1, element: 'dark' }
+      { kind: 'drain', target: 'enemy_front', damage: { base: 14, scale: 'int', factor: 0.72 }, heal_pct: 0.1, element: 'dark' }
     ]
   }),
   d({
@@ -440,7 +440,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-r-1',
     energyCost: 14,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 60, scale: 'int', factor: 1.8 }, heal_pct: 0.05, element: 'dark' }
+      { kind: 'drain', target: 'primary_target', damage: { base: 55, scale: 'int', factor: 1.65 }, heal_pct: 0.05, element: 'dark' }
     ]
   }),
   d({
@@ -454,7 +454,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-r-2',
     energyCost: 13,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 55, scale: 'int', factor: 1.6 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'primary_target', damage: { base: 50, scale: 'int', factor: 1.47 }, heal_pct: 0.05, element: 'dark' },
       { kind: 'apply_status', target: 'primary_target', status: 'curse', chance: 0.6, turns: 2 }
     ]
   }),
@@ -469,7 +469,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-r-3',
     energyCost: 15,
     actions: [
-      { kind: 'drain', target: 'enemy_random', damage: { base: 50, scale: 'int', factor: 1.4 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'enemy_random', damage: { base: 46, scale: 'int', factor: 1.29 }, heal_pct: 0.05, element: 'dark' },
       { kind: 'restore_en', target: 'self', amount: 4 }
     ]
   }),
@@ -484,7 +484,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-c-1',
     energyCost: 18,
     actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 80, scale: 'int', factor: 2.2 }, heal_pct: 0.05, element: 'dark' }
+      { kind: 'drain', target: 'enemy_all', damage: { base: 90, scale: 'int', factor: 2.47 }, heal_pct: 0.05, element: 'dark' }
     ]
   }),
   d({
@@ -498,12 +498,12 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-c-2',
     energyCost: 19,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 120, scale: 'int', factor: 2.8 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'primary_target', damage: { base: 135, scale: 'int', factor: 3.14 }, heal_pct: 0.05, element: 'dark' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 60 },
         then: [
-          { kind: 'drain', target: 'primary_target', damage: { base: 80, scale: 'int', factor: 2.0 }, heal_pct: 0.05, element: 'dark' }
+          { kind: 'drain', target: 'primary_target', damage: { base: 90, scale: 'int', factor: 2.24 }, heal_pct: 0.05, element: 'dark' }
         ]
       }
     ]
@@ -519,7 +519,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-c-3',
     energyCost: 20,
     actions: [
-      { kind: 'drain', target: 'enemy_random', damage: { base: 100, scale: 'int', factor: 2.5 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'enemy_random', damage: { base: 112, scale: 'int', factor: 2.81 }, heal_pct: 0.05, element: 'dark' },
       { kind: 'apply_buff', target: 'self', buff: 'atk_up', amount: 30, turns: 3 }
     ]
   }),
@@ -536,12 +536,12 @@ export const DARK_SKILLS: SkillSeed[] = [
     cooldown: 2,
     energyCost: 35,
     actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 100, scale: 'int', factor: 2.5 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'enemy_all', damage: { base: 36, scale: 'int', factor: 0.9 }, heal_pct: 0.05, element: 'dark' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 50 },
         then: [
-          { kind: 'drain', target: 'enemy_all', damage: { base: 50, scale: 'int', factor: 1.4 }, heal_pct: 0.05, element: 'dark' }
+          { kind: 'drain', target: 'enemy_all', damage: { base: 17, scale: 'int', factor: 0.5 }, heal_pct: 0.05, element: 'dark' }
         ]
       }
     ]
@@ -557,7 +557,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-u-2',
     energyCost: 30,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 180, scale: 'int', factor: 4.2 }, heal_pct: 0.1, element: 'dark' }
+      { kind: 'drain', target: 'primary_target', damage: { base: 64, scale: 'int', factor: 1.52 }, heal_pct: 0.1, element: 'dark' }
     ]
   }),
   d({
@@ -571,7 +571,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-dark-drain-u-3',
     energyCost: 32,
     actions: [
-      { kind: 'drain', target: 'enemy_all', damage: { base: 80, scale: 'int', factor: 2.0 }, heal_pct: 0.05, element: 'dark' },
+      { kind: 'drain', target: 'enemy_all', damage: { base: 28, scale: 'int', factor: 0.72 }, heal_pct: 0.05, element: 'dark' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 40, turns: 3 },
       { kind: 'apply_buff', target: 'self', buff: 'int_up', amount: 40, turns: 3 }
     ]
