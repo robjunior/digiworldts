@@ -644,6 +644,68 @@ Mega 49-52%.
 > Dark's Mega mirror draw rate is 4%, unchanged by the rebalance and now the
 > highest in the matrix since plant's fell to 0%.
 
+### The sweep, and why one-at-a-time could not work
+
+Fixing elements individually does not converge. With wind, electricity, light
+and dark each brought to ~50%, re-measuring put wind back at 68/72% and
+electricity at 56/58/68%. The cause is arithmetic: every win is someone's loss,
+so removing two dominant elements lifts everyone who used to lose to them,
+including elements already centred.
+
+> [!important] Element balance is a fixed-point problem, not a list of bugs
+> Treat it as coordinate descent over all eleven at once. A per-element pass is
+> a single step of that descent, and its result is only provisional until the
+> whole field is re-measured.
+
+`1ab7e49` replaced the manual passes with a sweep: measure all eleven, scale
+each element's damage in proportion to its deviation from 50%, repeat. Damping
+is deliberate — 0.3 of the measured 2.7 points-per-percent response, so it
+under-corrects rather than oscillates.
+
+| sweep | worst deviation | cells out of band (of 44) |
+| ----- | --------------- | ------------------------- |
+| 1 | 41 | 31 |
+| 2 | 29 | 21 |
+| 3 | 10 | 7 |
+| 4 | 5 | 0 |
+| 5 | 4 | 0 |
+
+It only ever multiplies `deal_damage` base and factor, and
+`test:element-identity` runs after every sweep — the safeguard that the
+catalog-destroying delegation lacked. All 22 seed files came out byte-identical
+in entry count, `tier_2`, `upgrade_of` and per-kind action counts. Turn counts
+also converged to a 44/33/31/23-26t band from a spread of 7-50t, which was never
+targeted.
+
+### Balance and progression pull apart
+
+The sweep bought parity with progression, and nothing in the repo noticed.
+`test:battle-sim` compares elements at a **matched stage** and never compares a
+stage to the one below it. An element can therefore be perfectly balanced at all
+four tiers while its damage falls as the player evolves.
+
+Electricity's strongest Mega skill hits for **90** where its Rookie skill hits
+for **117**. Reaching the final tier drops your damage by a quarter.
+
+> [!danger] This is structural, and damage tuning cannot fix it
+> These are the AoE-heavy elements. Clearing an enemy line is worth far more
+> than its target count, so an element whose `enemy_all` breadth GROWS with tier
+> must carry ever-lower per-hit damage to stay balanced. Balance and progression
+> are in genuine tension, and with only a balance gate in place, progression is
+> what silently gives way. The resolution is to stop AoE breadth growing with
+> tier — which changes what those elements are, and is a design decision rather
+> than a balance pass.
+
+The defect predates the rework for electricity (115/230/230/330) and for wind,
+which the rework happened to fix; the sweep made it worse and spread it to dark,
+light, nullelem and plant.
+
+`test:damage-progression` now asserts that total and peak single-hit damage grow
+by at least 1.1x per stage, with an explicit `KNOWN_INVERSIONS` list of the 11
+outstanding failures. The list may only shrink: the test fails on a new
+inversion **and** fails if a listed one is fixed without being removed, so the
+debt cannot quietly rot. It was verified in both directions.
+
 ### Documented pre-rework baselines
 
 | Element | Stage | Before | After |
@@ -739,10 +801,11 @@ signatures. Tables in [[Skill Catalog Reference]].
 
 > [!info] "Complete" here means authored and internally coherent — not balanced
 > This section tracks content authoring only. Every element is written, passes
-> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Seven of
-> the eleven are still out of band on cross-element power** — see
-> [[#What this matrix does not prove]]. Four are reconciled: wind (`5b9d2fb`,
-> `cf22aad`), electricity (`c202929`), light (`e4d3c0d`) and dark (`c32738d`).
+> `test:element-identity`, and sits inside 45/55 in the mirror matrix. All
+> eleven are now also inside 45/55 on **cross-element** power after the sweep in
+> `1ab7e49` — see [[#The sweep, and why one-at-a-time could not work]]. What
+> remains open is progression, not balance: eleven damage inversions are tracked
+> in `test:damage-progression`.
 
 > [!note] Plant's signature set — diagnosed, then corrected
 > Plant looked damage-skewed at 65% `primary_attack`. Measuring the declared
