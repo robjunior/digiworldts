@@ -280,7 +280,7 @@ export const WildPoolEntrySchema = z.object({
 
 export const WildPoolSchema = z.array(WildPoolEntrySchema).max(64);
 
-export const WildPoolRollParamsSchema = z.object({
+const WildPoolRollParamsBaseSchema = z.object({
   encounterRate: z.number().min(0).max(1),
   minLevel: z.number().int().min(1).max(999),
   maxLevel: z.number().int().min(1).max(999),
@@ -288,7 +288,9 @@ export const WildPoolRollParamsSchema = z.object({
   minPartySize: z.number().int().min(1).max(3),
   maxPartySize: z.number().int().min(1).max(3),
   allowedElements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
-}).superRefine((val, ctx) => {
+});
+
+export const WildPoolRollParamsSchema = WildPoolRollParamsBaseSchema.superRefine((val, ctx) => {
   if (val.minLevel > val.maxLevel) {
     ctx.addIssue({ code: 'custom', path: ['maxLevel'], message: 'maxLevel must be >= minLevel' });
   }
@@ -297,7 +299,7 @@ export const WildPoolRollParamsSchema = z.object({
   }
 });
 
-export const WildPoolRollParamsPartialSchema = WildPoolRollParamsSchema.partial();
+export const WildPoolRollParamsPartialSchema = WildPoolRollParamsBaseSchema.partial();
 
 export const CreateZoneInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
