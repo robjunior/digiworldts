@@ -14,7 +14,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.83 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.82 }, element: 'ice' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.22, turns: 1 },
     ],
   }),
@@ -28,7 +28,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 8, scale: 'int', factor: 0.41 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 8, scale: 'int', factor: 0.39 }, element: 'ice' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.24, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -7, turns: 2 },
     ],
@@ -43,7 +43,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 27, scale: 'int', factor: 1.0 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 0.99 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 12, turns: 2 },
       {
         kind: 'conditional',
@@ -63,7 +63,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-ice-control-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'int', factor: 1.25 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 33, scale: 'int', factor: 1.12 }, element: 'ice' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.27, turns: 1 },
     ],
   }),
@@ -78,7 +78,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-ice-control-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 23, scale: 'int', factor: 0.76 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 20, scale: 'int', factor: 0.66 }, element: 'ice' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.3, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -11, turns: 2 },
     ],
@@ -94,7 +94,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-ice-control-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 57, scale: 'int', factor: 1.64 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 50, scale: 'int', factor: 1.46 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 18, turns: 2 },
       {
         kind: 'conditional',
@@ -114,7 +114,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-ice-control-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 67, scale: 'int', factor: 1.78 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 53, scale: 'int', factor: 1.4 }, element: 'ice' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.32, turns: 1 },
     ],
   }),
@@ -129,7 +129,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-ice-control-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 39, scale: 'int', factor: 1.03 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 31, scale: 'int', factor: 0.82 }, element: 'ice' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.34, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -16, turns: 2 },
     ],
@@ -145,7 +145,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-ice-control-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 90, scale: 'int', factor: 2.13 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 71, scale: 'int', factor: 1.66 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 24, turns: 2 },
       {
         kind: 'conditional',
@@ -167,7 +167,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 139, scale: 'int', factor: 3.23 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 133, scale: 'int', factor: 3.03 }, element: 'ice' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.4, turns: 1 },
     ],
   }),
@@ -182,7 +182,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-ice-control-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 78, scale: 'int', factor: 1.86 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 73, scale: 'int', factor: 1.72 }, element: 'ice' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.4, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -22, turns: 2 },
     ],
@@ -198,7 +198,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 34,
     upgrade_of: 'sk-ice-control-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 160, scale: 'int', factor: 3.54 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 154, scale: 'int', factor: 3.34 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 30, turns: 2 },
       {
         kind: 'conditional',
@@ -219,7 +219,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 23, scale: 'int', factor: 0.96 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'int', factor: 0.95 }, element: 'ice' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 1 },
     ],
   }),
@@ -247,7 +247,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'buff_support',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.83 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.82 }, element: 'ice' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'freeze' },
@@ -267,7 +267,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-ice-lock-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 48, scale: 'int', factor: 1.54 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 1.37 }, element: 'ice' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
     ],
   }),
@@ -282,7 +282,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-ice-lock-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'int', factor: 0.97 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 0.87 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -16, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.38, turns: 1 },
     ],
@@ -298,7 +298,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-ice-lock-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'int', factor: 1.21 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'int', factor: 1.08 }, element: 'ice' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'freeze' },
@@ -318,7 +318,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-ice-lock-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 77, scale: 'int', factor: 1.95 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'int', factor: 1.53 }, element: 'ice' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 3 },
     ],
   }),
@@ -333,7 +333,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 21,
     upgrade_of: 'sk-ice-lock-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 48, scale: 'int', factor: 1.25 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 38, scale: 'int', factor: 0.97 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -24, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.48, turns: 1 },
     ],
@@ -349,7 +349,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-ice-lock-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.56 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 49, scale: 'int', factor: 1.23 }, element: 'ice' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'freeze' },
@@ -371,7 +371,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 152, scale: 'int', factor: 3.33 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 146, scale: 'int', factor: 3.13 }, element: 'ice' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 4 },
     ],
   }),
@@ -386,7 +386,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 36,
     upgrade_of: 'sk-ice-lock-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 92, scale: 'int', factor: 2.12 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 86, scale: 'int', factor: 1.98 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -30, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.58, turns: 1 },
     ],
@@ -402,7 +402,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 26,
     upgrade_of: 'sk-ice-lock-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 105, scale: 'int', factor: 2.44 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 99, scale: 'int', factor: 2.3 }, element: 'ice' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'freeze' },
@@ -423,7 +423,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 1.05 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 1.03 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 10, turns: 2 },
     ],
   }),
@@ -451,7 +451,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 17, scale: 'int', factor: 0.74 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 17, scale: 'int', factor: 0.73 }, element: 'ice' },
       { kind: 'dispel', target: 'enemy_front' },
     ],
   }),
@@ -466,7 +466,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-ice-debuff-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.68 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 48, scale: 'int', factor: 1.49 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 16, turns: 2 },
     ],
   }),
@@ -481,7 +481,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-ice-debuff-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 31, scale: 'int', factor: 1.01 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 27, scale: 'int', factor: 0.91 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'atk', delta: -14, turns: 2 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'int', delta: -14, turns: 2 },
     ],
@@ -497,7 +497,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-ice-debuff-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 23, scale: 'int', factor: 0.87 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 20, scale: 'int', factor: 0.76 }, element: 'ice' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 14, turns: 2 },
     ],
@@ -513,7 +513,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-ice-debuff-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 87, scale: 'int', factor: 2.22 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'int', factor: 1.71 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 22, turns: 2 },
     ],
   }),
@@ -528,7 +528,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-ice-debuff-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 56, scale: 'int', factor: 1.43 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 46, scale: 'int', factor: 1.11 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'atk', delta: -20, turns: 2 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'int', delta: -20, turns: 2 },
       {
@@ -549,7 +549,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-ice-debuff-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 39, scale: 'int', factor: 1.17 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 31, scale: 'int', factor: 0.91 }, element: 'ice' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 20, turns: 2 },
     ],
@@ -567,7 +567,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 170, scale: 'int', factor: 3.64 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 161, scale: 'int', factor: 3.44 }, element: 'ice' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'def_down', amount: 28, turns: 2 },
     ],
   }),
@@ -582,7 +582,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-ice-debuff-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 101, scale: 'int', factor: 2.39 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 95, scale: 'int', factor: 2.25 }, element: 'ice' },
       { kind: 'modify_stat', target: 'primary_target', stat: 'atk', delta: -26, turns: 2 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'int', delta: -26, turns: 2 },
       {
@@ -603,7 +603,7 @@ export const ICE_SKILLS: SkillSeed[] = [
     energyCost: 30,
     upgrade_of: 'sk-ice-debuff-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 80, scale: 'int', factor: 2.07 }, element: 'ice' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 75, scale: 'int', factor: 1.93 }, element: 'ice' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 26, turns: 2 },
     ],

@@ -14,7 +14,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 14, scale: 'int', factor: 0.68 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'int', factor: 0.72 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.25, turns: 1 },
     ],
   }),
@@ -28,7 +28,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 9, scale: 'int', factor: 0.39 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 9, scale: 'int', factor: 0.42 }, element: 'water' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.3, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -8, turns: 2 },
     ],
@@ -43,7 +43,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 24, scale: 'int', factor: 0.94 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 1.0 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.35, turns: 1 },
       {
         kind: 'conditional',
@@ -64,7 +64,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.85 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'int', factor: 0.9 }, element: 'water' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 1 },
     ],
   }),
@@ -78,7 +78,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 12, scale: 'int', factor: 0.59 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 13, scale: 'int', factor: 0.63 }, element: 'water' },
       { kind: 'dispel', target: 'enemy_front' },
       { kind: 'apply_buff', target: 'enemy_front', buff: 'def_down', amount: 10, turns: 2 },
     ],
@@ -93,7 +93,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 15, scale: 'int', factor: 0.68 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 16, scale: 'int', factor: 0.72 }, element: 'water' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 10, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
     ],
@@ -109,7 +109,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     stage: 'Rookie',
     slot_role: 'sustain_dot',
     energyCost: 6,
-    actions: [{ kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 29, scale: 'int', factor: 0.59 } }],
+    actions: [{ kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 30, scale: 'int', factor: 0.63 } }],
   }),
   w({
     idSuffix: 'sustain-r-2',
@@ -135,11 +135,11 @@ export const WATER_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'int', factor: 0.94 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 21, scale: 'int', factor: 1.0 }, element: 'water' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'heal', target: 'self', amount: { base: 19, scale: 'int', factor: 0.35 } }],
+        then: [{ kind: 'heal', target: 'self', amount: { base: 20, scale: 'int', factor: 0.38 } }],
       },
     ],
   }),
@@ -158,7 +158,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-water-control-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'int', factor: 1.09 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'int', factor: 1.02 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.3, turns: 1 },
     ],
   }),
@@ -173,7 +173,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-water-control-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 19, scale: 'int', factor: 0.65 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 19, scale: 'int', factor: 0.59 }, element: 'water' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.35, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -12, turns: 2 },
     ],
@@ -189,7 +189,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-water-control-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 49, scale: 'int', factor: 1.48 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 46, scale: 'int', factor: 1.38 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.25, turns: 1 },
       {
         kind: 'conditional',
@@ -211,7 +211,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-water-displace-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 1.35 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'int', factor: 1.27 }, element: 'water' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
     ],
   }),
@@ -226,7 +226,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-water-displace-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 24, scale: 'int', factor: 0.88 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 23, scale: 'int', factor: 0.81 }, element: 'water' },
       { kind: 'dispel', target: 'enemy_front' },
       { kind: 'apply_buff', target: 'enemy_front', buff: 'def_down', amount: 15, turns: 2 },
     ],
@@ -242,7 +242,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-water-displace-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 33, scale: 'int', factor: 1.09 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 32, scale: 'int', factor: 1.02 }, element: 'water' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 15, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
       { kind: 'shift_initiative', target: 'enemy_random', delta: 1 },
@@ -261,7 +261,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-water-sustain-r-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 55, scale: 'int', factor: 0.91 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 52, scale: 'int', factor: 0.86 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -291,11 +291,11 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-water-sustain-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'int', factor: 1.44 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 1.35 }, element: 'water' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
-        then: [{ kind: 'heal', target: 'self', amount: { base: 33, scale: 'int', factor: 0.56 } }],
+        then: [{ kind: 'heal', target: 'self', amount: { base: 32, scale: 'int', factor: 0.52 } }],
       },
     ],
   }),
@@ -314,7 +314,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 17,
     upgrade_of: 'sk-water-control-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.59 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 59, scale: 'int', factor: 1.72 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.35, turns: 1 },
     ],
   }),
@@ -329,7 +329,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 19,
     upgrade_of: 'sk-water-control-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 33, scale: 'int', factor: 0.92 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 37, scale: 'int', factor: 1.01 }, element: 'water' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.4, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -18, turns: 2 },
     ],
@@ -345,7 +345,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 23,
     upgrade_of: 'sk-water-control-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 77, scale: 'int', factor: 1.88 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 85, scale: 'int', factor: 2.03 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.25, turns: 1 },
       {
         kind: 'conditional',
@@ -367,7 +367,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-water-displace-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 65, scale: 'int', factor: 1.76 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 69, scale: 'int', factor: 1.9 }, element: 'water' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 3 },
     ],
   }),
@@ -382,7 +382,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-water-displace-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 30, scale: 'int', factor: 0.99 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 32, scale: 'int', factor: 1.09 }, element: 'water' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 20, turns: 2 },
     ],
@@ -398,8 +398,8 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-water-displace-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 1.08 }, element: 'water' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 1.08 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 41, scale: 'int', factor: 1.18 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 41, scale: 'int', factor: 1.18 }, element: 'water' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 20, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
       { kind: 'shift_initiative', target: 'enemy_random', delta: 2 },
@@ -418,7 +418,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-water-sustain-c-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 86, scale: 'int', factor: 1.15 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 94, scale: 'int', factor: 1.25 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -448,11 +448,11 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-water-sustain-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'int', factor: 1.79 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 75, scale: 'int', factor: 1.94 }, element: 'water' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
-        then: [{ kind: 'heal', target: 'self', amount: { base: 49, scale: 'int', factor: 0.72 } }],
+        then: [{ kind: 'heal', target: 'self', amount: { base: 51, scale: 'int', factor: 0.77 } }],
       },
     ],
   }),
@@ -471,7 +471,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-water-control-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 102, scale: 'int', factor: 2.57 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 107, scale: 'int', factor: 2.63 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'freeze', chance: 0.4, turns: 1 },
     ],
   }),
@@ -486,7 +486,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-water-control-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 62, scale: 'int', factor: 1.51 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 63, scale: 'int', factor: 1.56 }, element: 'water' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.45, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -25, turns: 2 },
     ],
@@ -504,7 +504,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-water-control-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 134, scale: 'int', factor: 2.97 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 137, scale: 'int', factor: 3.02 }, element: 'water' },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.3, turns: 1 },
       {
         kind: 'conditional',
@@ -526,7 +526,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 26,
     upgrade_of: 'sk-water-displace-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 113, scale: 'int', factor: 2.7 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 118, scale: 'int', factor: 2.74 }, element: 'water' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 4 },
     ],
   }),
@@ -541,7 +541,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-water-displace-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 60, scale: 'int', factor: 1.64 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 60, scale: 'int', factor: 1.66 }, element: 'water' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 25, turns: 2 },
     ],
@@ -559,9 +559,9 @@ export const WATER_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-water-displace-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 64, scale: 'int', factor: 1.61 }, element: 'water' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 64, scale: 'int', factor: 1.61 }, element: 'water' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 64, scale: 'int', factor: 1.61 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 65, scale: 'int', factor: 1.65 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 65, scale: 'int', factor: 1.65 }, element: 'water' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 65, scale: 'int', factor: 1.65 }, element: 'water' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 25, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -3 },
       { kind: 'shift_initiative', target: 'enemy_random', delta: 3 },
@@ -580,7 +580,7 @@ export const WATER_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-water-sustain-u-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 134, scale: 'int', factor: 1.68 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 137, scale: 'int', factor: 1.7 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -612,11 +612,11 @@ export const WATER_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-water-sustain-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 126, scale: 'int', factor: 2.89 }, element: 'water' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 128, scale: 'int', factor: 2.92 }, element: 'water' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
-        then: [{ kind: 'heal', target: 'self', amount: { base: 85, scale: 'int', factor: 1.06 } }],
+        then: [{ kind: 'heal', target: 'self', amount: { base: 87, scale: 'int', factor: 1.11 } }],
       },
     ],
   }),

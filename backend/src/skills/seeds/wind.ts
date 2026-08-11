@@ -14,7 +14,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'spd', factor: 0.96 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 36, scale: 'spd', factor: 0.95 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
     ],
   }),
@@ -28,7 +28,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 6,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 27, scale: 'spd', factor: 0.72 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 27, scale: 'spd', factor: 0.7 }, element: 'wind' },
       { kind: 'apply_status', target: 'enemy_back', status: 'weaken', chance: 0.25, turns: 2 },
     ],
   }),
@@ -42,12 +42,12 @@ export const WIND_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 6,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 24, scale: 'spd', factor: 0.59 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 24, scale: 'spd', factor: 0.57 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 1 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'spd', factor: 0.35 }, element: 'wind' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'spd', factor: 0.34 }, element: 'wind' }],
       },
     ],
   }),
@@ -62,7 +62,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-wind-skirm-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 74, scale: 'spd', factor: 1.53 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 65, scale: 'spd', factor: 1.37 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
     ],
   }),
@@ -77,7 +77,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-wind-skirm-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 56, scale: 'spd', factor: 1.21 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 49, scale: 'spd', factor: 1.09 }, element: 'wind' },
       { kind: 'apply_status', target: 'enemy_back', status: 'weaken', chance: 0.35, turns: 2 },
       { kind: 'shift_initiative', target: 'enemy_back', delta: 1 },
     ],
@@ -93,12 +93,12 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-wind-skirm-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 44, scale: 'spd', factor: 0.98 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 40, scale: 'spd', factor: 0.88 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 1 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 39, scale: 'spd', factor: 0.76 }, element: 'wind' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 35, scale: 'spd', factor: 0.67 }, element: 'wind' }],
       },
     ],
   }),
@@ -113,7 +113,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-wind-skirm-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 93, scale: 'spd', factor: 2.02 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 121, scale: 'spd', factor: 2.68 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
   }),
@@ -128,7 +128,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-wind-skirm-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 71, scale: 'spd', factor: 1.55 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 94, scale: 'spd', factor: 2.03 }, element: 'wind' },
       { kind: 'apply_status', target: 'enemy_back', status: 'weaken', chance: 0.45, turns: 2 },
       { kind: 'shift_initiative', target: 'enemy_back', delta: 2 },
     ],
@@ -144,12 +144,12 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-wind-skirm-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 58, scale: 'spd', factor: 1.2 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 75, scale: 'spd', factor: 1.58 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 2 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'spd', factor: 0.82 }, element: 'wind' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 53, scale: 'spd', factor: 1.08 }, element: 'wind' }],
       },
     ],
   }),
@@ -164,7 +164,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 26,
     upgrade_of: 'sk-wind-skirm-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 195, scale: 'spd', factor: 3.74 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 324, scale: 'spd', factor: 6.2 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
   }),
@@ -179,7 +179,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-wind-skirm-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 143, scale: 'spd', factor: 2.89 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_back', amount: { base: 238, scale: 'spd', factor: 4.79 }, element: 'wind' },
       { kind: 'apply_status', target: 'enemy_back', status: 'weaken', chance: 0.55, turns: 2 },
       { kind: 'shift_initiative', target: 'enemy_back', delta: 3 },
     ],
@@ -197,12 +197,12 @@ export const WIND_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-wind-skirm-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 117, scale: 'spd', factor: 2.24 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 194, scale: 'spd', factor: 3.7 }, element: 'wind' },
       { kind: 'shift_initiative', target: 'enemy_first_two', delta: 3 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 129, scale: 'spd', factor: 2.05 }, element: 'wind' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 213, scale: 'spd', factor: 3.41 }, element: 'wind' }],
       },
     ],
   }),
@@ -218,7 +218,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 35, scale: 'spd', factor: 0.9 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'spd', factor: 0.89 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 10, turns: 2 },
     ],
   }),
@@ -246,7 +246,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 38, scale: 'spd', factor: 0.96 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'spd', factor: 0.95 }, element: 'wind' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 70 },
@@ -265,7 +265,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-wind-speed-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 68, scale: 'spd', factor: 1.47 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'spd', factor: 1.32 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 14, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
     ],
@@ -296,7 +296,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-wind-speed-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 81, scale: 'spd', factor: 1.67 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 72, scale: 'spd', factor: 1.48 }, element: 'wind' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 65 },
@@ -315,7 +315,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-wind-speed-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 90, scale: 'spd', factor: 1.89 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 118, scale: 'spd', factor: 2.49 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 18, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
@@ -348,7 +348,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     cooldown: 3,
     upgrade_of: 'sk-wind-speed-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 79, scale: 'spd', factor: 1.72 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 105, scale: 'spd', factor: 2.27 }, element: 'wind' },
       { kind: 'extra_turn', target: 'self' },
     ],
   }),
@@ -363,7 +363,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-wind-speed-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 192, scale: 'spd', factor: 3.65 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 318, scale: 'spd', factor: 6.05 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'spd_up', amount: 22, turns: 2 },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
     ],
@@ -397,7 +397,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-wind-speed-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 232, scale: 'spd', factor: 4.05 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 384, scale: 'spd', factor: 6.72 }, element: 'wind' },
       { kind: 'extra_turn', target: 'self' },
     ],
   }),
@@ -458,7 +458,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-wind-evade-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'spd', factor: 0.65 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'spd', factor: 0.58 }, element: 'wind' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 14, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.25, turns: 1 },
     ],
@@ -489,7 +489,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-wind-evade-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 25, scale: 'spd', factor: 0.76 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 22, scale: 'spd', factor: 0.67 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'evasion_up', amount: 16, turns: 2 },
       {
         kind: 'conditional',
@@ -509,7 +509,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-wind-evade-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 54, scale: 'spd', factor: 1.28 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 71, scale: 'spd', factor: 1.66 }, element: 'wind' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 18, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.3, turns: 1 },
     ],
@@ -540,7 +540,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-wind-evade-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 58, scale: 'spd', factor: 1.33 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 75, scale: 'spd', factor: 1.77 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'evasion_up', amount: 20, turns: 2 },
       {
         kind: 'conditional',
@@ -560,7 +560,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     energyCost: 26,
     upgrade_of: 'sk-wind-evade-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 154, scale: 'spd', factor: 3.14 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 255, scale: 'spd', factor: 5.21 }, element: 'wind' },
       { kind: 'apply_buff', target: 'primary_target', buff: 'accuracy_down', amount: 22, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.32, turns: 1 },
     ],
@@ -593,7 +593,7 @@ export const WIND_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-wind-evade-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 192, scale: 'spd', factor: 3.47 }, element: 'wind' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 318, scale: 'spd', factor: 5.74 }, element: 'wind' },
       { kind: 'apply_buff', target: 'self', buff: 'evasion_up', amount: 24, turns: 2 },
       {
         kind: 'conditional',

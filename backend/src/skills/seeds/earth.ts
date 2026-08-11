@@ -14,7 +14,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'def', factor: 0.95 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'def', factor: 1.02 }, element: 'earth' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 8, turns: 2 },
     ],
   }),
@@ -29,7 +29,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 7,
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 28, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 13, scale: 'def', factor: 0.49 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 14, scale: 'def', factor: 0.52 }, element: 'earth' },
     ],
   }),
   ea({
@@ -42,7 +42,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'def', factor: 1.12 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'def', factor: 1.19 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -61,7 +61,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-earth-tank-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'def', factor: 1.41 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'def', factor: 1.23 }, element: 'earth' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 12, turns: 2 },
     ],
   }),
@@ -77,7 +77,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-earth-tank-r-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 58, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'def', factor: 0.84 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'def', factor: 0.76 }, element: 'earth' },
     ],
   }),
   ea({
@@ -91,7 +91,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-earth-tank-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 65, scale: 'def', factor: 1.72 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 59, scale: 'def', factor: 1.53 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -110,7 +110,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-earth-tank-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 98, scale: 'def', factor: 2.46 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 69, scale: 'def', factor: 1.77 }, element: 'earth' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 16, turns: 2 },
     ],
   }),
@@ -126,7 +126,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-earth-tank-c-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 96, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 59, scale: 'def', factor: 1.38 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'def', factor: 0.99 }, element: 'earth' },
     ],
   }),
   ea({
@@ -140,7 +140,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-earth-tank-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 123, scale: 'def', factor: 2.82 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 87, scale: 'def', factor: 2.03 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -161,7 +161,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 149, scale: 'def', factor: 3.46 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 114, scale: 'def', factor: 2.64 }, element: 'earth' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 20, turns: 2 },
     ],
   }),
@@ -177,7 +177,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-earth-tank-u-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 140, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 88, scale: 'def', factor: 1.89 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 68, scale: 'def', factor: 1.46 }, element: 'earth' },
     ],
   }),
   ea({
@@ -192,7 +192,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-earth-tank-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 182, scale: 'def', factor: 3.87 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 139, scale: 'def', factor: 2.94 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
@@ -212,7 +212,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 6,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 30, scale: 'int', factor: 0.59 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 31, scale: 'int', factor: 0.61 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -240,7 +240,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 24, scale: 'int', factor: 1.01 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 1.08 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
@@ -259,7 +259,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-earth-guard-r-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 61, scale: 'int', factor: 0.98 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 57, scale: 'int', factor: 0.84 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -289,7 +289,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-earth-guard-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 57, scale: 'int', factor: 1.62 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 53, scale: 'int', factor: 1.44 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
@@ -308,7 +308,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-earth-guard-c-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 119, scale: 'int', factor: 1.49 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 86, scale: 'int', factor: 1.08 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -338,7 +338,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-earth-guard-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 105, scale: 'int', factor: 2.57 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 74, scale: 'int', factor: 1.85 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
@@ -357,7 +357,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-earth-guard-u-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 162, scale: 'int', factor: 1.89 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 124, scale: 'int', factor: 1.46 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
     ],
   }),
@@ -389,7 +389,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 32,
     upgrade_of: 'sk-earth-guard-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 153, scale: 'int', factor: 3.46 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 118, scale: 'int', factor: 2.64 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -409,7 +409,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 11, scale: 'int', factor: 0.49 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 11, scale: 'int', factor: 0.52 }, element: 'earth' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.28, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -7, turns: 2 },
     ],
@@ -424,7 +424,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.84 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'int', factor: 0.9 }, element: 'earth' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 1 },
     ],
   }),
@@ -438,7 +438,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'int', factor: 1.12 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'int', factor: 1.19 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'root' },
@@ -457,7 +457,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-earth-terrain-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 25, scale: 'int', factor: 0.79 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 23, scale: 'int', factor: 0.71 }, element: 'earth' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.33, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -11, turns: 2 },
     ],
@@ -473,7 +473,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-earth-terrain-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 47, scale: 'int', factor: 1.41 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'int', factor: 1.23 }, element: 'earth' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
     ],
   }),
@@ -488,7 +488,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-earth-terrain-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 63, scale: 'int', factor: 1.72 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 57, scale: 'int', factor: 1.53 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'root' },
@@ -507,7 +507,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-earth-terrain-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 57, scale: 'int', factor: 1.38 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 41, scale: 'int', factor: 0.99 }, element: 'earth' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.38, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -16, turns: 2 },
     ],
@@ -523,7 +523,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 17,
     upgrade_of: 'sk-earth-terrain-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 93, scale: 'int', factor: 2.39 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 66, scale: 'int', factor: 1.71 }, element: 'earth' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 3 },
     ],
   }),
@@ -538,7 +538,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-earth-terrain-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 119, scale: 'int', factor: 2.82 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 86, scale: 'int', factor: 2.03 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'root' },
@@ -557,7 +557,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-earth-terrain-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 88, scale: 'int', factor: 2.02 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 68, scale: 'int', factor: 1.56 }, element: 'earth' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'root', chance: 0.42, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_first_two', stat: 'spd', delta: -22, turns: 2 },
     ],
@@ -573,7 +573,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-earth-terrain-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 138, scale: 'int', factor: 3.23 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 106, scale: 'int', factor: 2.47 }, element: 'earth' },
       { kind: 'shift_initiative', target: 'primary_target', delta: 4 },
     ],
   }),
@@ -590,7 +590,7 @@ export const EARTH_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-earth-terrain-u-3',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 175, scale: 'int', factor: 3.82 }, element: 'earth' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 135, scale: 'int', factor: 2.9 }, element: 'earth' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'root' },
