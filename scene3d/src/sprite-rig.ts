@@ -15,6 +15,16 @@ export type SpriteRigApi = {
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly worldPosition: THREE.Vector3;
+  /**
+   * Live sprite dimensions in world units (x = width, y = height).
+   *
+   * `worldPosition` is the billboard's CENTRE, so an effect anchored to it
+   * leaves and lands at the middle of the silhouette. Callers need the extents
+   * to place an emission point on the sprite's leading edge at chest height
+   * instead. Live like `worldPosition`: `applyAspect` rewrites it whenever the
+   * texture's aspect ratio resolves.
+   */
+  readonly spriteSize: THREE.Vector2;
   update(dt: number, elapsedS: number, cameraQuat: THREE.Quaternion): void;
   playAttack(): void;
   playHit(): void;
@@ -148,6 +158,8 @@ export class SpriteRig implements SpriteRigApi {
   private readonly baseColor: THREE.Color;
   private readonly basePosition: THREE.Vector3;
   private readonly baseScale: THREE.Vector2 = new THREE.Vector2(SPRITE_MAX_DIMENSION, SPRITE_MAX_DIMENSION);
+  /** Same object as `baseScale`, surfaced read-only through `SpriteRigApi`. */
+  readonly spriteSize: THREE.Vector2 = this.baseScale;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
   private arenaBaselineY = 0;
   private gif: GifState | null = null;

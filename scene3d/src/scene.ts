@@ -11,6 +11,21 @@ import { RUNNERS } from './attack-runners';
 import { buildPresetRunner } from './attack-runners/preset';
 import type { AnimatedElement, AttackEffect3D, Runner3D } from './attack-runners/types';
 import { DEFAULT_EFFECT_DURATION_S, ELEMENT_LIGHT_COLOR } from './attack-runners/types';
+
+/**
+ * Where a skill effect leaves the attacker and where it lands on the receiver,
+ * as fractions of each sprite's own size so they scale with the art rather than
+ * being tuned per Digimon.
+ *
+ * Heights are measured from the sprite's centre, which is what `worldPosition`
+ * reports; forward is a fraction of half-width, so ~0.9 sits just inside the
+ * silhouette's leading edge instead of detaching from it.
+ */
+const EMIT_HEIGHT_RATIO = 0.18;
+const EMIT_FORWARD_RATIO = 0.45;
+const IMPACT_HEIGHT_RATIO = 0.08;
+/** Fallback when no source unit is known: the effect falls from overhead. */
+const UNSOURCED_DROP_HEIGHT = 4;
 import { resolveSkillVfxPreset } from './skill-vfx-resolver';
 import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPosition, type SpriteRigConfig, type SpriteSide } from './sprite-rig';
 import { ParticleEmitter } from './particles/ParticleEmitter';
@@ -1386,10 +1401,30 @@ export class SceneManager {
     const target = this.sprites.get(targetUnitId);
     if (target === undefined) return null;
     const source = sourceUnitId === null ? null : this.sprites.get(sourceUnitId) ?? null;
+
+    // `worldPosition` is the billboard's centre, so anchoring an effect to it
+    // makes the projectile leave the middle of the attacker and land in the
+    // middle of the receiver. Offsetting by the sprite's own extents puts the
+    // origin on its leading edge at roughly chest height, and the impact just
+    // above the receiver's centre — read as "thrown at them" rather than
+    // "passing through them".
+    const targetPos = target.worldPosition
+      .clone()
+      .add(new THREE.Vector3(0, target.spriteSize.y * IMPACT_HEIGHT_RATIO, 0));
     const sourcePos = source === null
-      ? target.worldPosition.clone().add(new THREE.Vector3(0, 4, 0))
-      : source.worldPosition.clone();
-    const targetPos = target.worldPosition.clone();
+      ? targetPos.clone().add(new THREE.Vector3(0, UNSOURCED_DROP_HEIGHT, 0))
+      : (() => {
+          // Face the receiver in XZ only: lifting the emitter must not tilt the
+          // direction it fires in.
+          const forward = targetPos.clone().sub(source.worldPosition);
+          forward.y = 0;
+          if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+          else forward.normalize();
+          return source.worldPosition
+            .clone()
+            .add(new THREE.Vector3(0, source.spriteSize.y * EMIT_HEIGHT_RATIO, 0))
+            .add(forward.multiplyScalar(source.spriteSize.x * EMIT_FORWARD_RATIO));
+        })();
     const durationS = options.durationS ?? DEFAULT_EFFECT_DURATION_S;
     const id = `fx-${element}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const effect: AttackEffect3D = {
