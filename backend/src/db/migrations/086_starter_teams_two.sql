@@ -1,0 +1,35 @@
+-- Retire the three original starter teams in favour of two balanced ones.
+--
+-- `seedDefaultOnboarding()` (onboarding/engine.ts, run at every boot) inserts
+-- `DEFAULT_TEAMS` by slug and only when the slug is MISSING — it never updates
+-- or removes. So replacing the constant with two teams gives fresh installs the
+-- right pair, but leaves every existing database still offering `aggressive`,
+-- `balanced` and `wildcard` alongside them. This migration removes the old three.
+--
+-- Why they are being retired: measured head-to-head over 400 battles each, the
+-- original three were not balanced against one another —
+--
+--   aggressive vs balanced     1% / 100%
+--   balanced   vs wildcard    21% /  79%
+--   aggressive vs wildcard    55% /  45%
+--
+-- `aggressive` was three fire Rookies. Elemental affinity is a 3x swing (1.5x
+-- attacking, 0.5x attacked) and the same-element chain bonus that a mono-element
+-- team earns is only 1.4x, so any opponent fielding a water mon beat it almost
+-- every time.
+--
+-- Deleted BY SLUG rather than truncating the table: `onboarding_teams` is
+-- admin-editable, and an operator may have added teams of their own that must
+-- survive this.
+--
+-- Existing players are unaffected, and not by accident:
+--   * `player_roster` has no foreign key to `onboarding_teams`. `completeOnboarding`
+--     COPIES the three catalog ids into roster rows, so a roster is independent of
+--     the team that produced it the moment it is created.
+--   * `completeOnboarding` refuses with `already-onboarded` when the user already
+--     has roster rows, and `users.onboarding_completed_at` is only ever set once.
+-- Anyone who already picked a retired team keeps their Digimon and never sees
+-- the picker again.
+--
+-- Portable across SQLite and Postgres (plain DELETE).
+DELETE FROM onboarding_teams WHERE slug IN ('aggressive', 'balanced', 'wildcard');
