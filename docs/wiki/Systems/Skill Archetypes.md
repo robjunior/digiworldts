@@ -710,9 +710,17 @@ inversions** on its own, because elements no longer need their damage suppressed
 so hard to stay in band. It introduced four others; the tracked list went 11 to
 9. See [[#Balance and progression pull apart]].
 
-> [!note] Watch item
-> Plant's Champion mirror runs 122t, the longest in the matrix, at 0% draws. Not
-> a stall by the old standard — water's was 339t at 31% — but the one to watch.
+> [!note] Watch item — investigated, benign
+> Plant's Champion mirror runs 122t, the longest in the matrix, at 0% draws.
+> Investigated rather than left open: plant carries a single heal,
+> `Rejuvenating Pollen` at EN12, cheap enough to repeat, alongside the lowest
+> weighted damage of the comparable elements (622 against water's 689, which
+> runs 72t). Comparable healing on lower damage lengthens the fight.
+>
+> Not a stall — it terminates well inside the 600-turn cap with no draws, and
+> "support-heavy elements fight longer" is the intended consequence of
+> `bb15d94`. Plant's Champion is simply the extreme of it. Shortening it would
+> mean raising plant's damage, which would break its 50% balance.
 
 ### The sweep, and why one-at-a-time could not work
 
@@ -782,6 +790,19 @@ the compounding is superlinear, because clearing the line removes several
 attackers at once. Recovering balance at two targets needs a Mega peak around
 1200, which is **1.9x the strongest skill in the game**. That trades an
 absurdly low headline number for an absurdly high one.
+
+> [!success] Re-verified under the fixed simulator — the disproof got stronger
+> The measurements above were taken with the AI that never cast support skills,
+> so they were re-run after `bb15d94`. Narrowing electricity's AoE now gives
+> **5% at Ultimate and 16% at Mega**, worse than the 32%/26% measured with the
+> broken harness, with progression perfectly monotonic at 115/220/259/341.
+> Raising damage until the Ultimate peak hits 466 — already close to the field
+> maximum of ~640 — recovers only to 8%.
+>
+> This is the expected direction on reflection: AoE is worth *more* once support
+> exists, because clearing the line removes attackers before a healer can
+> respond. A conclusion reached with a broken instrument survived re-measurement
+> with a working one, which is the only reason it can be relied on.
 
 > [!important] Three constraints, any two
 > 1. **Balance** — ~50% neutral win rate.
