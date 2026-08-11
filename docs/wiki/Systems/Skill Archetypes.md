@@ -489,6 +489,77 @@ to a matching curve additionally trips the distinctness check.
 > element the same, and every structural test in the repo will agree. Balance
 > one element per pass, and run `test:element-identity` as a hard gate.
 
+### Electricity — where the damage-curve frame broke down
+
+Wind's fix suggested a method: compare an element's damage curve to the field
+median and reshape it. Applied to electricity, that frame produced three wrong
+diagnoses in a row, and the record of the wrong turns is more useful than the
+fix.
+
+Electricity summed to the **lowest damage in the game** — 0.61-0.72x the field
+median at every stage, with the worst damage-per-energy at 6.2-7.9 against a
+field of 9.9-11.5 — while winning 99% of neutral matchups at Ultimate and Mega.
+
+1. **"It wins by stun-lock."** Its stun weight (summed chances) was 2.2 at
+   Ultimate against 0.8 for ice, the next highest, including a `chance: 1.0`
+   guaranteed stun at Mega. Cutting it to 1.45/1.30 moved the win rate from
+   99% to 96%.
+2. **"It wins by stacked buffs."** Three of nine Ultimate skills are pure
+   party-wide buffs, combining `atk_up`+`crit_up` with enemy `def` shred and
+   `damage_reduction`+`def_up`+`shield_absorb`. But light carries far more —
+   selfbuff 191 and mitigation 150 at Mega against electricity's 40 and 95.
+3. **Ablation settled it.** Neutralising each lever in isolation — buffs,
+   mitigation, enemy debuffs, `weaken`, stun — left Ultimate and Mega at
+   96-98% every time. None of them was the driver.
+
+The measurement itself was the error. Damage was being summed from the seed
+text **without weighting by target breadth**, and electricity is the AoE
+element: `Neural Network` alone carries two `deal_damage` entries on
+`enemy_all`. Re-weighting (`enemy_all` = party size) closed most of the gap —
+but not all of it, and it also showed that weighted damage does not predict win
+rate either. Light has the *lowest* weighted Mega damage in the game at 2290 and
+wins 86%; plant has 2381 and wins 42%.
+
+> [!important] Damage totals do not rank elements — only the simulator does
+> Neither raw nor target-weighted damage sums predict cross-element win rate.
+> Use them to form a hypothesis, never to justify a change. Wind's fix worked
+> because it was tuned against measured win rates; the curve-shape story told
+> around it was narrative, not mechanism.
+
+What settled it was ablating **damage** rather than mechanics, which revealed a
+cliff rather than a slope:
+
+| Ultimate/Mega damage scale | Ultimate | Mega |
+| -------------------------- | -------- | ---- |
+| 1.00x | 99% | 99% |
+| 0.50x | 68% | 87% |
+| 0.20x | **1%** | **8%** |
+
+An AoE hit is worth far more than its target count suggests, because clearing
+the enemy line removes several attackers at once and the advantage compounds.
+Electricity is therefore *correct* to carry below-median nominal damage — it had
+simply been budgeted as if it were single-target. The fix is damage-only; stun,
+buffs and `extra_turn` are untouched, and the `chance: 1.0` stun on `Synapse
+Lock` is left in place as balanced-but-worth-watching, since a guaranteed status
+with no roll offers no counterplay.
+
+> [!warning] `RUNS=400` is triage, not measurement
+> Mid-tuning, `RUNS=400` put electricity's Rookie at 45% and `RUNS=1000` put the
+> same build at 55-58%. Below 1000 the noise is wider than the whole target
+> band. Screen with 400; never sign off on it.
+
+The response is steeper here than anywhere else in this rework — a 6% damage
+change at Rookie swung the win rate 16 points. Final figures over three
+independent 1000-battle seeds: Rookie 47-50%, Champion 48-50%, Ultimate 49-50%,
+Mega 48-51%.
+
+> [!success] The turn-count tell has now found the broken element twice
+> Electricity's mirror resolved in 16t at Ultimate and 7t at Mega against a
+> field of 25-37t — the same fingerprint wind showed at 17t. Both were the
+> element that turned out to be dominant, and in both cases the anomaly was
+> visible in every run of the suite long before anyone acted on it. It is now
+> 2 for 2 as the cheapest available signal.
+
 ### Documented pre-rework baselines
 
 | Element | Stage | Before | After |
@@ -584,10 +655,10 @@ signatures. Tables in [[Skill Catalog Reference]].
 
 > [!info] "Complete" here means authored and internally coherent — not balanced
 > This section tracks content authoring only. Every element is written, passes
-> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Ten of
+> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Nine of
 > the eleven are still out of band on cross-element power** — see
-> [[#What this matrix does not prove]]. Wind (`5b9d2fb`) is the only one
-> reconciled so far.
+> [[#What this matrix does not prove]]. Two are reconciled: wind (`5b9d2fb`,
+> `cf22aad`) and electricity (`c202929`).
 
 > [!note] Plant's signature set — diagnosed, then corrected
 > Plant looked damage-skewed at 65% `primary_attack`. Measuring the declared
