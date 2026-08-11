@@ -33,8 +33,8 @@ function mem(monId: string, template: TemplateDigimon, spdBonus: number, skillOv
   };
 }
 
-function dslSkill(id: string, name: string, actions: DSLAction[], energyCost = 0): Skill {
-  return { id, name, element: 'fire', energyCost, power: 0, actions };
+function dslSkill(id: string, name: string, actions: DSLAction[], energyCost = 0, vfxPresetId?: string): Skill {
+  return { id, name, element: 'fire', energyCost, power: 0, actions, ...(vfxPresetId !== undefined ? { vfxPresetId } : {}) };
 }
 
 const fire = tmpl('fire-a', 'FireA', 'fire');
@@ -403,6 +403,58 @@ console.log('\n=== Test 26: a dead actor drops its pending action ===');
   check('nothing fired for a dead actor', fired.length === 0, `events ${fired.length}`);
   check('target untouched', target.hp === hpBefore);
   check('entry was consumed, not left dangling', (b.pendingActions ?? []).length === 0);
+}
+
+console.log('\n=== Test 27: a skill\'s vfx preset reaches every action event it emits ===');
+{
+  // The DSL used to thread a bare `skillName: string`, so `vfxPresetId` was
+  // dropped for every one of the 1264 catalog skills — only engine.ts's
+  // basic-attack path ever emitted it, and the client always fell back to the
+  // per-element runner.
+  const skill = dslSkill('sk-vfx1', 'Preset Blast', [
+    { kind: 'deal_damage', target: 'enemy_all', amount: { base: 40, scale: 'int', factor: 0 }, element: 'fire' },
+  ], 0, 'svfx_testpreset0000000000000');
+  const { b } = await battleWithActorSkill(skill);
+  const before = b.log.length;
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-vfx1', targetId: 'b:0' });
+  const acts = b.log.slice(before).filter((e) => e.type === 'action' && e.damage !== undefined && e.damage !== 0);
+  check('the AoE produced one event per enemy hit', acts.length === 3, `events ${acts.length}`);
+  const tagged = acts.filter((e) => (e as { vfxPresetId?: string }).vfxPresetId === 'svfx_testpreset0000000000000');
+  check('every hit carries the preset id', tagged.length === acts.length, `${tagged.length}/${acts.length}`);
+  const targets = new Set(acts.map((e) => (e as { targetId?: string }).targetId));
+  check('each event names its own receiving unit', targets.size === acts.length, `distinct targets ${targets.size}`);
+}
+
+console.log('\n=== Test 28: a skill with no preset stays on the element fallback ===');
+{
+  const skill = dslSkill('sk-vfx2', 'Plain Blast', [
+    { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'int', factor: 0 }, element: 'fire' },
+  ]);
+  const { b } = await battleWithActorSkill(skill);
+  const before = b.log.length;
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-vfx2', targetId: 'b:0' });
+  const acts = b.log.slice(before).filter((e) => e.type === 'action');
+  check('events were emitted', acts.length > 0);
+  const anyPreset = acts.some((e) => (e as { vfxPresetId?: string }).vfxPresetId !== undefined);
+  check('no vfxPresetId is invented', !anyPreset);
+}
+
+console.log('\n=== Test 29: a scheduled action keeps its preset across the JSON round-trip ===');
+{
+  // Scheduled entries are serialized into the cluster's battle snapshot, so the
+  // preset has to survive as data on ScheduledAction, not as a closure.
+  const skill = dslSkill('sk-vfx3', 'Delayed Preset', [
+    { kind: 'schedule', delay: 1, action: { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'int', factor: 0 }, element: 'fire' } },
+  ], 0, 'svfx_delayed00000000000000');
+  const { b } = await battleWithActorSkill(skill);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-vfx3', targetId: 'b:0' });
+  check('entry carries the preset', b.pendingActions?.[0]?.vfxPresetId === 'svfx_delayed00000000000000');
+  const revived = JSON.parse(JSON.stringify(b)) as Battle;
+  check('preset survives serialization', revived.pendingActions?.[0]?.vfxPresetId === 'svfx_delayed00000000000000');
+  revived.round = revived.pendingActions![0]!.firesAtRound;
+  const fired = flushScheduledActions(revived);
+  const tagged = fired.filter((e) => (e as { vfxPresetId?: string }).vfxPresetId === 'svfx_delayed00000000000000');
+  check('the delayed hit still emits the preset', tagged.length > 0, `of ${fired.length} events`);
 }
 
 Math.random = originalRandom;

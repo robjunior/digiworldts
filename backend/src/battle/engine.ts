@@ -562,7 +562,15 @@ export function applyAction(
   }
 
   if (skill.actions !== undefined && skill.actions.length > 0) {
-    executeDSL(battle, actor, skill.actions as DSLAction[], target, skill.name, actingSide, extraPicks);
+    executeDSL(
+      battle,
+      actor,
+      skill.actions as DSLAction[],
+      target,
+      { name: skill.name, ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}) },
+      actingSide,
+      extraPicks,
+    );
     tickActorAilments(battle, actor);
     advanceTurnQueue(battle);
     return { ok: true, battle, events: battle.log.slice(eventsBefore) };

@@ -55,18 +55,36 @@ export type ExecuteDSLResult = {
   error?: string;
 };
 
+/**
+ * Identifies the skill an action belongs to, for the events it emits.
+ *
+ * This was a bare `skillName: string` threaded through every executor, which
+ * meant the DSL had no way to carry `vfxPresetId` — so `skills_catalog.vfx_preset_id`
+ * reached the client only from `engine.ts`'s basic-attack path, and none of the
+ * 1264 catalog skills could ever play their configured effect.
+ */
+export type SkillRef = {
+  readonly name: string;
+  readonly vfxPresetId?: string;
+};
+
+/** Spread onto an action event so a skill's chosen effect reaches the renderer. */
+function vfx(skill: SkillRef): { vfxPresetId?: string } {
+  return skill.vfxPresetId === undefined ? {} : { vfxPresetId: skill.vfxPresetId };
+}
+
 export function executeDSL(
   battle: Battle,
   actor: BattleUnit,
   actions: readonly Action[],
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[] = [],
 ): ExecuteDSLResult {
   const eventsBefore = battle.log.length;
   for (const action of actions) {
-    execAction(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
+    execAction(battle, actor, action, primaryTarget, skill, actingSide, extraPicks);
   }
   return { events: battle.log.slice(eventsBefore) };
 }
@@ -88,7 +106,7 @@ function enqueueScheduled(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'schedule' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[],
 ): void {
@@ -98,7 +116,8 @@ function enqueueScheduled(
     targetId: primaryTarget?.id ?? null,
     extraPickIds: extraPicks.map((u) => u.id),
     side: actingSide,
-    skillName,
+    skillName: skill.name,
+    ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}),
     firesAtRound: battle.round + action.delay,
   };
   battle.pendingActions = [...(battle.pendingActions ?? []), queued];
@@ -133,7 +152,15 @@ export function flushScheduledActions(battle: Battle): BattleEvent[] {
     const extras = entry.extraPickIds
       .map((id) => battle.units.find((u) => u.id === id))
       .filter((u): u is BattleUnit => u !== undefined);
-    execAction(battle, actor, entry.action as Action, target, entry.skillName, entry.side, extras);
+    execAction(
+      battle,
+      actor,
+      entry.action as Action,
+      target,
+      { name: entry.skillName, ...(entry.vfxPresetId !== undefined ? { vfxPresetId: entry.vfxPresetId } : {}) },
+      entry.side,
+      extras,
+    );
   }
   return battle.log.slice(eventsBefore);
 }
@@ -359,52 +386,52 @@ function execAction(
   actor: BattleUnit,
   action: Action,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[],
 ): void {
   switch (action.kind) {
     case 'deal_damage':
-      execDealDamage(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
+      execDealDamage(battle, actor, action, primaryTarget, skill, actingSide, extraPicks);
       return;
     case 'heal':
-      execHeal(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execHeal(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'apply_status':
-      execApplyStatus(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execApplyStatus(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'modify_stat':
-      execModifyStat(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execModifyStat(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'consume_en':
-      execEnergy(battle, actor, action, primaryTarget, -action.amount, skillName, extraPicks);
+      execEnergy(battle, actor, action, primaryTarget, -action.amount, skill, extraPicks);
       return;
     case 'restore_en':
-      execEnergy(battle, actor, action, primaryTarget, action.amount, skillName, extraPicks);
+      execEnergy(battle, actor, action, primaryTarget, action.amount, skill, extraPicks);
       return;
     case 'shift_initiative':
-      execShiftInitiative(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execShiftInitiative(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'schedule':
-      enqueueScheduled(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
+      enqueueScheduled(battle, actor, action, primaryTarget, skill, actingSide, extraPicks);
       return;
     case 'conditional':
-      execConditional(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
+      execConditional(battle, actor, action, primaryTarget, skill, actingSide, extraPicks);
       return;
     case 'drain':
-      execDrain(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
+      execDrain(battle, actor, action, primaryTarget, skill, actingSide, extraPicks);
       return;
     case 'apply_buff':
-      execApplyBuff(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execApplyBuff(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'cleanse':
-      execCleanse(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execCleanse(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'dispel':
-      execDispel(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execDispel(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     case 'extra_turn':
-      execExtraTurn(battle, actor, action, primaryTarget, skillName, extraPicks);
+      execExtraTurn(battle, actor, action, primaryTarget, skill, extraPicks);
       return;
     default: {
       const exhaustive: never = action;
@@ -418,7 +445,7 @@ function execDealDamage(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'deal_damage' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[],
 ): void {
@@ -444,11 +471,12 @@ function execDealDamage(
         type: 'action',
         actor: actor.id,
         actorName: actor.name,
-        action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+        action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
         targetId: target.id,
         targetName: target.name,
         damage: 0,
-        skillName,
+        skillName: skill.name,
+        ...vfx(skill),
         skillElement: element,
         cue: 'miss',
       });
@@ -487,11 +515,12 @@ function execDealDamage(
       type: 'action',
       actor: actor.id,
       actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id,
       targetName: target.name,
       damage: dmg,
-      skillName,
+      skillName: skill.name,
+      ...vfx(skill),
       skillElement: element,
       cue,
     });
@@ -506,7 +535,7 @@ function execHeal(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'heal' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -523,11 +552,12 @@ function execHeal(
       type: 'action',
       actor: actor.id,
       actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id,
       targetName: target.name,
       damage: -restored,
-      skillName,
+      skillName: skill.name,
+      ...vfx(skill),
       skillElement: actor.element,
       cue: null,
     });
@@ -539,7 +569,7 @@ function execApplyStatus(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'apply_status' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -555,11 +585,12 @@ function execApplyStatus(
       type: 'action',
       actor: actor.id,
       actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id,
       targetName: target.name,
       damage: 0,
-      skillName,
+      skillName: skill.name,
+      ...vfx(skill),
       skillElement: actor.element,
       cue: null,
       applied,
@@ -572,7 +603,7 @@ function execModifyStat(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'modify_stat' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -591,11 +622,12 @@ function execModifyStat(
       type: 'action',
       actor: actor.id,
       actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id,
       targetName: target.name,
       damage: 0,
-      skillName,
+      skillName: skill.name,
+      ...vfx(skill),
       skillElement: actor.element,
       cue: null,
     });
@@ -608,7 +640,7 @@ function execEnergy(
   action: Extract<Action, { kind: 'consume_en' | 'restore_en' }>,
   primaryTarget: BattleUnit | null,
   delta: number,
-  _skillName: string,
+  _skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -622,7 +654,7 @@ function execShiftInitiative(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'shift_initiative' }>,
   primaryTarget: BattleUnit | null,
-  _skillName: string,
+  _skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -636,7 +668,7 @@ function execConditional(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'conditional' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[],
 ): void {
@@ -644,7 +676,7 @@ function execConditional(
   const branch = evalCondition(subject, action.if) ? action.then : action.else;
   if (branch === undefined) return;
   for (const inner of branch) {
-    execAction(battle, actor, inner, primaryTarget, skillName, actingSide, extraPicks);
+    execAction(battle, actor, inner, primaryTarget, skill, actingSide, extraPicks);
   }
 }
 
@@ -676,7 +708,7 @@ function execDrain(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'drain' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   actingSide: BattleSide,
   extraPicks: readonly BattleUnit[],
 ): void {
@@ -699,9 +731,9 @@ function execDrain(
       pushEvent(battle, {
         at: now, round: battle.round, type: 'action',
         actor: actor.id, actorName: actor.name,
-        action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+        action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
         targetId: target.id, targetName: target.name,
-        damage: 0, skillName, skillElement: element, cue: 'miss',
+        damage: 0, skillName: skill.name, ...vfx(skill), skillElement: element, cue: 'miss',
       });
       battle.lastAction = { side: actingSide, element, attribute: actor.attribute, wasHit: false };
       continue;
@@ -717,9 +749,9 @@ function execDrain(
     pushEvent(battle, {
       at: now, round: battle.round, type: 'action',
       actor: actor.id, actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id, targetName: target.name,
-      damage: finalDmg, skillName, skillElement: element, cue,
+      damage: finalDmg, skillName: skill.name, ...vfx(skill), skillElement: element, cue,
     });
     if (target.hp === 0) {
       pushEvent(battle, { at: now, round: battle.round, type: 'unit-down', unit: target.id, unitName: target.name });
@@ -733,9 +765,9 @@ function execDrain(
       pushEvent(battle, {
         at: now, round: battle.round, type: 'action',
         actor: actor.id, actorName: actor.name,
-        action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: actor.id },
+        action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: actor.id },
         targetId: actor.id, targetName: actor.name,
-        damage: -healed, skillName, skillElement: element, cue: null,
+        damage: -healed, skillName: skill.name, ...vfx(skill), skillElement: element, cue: null,
       });
     }
   }
@@ -746,7 +778,7 @@ function execApplyBuff(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'apply_buff' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -759,9 +791,9 @@ function execApplyBuff(
     pushEvent(battle, {
       at: now, round: battle.round, type: 'action',
       actor: actor.id, actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id, targetName: target.name,
-      damage: 0, skillName, skillElement: actor.element, cue: null,
+      damage: 0, skillName: skill.name, ...vfx(skill), skillElement: actor.element, cue: null,
     });
   }
 }
@@ -771,7 +803,7 @@ function execCleanse(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'cleanse' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -785,9 +817,9 @@ function execCleanse(
     pushEvent(battle, {
       at: now, round: battle.round, type: 'action',
       actor: actor.id, actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id, targetName: target.name,
-      damage: 0, skillName, skillElement: actor.element, cue: null,
+      damage: 0, skillName: skill.name, ...vfx(skill), skillElement: actor.element, cue: null,
     });
   }
 }
@@ -797,7 +829,7 @@ function execDispel(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'dispel' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -812,9 +844,9 @@ function execDispel(
     pushEvent(battle, {
       at: now, round: battle.round, type: 'action',
       actor: actor.id, actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id, targetName: target.name,
-      damage: 0, skillName, skillElement: actor.element, cue: null,
+      damage: 0, skillName: skill.name, ...vfx(skill), skillElement: actor.element, cue: null,
     });
   }
 }
@@ -824,7 +856,7 @@ function execExtraTurn(
   actor: BattleUnit,
   action: Extract<Action, { kind: 'extra_turn' }>,
   primaryTarget: BattleUnit | null,
-  skillName: string,
+  skill: SkillRef,
   extraPicks: readonly BattleUnit[],
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
@@ -840,9 +872,9 @@ function execExtraTurn(
     pushEvent(battle, {
       at: now, round: battle.round, type: 'action',
       actor: actor.id, actorName: actor.name,
-      action: { type: 'skill', unitId: actor.id, skillId: skillName, targetId: target.id },
+      action: { type: 'skill', unitId: actor.id, skillId: skill.name, targetId: target.id },
       targetId: target.id, targetName: target.name,
-      damage: 0, skillName, skillElement: actor.element, cue: null,
+      damage: 0, skillName: skill.name, ...vfx(skill), skillElement: actor.element, cue: null,
     });
   }
 }
