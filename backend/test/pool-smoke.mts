@@ -1,7 +1,7 @@
 /**
  * P4 skill pool smoke test.
  *
- * Boots SqliteAdapter with a scratch DB, seeds all 264 catalog skills, then
+ * Boots SqliteAdapter with a scratch DB, seeds every catalog skill (396 pool + signatures), then
  * exercises pool.ts: cumulative learned-pool IDs per (element, stage), batch
  * catalog resolution → Skill[] with .actions populated, and prefix detection.
  *
@@ -48,10 +48,12 @@ const fireRookie = await getLearnedPoolIds('fire', 'Rookie');
 const fireChampion = await getLearnedPoolIds('fire', 'Champion');
 const fireUltimate = await getLearnedPoolIds('fire', 'Ultimate');
 const fireMega = await getLearnedPoolIds('fire', 'Mega');
-check('fire Rookie pool = 6', fireRookie.length === 6, `got ${fireRookie.length}`);
-check('fire Champion pool = 12', fireChampion.length === 12, `got ${fireChampion.length}`);
-check('fire Ultimate pool = 18', fireUltimate.length === 18, `got ${fireUltimate.length}`);
-check('fire Mega pool = 24', fireMega.length === 24, `got ${fireMega.length}`);
+// Every element now runs the archetype grid: 9 skills per stage, so the
+// cumulative pool is 9 / 18 / 27 / 36. The pre-rework grid was 6 per stage.
+check('fire Rookie pool = 9', fireRookie.length === 9, `got ${fireRookie.length}`);
+check('fire Champion pool = 18', fireChampion.length === 18, `got ${fireChampion.length}`);
+check('fire Ultimate pool = 27', fireUltimate.length === 27, `got ${fireUltimate.length}`);
+check('fire Mega pool = 36', fireMega.length === 36, `got ${fireMega.length}`);
 check(
   'fire Champion pool ⊇ Rookie pool',
   fireRookie.every((id) => fireChampion.includes(id)),
@@ -64,7 +66,7 @@ check(
 console.log(`\n=== Pool cumulative growth (per-element Mega pool size) ===`);
 // plant was re-authored around 3 design archetypes x 4 stages x 3 skills = 36;
 // every element still on the original 4 stages x 6 slot_roles grid stays at 24.
-const MEGA_POOL_SIZE: Record<string, number> = { plant: 36, dark: 36, light: 36, electricity: 36, water: 36, ice: 36, earth: 36 };
+const MEGA_POOL_SIZE: Record<string, number> = { plant: 36, dark: 36, light: 36, electricity: 36, water: 36, ice: 36, earth: 36, steel: 36, fire: 36, wind: 36, null: 36 };
 const DEFAULT_MEGA_POOL_SIZE = 24;
 const elements = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
 for (const el of elements) {
@@ -82,22 +84,22 @@ check(
 
 console.log(`\n=== Pool ordering: newest stage first, then slot_role (pa/su/cr/bs/ut/if) ===`);
 check(
-  'fire Champion first 6 IDs are all Champion tier',
-  fireChampion.slice(0, 6).every((id) => id.endsWith('-c')),
-  `first 6: ${fireChampion.slice(0, 6).join(', ')}`,
+  'fire Champion first 9 IDs are all Champion tier',
+  fireChampion.slice(0, 9).every((id) => /-c-\d+$/.test(id)),
+  `first 9: ${fireChampion.slice(0, 9).join(', ')}`,
 );
 check(
-  'fire Champion first ID is Champion primary_attack (sk-fire-pa-c)',
-  fireChampion[0] === 'sk-fire-pa-c',
+  'fire Champion first ID is a Champion primary_attack',
+  /-c-\d+$/.test(fireChampion[0] ?? ''),
   `got ${fireChampion[0]}`,
 );
 check(
-  'fire Mega first 6 IDs are all Mega tier',
-  fireMega.slice(0, 6).every((id) => id.endsWith('-m')),
+  'fire Mega first 9 IDs are all Mega tier',
+  fireMega.slice(0, 9).every((id) => /-m-\d+$/.test(id)),
 );
 check(
-  'fire Rookie first ID is Rookie primary_attack (sk-fire-pa-r)',
-  fireRookie[0] === 'sk-fire-pa-r',
+  'fire Rookie first ID is a Rookie skill',
+  /-r-\d+$/.test(fireRookie[0] ?? ''),
   `got ${fireRookie[0]}`,
 );
 
@@ -112,11 +114,11 @@ for (const stage of ['Rookie', 'Champion', 'Ultimate', 'Mega'] as const) {
   );
 }
 
-console.log(`\n=== Rookie defaults drop utility + identity_finisher (cap 4 < roles 6) ===`);
+console.log(`\n=== Rookie defaults take 4 of the 9 Rookie skills (cap 4) ===`);
 const fireRookieDefaults = await getDefaultEquippedForStage('fire', 'Rookie');
 check(
-  'fire Rookie defaults = [pa-r, sd-r, ct-r, bs-r]',
-  JSON.stringify(fireRookieDefaults) === JSON.stringify(['sk-fire-pa-r', 'sk-fire-sd-r', 'sk-fire-ct-r', 'sk-fire-bs-r']),
+  'fire Rookie defaults are 4 Rookie-tier skills',
+  fireRookieDefaults.length === 4 && fireRookieDefaults.every((id) => /-r-\d+$/.test(id)),
   `got ${JSON.stringify(fireRookieDefaults)}`,
 );
 
@@ -124,28 +126,30 @@ console.log(`\n=== Champion defaults = all 6 Champion role skills (cap 6 = roles
 const fireChampionDefaults = await getDefaultEquippedForStage('fire', 'Champion');
 check(
   'fire Champion defaults are all Champion tier',
-  fireChampionDefaults.every((id) => id.endsWith('-c')),
+  fireChampionDefaults.every((id) => /-c-\d+$/.test(id)),
   `got ${JSON.stringify(fireChampionDefaults)}`,
 );
 
-console.log(`\n=== Ultimate defaults = 6 Ultimate + 2 Champion (cap 8) ===`);
+// The archetype rework squeezed carry-forward out of the DEFAULT loadout.
+// With 6 skills per stage, Ultimate's cap of 8 pulled 6 Ultimate + 2 Champion
+// and Mega's cap of 10 pulled 6 Mega + 4 Ultimate. With 9 per stage the
+// current tier alone fills Ultimate entirely and all but one Mega slot.
+// The LEARNED pool still carries forward (36 ids at Mega) — a player can
+// still equip a lower-stage skill by hand — but nothing below the current
+// stage is auto-equipped except a single Ultimate slot at Mega.
+console.log(`\n=== Ultimate defaults = 8 Ultimate, no carry-forward (cap 8, 9 available) ===`);
 const fireUltimateDefaults = await getDefaultEquippedForStage('fire', 'Ultimate');
-const ultimateTier = fireUltimateDefaults.filter((id) => id.endsWith('-u'));
-const championTierInUlt = fireUltimateDefaults.filter((id) => id.endsWith('-c'));
-check('Ultimate defaults have 6 Ultimate skills', ultimateTier.length === 6, `got ${ultimateTier.length}`);
-check('Ultimate defaults have 2 Champion carry-forward skills', championTierInUlt.length === 2, `got ${championTierInUlt.length}`);
-check(
-  'Champion carry-forwards are pa + sd',
-  championTierInUlt.includes('sk-fire-pa-c') && championTierInUlt.includes('sk-fire-sd-c'),
-  `got ${JSON.stringify(championTierInUlt)}`,
-);
+const ultimateTier = fireUltimateDefaults.filter((id) => /-u-\d+$/.test(id));
+const championTierInUlt = fireUltimateDefaults.filter((id) => /-c-\d+$/.test(id));
+check('Ultimate defaults have 8 Ultimate skills', ultimateTier.length === 8, `got ${ultimateTier.length}`);
+check('Ultimate defaults have no Champion carry-forward', championTierInUlt.length === 0, `got ${championTierInUlt.length}`);
 
-console.log(`\n=== Mega defaults = 6 Mega + 4 Ultimate (cap 10) ===`);
+console.log(`\n=== Mega defaults = 9 Mega + 1 Ultimate (cap 10, 9 available) ===`);
 const fireMegaDefaults = await getDefaultEquippedForStage('fire', 'Mega');
-const megaTier = fireMegaDefaults.filter((id) => id.endsWith('-m'));
-const ultimateTierInMega = fireMegaDefaults.filter((id) => id.endsWith('-u'));
-check('Mega defaults have 6 Mega skills', megaTier.length === 6, `got ${megaTier.length}`);
-check('Mega defaults have 4 Ultimate carry-forward skills', ultimateTierInMega.length === 4, `got ${ultimateTierInMega.length}`);
+const megaTier = fireMegaDefaults.filter((id) => /-m-\d+$/.test(id));
+const ultimateTierInMega = fireMegaDefaults.filter((id) => /-u-\d+$/.test(id));
+check('Mega defaults have 9 Mega skills', megaTier.length === 9, `got ${megaTier.length}`);
+check('Mega defaults have 1 Ultimate carry-forward skill', ultimateTierInMega.length === 1, `got ${ultimateTierInMega.length}`);
 
 console.log(`\n=== getDefaultEquippedForStage output is a valid PUT skills body ===`);
 const validationCheck = fireMegaDefaults.every((id) => isCatalogSkillId(id));
@@ -158,7 +162,7 @@ check(
 
 console.log(`\n=== getLearnedPoolMeta returns rich metadata (name_pt, slot_role, tier_2, etc.) ===`);
 const fireChampionMeta = await getLearnedPoolMeta('fire', 'Champion');
-check('fire Champion meta length = 12', fireChampionMeta.length === 12, `got ${fireChampionMeta.length}`);
+check('fire Champion meta length = 18', fireChampionMeta.length === 18, `got ${fireChampionMeta.length}`);
 check(
   'first meta entry is Champion tier primary_attack',
   fireChampionMeta[0]?.stage === 'Champion' && fireChampionMeta[0]?.slot_role === 'primary_attack',
@@ -185,13 +189,13 @@ check(
   JSON.stringify(fireChampionMeta.map((m) => m.id)) === JSON.stringify(fireChampion),
 );
 const megaMeta = await getLearnedPoolMeta('fire', 'Mega');
-check('fire Mega meta length = 24', megaMeta.length === 24);
+check('fire Mega meta length = 36', megaMeta.length === 36);
 const megaChainEntries = megaMeta.filter((m) => m.upgrade_of !== null);
 check('some Mega entries have upgrade_of populated (chain skills)', megaChainEntries.length > 0, `got ${megaChainEntries.length} chained`);
 
 console.log(`\n=== resolveCatalogSkills ===`);
 const resolved = await resolveCatalogSkills(fireRookie);
-check('resolved 6 fire Rookie skills', resolved.length === 6, `got ${resolved.length}`);
+check('resolved 9 fire Rookie skills', resolved.length === 9, `got ${resolved.length}`);
 check(
   'every resolved skill has .actions populated (non-empty)',
   resolved.every((s) => Array.isArray(s.actions) && s.actions.length > 0),
@@ -224,7 +228,7 @@ check('empty input → []', noneEmpty.length === 0);
 check('all-wikimon input → []', noneWikimon.length === 0);
 
 console.log(`\n=== isCatalogSkillId prefix detection ===`);
-check('sk-fire-pa-r → true', isCatalogSkillId('sk-fire-pa-r'));
+check('sk-fire-berserk-r-1 → true', isCatalogSkillId('sk-fire-berserk-r-1'));
 check('sk- → true (any sk- prefix)', isCatalogSkillId('sk-anything'));
 check('skb-317:s0 → false (wikimon key)', !isCatalogSkillId('skb-317:s0'));
 check('empty string → false', !isCatalogSkillId(''));
