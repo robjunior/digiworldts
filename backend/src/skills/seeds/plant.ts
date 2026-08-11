@@ -151,39 +151,38 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'dot-m-1',
     name: 'World Eaters Flower',
     name_pt: 'Flor Devoradora de Mundos',
-    description: 'The ultimate parasitic bloom. Massively poisons and curses the entire enemy team.',
-    description_pt: 'A floração parasita suprema. Envenena e amaldiçoa maciçamente toda a equipe inimiga.',
+    description: 'The ultimate parasitic bloom ruptures across the enemy team, converting its toxins into immediate withering damage and a brief defense break.',
+    description_pt: 'A floração parasita suprema rompe sobre a equipe inimiga, convertendo toxinas em dano debilitante imediato e uma breve quebra de defesa.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
     upgrade_of: 'sk-plant-dot-u-1',
     tier_2: true,
     energyCost: 35,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 60, scale: 'int', factor: 1.5 }, element: 'plant' },
-      { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.8, turns: 1 },
-      { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.2, turns: 1 }
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 78, scale: 'int', factor: 1.9 }, element: 'plant' },
+      { kind: 'apply_buff', target: 'enemy_all', buff: 'def_down', amount: 18, turns: 2 }
     ]
   }),
   p({
     idSuffix: 'dot-m-2',
     name: 'Bio-Toxin Drain',
     name_pt: 'Dreno Biotóxico',
-    description: 'Drains heavy life from multiple targets while infecting them with lethal toxins.',
-    description_pt: 'Drena muita vida de múltiplos alvos enquanto os infecta com toxinas letais.',
+    description: 'Drains heavy life from the priority target, converting toxic pressure into immediate recovery instead of another slow tick.',
+    description_pt: 'Drena muita vida do alvo prioritário, convertendo pressão tóxica em recuperação imediata em vez de mais um efeito gradual.',
     stage: 'Mega',
     slot_role: 'sustain_dot',
     upgrade_of: 'sk-plant-dot-u-2',
     energyCost: 28,
     actions: [
-      { kind: 'drain', target: 'primary_target', damage: { base: 100, scale: 'int', factor: 2.0 }, heal_pct: 0.15, element: 'plant' }
+      { kind: 'drain', target: 'primary_target', damage: { base: 118, scale: 'int', factor: 2.35 }, heal_pct: 0.24, element: 'plant' }
     ]
   }),
   p({
     idSuffix: 'dot-m-3',
     name: 'Natures Decay',
     name_pt: 'Decadência da Natureza',
-    description: 'A catastrophic strike of pure decay. Weakens poisoned targets further.',
-    description_pt: 'Um golpe catastrófico de pura decadência. Enfraquece ainda mais alvos envenenados.',
+    description: 'A catastrophic strike of pure decay that hits clean targets hard, then cuts through defense if poison has already taken hold.',
+    description_pt: 'Um golpe catastrófico de pura decadência que atinge alvos limpos com força e atravessa defesas se o veneno já tiver se firmado.',
     stage: 'Mega',
     slot_role: 'primary_attack',
     upgrade_of: 'sk-plant-dot-u-3',
@@ -197,7 +196,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
           { kind: 'deal_damage', target: 'enemy_random', amount: { base: 120, scale: 'int', factor: 3.0 }, element: 'plant', ignore_defense: true }
         ],
         else: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.5 }, element: 'plant' }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 130, scale: 'int', factor: 2.6 }, element: 'plant' }
         ]
       }
     ]
@@ -214,7 +213,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     slot_role: 'buff_support',
     energyCost: 8,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 30, scale: 'int', factor: 1.5 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 32, scale: 'int', factor: 0.65 } }
     ]
   }),
   p({
@@ -234,12 +233,13 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'heal-r-3',
     name: 'Purifying Dew',
     name_pt: 'Orvalho Purificador',
-    description: 'Sprinkles morning dew that cleanses ailments from an ally.',
-    description_pt: 'Asperge orvalho matinal que purifica doenças de um aliado.',
+    description: 'Sprinkles morning dew that cleanses ailments from an ally and makes them harder to hit.',
+    description_pt: 'Asperge orvalho matinal que purifica doenças de um aliado e o torna mais difícil de acertar.',
     stage: 'Rookie',
     slot_role: 'identity_finisher',
     energyCost: 7,
     actions: [
+      { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
     ]
   }),
@@ -247,28 +247,30 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'heal-c-1',
     name: 'Rejuvenating Pollen',
     name_pt: 'Pólen Rejuvenescedor',
-    description: 'Scatters healing pollen to restore health to the most injured ally.',
-    description_pt: 'Espalha pólen curativo para restaurar a saúde de toda a equipe.',
+    description: 'Scatters healing pollen to restore health to the most injured ally and shake off one ailment.',
+    description_pt: 'Espalha pólen curativo para restaurar a saúde do aliado mais ferido e remover uma aflição.',
     stage: 'Champion',
     slot_role: 'buff_support',
     upgrade_of: 'sk-plant-heal-r-1',
     energyCost: 12,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 62, scale: 'int', factor: 1.0 } },
+      { kind: 'cleanse', target: 'caster_ally_lowest_hp' }
     ]
   }),
   p({
     idSuffix: 'heal-c-2',
     name: 'Photosynthesis',
     name_pt: 'Fotossíntese',
-    description: 'Absorbs sunlight to restore energy to an ally.',
-    description_pt: 'Absorve a luz do sol para restaurar a energia de um aliado.',
+    description: 'Absorbs sunlight to restore a meaningful surge of energy to an ally and wrap them in a small leaf shield.',
+    description_pt: 'Absorve a luz do sol para restaurar uma onda significativa de energia a um aliado e envolvê-lo em um pequeno escudo de folhas.',
     stage: 'Champion',
     slot_role: 'utility',
     upgrade_of: 'sk-plant-heal-r-2',
     energyCost: 12,
     actions: [
-      { kind: 'restore_en', target: 'caster_ally_lowest_hp', amount: 3 }
+      { kind: 'restore_en', target: 'caster_ally_lowest_hp', amount: 14 },
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 35, turns: 2 }
     ]
   }),
   p({
@@ -290,19 +292,19 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'heal-u-1',
     name: 'Tree of Life',
     name_pt: 'Árvore da Vida',
-    description: 'Summons an ethereal tree to heavily heal all allies. Bonus heal if they are critically injured.',
-    description_pt: 'Invoca uma árvore etérea para curar fortemente todos os aliados. Cura bônus se estiverem gravemente feridos.',
+    description: 'Summons an ethereal tree to heavily heal the most injured ally, with bonus healing if they are critically wounded.',
+    description_pt: 'Invoca uma árvore etérea para curar fortemente o aliado mais ferido, com cura bônus se estiver gravemente ferido.',
     stage: 'Ultimate',
     slot_role: 'buff_support',
     upgrade_of: 'sk-plant-heal-c-1',
     energyCost: 13,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 104, scale: 'int', factor: 1.35 } },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.2 } }
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 36, scale: 'int', factor: 0.45 } }
         ]
       }
     ]
@@ -311,44 +313,47 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'heal-u-2',
     name: 'Natures Blessing',
     name_pt: 'Bênção da Natureza',
-    description: 'A profound blessing that cleanses ailments and provides gradual recovery.',
-    description_pt: 'Uma bênção profunda que purifica doenças e fornece recuperação gradual.',
+    description: 'A profound blessing that cleanses ailments, restores health, and sharpens evasive movement.',
+    description_pt: 'Uma bênção profunda que purifica doenças, restaura saúde e afia movimentos evasivos.',
     stage: 'Ultimate',
     slot_role: 'utility',
     upgrade_of: 'sk-plant-heal-c-2',
     energyCost: 12,
     actions: [
+      { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 },
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 10, scale: 'int', factor: 0.4 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 82, scale: 'int', factor: 1.0 } }
     ]
   }),
   p({
     idSuffix: 'heal-u-3',
     name: 'Sylvan Ward',
     name_pt: 'Guarda Silvestre',
-    description: 'Creates a massive magical forest ward, shielding the entire team.',
-    description_pt: 'Cria uma imensa guarda mágica florestal, protegendo toda a equipe.',
+    description: 'Creates a dense magical forest ward around the weakest ally, pairing a serious shield with brief damage reduction.',
+    description_pt: 'Cria uma guarda mágica florestal densa ao redor do aliado mais frágil, combinando um escudo sério com breve redução de dano.',
     stage: 'Ultimate',
     slot_role: 'identity_finisher',
     upgrade_of: 'sk-plant-heal-c-3',
     energyCost: 17,
     actions: [
-      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 30, turns: 1 }
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 95, turns: 2 },
+      { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'damage_reduction', amount: 15, turns: 2 }
     ]
   }),
   p({
     idSuffix: 'heal-m-1',
     name: 'Yggdrasils Embrace',
     name_pt: 'Abraço de Yggdrasil',
-    description: 'The ultimate restorative magic, completely revitalizing the party and boosting defenses.',
-    description_pt: 'A magia restauradora suprema, revitalizando completamente a equipe e aumentando as defesas.',
+    description: 'The ultimate restorative magic, revitalizing the most injured ally, cleansing them, and boosting defenses.',
+    description_pt: 'A magia restauradora suprema, revitalizando o aliado mais ferido, purificando-o e aumentando defesas.',
     stage: 'Mega',
     slot_role: 'buff_support',
     upgrade_of: 'sk-plant-heal-u-1',
     tier_2: true,
     energyCost: 35,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 80, scale: 'int', factor: 1.5 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 145, scale: 'int', factor: 1.8 } },
+      { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'modify_stat', target: 'self', stat: 'def', delta: 15, turns: 2 }
     ]
   }),
@@ -372,15 +377,15 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'heal-m-3',
     name: 'Miracle Harvest',
     name_pt: 'Colheita Milagrosa',
-    description: 'Channels profound earth energy to heal immensely and grant an immediate extra action.',
-    description_pt: 'Canaliza profunda energia da terra para curar imensamente e conceder uma ação extra imediata.',
+    description: 'Channels profound earth energy to heal the whole party and help the weakest ally evade the next assault.',
+    description_pt: 'Canaliza profunda energia da terra para curar toda a equipe e ajudar o aliado mais frágil a evitar o próximo ataque.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
     upgrade_of: 'sk-plant-heal-u-3',
     cooldown: 4,
     energyCost: 40,
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 40, scale: 'int', factor: 0.8 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 65, scale: 'int', factor: 0.9 } },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 }
     ]
   }),
@@ -474,14 +479,16 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'zone-u-1',
     name: 'Forest Prison',
     name_pt: 'Prisão Florestal',
-    description: 'Erupts the ground into a prison of wood, rooting the entire enemy party.',
-    description_pt: 'Erupção no solo formando uma prisão de madeira, enraizando toda a equipe inimiga.',
+    description: 'Erupts the ground into a prison of wood, crushing the enemy front while roots and dragging vines hold it in place.',
+    description_pt: 'Erupção no solo formando uma prisão de madeira, esmagando a frente inimiga enquanto raízes e vinhas a mantêm presa.',
     stage: 'Ultimate',
     slot_role: 'utility',
     upgrade_of: 'sk-plant-zone-c-1',
     energyCost: 13,
     actions: [
-      { kind: 'apply_status', target: 'enemy_front', status: 'root', chance: 0.4, turns: 2 }
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 58, scale: 'int', factor: 1.45 }, element: 'plant' },
+      { kind: 'apply_status', target: 'enemy_front', status: 'root', chance: 0.55, turns: 2 },
+      { kind: 'modify_stat', target: 'enemy_front', stat: 'spd', delta: -15, turns: 2 }
     ]
   }),
   p({
@@ -548,8 +555,8 @@ export const PLANT_SKILLS: SkillSeed[] = [
     idSuffix: 'zone-m-3',
     name: 'Ecosystem Lockdown',
     name_pt: 'Bloqueio do Ecossistema',
-    description: 'Seizes complete control of the area. Petrifies healthy foes or silences weak ones.',
-    description_pt: 'Toma controle total da área. Petrifica inimigos saudáveis ou silencia os fracos.',
+    description: 'Seizes complete control of the area. Rooted foes are crushed through their defenses; others are still battered and tangled for the next lockdown.',
+    description_pt: 'Toma controle total da área. Inimigos enraizados são esmagados através das defesas; os demais ainda são golpeados e emaranhados para o próximo bloqueio.',
     stage: 'Mega',
     slot_role: 'control',
     upgrade_of: 'sk-plant-zone-u-3',
@@ -558,13 +565,13 @@ export const PLANT_SKILLS: SkillSeed[] = [
     actions: [
       {
         kind: 'conditional',
-        if: { kind: 'has_status', status: 'silence' },
+        if: { kind: 'has_status', status: 'root' },
         then: [
           { kind: 'deal_damage', target: 'enemy_random', amount: { base: 120, scale: 'int', factor: 3.0 }, element: 'plant', ignore_defense: true }
         ],
         else: [
-          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.5 }, element: 'plant' },
-          { kind: 'apply_status', target: 'enemy_random', status: 'silence', chance: 0.4, turns: 2 }
+          { kind: 'deal_damage', target: 'enemy_random', amount: { base: 112, scale: 'int', factor: 2.35 }, element: 'plant' },
+          { kind: 'apply_status', target: 'enemy_random', status: 'root', chance: 0.55, turns: 2 }
         ]
       }
     ]
