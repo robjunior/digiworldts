@@ -32,6 +32,7 @@ import { defaultStatsForStage } from '../src/digimon/element.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 import { seedSkillsCatalogV2 } from '../src/skills/seed-catalog.ts';
 import { getDefaultEquippedForStage, resolveCatalogSkills } from '../src/skills/pool.ts';
+import { affinity } from '../src/digimon/element.ts';
 
 const RUNS = Number(process.env.RUNS ?? '1000');
 const DAMAGE_RATE = Number(process.env.DAMAGE_RATE ?? '1.0');
@@ -311,6 +312,90 @@ async function main(): Promise<void> {
     console.log(`\n  Format: A/B/draws % — turns to resolve`);
     console.log(`  Perfect balance: 50/50/0 (mirror match). Draws should be low (<5%) for a well-resolved matchup.`);
     console.log(`  Turns much lower than 600 (cap) means battles conclude cleanly.\n`);
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Cross-element parity.
+    //
+    // The mirror matrix above validates each element against ITSELF. It cannot
+    // see an element that is uniformly over- or under-tuned, because both
+    // sides carry the same inflation and the split stays 50/50 — only the turn
+    // count hints at it. Wind sat roughly 2.5x over the field's damage-per-
+    // energy at Rookie for a long time while showing a clean mirror row; the
+    // only visible symptom was a 17-turn Rookie against everyone else's 39-50.
+    //
+    // Affinity makes a naive "everyone should average 50%" wrong: an element
+    // deals 1.5x to its WEAK target and 0.5x to its RESIST target, and the
+    // graph is not symmetric — `null` has neither, `light` and `dark` have a
+    // weakness to exploit but nothing they are resisted by. So the honest
+    // power reading comes from NEUTRAL pairs only: matchups where neither side
+    // has an affinity relation to the other. There, win rate is raw power.
+    // ─────────────────────────────────────────────────────────────────────
+    const CROSS_RUNS = Math.max(50, Math.floor(RUNS / 5));
+    console.log(`══════════════════════════════════════════════════════════════════`);
+    console.log(`  CROSS-ELEMENT PARITY (${CROSS_RUNS} battles per pair, Trained vs Trained)`);
+    console.log(`  Neutral pairs only = no affinity either way = raw power comparison.`);
+    console.log(`══════════════════════════════════════════════════════════════════`);
+
+    const loadoutCache = new Map<string, Loadout>();
+    async function loadoutFor(side: 'a' | 'b', el: Element, stage: Stage): Promise<Loadout | null> {
+      const key = `${side}:${el}:${stage}`;
+      const hit = loadoutCache.get(key);
+      if (hit) return hit;
+      const defaults = await getDefaultEquippedForStage(el, stage);
+      if (defaults.length === 0) return null;
+      const skills = await resolveCatalogSkills(defaults);
+      const ordered = defaults.map((id) => skills.find((s) => s.id === id)).filter((s): s is Skill => Boolean(s));
+      const lo = mkCatalogLoadout(side, TRAINED, ordered, el, stage);
+      loadoutCache.set(key, lo);
+      return lo;
+    }
+
+    for (const stage of stages) {
+      const overall = new Map<Element, { w: number; n: number }>();
+      const neutral = new Map<Element, { w: number; n: number }>();
+      for (const el of elements) { overall.set(el, { w: 0, n: 0 }); neutral.set(el, { w: 0, n: 0 }); }
+
+      for (let i = 0; i < elements.length; i++) {
+        for (let j = i + 1; j < elements.length; j++) {
+          const ea = elements[i]!;
+          const eb = elements[j]!;
+          const loadA = await loadoutFor('a', ea, stage);
+          const loadB = await loadoutFor('b', eb, stage);
+          if (!loadA || !loadB) continue;
+          const agg1 = agg();
+          for (let k = 0; k < CROSS_RUNS; k++) push(agg1, await runOne(loadA, loadB, DAMAGE_RATE));
+          const isNeutral = affinity(ea, eb) === null && affinity(eb, ea) === null;
+          const oa = overall.get(ea)!;
+          const ob = overall.get(eb)!;
+          oa.w += agg1.wins.a; oa.n += CROSS_RUNS;
+          ob.w += agg1.wins.b; ob.n += CROSS_RUNS;
+          if (isNeutral) {
+            const na = neutral.get(ea)!;
+            const nb = neutral.get(eb)!;
+            na.w += agg1.wins.a; na.n += CROSS_RUNS;
+            nb.w += agg1.wins.b; nb.n += CROSS_RUNS;
+          }
+        }
+      }
+
+      console.log(`\n  ── ${stage} ──`);
+      console.log(`  ${'element'.padEnd(13)} ${'vs field'.padStart(9)} ${'neutral only'.padStart(13)}   power index`);
+      const offenders: string[] = [];
+      for (const el of elements) {
+        const o = overall.get(el)!;
+        const n = neutral.get(el)!;
+        if (o.n === 0) continue;
+        const oPct = (o.w / o.n) * 100;
+        const nPct = n.n > 0 ? (n.w / n.n) * 100 : NaN;
+        const flag = Number.isFinite(nPct) && (nPct < 45 || nPct > 55) ? '  <-- OUT OF BAND' : '';
+        if (flag) offenders.push(`${el} ${nPct.toFixed(0)}%`);
+        console.log(`  ${el.padEnd(13)} ${oPct.toFixed(0).padStart(8)}% ${(Number.isFinite(nPct) ? nPct.toFixed(0) : '—').padStart(12)}%${flag}`);
+      }
+      console.log(`  ${stage}: ${offenders.length === 0 ? 'every element inside 45-55% on neutral matchups' : 'out of band -> ' + offenders.join(', ')}`);
+    }
+    console.log(`\n  "vs field" includes affinity, so it is expected to deviate — light and dark`);
+    console.log(`  have a weakness to exploit and nothing that resists them, null has neither.`);
+    console.log(`  "neutral only" strips affinity out and is the number to judge power by.\n`);
 
     await closeDbAdapter();
   } else {
