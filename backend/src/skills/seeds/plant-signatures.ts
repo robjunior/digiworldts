@@ -222,7 +222,7 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     idSuffix: 'skb379-1',
     name: 'Cherry Bomb',
     name_pt: 'Bomba de Cereja',
-    description: 'Hurls explosive cherry bombs that can disorient and curse enemies.',
+    description: 'Hurls explosive cherry bombs across the enemy line, the pulp splattering into a lingering poison.',
     description_pt: 'Realiza um ataque físico. 30% de chance de aplicar efeito negativo.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
@@ -230,7 +230,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-379',
     actions: [
-        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 0.3, turns: 3 }
       ]
   }),
   p({
@@ -403,15 +404,16 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     idSuffix: 'skb305-1',
     name: 'Horn Buster',
     name_pt: 'Buster de Chifre',
-    description: 'Charges with its massive horn to shatter the attack power of the enemy.',
-    description_pt: 'Realiza um ataque físico do tipo Planta. Reduz o ataque do oponente.',
+    description: 'Charges with its massive horn, the impact leaving the target too rattled to keep pace.',
+    description_pt: 'Investe com seu chifre imenso; o impacto deixa o alvo abalado demais para manter o ritmo.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
     energyCost: 18,
     signature: true,
     owner_template_id: 'skb-305',
     actions: [
-        { kind: 'deal_damage', target: 'primary_target', amount: { base: 80, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'primary_target', amount: { base: 80, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -20, turns: 3 }
       ]
   }),
   p({
@@ -456,7 +458,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-176',
     actions: [
-        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'int', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'int', factor: 1.2 }, element: 'plant' },
+        { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 0.25, turns: 4 }
       ]
   }),
   // ---- GranKuwagamon (skb-423, Mega) ----
@@ -837,7 +840,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-189',
     actions: [
-        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'int', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'enemy_all', amount: { base: 90, scale: 'int', factor: 1.2 }, element: 'plant' },
+        { kind: 'apply_status', target: 'enemy_all', status: 'poison', chance: 0.25, turns: 4 }
       ]
   }),
   p({
@@ -954,7 +958,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-392',
     actions: [
-        { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -40, turns: 3 }
       ]
   }),
   p({
@@ -985,7 +990,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-586',
     actions: [
-        { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'apply_status', target: 'primary_target', status: 'stun', chance: 0.1, turns: 1 }
       ]
   }),
   p({
@@ -1014,7 +1020,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-592',
     actions: [
-        { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'conditional', if: { kind: 'has_status', status: 'poison' }, then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'atk', factor: 0.8 }, element: 'plant' }] }
       ]
   }),
   p({
@@ -1093,7 +1100,8 @@ export const PLANT_SIGNATURES: SkillSeed[] = [
     signature: true,
     owner_template_id: 'skb-611',
     actions: [
-        { kind: 'deal_damage', target: 'enemy_random', amount: { base: 70, scale: 'atk', factor: 1.2 }, element: 'plant' }
+        { kind: 'deal_damage', target: 'enemy_random', amount: { base: 70, scale: 'atk', factor: 1.2 }, element: 'plant' },
+        { kind: 'apply_status', target: 'enemy_random', status: 'poison', chance: 0.2, turns: 3 }
       ]
   }),
 ];
