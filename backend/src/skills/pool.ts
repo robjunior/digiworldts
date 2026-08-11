@@ -22,6 +22,11 @@ const SLOT_ROLE_ORDINAL: Record<string, number> = {
   identity_finisher: 5,
 };
 
+/** Share of a stage's equip slots held for skills learned at earlier stages.
+ *  A quarter yields 0 at Rookie (nothing earlier exists), 1 at Champion, and
+ *  2 at Ultimate and Mega. */
+const CARRY_FORWARD_SLOT_SHARE = 0.25;
+
 const CATALOG_ID_PREFIX = 'sk-';
 
 const SQL_SELECT_POOL_BY_ELEMENT = `SELECT * FROM skills_catalog WHERE element = ? AND stage IS NOT NULL AND enabled = 1 AND signature = 0`;
@@ -58,8 +63,23 @@ export async function getLearnedPoolIds(element: Element, stage: Stage): Promise
 
 /**
  * Default equipped skill IDs for a freshly-evolved (or freshly-seeded) mon.
- * Slices `EQUIPPED_SLOTS_PER_STAGE[stage]` (4/6/8/10) off the front of the
- * ordered learned pool.
+ * Fills `EQUIPPED_SLOTS_PER_STAGE[stage]` (4/6/8/10) from the ordered learned
+ * pool, reserving a quarter of the slots for skills carried forward from
+ * earlier stages.
+ *
+ * The reserve exists because the archetype rework changed the shape of the
+ * pool underneath this function. With the old 6-skills-per-stage grid, a cap
+ * of 8 at Ultimate could not be filled by the current tier alone, so 2
+ * Champion skills came along for free and a Mega ran 6 Mega + 4 Ultimate.
+ * The archetype grid has 9 per stage, which fills Ultimate outright and
+ * leaves a single spare slot at Mega — carry-forward disappeared from the
+ * default loadout as a side effect, without anyone deciding it should.
+ *
+ * Reserving the slots restores that continuity deliberately rather than as an
+ * accident of arithmetic, and does it without raising the caps, which would
+ * hand every mon ~30% more actions per fight and reopen the balance work.
+ * The reserve shrinks to fit when fewer older skills exist than slots set
+ * aside, which is why a Rookie still equips 4 Rookie skills.
  *
  * `evolutionRarity` (F7): when set to epic or legendary, biases the sort so
  * `tier_2=true` skills float to the front of each stage tier before slot-role
@@ -90,7 +110,18 @@ export async function getDefaultEquippedForStage(element: Element, stage: Stage,
     return roleA - roleB;
   });
   const cap = EQUIPPED_SLOTS_PER_STAGE[stage];
-  return filtered.slice(0, cap).map((r) => r.id);
+  const current = filtered.filter((r) => r.stage === stage);
+  const older = filtered.filter((r) => r.stage !== stage);
+  const reserved = Math.min(Math.floor(cap * CARRY_FORWARD_SLOT_SHARE), older.length);
+  const picked = [...current.slice(0, cap - reserved), ...older.slice(0, reserved)];
+  // Backfill if the current tier had fewer skills than its share of the cap.
+  if (picked.length < cap) {
+    for (const row of filtered) {
+      if (picked.length >= cap) break;
+      if (!picked.includes(row)) picked.push(row);
+    }
+  }
+  return picked.map((r) => r.id);
 }
 
 export type CatalogSkillMeta = {

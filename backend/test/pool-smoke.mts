@@ -125,31 +125,40 @@ check(
 console.log(`\n=== Champion defaults = all 6 Champion role skills (cap 6 = roles 6) ===`);
 const fireChampionDefaults = await getDefaultEquippedForStage('fire', 'Champion');
 check(
-  'fire Champion defaults are all Champion tier',
-  fireChampionDefaults.every((id) => /-c-\d+$/.test(id)),
+  'fire Champion defaults are Champion tier plus the reserved carry-forward',
+  fireChampionDefaults.every((id) => /-(c|r)-\d+$/.test(id)) && fireChampionDefaults.filter((id) => /-c-\d+$/.test(id)).length === 5,
   `got ${JSON.stringify(fireChampionDefaults)}`,
 );
 
-// The archetype rework squeezed carry-forward out of the DEFAULT loadout.
-// With 6 skills per stage, Ultimate's cap of 8 pulled 6 Ultimate + 2 Champion
-// and Mega's cap of 10 pulled 6 Mega + 4 Ultimate. With 9 per stage the
-// current tier alone fills Ultimate entirely and all but one Mega slot.
-// The LEARNED pool still carries forward (36 ids at Mega) — a player can
-// still equip a lower-stage skill by hand — but nothing below the current
-// stage is auto-equipped except a single Ultimate slot at Mega.
-console.log(`\n=== Ultimate defaults = 8 Ultimate, no carry-forward (cap 8, 9 available) ===`);
+// A quarter of every stage's slots is reserved for skills carried forward from
+// earlier stages (CARRY_FORWARD_SLOT_SHARE in pool.ts). Without it the
+// archetype grid's 9 skills per stage would fill Ultimate outright and leave
+// one spare slot at Mega, so carry-forward would have vanished from the
+// default loadout as an accident of arithmetic rather than a decision.
+// The reserve shrinks to fit: a Rookie has nothing earlier to carry.
+console.log(`\n=== Rookie reserves nothing — no earlier stage exists ===`);
+const rookieDefaults = await getDefaultEquippedForStage('fire', 'Rookie');
+check('Rookie defaults are 4 Rookie skills', rookieDefaults.length === 4 && rookieDefaults.every((id) => /-r-\d+$/.test(id)), JSON.stringify(rookieDefaults));
+
+console.log(`\n=== Champion defaults = 5 Champion + 1 Rookie (cap 6, reserve 1) ===`);
+const champDefaults = await getDefaultEquippedForStage('fire', 'Champion');
+check('Champion defaults have 5 Champion skills', champDefaults.filter((id) => /-c-\d+$/.test(id)).length === 5, `got ${champDefaults.filter((id) => /-c-\d+$/.test(id)).length}`);
+check('Champion defaults have 1 Rookie carry-forward', champDefaults.filter((id) => /-r-\d+$/.test(id)).length === 1, `got ${champDefaults.filter((id) => /-r-\d+$/.test(id)).length}`);
+
+console.log(`\n=== Ultimate defaults = 6 Ultimate + 2 Champion (cap 8, reserve 2) ===`);
 const fireUltimateDefaults = await getDefaultEquippedForStage('fire', 'Ultimate');
 const ultimateTier = fireUltimateDefaults.filter((id) => /-u-\d+$/.test(id));
 const championTierInUlt = fireUltimateDefaults.filter((id) => /-c-\d+$/.test(id));
-check('Ultimate defaults have 8 Ultimate skills', ultimateTier.length === 8, `got ${ultimateTier.length}`);
-check('Ultimate defaults have no Champion carry-forward', championTierInUlt.length === 0, `got ${championTierInUlt.length}`);
+check('Ultimate defaults have 6 Ultimate skills', ultimateTier.length === 6, `got ${ultimateTier.length}`);
+check('Ultimate defaults have 2 Champion carry-forward skills', championTierInUlt.length === 2, `got ${championTierInUlt.length}`);
 
-console.log(`\n=== Mega defaults = 9 Mega + 1 Ultimate (cap 10, 9 available) ===`);
+console.log(`\n=== Mega defaults = 8 Mega + 2 Ultimate (cap 10, reserve 2) ===`);
 const fireMegaDefaults = await getDefaultEquippedForStage('fire', 'Mega');
 const megaTier = fireMegaDefaults.filter((id) => /-m-\d+$/.test(id));
 const ultimateTierInMega = fireMegaDefaults.filter((id) => /-u-\d+$/.test(id));
-check('Mega defaults have 9 Mega skills', megaTier.length === 9, `got ${megaTier.length}`);
-check('Mega defaults have 1 Ultimate carry-forward skill', ultimateTierInMega.length === 1, `got ${ultimateTierInMega.length}`);
+check('Mega defaults have 8 Mega skills', megaTier.length === 8, `got ${megaTier.length}`);
+check('Mega defaults have 2 Ultimate carry-forward skills', ultimateTierInMega.length === 2, `got ${ultimateTierInMega.length}`);
+check('Mega defaults reach no further back than Ultimate', fireMegaDefaults.every((id) => /-(m|u)-\d+$/.test(id)), JSON.stringify(fireMegaDefaults));
 
 console.log(`\n=== getDefaultEquippedForStage output is a valid PUT skills body ===`);
 const validationCheck = fireMegaDefaults.every((id) => isCatalogSkillId(id));
