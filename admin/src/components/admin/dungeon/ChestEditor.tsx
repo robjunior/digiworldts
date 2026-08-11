@@ -2,9 +2,10 @@ import type { FormEvent, JSX } from 'react';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { ChestReward, DungeonChest } from '@digiworld/shared';
+import type { ChestReward, DungeonChest, TilesetGrant } from '@digiworld/shared';
 
 import { ADMIN_DUNGEON_QUERY } from './query-keys';
+import { TileGidPicker } from './TileGidPicker';
 import { toOptionalText } from './utils';
 import type { ShopItemView } from '../../../lib/api-admin';
 import { createAdminChest, deleteAdminChest, updateAdminChest, type ChestCreateBody } from '../../../lib/api-dungeon-admin';
@@ -21,12 +22,14 @@ export function ChestEditor({
   y,
   chest,
   shopItems,
+  tilesets,
 }: {
   readonly dungeonId: string;
   readonly x: number;
   readonly y: number;
   readonly chest?: DungeonChest;
   readonly shopItems: readonly ShopItemView[];
+  readonly tilesets: readonly TilesetGrant[];
 }): JSX.Element {
   const queryClient = useQueryClient();
   const invalidateView = (): void => {
@@ -37,6 +40,8 @@ export function ChestEditor({
   const [contents, setContents] = useState<readonly DraftReward[]>(initialContents);
   const [locked, setLocked] = useState<boolean>(chest?.lockedByKeyId !== null && chest?.lockedByKeyId !== undefined);
   const [lockedByKeyId, setLockedByKeyId] = useState<string>(chest?.lockedByKeyId ?? '');
+  const [unusedTileGid, setUnusedTileGid] = useState<number | null>(chest?.unusedTileGid ?? null);
+  const [usedTileGid, setUsedTileGid] = useState<number | null>(chest?.usedTileGid ?? null);
 
   const createMut = useMutation({
     mutationFn: (body: ChestCreateBody) => createAdminChest(dungeonId, body),
@@ -76,6 +81,8 @@ export function ChestEditor({
       updateMut.mutate({
         contents: rewardContents,
         lockedByKeyId: effectiveLockedKey,
+        unusedTileGid,
+        usedTileGid,
         ...(label === null ? {} : { label }),
       });
     } else {
@@ -83,6 +90,8 @@ export function ChestEditor({
         x,
         y,
         contents: rewardContents,
+        unusedTileGid,
+        usedTileGid,
         ...(effectiveLockedKey !== null ? { lockedByKeyId: effectiveLockedKey } : {}),
         ...(label === null ? {} : { label }),
       });
@@ -185,6 +194,9 @@ export function ChestEditor({
             <p className="muted">Unlocked chests open automatically on step.</p>
           )}
         </fieldset>
+
+        <TileGidPicker label="Unused tile (closed)" value={unusedTileGid} tilesets={tilesets} onChange={setUnusedTileGid} />
+        <TileGidPicker label="Used tile (open)" value={usedTileGid} tilesets={tilesets} onChange={setUsedTileGid} />
 
         <div className="admin-poi-actions">
           <button type="submit" disabled={createMut.isPending || updateMut.isPending || contents.length === 0}>

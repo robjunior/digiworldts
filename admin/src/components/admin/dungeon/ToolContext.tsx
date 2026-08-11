@@ -8,6 +8,7 @@ import type {
   DungeonItem,
   DungeonTrap,
   DungeonWarp,
+  TilesetGrant,
 } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
 
@@ -44,6 +45,7 @@ export function ToolContext({
   catalog,
   dungeons,
   shopItems,
+  tilesets,
 }: {
   readonly dungeonId: string;
   readonly tool: Tool;
@@ -61,6 +63,7 @@ export function ToolContext({
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
+  readonly tilesets: readonly TilesetGrant[];
 }): JSX.Element {
   if (tool === 'PATH') {
     return (
@@ -156,6 +159,7 @@ export function ToolContext({
         x={selectedCell.x}
         y={selectedCell.y}
         shopItems={shopItems}
+        tilesets={tilesets}
         {...(door ? { door } : {})}
       />
     );
@@ -167,6 +171,7 @@ export function ToolContext({
         x={selectedCell.x}
         y={selectedCell.y}
         shopItems={shopItems}
+        tilesets={tilesets}
         {...(chest ? { chest } : {})}
       />
     );
@@ -176,6 +181,7 @@ export function ToolContext({
       dungeonId={dungeonId}
       x={selectedCell.x}
       y={selectedCell.y}
+      tilesets={tilesets}
       {...(trap ? { trap } : {})}
     />
   );
