@@ -689,12 +689,40 @@ for **117**. Reaching the final tier drops your damage by a quarter.
 
 > [!danger] This is structural, and damage tuning cannot fix it
 > These are the AoE-heavy elements. Clearing an enemy line is worth far more
-> than its target count, so an element whose `enemy_all` breadth GROWS with tier
+> than its target count, so an element whose `enemy_all` breadth grows with tier
 > must carry ever-lower per-hit damage to stay balanced. Balance and progression
 > are in genuine tension, and with only a balance gate in place, progression is
-> what silently gives way. The resolution is to stop AoE breadth growing with
-> tier — which changes what those elements are, and is a design decision rather
-> than a balance pass.
+> what silently gives way.
+
+#### Narrowing AoE was the obvious fix. It was measured, and it does not work.
+
+The first version of this note recommended stopping AoE breadth from growing
+with tier. That recommendation was written without testing it. Prototyped on
+electricity — the worst case, with a Mega peak of 90 against wind's 637 — it
+fails:
+
+| attempt | progression | neutral win rate, Ultimate / Mega |
+| ------- | ----------- | --------------------------------- |
+| committed state | broken (94 -> 90) | 50% / 50% |
+| AoE 3 targets -> 2, damage ~3x | **restored** (290 / 380) | **32% / 26%** |
+| same, damage +45% / +60% | restored (421 / 608) | 37% / 32% |
+
+Hitting three targets is worth far more than hitting two for triple the damage —
+the compounding is superlinear, because clearing the line removes several
+attackers at once. Recovering balance at two targets needs a Mega peak around
+1200, which is **1.9x the strongest skill in the game**. That trades an
+absurdly low headline number for an absurdly high one.
+
+> [!important] Three constraints, any two
+> 1. **Balance** — ~50% neutral win rate.
+> 2. **Progression** — damage grows as the player evolves.
+> 3. **Comparable headline numbers** — no element an order out from the field.
+>
+> The committed state satisfies 1 and 3. Narrowing AoE satisfies 1 and 2. There
+> is no known configuration satisfying all three by tuning damage and target
+> breadth alone, so resolving it means changing something else: how AoE is
+> valued by the engine, how party size works, or accepting that AoE elements
+> read differently on paper.
 
 The defect predates the rework for electricity (115/230/230/330) and for wind,
 which the rework happened to fix; the sweep made it worse and spread it to dark,
