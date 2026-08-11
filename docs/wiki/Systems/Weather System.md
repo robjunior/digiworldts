@@ -14,11 +14,11 @@ grounded-in:
   - backend/src/particle-presets/routes.ts
   - backend/src/particle-presets/store.ts
   - backend/src/lobby/ws.ts
-  - frontend/src/scene3d/particles/ParticleEmitter.ts
-  - frontend/src/scene3d/particles/presets.ts
-  - frontend/src/scene3d/particles/shaders.ts
-  - frontend/src/scene3d/particles/ThunderFlashController.ts
-  - frontend/src/scene3d/scene.ts
+  - scene3d/src/particles/ParticleEmitter.ts
+  - scene3d/src/particles/presets.ts
+  - scene3d/src/particles/shaders.ts
+  - scene3d/src/particles/ThunderFlashController.ts
+  - scene3d/src/scene.ts
 verified-at-commit: ee635a7
 ---
 
@@ -72,7 +72,7 @@ export type WeatherPreset = (typeof WEATHER_PRESETS)[number];
 ```
 
 Each preset composes to a canned `WeatherConfig` in
-[`frontend/src/scene3d/particles/presets.ts`](frontend/src/scene3d/particles/presets.ts).
+[`scene3d/src/particles/presets.ts`](scene3d/src/particles/presets.ts).
 
 ### `WeatherConfig` ([`weather.ts:151-164`](shared/src/weather.ts:151))
 
@@ -119,7 +119,7 @@ export type ThunderFlashConfig = {
 };
 ```
 
-The controller ([`ThunderFlashController.ts`](frontend/src/scene3d/particles/ThunderFlashController.ts))
+The controller ([`ThunderFlashController.ts`](scene3d/src/particles/ThunderFlashController.ts))
 implements a 4-state envelope with stutter and non-destructive light
 restoration — original intensities are stashed on start and restored on
 stop, so a mid-storm scene reload won't leave the sun blown out.
@@ -204,27 +204,27 @@ export type WeatherOverride = {
 This is what the WS `weather-triggered` message carries — see [[#WS
 broadcast]].
 
-## Runtime — `frontend/src/scene3d/particles/`
+## Runtime — `scene3d/src/particles/`
 
 Four files, ~1400 lines total:
 
-- **[`ParticleEmitter.ts`](frontend/src/scene3d/particles/ParticleEmitter.ts)**
+- **[`ParticleEmitter.ts`](scene3d/src/particles/ParticleEmitter.ts)**
   (414 lines) — generic `InstancedMesh` emitter. 10 k particle capacity per
   emitter, zero-alloc tick, spawn-shape support (box/disc/sphere/point/
   cone), `followCamera` mode for long-lived particles (rain / snow / sand
   keep pace with the camera), gravity + wind + drag integration, optional
   ground collision + bounce for hail.
-- **[`shaders.ts`](frontend/src/scene3d/particles/shaders.ts)** (356 lines)
+- **[`shaders.ts`](scene3d/src/particles/shaders.ts)** (356 lines)
   — 7 custom `ShaderMaterial` factories. Three.js fog chunks are integrated
   so particles fade into the scene fog correctly; `rainStreak` /
   `snowFlake` implement velocity-aligned stretching so rain looks like
   streaks, not spheres.
-- **[`presets.ts`](frontend/src/scene3d/particles/presets.ts)** (415 lines)
+- **[`presets.ts`](scene3d/src/particles/presets.ts)** (415 lines)
   — 11 canned `WeatherConfig` compositions, one per preset.
-- **[`ThunderFlashController.ts`](frontend/src/scene3d/particles/ThunderFlashController.ts)**
+- **[`ThunderFlashController.ts`](scene3d/src/particles/ThunderFlashController.ts)**
   (229 lines) — the 4-state envelope + stutter + non-destructive restore.
 
-## Scene integration — [`frontend/src/scene3d/scene.ts`](frontend/src/scene3d/scene.ts)
+## Scene integration — [`scene3d/src/scene.ts`](scene3d/src/scene.ts)
 
 `SceneManager` gains two public methods:
 
@@ -239,7 +239,7 @@ tracked in a parallel list so `dispose()` cleans EVERYTHING on scene
 teardown, including in-flight fades.
 
 Precedence rule (verify in
-[`scene.ts`](frontend/src/scene3d/scene.ts)):
+[`scene.ts`](scene3d/src/scene.ts)):
 
 > Weather lighting takes precedence over time-of-day when both are active.
 

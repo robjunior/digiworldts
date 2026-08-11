@@ -72,6 +72,8 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
   balance history and open decisions
 - [[Skill Catalog Reference]] — generated tables: 396 pool skills and 868
   signatures across all 434 Digimon
+- [[Skill VFX and Status Badges]] — how a skill's effect is chosen and drawn,
+  the ailment/buff badge layers, and the open items on both
 - [[Seasons]] — cluster-locked auto-close ticker + admin CRUD, snapshot
   on close
 - [[Onboarding and Tutorial]] — 3-team starter picker + per-user
@@ -149,7 +151,8 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 | [[Farm]]                                        | Passive prod + crafting        | `backend/src/farm/`                                        |
 | [[Currency]]                                    | NTC + CR + coin market         | `backend/src/market/coins.ts`                              |
 | [[Session cookies]]                             | Auth cookie contract           | `backend/src/auth/session.ts`                              |
-| [[Weather System]]                              | Particles + weather + ToD      | `shared/src/weather.ts` + `frontend/src/scene3d/particles/` |
+| [[Weather System]]                              | Particles + weather + ToD      | `shared/src/weather.ts` + `scene3d/src/particles/`          |
+| [[Skill VFX and Status Badges]]                 | Skill effects + status badges  | `scene3d/src/` + `frontend/src/components/combat3d/`       |
 | [[OAuth]]                                       | Social login + hybrid decide   | `backend/src/auth/oauth/`                                  |
 | [[Scenes]]                                      | Per-arena scene entities       | `backend/src/scenes/`                                      |
 | [[Environments]]                                | dev/staging/prod matrix        | `docs/environments.md` + `.env.example`                    |

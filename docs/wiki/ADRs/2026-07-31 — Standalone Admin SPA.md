@@ -236,9 +236,15 @@ Not built by `docker compose up`. Opt-in with `--profile admin`.
 
 ## Follow-ups
 
-- **Promote `scene3d/particles/` to shared.** Currently duplicated;
+- **Promote `scene3d/particles/` to shared.** ~~Currently duplicated;
   moving it to `@digiworld/shared/scene3d` (or a sibling package) removes
-  the drift risk without changing runtime behaviour.
+  the drift risk without changing runtime behaviour.~~
+  **Done in `046d6b4`** — the whole `scene3d/` tree, not just `particles/`,
+  moved to a new `@digiworld/scene3d` package. All 23 files were byte-identical
+  between the two apps; 6537 lines of duplication removed. It landed as a
+  sibling package rather than inside `@digiworld/shared` because the backend
+  depends on `shared`, and Three.js has no business in the API's dependency
+  graph. See [[Skill VFX and Status Badges]].
 - **`api-catalog.ts` split**. `getCatalog` was the ONE function the
   player app still needed from admin — now lives in its own file. Watch
   for future cross-boundary imports; they should split similarly.
