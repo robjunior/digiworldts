@@ -49,7 +49,8 @@
     "test:catalog-e2e": "tsx test/catalog-battle-e2e.mts",
     "db:backfill-equipped": "tsx src/db/data-migrations/populate-equipped-defaults.ts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2",
-    "test:initiative-sign": "tsx test/initiative-sign.mts"
+    "test:initiative-sign": "tsx test/initiative-sign.mts",
+    "test:element-identity": "tsx test/element-identity.mts"
   },
   "dependencies": {
     "@digiworld/shared": "workspace:*",
