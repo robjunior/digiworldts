@@ -1,5 +1,6 @@
 import type { SkillSeed } from './types.js';
 import { FIRE_SKILLS } from './fire.js';
+import { FIRE_SIGNATURES } from './fire-signatures.js';
 import { WATER_SKILLS } from './water.js';
 import { WATER_SIGNATURES } from './water-signatures.js';
 import { PLANT_SKILLS } from './plant.js';
@@ -21,6 +22,7 @@ import { NULL_SIGNATURES } from './null-signatures.js';
 
 export const ALL_SKILL_SEEDS: readonly SkillSeed[] = [
   ...FIRE_SKILLS,
+  ...FIRE_SIGNATURES,
   ...WATER_SKILLS,
   ...WATER_SIGNATURES,
   ...PLANT_SKILLS,
@@ -41,6 +43,6 @@ export const ALL_SKILL_SEEDS: readonly SkillSeed[] = [
   ...NULL_SIGNATURES,
 ];
 
-export { FIRE_SKILLS, WATER_SKILLS, WATER_SIGNATURES, PLANT_SKILLS, ICE_SKILLS, ICE_SIGNATURES, ELECTRICITY_SKILLS,
+export { FIRE_SKILLS, FIRE_SIGNATURES, WATER_SKILLS, WATER_SIGNATURES, PLANT_SKILLS, ICE_SKILLS, ICE_SIGNATURES, ELECTRICITY_SKILLS,
   EARTH_SKILLS, EARTH_SIGNATURES, STEEL_SKILLS, STEEL_SIGNATURES, WIND_SKILLS, WIND_SIGNATURES, LIGHT_SKILLS, DARK_SKILLS, NULL_SKILLS, NULL_SIGNATURES };
 export type { SkillSeed, SlotRole } from './types.js';
