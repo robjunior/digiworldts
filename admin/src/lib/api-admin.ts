@@ -355,6 +355,7 @@ export type SkillView = {
   readonly actions: readonly Record<string, unknown>[];
   readonly tags?: readonly string[];
   readonly animation?: string;
+  readonly vfxPresetId?: string;
   readonly enabled?: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
@@ -369,6 +370,8 @@ export type SkillInput = {
   readonly actions: readonly Record<string, unknown>[];
   readonly tags?: readonly string[];
   readonly animation?: string;
+  /** Skill VFX preset id; omitted means fall back to the per-element runner. */
+  readonly vfxPresetId?: string;
   readonly enabled?: boolean;
 };
 

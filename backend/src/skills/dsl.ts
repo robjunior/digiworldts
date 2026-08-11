@@ -190,6 +190,9 @@ export const SkillInputSchema = z.object({
   actions: z.array(ActionSchema).min(1).max(20),
   tags: z.array(z.string().min(1).max(24)).max(10).optional(),
   animation: z.string().max(80).optional(),
+  /** Skill VFX preset to play. Omitted or empty means fall back to the
+   *  per-element attack runner. Validated for existence on write. */
+  vfxPresetId: z.string().trim().min(1).max(64).optional(),
   enabled: z.boolean().optional(),
 });
 export type SkillInput = z.infer<typeof SkillInputSchema>;
