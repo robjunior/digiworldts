@@ -682,22 +682,37 @@ measurable share of each element's loadout never gets cast:
 Fire and steel fight with their whole kit. Light and plant fight with 40% of
 theirs at Mega.
 
-> [!danger] Every balance number in this note is a damage-only measurement
-> The cross-element results are valid for an opponent that never heals, buffs,
-> shields or cleanses. The more support-heavy an element is, the less its
-> verdict transfers to real play — and the correction is not symmetric, because
-> the bias scales with each element's support share.
->
-> Light was nerfed until four usable skills won 50% of the time. In a real
-> battle it also has six working ones. Plant was buffed under the same handicap.
-> Neither adjustment is necessarily wrong, but neither is confirmed either.
+> [!success] Fixed in `bb15d94` — the table above is now the historical bias
+> `pickAction` picks, in order: cleanse when an ally is afflicted, heal when the
+> most injured ally is below `HEAL_BELOW`, buff during the opening rounds, then
+> damage. Instrumenting selection confirms the previously dead skills now
+> dominate usage — Mending Light at 14394 casts, Warm Radiance at 6858 — and the
+> action mix across a full run is 82.3% damage, 10.1% heal, 7.6% buff.
 
-This is a **harness defect, not a design decision** — unlike the AoE progression
-conflict, it needs no judgement call about what elements should be. Teaching
-`pickAction` to use support skills (heal when injured, buff when the fight is
-long, cleanse when statused) is ordinary engineering, and it is the prerequisite
-for trusting any of the numbers above. Expect the whole field to move once it
-lands.
+Two things this cost, both worth knowing before touching the AI again.
+
+**`HEAL_BELOW` is load-bearing.** At 0.55 the mutual-healing stall came straight
+back: light's Ultimate mirror ran 288 turns at 10% draws, water's Champion 143
+turns at 9%. At 0.35 light still ran 133t. It sits at **0.25** — heal only in
+real danger, which is both what a player does and what lets the fight end. The
+worst case is now 122t with draws at or below 3%.
+
+**It invalidated the previous balance**, immediately putting 37 of 44 cells out
+of band, and the re-sweep needed 14 iterations against the original 5. Damage
+scaling is a blunter instrument once healing throughput is in the equation.
+
+Fights are legitimately longer now — 21-122t against the old 21-45t — and the
+slow elements are exactly the support-heavy ones. That is the intended
+consequence of support existing, not a regression.
+
+Rebalancing under the fixed AI also **repaired six of the eleven damage
+inversions** on its own, because elements no longer need their damage suppressed
+so hard to stay in band. It introduced four others; the tracked list went 11 to
+9. See [[#Balance and progression pull apart]].
+
+> [!note] Watch item
+> Plant's Champion mirror runs 122t, the longest in the matrix, at 0% draws. Not
+> a stall by the old standard — water's was 339t at 31% — but the one to watch.
 
 ### The sweep, and why one-at-a-time could not work
 
