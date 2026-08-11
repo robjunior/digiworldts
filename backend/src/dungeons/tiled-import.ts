@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind } from '@digiworld/shared';
+import type { EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind, WildPool, WildPoolRollParams } from '@digiworld/shared';
 import { getObjectClass, getProperty, isObjectGroup, isTileLayer, LAYER_KINDS, tiledTilesetKey, TRAP_KINDS, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES, type Element, type Stage } from '@digiworld/shared/digimon';
 import { BIOMES, type Biome } from '@digiworld/shared/world';
@@ -123,6 +123,16 @@ export type ImportedItem = { readonly x: number; readonly y: number; readonly it
 export type ImportedDoor = { readonly x: number; readonly y: number; readonly keyItemId: string; readonly label: string | null };
 export type ImportedWarp = { readonly x: number; readonly y: number; readonly targetDungeonId: string | null; readonly label: string | null };
 export type ImportedTrap = { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label: string | null };
+export type ImportedZone = {
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly safe: boolean;
+  readonly pool: WildPool;
+  readonly rollOverrides?: Partial<WildPoolRollParams>;
+};
 
 export type ImportedRandomSettings = {
   readonly randomEncountersEnabled?: boolean;
@@ -148,6 +158,7 @@ export type TiledImportPayload = {
   readonly doors: readonly ImportedDoor[];
   readonly warps: readonly ImportedWarp[];
   readonly traps: readonly ImportedTrap[];
+  readonly zones: readonly ImportedZone[];
 };
 
 export type TiledImportSuccess = { readonly ok: true; readonly payload: TiledImportPayload; readonly warnings: readonly string[] };
@@ -187,6 +198,7 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
   const doors: ImportedDoor[] = [];
   const warps: ImportedWarp[] = [];
   const traps: ImportedTrap[] = [];
+  const zones: ImportedZone[] = [];
   let spawn: { x: number; y: number } | null = null;
 
   for (const layer of map.layers) {
@@ -233,6 +245,11 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
           if (tr) traps.push(tr);
           break;
         }
+        case 'zone': {
+          const zn = readZone(obj, cell, tw, th, errors);
+          if (zn) zones.push(zn);
+          break;
+        }
         default:
           warnings.push(`object ${obj.id} class "${cls}" not recognized; skipped`);
       }
@@ -270,6 +287,7 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
       doors,
       warps,
       traps,
+      zones,
     },
     warnings,
   };
@@ -402,6 +420,52 @@ function readTrap(obj: TiledObject, cell: { x: number; y: number }, errors: stri
   }
   const label = coerceOptionalString(getProperty(properties, 'label'));
   return { x: cell.x, y: cell.y, kind, severity, label };
+}
+
+function parsePoolCsv(csv: string): WildPool {
+  return csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+    .map((catalogId) => ({ catalogId }));
+}
+
+function readZone(obj: TiledObject, cell: { x: number; y: number }, tw: number, th: number, errors: string[]): ImportedZone | null {
+  if (obj.point === true) {
+    errors.push(`zone ${describeObject(obj)}: must be a rectangle, not a point`);
+    return null;
+  }
+  const width = obj.width ?? 0;
+  const height = obj.height ?? 0;
+  if (width <= 0 || height <= 0) {
+    errors.push(`zone ${describeObject(obj)}: must have width and height > 0`);
+    return null;
+  }
+  const wCells = Math.max(1, Math.round(width / tw));
+  const hCells = Math.max(1, Math.round(height / th));
+  const properties = obj.properties;
+  const safe = getProperty(properties, 'safe') === true;
+  const poolRaw = getProperty(properties, 'pool');
+  const pool = typeof poolRaw === 'string' ? parsePoolCsv(poolRaw) : [];
+  const rate = getProperty(properties, 'encounterRate');
+  const minLevelRaw = getProperty(properties, 'minLevel');
+  const maxLevelRaw = getProperty(properties, 'maxLevel');
+  const rollOverrides: Partial<WildPoolRollParams> = {
+    ...(typeof rate === 'number' ? { encounterRate: Math.max(0, Math.min(1, rate)) } : {}),
+    ...(typeof minLevelRaw === 'number' ? { minLevel: Math.max(1, Math.round(minLevelRaw)) } : {}),
+    ...(typeof maxLevelRaw === 'number' ? { maxLevel: Math.max(1, Math.round(maxLevelRaw)) } : {}),
+  };
+  const name = obj.name && obj.name.length > 0 ? obj.name : `Zone ${obj.id}`;
+  return {
+    name,
+    x: cell.x,
+    y: cell.y,
+    width: wCells,
+    height: hCells,
+    safe,
+    pool,
+    ...(Object.keys(rollOverrides).length > 0 ? { rollOverrides } : {}),
+  };
 }
 
 function readBiomeProp(properties: TiledMap['properties'], errors: string[]): Biome | null {

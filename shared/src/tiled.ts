@@ -8,7 +8,7 @@
  * `class`, or the pre-1.9 `type` field) become our POI kinds.
  */
 
-export const TILED_POI_CLASSES = ['spawn', 'encounter', 'item', 'door', 'warp', 'trap'] as const;
+export const TILED_POI_CLASSES = ['spawn', 'encounter', 'item', 'door', 'warp', 'trap', 'zone', 'chest'] as const;
 export type TiledPoiClass = typeof TILED_POI_CLASSES[number];
 
 export type TiledPropertyType = 'string' | 'int' | 'float' | 'bool' | 'color' | 'file' | 'object' | 'class';

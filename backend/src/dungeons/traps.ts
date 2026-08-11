@@ -60,6 +60,8 @@ function trapFromRow(row: TrapRow): DungeonTrap {
     kind: row.kind as TrapKind,
     severity: row.severity,
     label: row.label,
+    unusedTileGid: null,
+    usedTileGid: null,
     createdAt: row.created_at,
   };
 }

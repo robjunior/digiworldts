@@ -15,7 +15,19 @@ const SQL_UPDATE_DOOR = `UPDATE dungeon_doors SET x = ?, y = ?, key_item_id = ?,
 const SQL_DELETE_DOOR = `DELETE FROM dungeon_doors WHERE dungeon_id = ? AND id = ?`;
 
 function doorFromRow(row: DoorRow): DungeonDoor {
-  return { id: row.id, dungeonId: row.dungeon_id, x: row.x, y: row.y, keyItemId: row.key_item_id, label: row.label, createdAt: row.created_at, updatedAt: row.updated_at };
+  return {
+    id: row.id,
+    dungeonId: row.dungeon_id,
+    x: row.x,
+    y: row.y,
+    keyItemId: row.key_item_id,
+    dungeonKeyId: null,
+    label: row.label,
+    unusedTileGid: null,
+    usedTileGid: null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 export async function getDoorById(doorId: string): Promise<DoorRow | null> {

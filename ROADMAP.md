@@ -170,6 +170,45 @@ Numbered `NNN_description.sql` files under [`backend/src/db/migrations/`](backen
 - **Telemetry infra shipped** — fire-and-forget emitter with 5 s flush window + 100-event batch cap + jsonl sink + PostHog HTTP sink + shutdown flush. Instrumented sites: `auth.signup/login`, `battle.start/end`, `capture.success`, `world.move`, `quest.accept/claim`, `daily.claim`, `market.list/sold`, `flag.set/cleared`. See [`shared/src/telemetry.ts`](shared/src/telemetry.ts) + [`backend/src/telemetry/emit.ts`](backend/src/telemetry/emit.ts) + [`backend/src/telemetry/sink.ts`](backend/src/telemetry/sink.ts). Covers the retention/funnel side.
 - **Still missing** — SRE metrics/traces for the multi-node ops layer. Prometheus exporter + Grafana dashboards on cluster ops (queue depth, pair latency, match count, cross-node WS delivery rate) is the natural next step.
 
+### S8 — Encounter zones from Tiled object layers (with pooled fallback)
+
+Rectangular objects on a Tiled object layer become **encounter zones** with their own encounter pool. Zones override the **dungeon-wide encounter pool**, which itself is the fallback whenever a zone doesn't declare its own. An explicit `safe` flag lets specific zones opt out of encounters entirely. Anchored on the existing Tiled importer + random-encounter system — extension, not greenfield.
+
+- **Dungeon-wide encounter becomes a pool.** Today the `randomEncounters*` fields on the dungeon are a **statistical filter** over the catalog (element + stage + level range — see [`RandomEncountersEditor.tsx`](admin/src/components/admin/dungeon/RandomEncountersEditor.tsx)). This changes to a **curated pool** of `{ catalogId, minLevel?, maxLevel?, weight? }` entries. Simpler for admins to reason about — curated list beats catalog filter guessing. **The pool is the fallback** — configure once for the whole map, add zones only where you want overrides.
+- **New POI class** — extend [`TILED_POI_CLASSES`](shared/src/tiled.ts:11) with `'zone'`. Zone objects carry `width` + `height`, a `name`, a `safe` boolean, and either an inline `wildPool` (list of catalog IDs) or nothing (fallback intent). Optional per-zone roll parameters (rate, level range) override dungeon-wide defaults when present.
+- **Four-state semantics per player position**:
+  - **Inside zone, zone has its own pool** → roll from **zone's pool**
+  - **Inside zone, pool empty/absent, `safe=false`** → fall through to **dungeon-wide pool** (the whole point of this design — admin adds zones sparingly, most of the map coasts on the fallback)
+  - **Inside zone, `safe=true`** → **NO encounter**, dungeon-wide is ignored (explicit safe-zone opt-in)
+  - **Outside all zones** → **dungeon-wide pool**
+  - Overlapping zones → smallest area wins (more-specific-beats-more-general, deterministic)
+- **Boss exception is free** — bosses are static `DungeonEncounter` rows with `difficulty: 'boss'` (see [`BossEditor.tsx`](admin/src/components/admin/dungeon/BossEditor.tsx), [`api-dungeon-admin.ts:51`](admin/src/lib/api-dungeon-admin.ts:51)) — position-triggered POIs, not random rolls. Zones only gate the random pipeline, so any static POI (boss, warp, item, door) fires regardless of zone or `safe` flag.
+- **Importer extension** — [`tiledMapToImportPayload`](backend/src/dungeons/tiled-import.ts) gains a `readZone` sibling to `readEncounter`, emitting `DungeonZone` rows into a new `dungeon_zones` table. Wired into both `POST /api/admin/dungeons/import-tiled` new + `POST /api/admin/dungeons/:id/import-tiled` replace paths at [`dungeons/routes.ts:126,155`](backend/src/dungeons/routes.ts:126).
+- **Open questions:**
+  - Pool storage — inline `wild_pool_json` per row (simpler, no FK) vs. FK to a shared `encounter_pools` table (multiple zones share the same pool, more work upfront)
+  - Weights — MVP with **uniform pick** (each pool entry equally likely), or ship `weight?` from day one?
+  - Migration of existing dungeons — seed the new pool from the current filter fields via a data migration (query catalog with element+stage constraints, populate pool once), or leave the filter fields as a **grandfathered fallback** when the pool is empty?
+  - Player-visible zone name — display "Region: Old Forest" on zone entry, or admin-only bookkeeping?
+  - Overworld — this design targets dungeons; overworld biome-based rolls at [`world/engine.ts`](backend/src/world/engine.ts) stay untouched (could extend later, out of scope)
+
+### S9 — Interactive dungeon objects: tiled visuals, per-run state, auto-generated keys, group-scoped inventory
+
+Four intertwined changes to the dungeon POI system: tile picker for door/trap/chest visuals, per-run used/unused state machine, auto-generated dungeon-scoped keys (replacing the current shop-item key model), and a group-scoped ephemeral inventory that vanishes on intentional extract.
+
+- **Tile picker per POI** — extend the admin editor to let each door / trap / chest bind to **specific tile GIDs from the map's tileset** for both `unusedTileGid` (default: closed door, invisible trap, closed chest) and `usedTileGid` (open door, revealed trap, opened chest). Reuses the tileset resolver at [`admin/src/components/admin/dungeon/utils.ts:7`](admin/src/components/admin/dungeon/utils.ts:7) (`tileGidMap`).
+- **Per-run used/unused state** — POIs get a state machine: `unused → used`, per-player-run, **NOT on the POI row** (that's a template, shared across runs). New `user_dungeon_run_poi_states` table keyed by `(run_id, poi_kind, poi_id) → state`. Trap semantics: `unused = armed & invisible`, `used = triggered & visible`.
+- **New POI: chest** — extend [`TILED_POI_CLASSES`](shared/src/tiled.ts:11) with `'chest'`. `DungeonChest` type parallel to [`DungeonDoor`](shared/src/dungeon.ts:110), with `contents: readonly ChestReward[]` and optional `lockedByKeyId: string`. Admin editor `admin/src/components/admin/dungeon/ChestEditor.tsx`.
+- **Auto-generated dungeon-scoped keys replace shop-item keys.** Placing a locked door or chest **auto-provisions a key** in the dungeon-group's item pool. Replaces the current model where [`DoorEditor.tsx`](admin/src/components/admin/dungeon/DoorEditor.tsx) forces the admin to pre-create a shop consumable ("No shop items exist yet. Create a consumable key in the Shop Admin tab first."). Admin manually **positions** each generated key on a tile via a new "Generated Items" panel in the editor. Keys carry `opensPoiId` — server-side check on interaction.
+- **Cross-floor item pool via `dungeon_group_id`** — key/item pool is scoped to the **group**, not the individual dungeon, so a key found on floor 1 opens a door on floor 2. Anchored on the existing group schema at [`repo.ts:70`](backend/src/dungeons/repo.ts:70) (`dungeon_group_id`, `floor_index`, `SQL_GET_RUN_BY_GROUP` at [`repo.ts:95`](backend/src/dungeons/repo.ts:95)).
+- **Ephemeral group-scoped inventory** — dungeon keys and event items live in a new `user_dungeon_run_group_inventory` table, keyed by `(user_id, group_id, item_id)`. **Distinct from the global inventory** ([`api-shop.ts:25`](frontend/src/lib/api-shop.ts:25)) — never joins with `user_items`. Purged when the group's active run transitions from `active` to any terminal `RUN_STATE` ([`shared/src/dungeon.ts:162`](shared/src/dungeon.ts:162)).
+- **Exit warning on intentional extract, silent on wipe** — the run state machine already distinguishes `state='wiped'` (death, purge silently — player already lost the party) from `state='extracted'` / `'extracted_by_teleport'` (intentional exit, trigger client-side confirm modal: "Você tem N itens exclusivos desta dungeon. Sair vai descartá-los. Continuar?"). Frontend gate; server remains authoritative on the actual purge.
+- **Open questions:**
+  - Tile picker UX — grid modal listing every GID from the joined tilesets, or a "click a tile on the map preview" affordance?
+  - Chest `contents` scope — items from the **global shop catalog** (like current `DungeonItem.itemId`), a new "dungeon-only rewards" pool (items that don't exist outside), or both?
+  - Key visibility on the map — always rendered as an item POI, or hidden until a trigger fires (encounter defeated, switch flipped)?
+  - Wipe semantics — does the group-scoped inventory survive a wipe if the group has a "checkpoint" concept later, or is "any terminal state purges" absolute?
+  - Cross-node concern — `user_dungeon_run_group_inventory` is per-user run state; if a run migrates node mid-play the inventory must survive. Recommendation: **DB-backed** (durable), not Redis KV (which today holds battle/session TTL, not durable game state).
+
 ---
 
 ## ⛔ Non-goals
