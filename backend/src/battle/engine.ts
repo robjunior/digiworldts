@@ -26,7 +26,7 @@ import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResi
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import type { Action as DSLAction } from '../skills/dsl.js';
 import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
-import { applyDamageWithBuffs, effectiveDef, executeDSL, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
+import { applyDamageWithBuffs, effectiveDef, executeDSL, flushScheduledActions, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
   CAPTURE_BASE,
@@ -840,6 +840,26 @@ function advanceTurnQueue(battle: Battle): void {
       type: 'round-start',
       order: battle.turnQueue.map((e) => ({ unit: e.unitId, name: e.name, side: e.side, initiative: e.initiative })),
     });
+
+    // Scheduled actions land at the top of the round they were timed for,
+    // before anyone acts. They can kill, so the outcome is re-checked.
+    flushScheduledActions(battle);
+    const scheduledOutcome = checkOutcome(battle);
+    if (scheduledOutcome) {
+      battle.status = 'ended';
+      battle.outcome = scheduledOutcome;
+      battle.winner = scheduledOutcome === 'win_a' ? 'a' : scheduledOutcome === 'win_b' ? 'b' : null;
+      battle.endedAt = Date.now();
+      pushEvent(battle, {
+        at: battle.endedAt,
+        round: battle.round,
+        type: 'end',
+        outcome: scheduledOutcome,
+        winner: battle.winner,
+      });
+      return;
+    }
+
     while (battle.turnCursor < battle.turnQueue.length) {
       const entry = battle.turnQueue[battle.turnCursor]!;
       const unit = unitBy(battle, entry.unitId);
