@@ -101,11 +101,11 @@ export async function deleteAdminWarp(id: string, warpId: string): Promise<Dunge
   });
 }
 
-export function createAdminDoor(dungeonId: string, body: { readonly x: number; readonly y: number; readonly keyItemId: string; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+export function createAdminDoor(dungeonId: string, body: { readonly x: number; readonly y: number; readonly keyItemId: string; readonly dungeonKeyId?: string | null; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null }): Promise<{ readonly view: DungeonView }> {
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/doors`, { method: 'POST', body });
 }
 
-export function updateAdminDoor(dungeonId: string, doorId: string, body: Partial<Pick<DungeonDoor, 'x' | 'y' | 'keyItemId' | 'label'>>): Promise<{ readonly view: DungeonView }> {
+export function updateAdminDoor(dungeonId: string, doorId: string, body: Partial<Pick<DungeonDoor, 'x' | 'y' | 'keyItemId' | 'dungeonKeyId' | 'label' | 'unusedTileGid' | 'usedTileGid'>>): Promise<{ readonly view: DungeonView }> {
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/doors/${doorId}`, { method: 'PUT', body });
 }
 
@@ -115,11 +115,11 @@ export function deleteAdminDoor(dungeonId: string, doorId: string): Promise<{ re
 
 import type { TrapKind } from '@digiworld/shared';
 
-export function createAdminTrap(dungeonId: string, body: { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+export function createAdminTrap(dungeonId: string, body: { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null }): Promise<{ readonly view: DungeonView }> {
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps`, { method: 'POST', body });
 }
 
-export function updateAdminTrap(dungeonId: string, trapId: string, body: { readonly x?: number; readonly y?: number; readonly kind?: TrapKind; readonly severity?: number; readonly label?: string | null }): Promise<{ readonly view: DungeonView }> {
+export function updateAdminTrap(dungeonId: string, trapId: string, body: { readonly x?: number; readonly y?: number; readonly kind?: TrapKind; readonly severity?: number; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null }): Promise<{ readonly view: DungeonView }> {
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps/${trapId}`, { method: 'PUT', body });
 }
 

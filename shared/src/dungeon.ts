@@ -336,7 +336,9 @@ export type DungeonRunView = {
   readonly tilesets: readonly TilesetGrant[];
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
+  readonly warps: readonly DungeonWarp[];
   readonly doors: readonly DungeonDoor[];
+  readonly traps: readonly DungeonTrap[];
   /** S9 — locked/unlocked container POIs. */
   readonly chests: readonly DungeonChest[];
   /** S9 — placed keys reachable in this run's group. */

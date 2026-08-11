@@ -83,6 +83,7 @@ export function Dungeon(): JSX.Element {
   const [now, setNow] = useState<number>(() => Date.now());
   const [partyTrail, setPartyTrail] = useState<readonly { readonly x: number; readonly y: number }[]>([]);
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
+  const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
 
   useEffect(() => {
     setPartyTrail([]);
@@ -351,6 +352,11 @@ export function Dungeon(): JSX.Element {
       // Just silently do nothing if trying to move into a wall
       return;
     }
+    const exitWarp = data?.warps.find((warp) => warp.x === nx && warp.y === ny && warp.targetDungeonId === null);
+    if (exitWarp && (data?.groupInventory.length ?? 0) > 0) {
+      setExitConfirm({ x: nx, y: ny, to: null });
+      return;
+    }
     movePendingRef.current = true;
     moveMutation.mutate({ x: nx, y: ny });
   }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen, flashToast]);
@@ -409,7 +415,7 @@ export function Dungeon(): JSX.Element {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, tilesets, encounters, items, doors } = data;
+  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
@@ -420,7 +426,7 @@ export function Dungeon(): JSX.Element {
   const keyInventory = shopQuery.data?.inventory?.find((entry) => entry.itemId === pendingKeyItemId) ?? null;
   const keyItem = shopQuery.data?.catalog?.find((entry) => entry.id === pendingKeyItemId) ?? null;
   const keyName = keyInventory?.name ?? keyItem?.name ?? pendingKeyItemId;
-  const canUnlock = (keyInventory?.qty ?? 0) >= 1;
+  const canUnlock = pendingDoor?.dungeonKeyId ? groupInventory.some((entry) => entry.itemKind === 'dungeon-key' && entry.itemId === pendingDoor.dungeonKeyId && entry.qty > 0) : (keyInventory?.qty ?? 0) >= 1;
 
   return (
     <>
@@ -457,6 +463,9 @@ export function Dungeon(): JSX.Element {
               encounters={encounters}
               items={items}
               doors={doors}
+              chests={chests}
+              traps={traps}
+              poiStates={poiStates}
               party={party}
               partyTrail={partyTrail}
               onCellClick={handleCellClick}
@@ -535,6 +544,32 @@ export function Dungeon(): JSX.Element {
       {activeSheet !== null && (
         <div className="sheet-backdrop" onClick={() => setActiveSheet(null)} />
       )}
+
+      {exitConfirm !== null ? (
+        <div className="sheet-backdrop" role="presentation">
+          <div className="door-unlock-prompt" role="dialog" aria-modal="true" aria-live="polite">
+            <div>
+              <b>Leave dungeon?</b>
+              <span>You have {groupInventory.length} dungeon-only item{groupInventory.length === 1 ? '' : 's'}. Leaving discards them.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const target = exitConfirm;
+                setExitConfirm(null);
+                movePendingRef.current = true;
+                moveMutation.mutate({ x: target.x, y: target.y });
+              }}
+              disabled={moveMutation.isPending}
+            >
+              Leave anyway
+            </button>
+            <button type="button" onClick={() => setExitConfirm(null)}>
+              Stay
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
     </>

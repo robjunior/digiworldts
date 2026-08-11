@@ -157,6 +157,9 @@ export const DoorInputSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),
   keyItemId: IdSchema,
+  dungeonKeyId: IdSchema.nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
   label: z.string().trim().min(1).max(120).nullable().optional(),
 });
 
@@ -167,6 +170,8 @@ export const TrapInputSchema = z.object({
   y: z.number().int().min(0),
   kind: z.enum(['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter']),
   severity: z.number().int().min(1).max(100),
+  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
   label: z.string().trim().max(80).nullable().optional(),
 });
 export const UpdateTrapInputSchema = TrapInputSchema.partial();

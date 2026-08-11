@@ -3,9 +3,11 @@ import type {
   Dungeon as DungeonType,
   DungeonRunView,
   DungeonTile,
+  DungeonChest,
   DungeonEncounter,
   DungeonItem,
   DungeonDoor,
+  DungeonTrap,
   TilesetGrant,
 } from '@digiworld/shared';
 import type { RosterView } from '../../lib/api';
@@ -22,6 +24,9 @@ type DungeonGridProps = {
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
   readonly doors: readonly DungeonDoor[];
+  readonly chests: readonly DungeonChest[];
+  readonly traps: readonly DungeonTrap[];
+  readonly poiStates: DungeonRunView['poiStates'];
   readonly party: readonly RosterView[];
   /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
@@ -36,12 +41,16 @@ export function DungeonGrid({
   encounters,
   items,
   doors,
+  chests,
+  traps,
+  poiStates,
   party,
   partyTrail,
   onCellClick,
 }: DungeonGridProps): ReactElement {
   const gridCells = [];
   const tilesByCoord = new Map(tiles.map((t) => [`${t.x},${t.y}`, t]));
+  const poiStateByKey = new Map(poiStates.map((s) => [`${s.poiKind}:${s.poiId}`, s.state] as const));
   const canonicalTileset = primaryTileset(tilesets);
   const cellSize = canonicalTileset
     ? canonicalTileset.tileWidth * PLAYER_ZOOM
@@ -67,6 +76,10 @@ export function DungeonGrid({
         itemAt && !run.collectedItems.includes(itemAt.id);
       const doorAt = doors.find((door) => door.x === x && door.y === y);
       const isLockedDoor = doorAt ? !run.unlockedDoors.includes(doorAt.id) : false;
+      const chestAt = chests.find((chest) => chest.x === x && chest.y === y);
+      const chestState = chestAt ? poiStateByKey.get(`chest:${chestAt.id}`) ?? 'unused' : 'unused';
+      const trapAt = traps.find((trap) => trap.x === x && trap.y === y);
+      const trapState = trapAt ? poiStateByKey.get(`trap:${trapAt.id}`) ?? 'unused' : 'unused';
 
       let cellClass = 'dcell';
       if (!isWalkable) {
@@ -79,7 +92,15 @@ export function DungeonGrid({
         if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
       }
 
-      const spriteStyle = tile !== undefined ? gidCellStyle(tile.gid, tilesets, spriteScale) : null;
+      const visualGid =
+        doorAt
+          ? (isLockedDoor ? doorAt.unusedTileGid : doorAt.usedTileGid) ?? tile?.gid
+          : chestAt
+            ? (chestState === 'used' ? chestAt.usedTileGid : chestAt.unusedTileGid) ?? tile?.gid
+            : trapAt && trapState === 'used'
+              ? trapAt.usedTileGid ?? tile?.gid
+              : tile?.gid;
+      const spriteStyle = visualGid !== undefined ? gidCellStyle(visualGid, tilesets, spriteScale) : null;
 
       const trailIdx = partyTrail.findIndex((p) => p.x === x && p.y === y);
       const trailMember = trailIdx >= 0 ? party[trailIdx] ?? null : null;
@@ -108,6 +129,8 @@ export function DungeonGrid({
             </div>
           ) : null}
           {doorAt && !isPlayer ? <span className="door-marker">D</span> : null}
+          {chestAt && !isPlayer ? <span className="door-marker">C</span> : null}
+          {trapAt && trapState === 'used' && !isPlayer ? <span className="door-marker">T</span> : null}
         </div>
       );
     }

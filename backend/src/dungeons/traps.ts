@@ -26,8 +26,8 @@ import type { DungeonTrap, TrapKind, TrapTriggered } from '@digiworld/shared';
 const SQL_LIST_TRAPS = `SELECT * FROM dungeon_traps WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_TRAP = `SELECT * FROM dungeon_traps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_TRAP_AT = `SELECT * FROM dungeon_traps WHERE dungeon_id = ? AND x = ? AND y = ?`;
-const SQL_INSERT_TRAP = `INSERT INTO dungeon_traps (id, dungeon_id, x, y, kind, severity, label, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE_TRAP = `UPDATE dungeon_traps SET x = ?, y = ?, kind = ?, severity = ?, label = ? WHERE dungeon_id = ? AND id = ?`;
+const SQL_INSERT_TRAP = `INSERT INTO dungeon_traps (id, dungeon_id, x, y, kind, severity, label, unused_tile_gid, used_tile_gid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE_TRAP = `UPDATE dungeon_traps SET x = ?, y = ?, kind = ?, severity = ?, label = ?, unused_tile_gid = ?, used_tile_gid = ? WHERE dungeon_id = ? AND id = ?`;
 const SQL_DELETE_TRAP = `DELETE FROM dungeon_traps WHERE dungeon_id = ? AND id = ?`;
 
 type TrapRow = {
@@ -79,12 +79,12 @@ export async function getTrapAt(dungeonId: string, x: number, y: number): Promis
 
 export async function createTrap(
   dungeonId: string,
-  input: { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label: string | null },
+  input: { readonly x: number; readonly y: number; readonly kind: TrapKind; readonly severity: number; readonly label: string | null; readonly unusedTileGid?: number | null | undefined; readonly usedTileGid?: number | null | undefined },
 ): Promise<DungeonTrap | 'not-found' | 'conflict'> {
   if (await getTrapAt(dungeonId, input.x, input.y)) return 'conflict';
   const id = newId('trap');
   const now = Date.now();
-  await run(SQL_INSERT_TRAP, id, dungeonId, input.x, input.y, input.kind, input.severity, input.label, now);
+  await run(SQL_INSERT_TRAP, id, dungeonId, input.x, input.y, input.kind, input.severity, input.label, input.unusedTileGid ?? null, input.usedTileGid ?? null, now);
   const row = await one<TrapRow>(SQL_GET_TRAP, dungeonId, id);
   if (!row) return 'not-found';
   return trapFromRow(row);
@@ -93,7 +93,7 @@ export async function createTrap(
 export async function updateTrap(
   dungeonId: string,
   trapId: string,
-  input: { readonly x?: number | undefined; readonly y?: number | undefined; readonly kind?: TrapKind | undefined; readonly severity?: number | undefined; readonly label?: string | null | undefined },
+  input: { readonly x?: number | undefined; readonly y?: number | undefined; readonly kind?: TrapKind | undefined; readonly severity?: number | undefined; readonly label?: string | null | undefined; readonly unusedTileGid?: number | null | undefined; readonly usedTileGid?: number | null | undefined },
 ): Promise<DungeonTrap | 'not-found' | 'conflict'> {
   const existing = await one<TrapRow>(SQL_GET_TRAP, dungeonId, trapId);
   if (!existing) return 'not-found';
@@ -107,9 +107,11 @@ export async function updateTrap(
     nextY,
     input.kind ?? trap.kind,
     input.severity ?? trap.severity,
-    input.label !== undefined ? input.label : trap.label,
-    dungeonId,
-    trapId,
+      input.label !== undefined ? input.label : trap.label,
+      input.unusedTileGid !== undefined ? input.unusedTileGid : trap.unusedTileGid,
+      input.usedTileGid !== undefined ? input.usedTileGid : trap.usedTileGid,
+      dungeonId,
+      trapId,
   );
   const row = await one<TrapRow>(SQL_GET_TRAP, dungeonId, trapId);
   return row ? trapFromRow(row) : 'not-found';

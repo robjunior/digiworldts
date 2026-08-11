@@ -600,6 +600,14 @@ export async function unlockDoor(userId: string, dungeonId: string, doorId: stri
     const view = await getDungeonRunView(userId, dungeonId);
     return view ? { ok: true, view } : { ok: false, error: 'no-run' };
   }
+  if (door.dungeon_key_id !== null) {
+    const dungeon = await getDungeon(dungeonId);
+    const hasDungeonKey = dungeon?.dungeonGroupId !== null && dungeon?.dungeonGroupId !== undefined ? await hasKey(userId, dungeon.dungeonGroupId, door.dungeon_key_id) : false;
+    if (!hasDungeonKey) return { ok: false, error: 'missing-key', keyItemId: door.dungeon_key_id };
+    await run(SQL_UPDATE_RUN_UNLOCKED_DOORS, JSON.stringify([...current.unlockedDoors, doorId]), userId, dungeonId);
+    const view = await getDungeonRunView(userId, dungeonId);
+    return view ? { ok: true, view } : { ok: false, error: 'no-run' };
+  }
   const inventory = await one<InventoryQtyRow>(SQL_SELECT_INVENTORY_QTY, userId, door.key_item_id);
   if (!inventory || inventory.qty < 1) return { ok: false, error: 'missing-key', keyItemId: door.key_item_id };
   await tx(async (t) => {
@@ -626,7 +634,9 @@ export async function startOrGetRun(userId: string, dungeonId: string): Promise<
     tilesets: await listDungeonTilesets(dungeonId),
     encounters: await listEncounters(dungeonId),
     items: await listItems(dungeonId),
+    warps: await listWarps(dungeonId),
     doors: await listDoors(dungeonId),
+    traps: await listTraps(dungeonId),
     chests: await listChests(dungeonId),
     dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),
@@ -645,7 +655,9 @@ export async function getDungeonRunView(userId: string, dungeonId: string): Prom
     tilesets: await listDungeonTilesets(dungeonId),
     encounters: await listEncounters(dungeonId),
     items: await listItems(dungeonId),
+    warps: await listWarps(dungeonId),
     doors: await listDoors(dungeonId),
+    traps: await listTraps(dungeonId),
     chests: await listChests(dungeonId),
     dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),

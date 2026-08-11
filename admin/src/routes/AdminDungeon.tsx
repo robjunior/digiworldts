@@ -3,7 +3,7 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
 
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
+import type { DungeonChest, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
@@ -149,7 +149,7 @@ export function AdminDungeon(): JSX.Element {
   if (!id) return <div>Missing dungeon id.</div>;
   if (dungeonQuery.isLoading || !data) return <div>Loading...</div>;
 
-  const { dungeon, encounters, items, warps, doors, traps } = data;
+  const { dungeon, encounters, items, warps, doors, traps, chests } = data;
   const encounterAt = (cell: Cell): DungeonEncounter | undefined =>
     encounters.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const itemAt = (cell: Cell): DungeonItem | undefined =>
@@ -160,6 +160,8 @@ export function AdminDungeon(): JSX.Element {
     doors.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const trapAt = (cell: Cell): DungeonTrap | undefined =>
     traps.find((entry) => entry.x === cell.x && entry.y === cell.y);
+  const chestAt = (cell: Cell): DungeonChest | undefined =>
+    chests.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const isWalkable = (cell: Cell): boolean => tileSet.has(cellKey(cell));
 
   function showToast(message: string): void {
@@ -218,7 +220,7 @@ export function AdminDungeon(): JSX.Element {
       return;
     }
     if (
-      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS' || tool === 'TRAPS') &&
+      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS' || tool === 'TRAPS' || tool === 'CHESTS') &&
       !isWalkable(cell)
     ) {
       showToast('Pick a walkable tile first.');
@@ -267,6 +269,7 @@ export function AdminDungeon(): JSX.Element {
               const warp = warpAt(cell);
               const door = doorAt(cell);
               const trap = trapAt(cell);
+              const chest = chestAt(cell);
               const preview = previewSet.has(key);
               const gid = tileGidByCoord.get(key);
               const spriteStyle = walkable && gid !== undefined ? gidCellStyle(gid, tilesets, spriteScale) : null;
@@ -290,6 +293,7 @@ export function AdminDungeon(): JSX.Element {
                     {item ? <span className="mk mk-item">I</span> : null}
                     {warp ? <span className="mk mk-warp">W</span> : null}
                     {door ? <span className="mk mk-door">D</span> : null}
+                    {chest ? <span className="mk mk-item" title={chest.label ?? 'Chest'}>C</span> : null}
                     {trap ? <span className="mk mk-trap" title={`${trap.kind} sev ${trap.severity}`}>T</span> : null}
                   </span>
                 </button>
@@ -432,11 +436,13 @@ export function AdminDungeon(): JSX.Element {
             catalog={catalogQuery.data?.digimons ?? []}
             dungeons={dungeonsQuery.data?.dungeons ?? []}
             shopItems={shopItemsQuery.data?.items ?? []}
+            tilesets={tilesets}
             {...(selectedCell && encounterAt(selectedCell) ? { encounter: encounterAt(selectedCell) } : {})}
             {...(selectedCell && itemAt(selectedCell) ? { item: itemAt(selectedCell) } : {})}
             {...(selectedCell && warpAt(selectedCell) ? { warp: warpAt(selectedCell) } : {})}
             {...(selectedCell && doorAt(selectedCell) ? { door: doorAt(selectedCell) } : {})}
             {...(selectedCell && trapAt(selectedCell) ? { trap: trapAt(selectedCell) } : {})}
+            {...(selectedCell && chestAt(selectedCell) ? { chest: chestAt(selectedCell) } : {})}
           />
         </aside>
         {toast ? (
