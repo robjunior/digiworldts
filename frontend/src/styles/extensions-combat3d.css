@@ -729,6 +729,8 @@ body:has(.combat3d-shell) {
 }
 
 .c3d-buff-icon { font-size: 12px; line-height: 1; }
+/* Text glyph, so it inherits the bucket colour that the emoji icons ignore. */
+.c3d-buff-dir { font-size: 9px; line-height: 1; font-weight: 900; }
 .c3d-buff-tl { color: var(--muted); font-size: 9px; }
 
 .c3d-buff--up { border-left-color: #4ade80; color: #4ade80; }

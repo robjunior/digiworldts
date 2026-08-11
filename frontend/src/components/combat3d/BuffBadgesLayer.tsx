@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 import type { ActiveBuff, BattleView, UnitId } from '@digiworld/shared/battle';
-import type { BuffKind } from '@digiworld/shared/digimon';
+import { BUFF_KINDS, type BuffKind } from '@digiworld/shared/digimon';
 import type { Combat3DSceneHandle } from './Combat3DScene';
 
 /**
@@ -53,6 +53,29 @@ const BUFF_LABEL: Record<BuffKind, string> = {
   spd_down: 'Speed down',
   int_down: 'Intelligence down',
 };
+
+/**
+ * Direction marker for the six kinds that come in up/down pairs.
+ *
+ * These pairs share a glyph, and colour cannot separate them: `🛡 💨 🔮 🎯 🌀`
+ * are colour emoji, painted by the emoji font, so the `color` set by
+ * `.c3d-buff--up` / `--down` never reaches them — the two variants render
+ * pixel-identical apart from a 2px border stripe. `▲`/`▼` are plain text
+ * glyphs, so they DO take the bucket colour, and they carry the meaning even
+ * for a player who cannot separate the red from the green.
+ */
+function buffArrow(kind: BuffKind): '▲' | '▼' | null {
+  // Only for kinds that genuinely have a counterpart. `crit_up` ends in `_up`
+  // but has no `crit_down`, so an arrow there is noise rather than a
+  // disambiguator — derived from BUFF_KINDS so it stays right if a counterpart
+  // is added later.
+  const suffix = kind.endsWith('_up') ? '_up' : kind.endsWith('_down') ? '_down' : null;
+  if (suffix === null) return null;
+  const stem = kind.slice(0, -suffix.length);
+  const opposite = suffix === '_up' ? `${stem}_down` : `${stem}_up`;
+  if (!(BUFF_KINDS as readonly string[]).includes(opposite)) return null;
+  return suffix === '_up' ? '▲' : '▼';
+}
 
 /** The four buckets `.c3d-buff--*` styles: green, red, blue, gold. */
 function buffBucket(kind: BuffKind): 'up' | 'down' | 'shield' | 'gold' {
@@ -176,6 +199,9 @@ export const BuffBadgesLayer = memo(function BuffBadgesLayer({
               title={`${BUFF_LABEL[b.kind]} ${b.amount} · ${b.remainingTurns} turn${b.remainingTurns === 1 ? '' : 's'} left`}
             >
               <span className="c3d-buff-icon" aria-hidden="true">{BUFF_ICON[b.kind]}</span>
+              {buffArrow(b.kind) !== null ? (
+                <span className="c3d-buff-dir" aria-hidden="true">{buffArrow(b.kind)}</span>
+              ) : null}
               <span className="c3d-buff-tl">{b.remainingTurns}</span>
             </span>
           ))}
