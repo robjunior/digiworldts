@@ -1,4 +1,4 @@
-import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind, EncounterLoot } from '@digiworld/shared';
+import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, DungeonZone, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind, EncounterLoot, WildPool, WildPoolRollParams } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
 import { apiFetch } from './api';
 
@@ -179,5 +179,47 @@ export async function importAdminDungeonTiledReplace(dungeonId: string, tiledJso
   return apiFetch<ImportTiledReplaceResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/import-tiled`, {
     method: 'POST',
     body: { tiledJson },
+  });
+}
+
+export type DungeonRandomPoolResponse = {
+  readonly pool: WildPool;
+  readonly params: WildPoolRollParams;
+};
+
+export type DungeonZonesResponse = {
+  readonly zones: readonly DungeonZone[];
+};
+
+export type ZoneInputBody = {
+  readonly name: string;
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+  readonly safe: boolean;
+  readonly pool: WildPool;
+  readonly rollOverrides?: Partial<WildPoolRollParams>;
+};
+
+export async function getDungeonRandomPool(dungeonId: string): Promise<DungeonRandomPoolResponse> {
+  return apiFetch<DungeonRandomPoolResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/random-pool`);
+}
+
+export async function setDungeonRandomPool(dungeonId: string, pool: WildPool, params?: WildPoolRollParams): Promise<{ dungeon: Dungeon }> {
+  return apiFetch<{ dungeon: Dungeon }>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/random-pool`, {
+    method: 'PUT',
+    body: params === undefined ? { pool } : { pool, params },
+  });
+}
+
+export async function getDungeonZones(dungeonId: string): Promise<DungeonZonesResponse> {
+  return apiFetch<DungeonZonesResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/zones`);
+}
+
+export async function replaceDungeonZones(dungeonId: string, zones: readonly ZoneInputBody[]): Promise<DungeonZonesResponse> {
+  return apiFetch<DungeonZonesResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/zones`, {
+    method: 'PUT',
+    body: { zones },
   });
 }

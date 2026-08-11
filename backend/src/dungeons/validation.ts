@@ -253,9 +253,117 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     randomMinPartySize: input.randomMinPartySize,
     randomMaxPartySize: input.randomMaxPartySize,
     randomAllowedElements: input.randomAllowedElements,
+    randomPool: [],
     challenge: input.challenge ?? { kind: 'none' as const },
     walkableMask: null,
     dungeonGroupId: input.dungeonGroupId ?? null,
     floorIndex: input.floorIndex ?? null,
   };
 }
+
+
+export const WildPoolEntrySchema = z.object({
+  catalogId: IdSchema,
+  minLevel: z.number().int().min(1).max(999).optional(),
+  maxLevel: z.number().int().min(1).max(999).optional(),
+  weight: z.number().min(0).max(1000).optional(),
+}).superRefine((val, ctx) => {
+  if (val.minLevel !== undefined && val.maxLevel !== undefined && val.minLevel > val.maxLevel) {
+    ctx.addIssue({ code: 'custom', path: ['maxLevel'], message: 'maxLevel must be >= minLevel' });
+  }
+});
+
+export const WildPoolSchema = z.array(WildPoolEntrySchema).max(64);
+
+export const WildPoolRollParamsSchema = z.object({
+  encounterRate: z.number().min(0).max(1),
+  minLevel: z.number().int().min(1).max(999),
+  maxLevel: z.number().int().min(1).max(999),
+  maxStage: z.enum(STAGES),
+  minPartySize: z.number().int().min(1).max(3),
+  maxPartySize: z.number().int().min(1).max(3),
+  allowedElements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
+}).superRefine((val, ctx) => {
+  if (val.minLevel > val.maxLevel) {
+    ctx.addIssue({ code: 'custom', path: ['maxLevel'], message: 'maxLevel must be >= minLevel' });
+  }
+  if (val.minPartySize > val.maxPartySize) {
+    ctx.addIssue({ code: 'custom', path: ['maxPartySize'], message: 'maxPartySize must be >= minPartySize' });
+  }
+});
+
+export const WildPoolRollParamsPartialSchema = WildPoolRollParamsSchema.partial();
+
+export const CreateZoneInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  width: z.number().int().min(1).max(200),
+  height: z.number().int().min(1).max(200),
+  safe: z.boolean().default(false),
+  pool: WildPoolSchema.default([]),
+  rollOverrides: WildPoolRollParamsPartialSchema.optional(),
+});
+
+export const UpdateZoneInputSchema = CreateZoneInputSchema.partial();
+
+export const ReplaceZonesInputSchema = z.object({
+  zones: z.array(CreateZoneInputSchema).max(200),
+});
+
+export const DungeonRandomPoolInputSchema = z.object({
+  pool: WildPoolSchema,
+  params: WildPoolRollParamsSchema.optional(),
+});
+
+export const ChestRewardSchema = z.object({
+  itemId: IdSchema,
+  qty: z.number().int().min(1).max(999_999),
+});
+
+export const CreateChestInputSchema = z.object({
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+  contents: z.array(ChestRewardSchema).min(1).max(32),
+  lockedByKeyId: IdSchema.nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+});
+
+export const UpdateChestInputSchema = CreateChestInputSchema.partial();
+
+export const DoorTileVisualsSchema = z.object({
+  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+});
+
+export const DoorS9ExtensionSchema = DoorTileVisualsSchema.extend({
+  dungeonKeyId: IdSchema.nullable().optional(),
+});
+
+export const TrapTileVisualsSchema = DoorTileVisualsSchema;
+
+export const PlaceDungeonKeyInputSchema = z.object({
+  keyId: IdSchema,
+  dungeonId: IdSchema,
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+});
+
+export const UnplaceDungeonKeyInputSchema = z.object({
+  keyId: IdSchema,
+});
+
+export type WildPoolEntryInput = z.infer<typeof WildPoolEntrySchema>;
+export type WildPoolInput = z.infer<typeof WildPoolSchema>;
+export type WildPoolRollParamsInput = z.infer<typeof WildPoolRollParamsSchema>;
+export type CreateZoneInput = z.infer<typeof CreateZoneInputSchema>;
+export type UpdateZoneInput = z.infer<typeof UpdateZoneInputSchema>;
+export type ReplaceZonesInput = z.infer<typeof ReplaceZonesInputSchema>;
+export type DungeonRandomPoolInput = z.infer<typeof DungeonRandomPoolInputSchema>;
+export type CreateChestInput = z.infer<typeof CreateChestInputSchema>;
+export type UpdateChestInput = z.infer<typeof UpdateChestInputSchema>;
+export type DoorS9Extension = z.infer<typeof DoorS9ExtensionSchema>;
+export type PlaceDungeonKeyInput = z.infer<typeof PlaceDungeonKeyInputSchema>;
+export type UnplaceDungeonKeyInput = z.infer<typeof UnplaceDungeonKeyInputSchema>;

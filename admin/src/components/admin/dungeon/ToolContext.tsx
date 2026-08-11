@@ -17,6 +17,7 @@ import { ItemEditor } from './ItemEditor';
 import { RandomEncountersEditor } from './RandomEncountersEditor';
 import { TrapEditor } from './TrapEditor';
 import { WarpEditor } from './WarpEditor';
+import { ZonesEditor } from './ZonesEditor';
 import type { Cell, PathTool, Tool } from './types';
 import type { ShopItemView } from '../../../lib/api-admin';
 
@@ -71,7 +72,8 @@ export function ToolContext({
       </div>
     );
   }
-  if (tool === 'RANDOM') return <RandomEncountersEditor dungeonId={dungeonId} dungeon={dungeon} />;
+  if (tool === 'RANDOM') return <RandomEncountersEditor dungeonId={dungeonId} dungeon={dungeon} catalog={catalog} />;
+  if (tool === 'ZONES') return <ZonesEditor dungeonId={dungeonId} catalog={catalog} />;
   if (!selectedCell) {
     return (
       <div className="admin-editor-panel">

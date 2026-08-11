@@ -1,4 +1,4 @@
-import type { Catalog, Dungeon, EncounterDigimon, TemplateDigimon } from '@digiworld/shared';
+import type { Catalog, Dungeon, DungeonZone, EncounterDigimon, TemplateDigimon, WildPool, WildPoolRollParams } from '@digiworld/shared';
 import { STAGES } from '@digiworld/shared/digimon';
 
 const STAGE_RANK = new Map(STAGES.map((stage, index) => [stage, index] as const));
@@ -53,4 +53,67 @@ export function randomEncounterMatchesDungeonConfig(dungeon: Dungeon, catalog: C
     if (allowedElements && !allowedElements.has(template.element)) return false;
     return true;
   });
+}
+
+function findEnclosingZone(zones: readonly DungeonZone[], x: number, y: number): DungeonZone | null {
+  const covering = zones.filter((z) => x >= z.x && x < z.x + z.width && y >= z.y && y < z.y + z.height);
+  if (covering.length === 0) return null;
+  return covering.reduce((a, b) => (a.width * a.height <= b.width * b.height ? a : b));
+}
+
+function dungeonWideParams(dungeon: Dungeon): WildPoolRollParams {
+  return {
+    encounterRate: dungeon.randomEncounterRate,
+    minLevel: dungeon.randomMinLevel,
+    maxLevel: dungeon.randomMaxLevel,
+    maxStage: dungeon.randomMaxStage,
+    minPartySize: dungeon.randomMinPartySize,
+    maxPartySize: dungeon.randomMaxPartySize,
+    allowedElements: dungeon.randomAllowedElements ?? [],
+  };
+}
+
+function mergeRollParams(base: WildPoolRollParams, overrides: Partial<WildPoolRollParams> | undefined): WildPoolRollParams {
+  if (!overrides) return base;
+  return { ...base, ...overrides };
+}
+
+function rollFromPool(pool: WildPool, params: WildPoolRollParams, catalog: Catalog): readonly EncounterDigimon[] | null {
+  if (pool.length === 0) return null;
+  if (Math.random() >= params.encounterRate) return null;
+  const maxStageRank = stageRank(params.maxStage);
+  const allowedElements = params.allowedElements.length > 0 ? new Set(params.allowedElements) : null;
+  const templates = new Map(catalog.digimons.map((entry) => [entry.id, entry] as const));
+  const partySize = randomInt(params.minPartySize, params.maxPartySize);
+  const mons: EncounterDigimon[] = [];
+  for (let index = 0; index < partySize; index += 1) {
+    const entry = pickOne(pool);
+    if (!entry) break;
+    const template = templates.get(entry.catalogId);
+    if (!template) continue;
+    if (stageRank(template.stage) > maxStageRank) continue;
+    if (allowedElements && !allowedElements.has(template.element)) continue;
+    const minLevel = entry.minLevel ?? params.minLevel;
+    const maxLevel = entry.maxLevel ?? params.maxLevel;
+    mons.push({ catalogId: template.id, level: randomInt(minLevel, maxLevel) });
+  }
+  return mons.length > 0 ? mons : null;
+}
+
+export function rollDungeonEncounter(
+  dungeon: Dungeon,
+  zones: readonly DungeonZone[],
+  playerPos: { readonly x: number; readonly y: number },
+  catalog: Catalog,
+): readonly EncounterDigimon[] | null {
+  const zone = findEnclosingZone(zones, playerPos.x, playerPos.y);
+  if (zone?.safe) return null;
+  if (zone && zone.pool.length > 0) {
+    const params = mergeRollParams(dungeonWideParams(dungeon), zone.rollOverrides);
+    return rollFromPool(zone.pool, params, catalog);
+  }
+  if (dungeon.randomPool.length > 0) {
+    return rollFromPool(dungeon.randomPool, dungeonWideParams(dungeon), catalog);
+  }
+  return rollRandomEncounter(dungeon, catalog);
 }

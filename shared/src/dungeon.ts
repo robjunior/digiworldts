@@ -1,4 +1,6 @@
 import type { Element, Stage } from './digimon.js';
+import type { DungeonZone } from './dungeon-zone.js';
+import type { WildPool } from './encounter-pool.js';
 import type { TilesetGrant } from './tileset.js';
 import type { Biome } from './world.js';
 
@@ -38,6 +40,16 @@ export type EncounterLoot = {
   readonly itemId: string;
   readonly qty: number;
   readonly chance: number;
+};
+
+/**
+ * Chest reward entry — one row per shop item the chest yields on open.
+ * Deterministic (no chance roll) — chests are curated content, not random
+ * drops. For randomized rewards, use an encounter with `loots`.
+ */
+export type ChestReward = {
+  readonly itemId: string;
+  readonly qty: number;
 };
 
 export const LAYER_KINDS = ['floor', 'walls', 'doors', 'water', 'pit', 'decoration', 'hidden'] as const;
@@ -112,10 +124,63 @@ export type DungeonDoor = {
   readonly dungeonId: string;
   readonly x: number;
   readonly y: number;
+  /**
+   * Legacy shop-item-based key. Preserved for backward-compat with doors
+   * created before S9 shipped. When `dungeonKeyId` is set, IT takes
+   * precedence — server checks the group inventory instead of the user's
+   * global shop inventory.
+   */
   readonly keyItemId: string;
+  /** S9: dungeon-scoped key (in `dungeon_keys` table). Overrides `keyItemId`. */
+  readonly dungeonKeyId: string | null;
   readonly label: string | null;
+  /** S9 tile picker: GID rendered when door state is 'unused' (closed). */
+  readonly unusedTileGid: number | null;
+  /** S9 tile picker: GID rendered when door state is 'used' (open). */
+  readonly usedTileGid: number | null;
   readonly createdAt: number;
   readonly updatedAt: number;
+};
+
+export type DungeonChest = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly label: string | null;
+  readonly contents: readonly ChestReward[];
+  /**
+   * When set, the chest is locked and only opens if the player's group
+   * inventory contains this key. Null = unlocked (opens on interaction).
+   */
+  readonly lockedByKeyId: string | null;
+  readonly unusedTileGid: number | null;
+  readonly usedTileGid: number | null;
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+/**
+ * Dungeon-scoped key auto-generated when the admin places a locked door
+ * or chest. Lives in the dungeon-group's item pool (scoped to
+ * `dungeon_group_id`, not `dungeon_id`) so cross-floor use works: key
+ * found on floor 1 opens door on floor 2 of the same group.
+ *
+ * `placedDungeonId`/`placedX`/`placedY` are null until the admin places
+ * the key on a tile via the editor. Missing placement = key exists but
+ * is unreachable in-game (admin bug, surfaced by lint).
+ */
+export type DungeonKey = {
+  readonly id: string;
+  readonly dungeonGroupId: string;
+  readonly generatedForPoiKind: 'door' | 'chest';
+  readonly generatedForPoiId: string;
+  /** Auto-incremented display name, scoped per group: "Chave A", "Chave B", … */
+  readonly name: string;
+  readonly placedDungeonId: string | null;
+  readonly placedX: number | null;
+  readonly placedY: number | null;
+  readonly createdAt: number;
 };
 
 export type Dungeon = {
@@ -139,6 +204,8 @@ export type Dungeon = {
   readonly randomMinPartySize: number;
   readonly randomMaxPartySize: number;
   readonly randomAllowedElements: readonly Element[] | null;
+  /** S8 — curated pool that overrides the legacy filter fields when non-empty. */
+  readonly randomPool: WildPool;
   readonly unlockRequiresItems: readonly string[] | null;
   readonly challenge: ChallengeConfig;
   readonly walkableMask: readonly (readonly [number, number])[] | null;
@@ -157,6 +224,12 @@ export type DungeonView = {
   readonly warps: readonly DungeonWarp[];
   readonly doors: readonly DungeonDoor[];
   readonly traps: readonly DungeonTrap[];
+  /** S8 — encounter zones (rectangular overrides on the random pool). */
+  readonly zones: readonly DungeonZone[];
+  /** S9 — locked/unlocked container POIs with deterministic rewards. */
+  readonly chests: readonly DungeonChest[];
+  /** S9 — group-scoped. Includes keys from every floor of `dungeonGroupId`. */
+  readonly dungeonKeys: readonly DungeonKey[];
 };
 
 export const RUN_STATES = ['active', 'extracted', 'wiped', 'extracted_by_teleport', 'cleared_challenge'] as const;
@@ -207,6 +280,10 @@ export type DungeonTrap = {
   readonly kind: TrapKind;
   readonly severity: number;
   readonly label: string | null;
+  /** S9 tile picker: GID rendered when trap state is 'unused' (armed & invisible). */
+  readonly unusedTileGid: number | null;
+  /** S9 tile picker: GID rendered when trap state is 'used' (triggered & revealed). */
+  readonly usedTileGid: number | null;
   readonly createdAt: number;
 };
 
@@ -223,6 +300,35 @@ export type TrapTriggered = {
   readonly randomEncounter?: readonly EncounterDigimon[];
 };
 
+export type PoiRunState = 'unused' | 'used';
+
+export type DungeonRunPoiState = {
+  readonly userId: string;
+  readonly dungeonId: string;
+  readonly poiKind: 'door' | 'trap' | 'chest';
+  readonly poiId: string;
+  readonly state: PoiRunState;
+  readonly changedAt: number;
+};
+
+export type DungeonInventoryItemKind = 'dungeon-key' | 'dungeon-event-item';
+
+/**
+ * Ephemeral group-scoped inventory row. Distinct from `user_items` (the
+ * global inventory) — never joins across tables. Purged when the user's
+ * active run for this group transitions from 'active' to any terminal
+ * RUN_STATE. `itemId` foreign-keys into `dungeon_keys` when
+ * `itemKind='dungeon-key'`, or into a future `dungeon_event_items` table.
+ */
+export type DungeonRunGroupInventoryEntry = {
+  readonly userId: string;
+  readonly dungeonGroupId: string;
+  readonly itemKind: DungeonInventoryItemKind;
+  readonly itemId: string;
+  readonly qty: number;
+  readonly acquiredAt: number;
+};
+
 export type DungeonRunView = {
   readonly dungeon: Dungeon;
   readonly run: UserDungeonRun;
@@ -231,6 +337,14 @@ export type DungeonRunView = {
   readonly encounters: readonly DungeonEncounter[];
   readonly items: readonly DungeonItem[];
   readonly doors: readonly DungeonDoor[];
+  /** S9 — locked/unlocked container POIs. */
+  readonly chests: readonly DungeonChest[];
+  /** S9 — placed keys reachable in this run's group. */
+  readonly dungeonKeys: readonly DungeonKey[];
+  /** S9 — per-run POI state deltas from default 'unused'. */
+  readonly poiStates: readonly DungeonRunPoiState[];
+  /** S9 — group-scoped inventory for this user (keys + event items). */
+  readonly groupInventory: readonly DungeonRunGroupInventoryEntry[];
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };

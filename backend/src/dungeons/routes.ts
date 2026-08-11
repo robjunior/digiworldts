@@ -27,6 +27,7 @@ import {
   moveRun,
   replaceTiles,
   resetRun,
+  setDungeonRandomPool,
   startOrGetRun,
   unlockDoor,
   updateDoor,
@@ -37,6 +38,7 @@ import {
 } from './repo.js';
 import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { listZones, replaceZones } from './zones.js';
 import { createKit, deleteKit, getKitWithItems, listKitsForUser, updateKit, type KitOutcome } from './kits.js';
 import { escrowKitToStash, readStash } from './stash.js';
 import { hasFlag } from '../flags/repo.js';import { BIOMES } from '@digiworld/shared/world';
@@ -45,10 +47,12 @@ import {
   asCreateDungeonPayload,
   CreateDungeonInputSchema,
   DoorInputSchema,
+  DungeonRandomPoolInputSchema,
   CreateEncounterInputSchema,
   CreateItemInputSchema,
   CreateWarpInputSchema,
   MoveInputSchema,
+  ReplaceZonesInputSchema,
   StartRandomEncounterInputSchema,
   TilesInputSchema,
   TrapInputSchema,
@@ -631,5 +635,50 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
       extractedResources: result.extractedResources,
       extractionKind: result.extractionKind,
     });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id/random-pool', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({
+      pool: dungeon.randomPool,
+      params: {
+        encounterRate: dungeon.randomEncounterRate,
+        minLevel: dungeon.randomMinLevel,
+        maxLevel: dungeon.randomMaxLevel,
+        maxStage: dungeon.randomMaxStage,
+        minPartySize: dungeon.randomMinPartySize,
+        maxPartySize: dungeon.randomMaxPartySize,
+        allowedElements: dungeon.randomAllowedElements ?? [],
+      },
+    });
+  });
+
+  app.put<{ Params: { id: string } }>('/api/admin/dungeons/:id/random-pool', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = DungeonRandomPoolInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    const dungeon = await setDungeonRandomPool(req.params.id, parsed.data.pool, parsed.data.params);
+    if (!dungeon) return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.random-pool.set', { adminId: admin.id, id: dungeon.id, poolSize: parsed.data.pool.length });
+    return reply.send({ dungeon });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id/zones', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ zones: await listZones(req.params.id) });
+  });
+
+  app.put<{ Params: { id: string } }>('/api/admin/dungeons/:id/zones', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = ReplaceZonesInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-input', details: parsed.error.issues });
+    const result = await replaceZones(req.params.id, parsed.data.zones as unknown as readonly Parameters<typeof replaceZones>[1][number][]);
+    if (result === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.zones.replaced', { adminId: admin.id, id: req.params.id, count: result.length });
+    return reply.send({ zones: result });
   });
 };
