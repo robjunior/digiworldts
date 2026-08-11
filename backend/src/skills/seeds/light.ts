@@ -14,7 +14,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 6,
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 40, scale: 'int', factor: 0.8 } }
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 35, scale: 'int', factor: 0.72 } }
     ]
   }),
   l({
@@ -27,7 +27,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     slot_role: 'buff_support',
     energyCost: 8,
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 20, scale: 'int', factor: 0.3 } }
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 18, scale: 'int', factor: 0.27 } }
     ]
   }),
   l({
@@ -44,7 +44,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 60, scale: 'int', factor: 1.0 } }
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 53, scale: 'int', factor: 0.9 } }
         ]
       }
     ]
@@ -74,7 +74,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 20, scale: 'int', factor: 1.0 }, element: 'light' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.9 }, element: 'light' },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'atk_up', amount: 10, turns: 2 }
     ]
   }),
@@ -103,7 +103,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 1.2 }, element: 'light' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'int', factor: 1.07 }, element: 'light' },
       { kind: 'dispel', target: 'primary_target' }
     ]
   }),
@@ -130,7 +130,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 35, scale: 'int', factor: 1.4 }, element: 'light' }
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 32, scale: 'int', factor: 1.25 }, element: 'light' }
     ]
   }),
 
@@ -148,7 +148,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-light-heal-r-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 70, scale: 'int', factor: 1.2 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 52, scale: 'int', factor: 0.89 } },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 50, turns: 2 }
     ]
   }),
@@ -163,7 +163,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-light-heal-r-2',
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 40, scale: 'int', factor: 0.5 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 30, scale: 'int', factor: 0.37 } },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'def_up', amount: 15, turns: 2 }
     ]
   }),
@@ -182,7 +182,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 100, scale: 'int', factor: 1.5 } }
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 74, scale: 'int', factor: 1.11 } }
         ]
       }
     ]
@@ -214,7 +214,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-light-buff-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 30, scale: 'int', factor: 1.2 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 22, scale: 'int', factor: 0.89 }, element: 'light' },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'int_up', amount: 15, turns: 2 }
     ]
   }),
@@ -245,7 +245,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 15,
     upgrade_of: 'sk-light-purify-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 30, scale: 'int', factor: 1.2 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 22, scale: 'int', factor: 0.89 }, element: 'light' },
       { kind: 'dispel', target: 'enemy_front' }
     ]
   }),
@@ -274,7 +274,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-light-purify-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.6 }, element: 'light' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'int', factor: 1.18 }, element: 'light' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
@@ -299,7 +299,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-light-heal-c-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 140, scale: 'int', factor: 1.8 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 88, scale: 'int', factor: 1.14 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' }
     ]
   }),
@@ -314,7 +314,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-light-heal-c-2',
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 70, scale: 'int', factor: 0.8 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 44, scale: 'int', factor: 0.51 } },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 20, turns: 2 }
     ]
   }),
@@ -333,7 +333,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 180, scale: 'int', factor: 2.2 } },
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 114, scale: 'int', factor: 1.39 } },
           { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'invulnerable', amount: 1, turns: 1 }
         ]
       }
@@ -367,7 +367,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-light-buff-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 40, scale: 'int', factor: 1.5 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 25, scale: 'int', factor: 0.95 }, element: 'light' },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'atk_up', amount: 25, turns: 3 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'int_up', amount: 25, turns: 3 }
     ]
@@ -400,7 +400,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-light-purify-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 50, scale: 'int', factor: 1.8 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 32, scale: 'int', factor: 1.14 }, element: 'light' },
       { kind: 'dispel', target: 'enemy_all' }
     ]
   }),
@@ -416,7 +416,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-light-purify-c-2',
     actions: [
       { kind: 'cleanse', target: 'caster_ally_all' },
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 50, scale: 'int', factor: 0.5 } }
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 32, scale: 'int', factor: 0.32 } }
     ]
   }),
   l({
@@ -430,12 +430,12 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-light-purify-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 85, scale: 'int', factor: 2.2 }, element: 'light' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 54, scale: 'int', factor: 1.39 }, element: 'light' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'blind' },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'int', factor: 1.0 }, element: 'light' },
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 25, scale: 'int', factor: 0.63 }, element: 'light' },
           { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.8, turns: 2 }
         ]
       }
@@ -456,7 +456,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-light-heal-u-1',
     actions: [
-      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 250, scale: 'int', factor: 3.0 } },
+      { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 178, scale: 'int', factor: 2.13 } },
       { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'invulnerable', amount: 1, turns: 1 }
     ]
@@ -472,7 +472,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 30,
     upgrade_of: 'sk-light-heal-u-2',
     actions: [
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 120, scale: 'int', factor: 1.2 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 85, scale: 'int', factor: 0.85 } },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 30, turns: 3 }
     ]
   }),
@@ -492,7 +492,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
         then: [
-          { kind: 'heal', target: 'caster_ally_all', amount: { base: 200, scale: 'int', factor: 2.5 } },
+          { kind: 'heal', target: 'caster_ally_all', amount: { base: 142, scale: 'int', factor: 1.77 } },
           { kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 40, turns: 2 }
         ]
       }
@@ -527,7 +527,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 32,
     upgrade_of: 'sk-light-buff-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 60, scale: 'int', factor: 2.0 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 43, scale: 'int', factor: 1.42 }, element: 'light' },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'atk_up', amount: 40, turns: 3 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'int_up', amount: 40, turns: 3 },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'spd_up', amount: 40, turns: 3 }
@@ -562,7 +562,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     energyCost: 36,
     upgrade_of: 'sk-light-purify-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 70, scale: 'int', factor: 2.5 }, element: 'light' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 50, scale: 'int', factor: 1.77 }, element: 'light' },
       { kind: 'dispel', target: 'enemy_all' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.6, turns: 2 }
     ]
@@ -579,7 +579,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-light-purify-u-2',
     actions: [
       { kind: 'cleanse', target: 'caster_ally_all' },
-      { kind: 'heal', target: 'caster_ally_all', amount: { base: 100, scale: 'int', factor: 1.0 } },
+      { kind: 'heal', target: 'caster_ally_all', amount: { base: 71, scale: 'int', factor: 0.71 } },
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'evasion_up', amount: 25, turns: 2 }
     ]
   }),
@@ -596,7 +596,7 @@ export const LIGHT_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-light-purify-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'int', factor: 4.0 }, element: 'light' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 106, scale: 'int', factor: 2.84 }, element: 'light' },
       { kind: 'dispel', target: 'primary_target' }
     ]
   })
