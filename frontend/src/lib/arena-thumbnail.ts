@@ -1,4 +1,4 @@
-import { SceneManager } from '../scene3d/scene';
+import { SceneManager } from '@digiworld/scene3d/scene';
 
 const THUMB_SIZE = 512;
 const RENDER_SETTLE_MS = 120;

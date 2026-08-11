@@ -14,6 +14,9 @@ importers:
 
   admin:
     dependencies:
+      '@digiworld/scene3d':
+        specifier: workspace:*
+        version: link:../scene3d
       '@digiworld/shared':
         specifier: workspace:*
         version: link:../shared
@@ -167,6 +170,9 @@ importers:
 
   frontend:
     dependencies:
+      '@digiworld/scene3d':
+        specifier: workspace:*
+        version: link:../scene3d
       '@digiworld/shared':
         specifier: workspace:*
         version: link:../shared
@@ -207,6 +213,28 @@ importers:
       playwright:
         specifier: ^1.62.0
         version: 1.62.0
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+      vite:
+        specifier: ^6.0.5
+        version: 6.4.3(@types/node@24.13.3)(tsx@4.23.1)
+
+  scene3d:
+    dependencies:
+      '@digiworld/shared':
+        specifier: workspace:*
+        version: link:../shared
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
+      three-stdlib:
+        specifier: ^2.36.1
+        version: 2.36.1(three@0.185.1)
+    devDependencies:
+      '@types/three':
+        specifier: ^0.185.1
+        version: 0.185.1
       typescript:
         specifier: ^5.7.2
         version: 5.9.3

@@ -4,10 +4,10 @@ import type { SceneEntity } from '@digiworld/shared/scene';
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
-import { SceneManager, type SceneSettings } from '../../scene3d/scene';
-import type { AnimatedElement } from '../../scene3d/attack-runners/types';
-import type { SpriteSide } from '../../scene3d/sprite-rig';
-import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '../../scene3d/arena-urls';
+import { SceneManager, type SceneSettings } from '@digiworld/scene3d/scene';
+import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
+import type { SpriteSide } from '@digiworld/scene3d/sprite-rig';
+import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
 import { useAuth } from '../../hooks/useAuth';

@@ -11,7 +11,7 @@ import type {
   ParticleBlending,
   SpawnShape,
 } from '@digiworld/shared/weather';
-import { ParticleEmitter } from '../scene3d/particles/ParticleEmitter';
+import { ParticleEmitter } from '@digiworld/scene3d/particles/ParticleEmitter';
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { Link } from 'react-router';
 import '../styles/extensions-admin.css';

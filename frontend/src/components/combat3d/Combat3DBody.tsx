@@ -10,8 +10,8 @@ import { useWebSocket } from '../../hooks/useWebSocket';
 import { actInWorldBattle, ApiError } from '../../lib/api';
 import type { ItemDrop, XpAward } from '../../lib/api-world';
 import { useWsStore } from '../../state/wsStore';
-import { isAnimatedElement } from '../../scene3d/attack-runners/types';
-import type { AnimatedElement } from '../../scene3d/attack-runners/types';
+import { isAnimatedElement } from '@digiworld/scene3d/attack-runners/types';
+import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 
 import { AilmentBadgesLayer } from './AilmentBadgesLayer';
 import { EnemyHealthBars } from './EnemyHealthBars';

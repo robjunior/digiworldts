@@ -5,12 +5,12 @@ import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 import { ELEMENT_TO_ARENA_KEY, type SceneEntity } from '@digiworld/shared/scene';
 import { WEATHER_PRESETS, TIME_PHASES, WeatherConfigZ, type WeatherConfig, type TimeOfDayConfig, type WeatherPreset, type TimePhase } from '@digiworld/shared/weather';
 
-import { WEATHER_EMITTER_PRESETS } from '../../scene3d/particles/presets';
+import { WEATHER_EMITTER_PRESETS } from '@digiworld/scene3d/particles/presets';
 
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
-import { ARENA_FILE_LIST } from '../../scene3d/arena-urls';
-import type { SceneSettings } from '../../scene3d/scene';
+import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
+import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
 const DEFAULT_SETTINGS: SceneSettings = {

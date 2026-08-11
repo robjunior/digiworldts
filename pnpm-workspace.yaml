@@ -3,6 +3,7 @@ packages:
   - "backend"
   - "discord"
   - "frontend"
+  - "scene3d"
   - "shared"
 
 allowBuilds:
