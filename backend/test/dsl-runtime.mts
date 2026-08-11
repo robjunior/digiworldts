@@ -8,10 +8,10 @@
  * Run: pnpm --filter @digiworld/backend exec tsx test/dsl-runtime.mts
  */
 import { initBattle, applyAction } from '../src/battle/engine.js';
-import { applyDamageWithBuffs, effectiveDef, getEvade, getAccuracy, rollMiss, tickActorBuffs, tickSkillCooldowns } from '../src/battle/dsl-runtime.js';
+import { applyDamageWithBuffs, effectiveDef, flushScheduledActions, getEvade, getAccuracy, rollMiss, tickActorBuffs, tickSkillCooldowns } from '../src/battle/dsl-runtime.js';
 import type { LoadoutMember, Loadout } from '../src/battle/engine.js';
 import type { Action as DSLAction } from '../src/skills/dsl.js';
-import type { BattleUnit, Skill } from '@digiworld/shared/battle';
+import type { Battle, BattleUnit, Skill } from '@digiworld/shared/battle';
 import type { TemplateDigimon } from '../src/digimon/types.js';
 
 const originalRandom = Math.random;
@@ -47,10 +47,13 @@ function check(name: string, ok: boolean, detail?: string): void {
   else { failed++; console.log(`  FAIL: ${name}${detail ? ' — ' + detail : ''}`); }
 }
 
-function battleWithActorSkill(skill: Skill): { b: ReturnType<typeof initBattle>; actor: BattleUnit; target: BattleUnit } {
+// initBattle became async during the DbAdapter refactor; this helper was never
+// updated, so every call resolved `b` to a Promise and `b.units` to undefined.
+// That is why the whole suite aborted on its first assertion.
+async function battleWithActorSkill(skill: Skill): Promise<{ b: Battle; actor: BattleUnit; target: BattleUnit }> {
   const loadoutA: Loadout = { playerId: 'usr_a', members: [mem('a0', fire, 200, skill), mem('a1', fire, 100), mem('a2', fire, 50)] };
   const loadoutB: Loadout = { playerId: 'usr_b', members: [mem('b0', water, -100), mem('b1', water, -110), mem('b2', water, -120)] };
-  const b = initBattle({ loadoutA, loadoutB });
+  const b = await initBattle({ loadoutA, loadoutB });
   const actor = b.units.find((u) => u.id === 'a:0')!;
   const target = b.units.find((u) => u.id === 'b:0')!;
   return { b, actor, target };
@@ -61,7 +64,7 @@ console.log('=== Test 1: DSL deal_damage routes through hybrid path ===');
   const skill = dslSkill('sk-fireball', 'Fireball', [
     { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'int', factor: 1.4 }, element: 'fire' },
   ]);
-  const { b, target } = battleWithActorSkill(skill);
+  const { b, target } = await battleWithActorSkill(skill);
   const hpBefore = target.hp;
   const r = applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-fireball', targetId: 'b:0' });
   check('DSL deal_damage accepted', r.ok);
@@ -71,14 +74,14 @@ console.log('=== Test 1: DSL deal_damage routes through hybrid path ===');
 console.log('\n=== Test 2: DSL heal restores HP capped at hpMax ===');
 {
   const skill = dslSkill('sk-heal', 'Heal', [{ kind: 'heal', target: 'self', amount: 100 }]);
-  const { b, actor } = battleWithActorSkill(skill);
+  const { b, actor } = await battleWithActorSkill(skill);
   actor.hp = 50;
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-heal', targetId: 'b:0' });
   check('actor healed to 150', actor.hp === 150, `hp=${actor.hp}`);
 }
 {
   const skill = dslSkill('sk-heal-cap', 'HealCap', [{ kind: 'heal', target: 'self', amount: 100 }]);
-  const { b, actor } = battleWithActorSkill(skill);
+  const { b, actor } = await battleWithActorSkill(skill);
   actor.hp = actor.hpMax - 10;
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-heal-cap', targetId: 'b:0' });
   check('heal capped at hpMax', actor.hp === actor.hpMax, `hp=${actor.hp} max=${actor.hpMax}`);
@@ -89,7 +92,7 @@ console.log('\n=== Test 3: apply_status adds ailment; conditional 100% chance ==
   const skill = dslSkill('sk-poison', 'Poison', [
     { kind: 'apply_status', target: 'primary_target', status: 'poison', chance: 1.0, turns: 3 },
   ]);
-  const { b, target } = battleWithActorSkill(skill);
+  const { b, target } = await battleWithActorSkill(skill);
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-poison', targetId: 'b:0' });
   const poisoned = target.ailments.find((a) => a.kind === 'poison');
   check('poison applied', poisoned !== undefined);
@@ -101,7 +104,7 @@ console.log('\n=== Test 4: apply_buff adds shield_absorb to activeBuffs ===');
   const skill = dslSkill('sk-shield', 'Shield', [
     { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 200, turns: 3 },
   ]);
-  const { b, actor } = battleWithActorSkill(skill);
+  const { b, actor } = await battleWithActorSkill(skill);
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-shield', targetId: 'b:0' });
   const shield = (actor.activeBuffs ?? []).find((buf) => buf.kind === 'shield_absorb');
   check('shield_absorb buff added', shield !== undefined);
@@ -110,7 +113,7 @@ console.log('\n=== Test 4: apply_buff adds shield_absorb to activeBuffs ===');
 
 console.log('\n=== Test 5: applyDamageWithBuffs consumes shield before HP ===');
 {
-  const { b, target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { b, target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   target.activeBuffs = [{ kind: 'shield_absorb', amount: 100, remainingTurns: 3, sourceId: 'a:0' }];
   const hpToHp = applyDamageWithBuffs(target, 80);
   check('80 dmg fully absorbed', hpToHp === 0, `hp-dmg=${hpToHp}`);
@@ -122,7 +125,7 @@ console.log('\n=== Test 5: applyDamageWithBuffs consumes shield before HP ===');
 
 console.log('\n=== Test 6: invulnerable buff zeros damage ===');
 {
-  const { target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   target.activeBuffs = [{ kind: 'invulnerable', amount: 1, remainingTurns: 3, sourceId: 'a:0' }];
   const hpDmg = applyDamageWithBuffs(target, 999);
   check('invulnerable → 0 dmg', hpDmg === 0);
@@ -130,7 +133,7 @@ console.log('\n=== Test 6: invulnerable buff zeros damage ===');
 
 console.log('\n=== Test 7: damage_reduction cuts damage by pct ===');
 {
-  const { target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   target.activeBuffs = [{ kind: 'damage_reduction', amount: 50, remainingTurns: 3, sourceId: 'a:0' }];
   const hpDmg = applyDamageWithBuffs(target, 100);
   check('50% DR → 50 dmg', hpDmg === 50, `hp-dmg=${hpDmg}`);
@@ -139,14 +142,14 @@ console.log('\n=== Test 7: damage_reduction cuts damage by pct ===');
 console.log('\n=== Test 8: cleanse removes ailments; filter-by-ailment removes only one ===');
 {
   const cleanseAll = dslSkill('sk-cleanse', 'Cleanse', [{ kind: 'cleanse', target: 'self' }]);
-  const { b, actor } = battleWithActorSkill(cleanseAll);
+  const { b, actor } = await battleWithActorSkill(cleanseAll);
   actor.ailments = [{ kind: 'burn', turnsLeft: 3 }, { kind: 'poison', turnsLeft: 3 }];
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cleanse', targetId: 'b:0' });
   check('cleanse-all removed both', actor.ailments.length === 0, `remaining=${actor.ailments.length}`);
 }
 {
   const cleanseBurn = dslSkill('sk-cleanse2', 'Cleanse Burn', [{ kind: 'cleanse', target: 'self', ailment: 'burn' }]);
-  const { b, actor } = battleWithActorSkill(cleanseBurn);
+  const { b, actor } = await battleWithActorSkill(cleanseBurn);
   actor.ailments = [{ kind: 'burn', turnsLeft: 3 }, { kind: 'poison', turnsLeft: 3 }];
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cleanse2', targetId: 'b:0' });
   check('cleanse burn kept poison', actor.ailments.length === 1 && actor.ailments[0]?.kind === 'poison',
@@ -156,7 +159,7 @@ console.log('\n=== Test 8: cleanse removes ailments; filter-by-ailment removes o
 console.log('\n=== Test 9: dispel removes buffs; filter-by-buff removes only one ===');
 {
   const dispelAll = dslSkill('sk-dispel', 'Dispel', [{ kind: 'dispel', target: 'primary_target' }]);
-  const { b, target } = battleWithActorSkill(dispelAll);
+  const { b, target } = await battleWithActorSkill(dispelAll);
   target.activeBuffs = [
     { kind: 'atk_up', amount: 20, remainingTurns: 3, sourceId: 'b:0' },
     { kind: 'shield_absorb', amount: 100, remainingTurns: 3, sourceId: 'b:0' },
@@ -168,7 +171,7 @@ console.log('\n=== Test 9: dispel removes buffs; filter-by-buff removes only one
 console.log('\n=== Test 10: silence rejects skill action with code=silenced ===');
 {
   const skill = dslSkill('sk-any', 'Any', [{ kind: 'heal', target: 'self', amount: 1 }]);
-  const { b, actor } = battleWithActorSkill(skill);
+  const { b, actor } = await battleWithActorSkill(skill);
   actor.ailments = [{ kind: 'silence', turnsLeft: 3 }];
   const r = applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-any', targetId: 'b:0' });
   check('applyAction rejected', !r.ok);
@@ -180,7 +183,7 @@ console.log('\n=== Test 11: confusion re-targets to random ally (rand=0.4 trigge
   const skill = dslSkill('sk-hit', 'Hit', [
     { kind: 'deal_damage', target: 'primary_target', amount: 50, element: 'fire' },
   ]);
-  const { b, actor } = battleWithActorSkill(skill);
+  const { b, actor } = await battleWithActorSkill(skill);
   actor.ailments = [{ kind: 'confusion', turnsLeft: 3 }];
   const enemyHpBefore = b.units.find((u) => u.id === 'b:0')!.hp;
   const a1Before = b.units.find((u) => u.id === 'a:1')!.hp;
@@ -198,7 +201,7 @@ console.log('\n=== Test 11: confusion re-targets to random ally (rand=0.4 trigge
 console.log('\n=== Test 12: extra_turn inserts TurnEntry at turnCursor+1 ===');
 {
   const skill = dslSkill('sk-quick', 'Quick', [{ kind: 'extra_turn', target: 'caster_ally_slot_1' }]);
-  const { b } = battleWithActorSkill(skill);
+  const { b } = await battleWithActorSkill(skill);
   const cursorBefore = b.turnCursor;
   const queueLenBefore = b.turnQueue.length;
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-quick', targetId: 'b:0' });
@@ -209,7 +212,7 @@ console.log('\n=== Test 12: extra_turn inserts TurnEntry at turnCursor+1 ===');
 
 console.log('\n=== Test 13: effectiveDef +50% under petrify ===');
 {
-  const { target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   const baseDef = target.def;
   const normalDef = effectiveDef(target);
   target.ailments = [{ kind: 'petrify', turnsLeft: 3 }];
@@ -220,7 +223,7 @@ console.log('\n=== Test 13: effectiveDef +50% under petrify ===');
 
 console.log('\n=== Test 14: getAccuracy/getEvade + blind penalty ===');
 {
-  const { actor, target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { actor, target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   check('baseline accuracy = 0', getAccuracy(actor) === 0);
   check('baseline evade = 0', getEvade(target) === 0);
   actor.ailments = [{ kind: 'blind', turnsLeft: 3 }];
@@ -233,7 +236,7 @@ console.log('\n=== Test 14: getAccuracy/getEvade + blind penalty ===');
 
 console.log('\n=== Test 15: rollMiss respects accuracy - evade ===');
 {
-  const { actor, target } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { actor, target } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   // With stub rand=0.5, roll = 50. hitChance = 92 + 0 - 0 = 92. missed = 50 > 92 = false.
   check('baseline: 92% hit → no miss at rand=0.5', !rollMiss(actor, target));
   // Set evasion so hitChance drops below 50.
@@ -244,7 +247,7 @@ console.log('\n=== Test 15: rollMiss respects accuracy - evade ===');
 
 console.log('\n=== Test 16: tickActorBuffs decrements + drops expired ===');
 {
-  const { actor } = battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
+  const { actor } = await battleWithActorSkill(dslSkill('_', '_', [{ kind: 'heal', target: 'self', amount: 1 }]));
   actor.activeBuffs = [
     { kind: 'atk_up', amount: 10, remainingTurns: 2, sourceId: 'a:0' },
     { kind: 'shield_absorb', amount: 100, remainingTurns: 1, sourceId: 'a:0' },
@@ -261,7 +264,7 @@ console.log('\n=== Test 17: drain damages target + heals caster ===');
   const skill = dslSkill('sk-drain', 'Drain', [
     { kind: 'drain', target: 'primary_target', damage: { base: 100, scale: 'int', factor: 0.5 }, heal_pct: 0.5, element: 'plant' },
   ]);
-  const { b, actor, target } = battleWithActorSkill(skill);
+  const { b, actor, target } = await battleWithActorSkill(skill);
   actor.hp = actor.hpMax - 200;
   const enemyHpBefore = target.hp;
   const casterHpBefore = actor.hp;
@@ -275,7 +278,7 @@ console.log('\n=== Test 17: drain damages target + heals caster ===');
 console.log('\n=== Test 18: cooldown enforcement ===');
 {
   const cdSkill: Skill = { id: 'sk-cd', name: 'Cooldown Skill', element: 'fire', energyCost: 0, power: 100, cooldown: 2 };
-  const { b, actor } = battleWithActorSkill(cdSkill);
+  const { b, actor } = await battleWithActorSkill(cdSkill);
   const initialCd = actor.skillCooldowns;
   check('no cooldown entries before cast', initialCd === undefined || Object.keys(initialCd).length === 0);
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd', targetId: 'b:0' });
@@ -285,7 +288,7 @@ console.log('\n=== Test 18: cooldown enforcement ===');
 console.log('\n=== Test 19: cooldown blocks recast with on-cooldown error ===');
 {
   const cdSkill: Skill = { id: 'sk-cd2', name: 'CD2', element: 'fire', energyCost: 0, power: 100, cooldown: 2 };
-  const { b, actor } = battleWithActorSkill(cdSkill);
+  const { b, actor } = await battleWithActorSkill(cdSkill);
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd2', targetId: 'b:0' });
   b.turnCursor = 0;
   const result = applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-cd2', targetId: 'b:0' });
@@ -299,7 +302,7 @@ console.log('\n=== Test 19: cooldown blocks recast with on-cooldown error ===');
 console.log('\n=== Test 20: tickSkillCooldowns direct decrement + expire ===');
 {
   const cdSkill: Skill = { id: 'sk-cd3', name: 'CD3', element: 'fire', energyCost: 0, power: 100 };
-  const { actor } = battleWithActorSkill(cdSkill);
+  const { actor } = await battleWithActorSkill(cdSkill);
   actor.skillCooldowns = { 'sk-a': 3, 'sk-b': 1 };
   tickSkillCooldowns(actor);
   check('sk-a decremented from 3 to 2', actor.skillCooldowns?.['sk-a'] === 2);
@@ -314,7 +317,7 @@ console.log('\n=== Test 20: tickSkillCooldowns direct decrement + expire ===');
 console.log('\n=== Test 21: skills without cooldown do not create entries ===');
 {
   const noCdSkill: Skill = { id: 'sk-nocd', name: 'NoCD', element: 'fire', energyCost: 0, power: 100 };
-  const { b, actor } = battleWithActorSkill(noCdSkill);
+  const { b, actor } = await battleWithActorSkill(noCdSkill);
   applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-nocd', targetId: 'b:0' });
   check('no skillCooldowns entry for cooldown-less skill', actor.skillCooldowns?.['sk-nocd'] === undefined);
 }
@@ -322,10 +325,84 @@ console.log('\n=== Test 21: skills without cooldown do not create entries ===');
 console.log('\n=== Test 22: basic fight action does not create cooldown entry ===');
 {
   const anySkill: Skill = { id: 'sk-x', name: 'X', element: 'fire', energyCost: 0, power: 100 };
-  const { b, actor } = battleWithActorSkill(anySkill);
+  const { b, actor } = await battleWithActorSkill(anySkill);
   applyAction(b, 'a', { type: 'fight', unitId: 'a:0', targetId: 'b:0' });
   check('no basic cooldown entry after fight', actor.skillCooldowns?.['basic'] === undefined);
   check('no other cooldown entries created', actor.skillCooldowns === undefined || Object.keys(actor.skillCooldowns).length === 0);
+}
+
+console.log('\n=== Test 23: schedule parks its action instead of firing it ===');
+{
+  const skill = dslSkill('sk-bomb', 'Delayed Bomb', [
+    { kind: 'schedule', delay: 2, action: { kind: 'deal_damage', target: 'primary_target', amount: { base: 200, scale: 'int', factor: 0 }, element: 'fire' } },
+  ]);
+  const { b, target } = await battleWithActorSkill(skill);
+  const hpBefore = target.hp;
+  const r = applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-bomb', targetId: 'b:0' });
+  check('schedule action accepted', r.ok);
+  check('target took NO damage on cast', target.hp === hpBefore, `hp ${hpBefore} -> ${target.hp}`);
+  check('one action is queued', (b.pendingActions ?? []).length === 1, `queued ${(b.pendingActions ?? []).length}`);
+  check('queued entry fires two rounds out', b.pendingActions?.[0]?.firesAtRound === b.round + 2, `firesAt=${b.pendingActions?.[0]?.firesAtRound} round=${b.round}`);
+}
+
+console.log('\n=== Test 24: the queued action fires when its round arrives ===');
+{
+  const skill = dslSkill('sk-bomb2', 'Timed Blast', [
+    { kind: 'schedule', delay: 1, action: { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'int', factor: 0 }, element: 'fire' } },
+  ]);
+  const { b, target } = await battleWithActorSkill(skill);
+  const startRound = b.round;
+  const hpBefore = target.hp;
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-bomb2', targetId: 'b:0' });
+  check('nothing has happened yet', target.hp === hpBefore);
+  // Walk every remaining unit through a basic attack until the round rolls over.
+  let guard = 0;
+  while (b.round === startRound && b.status !== 'ended' && guard < 12) {
+    const entry = b.turnQueue[b.turnCursor];
+    if (!entry) break;
+    const foe = b.units.find((u) => u.side !== entry.side && u.hp > 0);
+    if (!foe) break;
+    applyAction(b, entry.side, { type: 'fight', unitId: entry.unitId, targetId: foe.id });
+    guard += 1;
+  }
+  check('a new round started', b.round > startRound, `round ${startRound} -> ${b.round}`);
+  check('queue drained once its round arrived', (b.pendingActions ?? []).length === 0, `left ${(b.pendingActions ?? []).length}`);
+  check('the delayed hit landed', target.hp < hpBefore, `hp ${hpBefore} -> ${target.hp}`);
+}
+
+console.log('\n=== Test 25: the queue survives a JSON round-trip ===');
+{
+  // Battles are serialized into the cluster's battle:snap:{matchId} key between
+  // actions, so a pending entry holding object references would not survive a
+  // cross-node hop. It stores unit ids for exactly this reason.
+  const skill = dslSkill('sk-bomb3', 'Persistent Charge', [
+    { kind: 'schedule', delay: 1, action: { kind: 'deal_damage', target: 'primary_target', amount: { base: 120, scale: 'int', factor: 0 }, element: 'fire' } },
+  ]);
+  const { b } = await battleWithActorSkill(skill);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-bomb3', targetId: 'b:0' });
+  const revived = JSON.parse(JSON.stringify(b)) as Battle;
+  check('pending queue survives serialization', (revived.pendingActions ?? []).length === 1);
+  check('actor is stored by id', typeof revived.pendingActions?.[0]?.actorId === 'string');
+  check('target is stored by id', typeof revived.pendingActions?.[0]?.targetId === 'string');
+}
+
+console.log('\n=== Test 26: a dead actor drops its pending action ===');
+{
+  const skill = dslSkill('sk-bomb4', 'Dying Wish', [
+    { kind: 'schedule', delay: 1, action: { kind: 'deal_damage', target: 'primary_target', amount: { base: 999, scale: 'int', factor: 0 }, element: 'fire' } },
+  ]);
+  const { b, actor, target } = await battleWithActorSkill(skill);
+  applyAction(b, 'a', { type: 'skill', unitId: 'a:0', skillId: 'sk-bomb4', targetId: 'b:0' });
+  check('action queued', (b.pendingActions ?? []).length === 1);
+  actor.hp = 0;
+  const hpBefore = target.hp;
+  // Advance to the round the entry was timed for so it is actually due;
+  // otherwise flush correctly leaves it alone and the test proves nothing.
+  b.round = b.pendingActions![0]!.firesAtRound;
+  const fired = flushScheduledActions(b);
+  check('nothing fired for a dead actor', fired.length === 0, `events ${fired.length}`);
+  check('target untouched', target.hp === hpBefore);
+  check('entry was consumed, not left dangling', (b.pendingActions ?? []).length === 0);
 }
 
 Math.random = originalRandom;

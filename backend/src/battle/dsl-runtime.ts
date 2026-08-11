@@ -15,6 +15,7 @@ import {
   type BattleEvent,
   type BattleSide,
   type BattleUnit,
+  type ScheduledAction,
   type SlotIndex,
   type UnitId,
 } from '@digiworld/shared/battle';
@@ -68,6 +69,73 @@ export function executeDSL(
     execAction(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
   }
   return { events: battle.log.slice(eventsBefore) };
+}
+
+// ---------------------------------------------------------------------------
+// Scheduled actions.
+//
+// `{ kind: 'schedule', delay, action }` parks its inner action on the battle
+// instead of running it. `flushScheduledActions` runs everything due at the
+// start of a round, which is the only place `battle.round` advances.
+//
+// Units are stored by id: a Battle is serialized to JSON into the cluster's
+// `battle:snap:{matchId}` key between actions, so object references would not
+// survive a cross-node hop.
+// ---------------------------------------------------------------------------
+
+function enqueueScheduled(
+  battle: Battle,
+  actor: BattleUnit,
+  action: Extract<Action, { kind: 'schedule' }>,
+  primaryTarget: BattleUnit | null,
+  skillName: string,
+  actingSide: BattleSide,
+  extraPicks: readonly BattleUnit[],
+): void {
+  const queued: ScheduledAction = {
+    action: action.action,
+    actorId: actor.id,
+    targetId: primaryTarget?.id ?? null,
+    extraPickIds: extraPicks.map((u) => u.id),
+    side: actingSide,
+    skillName,
+    firesAtRound: battle.round + action.delay,
+  };
+  battle.pendingActions = [...(battle.pendingActions ?? []), queued];
+}
+
+/**
+ * Run every scheduled action whose round has arrived, in the order queued.
+ *
+ * Called by the engine immediately after `battle.round` increments. A pending
+ * entry is dropped without firing when its actor is gone — a dead Digimon's
+ * delayed attack does not go off, and resolving a `self` target against a
+ * corpse has no sensible meaning.
+ *
+ * Entries fired by this pass may themselves enqueue further actions (a
+ * `schedule` nested inside a `schedule`); those land with a later
+ * `firesAtRound` and are picked up by a subsequent round rather than looping
+ * here.
+ */
+export function flushScheduledActions(battle: Battle): BattleEvent[] {
+  const pending = battle.pendingActions;
+  if (pending === undefined || pending.length === 0) return [];
+
+  const due = pending.filter((p) => p.firesAtRound <= battle.round);
+  if (due.length === 0) return [];
+  battle.pendingActions = pending.filter((p) => p.firesAtRound > battle.round);
+
+  const eventsBefore = battle.log.length;
+  for (const entry of due) {
+    const actor = battle.units.find((u) => u.id === entry.actorId);
+    if (actor === undefined || actor.hp <= 0) continue;
+    const target = entry.targetId === null ? null : (battle.units.find((u) => u.id === entry.targetId) ?? null);
+    const extras = entry.extraPickIds
+      .map((id) => battle.units.find((u) => u.id === id))
+      .filter((u): u is BattleUnit => u !== undefined);
+    execAction(battle, actor, entry.action as Action, target, entry.skillName, entry.side, extras);
+  }
+  return battle.log.slice(eventsBefore);
 }
 
 // ---------------------------------------------------------------------------
@@ -318,10 +386,7 @@ function execAction(
       execShiftInitiative(battle, actor, action, primaryTarget, skillName, extraPicks);
       return;
     case 'schedule':
-      // TODO(P2/Tier2): implement scheduled-action queue on Battle state.
-      // For now schedule fires immediately (delay ignored) so callers can rely
-      // on eventual execution without needing engine state changes.
-      execAction(battle, actor, action.action, primaryTarget, skillName, actingSide, extraPicks);
+      enqueueScheduled(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);
       return;
     case 'conditional':
       execConditional(battle, actor, action, primaryTarget, skillName, actingSide, extraPicks);

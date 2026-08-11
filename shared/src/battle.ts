@@ -141,6 +141,29 @@ export type Battle = {
    *  added — `applyAction` falls back to `1.0` when absent. */
   damageRate?: number;
   sceneId?: string | null;
+  /** Actions queued by the DSL's `schedule` kind, fired at the start of the
+   *  round named by `firesAtRound`. Optional for backward compat with in-flight
+   *  `battle:snap:*` blobs written before the field existed — readers must
+   *  treat `undefined` as an empty queue. */
+  pendingActions?: ScheduledAction[];
+};
+
+/** A `schedule` action parked on the battle until its round comes up.
+ *
+ *  Units are stored by id rather than by reference because a `Battle` is
+ *  round-tripped through JSON into the cluster's `battle:snap:{matchId}` key
+ *  between actions; object references would not survive. */
+export type ScheduledAction = {
+  /** The DSL action to run. Structurally an `Action` from the skills DSL, kept
+   *  loose here because `shared` does not depend on the backend's schema. */
+  action: unknown;
+  actorId: UnitId;
+  targetId: UnitId | null;
+  extraPickIds: UnitId[];
+  side: BattleSide;
+  skillName: string;
+  /** `battle.round` value at which this fires. */
+  firesAtRound: number;
 };
 
 export type EnemyUnitView = {
