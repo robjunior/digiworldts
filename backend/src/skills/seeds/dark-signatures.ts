@@ -1156,14 +1156,17 @@ export const DARK_SIGNATURES: SkillSeed[] = [
     idSuffix: 'skb237-1',
     name: 'Mad Dog Fire (Astamon)',
     name_pt: 'Fogo de Cão Raivoso',
-    description: 'Fires point-blank dark rounds in a savage burst, striking one enemy with unerring gangster precision.',
+    description: 'Fires point-blank dark rounds with unerring gangster precision, the cursed shot leaving the target crystallised where it stands.',
     description_pt: 'Dispara tiros sombrios à queima-roupa em uma rajada selvagem, acertando um inimigo com precisão de mafioso.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
     energyCost: 21,
     signature: true,
     owner_template_id: 'skb-237',
-    actions: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'atk', factor: 1.65 }, element: 'dark' }]
+    actions: [
+        { kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'atk', factor: 1.65 }, element: 'dark' },
+        { kind: 'apply_status', target: 'primary_target', status: 'petrify', chance: 0.2, turns: 2 }
+      ]
   }),
   d({
     idSuffix: 'skb237-2',
