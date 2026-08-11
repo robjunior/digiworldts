@@ -7,7 +7,7 @@
  *
  * Run: pnpm --filter @digiworld/backend exec tsx test/dsl-runtime.mts
  */
-import { initBattle, applyAction } from '../src/battle/engine.js';
+import { initBattle, applyAction, serializeForSide } from '../src/battle/engine.js';
 import { applyDamageWithBuffs, effectiveDef, flushScheduledActions, getEvade, getAccuracy, rollMiss, tickActorBuffs, tickSkillCooldowns } from '../src/battle/dsl-runtime.js';
 import type { LoadoutMember, Loadout } from '../src/battle/engine.js';
 import type { Action as DSLAction } from '../src/skills/dsl.js';
@@ -455,6 +455,34 @@ console.log('\n=== Test 29: a scheduled action keeps its preset across the JSON 
   const fired = flushScheduledActions(revived);
   const tagged = fired.filter((e) => (e as { vfxPresetId?: string }).vfxPresetId === 'svfx_delayed00000000000000');
   check('the delayed hit still emits the preset', tagged.length > 0, `of ${fired.length} events`);
+}
+
+console.log('\n=== Test 30: the enemy view exposes buff state without leaking stats ===');
+{
+  // Debuffs land in `activeBuffs`, not `ailments`, and `serializeForSide` used to
+  // omit that field for the opposing side — so a client could draw status icons
+  // for its own team and nothing for the enemy it had just debuffed.
+  const skill = dslSkill('sk-view', 'Viewer', [
+    { kind: 'deal_damage', target: 'primary_target', amount: { base: 1, scale: 'int', factor: 0 }, element: 'fire' },
+  ]);
+  const { b } = await battleWithActorSkill(skill);
+  const foe = b.units.find((u) => u.side === 'b')!;
+  foe.activeBuffs = [{ kind: 'atk_down', amount: 30, remainingTurns: 3, sourceId: 'a:0' }];
+  foe.ailments = [{ kind: 'poison', turnsLeft: 2 }];
+
+  const view = serializeForSide(b, 'a');
+  const seen = view.enemy.find((u) => u.id === foe.id)!;
+  check('enemy ailments are visible', seen.ailments[0]?.kind === 'poison');
+  check('enemy debuff is visible', seen.activeBuffs?.[0]?.kind === 'atk_down',
+    `got ${JSON.stringify(seen.activeBuffs)}`);
+  check('debuff magnitude and duration survive', seen.activeBuffs?.[0]?.amount === 30 && seen.activeBuffs?.[0]?.remainingTurns === 3);
+  const leaked = seen as unknown as Record<string, unknown>;
+  check('enemy combat stats stay redacted', leaked['atk'] === undefined && leaked['def'] === undefined && leaked['en'] === undefined);
+  check('enemy skills stay redacted', leaked['skills'] === undefined);
+
+  foe.activeBuffs = [];
+  const bare = serializeForSide(b, 'a').enemy.find((u) => u.id === foe.id)!;
+  check('an unbuffed enemy sends no empty array', bare.activeBuffs === undefined);
 }
 
 Math.random = originalRandom;

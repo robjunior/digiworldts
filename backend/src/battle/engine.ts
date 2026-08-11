@@ -969,6 +969,7 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
         down: u.hp === 0,
       };
       if (u.resistances) view.resistances = u.resistances;
+      if (u.activeBuffs && u.activeBuffs.length > 0) view.activeBuffs = u.activeBuffs;
       if (u.wildInfo) view.wild = u.wildInfo;
       enemy.push(view);
     }
