@@ -19,6 +19,7 @@
     "test:currency": "DB_PATH=/tmp/dw-currency-smoke.db tsx test/currency-smoke.mts",
     "test:discord-link": "DB_PATH=/tmp/dw-discord-link-test.db tsx test/discord-link.mts",
     "test:battle-sim": "tsx test/battle-sim.mts",
+    "test:damage-progression": "tsx test/damage-progression.mts",
     "test:battle-combo": "tsx test/battle-combo.mts",
     "test:dsl-runtime": "tsx test/dsl-runtime.mts",
     "test:dialogue-parser": "tsx test/dialogue-parser.mts",

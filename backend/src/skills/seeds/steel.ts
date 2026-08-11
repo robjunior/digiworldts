@@ -14,7 +14,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'def', factor: 1.15 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'def', factor: 1.18 }, element: 'steel' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 8, turns: 2 },
     ],
   }),
@@ -29,7 +29,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 7,
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 24, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 12, scale: 'def', factor: 0.45 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 12, scale: 'def', factor: 0.46 }, element: 'steel' },
     ],
   }),
   s({
@@ -42,7 +42,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'def', factor: 1.05 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'def', factor: 1.08 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -61,7 +61,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-steel-tank-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 68, scale: 'def', factor: 1.75 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 72, scale: 'def', factor: 1.85 }, element: 'steel' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 12, turns: 2 },
     ],
   }),
@@ -77,7 +77,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-tank-r-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 40, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 44, scale: 'def', factor: 1.1 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 46, scale: 'def', factor: 1.15 }, element: 'steel' },
     ],
   }),
   s({
@@ -91,7 +91,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-steel-tank-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'def', factor: 1.7 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 74, scale: 'def', factor: 1.8 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
@@ -110,7 +110,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-steel-tank-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 92, scale: 'def', factor: 2.15 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 104, scale: 'def', factor: 2.43 }, element: 'steel' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 16, turns: 2 },
     ],
   }),
@@ -126,7 +126,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-tank-c-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 84, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 54, scale: 'def', factor: 1.2 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 61, scale: 'def', factor: 1.35 }, element: 'steel' },
     ],
   }),
   s({
@@ -140,7 +140,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 24,
     upgrade_of: 'sk-steel-tank-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 118, scale: 'def', factor: 2.45 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 133, scale: 'def', factor: 2.76 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 42 },
@@ -161,7 +161,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'def', factor: 3.15 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 161, scale: 'def', factor: 3.4 }, element: 'steel' },
       { kind: 'apply_buff', target: 'self', buff: 'def_up', amount: 20, turns: 2 },
     ],
   }),
@@ -177,7 +177,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-tank-u-2',
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 120, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 82, scale: 'def', factor: 1.7 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 89, scale: 'def', factor: 1.84 }, element: 'steel' },
     ],
   }),
   s({
@@ -192,7 +192,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-steel-tank-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 178, scale: 'def', factor: 3.45 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 192, scale: 'def', factor: 3.71 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
@@ -212,7 +212,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'int', factor: 1.2 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'int', factor: 1.23 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 70 },
@@ -230,7 +230,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'utility',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 16, scale: 'int', factor: 0.7 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 16, scale: 'int', factor: 0.72 }, element: 'steel' },
       { kind: 'dispel', target: 'enemy_front' },
     ],
   }),
@@ -244,7 +244,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 0.95 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 0.98 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
@@ -264,7 +264,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-steel-counter-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 72, scale: 'int', factor: 1.85 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 76, scale: 'int', factor: 1.95 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 65 },
@@ -283,7 +283,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-steel-counter-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 24, scale: 'int', factor: 0.85 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 25, scale: 'int', factor: 0.89 }, element: 'steel' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 12, turns: 2 },
     ],
@@ -299,7 +299,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 12,
     upgrade_of: 'sk-steel-counter-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 58, scale: 'int', factor: 1.55 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.62 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
@@ -322,7 +322,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-steel-counter-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 92, scale: 'int', factor: 2.25 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 104, scale: 'int', factor: 2.54 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 60 },
@@ -341,7 +341,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-steel-counter-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 46, scale: 'int', factor: 1.35 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 52, scale: 'int', factor: 1.52 }, element: 'steel' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 18, turns: 2 },
     ],
@@ -357,13 +357,13 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 17,
     upgrade_of: 'sk-steel-counter-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 78, scale: 'int', factor: 1.95 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 87, scale: 'int', factor: 2.19 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
         then: [
           { kind: 'apply_status', target: 'primary_target', status: 'poison', chance: 0.7, turns: 3 },
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 36, scale: 'int', factor: 0.9 }, element: 'steel' },
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'int', factor: 1.01 }, element: 'steel' },
         ],
         else: [{ kind: 'modify_stat', target: 'primary_target', stat: 'atk', delta: -18, turns: 2 }],
       },
@@ -382,12 +382,12 @@ export const STEEL_SKILLS: SkillSeed[] = [
     tier_2: true,
     cooldown: 2,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 152, scale: 'int', factor: 3.25 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 163, scale: 'int', factor: 3.51 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 55 },
         then: [{ kind: 'shift_initiative', target: 'primary_target', delta: 4 }],
-        else: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 0.85 }, element: 'steel' }],
+        else: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'int', factor: 0.93 }, element: 'steel' }],
       },
     ],
   }),
@@ -402,7 +402,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 30,
     upgrade_of: 'sk-steel-counter-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 78, scale: 'int', factor: 1.95 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 84, scale: 'int', factor: 2.11 }, element: 'steel' },
       { kind: 'dispel', target: 'enemy_first_two' },
       { kind: 'apply_buff', target: 'enemy_first_two', buff: 'def_down', amount: 24, turns: 2 },
     ],
@@ -418,13 +418,13 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-steel-counter-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 112, scale: 'int', factor: 2.45 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 121, scale: 'int', factor: 2.64 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
         then: [
           { kind: 'apply_status', target: 'primary_target', status: 'poison', chance: 0.85, turns: 4 },
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 58, scale: 'int', factor: 1.05 }, element: 'steel' },
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 63, scale: 'int', factor: 1.13 }, element: 'steel' },
         ],
         else: [{ kind: 'modify_stat', target: 'primary_target', stat: 'atk', delta: -24, turns: 2 }],
       },
@@ -443,7 +443,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 8,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 24, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'int', factor: 0.65 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'int', factor: 0.67 }, element: 'steel' },
     ],
   }),
   s({
@@ -456,7 +456,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.8 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.82 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.28, turns: 1 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -8, turns: 2 },
     ],
@@ -471,7 +471,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'int', factor: 1.05 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'int', factor: 1.08 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.45, turns: 2 },
     ],
   }),
@@ -487,7 +487,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-steel-fortress-r-1',
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 38, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 48, scale: 'int', factor: 1.25 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 50, scale: 'int', factor: 1.31 }, element: 'steel' },
     ],
   }),
   s({
@@ -501,7 +501,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-steel-fortress-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 64, scale: 'int', factor: 1.65 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 68, scale: 'int', factor: 1.74 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.36, turns: 1 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -12, turns: 2 },
     ],
@@ -517,7 +517,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-steel-fortress-r-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.65 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 66, scale: 'int', factor: 1.74 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.58, turns: 2 },
     ],
   }),
@@ -534,7 +534,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 74, turns: 2 },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'damage_reduction', amount: 10, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 54, scale: 'int', factor: 1.25 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 61, scale: 'int', factor: 1.41 }, element: 'steel' },
     ],
   }),
   s({
@@ -548,7 +548,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-steel-fortress-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 86, scale: 'int', factor: 2.0 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 97, scale: 'int', factor: 2.25 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.46, turns: 1 },
       { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -18, turns: 2 },
     ],
@@ -564,7 +564,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-steel-fortress-c-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 106, scale: 'int', factor: 2.35 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 119, scale: 'int', factor: 2.65 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.7, turns: 2 },
     ],
   }),
@@ -583,7 +583,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 110, turns: 2 },
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'damage_reduction', amount: 14, turns: 2 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 82, scale: 'int', factor: 1.75 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 89, scale: 'int', factor: 1.89 }, element: 'steel' },
     ],
   }),
   s({
@@ -597,7 +597,7 @@ export const STEEL_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-steel-fortress-u-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 132, scale: 'int', factor: 2.85 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 142, scale: 'int', factor: 3.08 }, element: 'steel' },
       { kind: 'apply_status', target: 'primary_target', status: 'root', chance: 0.55, turns: 1 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
     ],
@@ -614,11 +614,11 @@ export const STEEL_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-steel-fortress-u-3',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 156, scale: 'int', factor: 3.25 }, element: 'steel' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 169, scale: 'int', factor: 3.51 }, element: 'steel' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 70, scale: 'int', factor: 1.15 }, element: 'steel', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 76, scale: 'int', factor: 1.24 }, element: 'steel', ignore_defense: true }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.75, turns: 2 }],
       },
     ],

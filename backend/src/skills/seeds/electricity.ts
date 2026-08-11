@@ -18,7 +18,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'spd', factor: 1.05 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'spd', factor: 1.02 }, element: 'electricity' },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
     ],
   }),
@@ -61,7 +61,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 11, scale: 'int', factor: 0.85 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_front', amount: { base: 11, scale: 'int', factor: 0.82 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_front', status: 'stun', chance: 0.15, turns: 1 },
     ],
   }),
@@ -75,8 +75,8 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 15, scale: 'int', factor: 0.85 }, element: 'electricity' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 15, scale: 'int', factor: 0.85 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 15, scale: 'int', factor: 0.82 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 15, scale: 'int', factor: 0.82 }, element: 'electricity' },
     ],
   }),
   e({
@@ -89,7 +89,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 7,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 8, scale: 'int', factor: 0.54 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 8, scale: 'int', factor: 0.53 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.4, turns: 2 },
     ],
   }),
@@ -105,7 +105,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 9, scale: 'int', factor: 0.54 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 9, scale: 'int', factor: 0.53 }, element: 'electricity' },
       { kind: 'apply_status', target: 'primary_target', status: 'stun', chance: 0.4, turns: 1 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 1 },
     ],
@@ -153,13 +153,13 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-elec-combo-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 38, scale: 'spd', factor: 1.66 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'spd', factor: 1.61 }, element: 'electricity' },
       { kind: 'shift_initiative', target: 'self', delta: -1 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'stun' },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 23, scale: 'spd', factor: 1.11 }, element: 'electricity' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'spd', factor: 1.07 }, element: 'electricity' }
         ]
       }
     ],
@@ -190,7 +190,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-combo-r-3',
     energyCost: 15,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 56, scale: 'spd', factor: 2.0 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 54, scale: 'spd', factor: 1.92 }, element: 'electricity' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'weaken' },
@@ -213,7 +213,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-elec-chain-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 24, scale: 'int', factor: 1.11 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 23, scale: 'int', factor: 1.07 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'stun', chance: 0.2, turns: 1 },
     ],
   }),
@@ -243,7 +243,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-chain-r-3',
     energyCost: 12,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 16, scale: 'int', factor: 0.89 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 16, scale: 'int', factor: 0.86 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.5, turns: 3 },
     ],
   }),
@@ -260,7 +260,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-elec-stun-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 23, scale: 'int', factor: 0.89 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'int', factor: 0.86 }, element: 'electricity' },
       { kind: 'apply_status', target: 'primary_target', status: 'stun', chance: 0.5, turns: 1 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
     ],
@@ -313,7 +313,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     cooldown: 2,
     upgrade_of: 'sk-elec-combo-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 21, scale: 'spd', factor: 0.76 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 21, scale: 'spd', factor: 0.73 }, element: 'electricity' },
       { kind: 'shift_initiative', target: 'self', delta: -2 },
       {
         kind: 'conditional',
@@ -367,7 +367,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-elec-chain-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 15, scale: 'int', factor: 0.59 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 15, scale: 'int', factor: 0.56 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'stun', chance: 0.25, turns: 1 },
     ],
   }),
@@ -382,7 +382,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-chain-c-2',
     energyCost: 18,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 10, scale: 'int', factor: 0.42 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 10, scale: 'int', factor: 0.41 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.6, turns: 3 },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'def', delta: -20, turns: 3 },
     ],
@@ -398,11 +398,11 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-chain-c-3',
     energyCost: 18,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.34 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.33 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_random', status: 'stun', chance: 0.4, turns: 1 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.34 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.33 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_random', status: 'stun', chance: 0.4, turns: 1 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.34 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 8, scale: 'int', factor: 0.33 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_random', status: 'stun', chance: 0.4, turns: 1 },
     ],
   }),
@@ -419,7 +419,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-elec-stun-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'int', factor: 0.5 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 15, scale: 'int', factor: 0.48 }, element: 'electricity' },
       { kind: 'apply_status', target: 'primary_target', status: 'stun', chance: 0.8, turns: 1 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 3 },
     ],
@@ -435,12 +435,12 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-stun-c-2',
     energyCost: 20,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.63 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.6 }, element: 'electricity' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'stun' },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.63 }, element: 'electricity' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 17, scale: 'int', factor: 0.6 }, element: 'electricity' }
         ]
       }
     ],
@@ -478,13 +478,13 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     tier_2: true,
     upgrade_of: 'sk-elec-combo-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 24, scale: 'spd', factor: 0.75 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'spd', factor: 0.68 }, element: 'electricity' },
       { kind: 'shift_initiative', target: 'self', delta: -3 },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'spd', factor: 0.61 }, element: 'electricity' }
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'spd', factor: 0.55 }, element: 'electricity' }
         ]
       }
     ],
@@ -534,8 +534,8 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     tier_2: true,
     upgrade_of: 'sk-elec-chain-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 18, scale: 'int', factor: 0.61 }, element: 'electricity' },
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 9, scale: 'int', factor: 0.3 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 16, scale: 'int', factor: 0.55 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 9, scale: 'int', factor: 0.27 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'stun', chance: 0.3, turns: 1 },
     ],
   }),
@@ -550,7 +550,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-chain-u-2',
     energyCost: 28,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 12, scale: 'int', factor: 0.45 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 11, scale: 'int', factor: 0.42 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_all', status: 'weaken', chance: 0.8, turns: 4 },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'def', delta: -35, turns: 4 },
     ],
@@ -566,7 +566,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-chain-u-3',
     energyCost: 30,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 9, scale: 'int', factor: 0.3 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 9, scale: 'int', factor: 0.27 }, element: 'electricity' },
       { kind: 'restore_en', target: 'caster_ally_all', amount: 15 },
     ],
   }),
@@ -584,7 +584,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     tier_2: true,
     upgrade_of: 'sk-elec-stun-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.61 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 16, scale: 'int', factor: 0.55 }, element: 'electricity' },
       { kind: 'apply_status', target: 'primary_target', status: 'stun', chance: 1.0, turns: 1 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 4 },
       { kind: 'shift_initiative', target: 'enemy_all', delta: 1 },
@@ -616,7 +616,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-elec-stun-u-3',
     energyCost: 32,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 16, scale: 'int', factor: 0.54 }, element: 'electricity' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 15, scale: 'int', factor: 0.49 }, element: 'electricity' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'stun', chance: 0.6, turns: 1 },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'atk', delta: -30, turns: 3 },
       { kind: 'modify_stat', target: 'enemy_all', stat: 'spd', delta: -30, turns: 3 },
