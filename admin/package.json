@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@digiworld/scene3d": "workspace:*",
     "@digiworld/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "react": "^18.3.1",

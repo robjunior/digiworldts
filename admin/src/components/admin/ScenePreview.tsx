@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
-import { SceneManager, type SceneSettings } from '../../scene3d/scene';
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
+import { SceneManager, type SceneSettings } from '@digiworld/scene3d/scene';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;

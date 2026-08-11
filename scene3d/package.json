@@ -1,0 +1,23 @@
+{
+  "name": "@digiworld/scene3d",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@digiworld/shared": "workspace:*",
+    "three": "^0.185.1",
+    "three-stdlib": "^2.36.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.185.1",
+    "vite": "^6.0.5",
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { PenSpriteRig } from '../../scene3d/pen-sprite';
-import { SceneManager } from '../../scene3d/scene';
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '../../scene3d/arena-urls';
+import { PenSpriteRig } from '@digiworld/scene3d/pen-sprite';
+import { SceneManager } from '@digiworld/scene3d/scene';
+import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 import type { NurseryPenMon, NurseryPenStage } from '../../lib/api-nursery';
 import { PenMonMenu } from './PenMonMenu';
 

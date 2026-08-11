@@ -21,8 +21,8 @@ import {
   type SkillVfxPresetCreateBody,
 } from '../lib/api-skill-vfx-presets';
 import { AdminGuard } from '../components/admin/AdminGuard';
-import { buildPresetRunner } from '../scene3d/attack-runners/preset';
-import type { AttackEffect3D, Runner3D } from '../scene3d/attack-runners/types';
+import { buildPresetRunner } from '@digiworld/scene3d/attack-runners/preset';
+import type { AttackEffect3D, Runner3D } from '@digiworld/scene3d/attack-runners/types';
 
 import '../styles/extensions-admin.css';
 

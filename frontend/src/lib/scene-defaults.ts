@@ -1,4 +1,4 @@
-import type { SceneSettings } from '../scene3d/scene';
+import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { apiFetch } from './api';
 
 export type PerArenaSceneDefaults = Record<string, Partial<SceneSettings>>;

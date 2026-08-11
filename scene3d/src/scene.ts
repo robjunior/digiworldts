@@ -11,7 +11,7 @@ import { RUNNERS } from './attack-runners';
 import { buildPresetRunner } from './attack-runners/preset';
 import type { AnimatedElement, AttackEffect3D, Runner3D } from './attack-runners/types';
 import { DEFAULT_EFFECT_DURATION_S, ELEMENT_LIGHT_COLOR } from './attack-runners/types';
-import { getSkillVfxPresetSync } from '../lib/api-skill-vfx-presets';
+import { resolveSkillVfxPreset } from './skill-vfx-resolver';
 import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPosition, type SpriteRigConfig, type SpriteSide } from './sprite-rig';
 import { ParticleEmitter } from './particles/ParticleEmitter';
 import { ThunderFlashController } from './particles/ThunderFlashController';
@@ -1414,7 +1414,7 @@ export class SceneManager {
     };
 
     if (options.vfxPresetId !== undefined) {
-      const preset = getSkillVfxPresetSync(options.vfxPresetId);
+      const preset = resolveSkillVfxPreset(options.vfxPresetId);
       if (preset !== null) {
         const runner = buildPresetRunner(this.scene, wrappedEffect, preset);
         this.effects.set(id, { runner, elapsed: 0, duration: preset.totalDurationMs / 1000 });

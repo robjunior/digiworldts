@@ -13,9 +13,16 @@ import './styles/admin-shell.css';
 import { App } from './App';
 import { AuthProvider } from './hooks/useAuth';
 import { installBrowserLocaleWatcher } from './lib/locale';
+import { setSkillVfxPresetResolver } from '@digiworld/scene3d';
+import { getSkillVfxPresetSync } from './lib/api-skill-vfx-presets';
 import { adminEnv } from './env';
 
 installBrowserLocaleWatcher();
+
+// `@digiworld/scene3d` renders and must not reach for the network, so it takes
+// the preset lookup by injection. Without this the scene still runs — every
+// skill simply falls back to its per-element runner.
+setSkillVfxPresetResolver(getSkillVfxPresetSync);
 
 // Loud console banner so nobody accidentally forgets they're pointed at prod.
 if (adminEnv.isProduction) {
