@@ -574,18 +574,32 @@ wrong guesses, and came back unusually clean:
 | offensive buffs ~0 | 72% | 95% | 96% | 90% |
 | mitigation ~0 | 70% | 94% | 96% | 92% |
 
-Light is pure damage. Zeroing its healing outright changes **nothing** — and
-this is the element with the largest support kit in the game: selfbuff 191 and
-mitigation 150 at Mega, six pure-buff skills, against electricity's 40 and 95.
-Buffs and mitigation together are worth about two points. All of it is
-decorative.
+Light appeared to be pure damage: zeroing its healing outright changed
+**nothing**, on the element with the largest support kit in the game. The
+conclusion drawn at the time — that the kit was decorative — was wrong. The kit
+is never used by the simulator, which is a different problem with a different
+owner.
 
-> [!danger] The identity guard proves those skills exist, not that they matter
-> `test:element-identity` enforces `heal >= 4` for light. That floor is met, and
-> the healing is still mechanically inert. A guard against *flattening* is not a
-> guard against *irrelevance* — the delegation that gutted the catalog would
-> still be caught, but an element whose signature mechanic does nothing sails
-> through. Light reads as a healer in its prose and plays as a damage dealer.
+> [!danger] RETRACTED — the healing is not inert. The simulator cannot cast it.
+> This section originally concluded that light's support kit was mechanically
+> irrelevant, and framed fixing it as a design decision. That was wrong, and the
+> error was not testing the claim before writing it down.
+>
+> `pickAction` in `battle-sim.mts` chooses `damageSkills[0] ?? fallback[0]`,
+> where a skill counts as a damage skill only if it contains `deal_damage` or
+> `drain`. A pure-support skill is therefore reachable **only when no damage
+> skill is affordable at all**. Light's cheapest Mega damage skill costs EN22
+> and its support skills cost EN28-34, so the fallback branch can essentially
+> never fire for light: any energy level that rules out the damage skill rules
+> out the support skills too.
+>
+> Ablating light's healing changed nothing because the healing was never cast.
+
+See [[#The simulator cannot see support]] for how far this reaches. `execHeal`
+itself is correct — it resolves targets, clamps to `hpMax`, applies and emits an
+event — and light's Mega heals restore 138-385 HP against a ~1700 HP pool,
+which is the same order as its strongest hit. The magnitudes were never the
+problem.
 
 Fixing that is a design decision, not a balance pass, so this rebalance
 deliberately left it alone. Either the support effects need magnitudes that
@@ -643,6 +657,47 @@ Mega 49-52%.
 > [!note] Watch item
 > Dark's Mega mirror draw rate is 4%, unchanged by the rebalance and now the
 > highest in the matrix since plant's fell to 0%.
+
+### The simulator cannot see support
+
+`pickAction` prefers any damage skill over every support skill, and only falls
+through when no damage skill is affordable. Since support skills are generally
+the *more* expensive ones, that fallback rarely fires. The effect is that a
+measurable share of each element's loadout never gets cast:
+
+| element | Rookie | Champion | Ultimate | Mega |
+| ------- | ------ | -------- | -------- | ---- |
+| light | 2/4 | 3/6 | 4/8 | **6/10** |
+| plant | 1/4 | 2/6 | 3/8 | **6/10** |
+| null | 0/4 | 0/6 | 3/8 | 3/10 |
+| electricity | 0/4 | 1/6 | 1/8 | 3/10 |
+| water | 1/4 | 1/6 | 2/8 | 2/10 |
+| earth | 1/4 | 1/6 | 1/8 | 2/10 |
+| wind | 0/4 | 0/6 | 1/8 | 2/10 |
+| dark | 0/4 | 1/6 | 0/8 | 1/10 |
+| ice | 1/4 | 0/6 | 0/8 | 0/10 |
+| fire | 0/4 | 0/6 | 0/8 | 0/10 |
+| steel | 0/4 | 0/6 | 0/8 | 0/10 |
+
+Fire and steel fight with their whole kit. Light and plant fight with 40% of
+theirs at Mega.
+
+> [!danger] Every balance number in this note is a damage-only measurement
+> The cross-element results are valid for an opponent that never heals, buffs,
+> shields or cleanses. The more support-heavy an element is, the less its
+> verdict transfers to real play — and the correction is not symmetric, because
+> the bias scales with each element's support share.
+>
+> Light was nerfed until four usable skills won 50% of the time. In a real
+> battle it also has six working ones. Plant was buffed under the same handicap.
+> Neither adjustment is necessarily wrong, but neither is confirmed either.
+
+This is a **harness defect, not a design decision** — unlike the AoE progression
+conflict, it needs no judgement call about what elements should be. Teaching
+`pickAction` to use support skills (heal when injured, buff when the fight is
+long, cleanse when statused) is ordinary engineering, and it is the prerequisite
+for trusting any of the numbers above. Expect the whole field to move once it
+lands.
 
 ### The sweep, and why one-at-a-time could not work
 
