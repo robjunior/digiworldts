@@ -14,11 +14,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 32, scale: 'int', factor: 1.1 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 33, scale: 'int', factor: 1.14 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 22, scale: 'int', factor: 0.5 }, element: 'null' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 23, scale: 'int', factor: 0.52 }, element: 'null' }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.45, turns: 2 }],
       },
     ],
@@ -66,11 +66,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-null-adapt-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 55, scale: 'int', factor: 1.35 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.49 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'int', factor: 0.65 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'int', factor: 0.72 }, element: 'null', ignore_defense: true }],
         else: [{ kind: 'shift_initiative', target: 'primary_target', delta: 1 }],
       },
     ],
@@ -91,7 +91,7 @@ export const NULL_SKILLS: SkillSeed[] = [
         if: { kind: 'hp_below_pct', pct: 35 },
         then: [
           { kind: 'cleanse', target: 'caster_ally_lowest_hp' },
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 28, scale: 'int', factor: 0.35 } },
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 31, scale: 'int', factor: 0.38 } },
         ],
         else: [{ kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 10, turns: 2 }],
       },
@@ -108,11 +108,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-null-adapt-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 58, scale: 'int', factor: 1.35 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 63, scale: 'int', factor: 1.49 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'curse' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'int', factor: 0.6 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 37, scale: 'int', factor: 0.66 }, element: 'null', ignore_defense: true }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.55, turns: 2 }],
       },
     ],
@@ -133,7 +133,7 @@ export const NULL_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 55 },
         then: [{ kind: 'shift_initiative', target: 'self', delta: -1 }],
-        else: [{ kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 55, scale: 'int', factor: 0.6 } }],
+        else: [{ kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 60, scale: 'int', factor: 0.66 } }],
       },
     ],
   }),
@@ -148,11 +148,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-null-adapt-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 82, scale: 'int', factor: 1.7 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 97, scale: 'int', factor: 2.0 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 45 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 52, scale: 'int', factor: 0.85 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.0 }, element: 'null', ignore_defense: true }],
         else: [
           { kind: 'dispel', target: 'primary_target' },
           { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.65, turns: 3 },
@@ -177,7 +177,7 @@ export const NULL_SKILLS: SkillSeed[] = [
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
         then: [
-          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 95, scale: 'int', factor: 0.9 } },
+          { kind: 'heal', target: 'caster_ally_lowest_hp', amount: { base: 112, scale: 'int', factor: 1.06 } },
           { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 110, turns: 2 },
         ],
         else: [
@@ -199,7 +199,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     slot_role: 'control',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.55 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.57 }, element: 'null' },
       { kind: 'apply_status', target: 'primary_target', status: 'confusion', chance: 0.4, turns: 2 },
       { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.5, turns: 2 },
     ],
@@ -214,7 +214,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     slot_role: 'primary_attack',
     energyCost: 9,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 34, scale: 'int', factor: 1.0 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 35, scale: 'int', factor: 1.03 }, element: 'null' },
       { kind: 'dispel', target: 'primary_target' },
     ],
   }),
@@ -229,12 +229,12 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-null-trick-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 28, scale: 'int', factor: 0.65 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 31, scale: 'int', factor: 0.72 }, element: 'null' },
       { kind: 'apply_status', target: 'primary_target', status: 'confusion', chance: 0.5, turns: 2 },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'confusion' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 36, scale: 'int', factor: 0.7 }, element: 'null' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 39, scale: 'int', factor: 0.78 }, element: 'null' }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'charm', chance: 0.35, turns: 1 }],
       },
     ],
@@ -251,7 +251,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-null-trick-r-2',
     actions: [
       { kind: 'dispel', target: 'primary_target' },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 58, scale: 'int', factor: 1.3 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 65, scale: 'int', factor: 1.44 }, element: 'null' },
       { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.45, turns: 2 },
     ],
   }),
@@ -285,7 +285,7 @@ export const NULL_SKILLS: SkillSeed[] = [
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'charm' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 42, scale: 'int', factor: 0.75 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 46, scale: 'int', factor: 0.83 }, element: 'null', ignore_defense: true }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'confusion', chance: 0.55, turns: 2 }],
       },
     ],
@@ -302,7 +302,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-null-trick-c-2',
     actions: [
       { kind: 'dispel', target: 'enemy_first_two' },
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 36, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 39, scale: 'int', factor: 0.94 }, element: 'null' },
     ],
   }),
   n({
@@ -335,7 +335,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     tier_2: true,
     actions: [
       { kind: 'dispel', target: 'enemy_all' },
-      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 70, scale: 'int', factor: 1.25 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 82, scale: 'int', factor: 1.46 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_first_two', status: 'confusion', chance: 0.45, turns: 2 },
     ],
   }),
@@ -351,9 +351,9 @@ export const NULL_SKILLS: SkillSeed[] = [
     slot_role: 'sustain_dot',
     energyCost: 8,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 24, scale: 'int', factor: 0.75 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 25, scale: 'int', factor: 0.77 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.4, turns: 2 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 18, scale: 'int', factor: 0.55 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 19, scale: 'int', factor: 0.57 }, element: 'null' },
     ],
   }),
   n({
@@ -366,11 +366,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     slot_role: 'identity_finisher',
     energyCost: 10,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 30, scale: 'int', factor: 0.95 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 31, scale: 'int', factor: 0.98 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 50 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 18, scale: 'int', factor: 0.45 }, element: 'null' }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 19, scale: 'int', factor: 0.46 }, element: 'null' }],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'confusion', chance: 0.35, turns: 2 }],
       },
     ],
@@ -386,9 +386,9 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 13,
     upgrade_of: 'sk-null-wild-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 34, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 0.95 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'corruption', chance: 0.35, turns: 3 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 34, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 0.95 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.35, turns: 3 },
     ],
   }),
@@ -403,11 +403,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 16,
     upgrade_of: 'sk-null-wild-r-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 62, scale: 'int', factor: 1.4 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 69, scale: 'int', factor: 1.55 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_below_pct', pct: 40 },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 45, scale: 'int', factor: 0.8 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 49, scale: 'int', factor: 0.9 }, element: 'null', ignore_defense: true }],
         else: [
           { kind: 'modify_stat', target: 'primary_target', stat: 'spd', delta: -16, turns: 2 },
           { kind: 'apply_status', target: 'primary_target', status: 'blind', chance: 0.4, turns: 2 },
@@ -426,9 +426,9 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 18,
     upgrade_of: 'sk-null-wild-c-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 32, scale: 'int', factor: 0.75 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 35, scale: 'int', factor: 0.83 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.45, turns: 3 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 32, scale: 'int', factor: 0.75 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 35, scale: 'int', factor: 0.83 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 60 },
@@ -448,12 +448,12 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 22,
     upgrade_of: 'sk-null-wild-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 68, scale: 'int', factor: 1.45 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 74, scale: 'int', factor: 1.6 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'curse' },
         then: [
-          { kind: 'deal_damage', target: 'primary_target', amount: { base: 38, scale: 'int', factor: 0.65 }, element: 'null' },
+          { kind: 'deal_damage', target: 'primary_target', amount: { base: 41, scale: 'int', factor: 0.71 }, element: 'null' },
           { kind: 'consume_en', target: 'primary_target', amount: 8 },
         ],
         else: [{ kind: 'apply_status', target: 'primary_target', status: 'curse', chance: 0.6, turns: 3 }],
@@ -471,9 +471,9 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 20,
     upgrade_of: 'sk-null-wild-c-2',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 34, scale: 'int', factor: 0.8 }, element: 'null' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 34, scale: 'int', factor: 0.8 }, element: 'null' },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 34, scale: 'int', factor: 0.8 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 0.89 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 0.89 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 37, scale: 'int', factor: 0.89 }, element: 'null' },
     ],
   }),
   n({
@@ -487,11 +487,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 28,
     upgrade_of: 'sk-null-wild-u-1',
     actions: [
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 42, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 49, scale: 'int', factor: 1.0 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'curse', chance: 0.5, turns: 3 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 42, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 49, scale: 'int', factor: 1.0 }, element: 'null' },
       { kind: 'apply_status', target: 'enemy_random', status: 'corruption', chance: 0.4, turns: 3 },
-      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 42, scale: 'int', factor: 0.85 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_random', amount: { base: 49, scale: 'int', factor: 1.0 }, element: 'null' },
     ],
   }),
   n({
@@ -507,11 +507,11 @@ export const NULL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-null-wild-u-2',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 90, scale: 'int', factor: 1.75 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 106, scale: 'int', factor: 2.07 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'has_status', status: 'curse' },
-        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 64, scale: 'int', factor: 0.95 }, element: 'null', ignore_defense: true }],
+        then: [{ kind: 'deal_damage', target: 'primary_target', amount: { base: 75, scale: 'int', factor: 1.12 }, element: 'null', ignore_defense: true }],
         else: [
           { kind: 'apply_status', target: 'primary_target', status: 'curse', chance: 0.75, turns: 4 },
           { kind: 'consume_en', target: 'primary_target', amount: 10 },
@@ -561,7 +561,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     energyCost: 14,
     upgrade_of: 'sk-null-disrupt-r-1',
     actions: [
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 26, scale: 'int', factor: 0.55 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 29, scale: 'int', factor: 0.62 }, element: 'null' },
       { kind: 'consume_en', target: 'primary_target', amount: 10 },
       { kind: 'apply_status', target: 'primary_target', status: 'silence', chance: 0.45, turns: 2 },
       { kind: 'shift_initiative', target: 'primary_target', delta: 2 },
@@ -643,7 +643,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-null-disrupt-u-2',
     actions: [
       { kind: 'consume_en', target: 'primary_target', amount: 16 },
-      { kind: 'deal_damage', target: 'primary_target', amount: { base: 78, scale: 'int', factor: 1.55 }, element: 'null' },
+      { kind: 'deal_damage', target: 'primary_target', amount: { base: 93, scale: 'int', factor: 1.83 }, element: 'null' },
       {
         kind: 'conditional',
         if: { kind: 'hp_above_pct', pct: 55 },
@@ -665,7 +665,7 @@ export const NULL_SKILLS: SkillSeed[] = [
     upgrade_of: 'sk-null-disrupt-u-2',
     tier_2: true,
     actions: [
-      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 54, scale: 'int', factor: 1.05 }, element: 'null' },
+      { kind: 'deal_damage', target: 'enemy_all', amount: { base: 65, scale: 'int', factor: 1.24 }, element: 'null' },
       { kind: 'consume_en', target: 'enemy_all', amount: 10 },
       { kind: 'shift_initiative', target: 'enemy_all', delta: 1 },
       { kind: 'restore_en', target: 'self', amount: 12 },
