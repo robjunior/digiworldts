@@ -65,7 +65,33 @@ type BuffedUnit = {
   readonly id: UnitId;
   readonly side: 'you' | 'opp';
   readonly buffs: readonly ActiveBuff[];
+  /** Drives vertical clearance — see `buffOffsetY`. */
+  readonly ailmentCount: number;
 };
+
+/**
+ * Measured from `extensions-combat3d.css`: a badge is a 12px icon plus 2px of
+ * padding and 1px of border on each side, stacked with a 3px gap.
+ */
+const BADGE_HEIGHT = 18;
+const BADGE_GAP = 3;
+/** Where `AilmentBadgesLayer` anchors its group, which then grows downward. */
+const AILMENT_TOP = -24;
+const CLEARANCE = 6;
+
+/**
+ * Vertical offset for a unit's buff row.
+ *
+ * `.c3d-ailment-group` is `position: absolute; flex-direction: column`, so it
+ * grows DOWN from -24: two ailments already reach +15 and three reach +36. A
+ * fixed offset below the anchor therefore collides as soon as a unit carries
+ * more than one ailment, which is exactly when both rows matter.
+ */
+function buffOffsetY(ailmentCount: number): number {
+  if (ailmentCount <= 0) return CLEARANCE;
+  const stackBottom = AILMENT_TOP + ailmentCount * BADGE_HEIGHT + (ailmentCount - 1) * BADGE_GAP;
+  return stackBottom + CLEARANCE;
+}
 
 export const BuffBadgesLayer = memo(function BuffBadgesLayer({
   battle,
@@ -78,11 +104,15 @@ export const BuffBadgesLayer = memo(function BuffBadgesLayer({
     const buffed: BuffedUnit[] = [];
     for (const u of battle.friendly) {
       const buffs = u.activeBuffs ?? [];
-      if (buffs.length > 0 && !u.down) buffed.push({ id: u.id, side: 'you', buffs });
+      if (buffs.length > 0 && !u.down) {
+        buffed.push({ id: u.id, side: 'you', buffs, ailmentCount: u.ailments.length });
+      }
     }
     for (const u of battle.enemy) {
       const buffs = u.activeBuffs ?? [];
-      if (buffs.length > 0 && !u.down) buffed.push({ id: u.id, side: 'opp', buffs });
+      if (buffs.length > 0 && !u.down) {
+        buffed.push({ id: u.id, side: 'opp', buffs, ailmentCount: u.ailments.length });
+      }
     }
     return buffed;
   }, [battle.friendly, battle.enemy]);
@@ -99,9 +129,8 @@ export const BuffBadgesLayer = memo(function BuffBadgesLayer({
           if (pos !== null) {
             const side = node.dataset['side'];
             const offsetX = side === 'you' ? -48 : 20;
-            // Ailments sit at -24. Buffs go below the anchor so a unit carrying
-            // both keeps two readable rows instead of one overlapping pile.
-            node.style.transform = `translate3d(${pos.x + offsetX}px, ${pos.y + 6}px, 0)`;
+            const offsetY = Number(node.dataset['offsetY'] ?? String(CLEARANCE));
+            node.style.transform = `translate3d(${pos.x + offsetX}px, ${pos.y + offsetY}px, 0)`;
             node.style.opacity = '1';
           } else {
             node.style.opacity = '0';
@@ -135,6 +164,7 @@ export const BuffBadgesLayer = memo(function BuffBadgesLayer({
             else groupRefs.current.set(unit.id, el);
           }}
           data-side={unit.side}
+          data-offset-y={buffOffsetY(unit.ailmentCount)}
           className="c3d-buff-group"
         >
           {unit.buffs.map((b, index) => (
