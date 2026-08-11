@@ -29,6 +29,20 @@ if (DATA_DIR === undefined || DATA_DIR === '') {
 const PRESETS_PATH = resolve(DATA_DIR, 'scenes', 'skill-vfx-presets.json');
 if (existsSync(PRESETS_PATH)) rmSync(PRESETS_PATH);
 
+// The per-skill selector section writes to `skills_catalog`, so the database is
+// a fixture too — and `test:skill-vfx` pins DB_PATH to a fixed path. Without
+// this the suite passes once and then fails on `duplicate-name` forever after,
+// which is how it was first shipped. Cleared here, next to the presets file, so
+// both fixtures reset in the same place. Removed before any DB module is
+// imported, since the connection is opened lazily on first use.
+const DB_PATH = process.env.DB_PATH;
+if (DB_PATH !== undefined && DB_PATH !== '') {
+  for (const suffix of ['', '-wal', '-shm']) {
+    const file = `${DB_PATH}${suffix}`;
+    if (existsSync(file)) rmSync(file);
+  }
+}
+
 const {
   createSkillVfxPreset,
   deleteSkillVfxPreset,
