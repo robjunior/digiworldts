@@ -553,12 +553,54 @@ change at Rookie swung the win rate 16 points. Final figures over three
 independent 1000-battle seeds: Rookie 47-50%, Champion 48-50%, Ultimate 49-50%,
 Mega 48-51%.
 
-> [!success] The turn-count tell has now found the broken element twice
-> Electricity's mirror resolved in 16t at Ultimate and 7t at Mega against a
-> field of 25-37t — the same fingerprint wind showed at 17t. Both were the
-> element that turned out to be dominant, and in both cases the anomaly was
-> visible in every run of the suite long before anyone acted on it. It is now
-> 2 for 2 as the cheapest available signal.
+> [!success] The turn-count tell is 3 for 3
+> Wind's mirror ran 17t at Rookie, electricity's 16t/7t at Ultimate/Mega, and
+> light's 39/17/14/11t — each the fastest in the game at the stage where that
+> element turned out to be dominant, against a field of 25-47t. In all three
+> cases the anomaly was visible in every run of the suite long before anyone
+> acted on it. It remains the cheapest available signal: read the turn column
+> before the win column.
+
+### Light — a support kit that does nothing
+
+Light won 74/95/96/91%. Ablation was run first this time rather than after three
+wrong guesses, and came back unusually clean:
+
+| ablation | Rookie | Champion | Ultimate | Mega |
+| -------- | ------ | -------- | -------- | ---- |
+| baseline | 74% | 95% | 96% | 91% |
+| damage 0.5x | **0%** | **1%** | **14%** | **5%** |
+| heal ~0 | 74% | 94% | 96% | 91% |
+| offensive buffs ~0 | 72% | 95% | 96% | 90% |
+| mitigation ~0 | 70% | 94% | 96% | 92% |
+
+Light is pure damage. Zeroing its healing outright changes **nothing** — and
+this is the element with the largest support kit in the game: selfbuff 191 and
+mitigation 150 at Mega, six pure-buff skills, against electricity's 40 and 95.
+Buffs and mitigation together are worth about two points. All of it is
+decorative.
+
+> [!danger] The identity guard proves those skills exist, not that they matter
+> `test:element-identity` enforces `heal >= 4` for light. That floor is met, and
+> the healing is still mechanically inert. A guard against *flattening* is not a
+> guard against *irrelevance* — the delegation that gutted the catalog would
+> still be caught, but an element whose signature mechanic does nothing sails
+> through. Light reads as a healer in its prose and plays as a damage dealer.
+
+Fixing that is a design decision, not a balance pass, so this rebalance
+deliberately left it alone. Either the support effects need magnitudes that
+register, or light's damage budget has to fall far enough that sustain becomes
+its only route to a win. Both change what the element *is*.
+
+Tuning was per-stage, since the response differed sharply by tier — a uniform
+0.70x gave 8/37/68/48 and 0.80x gave 26/70/80/71. Final figures over three
+independent 1000-battle seeds: Rookie 48-51%, Champion 52%, Ultimate 50-51%,
+Mega 50-51%.
+
+Both overshoots on the way there were caught by the band-edge rule rather than
+by any failing test — one build sat at 46-47% at Ultimate, another at 45-49% at
+Champion, each technically inside 45/55 and each about a point from the floor.
+A 5% Ultimate bump then swung the result 8 points.
 
 ### Documented pre-rework baselines
 
@@ -655,10 +697,10 @@ signatures. Tables in [[Skill Catalog Reference]].
 
 > [!info] "Complete" here means authored and internally coherent — not balanced
 > This section tracks content authoring only. Every element is written, passes
-> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Nine of
+> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Eight of
 > the eleven are still out of band on cross-element power** — see
-> [[#What this matrix does not prove]]. Two are reconciled: wind (`5b9d2fb`,
-> `cf22aad`) and electricity (`c202929`).
+> [[#What this matrix does not prove]]. Three are reconciled: wind (`5b9d2fb`,
+> `cf22aad`), electricity (`c202929`) and light (`e4d3c0d`).
 
 > [!note] Plant's signature set — diagnosed, then corrected
 > Plant looked damage-skewed at 65% `primary_attack`. Measuring the declared
