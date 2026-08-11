@@ -7,7 +7,7 @@ aliases:
   - Archetype Design System
   - Skill Rework
 created: 2026-08-10
-updated: 2026-08-10
+updated: 2026-08-11
 grounded-in:
   - backend/src/skills/seeds/
   - backend/src/skills/pool.ts
@@ -354,7 +354,7 @@ Mirror matches, 1000 battles per cell.
 | electricity | 49/51/0% 45t | 53/48/0% 35t | 51/49/0% 16t | 49/51/0% 7t |
 | earth | 49/51/0% 50t | 51/50/0% 37t | 50/50/0% 37t | 48/52/0% 28t |
 | steel | 52/48/0% 45t | 51/50/0% 35t | 50/50/0% 35t | 48/52/0% 26t |
-| wind | 49/51/0% 17t | 54/46/0% 21t | 52/48/0% 27t | 49/51/0% 38t |
+| wind | 50/50/0% 43t | 50/51/0% 31t | 52/48/0% 28t | 50/50/0% 18t |
 | light | 46/54/0% 39t | 48/53/0% 17t | 49/51/0% 14t | 46/54/0% 11t |
 | dark | 51/49/0% 40t | 50/50/0% 31t | 49/51/0% 28t | 48/50/2% 9t |
 | null | 50/50/0% 45t | 52/49/0% 47t | 51/49/0% 25t | 50/50/0% 36t |
@@ -371,6 +371,111 @@ the same sustain, crowd-control and burst budgets to every element.
 > across runs on a 1000-battle sample. It is the highest in the matrix and worth
 > re-measuring if it drifts further.
 
+### What this matrix does not prove
+
+> [!warning] The matrix above measures mirrors only — it cannot detect a power imbalance
+> Every cell pits an element against **itself**. A mirror is 50/50 by
+> construction: both sides draw from the same pool, so an element that is twice
+> as strong as the rest of the game still reports a clean 50/50. The matrix
+> proves *internal* coherence — no stalls, no coin flips, no unwinnable tiers —
+> and nothing whatsoever about how elements compare to each other.
+
+For most of this rework that distinction was not made, and "every element sits
+inside 45/55" was read as "the game is balanced". It was not. Cross-element
+parity was added to `battle-sim.mts` in `3099869`, which reports two extra
+columns per stage:
+
+- **vs field** — win rate against all ten other elements, affinity included.
+- **neutral only** — restricted to pairs with no affinity relation in either
+  direction. This is the number to judge raw power by; `vs field` conflates
+  power with how kind the affinity table happens to be to that element.
+
+The first run of it produced this, and none of it was visible in the mirror
+matrix:
+
+| Element | Rookie | Champion | Ultimate | Mega |
+| ------- | ------ | -------- | -------- | ---- |
+| wind | **100%** | **95%** | 58% | **3%** |
+| electricity | 32% | 26% | **99%** | **97%** |
+| light | 65% | **87%** | **87%** | **86%** |
+| dark | 63% | 63% | 28% | **91%** |
+| earth | 20% | 30% | **14%** | 22% |
+| plant | **6%** | 37% | 24% | 51% |
+| null | 33% | 22% | 27% | 24% |
+
+Wind was the extreme and is the only one fixed so far (`5b9d2fb` — see
+[[#The wind curve, and the tell that was ignored]]). The rest remain open.
+
+> [!important] Cross-element parity is reporting-only, not a gate
+> It prints `<-- OUT OF BAND` and does not fail the suite. Making it a hard gate
+> is not currently possible: the elements are interdependent, so every fix moves
+> every other number, and ten of the eleven are still out of band. Fixing wind
+> made the *rest of the table look worse* — wind had been suppressing everyone
+> at Rookie, and with it in range the true spread became visible (water 79%,
+> light 74%, dark 73%, plant 6%). Those numbers were always there.
+
+### The wind curve, and the tell that was ignored
+
+Wind's defect was the **shape** of its damage curve, not its magnitude. Its
+total output per stage was nearly flat where the field roughly quadruples:
+
+| | Rookie | Champion | Ultimate | Mega | Mega/Rookie |
+| - | ------ | -------- | -------- | ---- | ----------- |
+| wind, before | 1805 | 2097 | 2001 | 2341 | **1.30x** |
+| field median | 781 | 1322 | 1898 | 3040 | 3.89x |
+| wind, after | 716 | 1386 | 1901 | 4531 | 6.33x |
+
+A flat multiplier could not fix this — any nerf that tamed Rookie sank Mega
+further. Only a per-stage reshape worked, and it had to be tuned empirically:
+the response is steep and non-linear, with a 1.12x scale at Rookie moving the
+win rate from 33% to 56%. It took four converging passes.
+
+The tell was present in **every run of the suite for the entire rework**: wind's
+mirror Rookie resolved in 17 turns while every other element took 39-50. That is
+what a pool does when both sides delete each other far too fast. It was
+rationalised as "wind is the fast element" rather than investigated. It now sits
+at 43t.
+
+> [!tip] The lesson, stated plainly
+> A mirror cell cannot tell you an element is too strong — but an outlying
+> **turn count** in that cell is the fingerprint of exactly that problem. Treat
+> a mirror that resolves far faster or slower than its peers as a power
+> anomaly until proven otherwise, not as flavour.
+
+### The near-miss: how the catalog was almost silently destroyed
+
+The first attempt at cross-element balance was delegated as a single
+all-elements pass (`bg_9dd65f9c`). It rewrote **all 396 pool skills into one
+identical `deal_damage`** — the same 217/320/445/610 curve for every element,
+with every heal, drain, buff, conditional and status effect deleted. Eleven
+elements collapsed into one.
+
+Every structural check still passed. The row count was right at 1264, every id
+and name was intact, `test:seed-v2` reported zero validation errors, `test:pool`
+was green, and the mirror matrix was a flawless 50/50 everywhere — *because
+identical pools mirror perfectly*. The work was reverted with
+`git checkout -- backend/src/skills/seeds/`.
+
+It was caught by one thing only: the mirror turn counts had become **identical**
+across all eleven elements (29t/25t/22t/18t), where they had always differed.
+
+`test:element-identity` (`8ebf5e4`) now closes that hole with 97 assertions:
+
+1. Each element uses **≥6 distinct action kinds**, and bare `deal_damage` is
+   **≤50%** of its actions.
+2. Per-element identity floors — light ≥4 `heal`, dark ≥4 `drain`, null ≥3
+   `consume_en`, wind ≥6 `shift_initiative`, and so on.
+3. **No two elements share a damage curve.**
+
+It was validated by reproducing the failure rather than by passing: gutting
+`light.ts` the way the delegation did fires 5 assertions, and gutting `dark.ts`
+to a matching curve additionally trips the distinctness check.
+
+> [!danger] Do not delegate a balance pass across all eleven elements at once
+> A brief to "fix the power extremes" is trivially satisfied by making every
+> element the same, and every structural test in the repo will agree. Balance
+> one element per pass, and run `test:element-identity` as a hard gate.
+
 ### Documented pre-rework baselines
 
 | Element | Stage | Before | After |
@@ -381,6 +486,7 @@ the same sustain, crowd-control and burst budgets to every element.
 | fire | Mega | 46/44/**10%** — **3t** | 53/45/2% — 26t |
 | steel | Mega | 49/51/0% — 38t | 48/52/0% — 26t |
 | null | Mega | 0/0/**100%** — 1t (harness bug) | 50/50/0% — 36t |
+| wind | Rookie | 49/51/0% — **17t** | 50/50/0% — 43t |
 
 ---
 
@@ -462,6 +568,13 @@ elements were unchanged.
 
 All eleven elements are re-authored and every Digimon in the catalog has two
 signatures. Tables in [[Skill Catalog Reference]].
+
+> [!info] "Complete" here means authored and internally coherent — not balanced
+> This section tracks content authoring only. Every element is written, passes
+> `test:element-identity`, and sits inside 45/55 in the mirror matrix. **Ten of
+> the eleven are still out of band on cross-element power** — see
+> [[#What this matrix does not prove]]. Wind (`5b9d2fb`) is the only one
+> reconciled so far.
 
 > [!note] Plant's signature set — diagnosed, then corrected
 > Plant looked damage-skewed at 65% `primary_attack`. Measuring the declared
@@ -573,6 +686,8 @@ test will assert the wrong expected count and fail.
 ```bash
 DATABASE=sqlite DATABASE_URL= pnpm --filter @digiworld/backend test:pool
 DATABASE=sqlite DATABASE_URL= pnpm --filter @digiworld/backend test:battle-sim
+pnpm --filter @digiworld/backend test:element-identity
+pnpm --filter @digiworld/backend test:initiative-sign
 ```
 
 The `DATABASE=sqlite DATABASE_URL=` prefix is mandatory — the repo `.env`
@@ -581,6 +696,10 @@ adapter. The db file must be deleted between runs or the seed will not
 re-apply (the migrator's `schema_versions` ledger prevents duplicate
 migration runs).
 
+`test:battle-sim` takes 2s at `RUNS=200` and 8s at `RUNS=1000`, so iterating on
+numbers is cheap — tune empirically instead of reasoning about formulas, which
+is how wind was fixed after four passes.
+
 `test:pool` checks pool ordering, carry-forward, and equip slices.
 `test:battle-sim` catches balance pathologies — aim for win/loss near 50/50
 and draw rate under ~10% at all stages. The failure mode to watch for is mass
@@ -588,7 +707,7 @@ CC on `enemy_all` at near-certain chance stacked with party-wide healing:
 mirrored sides lock and heal each other into a draw. The 92% plant Mega
 intermediate was exactly this pattern.
 
-Two traps this pipeline has already sprung, both cheap to avoid:
+Five traps this pipeline has already sprung, all cheap to avoid:
 
 1. **Check the factory's second argument before writing the wipe migration.**
    `makeSkillFactory('electricity', 'elec')` produces `sk-elec-*` ids, not
@@ -604,8 +723,16 @@ Two traps this pipeline has already sprung, both cheap to avoid:
    anything.
 3. **`shift_initiative` deltas are counter-intuitive.** Negative makes a unit
    act SOONER, positive makes it act LATER. Delaying an enemy takes a POSITIVE
-   delta. 19 of 33 uses had this backwards before it was caught;
+   delta.    19 of 33 uses had this backwards before it was caught;
    `test:initiative-sign` now enforces it, so just run that test.
+4. **A 50/50 mirror is not evidence of balance.** It is evidence of internal
+   coherence only. Read the cross-element `neutral only` column before
+   declaring an element done, and treat an outlying mirror turn count as a
+   power anomaly — that was wind's only visible symptom for the whole rework.
+5. **Never rewrite more than one element's pool per pass.** Every structural
+   check in this repo passes on a catalog whose eleven elements have been
+   flattened into one identical skill; that nearly shipped. Run
+   `test:element-identity` after any bulk edit to a seed file.
 
 If your element uses `silence`, note that the sim only reads it correctly from
 `e5d0451` onward — see [the simulator section](#the-simulator-was-under-reporting-silenced-units-aborted-battles).
