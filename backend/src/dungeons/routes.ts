@@ -38,6 +38,8 @@ import {
 } from './repo.js';
 import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { createChest, deleteChest, updateChest } from './chests.js';
+import { getKeyById, listKeysForGroup, updateKeyPlacement } from './keys.js';
 import { listZones, replaceZones } from './zones.js';
 import { createKit, deleteKit, getKitWithItems, listKitsForUser, updateKit, type KitOutcome } from './kits.js';
 import { escrowKitToStash, readStash } from './stash.js';
@@ -45,6 +47,7 @@ import { hasFlag } from '../flags/repo.js';import { BIOMES } from '@digiworld/sh
 import type { Kit, KitError } from '@digiworld/shared/dungeon';
 import {
   asCreateDungeonPayload,
+  CreateChestInputSchema,
   CreateDungeonInputSchema,
   DoorInputSchema,
   DungeonRandomPoolInputSchema,
@@ -56,6 +59,7 @@ import {
   StartRandomEncounterInputSchema,
   TilesInputSchema,
   TrapInputSchema,
+  UpdateChestInputSchema,
   UpdateDungeonInputSchema,
   UpdateDoorInputSchema,
   UpdateEncounterInputSchema,
@@ -363,7 +367,8 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'blocked') return reply.code(400).send({ error: 'not-walkable' });
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}) });
+    if (moved.kind === 'blocked-by-chest') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId });
+    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}) });
     return reply.code(500).send({ error: 'internal error' });
   });
 
@@ -680,5 +685,60 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (result === 'not-found') return reply.code(404).send({ error: 'not-found' });
     log.info('admin.dungeon.zones.replaced', { adminId: admin.id, id: req.params.id, count: result.length });
     return reply.send({ zones: result });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/chests', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = CreateChestInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-chest', details: parsed.error.issues });
+    const result = await createChest(req.params.id, parsed.data as unknown as Parameters<typeof createChest>[1]);
+    if (result === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (result === 'conflict') return reply.code(409).send({ error: 'chest-already-at-cell' });
+    log.info('admin.dungeon.chest.create', { adminId: admin.id, dungeonId: req.params.id, chestId: result.id });
+    return reply.code(201).send({ chest: result });
+  });
+
+  app.put<{ Params: { id: string; chestId: string } }>('/api/admin/dungeons/:id/chests/:chestId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = UpdateChestInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-chest', details: parsed.error.issues });
+    const result = await updateChest(req.params.id, req.params.chestId, parsed.data as unknown as Parameters<typeof updateChest>[2]);
+    if (result === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (result === 'conflict') return reply.code(409).send({ error: 'chest-already-at-cell' });
+    log.info('admin.dungeon.chest.update', { adminId: admin.id, dungeonId: req.params.id, chestId: req.params.chestId });
+    return reply.send({ chest: result });
+  });
+
+  app.delete<{ Params: { id: string; chestId: string } }>('/api/admin/dungeons/:id/chests/:chestId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const deleted = await deleteChest(req.params.id, req.params.chestId);
+    log.info('admin.dungeon.chest.delete', { adminId: admin.id, dungeonId: req.params.id, chestId: req.params.chestId, deleted });
+    return reply.send({ ok: deleted });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id/keys', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const dungeon = await getDungeon(req.params.id);
+    if (!dungeon) return reply.code(404).send({ error: 'not-found' });
+    if (!dungeon.dungeonGroupId) return reply.send({ keys: [] });
+    return reply.send({ keys: await listKeysForGroup(dungeon.dungeonGroupId) });
+  });
+
+  app.put<{ Params: { keyId: string }; Body: { readonly dungeonId: string; readonly x: number; readonly y: number } }>('/api/admin/dungeon-keys/:keyId/placement', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const body = req.body;
+    if (typeof body?.dungeonId !== 'string' || typeof body?.x !== 'number' || typeof body?.y !== 'number') {
+      return reply.code(400).send({ error: 'invalid-input' });
+    }
+    const key = await getKeyById(req.params.keyId);
+    if (!key) return reply.code(404).send({ error: 'not-found' });
+    const dungeon = await getDungeon(body.dungeonId);
+    if (!dungeon) return reply.code(404).send({ error: 'dungeon-not-found' });
+    if (dungeon.dungeonGroupId !== key.dungeonGroupId) {
+      return reply.code(400).send({ error: 'wrong-group', keyGroupId: key.dungeonGroupId, dungeonGroupId: dungeon.dungeonGroupId });
+    }
+    const updated = await updateKeyPlacement(req.params.keyId, body.dungeonId, body.x, body.y);
+    log.info('admin.dungeon.key.place', { adminId: admin.id, keyId: req.params.keyId, dungeonId: body.dungeonId, x: body.x, y: body.y });
+    return reply.send({ key: updated });
   });
 };
