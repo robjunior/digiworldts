@@ -38,13 +38,14 @@ import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.
 import { listZones, replaceZones } from './zones.js';
 import { listPoiStatesForRun, getPoiState, SQL_UPSERT_POI_STATE } from './poi-states.js';
 import { createChest, getChestAt, listChests } from './chests.js';
-import { getKeyAtPlacement, listKeysForGroup } from './keys.js';
+import { getKeyAtPlacement, listKeysForGroup, ensureDungeonKeyForPoi } from './keys.js';
 import { hasKey, listGroupInventoryForUser, purgeGroupInventory, SQL_UPSERT_GROUP_INVENTORY } from './group-inventory.js';
 import type { CreateChestInput } from './validation.js';
 
 const SQL_INSERT_CHEST_IMPORT = `INSERT INTO dungeon_chests (id, dungeon_id, x, y, label, contents_json, locked_by_key_id, unused_tile_gid, used_tile_gid, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_DELETE_CHESTS_FOR_DUNGEON = `DELETE FROM dungeon_chests WHERE dungeon_id = ?`;
 const SQL_CLEAR_KEY_PLACEMENT_INLINE = `UPDATE dungeon_keys SET placed_dungeon_id = NULL, placed_x = NULL, placed_y = NULL WHERE id = ?`;
+const SQL_UPDATE_CHEST_LOCKED_KEY_INLINE = `UPDATE dungeon_chests SET locked_by_key_id = ?, updated_at = ? WHERE id = ?`;
 import type { TrapTriggered } from '@digiworld/shared';
 import { rollDungeonEncounter, rollRandomEncounter } from './random.js';
 import { evaluateChallenge } from './challenge.js';
@@ -1017,6 +1018,7 @@ export async function applyTiledImportReplace(dungeonId: string, payload: TiledI
   const rs = payload.randomSettings;
   const biome: Dungeon['biome'] = payload.biome ?? existing.biome;
   const allowedElements = rs.randomAllowedElements === undefined ? existing.randomAllowedElements : rs.randomAllowedElements;
+  const importedChestsReplace: { id: string; lockedByKeyId: string | null }[] = [];
   await tx(async (t) => {
     await t.run(SQL_UPDATE_DUNGEON_META_IMPORT, [
       payload.width, payload.height, payload.spawn.x, payload.spawn.y, biome,
@@ -1057,10 +1059,22 @@ export async function applyTiledImportReplace(dungeonId: string, payload: TiledI
     }
     await t.run(SQL_DELETE_CHESTS_FOR_DUNGEON, [dungeonId]);
     for (const ch of payload.chests) {
-      await t.run(SQL_INSERT_CHEST_IMPORT, [newId('chst'), dungeonId, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
+      const chestId = newId('chst');
+      await t.run(SQL_INSERT_CHEST_IMPORT, [chestId, dungeonId, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
+      importedChestsReplace.push({ id: chestId, lockedByKeyId: ch.lockedByKeyId });
     }
   });
   await replaceZones(dungeonId, payload.zones);
+  for (const c of importedChestsReplace) {
+    if (c.lockedByKeyId === null) continue;
+    if (existing.dungeonGroupId) {
+      const key = await ensureDungeonKeyForPoi(existing.dungeonGroupId, 'chest', c.id);
+      await run(SQL_UPDATE_CHEST_LOCKED_KEY_INLINE, key.id, Date.now(), c.id);
+    } else {
+      await run(SQL_UPDATE_CHEST_LOCKED_KEY_INLINE, null, Date.now(), c.id);
+      log.info('dungeon.chest.lock.dropped', { dungeonId, chestId: c.id, reason: 'dungeon-has-no-group' });
+    }
+  }
   const view = await getDungeonView(dungeonId);
   if (!view) return { ok: false, error: 'not-found' };
   return { ok: true, view };
@@ -1108,6 +1122,7 @@ export async function applyTiledImportNew(input: {
     createdAt: now,
     updatedAt: now,
   };
+  const importedChestsNew: { id: string; lockedByKeyId: string | null }[] = [];
   await tx(async (t) => {
     await t.run(SQL_INSERT_DUNGEON, [
       dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description,
@@ -1140,9 +1155,21 @@ export async function applyTiledImportNew(input: {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeon.id, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
     }
     for (const ch of payload.chests) {
-      await t.run(SQL_INSERT_CHEST_IMPORT, [newId('chst'), dungeon.id, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
+      const chestId = newId('chst');
+      await t.run(SQL_INSERT_CHEST_IMPORT, [chestId, dungeon.id, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
+      importedChestsNew.push({ id: chestId, lockedByKeyId: ch.lockedByKeyId });
     }
   });
   await replaceZones(dungeon.id, payload.zones);
+  for (const c of importedChestsNew) {
+    if (c.lockedByKeyId === null) continue;
+    if (dungeon.dungeonGroupId) {
+      const key = await ensureDungeonKeyForPoi(dungeon.dungeonGroupId, 'chest', c.id);
+      await run(SQL_UPDATE_CHEST_LOCKED_KEY_INLINE, key.id, Date.now(), c.id);
+    } else {
+      await run(SQL_UPDATE_CHEST_LOCKED_KEY_INLINE, null, Date.now(), c.id);
+      log.info('dungeon.chest.lock.dropped', { dungeonId: dungeon.id, chestId: c.id, reason: 'dungeon-has-no-group' });
+    }
+  }
   return { ok: true, dungeon };
 }
