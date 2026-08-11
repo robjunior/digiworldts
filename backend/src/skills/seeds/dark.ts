@@ -73,6 +73,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Funde-se às sombras, aumentando evasão e ataque.',
     stage: 'Champion',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-dark-assassin-r-2',
     energyCost: 13,
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'evasion_up', amount: 25, turns: 2 },
@@ -87,6 +88,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Ataca repentinamente da furtividade, atrasando levemente o próximo turno do alvo.',
     stage: 'Champion',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-dark-assassin-r-3',
     energyCost: 15,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 60, scale: 'atk', factor: 2.0 }, element: 'dark' },
@@ -115,6 +117,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Assusta a linha de frente inimiga, causando dano e empurrando-os levemente para trás.',
     stage: 'Ultimate',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-assassin-c-2',
     energyCost: 16,
     actions: [
       { kind: 'deal_damage', target: 'enemy_front', amount: { base: 90, scale: 'atk', factor: 2.4 }, element: 'dark' },
@@ -129,6 +132,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Um movimento de execução. Se o alvo estiver ferido, recebe dano extra massivo.',
     stage: 'Ultimate',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-dark-assassin-c-3',
     energyCost: 20,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 120, scale: 'atk', factor: 3.0 }, element: 'dark' },
@@ -170,6 +174,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Ataca do futuro, atrasando o alvo e causando dano enorme.',
     stage: 'Mega',
     slot_role: 'control',
+    upgrade_of: 'sk-dark-assassin-u-2',
     energyCost: 28,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 130, scale: 'atk', factor: 2.8 }, element: 'dark' },
@@ -184,6 +189,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'A execução final. Garante dano massivo a um único inimigo, ignorando completamente as defesas.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-dark-assassin-u-3',
     tier_2: true,
     cooldown: 2,
     energyCost: 35,
@@ -257,6 +263,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Remove buffs de um alvo e causa dano moderado.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-debuff-r-2',
     energyCost: 14,
     actions: [
       { kind: 'dispel', target: 'primary_target' },
@@ -271,6 +278,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Um véu sombrio pesado reduz o ataque e a inteligência de todos os inimigos.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-debuff-r-3',
     energyCost: 15,
     actions: [
       { kind: 'modify_stat', target: 'enemy_all', stat: 'atk', delta: -15, turns: 2 },
@@ -300,6 +308,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Despoja o alvo de seus sentidos, silenciando-os potencialmente e diminuindo sua inteligência.',
     stage: 'Ultimate',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-debuff-c-2',
     energyCost: 16,
     actions: [
       { kind: 'apply_status', target: 'primary_target', status: 'silence', chance: 0.3, turns: 2 },
@@ -314,6 +323,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Remove buffs da linha de frente inimiga e esmaga suas defesas se estiverem amaldiçoados.',
     stage: 'Ultimate',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-debuff-c-3',
     energyCost: 20,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 80, scale: 'int', factor: 2.0 }, element: 'dark' },
@@ -354,6 +364,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Remove buffs de todos os inimigos e inflige corrupção generalizada.',
     stage: 'Mega',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-debuff-u-2',
     energyCost: 28,
     actions: [
       { kind: 'dispel', target: 'enemy_all' },
@@ -368,6 +379,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Encara a alma do alvo, causando dano pesado e aplicando maldições duradouras.',
     stage: 'Mega',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-dark-debuff-u-3',
     energyCost: 26,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 150, scale: 'int', factor: 3.5 }, element: 'dark' },
@@ -439,6 +451,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Amaldiçoa o alvo e drena uma porção de sua saúde.',
     stage: 'Champion',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-dark-drain-r-2',
     energyCost: 13,
     actions: [
       { kind: 'drain', target: 'primary_target', damage: { base: 55, scale: 'int', factor: 1.6 }, heal_pct: 0.05, element: 'dark' },
@@ -453,6 +466,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Conecta-se a um inimigo aleatório, drenando saúde e restaurando energia para o lançador.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-dark-drain-r-3',
     energyCost: 15,
     actions: [
       { kind: 'drain', target: 'enemy_random', damage: { base: 50, scale: 'int', factor: 1.4 }, heal_pct: 0.05, element: 'dark' },
@@ -481,6 +495,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Morde o espírito do alvo. Drena muito mais se o alvo estiver saudável.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-dark-drain-c-2',
     energyCost: 19,
     actions: [
       { kind: 'drain', target: 'primary_target', damage: { base: 120, scale: 'int', factor: 2.8 }, heal_pct: 0.05, element: 'dark' },
@@ -501,6 +516,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Drena energia e vida dos inimigos, aumentando o ataque do lançador.',
     stage: 'Ultimate',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-dark-drain-c-3',
     energyCost: 20,
     actions: [
       { kind: 'drain', target: 'enemy_random', damage: { base: 100, scale: 'int', factor: 2.5 }, heal_pct: 0.05, element: 'dark' },
@@ -538,6 +554,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Invoca uma lua carmesim que causa dano massivo a um único alvo, convertendo-o inteiramente em saúde.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-dark-drain-u-2',
     energyCost: 30,
     actions: [
       { kind: 'drain', target: 'primary_target', damage: { base: 180, scale: 'int', factor: 4.2 }, heal_pct: 0.1, element: 'dark' }
@@ -551,6 +568,7 @@ export const DARK_SKILLS: SkillSeed[] = [
     description_pt: 'Drena todos os inimigos, aumentando drasticamente a velocidade e a inteligência do lançador.',
     stage: 'Mega',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-dark-drain-u-3',
     energyCost: 32,
     actions: [
       { kind: 'drain', target: 'enemy_all', damage: { base: 80, scale: 'int', factor: 2.0 }, heal_pct: 0.05, element: 'dark' },

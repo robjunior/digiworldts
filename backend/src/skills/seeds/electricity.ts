@@ -172,6 +172,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Uma manobra rápida que avança significativamente o turno do usuário e aumenta sua evasão.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-elec-combo-r-2',
     energyCost: 12,
     actions: [
       { kind: 'shift_initiative', target: 'self', delta: -2 },
@@ -186,6 +187,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Um golpe cinético pesado. Se o alvo estiver enfraquecido, o usuário recupera um pouco de iniciativa.',
     stage: 'Champion',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-elec-combo-r-3',
     energyCost: 15,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 50, scale: 'spd', factor: 1.8 }, element: 'electricity' },
@@ -223,6 +225,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Canaliza eletricidade bruta para a equipe, restaurando energia e aumentando a inteligência.',
     stage: 'Champion',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-elec-chain-r-2',
     energyCost: 12,
     actions: [
       { kind: 'restore_en', target: 'caster_ally_all', amount: 8 },
@@ -237,6 +240,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Cobre o campo de batalha em um campo carregado, danificando e enfraquecendo todos os inimigos.',
     stage: 'Champion',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-elec-chain-r-3',
     energyCost: 12,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 15, scale: 'int', factor: 0.8 }, element: 'electricity' },
@@ -269,6 +273,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Arremessa fios eletrificados na linha de frente, reduzindo sua velocidade e ameaçando atordoar.',
     stage: 'Champion',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-elec-stun-r-2',
     energyCost: 12,
     actions: [
       { kind: 'apply_status', target: 'enemy_first_two', status: 'stun', chance: 0.3, turns: 1 },
@@ -283,6 +288,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Sobrecarrega o sistema nervoso do alvo, reduzindo fortemente seu poder de ataque e infligindo fraqueza.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-elec-stun-r-3',
     energyCost: 12,
     actions: [
       { kind: 'apply_status', target: 'primary_target', status: 'weaken', chance: 0.8, turns: 3 },
@@ -326,6 +332,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Envolve a equipe em velocidade pura, aumentando muito sua rapidez e avançando ligeiramente seus turnos.',
     stage: 'Ultimate',
     slot_role: 'utility',
+    upgrade_of: 'sk-elec-combo-c-2',
     energyCost: 18,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'spd_up', amount: 25, turns: 3 },
@@ -340,6 +347,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Sobrecarrega os sistemas da equipe, fornecendo aumentos massivos nas taxas de ataque e acerto crítico.',
     stage: 'Ultimate',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-elec-combo-c-3',
     energyCost: 18,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'atk_up', amount: 25, turns: 3 },
@@ -371,6 +379,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Tece uma teia condutora sobre a equipe inimiga, causando dano, fraqueza e reduzindo sua defesa.',
     stage: 'Ultimate',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-elec-chain-c-2',
     energyCost: 18,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 25, scale: 'int', factor: 1.0 }, element: 'electricity' },
@@ -386,6 +395,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Três raios erráticos atingem aleatoriamente, com cada acerto carregando uma chance de atordoar a vítima azarada.',
     stage: 'Ultimate',
     slot_role: 'control',
+    upgrade_of: 'sk-elec-chain-c-3',
     energyCost: 18,
     actions: [
       { kind: 'deal_damage', target: 'enemy_random', amount: { base: 20, scale: 'int', factor: 0.8 }, element: 'electricity' },
@@ -422,6 +432,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Aplica um choque brutal. Se o alvo já estiver atordoado, um segundo surto devastador se segue.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-elec-stun-c-2',
     energyCost: 20,
     actions: [
       { kind: 'deal_damage', target: 'primary_target', amount: { base: 40, scale: 'int', factor: 1.5 }, element: 'electricity' },
@@ -442,6 +453,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Circunda a equipe com uma gaiola protetora, aumentando a defesa e reduzindo fortemente o dano recebido.',
     stage: 'Ultimate',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-elec-stun-c-3',
     energyCost: 18,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'damage_reduction', amount: 30, turns: 2 },
@@ -485,6 +497,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Dobra o próprio tempo. O usuário age novamente de imediato, enquanto empurra todos os aliados significativamente para frente.',
     stage: 'Mega',
     slot_role: 'utility',
+    upgrade_of: 'sk-elec-combo-u-2',
     energyCost: 38,
     cooldown: 3,
     actions: [
@@ -500,6 +513,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Desperta reflexos sobre-humanos em toda a equipe, concedendo velocidade e evasão massivas.',
     stage: 'Mega',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-elec-combo-u-3',
     energyCost: 25,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'evasion_up', amount: 30, turns: 3 },
@@ -533,6 +547,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Uma onda de choque sem fim que despedaça as defesas inimigas e força uma fraqueza duradoura em todos.',
     stage: 'Mega',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-elec-chain-u-2',
     energyCost: 28,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 40, scale: 'int', factor: 1.5 }, element: 'electricity' },
@@ -548,6 +563,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Remove energia elétrica de toda a equipe inimiga, causando dano e restaurando energia significativa para todos os aliados.',
     stage: 'Mega',
     slot_role: 'utility',
+    upgrade_of: 'sk-elec-chain-u-3',
     energyCost: 30,
     actions: [
       { kind: 'deal_damage', target: 'enemy_all', amount: { base: 30, scale: 'int', factor: 1.0 }, element: 'electricity' },
@@ -582,6 +598,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Forma uma parede impenetrável de amperes, aumentando a defesa da equipe e gerando escudos de absorção massivos.',
     stage: 'Mega',
     slot_role: 'buff_support',
+    upgrade_of: 'sk-elec-stun-u-2',
     energyCost: 28,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_all', buff: 'shield_absorb', amount: 250, turns: 2 },
@@ -596,6 +613,7 @@ export const ELECTRICITY_SKILLS: SkillSeed[] = [
     description_pt: 'Um pulso eletromagnético localizado que danifica e atordoa a linha de frente enquanto prejudica severamente o ataque e a velocidade de todos os inimigos.',
     stage: 'Mega',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-elec-stun-u-3',
     energyCost: 32,
     actions: [
       { kind: 'deal_damage', target: 'enemy_first_two', amount: { base: 50, scale: 'int', factor: 1.8 }, element: 'electricity' },

@@ -69,6 +69,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Respinga seiva corrosiva. Causa dano extra se o alvo estiver envenenado.',
     stage: 'Champion',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-plant-dot-r-2',
     energyCost: 12,
     actions: [
       { kind: 'deal_damage', target: 'enemy_random', amount: { base: 60, scale: 'int', factor: 2.0 }, element: 'plant' },
@@ -89,6 +90,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Libera esporos sombrios que amaldiçoam a linha de frente inimiga.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-plant-dot-r-3',
     energyCost: 11,
     actions: [
       { kind: 'apply_status', target: 'enemy_front', status: 'curse', chance: 0.7, turns: 3 }
@@ -117,6 +119,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Uma vinha espinhosa que drena a vida do alvo e aplica veneno.',
     stage: 'Ultimate',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-plant-dot-c-2',
     energyCost: 12,
     actions: [
       { kind: 'drain', target: 'enemy_random', damage: { base: 80, scale: 'int', factor: 2.2 }, heal_pct: 0.2, element: 'plant' },
@@ -131,6 +134,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Esmaga os inimigos com raízes em decomposição, atingindo mais forte se estiverem amaldiçoados.',
     stage: 'Ultimate',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-plant-dot-c-3',
     energyCost: 13,
     actions: [
       { kind: 'deal_damage', target: 'enemy_front', amount: { base: 70, scale: 'int', factor: 1.8 }, element: 'plant' },
@@ -168,6 +172,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Drena muita vida de múltiplos alvos enquanto os infecta com toxinas letais.',
     stage: 'Mega',
     slot_role: 'sustain_dot',
+    upgrade_of: 'sk-plant-dot-u-2',
     energyCost: 28,
     actions: [
       { kind: 'drain', target: 'primary_target', damage: { base: 100, scale: 'int', factor: 2.0 }, heal_pct: 0.15, element: 'plant' }
@@ -181,6 +186,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Um golpe catastrófico de pura decadência. Enfraquece ainda mais alvos envenenados.',
     stage: 'Mega',
     slot_role: 'primary_attack',
+    upgrade_of: 'sk-plant-dot-u-3',
     cooldown: 2,
     energyCost: 38,
     actions: [
@@ -259,6 +265,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Absorve a luz do sol para restaurar a energia de um aliado.',
     stage: 'Champion',
     slot_role: 'utility',
+    upgrade_of: 'sk-plant-heal-r-2',
     energyCost: 12,
     actions: [
       { kind: 'restore_en', target: 'caster_ally_lowest_hp', amount: 3 }
@@ -272,6 +279,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Endurece a pele da linha de frente, concedendo defesa e um escudo.',
     stage: 'Champion',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-plant-heal-r-3',
     energyCost: 13,
     actions: [
       { kind: 'apply_buff', target: 'self', buff: 'shield_absorb', amount: 40, turns: 2 },
@@ -307,6 +315,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Uma bênção profunda que purifica doenças e fornece recuperação gradual.',
     stage: 'Ultimate',
     slot_role: 'utility',
+    upgrade_of: 'sk-plant-heal-c-2',
     energyCost: 12,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'evasion_up', amount: 30, turns: 2 },
@@ -321,6 +330,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Cria uma imensa guarda mágica florestal, protegendo toda a equipe.',
     stage: 'Ultimate',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-plant-heal-c-3',
     energyCost: 17,
     actions: [
       { kind: 'apply_buff', target: 'caster_ally_lowest_hp', buff: 'shield_absorb', amount: 30, turns: 1 }
@@ -350,6 +360,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Transforma o campo de batalha em uma floresta sagrada, tornando um aliado brevemente invulnerável.',
     stage: 'Mega',
     slot_role: 'utility',
+    upgrade_of: 'sk-plant-heal-u-2',
     cooldown: 3,
     energyCost: 25,
     actions: [
@@ -365,6 +376,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Canaliza profunda energia da terra para curar imensamente e conceder uma ação extra imediata.',
     stage: 'Mega',
     slot_role: 'identity_finisher',
+    upgrade_of: 'sk-plant-heal-u-3',
     cooldown: 4,
     energyCost: 40,
     actions: [
@@ -437,6 +449,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Uma flor de cheiro forte paralisa os inimigos com seu odor avassalador.',
     stage: 'Champion',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-r-2',
     energyCost: 12,
     actions: [
       { kind: 'apply_status', target: 'enemy_first_two', status: 'stun', chance: 0.3, turns: 1 }
@@ -450,6 +463,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Morde com força um alvo, drenando vida enquanto o enraíza no lugar.',
     stage: 'Champion',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-r-3',
     energyCost: 13,
     actions: [
       { kind: 'drain', target: 'enemy_random', damage: { base: 70, scale: 'int', factor: 2.0 }, heal_pct: 0.2, element: 'plant' },
@@ -478,6 +492,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Uma floração sinistra força os inimigos a encará-la, petrificando-os.',
     stage: 'Ultimate',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-c-2',
     energyCost: 12,
     actions: [
       { kind: 'apply_status', target: 'enemy_random', status: 'petrify', chance: 0.5, turns: 1 }
@@ -491,6 +506,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Prende inimigos em um labirinto espinhoso, causando dano e atrasando seus turnos.',
     stage: 'Ultimate',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-c-3',
     energyCost: 17,
     actions: [
       { kind: 'deal_damage', target: 'enemy_random', amount: { base: 100, scale: 'int', factor: 2.5 }, element: 'plant' },
@@ -521,6 +537,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Libera um pólen místico de crepúsculo que faz os inimigos dormirem e drena sua magia.',
     stage: 'Mega',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-u-2',
     energyCost: 28,
     actions: [
       { kind: 'apply_status', target: 'enemy_all', status: 'sleep', chance: 0.3, turns: 1 },
@@ -535,6 +552,7 @@ export const PLANT_SKILLS: SkillSeed[] = [
     description_pt: 'Toma controle total da área. Petrifica inimigos saudáveis ou silencia os fracos.',
     stage: 'Mega',
     slot_role: 'control',
+    upgrade_of: 'sk-plant-zone-u-3',
     cooldown: 3,
     energyCost: 38,
     actions: [
