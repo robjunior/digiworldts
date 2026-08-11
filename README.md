@@ -60,7 +60,7 @@ pnpm scrape --assets --limit 20       # downloads portrait.webp + dot.gif per en
 pnpm dev                              # start the server on http://localhost:3000
 ```
 
-Then open `http://localhost:3000/`, register the first user — they will be the game admin automatically. Their starter roster is populated with 3 random Rookies from the catalog.
+Then open `http://localhost:3000/`, register the first user — they will be the game admin automatically. They are sent to `/intro` to pick one of two starter teams (`Triad` or `Tide`, seeded at boot from `DEFAULT_TEAMS` in [`backend/src/onboarding/engine.ts`](backend/src/onboarding/engine.ts)); the three Digimon of the chosen team are copied into their roster.
 
 ### Path B — Register first, then seed from the Admin UI
 

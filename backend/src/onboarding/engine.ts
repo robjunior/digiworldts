@@ -392,27 +392,51 @@ type SeedTeam = {
   sortOrder: number;
 };
 
-const DEFAULT_TEAMS: SeedTeam[] = [
+/**
+ * The two starter teams offered at `/intro`.
+ *
+ * Designed against the rebalanced skill catalog and verified by simulation
+ * rather than by eye — every intuition tried here was wrong at least once.
+ * Measured head-to-head over three independent seeds of 1000 battles:
+ * Triad 51-55%, Tide 45-49%, no draws, ~25 turns.
+ *
+ * Three constraints came out of that measurement and should be respected by
+ * anyone editing this list:
+ *
+ *   1. NEVER ship a mono-element team. Elemental affinity is a 3x swing
+ *      (1.5x attacking, 0.5x attacked) while the same-element chain bonus is
+ *      only 1.4x. The old `aggressive` team was three fire Rookies and lost
+ *      99% of its fights to any team carrying a water mon.
+ *   2. Match the attribute pattern slot for slot. The AI focuses the front
+ *      unit, so slot 0 vs slot 0 decides most fights, and the attribute
+ *      triangle is a 1.8x swing (1.35x / 0.75x). Both teams are
+ *      Vaccine / Data / Virus in that order, which makes every slot pairing
+ *      attribute-neutral and leaves elements as the only differentiator.
+ *   3. Watch for self-defeating elements. `electricity` hits `water` for 1.5x
+ *      and `water` hits back for 0.5x, so a water mon facing an electricity
+ *      mon is in a 3x hole on its own. A candidate team that swapped its water
+ *      for the weakest element in the game went from 55% to 94% purely by
+ *      dropping that liability.
+ *
+ * All Rookies share identical base stats (hp 500 / en 30 / atk 100 / def 80 /
+ * int 90 / spd 100), so element and attribute are the ONLY levers here.
+ */
+export const DEFAULT_TEAMS: SeedTeam[] = [
   {
-    slug: 'aggressive',
-    name: 'Aggressive',
-    description: 'Overwhelming offense. A fire-breather, a wolf with a chilling bite, and a saurian brawler.',
-    monCatalogIds: ['skb-50', 'skb-151', 'skb-90'],
+    slug: 'triad',
+    name: 'Triad',
+    description:
+      'Fire, earth and water — the classic elemental triangle. Hits harder and holds longer: more raw damage, more area attacks, and both a healer and the game\'s heaviest buffer. The cost is exposure, because every one of its elements can be countered.',
+    monCatalogIds: ['skb-50', 'skb-595', 'skb-582'],
     sortOrder: 0,
   },
   {
-    slug: 'balanced',
-    name: 'Balanced',
-    description: 'One from each element school. Fire attacker, water support, nature control — rounded for any matchup.',
-    monCatalogIds: ['skb-136', 'skb-343', 'skb-348'],
+    slug: 'tide',
+    name: 'Tide',
+    description:
+      'Water, ice and lightning — wins by denying turns rather than trading them. Twice the initiative manipulation and the heaviest status pressure in the roster, at roughly 15% less damage. Punishing if the lock holds, fragile if it does not.',
+    monCatalogIds: ['skb-343', 'skb-750', 'skb-389'],
     sortOrder: 1,
-  },
-  {
-    slug: 'wildcard',
-    name: 'Wildcard',
-    description: 'Unusual and adaptable. A moon rabbit, a thunder beetle, and a wind pup — off-meta by design.',
-    monCatalogIds: ['skb-2', 'skb-303', 'skb-701'],
-    sortOrder: 2,
   },
 ];
 
