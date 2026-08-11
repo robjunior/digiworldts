@@ -162,6 +162,8 @@ export type ScheduledAction = {
   extraPickIds: UnitId[];
   side: BattleSide;
   skillName: string;
+  /** Preset id of the originating skill, so a delayed action still renders its effect. */
+  vfxPresetId?: string;
   /** `battle.round` value at which this fires. */
   firesAtRound: number;
 };
