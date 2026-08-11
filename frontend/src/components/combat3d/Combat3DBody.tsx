@@ -14,6 +14,7 @@ import { isAnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 
 import { AilmentBadgesLayer } from './AilmentBadgesLayer';
+import { BuffBadgesLayer } from './BuffBadgesLayer';
 import { EnemyHealthBars } from './EnemyHealthBars';
 import { PartyCard } from './PartyCard';
 import { BattleFeed } from './BattleFeed';
@@ -97,7 +98,14 @@ export function Combat3DBody(): JSX.Element | null {
   const dispatchPendingRef = useRef<boolean>(false);
   const autobattleKeyRef = useRef<string | null>(null);
   const cmdRef = useRef<HTMLDivElement | null>(null);
-  const enemyPlaybackRef = useRef<{ queue: BattleView['log']; timer: number | null }>({ queue: [], timer: null });
+  // Queue entries carry their own VFX decision: one skill cast can emit several
+  // events (a `deal_damage` plus an `apply_status` on the same target), and now
+  // that non-damage events render, every one of them would fire its own effect
+  // 700ms apart for a single cast.
+  const enemyPlaybackRef = useRef<{
+    queue: Array<{ event: BattleView['log'][number]; playVfx: boolean }>;
+    timer: number | null;
+  }>({ queue: [], timer: null });
 
   useEffect(() => {
     const node = cmdRef.current;
@@ -162,7 +170,7 @@ export function Combat3DBody(): JSX.Element | null {
     window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), 900);
   }, []);
 
-  const playActionEvent = useCallback((event: BattleView['log'][number]): void => {
+  const playActionEvent = useCallback((event: BattleView['log'][number], playVfx = true): void => {
     if (event.type !== 'action') return;
     const targetId = event.targetId;
     const damage = event.damage;
@@ -173,7 +181,13 @@ export function Combat3DBody(): JSX.Element | null {
       const kind: Floater3D['kind'] = event.cue === 'crit' ? 'crit' : event.cue === 'miss' ? 'miss' : event.cue === 'resist' ? 'resist' : 'dmg';
       spawnFloater(targetId, damage > 0 ? String(damage) : event.cue === 'miss' ? 'MISS' : event.cue === 'resist' ? 'RESIST' : '0', kind);
     }
-    if (!actorIsFriendly && isAnimatedElement(event.skillElement) && (damage ?? 0) > 0) {
+    // Support and debuff skills report `damage: 0` (status, buff, stat change,
+    // cleanse, dispel) or a negative value (heal), so gating on `damage > 0`
+    // silenced every one of them — a preset picked for a heal rendered nothing.
+    // Misses stay silent on purpose: `playEffect`'s impact callback fires
+    // `playHit` and flashes the target, which would read as a landed hit.
+    const isMiss = event.cue === 'miss';
+    if (playVfx && !actorIsFriendly && isAnimatedElement(event.skillElement) && !isMiss) {
       sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId, event.vfxPresetId !== undefined ? { vfxPresetId: event.vfxPresetId } : undefined);
     }
   }, [activeBattle?.yourSide, spawnFloater]);
@@ -185,7 +199,7 @@ export function Combat3DBody(): JSX.Element | null {
       state.timer = null;
       return;
     }
-    playActionEvent(next);
+    playActionEvent(next.event, next.playVfx);
     state.timer = window.setTimeout(() => drainEnemyQueue(), ATTACK_PROPAGATION_MS);
   }, [playActionEvent]);
 
@@ -200,6 +214,7 @@ export function Combat3DBody(): JSX.Element | null {
 
   useEffect(() => {
     const nextEvents = battleEvents.slice(seenEventCountRef.current);
+    const vfxSeen = new Set<string>();
     seenEventCountRef.current = battleEvents.length;
     const yourSide = activeBattle?.yourSide ?? 'a';
     for (const event of nextEvents) {
@@ -208,7 +223,11 @@ export function Combat3DBody(): JSX.Element | null {
       if (actorIsFriendly) {
         playActionEvent(event);
       } else {
-        enemyPlaybackRef.current.queue.push(event);
+        // First event of a cast wins the effect; the rest still floater.
+        const signature = `${String(event.actor)}|${String(event.targetId)}|${String(event.skillName)}`;
+        const playVfx = !vfxSeen.has(signature);
+        vfxSeen.add(signature);
+        enemyPlaybackRef.current.queue.push({ event, playVfx });
       }
     }
     if (enemyPlaybackRef.current.timer === null && enemyPlaybackRef.current.queue.length > 0) {
@@ -310,6 +329,7 @@ export function Combat3DBody(): JSX.Element | null {
 
       <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
       <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
+      <BuffBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
       
       <div className="overlay">
         <div className={`side-badge ${feedOpen ? 'open' : ''}`}>

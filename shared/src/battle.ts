@@ -179,6 +179,16 @@ export type EnemyUnitView = {
   hp: number;
   hpMax: number;
   ailments: Ailmented[];
+  /**
+   * Buffs and debuffs currently on the unit.
+   *
+   * `serializeForSide` redacts the enemy's EN, skills and combat stats, but buff
+   * STATE is visible in fiction — a player can see that something is shielded or
+   * has had its attack cut, and needs to, since debuffs land in `activeBuffs`
+   * (`atk_down`, `def_down`, ...) rather than in `ailments`. Without this the
+   * client can only draw status icons for its own side.
+   */
+  activeBuffs?: ActiveBuff[];
   down: boolean;
   wild?: WildInfo;
 };
