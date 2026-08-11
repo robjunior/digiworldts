@@ -423,12 +423,25 @@ total output per stage was nearly flat where the field roughly quadruples:
 | - | ------ | -------- | -------- | ---- | ----------- |
 | wind, before | 1805 | 2097 | 2001 | 2341 | **1.30x** |
 | field median | 781 | 1322 | 1898 | 3040 | 3.89x |
-| wind, after | 716 | 1386 | 1901 | 4531 | 6.33x |
+| wind, after | 716 | 1349 | 1901 | 4531 | 6.33x |
 
 A flat multiplier could not fix this — any nerf that tamed Rookie sank Mega
 further. Only a per-stage reshape worked, and it had to be tuned empirically:
 the response is steep and non-linear, with a 1.12x scale at Rookie moving the
 win rate from 33% to 56%. It took four converging passes.
+
+> [!warning] Verify near the band edge with several seeds, not one run
+> Wind was first declared done at 47/55/53/52. A re-check on a fresh database
+> put Champion at 56% — over the line. It had been oscillating 54-56% across
+> runs, sitting exactly on the 55% boundary, and a single passing run had hidden
+> that. The correction was a 3.5% Champion trim, and the first attempt at it
+> (a 6% cut) overshot to 42-45% and grazed the floor instead: the response is
+> just as steep at this scale as at the earlier one.
+>
+> Final figures are the range over **three independent 1000-battle seeds**, not
+> a best run — Rookie 47-49%, Champion 48-51%, Ultimate 52-54%, Mega 51-52%.
+> Anything landing within about two points of 45% or 55% should be re-run before
+> it is called done.
 
 The tell was present in **every run of the suite for the entire rework**: wind's
 mirror Rookie resolved in 17 turns while every other element took 39-50. That is
