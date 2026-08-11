@@ -1,4 +1,4 @@
-import type { Dungeon, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, DungeonZone, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind, EncounterLoot, WildPool, WildPoolRollParams } from '@digiworld/shared';
+import type { ChestReward, Dungeon, DungeonChest, DungeonDoor, DungeonListResponse, DungeonView, DungeonTile, DungeonEncounter, DungeonItem, DungeonWarp, DungeonZone, EncounterDigimon, WorldObjectListResponse, WorldObject, WorldObjectKind, EncounterLoot, WildPool, WildPoolRollParams } from '@digiworld/shared';
 import type { Element } from '@digiworld/shared/digimon';
 import { apiFetch } from './api';
 
@@ -221,5 +221,37 @@ export async function replaceDungeonZones(dungeonId: string, zones: readonly Zon
   return apiFetch<DungeonZonesResponse>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/zones`, {
     method: 'PUT',
     body: { zones },
+  });
+}
+
+export type ChestCreateBody = {
+  readonly x: number;
+  readonly y: number;
+  readonly label?: string | null;
+  readonly contents: readonly ChestReward[];
+  readonly lockedByKeyId?: string | null;
+  readonly unusedTileGid?: number | null;
+  readonly usedTileGid?: number | null;
+};
+
+export type ChestUpdateBody = Partial<ChestCreateBody>;
+
+export async function createAdminChest(dungeonId: string, body: ChestCreateBody): Promise<{ chest: DungeonChest }> {
+  return apiFetch<{ chest: DungeonChest }>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/chests`, {
+    method: 'POST',
+    body,
+  });
+}
+
+export async function updateAdminChest(dungeonId: string, chestId: string, body: ChestUpdateBody): Promise<{ chest: DungeonChest }> {
+  return apiFetch<{ chest: DungeonChest }>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/chests/${encodeURIComponent(chestId)}`, {
+    method: 'PUT',
+    body,
+  });
+}
+
+export async function deleteAdminChest(dungeonId: string, chestId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>(`/api/admin/dungeons/${encodeURIComponent(dungeonId)}/chests/${encodeURIComponent(chestId)}`, {
+    method: 'DELETE',
   });
 }

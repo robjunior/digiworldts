@@ -3,7 +3,7 @@ import { one, q, run } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import type { DoorInput, UpdateDoorInput } from './validation.js';
 
-export type DoorRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly key_item_id: string; readonly label: string | null; readonly created_at: number; readonly updated_at: number };
+export type DoorRow = { readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly key_item_id: string; readonly label: string | null; readonly created_at: number; readonly updated_at: number; readonly dungeon_key_id: string | null; readonly unused_tile_gid: number | null; readonly used_tile_gid: number | null };
 
 const SQL_GET_DUNGEON_EXISTS = `SELECT id FROM dungeons WHERE id = ?`;
 const SQL_LIST_DOORS = `SELECT * FROM dungeon_doors WHERE dungeon_id = ? ORDER BY y, x`;
@@ -21,10 +21,10 @@ function doorFromRow(row: DoorRow): DungeonDoor {
     x: row.x,
     y: row.y,
     keyItemId: row.key_item_id,
-    dungeonKeyId: null,
+    dungeonKeyId: row.dungeon_key_id ?? null,
     label: row.label,
-    unusedTileGid: null,
-    usedTileGid: null,
+    unusedTileGid: row.unused_tile_gid ?? null,
+    usedTileGid: row.used_tile_gid ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import type { EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind, WildPool, WildPoolRollParams } from '@digiworld/shared';
+import type { ChestReward, EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind, WildPool, WildPoolRollParams } from '@digiworld/shared';
 import { getObjectClass, getProperty, isObjectGroup, isTileLayer, LAYER_KINDS, tiledTilesetKey, TRAP_KINDS, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES, type Element, type Stage } from '@digiworld/shared/digimon';
 import { BIOMES, type Biome } from '@digiworld/shared/world';
@@ -134,6 +134,16 @@ export type ImportedZone = {
   readonly rollOverrides?: Partial<WildPoolRollParams>;
 };
 
+export type ImportedChest = {
+  readonly x: number;
+  readonly y: number;
+  readonly label: string | null;
+  readonly contents: readonly ChestReward[];
+  readonly lockedByKeyId: string | null;
+  readonly unusedTileGid: number | null;
+  readonly usedTileGid: number | null;
+};
+
 export type ImportedRandomSettings = {
   readonly randomEncountersEnabled?: boolean;
   readonly randomEncounterRate?: number;
@@ -159,6 +169,7 @@ export type TiledImportPayload = {
   readonly warps: readonly ImportedWarp[];
   readonly traps: readonly ImportedTrap[];
   readonly zones: readonly ImportedZone[];
+  readonly chests: readonly ImportedChest[];
 };
 
 export type TiledImportSuccess = { readonly ok: true; readonly payload: TiledImportPayload; readonly warnings: readonly string[] };
@@ -199,6 +210,7 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
   const warps: ImportedWarp[] = [];
   const traps: ImportedTrap[] = [];
   const zones: ImportedZone[] = [];
+  const chests: ImportedChest[] = [];
   let spawn: { x: number; y: number } | null = null;
 
   for (const layer of map.layers) {
@@ -250,6 +262,11 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
           if (zn) zones.push(zn);
           break;
         }
+        case 'chest': {
+          const ch = readChest(obj, cell, errors);
+          if (ch) chests.push(ch);
+          break;
+        }
         default:
           warnings.push(`object ${obj.id} class "${cls}" not recognized; skipped`);
       }
@@ -288,6 +305,7 @@ export function tiledMapToImportPayload(map: TiledMap, options: TiledImportOptio
       warps,
       traps,
       zones,
+      chests,
     },
     warnings,
   };
@@ -466,6 +484,40 @@ function readZone(obj: TiledObject, cell: { x: number; y: number }, tw: number, 
     pool,
     ...(Object.keys(rollOverrides).length > 0 ? { rollOverrides } : {}),
   };
+}
+
+function parseChestContentsCsv(csv: string, errors: string[], objId: number): readonly ChestReward[] {
+  const results: ChestReward[] = [];
+  for (const raw of csv.split(',').map((s) => s.trim()).filter((s) => s.length > 0)) {
+    const [itemId, qtyRaw] = raw.split(':');
+    if (!itemId || itemId.length === 0) {
+      errors.push(`chest object ${objId}: contents entry "${raw}" has empty itemId`);
+      continue;
+    }
+    const qty = qtyRaw !== undefined ? Number(qtyRaw) : 1;
+    if (!Number.isFinite(qty) || qty <= 0) {
+      errors.push(`chest object ${objId}: contents entry "${raw}" has invalid qty`);
+      continue;
+    }
+    results.push({ itemId: itemId.trim(), qty: Math.round(qty) });
+  }
+  return results;
+}
+
+function readChest(obj: TiledObject, cell: { x: number; y: number }, errors: string[]): ImportedChest | null {
+  const properties = obj.properties;
+  const contentsRaw = getProperty(properties, 'contents');
+  const contents = typeof contentsRaw === 'string' ? parseChestContentsCsv(contentsRaw, errors, obj.id) : [];
+  if (contents.length === 0) {
+    errors.push(`chest object ${describeObject(obj)}: "contents" property required (CSV like "itemId:qty,itemId2:qty2")`);
+    return null;
+  }
+  const lockedByKeyId = coerceOptionalString(getProperty(properties, 'lockedByKeyId'));
+  const label = coerceOptionalString(getProperty(properties, 'label'));
+  const unusedTileGid = obj.gid !== undefined && obj.gid > 0 ? obj.gid : null;
+  const usedTileGidRaw = getProperty(properties, 'usedTileGid');
+  const usedTileGid = typeof usedTileGidRaw === 'number' && usedTileGidRaw > 0 ? Math.round(usedTileGidRaw) : null;
+  return { x: cell.x, y: cell.y, label, contents, lockedByKeyId, unusedTileGid, usedTileGid };
 }
 
 function readBiomeProp(properties: TiledMap['properties'], errors: string[]): Biome | null {

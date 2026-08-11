@@ -14,7 +14,7 @@ type PoiStateRow = {
 
 const SQL_LIST_POI_STATES = `SELECT * FROM user_dungeon_run_poi_states WHERE user_id = ? AND dungeon_id = ?`;
 const SQL_GET_POI_STATE = `SELECT * FROM user_dungeon_run_poi_states WHERE user_id = ? AND dungeon_id = ? AND poi_kind = ? AND poi_id = ?`;
-const SQL_UPSERT_POI_STATE = `INSERT INTO user_dungeon_run_poi_states (user_id, dungeon_id, poi_kind, poi_id, state, changed_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, dungeon_id, poi_kind, poi_id) DO UPDATE SET state = excluded.state, changed_at = excluded.changed_at`;
+export const SQL_UPSERT_POI_STATE = `INSERT INTO user_dungeon_run_poi_states (user_id, dungeon_id, poi_kind, poi_id, state, changed_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, dungeon_id, poi_kind, poi_id) DO UPDATE SET state = excluded.state, changed_at = excluded.changed_at`;
 
 function poiStateFromRow(row: PoiStateRow): DungeonRunPoiState {
   return {

@@ -1,7 +1,9 @@
 import type {
   ChallengeConfig,
   ChallengeKind,
+  ChestReward,
   Dungeon,
+  DungeonChest,
   DungeonEncounter,
   DungeonItem,
   DungeonWarp,
@@ -34,7 +36,15 @@ import { findTilesetByName } from '../tilesets/repo.js';
 import { getDoorAt, getDoorById, listDoors } from './doors.js';
 import { computePartyAvgSpd, evaluateTrap, getTrapAt, listTraps } from './traps.js';
 import { listZones, replaceZones } from './zones.js';
-import { listPoiStatesForRun } from './poi-states.js';
+import { listPoiStatesForRun, getPoiState, SQL_UPSERT_POI_STATE } from './poi-states.js';
+import { createChest, getChestAt, listChests } from './chests.js';
+import { getKeyAtPlacement, listKeysForGroup } from './keys.js';
+import { hasKey, listGroupInventoryForUser, purgeGroupInventory, SQL_UPSERT_GROUP_INVENTORY } from './group-inventory.js';
+import type { CreateChestInput } from './validation.js';
+
+const SQL_INSERT_CHEST_IMPORT = `INSERT INTO dungeon_chests (id, dungeon_id, x, y, label, contents_json, locked_by_key_id, unused_tile_gid, used_tile_gid, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_DELETE_CHESTS_FOR_DUNGEON = `DELETE FROM dungeon_chests WHERE dungeon_id = ?`;
+const SQL_CLEAR_KEY_PLACEMENT_INLINE = `UPDATE dungeon_keys SET placed_dungeon_id = NULL, placed_x = NULL, placed_y = NULL WHERE id = ?`;
 import type { TrapTriggered } from '@digiworld/shared';
 import { rollDungeonEncounter, rollRandomEncounter } from './random.js';
 import { evaluateChallenge } from './challenge.js';
@@ -363,8 +373,8 @@ export async function getDungeonView(id: string): Promise<DungeonView | null> {
     doors: await listDoors(id),
     traps: await listTraps(id),
     zones: await listZones(id),
-    chests: [],
-    dungeonKeys: [],
+    chests: await listChests(id),
+    dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
   };
 }
 
@@ -616,10 +626,10 @@ export async function startOrGetRun(userId: string, dungeonId: string): Promise<
     encounters: await listEncounters(dungeonId),
     items: await listItems(dungeonId),
     doors: await listDoors(dungeonId),
-    chests: [],
-    dungeonKeys: [],
+    chests: await listChests(dungeonId),
+    dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),
-    groupInventory: [],
+    groupInventory: dungeon.dungeonGroupId !== null ? await listGroupInventoryForUser(userId, dungeon.dungeonGroupId) : [],
   };
 }
 
@@ -635,14 +645,14 @@ export async function getDungeonRunView(userId: string, dungeonId: string): Prom
     encounters: await listEncounters(dungeonId),
     items: await listItems(dungeonId),
     doors: await listDoors(dungeonId),
-    chests: [],
-    dungeonKeys: [],
+    chests: await listChests(dungeonId),
+    dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),
-    groupInventory: [],
+    groupInventory: dungeon.dungeonGroupId !== null ? await listGroupInventoryForUser(userId, dungeon.dungeonGroupId) : [],
   };
 }
 
-export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
+export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[] } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'blocked-by-chest'; readonly run: UserDungeonRun; readonly chestId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!existing) return { kind: 'not-found' };
   const current = runFromRow(existing);
@@ -655,6 +665,19 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   const warp = await one<WarpRow>(SQL_GET_WARP_AT, dungeonId, x, y);
   const door = await getDoorAt(dungeonId, x, y);
   if (door && !current.unlockedDoors.includes(door.id)) return { kind: 'blocked-by-door', run: current, doorId: door.id };
+  const chest = await getChestAt(dungeonId, x, y);
+  const chestState = chest ? await getPoiState(userId, dungeonId, 'chest', chest.id) : 'unused';
+  if (chest && chestState === 'unused' && chest.lockedByKeyId !== null) {
+    const groupId = dungeonForWalkCheck.dungeonGroupId;
+    const playerHasKey = groupId !== null ? await hasKey(userId, groupId, chest.lockedByKeyId) : false;
+    if (!playerHasKey) {
+      return { kind: 'blocked-by-chest', run: current, chestId: chest.id };
+    }
+  }
+  const opensChest: DungeonChest | null = chest !== null && chestState === 'unused' && (chest.lockedByKeyId === null || (dungeonForWalkCheck.dungeonGroupId !== null && await hasKey(userId, dungeonForWalkCheck.dungeonGroupId, chest.lockedByKeyId))) ? chest : null;
+  const groupId = dungeonForWalkCheck.dungeonGroupId;
+  const placedKey = groupId !== null ? await getKeyAtPlacement(dungeonId, x, y) : null;
+  const canPickUpKey = placedKey !== null && groupId !== null && !(await hasKey(userId, groupId, placedKey.id));
   const isNewPickup = item !== null && !current.collectedItems.includes(item.id);
   const collectedItems = isNewPickup ? [...current.collectedItems, item.id] : current.collectedItems;
   // Trap: fires once per run. Resolve landing tile (teleport may redirect) before writing position.
@@ -673,10 +696,13 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
       landY = trapTriggered.teleportTo.y;
     }
   }
-  if (isNewPickup) {
-    const cataloged = await one<{ readonly id: string }>(SQL_ITEM_IS_CATALOGED, item.item_id);
-    if (!cataloged) {
-      log.warn('dungeon.pickup.uncataloged', { dungeonId, itemRowId: item.id, itemId: item.item_id });
+  if (isNewPickup || opensChest !== null || canPickUpKey) {
+    let cataloged: { readonly id: string } | null = null;
+    if (isNewPickup && item !== null) {
+      cataloged = await one<{ readonly id: string }>(SQL_ITEM_IS_CATALOGED, item.item_id);
+      if (!cataloged) {
+        log.warn('dungeon.pickup.uncataloged', { dungeonId, itemRowId: item.id, itemId: item.item_id });
+      }
     }
     const redirectToStash = await hasFlag(userId, 'dungeon-extraction');
     let applied = false;
@@ -685,12 +711,26 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
       const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [landX, landY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY]);
       if (moveResult.changes === 0) return;
       applied = true;
-      if (cataloged) {
+      if (isNewPickup && item !== null && cataloged) {
         if (redirectToStash) {
           await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, item.item_id, item.qty, now]);
         } else {
           await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
         }
+      }
+      if (opensChest !== null) {
+        await t.run(SQL_UPSERT_POI_STATE, [userId, dungeonId, 'chest', opensChest.id, 'used', now]);
+        for (const reward of opensChest.contents) {
+          if (redirectToStash) {
+            await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, reward.itemId, reward.qty, now]);
+          } else {
+            await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, reward.itemId, reward.qty, now]);
+          }
+        }
+      }
+      if (canPickUpKey && placedKey !== null && groupId !== null) {
+        await t.run(SQL_UPSERT_GROUP_INVENTORY, [userId, groupId, 'dungeon-key', placedKey.id, 1, now]);
+        await t.run(SQL_CLEAR_KEY_PLACEMENT_INLINE, [placedKey.id]);
       }
     });
     if (!applied) return { kind: 'not-adjacent' };
@@ -714,10 +754,11 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     kind: 'ok',
     run: runAfterAutoExtract,
     triggeredEncounterId,
-    pickedUpItemId: isNewPickup ? item.id : null,
+    pickedUpItemId: isNewPickup && item !== null ? item.id : null,
     ...(randomEncounter ? { randomEncounter } : {}),
     ...(warp ? { warpToDungeonId: warp.target_dungeon_id } : {}),
     ...(trapTriggered ? { trapTriggered } : {}),
+    ...(opensChest !== null ? { openedChestId: opensChest.id, chestContents: opensChest.contents } : {}),
   };
 }
 
@@ -827,6 +868,7 @@ export async function wipeRun(userId: string, dungeonId: string): Promise<WipeRu
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!existing) return null;
   if (existing.state !== 'active') return null;
+  const dungeonForGroup = await getDungeon(dungeonId);
   const stashRows = await q<DungeonRunStashRow>(SQL_SELECT_STASH_BY_RUN, userId, dungeonId);
   const meat = existing.stash_meat;
   const bits = existing.stash_bits;
@@ -840,6 +882,9 @@ export async function wipeRun(userId: string, dungeonId: string): Promise<WipeRu
     updated = true;
   });
   if (!updated) return null;
+  if (dungeonForGroup?.dungeonGroupId) {
+    await purgeGroupInventory(userId, dungeonForGroup.dungeonGroupId);
+  }
   log.info('dungeon.run.wiped', { userId, dungeonId, purgedItemCount: stashRows.length, meat, bits, data });
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return null;
@@ -867,6 +912,7 @@ export async function extractRun(userId: string, dungeonId: string, kind: Extrac
   const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!existing) return null;
   if (existing.state !== 'active') return null;
+  const dungeonForGroup = await getDungeon(dungeonId);
   const stashRows = await q<DungeonRunStashRow>(SQL_SELECT_STASH_BY_RUN, userId, dungeonId);
   const meat = existing.stash_meat;
   const bits = existing.stash_bits;
@@ -887,6 +933,9 @@ export async function extractRun(userId: string, dungeonId: string, kind: Extrac
     updated = true;
   });
   if (!updated) return null;
+  if (dungeonForGroup?.dungeonGroupId) {
+    await purgeGroupInventory(userId, dungeonForGroup.dungeonGroupId);
+  }
   log.info('dungeon.run.extracted', { userId, dungeonId, kind, itemCount: stashRows.length, meat, bits, data });
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return null;
@@ -1006,6 +1055,10 @@ export async function applyTiledImportReplace(dungeonId: string, payload: TiledI
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeonId, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
     }
+    await t.run(SQL_DELETE_CHESTS_FOR_DUNGEON, [dungeonId]);
+    for (const ch of payload.chests) {
+      await t.run(SQL_INSERT_CHEST_IMPORT, [newId('chst'), dungeonId, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
+    }
   });
   await replaceZones(dungeonId, payload.zones);
   const view = await getDungeonView(dungeonId);
@@ -1085,6 +1138,9 @@ export async function applyTiledImportNew(input: {
     }
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeon.id, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
+    }
+    for (const ch of payload.chests) {
+      await t.run(SQL_INSERT_CHEST_IMPORT, [newId('chst'), dungeon.id, ch.x, ch.y, ch.label, JSON.stringify(ch.contents), ch.lockedByKeyId, ch.unusedTileGid, ch.usedTileGid, now, now]);
     }
   });
   await replaceZones(dungeon.id, payload.zones);

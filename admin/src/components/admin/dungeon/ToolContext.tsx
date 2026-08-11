@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import type {
   Dungeon,
+  DungeonChest,
   DungeonDoor,
   DungeonEncounter,
   DungeonItem,
@@ -10,6 +11,7 @@ import type {
 } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
 
+import { ChestEditor } from './ChestEditor';
 import { DoorEditor } from './DoorEditor';
 import { EncounterEditor } from './EncounterEditor';
 import { BossEditor } from './BossEditor';
@@ -38,6 +40,7 @@ export function ToolContext({
   warp,
   door,
   trap,
+  chest,
   catalog,
   dungeons,
   shopItems,
@@ -54,6 +57,7 @@ export function ToolContext({
   readonly warp?: DungeonWarp | undefined;
   readonly door?: DungeonDoor | undefined;
   readonly trap?: DungeonTrap | undefined;
+  readonly chest?: DungeonChest | undefined;
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
@@ -153,6 +157,17 @@ export function ToolContext({
         y={selectedCell.y}
         shopItems={shopItems}
         {...(door ? { door } : {})}
+      />
+    );
+  }
+  if (tool === 'CHESTS') {
+    return (
+      <ChestEditor
+        dungeonId={dungeonId}
+        x={selectedCell.x}
+        y={selectedCell.y}
+        shopItems={shopItems}
+        {...(chest ? { chest } : {})}
       />
     );
   }

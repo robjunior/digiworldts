@@ -39,6 +39,8 @@ type TrapRow = {
   readonly severity: number;
   readonly label: string | null;
   readonly created_at: number;
+  readonly unused_tile_gid: number | null;
+  readonly used_tile_gid: number | null;
 };
 
 const KIND_LABELS: Record<TrapKind, string> = {
@@ -60,8 +62,8 @@ function trapFromRow(row: TrapRow): DungeonTrap {
     kind: row.kind as TrapKind,
     severity: row.severity,
     label: row.label,
-    unusedTileGid: null,
-    usedTileGid: null,
+    unusedTileGid: row.unused_tile_gid ?? null,
+    usedTileGid: row.used_tile_gid ?? null,
     createdAt: row.created_at,
   };
 }
