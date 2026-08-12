@@ -106,12 +106,14 @@ async function main(): Promise<void> {
   }
   if (catalog.digimons.length > 0) {
     log.info('boot.catalog', { count: catalog.digimons.length });
-    try {
-      const report = await verifyCatalogAssets(catalog);
-      log.info('boot.verify', report);
-    } catch (err) {
-      log.warn('boot.verify.fail', { err: err instanceof Error ? err.message : String(err) });
-    }
+    // Deliberately NOT awaited: on an empty asset volume this re-downloads two
+    // files per catalog entry, and `SCRAPER_MIN_DELAY_MS` throttling alone puts
+    // 434 entries past two minutes — longer than the container healthcheck
+    // tolerates, so the API was killed before it ever listened. Nothing else
+    // depends on the images; a missing portrait 404s until its download lands.
+    void verifyCatalogAssets(catalog)
+      .then((report) => log.info('boot.verify', report))
+      .catch((err) => log.warn('boot.verify.fail', { err: err instanceof Error ? err.message : String(err) }));
     await normalizeRosterXpFloor();
   } else {
     log.warn('boot.catalog.empty', {
