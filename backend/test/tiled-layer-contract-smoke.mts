@@ -201,6 +201,25 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log('== tiled-import: flip/rotation flags are stripped from GIDs ==');
+  const flipTmj = buildTmj([
+    { name: 'floor', data: [0xa000007e, 0x80000005, 0x40000002, ...ZERO_4x4.slice(3)] },
+  ]);
+  const flipParsed = parseTiledJson(flipTmj);
+  assert(flipParsed.ok === true, 'flip-flag TMJ parses');
+  if (flipParsed.ok) {
+    const result = tiledMapToImportPayload(flipParsed.map);
+    assert(result.ok === true, 'flip-flag TMJ imports (would be Postgres 22003 otherwise)');
+    if (result.ok) {
+      const byCoord = new Map(result.payload.tiles.map((t) => [`${t.x},${t.y}`, t.gid]));
+      assert(byCoord.get('0,0') === 126, 'GID 0xa000007e stripped to tile id 126');
+      assert(byCoord.get('1,0') === 5, 'GID 0x80000005 stripped to tile id 5');
+      assert(byCoord.get('2,0') === 2, 'GID 0x40000002 stripped to tile id 2');
+      assert(result.payload.tiles.every((t) => t.gid === (t.gid & 0x0fffffff)), 'no imported tile retains flag bits');
+      assert(result.warnings.some((w) => w.includes('flip')), 'flip-flag warning emitted');
+    }
+  }
+
   console.log('== createDungeon persists walkable_mask_json ==');
   const now = Date.now();
   const D_NEW = 'dgn_new_f5';
