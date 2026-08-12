@@ -220,6 +220,50 @@ async function main(): Promise<void> {
     }
   }
 
+  console.log('== tiled-import: chest tile-object GIDs also have flags stripped ==');
+  const chestTmj = {
+    type: 'map',
+    width: 4,
+    height: 4,
+    tilewidth: 32,
+    tileheight: 32,
+    orientation: 'orthogonal',
+    tilesets: [{ firstgid: 1, name: 'test', tilewidth: 32, tileheight: 32, columns: 2, tilecount: 4, image: 'x.png', imagewidth: 64, imageheight: 64 }],
+    layers: [
+      { type: 'tilelayer', name: 'floor', width: 4, height: 4, data: FULL_FLOOR_4x4 },
+      {
+        type: 'objectgroup',
+        name: 'poi',
+        objects: [
+          {
+            id: 1,
+            class: 'chest',
+            x: 32,
+            y: 32,
+            width: 32,
+            height: 32,
+            gid: 0xa000007e,
+            properties: [
+              { name: 'contents', value: 'item_heart:1' },
+              { name: 'usedTileGid', value: 0x80000005 },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const chestParsed = parseTiledJson(chestTmj);
+  assert(chestParsed.ok === true, 'chest TMJ parses');
+  if (chestParsed.ok) {
+    const result = tiledMapToImportPayload(chestParsed.map);
+    assert(result.ok === true, 'chest TMJ imports (would be Postgres 22003 otherwise)');
+    if (result.ok) {
+      assert(result.payload.chests.length === 1, 'one chest imported');
+      assert(result.payload.chests[0]?.unusedTileGid === 126, 'chest unusedTileGid 0xa000007e stripped to 126');
+      assert(result.payload.chests[0]?.usedTileGid === 5, 'chest usedTileGid 0x80000005 stripped to 5');
+    }
+  }
+
   console.log('== createDungeon persists walkable_mask_json ==');
   const now = Date.now();
   const D_NEW = 'dgn_new_f5';

@@ -531,10 +531,16 @@ function readChest(obj: TiledObject, cell: { x: number; y: number }, errors: str
   }
   const lockedByKeyId = coerceOptionalString(getProperty(properties, 'lockedByKeyId'));
   const label = coerceOptionalString(getProperty(properties, 'label'));
-  const unusedTileGid = obj.gid !== undefined && obj.gid > 0 ? obj.gid : null;
+  const unusedTileGid = stripTiledGidFlags(obj.gid);
   const usedTileGidRaw = getProperty(properties, 'usedTileGid');
-  const usedTileGid = typeof usedTileGidRaw === 'number' && usedTileGidRaw > 0 ? Math.round(usedTileGidRaw) : null;
+  const usedTileGid = typeof usedTileGidRaw === 'number' ? stripTiledGidFlags(Math.round(usedTileGidRaw)) : null;
   return { x: cell.x, y: cell.y, label, contents, lockedByKeyId, unusedTileGid, usedTileGid };
+}
+
+function stripTiledGidFlags(gid: number | undefined | null): number | null {
+  if (gid === undefined || gid === null || gid <= 0) return null;
+  const bare = gid & TILED_GID_FLAG_MASK;
+  return bare > 0 ? bare : null;
 }
 
 function readBiomeProp(properties: TiledMap['properties'], errors: string[]): Biome | null {
