@@ -2,7 +2,7 @@ name: Deploy — Staging
 
 on:
   push:
-    branches: [main]
+    branches: [staging]
   workflow_dispatch: {}
 
 # One staging deploy at a time. Do NOT cancel a running deploy — it may be
