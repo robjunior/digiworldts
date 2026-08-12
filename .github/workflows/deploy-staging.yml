@@ -83,9 +83,19 @@ jobs:
         run: pnpm typecheck
 
       - name: Roll containers in place
-        # Self-hosted runner IS the deploy host. .env was materialized into
-        # $GITHUB_WORKSPACE above; COMPOSE_FILE and COMPOSE_PROJECT_NAME in
-        # .env layer the staging override on top of docker-compose.yml.
+        # Override passed with -f, NOT via COMPOSE_FILE in `.env`: the step above
+        # regenerates `.env` every run and `materialize-env.sh` emits neither
+        # COMPOSE_FILE nor COMPOSE_PROJECT_NAME, so `.env`-based layering is wiped
+        # each deploy. That is why staging rolled the base `digiworld-*` project
+        # instead of the isolated `digiworld-staging-*` stack, and the tunnel 502'd.
+        # The override file carries `name: digiworld-staging`, so no `-p` is needed.
         run: |
-          docker compose --profile discord up -d --build --remove-orphans
-          docker compose ps
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.staging.override.yml \
+            --profile discord --profile admin \
+            up -d --build --remove-orphans
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.staging.override.yml \
+            ps
