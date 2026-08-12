@@ -6,12 +6,14 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY shared/package.json ./shared/
+COPY scene3d/package.json ./scene3d/
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
 
 RUN pnpm install --frozen-lockfile --filter @digiworld/shared... --filter @digiworld/frontend...
 
 COPY shared ./shared/
+COPY scene3d ./scene3d/
 COPY frontend ./frontend/
 
 RUN pnpm --filter @digiworld/shared build \

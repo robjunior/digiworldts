@@ -6,6 +6,7 @@ WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY shared/package.json ./shared/
+COPY scene3d/package.json ./scene3d/
 COPY admin/package.json ./admin/
 COPY frontend/package.json ./frontend/
 COPY backend/package.json ./backend/
@@ -15,6 +16,7 @@ COPY discord/package.json ./discord/
 RUN pnpm install --frozen-lockfile --filter @digiworld/shared... --filter @digiworld/admin...
 
 COPY shared ./shared/
+COPY scene3d ./scene3d/
 COPY admin ./admin/
 
 RUN pnpm --filter @digiworld/shared build \
