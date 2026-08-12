@@ -7,6 +7,16 @@ import { BIOMES, type Biome } from '@digiworld/shared/world';
 
 const TILED_MAX_DIM = 200;
 
+/**
+ * Tiled packs flip/rotation flags into the high bits of a tile GID
+ * (H/V/diagonal at bits 31/30/29, hex-rotation at 28, anti-diagonal at 27).
+ * The dungeon renderer has no transformed-tile support, and a flagged GID
+ * overflows Postgres' signed 32-bit INTEGER (error 22003), so the importer
+ * strips the flag bits and keeps the bare tile id.
+ * Reference: https://doc.mapeditor.org/en/stable/reference/json-map-format/
+ */
+const TILED_GID_FLAG_MASK = 0x0fffffff;
+
 const TiledPropertySchema = z
   .object({
     name: z.string(),
@@ -325,6 +335,7 @@ function extractTiles(map: TiledMap, warnings: string[], errors: string[]): Impo
   const out: ImportedTile[] = [];
   const positionKindWins = new Map<string, LayerKind>();
   let sawFloor = false;
+  let flaggedTiles = 0;
   for (const layer of tileLayers) {
     const layerKind = classifyLayer(layer, warnings);
     if (layer.width !== map.width || layer.height !== map.height) {
@@ -332,8 +343,11 @@ function extractTiles(map: TiledMap, warnings: string[], errors: string[]): Impo
     }
     if (layerKind === 'floor') sawFloor = true;
     for (let i = 0; i < layer.data.length; i += 1) {
-      const gid = layer.data[i] ?? 0;
+      const rawGid = layer.data[i] ?? 0;
+      if (rawGid === 0) continue;
+      const gid = rawGid & TILED_GID_FLAG_MASK;
       if (gid === 0) continue;
+      if (gid !== rawGid) flaggedTiles += 1;
       const x = i % layer.width;
       const y = Math.floor(i / layer.width);
       if (x >= map.width || y >= map.height) continue;
@@ -342,6 +356,9 @@ function extractTiles(map: TiledMap, warnings: string[], errors: string[]): Impo
       positionKindWins.set(key, winnerKind);
       out.push({ x, y, gid, layerKind });
     }
+  }
+  if (flaggedTiles > 0) {
+    warnings.push(`${flaggedTiles} tile(s) carry Tiled flip/rotation flags; the flags are ignored (tiles are imported unflipped)`);
   }
   if (!sawFloor) {
     errors.push('no tile layer classified as "floor"; name a layer "floor"/"walkable" or set the layer\'s dw_kind property to "floor"');
