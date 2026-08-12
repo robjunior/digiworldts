@@ -89,7 +89,7 @@ services:
       - ./backend/data/catalog:/app/backend/data/catalog
       # Read-only: sync only reads these, and they are git-versioned source.
       - ./backend/data/dialogues:/app/backend/data/dialogues:ro
-      - ./frontend/public/assets/arenas:/app/frontend/public/assets/arenas
+      - arenadata:/app/frontend/public/assets/arenas
     healthcheck:
       test:
         [
@@ -165,7 +165,7 @@ services:
     ports:
       - "${HOST_PORT:-8080}:8080"
     volumes:
-      - ./frontend/public/assets/arenas:/usr/share/nginx/html/assets/arenas:ro
+      - arenadata:/usr/share/nginx/html/assets/arenas:ro
     restart: unless-stopped
 
   admin:
@@ -180,7 +180,7 @@ services:
     ports:
       - "${ADMIN_HOST_PORT:-8090}:8080"
     volumes:
-      - ./frontend/public/assets/arenas:/usr/share/nginx/html/assets/arenas:ro
+      - arenadata:/usr/share/nginx/html/assets/arenas:ro
     restart: unless-stopped
 
   cloudflared:
@@ -192,6 +192,7 @@ services:
       - frontend
 
 volumes:
+  arenadata:
   pgdata:
   redisdata:
   assetdata:
