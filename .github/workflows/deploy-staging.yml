@@ -99,3 +99,19 @@ jobs:
             -f docker-compose.yml \
             -f docker-compose.staging.override.yml \
             ps
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f docker-compose.staging.override.yml \
+            ps -a
+          for svc in backend frontend admin; do
+            echo "::group::$svc"
+            docker compose \
+              -f docker-compose.yml \
+              -f docker-compose.staging.override.yml \
+              logs --tail 120 "$svc" 2>&1 || true
+            echo "::endgroup::"
+          done
