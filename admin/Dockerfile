@@ -19,8 +19,10 @@ COPY shared ./shared/
 COPY scene3d ./scene3d/
 COPY admin ./admin/
 
+ARG ADMIN_BUILD_MODE=production
 RUN pnpm --filter @digiworld/shared build \
- && pnpm --filter @digiworld/admin build
+ && pnpm --filter @digiworld/admin exec tsc -p tsconfig.json --noEmit \
+ && pnpm --filter @digiworld/admin exec vite build --mode "$ADMIN_BUILD_MODE"
 
 FROM nginx:1.27-alpine AS runtime
 

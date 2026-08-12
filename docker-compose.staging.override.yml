@@ -40,6 +40,9 @@ services:
   admin:
     container_name: digiworld-staging-admin-1
     ports: !reset []
+    build:
+      args:
+        ADMIN_BUILD_MODE: staging
 
   cloudflared:
     # Prod's cloudflared container is literally named `cloudflared` — override.
