@@ -3,7 +3,8 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
 
-import type { DungeonChest, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonView, DungeonWarp } from '@digiworld/shared';
+import { LAYER_KINDS } from '@digiworld/shared';
+import type { DungeonChest, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonView, DungeonWarp, DungeonZone, LayerKind } from '@digiworld/shared';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
@@ -46,6 +47,10 @@ export function AdminDungeon(): JSX.Element {
   const [showImport, setShowImport] = useState<boolean>(false);
   const [panelCollapsed, setPanelCollapsed] = useState<boolean>(false);
   const [zoom, setZoom] = useState<number>(1);
+  const [visibleLayers, setVisibleLayers] = useState<Record<LayerKind, boolean>>(() =>
+    Object.fromEntries(LAYER_KINDS.map((kind) => [kind, true])) as Record<LayerKind, boolean>
+  );
+  const [showZones, setShowZones] = useState<boolean>(true);
   const tileSetRef = useRef<Map<string, number>>(new Map());
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +143,16 @@ export function AdminDungeon(): JSX.Element {
   const data = dungeonQuery.data;
   const tileSet = useMemo(() => new Set(data?.tiles.map(tileKey) ?? []), [data?.tiles]);
   const tileGidByCoord = useMemo(() => new Map<string, number>((data?.tiles ?? []).map((t) => [`${t.x},${t.y}`, t.gid])), [data?.tiles]);
+  const tilesByCoord = useMemo(() => {
+    const map = new Map<string, DungeonTile[]>();
+    for (const tile of data?.tiles ?? []) {
+      const key = `${tile.x},${tile.y}`;
+      const list = map.get(key) ?? [];
+      list.push(tile);
+      map.set(key, list);
+    }
+    return map;
+  }, [data?.tiles]);
   const tilesets = data?.tilesets ?? [];
   const previewSet = useMemo(() => {
     if (!pendingStart || !hoverCell || tool !== 'PATH') return new Set<string>();
@@ -149,7 +164,7 @@ export function AdminDungeon(): JSX.Element {
   if (!id) return <div>Missing dungeon id.</div>;
   if (dungeonQuery.isLoading || !data) return <div>Loading...</div>;
 
-  const { dungeon, encounters, items, warps, doors, traps, chests } = data;
+  const { dungeon, encounters, items, warps, doors, traps, chests, zones } = data;
   const encounterAt = (cell: Cell): DungeonEncounter | undefined =>
     encounters.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const itemAt = (cell: Cell): DungeonItem | undefined =>
@@ -271,8 +286,7 @@ export function AdminDungeon(): JSX.Element {
               const trap = trapAt(cell);
               const chest = chestAt(cell);
               const preview = previewSet.has(key);
-              const gid = tileGidByCoord.get(key);
-              const spriteStyle = walkable && gid !== undefined ? gidCellStyle(gid, tilesets, spriteScale) : null;
+              const cellTiles = (tilesByCoord.get(key) ?? []).filter((tile) => visibleLayers[tile.layerKind]);
               return (
                 <button
                   key={key}
@@ -280,13 +294,23 @@ export function AdminDungeon(): JSX.Element {
                   className={`dungeon-cell tool-${tool.toLowerCase()}${walkable ? ' is-walkable' : ''}${
                     selected ? ' is-selected' : ''
                   }${preview ? ' is-preview' : ''}`}
-                  style={spriteStyle ?? undefined}
                   onMouseDown={(event) => handlePathMouseDown(cell, event)}
                   onMouseEnter={() => handleHover(cell)}
                   onContextMenu={cancelContext}
                   onClick={() => handleCellClick(cell)}
                   aria-label={`Cell ${x},${y}`}
                 >
+                  {cellTiles.map((tile, tileIndex) => {
+                    const style = gidCellStyle(tile.gid, tilesets, cellSize);
+                    return style ? (
+                      <span
+                        key={`${tile.layerKind}-${tileIndex}`}
+                        className="tile-bg"
+                        style={style}
+                        aria-hidden="true"
+                      />
+                    ) : null;
+                  })}
                   <span className="mk-stack">
                     {spawn ? <span className="mk mk-spawn">S</span> : null}
                     {enc ? <span className="mk mk-encounter">E</span> : null}
@@ -300,6 +324,37 @@ export function AdminDungeon(): JSX.Element {
               );
             }),
           )}
+          {showZones ? (
+            <div
+              className="admin-dungeon-zone-overlay"
+              aria-label="Zone overlay"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: dungeon.width * cellSize,
+                height: dungeon.height * cellSize,
+                pointerEvents: 'none',
+              }}
+            >
+              {zones.map((zone: DungeonZone, index: number) => (
+                <div
+                  key={`${zone.name ?? 'zone'}-${index}`}
+                  className={`admin-dungeon-zone ${zone.safe ? 'is-safe' : 'is-unsafe'}`}
+                  style={{
+                    position: 'absolute',
+                    left: zone.x * cellSize,
+                    top: zone.y * cellSize,
+                    width: zone.width * cellSize,
+                    height: zone.height * cellSize,
+                  }}
+                  title={`${zone.name ?? `Zone ${index + 1}`}${zone.safe ? ' (safe)' : ''}`}
+                >
+                  <span className="admin-dungeon-zone-label">{zone.name ?? `Zone ${index + 1}`}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <aside className={`admin-dungeon-floating-panel${panelCollapsed ? ' is-collapsed' : ''}`} aria-label="Dungeon editor tools">
@@ -425,6 +480,28 @@ export function AdminDungeon(): JSX.Element {
               </button>
             </div>
           ) : null}
+          <div className="admin-dungeon-layer-toggles" aria-label="Layer visibility">
+            {LAYER_KINDS.map((kind) => (
+              <label key={kind} className="layer-toggle" title={`Toggle ${titleCase(kind)} layer`}>
+                <input
+                  type="checkbox"
+                  checked={visibleLayers[kind]}
+                  onChange={() =>
+                    setVisibleLayers((prev) => ({ ...prev, [kind]: !prev[kind] }))
+                  }
+                />
+                {titleCase(kind)}
+              </label>
+            ))}
+            <label className="layer-toggle" title="Toggle zone overlay">
+              <input
+                type="checkbox"
+                checked={showZones}
+                onChange={() => setShowZones((v) => !v)}
+              />
+              Zones
+            </label>
+          </div>
           <ToolContext
             dungeonId={dungeonId}
             tool={tool}

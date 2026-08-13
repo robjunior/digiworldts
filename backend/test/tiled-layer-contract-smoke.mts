@@ -22,7 +22,8 @@ import {
   serializeWalkableMask,
 } from '../src/dungeons/repo.ts';
 import { parseTiledJson, tiledMapToImportPayload } from '../src/dungeons/tiled-import.ts';
-import type { LayerKind } from '@digiworld/shared';
+import { gidToSpritePosition } from '@digiworld/shared';
+import type { LayerKind, TilesetGrant } from '@digiworld/shared';
 
 const DB_PATH = process.env.DB_PATH ?? '/tmp/dw-tiled-layer-contract-smoke.db';
 
@@ -105,6 +106,7 @@ async function main(): Promise<void> {
     { x: 0, y: 1, layerKind: 'pit' },
     { x: 1, y: 1, layerKind: 'decoration' },
     { x: 2, y: 1, layerKind: 'hidden' },
+    { x: 3, y: 1, layerKind: 'liquid' },
   ];
   const mask = computeWalkableMaskFromTiles(mix);
   assert(mask.length === 3, 'walkable mask contains only floor + doors + hidden (3 tiles)');
@@ -115,6 +117,43 @@ async function main(): Promise<void> {
   assert(!mask.some(([x, y]) => x === 3 && y === 0), 'water tile (3,0) is NOT walkable');
   assert(!mask.some(([x, y]) => x === 0 && y === 1), 'pit tile (0,1) is NOT walkable');
   assert(!mask.some(([x, y]) => x === 1 && y === 1), 'decoration tile (1,1) is NOT walkable');
+  assert(!mask.some(([x, y]) => x === 3 && y === 1), 'liquid tile (3,1) is NOT walkable');
+
+  console.log('== gidToSpritePosition respects spacing and margin ==');
+  const tsBase: TilesetGrant = {
+    id: 'tst_base',
+    name: 'base',
+    imageFilename: 'base.png',
+    imageUrl: '/base.png',
+    tileWidth: 16,
+    tileHeight: 16,
+    imageWidth: 64,
+    imageHeight: 32,
+    columns: 4,
+    tileCount: 8,
+    spacing: 0,
+    margin: 0,
+    firstgid: 1,
+    createdAt: 0,
+    updatedAt: 0,
+  };
+  assert(
+    gidToSpritePosition(1, tsBase)?.x === 0 && gidToSpritePosition(1, tsBase)?.y === 0,
+    'no spacing: gid 1 at (0,0)',
+  );
+  assert(
+    gidToSpritePosition(5, tsBase)?.x === 0 && gidToSpritePosition(5, tsBase)?.y === 16,
+    'no spacing: gid 5 at second row',
+  );
+  const tsSpaced: TilesetGrant = { ...tsBase, spacing: 2, margin: 4 };
+  assert(
+    gidToSpritePosition(1, tsSpaced)?.x === 4 && gidToSpritePosition(1, tsSpaced)?.y === 4,
+    'spacing+margin: gid 1 offset by margin',
+  );
+  assert(
+    gidToSpritePosition(2, tsSpaced)?.x === 22 && gidToSpritePosition(2, tsSpaced)?.y === 4,
+    'spacing+margin: gid 2 shifted by tile+spacing',
+  );
 
   console.log('== tiled-import: legacy "walkable" layer classified as floor ==');
   const legacyTmj = buildTmj([{ name: 'walkable', data: FULL_FLOOR_4x4 }]);
@@ -129,7 +168,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log('== tiled-import: multi-layer TMJ classifies per-name ==');
+  console.log('== tiled-import: multi-layer TMJ keeps every layer per cell ==');
   const multiTmj = buildTmj([
     { name: 'floor', data: FULL_FLOOR_4x4 },
     { name: 'walls', data: [...floorRow(0), ...ZERO_4x4.slice(0, 12)] },
@@ -145,6 +184,9 @@ async function main(): Promise<void> {
       assert(kinds.has('floor'), 'multi-layer: floor tiles present');
       assert(kinds.has('walls'), 'multi-layer: walls tiles present');
       assert(kinds.has('water'), 'multi-layer: water tiles present');
+      assert(result.payload.tiles.length === 24, 'multi-layer: all 24 tiles imported (16 floor + 4 walls + 4 water)');
+      const at00 = result.payload.tiles.filter((t) => t.x === 0 && t.y === 0);
+      assert(at00.length === 2, 'multi-layer: cell (0,0) has floor + walls');
     }
   }
 
@@ -201,7 +243,7 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log('== tiled-import: flip/rotation flags are stripped from GIDs ==');
+  console.log('== tiled-import: flip/rotation flags are preserved in GIDs ==');
   const flipTmj = buildTmj([
     { name: 'floor', data: [0xa000007e, 0x80000005, 0x40000002, ...ZERO_4x4.slice(3)] },
   ]);
@@ -209,18 +251,17 @@ async function main(): Promise<void> {
   assert(flipParsed.ok === true, 'flip-flag TMJ parses');
   if (flipParsed.ok) {
     const result = tiledMapToImportPayload(flipParsed.map);
-    assert(result.ok === true, 'flip-flag TMJ imports (would be Postgres 22003 otherwise)');
+    assert(result.ok === true, 'flip-flag TMJ imports');
     if (result.ok) {
       const byCoord = new Map(result.payload.tiles.map((t) => [`${t.x},${t.y}`, t.gid]));
-      assert(byCoord.get('0,0') === 126, 'GID 0xa000007e stripped to tile id 126');
-      assert(byCoord.get('1,0') === 5, 'GID 0x80000005 stripped to tile id 5');
-      assert(byCoord.get('2,0') === 2, 'GID 0x40000002 stripped to tile id 2');
-      assert(result.payload.tiles.every((t) => t.gid === (t.gid & 0x0fffffff)), 'no imported tile retains flag bits');
-      assert(result.warnings.some((w) => w.includes('flip')), 'flip-flag warning emitted');
+      assert(byCoord.get('0,0') === 0xa000007e, 'GID 0xa000007e keeps diagonal + horizontal flags');
+      assert(byCoord.get('1,0') === 0x80000005, 'GID 0x80000005 keeps horizontal flag');
+      assert(byCoord.get('2,0') === 0x40000002, 'GID 0x40000002 keeps vertical flag');
+      assert(!result.warnings.some((w) => w.includes('flip')), 'no flag-is-ignored warning emitted');
     }
   }
 
-  console.log('== tiled-import: chest tile-object GIDs also have flags stripped ==');
+  console.log('== tiled-import: chest tile-object GIDs also keep flags ==');
   const chestTmj = {
     type: 'map',
     width: 4,
@@ -259,8 +300,8 @@ async function main(): Promise<void> {
     assert(result.ok === true, 'chest TMJ imports (would be Postgres 22003 otherwise)');
     if (result.ok) {
       assert(result.payload.chests.length === 1, 'one chest imported');
-      assert(result.payload.chests[0]?.unusedTileGid === 126, 'chest unusedTileGid 0xa000007e stripped to 126');
-      assert(result.payload.chests[0]?.usedTileGid === 5, 'chest usedTileGid 0x80000005 stripped to 5');
+      assert(result.payload.chests[0]?.unusedTileGid === 0xa000007e, 'chest unusedTileGid keeps flags');
+      assert(result.payload.chests[0]?.usedTileGid === 0x80000005, 'chest usedTileGid keeps flags');
     }
   }
 
@@ -292,21 +333,31 @@ async function main(): Promise<void> {
   assert(legacyTiles.length === 2, 'legacy dungeon has 2 tiles');
   assert(legacyTiles.every((t) => t.layerKind === 'floor'), 'legacy tiles default to layer_kind=floor');
 
-  console.log('== dungeon_tiles.layer_kind round-trips (floor/walls/water/hidden) ==');
+  console.log('== dungeon_tiles.layer_kind round-trips (floor/grass/tree/wall/walls/water/hidden/liquid) ==');
   const D_KINDS = 'dgn_kinds_f5';
   await run(
     "INSERT INTO dungeons (id, name, description, biome, width, height, spawn_x, spawn_y, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, challenge_kind, challenge_config, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     D_KINDS, 'F5 Kinds', 'seeded', 'null', 4, 4, 0, 0, 0, 0, 1, 1, 'Rookie', 1, 1, '[]', 'none', null, now, now,
   );
   await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 0, 0, 1, 'floor');
-  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 1, 0, 1, 'walls');
-  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 2, 0, 1, 'water');
-  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 0, 1, 1, 'hidden');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 0, 0, 2, 'grass');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 1, 0, 1, 'tree');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 2, 0, 1, 'wall');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 3, 0, 1, 'walls');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 0, 1, 1, 'water');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 1, 1, 1, 'hidden');
+  await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', D_KINDS, 2, 1, 1, 'liquid');
   const kindTiles = await listTiles(D_KINDS);
-  assert(kindTiles.find((t) => t.x === 0 && t.y === 0)?.layerKind === 'floor', 'tile (0,0) layerKind === floor');
-  assert(kindTiles.find((t) => t.x === 1 && t.y === 0)?.layerKind === 'walls', 'tile (1,0) layerKind === walls');
-  assert(kindTiles.find((t) => t.x === 2 && t.y === 0)?.layerKind === 'water', 'tile (2,0) layerKind === water');
-  assert(kindTiles.find((t) => t.x === 0 && t.y === 1)?.layerKind === 'hidden', 'tile (0,1) layerKind === hidden');
+  const at00 = kindTiles.filter((t) => t.x === 0 && t.y === 0);
+  assert(at00.length === 2, 'cell (0,0) can hold floor + grass with new PK');
+  assert(at00.some((t) => t.layerKind === 'floor'), 'tile (0,0) layerKind === floor');
+  assert(at00.some((t) => t.layerKind === 'grass'), 'tile (0,0) layerKind === grass');
+  assert(kindTiles.find((t) => t.x === 1 && t.y === 0)?.layerKind === 'tree', 'tile (1,0) layerKind === tree');
+  assert(kindTiles.find((t) => t.x === 2 && t.y === 0)?.layerKind === 'wall', 'tile (2,0) layerKind === wall');
+  assert(kindTiles.find((t) => t.x === 3 && t.y === 0)?.layerKind === 'walls', 'tile (3,0) layerKind === walls');
+  assert(kindTiles.find((t) => t.x === 0 && t.y === 1)?.layerKind === 'water', 'tile (0,1) layerKind === water');
+  assert(kindTiles.find((t) => t.x === 1 && t.y === 1)?.layerKind === 'hidden', 'tile (1,1) layerKind === hidden');
+  assert(kindTiles.find((t) => t.x === 2 && t.y === 1)?.layerKind === 'liquid', 'tile (2,1) layerKind === liquid');
 
   console.log('== dungeon_tiles.layer_kind CHECK constraint rejects bogus value ==');
   let rejected = false;

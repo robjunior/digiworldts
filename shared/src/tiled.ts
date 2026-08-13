@@ -80,6 +80,8 @@ export type TiledTileset = {
   readonly source?: string;
   readonly tilewidth?: number;
   readonly tileheight?: number;
+  readonly spacing?: number;
+  readonly margin?: number;
   readonly columns?: number;
   readonly tilecount?: number;
   readonly image?: string;

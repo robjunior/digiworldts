@@ -87,9 +87,9 @@ const SQL_GET_DUNGEON = `SELECT * FROM dungeons WHERE id = ?`;
 const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, parent_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, random_pool_json, challenge_kind, challenge_config, walkable_mask_json, dungeon_group_id, floor_index, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, parent_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, random_pool_json = ?, challenge_kind = ?, challenge_config = ?, walkable_mask_json = ?, dungeon_group_id = ?, floor_index = ?, updated_at = ? WHERE id = ?`;
 const SQL_DELETE_DUNGEON = `DELETE FROM dungeons WHERE id = ?`;
-const SQL_LIST_TILES = `SELECT x, y, gid, layer_kind FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x`;
-const SQL_LIST_DUNGEON_TILESETS = `SELECT t.id, t.name, t.image_filename, t.tile_width, t.tile_height, t.image_width, t.image_height, t.columns, t.tile_count, t.created_at, t.updated_at, dt.firstgid FROM dungeon_tilesets dt JOIN tilesets t ON t.id = dt.tileset_id WHERE dt.dungeon_id = ? ORDER BY dt.firstgid`;
-const SQL_GET_TILE = `SELECT x, y FROM dungeon_tiles WHERE dungeon_id = ? AND x = ? AND y = ?`;
+const SQL_LIST_TILES = `SELECT x, y, gid, layer_kind FROM dungeon_tiles WHERE dungeon_id = ? ORDER BY y, x, layer_kind`;
+const SQL_LIST_DUNGEON_TILESETS = `SELECT t.id, t.name, t.image_filename, t.tile_width, t.tile_height, t.image_width, t.image_height, t.columns, t.tile_count, t.spacing, t.margin, t.created_at, t.updated_at, dt.firstgid FROM dungeon_tilesets dt JOIN tilesets t ON t.id = dt.tileset_id WHERE dt.dungeon_id = ? ORDER BY dt.firstgid`;
+const SQL_GET_TILE = `SELECT x, y, layer_kind FROM dungeon_tiles WHERE dungeon_id = ? AND x = ? AND y = ? LIMIT 1`;
 const SQL_DELETE_TILES = `DELETE FROM dungeon_tiles WHERE dungeon_id = ?`;
 const SQL_LIST_ENCOUNTERS = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_ENCOUNTER = `SELECT * FROM dungeon_encounters WHERE dungeon_id = ? AND id = ?`;
@@ -266,14 +266,23 @@ export function serializeWalkableMask(mask: readonly (readonly [number, number])
 }
 
 export function computeWalkableMaskFromTiles(tiles: readonly Pick<DungeonTile, 'x' | 'y' | 'layerKind'>[]): readonly (readonly [number, number])[] {
-  const seen = new Set<string>();
-  const out: (readonly [number, number])[] = [];
+  const walkable = new Set<string>();
+  const obstacles = new Set<string>();
   for (const t of tiles) {
-    if (!(WALKABLE_LAYER_KINDS as readonly string[]).includes(t.layerKind)) continue;
     const key = `${t.x},${t.y}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push([t.x, t.y] as const);
+    if ((WALKABLE_LAYER_KINDS as readonly string[]).includes(t.layerKind)) {
+      walkable.add(key);
+    } else {
+      obstacles.add(key);
+    }
+  }
+  // A cell is walkable only if it has at least one walkable layer and no
+  // obstacle layers (tree/wall/walls/water/pit/decoration/liquid).
+  for (const key of obstacles) walkable.delete(key);
+  const out: (readonly [number, number])[] = [];
+  for (const key of walkable) {
+    const [xStr, yStr] = key.split(',');
+    out.push([Number(xStr), Number(yStr)] as const);
   }
   return out;
 }
@@ -477,6 +486,8 @@ type DungeonTilesetRow = {
   readonly image_height: number;
   readonly columns: number;
   readonly tile_count: number;
+  readonly spacing: number;
+  readonly margin: number;
   readonly created_at: number;
   readonly updated_at: number;
   readonly firstgid: number;
@@ -495,6 +506,8 @@ export async function listDungeonTilesets(dungeonId: string): Promise<TilesetGra
     imageHeight: r.image_height,
     columns: r.columns,
     tileCount: r.tile_count,
+    spacing: r.spacing,
+    margin: r.margin,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     firstgid: r.firstgid,

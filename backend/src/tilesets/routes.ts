@@ -16,6 +16,8 @@ export const tilesetsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     let name: string | null = null;
     let tileWidth: number | null = null;
     let tileHeight: number | null = null;
+    let spacing: number | undefined;
+    let margin: number | undefined;
     let imageBuffer: Buffer | null = null;
     let imageFilename: string | null = null;
     const parts = req.parts();
@@ -27,6 +29,8 @@ export const tilesetsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
         if (part.fieldname === 'name' && typeof part.value === 'string') name = part.value.trim();
         else if (part.fieldname === 'tileWidth') tileWidth = Number(part.value);
         else if (part.fieldname === 'tileHeight') tileHeight = Number(part.value);
+        else if (part.fieldname === 'spacing') spacing = Number(part.value);
+        else if (part.fieldname === 'margin') margin = Number(part.value);
       }
     }
     if (!name || tileWidth === null || tileHeight === null || !imageBuffer || !imageFilename) {
@@ -35,13 +39,15 @@ export const tilesetsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (name.length < 1 || name.length > 120) return reply.code(400).send({ error: 'invalid-name' });
     if (!Number.isFinite(tileWidth) || tileWidth < 1 || tileWidth > 512) return reply.code(400).send({ error: 'invalid-tile-size', field: 'tileWidth' });
     if (!Number.isFinite(tileHeight) || tileHeight < 1 || tileHeight > 512) return reply.code(400).send({ error: 'invalid-tile-size', field: 'tileHeight' });
+    if (spacing !== undefined && (!Number.isFinite(spacing) || spacing < 0 || spacing > 512)) return reply.code(400).send({ error: 'invalid-spacing' });
+    if (margin !== undefined && (!Number.isFinite(margin) || margin < 0 || margin > 512)) return reply.code(400).send({ error: 'invalid-margin' });
     const dims = parsePngDimensions(imageBuffer);
     if (!dims) return reply.code(400).send({ error: 'invalid-png' });
     if (dims.width < tileWidth || dims.height < tileHeight) return reply.code(400).send({ error: 'image-smaller-than-tile' });
     try {
-      const tileset = await createTileset({ name, imageFilename, tileWidth, tileHeight, imageWidth: dims.width, imageHeight: dims.height });
+      const tileset = await createTileset({ name, imageFilename, tileWidth, tileHeight, imageWidth: dims.width, imageHeight: dims.height, spacing: spacing ?? 0, margin: margin ?? 0 });
       await writeTilesetImage(tileset.id, imageBuffer);
-      log.info('admin.tileset.create', { adminId: admin.id, id: tileset.id, name, columns: tileset.columns, tileCount: tileset.tileCount });
+      log.info('admin.tileset.create', { adminId: admin.id, id: tileset.id, name, columns: tileset.columns, tileCount: tileset.tileCount, spacing: tileset.spacing, margin: tileset.margin });
       return reply.code(201).send({ tileset });
     } catch (err) {
       const errObj = err as { readonly code?: string; readonly message?: string };
