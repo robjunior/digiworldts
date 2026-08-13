@@ -1,8 +1,11 @@
-import type { JSX } from 'react';
+import type { CSSProperties, JSX } from 'react';
 
 import type { TilesetGrant } from '@digiworld/shared';
 
 import { gidCellStyle } from '../../../lib/tileset-sprite';
+
+const GRID_TILE_SIZE = 56;
+const PREVIEW_TILE_SIZE = 96;
 
 type TileGidPickerProps = {
   readonly label: string;
@@ -19,6 +22,7 @@ function gidsForTilesets(tilesets: readonly TilesetGrant[]): readonly number[] {
 
 export function TileGidPicker({ label, value, tilesets, onChange }: TileGidPickerProps): JSX.Element {
   const gids = gidsForTilesets(tilesets);
+  const selectedStyle = value !== null ? gidCellStyle(value, tilesets, PREVIEW_TILE_SIZE) : null;
   return (
     <fieldset className="tile-gid-picker">
       <legend>{label}</legend>
@@ -28,12 +32,18 @@ export function TileGidPicker({ label, value, tilesets, onChange }: TileGidPicke
           Clear
         </button>
       </div>
+      {value !== null ? (
+        <div className="tile-gid-picker-preview" role="img" aria-label={`Preview of GID ${value}`}>
+          <span className="tile-gid-preview-sprite" style={{ ...(selectedStyle ?? {}), width: PREVIEW_TILE_SIZE, height: PREVIEW_TILE_SIZE } as CSSProperties} aria-hidden="true" />
+          <span className="tile-gid-preview-label">GID {value}</span>
+        </div>
+      ) : null}
       {gids.length === 0 ? (
         <p className="muted">No tilesets attached to this dungeon.</p>
       ) : (
         <div className="tile-gid-grid" role="listbox" aria-label={label}>
           {gids.map((gid) => {
-            const style = gidCellStyle(gid, tilesets, 1);
+            const style = gidCellStyle(gid, tilesets, GRID_TILE_SIZE);
             return (
               <button
                 key={gid}
