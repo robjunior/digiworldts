@@ -95,3 +95,4 @@ tmp/
 # Arena images are written at runtime (ARENAS_DIR) and live in the `arenadata`
 # volume in docker; never source.
 frontend/public/assets/arenas/
+backend/seed-export/
