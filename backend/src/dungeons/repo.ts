@@ -641,7 +641,7 @@ export async function unlockDoor(userId: string, dungeonId: string, doorId: stri
 
 export type ActivateTriggerResult =
   | { readonly ok: true; readonly view: DungeonRunView; readonly triggeredTriggerId: string; readonly triggerTargetKind: TriggerTargetKind | null; readonly activatedDoorId: string | null; readonly activatedBridgeId: string | null }
-  | { readonly ok: false; readonly error: 'not-found' | 'no-run' | 'already-fired' | 'not-adjacent' };
+  | { readonly ok: false; readonly error: 'not-found' | 'no-run' | 'disabled' | 'already-fired' | 'not-adjacent' };
 
 /**
  * Explicit lever activation — the player clicks the lever and the frontend
@@ -656,10 +656,10 @@ export async function activateTrigger(userId: string, dungeonId: string, trigger
   const runRow = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!runRow) return { ok: false, error: 'no-run' };
   const current = runFromRow(runRow);
-  const scopeKey = dungeon.dungeonGroupId ?? dungeonId;
-  if (await anyTriggerFired(userId, scopeKey, [trigger.id])) return { ok: false, error: 'already-fired' };
+  if (!trigger.enabled) return { ok: false, error: 'disabled' };
+  if (await anyTriggerFired(userId, [trigger.id])) return { ok: false, error: 'already-fired' };
   if (Math.abs(current.currentX - trigger.x) + Math.abs(current.currentY - trigger.y) > 1) return { ok: false, error: 'not-adjacent' };
-  await markTriggerFired(userId, scopeKey, trigger.id);
+  await markTriggerFired(userId, trigger.id);
   const view = await getDungeonRunView(userId, dungeonId);
   if (!view) return { ok: false, error: 'no-run' };
   const target = trigger.targets[0];
@@ -691,7 +691,7 @@ export async function startOrGetRun(userId: string, dungeonId: string): Promise<
     bridges: await listBridges(dungeonId),
     dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),
-    firedTriggerIds: await listFiredTriggerIds(userId, dungeon.dungeonGroupId ?? dungeonId),
+    firedTriggerIds: await listFiredTriggerIds(userId),
     groupInventory: dungeon.dungeonGroupId !== null ? await listGroupInventoryForUser(userId, dungeon.dungeonGroupId) : [],
   };
 }
@@ -715,7 +715,7 @@ export async function getDungeonRunView(userId: string, dungeonId: string): Prom
     bridges: await listBridges(dungeonId),
     dungeonKeys: dungeon.dungeonGroupId !== null ? await listKeysForGroup(dungeon.dungeonGroupId) : [],
     poiStates: await listPoiStatesForRun(userId, dungeonId),
-    firedTriggerIds: await listFiredTriggerIds(userId, dungeon.dungeonGroupId ?? dungeonId),
+    firedTriggerIds: await listFiredTriggerIds(userId),
     groupInventory: dungeon.dungeonGroupId !== null ? await listGroupInventoryForUser(userId, dungeon.dungeonGroupId) : [],
   };
 }
@@ -726,10 +726,9 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   const current = runFromRow(existing);
   const dungeonForWalkCheck = await getDungeon(dungeonId);
   if (!dungeonForWalkCheck) return { kind: 'blocked' };
-  const scopeKey = dungeonForWalkCheck.dungeonGroupId ?? dungeonId;
   if (!(await isWalkable(dungeonForWalkCheck, x, y))) {
     const bridgeTriggerIds = await getBridgeTriggerIdsAt(dungeonId, x, y);
-    const bridgeOpen = bridgeTriggerIds.length > 0 && await anyTriggerFired(userId, scopeKey, bridgeTriggerIds);
+    const bridgeOpen = bridgeTriggerIds.length > 0 && await anyTriggerFired(userId, bridgeTriggerIds);
     if (!bridgeOpen) return { kind: 'blocked' };
   }
   if (Math.abs(current.currentX - x) + Math.abs(current.currentY - y) !== 1) return { kind: 'not-adjacent' };
@@ -739,7 +738,7 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
   const door = await getDoorAt(dungeonId, x, y);
   if (door && !current.unlockedDoors.includes(door.id)) {
     const doorTriggerIds = await getDoorTargetingTriggerIds(door.id);
-    const doorOpenByTrigger = doorTriggerIds.length > 0 && await anyTriggerFired(userId, scopeKey, doorTriggerIds);
+    const doorOpenByTrigger = doorTriggerIds.length > 0 && await anyTriggerFired(userId, doorTriggerIds);
     if (!doorOpenByTrigger) return { kind: 'blocked-by-door', run: current, doorId: door.id };
   }
   const chest = await getChestAt(dungeonId, x, y);
@@ -963,7 +962,7 @@ export async function wipeRun(userId: string, dungeonId: string): Promise<WipeRu
   if (dungeonForGroup?.dungeonGroupId) {
     await purgeGroupInventory(userId, dungeonForGroup.dungeonGroupId);
   }
-  await clearTriggerStates(userId, dungeonForGroup?.dungeonGroupId ?? dungeonId);
+  await clearTriggerStates(userId);
   log.info('dungeon.run.wiped', { userId, dungeonId, purgedItemCount: stashRows.length, meat, bits, data });
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return null;
@@ -1015,7 +1014,7 @@ export async function extractRun(userId: string, dungeonId: string, kind: Extrac
   if (dungeonForGroup?.dungeonGroupId) {
     await purgeGroupInventory(userId, dungeonForGroup.dungeonGroupId);
   }
-  await clearTriggerStates(userId, dungeonForGroup?.dungeonGroupId ?? dungeonId);
+  await clearTriggerStates(userId);
   log.info('dungeon.run.extracted', { userId, dungeonId, kind, itemCount: stashRows.length, meat, bits, data });
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   if (!row) return null;
@@ -1043,7 +1042,7 @@ export async function resetRun(userId: string, dungeonId: string): Promise<UserD
   if (!dungeon) return null;
   await startOrGetRun(userId, dungeonId);
   await run(SQL_RESET_RUN, dungeon.spawnX, dungeon.spawnY, Date.now(), userId, dungeonId);
-  await clearTriggerStates(userId, dungeon.dungeonGroupId ?? dungeonId);
+  await clearTriggerStates(userId);
   const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
   return row ? runFromRow(row) : null;
 }

@@ -159,6 +159,25 @@ export function deleteAdminBridge(dungeonId: string, bridgeId: string): Promise<
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/bridges/${bridgeId}`, { method: 'DELETE' });
 }
 
+export type TriggerPoolEntry = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly dungeonName: string;
+  readonly x: number;
+  readonly y: number;
+  readonly label: string | null;
+};
+
+export type TriggerPool = {
+  readonly doors: readonly TriggerPoolEntry[];
+  readonly bridges: readonly (TriggerPoolEntry & { readonly enabled: boolean })[];
+  readonly triggers: readonly (TriggerPoolEntry & { readonly enabled: boolean })[];
+};
+
+export function getAdminTriggerPool(): Promise<TriggerPool> {
+  return apiFetch<TriggerPool>('/api/admin/trigger-pool');
+}
+
 export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> {
   return apiFetch<WorldObjectListResponse>('/api/world/objects'); // this is what World uses
 }

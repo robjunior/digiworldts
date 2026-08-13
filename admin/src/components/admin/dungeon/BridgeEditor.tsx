@@ -27,13 +27,14 @@ export function BridgeEditor({
     queryClient.setQueryData(ADMIN_DUNGEON_QUERY(dungeonId), result.view);
   };
   const createMut = useMutation({
-    mutationFn: (body: { readonly x: number; readonly y: number; readonly downTileGid?: number | null; readonly upTileGid?: number | null; readonly label?: string | null }) => createAdminBridge(dungeonId, body),
+    mutationFn: (body: { readonly x: number; readonly y: number; readonly enabled: boolean; readonly downTileGid?: number | null; readonly upTileGid?: number | null; readonly label?: string | null }) => createAdminBridge(dungeonId, body),
     onSuccess: applyView,
   });
   const updateMut = useMutation({
-    mutationFn: (body: { readonly downTileGid?: number | null; readonly upTileGid?: number | null; readonly label?: string | null }) => updateAdminBridge(dungeonId, bridge?.id ?? '', body),
+    mutationFn: (body: { readonly enabled: boolean; readonly downTileGid?: number | null; readonly upTileGid?: number | null; readonly label?: string | null }) => updateAdminBridge(dungeonId, bridge?.id ?? '', body),
     onSuccess: applyView,
   });
+  const [enabled, setEnabled] = useState<boolean>(bridge?.enabled ?? true);
   const [downTileGid, setDownTileGid] = useState<number | null>(bridge?.downTileGid ?? null);
   const [upTileGid, setUpTileGid] = useState<number | null>(bridge?.upTileGid ?? null);
   const deleteMut = useMutation({
@@ -45,8 +46,8 @@ export function BridgeEditor({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const label = toOptionalText(form.get('label'));
-    if (bridge) updateMut.mutate({ downTileGid, upTileGid, label });
-    else createMut.mutate({ x, y, downTileGid, upTileGid, ...(label === null ? {} : { label }) });
+    if (bridge) updateMut.mutate({ enabled, downTileGid, upTileGid, label });
+    else createMut.mutate({ x, y, enabled, downTileGid, upTileGid, ...(label === null ? {} : { label }) });
   };
 
   return (
@@ -57,6 +58,9 @@ export function BridgeEditor({
         <label>
           Label
           <input name="label" defaultValue={bridge?.label ?? ''} placeholder="Optional bridge label" />
+        </label>
+        <label>
+          <input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} /> Enabled
         </label>
         <TileGidPicker label="Down tile (walkable)" value={downTileGid} tilesets={tilesets} onChange={setDownTileGid} />
         <TileGidPicker label="Up tile (blocked)" value={upTileGid} tilesets={tilesets} onChange={setUpTileGid} />

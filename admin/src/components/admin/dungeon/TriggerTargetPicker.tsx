@@ -49,13 +49,11 @@ const CellButton = ({ x, y, size, gid, tilesets, marker, markerTitle, onClick }:
 
 export function TriggerTargetPicker({
   currentDungeonId,
-  groupId,
   kind,
   onPicked,
   onClose,
 }: {
   readonly currentDungeonId: string;
-  readonly groupId: string | null;
   readonly kind: 'door' | 'bridge';
   readonly onPicked: (target: PickedTriggerTarget) => void;
   readonly onClose: () => void;
@@ -65,10 +63,8 @@ export function TriggerTargetPicker({
 
   const dungeonsQuery = useQuery({ queryKey: ['admin', 'dungeons'] as const, queryFn: listAdminDungeons });
   const eligible = useMemo(
-    () => (dungeonsQuery.data?.dungeons ?? []).filter((d) =>
-      groupId !== null ? d.dungeonGroupId === groupId : d.id === currentDungeonId,
-    ),
-    [dungeonsQuery.data, groupId, currentDungeonId],
+    () => dungeonsQuery.data?.dungeons ?? [],
+    [dungeonsQuery.data],
   );
   const viewQuery = useQuery({
     queryKey: ADMIN_DUNGEON_QUERY(selectedDungeonId),

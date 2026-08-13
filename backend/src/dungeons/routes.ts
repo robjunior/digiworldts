@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
-import { one, run } from '../db/index.js';
+import { one, q, run } from '../db/index.js';
 import {
   applyTiledImportNew,
   applyTiledImportReplace,
@@ -443,6 +443,7 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const activated = await activateTrigger(user.id, req.params.id, req.params.triggerId);
     if (!activated.ok) {
       if (activated.error === 'no-run') return reply.code(404).send({ error: 'no-run' });
+      if (activated.error === 'disabled') return reply.code(400).send({ error: 'disabled' });
       if (activated.error === 'already-fired') return reply.code(409).send({ error: 'already-fired' });
       if (activated.error === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
       return reply.code(404).send({ error: 'not-found' });
@@ -863,6 +864,24 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const deleted = await deleteChest(req.params.id, req.params.chestId);
     log.info('admin.dungeon.chest.delete', { adminId: admin.id, dungeonId: req.params.id, chestId: req.params.chestId, deleted });
     return reply.send({ ok: deleted });
+  });
+
+  app.get('/api/admin/trigger-pool', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const doors = await q<{ readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly dungeon_name: string }>(
+      `SELECT d.id, d.dungeon_id, d.x, d.y, d.label, g.name AS dungeon_name FROM dungeon_doors d JOIN dungeons g ON g.id = d.dungeon_id ORDER BY g.name, d.y, d.x`,
+    );
+    const bridges = await q<{ readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly enabled: number; readonly dungeon_name: string }>(
+      `SELECT b.id, b.dungeon_id, b.x, b.y, b.label, b.enabled, g.name AS dungeon_name FROM dungeon_bridges b JOIN dungeons g ON g.id = b.dungeon_id ORDER BY g.name, b.y, b.x`,
+    );
+    const triggers = await q<{ readonly id: string; readonly dungeon_id: string; readonly x: number; readonly y: number; readonly label: string | null; readonly enabled: number; readonly dungeon_name: string }>(
+      `SELECT t.id, t.dungeon_id, t.x, t.y, t.label, t.enabled, g.name AS dungeon_name FROM dungeon_triggers t JOIN dungeons g ON g.id = t.dungeon_id ORDER BY g.name, t.y, t.x`,
+    );
+    return reply.send({
+      doors: doors.map((d) => ({ id: d.id, dungeonId: d.dungeon_id, dungeonName: d.dungeon_name, x: d.x, y: d.y, label: d.label })),
+      bridges: bridges.map((b) => ({ id: b.id, dungeonId: b.dungeon_id, dungeonName: b.dungeon_name, x: b.x, y: b.y, label: b.label, enabled: b.enabled === 1 })),
+      triggers: triggers.map((t) => ({ id: t.id, dungeonId: t.dungeon_id, dungeonName: t.dungeon_name, x: t.x, y: t.y, label: t.label, enabled: t.enabled === 1 })),
+    });
   });
 
   app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id/keys', async (req, reply) => {

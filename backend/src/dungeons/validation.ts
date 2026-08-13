@@ -184,6 +184,7 @@ export const BridgeInputSchema = z.object({
   label: z.string().trim().max(80).nullable().optional(),
   downTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
   upTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  enabled: z.boolean().optional(),
 });
 export const UpdateBridgeInputSchema = BridgeInputSchema.partial();
 export type BridgeInput = z.infer<typeof BridgeInputSchema>;
@@ -201,6 +202,7 @@ export const TriggerInputSchema = z.object({
   label: z.string().trim().max(80).nullable().optional(),
   unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
   usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  enabled: z.boolean().optional(),
   target: TriggerTargetInputSchema,
 });
 export const UpdateTriggerInputSchema = TriggerInputSchema.partial();
