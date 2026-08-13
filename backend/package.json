@@ -17,6 +17,7 @@
     "test:features": "tsx test/features-smoke.mts",
     "test:zones": "tsx test/dungeon-zones-smoke.mts",
     "test:dungeon-chests-keys": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-chests-keys-smoke.db tsx test/dungeon-chests-keys-smoke.mts",
+    "test:dungeon-triggers": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-triggers-smoke.db tsx test/dungeon-triggers-smoke.mts",
     "test:skill-vfx": "DATABASE=sqlite DATABASE_URL= DB_PATH=/tmp/dw-skill-vfx-smoke.db DATA_DIR=/tmp/dw-skill-vfx-smoke tsx test/skill-vfx-smoke.mts",
     "test:currency": "DB_PATH=/tmp/dw-currency-smoke.db tsx test/currency-smoke.mts",
     "test:discord-link": "DB_PATH=/tmp/dw-discord-link-test.db tsx test/discord-link.mts",
