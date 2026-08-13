@@ -1043,6 +1043,9 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .erow.pick{cursor:pointer}
 .erow.pick:hover,.erow.pick.aim{border-color:var(--signal)}
 .erow.pick.aim::before{background:var(--signal)}
+.erow.sel{border-color:var(--signal)}
+.erow.sel::before{background:var(--signal)}
+.erow.sel .edot{background:var(--signal)}
 .erow:focus-visible{outline:none;border-color:var(--signal)}
 /* ---- bottom-left: party HP cards --------------------------------------- */
 .party-cards{position:absolute;left:16px;bottom:16px;z-index:3;display:flex;flex-direction:column;gap:6px;width:clamp(196px,14.5vw,224px);max-width:24vw}
@@ -1080,7 +1083,13 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .auto-toggle.on .dot{background:var(--signal)}
 
 /* ---- bottom-right: command menu --------------------------------------- */
-.cmd{position:absolute;right:16px;bottom:16px;z-index:4;width:clamp(258px,19vw,300px);max-width:30vw}
+.cmd{position:absolute;right:16px;bottom:16px;z-index:4;width:clamp(258px,19vw,300px);max-width:30vw;border:1px solid var(--hair);transition:border-color .18s}
+.cmd[data-mode="skills"],
+.cmd[data-mode="target-skill"],
+.cmd[data-mode="target-fight"],
+.cmd[data-mode="items"] {
+  border-color: color-mix(in oklab, var(--signal) 55%, var(--hair));
+}
 .cmd .chelp{background:color-mix(in oklab,var(--panel) 88%,transparent);border:1px solid var(--hair);border-bottom:0;clip-path:polygon(10px 0,100% 0,100% 100%,0 100%,0 10px);padding:11px 15px;font:600 12.5px/1.45 var(--font);color:var(--ink);min-height:44px;backdrop-filter:blur(3px)}
 .cmd .chelp .htag{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--en);margin-right:8px}
 .cmd .chelp.muted{color:var(--muted)}

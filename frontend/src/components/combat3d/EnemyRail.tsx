@@ -7,7 +7,7 @@ export function EnemyRail({ aliveEnemies, selectedTargetId, canAct, onSelect }: 
         <button
           key={foe.id}
           type="button"
-          className={`erow ${selectedTargetId === foe.id ? 'sel' : ''}`}
+          className={`erow ${canAct ? 'pick' : ''} ${selectedTargetId === foe.id ? 'sel' : ''}`}
           onClick={() => onSelect(foe.id)}
           disabled={!canAct}
           aria-pressed={selectedTargetId === foe.id}
