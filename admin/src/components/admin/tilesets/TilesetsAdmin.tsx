@@ -13,6 +13,8 @@ type UploadDraft = {
   readonly name: string;
   readonly tileWidth: number;
   readonly tileHeight: number;
+  readonly spacing: number;
+  readonly margin: number;
   readonly file: File | null;
   readonly localPreviewUrl: string | null;
   readonly localWidth: number | null;
@@ -23,6 +25,8 @@ const EMPTY_DRAFT: UploadDraft = {
   name: '',
   tileWidth: 32,
   tileHeight: 32,
+  spacing: 0,
+  margin: 0,
   file: null,
   localPreviewUrl: null,
   localWidth: null,
@@ -79,6 +83,8 @@ export function TilesetsAdmin(): JSX.Element {
       name: draft.name.trim(),
       tileWidth: draft.tileWidth,
       tileHeight: draft.tileHeight,
+      spacing: draft.spacing,
+      margin: draft.margin,
       image: draft.file,
     }, { onError: () => setUploading(false) });
   };
@@ -112,6 +118,12 @@ export function TilesetsAdmin(): JSX.Element {
             </Field>
             <Field label="Tile height (px)">
               <input type="number" min={1} max={512} required value={draft.tileHeight} onChange={(e) => setDraft((d) => ({ ...d, tileHeight: Math.max(1, Math.min(512, Number(e.target.value) || 1)) }))} />
+            </Field>
+            <Field label="Spacing (px)">
+              <input type="number" min={0} max={512} value={draft.spacing} onChange={(e) => setDraft((d) => ({ ...d, spacing: Math.max(0, Math.min(512, Number(e.target.value) || 0)) }))} />
+            </Field>
+            <Field label="Margin (px)">
+              <input type="number" min={0} max={512} value={draft.margin} onChange={(e) => setDraft((d) => ({ ...d, margin: Math.max(0, Math.min(512, Number(e.target.value) || 0)) }))} />
             </Field>
           </div>
           {draft.localPreviewUrl !== null && draft.localWidth !== null && draft.localHeight !== null ? (

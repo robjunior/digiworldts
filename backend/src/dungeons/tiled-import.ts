@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-import type { ChestReward, EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, TrapKind, WildPool, WildPoolRollParams } from '@digiworld/shared';
-import { getObjectClass, getProperty, isObjectGroup, isTileLayer, LAYER_KINDS, tiledTilesetKey, TRAP_KINDS, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
+import type { ChestReward, EncounterDigimon, EncounterLoot, LayerKind, TiledMap, TiledObject, TiledTileLayer, Tileset, TrapKind, WildPool, WildPoolRollParams } from '@digiworld/shared';
+import { getObjectClass, getProperty, isObjectGroup, isTileLayer, LAYER_KINDS, tiledTilesetKey, TRAP_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES, type Element, type Stage } from '@digiworld/shared/digimon';
 import { BIOMES, type Biome } from '@digiworld/shared/world';
 
@@ -75,6 +75,8 @@ const TiledTilesetSchema = z
     source: z.string().optional(),
     tilewidth: z.number().int().min(1).optional(),
     tileheight: z.number().int().min(1).optional(),
+    spacing: z.number().int().min(0).optional(),
+    margin: z.number().int().min(0).optional(),
     columns: z.number().int().min(1).optional(),
     tilecount: z.number().int().min(1).optional(),
     image: z.string().optional(),
@@ -120,7 +122,21 @@ export function parseTiledJson(input: unknown): TiledParseResult {
 }
 
 export type ImportedTile = { readonly x: number; readonly y: number; readonly gid: number; readonly layerKind: LayerKind };
-export type ImportedTilesetRef = { readonly name: string; readonly firstgid: number };
+export type ImportedTilesetRef = {
+  readonly name: string;
+  readonly firstgid: number;
+  /** Geometry from the TMJ for embedded tilesets; null for external refs we can't resolve. */
+  readonly sourceGeometry: {
+    readonly tileWidth: number;
+    readonly tileHeight: number;
+    readonly columns: number;
+    readonly tileCount: number;
+    readonly imageWidth: number;
+    readonly imageHeight: number;
+    readonly spacing: number;
+    readonly margin: number;
+  } | null;
+};
 export type ImportedEncounter = {
   readonly x: number;
   readonly y: number;
@@ -333,9 +349,7 @@ function extractTiles(map: TiledMap, warnings: string[], errors: string[]): Impo
     return [];
   }
   const out: ImportedTile[] = [];
-  const positionKindWins = new Map<string, LayerKind>();
   let sawFloor = false;
-  let flaggedTiles = 0;
   for (const layer of tileLayers) {
     const layerKind = classifyLayer(layer, warnings);
     if (layer.width !== map.width || layer.height !== map.height) {
@@ -345,20 +359,13 @@ function extractTiles(map: TiledMap, warnings: string[], errors: string[]): Impo
     for (let i = 0; i < layer.data.length; i += 1) {
       const rawGid = layer.data[i] ?? 0;
       if (rawGid === 0) continue;
-      const gid = rawGid & TILED_GID_FLAG_MASK;
-      if (gid === 0) continue;
-      if (gid !== rawGid) flaggedTiles += 1;
+      const bareGid = rawGid & TILED_GID_FLAG_MASK;
+      if (bareGid === 0) continue;
       const x = i % layer.width;
       const y = Math.floor(i / layer.width);
       if (x >= map.width || y >= map.height) continue;
-      const key = `${x},${y}`;
-      const winnerKind = layerKindPriority(positionKindWins.get(key) ?? null, layerKind);
-      positionKindWins.set(key, winnerKind);
-      out.push({ x, y, gid, layerKind });
+      out.push({ x, y, gid: rawGid, layerKind });
     }
-  }
-  if (flaggedTiles > 0) {
-    warnings.push(`${flaggedTiles} tile(s) carry Tiled flip/rotation flags; the flags are ignored (tiles are imported unflipped)`);
   }
   if (!sawFloor) {
     errors.push('no tile layer classified as "floor"; name a layer "floor"/"walkable" or set the layer\'s dw_kind property to "floor"');
@@ -380,14 +387,6 @@ function classifyLayer(layer: TiledTileLayer, warnings: string[]): LayerKind {
   return 'decoration';
 }
 
-function layerKindPriority(existing: LayerKind | null, incoming: LayerKind): LayerKind {
-  if (existing === null) return incoming;
-  const walkableIncoming = (WALKABLE_LAYER_KINDS as readonly string[]).includes(incoming);
-  const walkableExisting = (WALKABLE_LAYER_KINDS as readonly string[]).includes(existing);
-  if (walkableIncoming && !walkableExisting) return incoming;
-  return existing;
-}
-
 function extractTilesets(map: TiledMap, warnings: string[]): ImportedTilesetRef[] {
   const raw = map.tilesets ?? [];
   const out: ImportedTilesetRef[] = [];
@@ -399,9 +398,82 @@ function extractTilesets(map: TiledMap, warnings: string[]): ImportedTilesetRef[
       continue;
     }
     seen.add(name);
-    out.push({ name, firstgid: ts.firstgid });
+    const sourceGeometry =
+      ts.tilewidth !== undefined &&
+      ts.tileheight !== undefined &&
+      ts.columns !== undefined &&
+      ts.tilecount !== undefined &&
+      ts.imagewidth !== undefined &&
+      ts.imageheight !== undefined
+        ? {
+            tileWidth: ts.tilewidth,
+            tileHeight: ts.tileheight,
+            columns: ts.columns,
+            tileCount: ts.tilecount,
+            imageWidth: ts.imagewidth,
+            imageHeight: ts.imageheight,
+            spacing: ts.spacing ?? 0,
+            margin: ts.margin ?? 0,
+          }
+        : null;
+    out.push({ name, firstgid: ts.firstgid, sourceGeometry });
   }
   return out;
+}
+
+/**
+ * Cross-check the tileset references extracted from a TMJ against the
+ * server's tileset library. Returns warnings for missing tilesets and for
+ * geometry mismatches on embedded tilesets (where the TMJ tells us the
+ * expected columns/tileCount/image size). These warnings are surfaced to
+ * the admin so they can fix uploads before the dungeon renders wrong.
+ */
+export function validateTiledImportTilesets(
+  tilesetRefs: readonly ImportedTilesetRef[],
+  library: readonly Tileset[],
+): string[] {
+  const warnings: string[] = [];
+  const byName = new Map(library.map((ts) => [ts.name, ts] as const));
+  for (const ref of tilesetRefs) {
+    const ts = byName.get(ref.name);
+    if (!ts) {
+      warnings.push(`tileset "${ref.name}" is referenced by the map but not found in the tileset library; upload it first`);
+      continue;
+    }
+    const g = ref.sourceGeometry;
+    if (!g) continue;
+    if (ts.tileWidth !== g.tileWidth || ts.tileHeight !== g.tileHeight) {
+      warnings.push(
+        `tileset "${ref.name}" tile size mismatch: library has ${ts.tileWidth}x${ts.tileHeight}, map expects ${g.tileWidth}x${g.tileHeight}`,
+      );
+    }
+    if (ts.columns !== g.columns) {
+      warnings.push(
+        `tileset "${ref.name}" columns mismatch: library has ${ts.columns}, map expects ${g.columns} (wrong image width or tile size)`,
+      );
+    }
+    if (ts.tileCount !== g.tileCount) {
+      warnings.push(
+        `tileset "${ref.name}" tile count mismatch: library has ${ts.tileCount}, map expects ${g.tileCount}`,
+      );
+    }
+    if (ts.imageWidth !== g.imageWidth || ts.imageHeight !== g.imageHeight) {
+      warnings.push(
+        `tileset "${ref.name}" image size mismatch: library has ${ts.imageWidth}x${ts.imageHeight}, map expects ${g.imageWidth}x${g.imageHeight}`,
+      );
+    }
+    if (ts.spacing !== g.spacing) {
+      warnings.push(
+        `tileset "${ref.name}" spacing mismatch: library has ${ts.spacing}, map expects ${g.spacing}`,
+      );
+    }
+    if (ts.margin !== g.margin) {
+      warnings.push(
+        `tileset "${ref.name}" margin mismatch: library has ${ts.margin}, map expects ${g.margin}`,
+      );
+    }
+  }
+  return warnings;
 }
 
 function readEncounter(obj: TiledObject, cell: { x: number; y: number }, errors: string[]): ImportedEncounter | null {
@@ -531,16 +603,16 @@ function readChest(obj: TiledObject, cell: { x: number; y: number }, errors: str
   }
   const lockedByKeyId = coerceOptionalString(getProperty(properties, 'lockedByKeyId'));
   const label = coerceOptionalString(getProperty(properties, 'label'));
-  const unusedTileGid = stripTiledGidFlags(obj.gid);
+  const unusedTileGid = rawTiledGid(obj.gid);
   const usedTileGidRaw = getProperty(properties, 'usedTileGid');
-  const usedTileGid = typeof usedTileGidRaw === 'number' ? stripTiledGidFlags(Math.round(usedTileGidRaw)) : null;
+  const usedTileGid = typeof usedTileGidRaw === 'number' ? rawTiledGid(Math.round(usedTileGidRaw)) : null;
   return { x: cell.x, y: cell.y, label, contents, lockedByKeyId, unusedTileGid, usedTileGid };
 }
 
-function stripTiledGidFlags(gid: number | undefined | null): number | null {
+function rawTiledGid(gid: number | undefined | null): number | null {
   if (gid === undefined || gid === null || gid <= 0) return null;
   const bare = gid & TILED_GID_FLAG_MASK;
-  return bare > 0 ? bare : null;
+  return bare > 0 ? gid : null;
 }
 
 function readBiomeProp(properties: TiledMap['properties'], errors: string[]): Biome | null {

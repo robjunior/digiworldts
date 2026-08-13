@@ -73,6 +73,12 @@ export function Dungeon(): JSX.Element {
   // several keydowns in one tick all read false and fire duplicate moves off
   // the same stale position. Refs flip synchronously.
   const movePendingRef = useRef(false);
+  // Authoritative player position, mirrored synchronously from the last move
+  // response. Reads in tryMove/handleCellClick must go through this ref —
+  // `data` lags by one render, and a keydown firing between onSettled and the
+  // re-render used to target a cell 2 tiles away → server rejects with
+  // `not-adjacent` → swallowed steps + repeated warning toasts (feels laggy).
+  const posRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const wildStartPendingRef = useRef(false);
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
@@ -93,6 +99,7 @@ export function Dungeon(): JSX.Element {
     const x = data?.run.currentX;
     const y = data?.run.currentY;
     if (x === undefined || y === undefined) return;
+    posRef.current = { x, y };
     setPartyTrail((prev) => {
       if (prev[0]?.x === x && prev[0]?.y === y) return prev;
       return [{ x, y }, ...prev].slice(0, 3);
@@ -113,7 +120,7 @@ export function Dungeon(): JSX.Element {
     const cellRect = cell.getBoundingClientRect();
     const targetLeft = scroller.scrollLeft + (cellRect.left - scrollerRect.left) - scrollerRect.width / 2 + cellRect.width / 2;
     const targetTop = scroller.scrollTop + (cellRect.top - scrollerRect.top) - scrollerRect.height / 2 + cellRect.height / 2;
-    scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'smooth' });
+    scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'instant' });
   }, [data?.run.currentX, data?.run.currentY]);
 
   const productById = useMemo(() => {
@@ -141,6 +148,7 @@ export function Dungeon(): JSX.Element {
       return moveInDungeon(id, x, y);
     },
     onSuccess: (res, { x, y }) => {
+      posRef.current = { x: res.run.currentX, y: res.run.currentY };
       setStepCount((s) => s + 1);
       if (res.blockedByDoorId) {
         const door = data?.doors.find((entry) => entry.id === res.blockedByDoorId);
@@ -342,35 +350,37 @@ export function Dungeon(): JSX.Element {
       return;
     }
     if (movePendingRef.current) return;
-    const cx = data?.run.currentX ?? 0;
-    const cy = data?.run.currentY ?? 0;
+    const run = queryClient.getQueryData<DungeonRunView>(['dungeon', id]);
+    if (!run) return;
+    const cx = run.run.currentX;
+    const cy = run.run.currentY;
     const nx = cx + dx;
     const ny = cy + dy;
     const tileKey = `${nx},${ny}`;
-    const walkable = data?.tiles.some((t) => `${t.x},${t.y}` === tileKey);
+    const walkable = run.tiles.some((t) => `${t.x},${t.y}` === tileKey);
     if (!walkable) {
       // Just silently do nothing if trying to move into a wall
       return;
     }
-    const exitWarp = data?.warps.find((warp) => warp.x === nx && warp.y === ny && warp.targetDungeonId === null);
-    if (exitWarp && (data?.groupInventory.length ?? 0) > 0) {
+    const exitWarp = run.warps.find((warp) => warp.x === nx && warp.y === ny && warp.targetDungeonId === null);
+    if (exitWarp && (run.groupInventory.length ?? 0) > 0) {
       setExitConfirm({ x: nx, y: ny, to: null });
       return;
     }
     movePendingRef.current = true;
     moveMutation.mutate({ x: nx, y: ny });
-  }, [data, activeEncounterId, activeRandomEncounter, moveMutation, dialogueOpen, flashToast]);
+  }, [id, dialogueOpen, activeEncounterId, activeRandomEncounter, moveMutation, flashToast]);
 
-  const handleCellClick = (x: number, y: number) => {
-    const cx = data?.run.currentX ?? 0;
-    const cy = data?.run.currentY ?? 0;
+  const handleCellClick = useCallback((x: number, y: number) => {
+    const cx = posRef.current.x;
+    const cy = posRef.current.y;
     const dist = Math.abs(cx - x) + Math.abs(cy - y);
     if (dist !== 1) {
       flashToast('Can only move to adjacent tiles.');
       return;
     }
     tryMove(x - cx, y - cy);
-  };
+  }, [tryMove, flashToast]);
 
   useEffect(() => {
     if (!data) return;

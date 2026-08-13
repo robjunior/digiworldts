@@ -292,10 +292,27 @@
   box-sizing: content-box;
   flex: 0 0 auto;
   margin: auto;
+  position: relative;
+}
+.dungeon-page .view .dgrid-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  pointer-events: none;
+}
+.dungeon-page .view .dgrid-bg {
+  position: relative;
+  pointer-events: auto;
+  z-index: 1;
+}
+.dungeon-page .view .dgrid-entities {
+  z-index: 4;
+}
+.dungeon-page .view .dcell-entity {
+  position: relative;
 }
 .dungeon-page .view .dcell {
   background: var(--bg);
-  border: 1px solid color-mix(in oklab, var(--el) 12%, transparent);
   position: relative;
   display: flex;
   align-items: center;
@@ -329,7 +346,7 @@
 }
 .dungeon-page .view .dcell.player {
   background: color-mix(in oklab, var(--el) 26%, var(--bg));
-  border: 2px solid var(--el);
+  box-shadow: inset 0 0 0 2px var(--el);
   z-index: 2;
 }
 .dungeon-page .view .dcell.enc {
@@ -348,6 +365,11 @@
 .dungeon-page .view .dcell.is-door.is-unlocked {
   background: color-mix(in oklab, var(--muted) 20%, var(--bg));
   border-color: color-mix(in oklab, var(--muted) 44%, var(--panel));
+}
+.dungeon-page .view .tile-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 .dungeon-page .view .door-marker {
   position: absolute;

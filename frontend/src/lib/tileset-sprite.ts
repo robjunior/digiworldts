@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 
 import type { TilesetGrant } from '@digiworld/shared';
-import { findTilesetForGid, gidToSpritePosition } from '@digiworld/shared';
+import { findTilesetForGid, gidToSpritePosition, tiledGidTransform } from '@digiworld/shared';
 
 /**
  * Compute the CSS `background-*` cluster that paints the sprite for a
@@ -16,17 +16,20 @@ import { findTilesetForGid, gidToSpritePosition } from '@digiworld/shared';
  * together, so a GID always lands its sub-tile top-left-aligned to the
  * cell regardless of zoom.
  */
-export function gidCellStyle(gid: number, tilesets: readonly TilesetGrant[], scale = 1): CSSProperties | null {
+export function gidCellStyle(gid: number, tilesets: readonly TilesetGrant[], cellSize?: number): CSSProperties | null {
   const tileset = findTilesetForGid(gid, tilesets);
   if (!tileset) return null;
   const pos = gidToSpritePosition(gid, tileset);
   if (!pos) return null;
+  const scale = cellSize !== undefined && cellSize > 0 ? cellSize / tileset.tileWidth : 1;
+  const transform = tiledGidTransform(gid);
   return {
     backgroundImage: `url("${tileset.imageUrl}")`,
-    backgroundPosition: `-${pos.x * scale}px -${pos.y * scale}px`,
-    backgroundSize: `${tileset.imageWidth * scale}px ${tileset.imageHeight * scale}px`,
+    backgroundPosition: `-${Math.round(pos.x * scale)}px -${Math.round(pos.y * scale)}px`,
+    backgroundSize: `${Math.round(tileset.imageWidth * scale)}px ${Math.round(tileset.imageHeight * scale)}px`,
     backgroundRepeat: 'no-repeat',
     imageRendering: 'pixelated',
+    transform: transform || undefined,
   };
 }
 

@@ -108,7 +108,7 @@ export const TileSchema = z.object({
   x: z.number().int().min(0).max(199),
   y: z.number().int().min(0).max(199),
   /** GID into the dungeon's joined tilesets; defaults so legacy clients that omit it stay valid. */
-  gid: z.number().int().min(1).max(1_000_000).default(1),
+  gid: z.number().int().min(1).max(0xffffffff).default(1),
   layerKind: z.enum(LAYER_KINDS).default('floor'),
 });
 
@@ -158,8 +158,8 @@ export const DoorInputSchema = z.object({
   y: z.number().int().min(0).max(199),
   keyItemId: IdSchema,
   dungeonKeyId: IdSchema.nullable().optional(),
-  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
-  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
   label: z.string().trim().min(1).max(120).nullable().optional(),
 });
 
@@ -170,8 +170,8 @@ export const TrapInputSchema = z.object({
   y: z.number().int().min(0),
   kind: z.enum(['damage', 'poison', 'burn', 'energy_drain', 'mood_loss', 'teleport', 'random_encounter']),
   severity: z.number().int().min(1).max(100),
-  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
-  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
   label: z.string().trim().max(80).nullable().optional(),
 });
 export const UpdateTrapInputSchema = TrapInputSchema.partial();
@@ -334,15 +334,15 @@ export const CreateChestInputSchema = z.object({
   label: z.string().trim().min(1).max(120).nullable().optional(),
   contents: z.array(ChestRewardSchema).min(1).max(32),
   lockedByKeyId: IdSchema.nullable().optional(),
-  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
-  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
 });
 
 export const UpdateChestInputSchema = CreateChestInputSchema.partial();
 
 export const DoorTileVisualsSchema = z.object({
-  unusedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
-  usedTileGid: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
 });
 
 export const DoorS9ExtensionSchema = DoorTileVisualsSchema.extend({

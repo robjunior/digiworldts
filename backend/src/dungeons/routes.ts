@@ -36,8 +36,10 @@ import {
   updateWarp,
   wipeRun,
 } from './repo.js';
-import { parseTiledJson, tiledMapToImportPayload } from './tiled-import.js';
+import { parseTiledJson, tiledMapToImportPayload, validateTiledImportTilesets } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { findTilesetByName, listTilesets, updateTilesetGeometry } from '../tilesets/repo.js';
+import type { ImportedTilesetRef } from './tiled-import.js';
 import { createChest, deleteChest, updateChest } from './chests.js';
 import { getKeyById, listKeysForGroup, updateKeyPlacement } from './keys.js';
 import { listZones, replaceZones } from './zones.js';
@@ -116,6 +118,36 @@ function kitErrorHttpCode(err: KitError): number {
   }
 }
 
+/**
+ * Auto-correct stored tileset spacing/margin from the TMJ when the library
+ * entry still has the default 0/0. This fixes rendering for tilesets uploaded
+ * before spacing/margin tracking existed, without requiring a manual re-upload.
+ * If the stored values are non-zero and differ from the map, we emit a warning
+ * and leave them alone so an admin can decide which source is authoritative.
+ */
+async function syncTilesetSpacingMargin(
+  tilesetRefs: readonly ImportedTilesetRef[],
+  warnings: string[],
+): Promise<void> {
+  for (const ref of tilesetRefs) {
+    const g = ref.sourceGeometry;
+    if (!g) continue;
+    const ts = await findTilesetByName(ref.name);
+    if (!ts) continue;
+    if (ts.spacing === g.spacing && ts.margin === g.margin) continue;
+    if (ts.spacing === 0 && ts.margin === 0) {
+      const updated = await updateTilesetGeometry(ts.id, { spacing: g.spacing, margin: g.margin });
+      if (updated) {
+        log.info('admin.tileset.geometry-sync', { id: ts.id, name: ts.name, spacing: g.spacing, margin: g.margin });
+      }
+    } else {
+      warnings.push(
+        `tileset "${ref.name}" spacing/margin mismatch: library has ${ts.spacing}/${ts.margin}, map expects ${g.spacing}/${g.margin}; manual re-upload required`,
+      );
+    }
+  }
+}
+
 export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/admin/dungeons', async (req, reply) => {
     await requireAdmin(req, reply);
@@ -132,61 +164,79 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
   });
 
   app.post('/api/admin/dungeons/import-tiled', async (req, reply) => {
-    const admin = await requireAdmin(req, reply);
-    const parsedBody = ImportTiledNewInputSchema.safeParse(req.body);
-    if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
-    const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
-    if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
-    const payload = tiledMapToImportPayload(parsedTiled.map);
-    if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
-    const result = await applyTiledImportNew({
-      name: parsedBody.data.name,
-      biome: parsedBody.data.biome,
-      ...(parsedBody.data.description !== undefined ? { description: parsedBody.data.description } : {}),
-      payload: payload.payload,
-    });
-    if (!result.ok) return reply.code(409).send({ error: result.error, missing: result.missing });
-    log.info('admin.dungeon.import.new', {
-      adminId: admin.id,
-      id: result.dungeon.id,
-      tiles: payload.payload.tiles.length,
-      tilesets: payload.payload.tilesets.length,
-      encounters: payload.payload.encounters.length,
-      items: payload.payload.items.length,
-      doors: payload.payload.doors.length,
-      warps: payload.payload.warps.length,
-      traps: payload.payload.traps.length,
-    });
-    return reply.code(201).send({ dungeon: result.dungeon, warnings: payload.warnings });
+    try {
+      const admin = await requireAdmin(req, reply);
+      const parsedBody = ImportTiledNewInputSchema.safeParse(req.body);
+      if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
+      const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
+      if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
+      const payload = tiledMapToImportPayload(parsedTiled.map);
+      if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
+      const library = await listTilesets();
+      const tilesetWarnings = validateTiledImportTilesets(payload.payload.tilesets, library);
+      const warnings = [...payload.warnings, ...tilesetWarnings];
+      await syncTilesetSpacingMargin(payload.payload.tilesets, warnings);
+      const result = await applyTiledImportNew({
+        name: parsedBody.data.name,
+        biome: parsedBody.data.biome,
+        ...(parsedBody.data.description !== undefined ? { description: parsedBody.data.description } : {}),
+        payload: payload.payload,
+      });
+      if (!result.ok) return reply.code(409).send({ error: result.error, missing: result.missing });
+      log.info('admin.dungeon.import.new', {
+        adminId: admin.id,
+        id: result.dungeon.id,
+        tiles: payload.payload.tiles.length,
+        tilesets: payload.payload.tilesets.length,
+        encounters: payload.payload.encounters.length,
+        items: payload.payload.items.length,
+        doors: payload.payload.doors.length,
+        warps: payload.payload.warps.length,
+        traps: payload.payload.traps.length,
+      });
+      return reply.code(201).send({ dungeon: result.dungeon, warnings });
+    } catch (err) {
+      log.error('admin.dungeon.import.new.error', { error: err });
+      return reply.code(500).send({ error: 'internal error', details: err instanceof Error ? err.message : String(err) });
+    }
   });
 
   app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/import-tiled', async (req, reply) => {
-    const admin = await requireAdmin(req, reply);
-    const parsedBody = ImportTiledReplaceInputSchema.safeParse(req.body);
-    if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
-    const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
-    if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
-    const existing = await getDungeon(req.params.id);
-    if (!existing) return reply.code(404).send({ error: 'not-found' });
-    const payload = tiledMapToImportPayload(parsedTiled.map, { currentSpawn: { x: existing.spawnX, y: existing.spawnY } });
-    if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
-    const result = await applyTiledImportReplace(req.params.id, payload.payload);
-    if (!result.ok) {
-      if (result.error === 'not-found') return reply.code(404).send({ error: 'not-found' });
-      return reply.code(409).send({ error: result.error, missing: result.missing });
+    try {
+      const admin = await requireAdmin(req, reply);
+      const parsedBody = ImportTiledReplaceInputSchema.safeParse(req.body);
+      if (!parsedBody.success) return reply.code(400).send({ error: 'invalid-import-input', details: parsedBody.error.issues });
+      const parsedTiled = parseTiledJson(parsedBody.data.tiledJson);
+      if (!parsedTiled.ok) return reply.code(400).send({ error: parsedTiled.error, details: parsedTiled.details });
+      const existing = await getDungeon(req.params.id);
+      if (!existing) return reply.code(404).send({ error: 'not-found' });
+      const payload = tiledMapToImportPayload(parsedTiled.map, { currentSpawn: { x: existing.spawnX, y: existing.spawnY } });
+      if (!payload.ok) return reply.code(400).send({ error: payload.error, details: payload.details });
+      const library = await listTilesets();
+      const tilesetWarnings = validateTiledImportTilesets(payload.payload.tilesets, library);
+      const warnings = [...payload.warnings, ...tilesetWarnings];
+      await syncTilesetSpacingMargin(payload.payload.tilesets, warnings);
+      const result = await applyTiledImportReplace(req.params.id, payload.payload);
+      if (!result.ok) {
+        if (result.error === 'not-found') return reply.code(404).send({ error: 'not-found' });
+        return reply.code(409).send({ error: result.error, missing: result.missing });
+      }
+      log.info('admin.dungeon.import.replace', {
+        adminId: admin.id,
+        id: req.params.id,
+        tiles: payload.payload.tiles.length,
+        tilesets: payload.payload.tilesets.length,
+        encounters: payload.payload.encounters.length,
+        items: payload.payload.items.length,
+        doors: payload.payload.doors.length,
+        warps: payload.payload.warps.length,
+        traps: payload.payload.traps.length,
+      });
+      return reply.send({ view: result.view, warnings });
+    } catch (err) {
+      log.error('admin.dungeon.import.replace.error', { error: err });
+      return reply.code(500).send({ error: 'internal error', details: err instanceof Error ? err.message : String(err) });
     }
-    log.info('admin.dungeon.import.replace', {
-      adminId: admin.id,
-      id: req.params.id,
-      tiles: payload.payload.tiles.length,
-      tilesets: payload.payload.tilesets.length,
-      encounters: payload.payload.encounters.length,
-      items: payload.payload.items.length,
-      doors: payload.payload.doors.length,
-      warps: payload.payload.warps.length,
-      traps: payload.payload.traps.length,
-    });
-    return reply.send({ view: result.view, warnings: payload.warnings });
   });
 
   app.get<{ Params: { id: string } }>('/api/admin/dungeons/:id', async (req, reply) => {

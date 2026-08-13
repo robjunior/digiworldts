@@ -52,16 +52,32 @@ export type ChestReward = {
   readonly qty: number;
 };
 
-export const LAYER_KINDS = ['floor', 'walls', 'doors', 'water', 'pit', 'decoration', 'hidden'] as const;
+export const LAYER_KINDS = ['liquid', 'floor', 'grass', 'tree', 'wall', 'walls', 'doors', 'water', 'pit', 'decoration', 'hidden'] as const;
 export type LayerKind = (typeof LAYER_KINDS)[number];
 
 /**
- * Layer kinds whose tiles contribute to the walkable mask. `walls`, `water`,
- * `pit`, and `decoration` are visual overlays — the mask omits them so
- * `moveRun` refuses to walk onto them. `hidden` is a fog-of-war layer that
- * is walkable but drawn dimmed by the renderer.
+ * Layer kinds whose tiles contribute to the walkable mask. `tree`, `wall`,
+ * `walls`, `water`, `pit`, `liquid`, and `decoration` are visual overlays or
+ * obstacles — the mask omits them so `moveRun` refuses to walk onto them.
+ * `hidden` is a fog-of-war layer that is walkable but drawn dimmed by the
+ * renderer. `grass` is walkable ground cover: rendered above `floor` but
+ * beneath `tree`/`wall` in the background stack (see `BG_KIND_ORDER` in the
+ * frontend renderer), so the player walks on grass under the trees.
  */
-export const WALKABLE_LAYER_KINDS: readonly LayerKind[] = ['floor', 'doors', 'hidden'];
+export const WALKABLE_LAYER_KINDS: readonly LayerKind[] = ['floor', 'grass', 'doors', 'hidden'];
+
+/**
+ * Layer kinds rendered beneath the floor (e.g. water/lava that peeks out under
+ * bridges or docks). These are drawn before floor tiles so a floor tile placed
+ * on the same cell covers the liquid.
+ */
+export const UNDERLAY_LAYER_KINDS: readonly LayerKind[] = ['liquid'];
+
+/**
+ * No layer kind renders above the background stack — the background ordering
+ * (`floor` → `grass` → `tree`/`wall`) handles all stacking within a cell.
+ */
+export const FOREGROUND_LAYER_KINDS: readonly LayerKind[] = [];
 
 export type DungeonTile = {
   readonly x: number;

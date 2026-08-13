@@ -10,6 +10,8 @@ export type UploadTilesetInput = {
   readonly name: string;
   readonly tileWidth: number;
   readonly tileHeight: number;
+  readonly spacing?: number;
+  readonly margin?: number;
   readonly image: File;
 };
 
@@ -18,6 +20,8 @@ export async function uploadAdminTileset(input: UploadTilesetInput): Promise<Til
   body.append('name', input.name);
   body.append('tileWidth', String(input.tileWidth));
   body.append('tileHeight', String(input.tileHeight));
+  if (input.spacing !== undefined) body.append('spacing', String(input.spacing));
+  if (input.margin !== undefined) body.append('margin', String(input.margin));
   body.append('image', input.image, input.image.name);
   const res = await fetch('/api/admin/tilesets', { method: 'POST', body, credentials: 'include' });
   const text = await res.text();
