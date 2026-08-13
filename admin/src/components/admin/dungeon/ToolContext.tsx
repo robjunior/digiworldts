@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import type {
   Dungeon,
+  DungeonBridge,
   DungeonChest,
   DungeonDoor,
   DungeonEncounter,
@@ -13,6 +14,7 @@ import type {
 } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
 
+import { BridgeEditor } from './BridgeEditor';
 import { ChestEditor } from './ChestEditor';
 import { DoorEditor } from './DoorEditor';
 import { EncounterEditor } from './EncounterEditor';
@@ -45,7 +47,9 @@ export function ToolContext({
   trap,
   chest,
   trigger,
+  bridge,
   doors,
+  bridges,
   catalog,
   dungeons,
   shopItems,
@@ -65,7 +69,9 @@ export function ToolContext({
   readonly trap?: DungeonTrap | undefined;
   readonly chest?: DungeonChest | undefined;
   readonly trigger?: DungeonTrigger | undefined;
+  readonly bridge?: DungeonBridge | undefined;
   readonly doors: readonly DungeonDoor[];
+  readonly bridges: readonly DungeonBridge[];
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
@@ -189,8 +195,21 @@ export function ToolContext({
         x={selectedCell.x}
         y={selectedCell.y}
         doors={doors}
+        bridges={bridges}
         tilesets={tilesets}
+        dungeonGroupId={dungeon.dungeonGroupId}
         {...(trigger ? { trigger } : {})}
+      />
+    );
+  }
+  if (tool === 'BRIDGES') {
+    return (
+      <BridgeEditor
+        dungeonId={dungeonId}
+        x={selectedCell.x}
+        y={selectedCell.y}
+        tilesets={tilesets}
+        {...(bridge ? { bridge } : {})}
       />
     );
   }

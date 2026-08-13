@@ -3240,3 +3240,76 @@
   padding: 2px 4px;
   border-radius: 2px;
 }
+
+/* Trigger target picker — modal map grid for click-to-pick door/bridge targets */
+.tpt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.65);
+}
+.tpt-panel {
+  max-width: min(92vw, 760px);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 6px;
+  padding: 14px;
+}
+.tpt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.tpt-header h3 { margin: 0; }
+.tpt-dungeon-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0;
+  max-width: 320px;
+}
+.tpt-hint {
+  color: var(--signal);
+  font-size: 12px;
+  margin: 4px 0;
+}
+.tpt-grid {
+  display: grid;
+  gap: 1px;
+  background: #1a1a20;
+  padding: 4px;
+  border: 1px solid var(--hair);
+  border-radius: 4px;
+  width: fit-content;
+}
+.tpt-cell {
+  position: relative;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.tpt-cell:hover { outline: 1px solid var(--gold); z-index: 1; }
+.tpt-marker {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(230, 0, 31, 0.55);
+  text-shadow: 0 1px 2px #000;
+}
+.tpt-picked {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}

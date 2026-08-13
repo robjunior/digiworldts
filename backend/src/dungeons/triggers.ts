@@ -2,17 +2,15 @@
  * Dungeon lever triggers.
  *
  * A trigger is a lever placed on a walkable tile. When a player steps onto it
- * (moveRun), it fires once per run — the fired id lands in
- * `UserDungeonRun.triggeredTriggers` — and activates its single target:
- *   - kind 'door': the door opens without a key (id appended to
- *     `UserDungeonRun.unlockedDoors`).
- *   - kind 'bridge': the target cell becomes walkable and renders
- *     `usedTileGid` (the raised bridge).
+ * (moveRun), it fires once per run — the fired state lands in
+ * `user_dungeon_trigger_states`, scoped to the dungeon group — and activates
+ * its single target:
+ *   - kind 'door': the door opens without a key.
+ *   - kind 'bridge': the bridge lowers (down = walkable).
  *
- * Target validation happens at create/update time: a door target must point
- * at a door that exists in the same dungeon; a bridge target must carry
- * targetX/targetY. The UNIQUE index on (trigger_id) enforces one target per
- * trigger.
+ * Targets may live on any floor of the same dungeon group (cross-map). The
+ * scope of a dungeon is `dungeonGroupId ?? dungeonId`; a target is valid only
+ * when it shares the trigger's scope.
  */
 import { one, q, run, tx } from '../db/index.js';
 import { newId } from '../util/ids.js';
@@ -36,12 +34,12 @@ type TargetRow = {
   readonly trigger_id: string;
   readonly kind: string;
   readonly door_id: string | null;
-  readonly target_x: number | null;
-  readonly target_y: number | null;
-  readonly used_tile_gid: number | null;
+  readonly bridge_id: string | null;
 };
 
-const SQL_GET_DUNGEON_EXISTS = `SELECT id FROM dungeons WHERE id = ?`;
+const SQL_GET_TRIGGER_SCOPE = `SELECT dungeon_group_id FROM dungeons WHERE id = ?`;
+const SQL_GET_DOOR_SCOPE = `SELECT d.dungeon_id, dg.dungeon_group_id FROM dungeon_doors d JOIN dungeons dg ON dg.id = d.dungeon_id WHERE d.id = ?`;
+const SQL_GET_BRIDGE_SCOPE = `SELECT b.dungeon_id, dg.dungeon_group_id FROM dungeon_bridges b JOIN dungeons dg ON dg.id = b.dungeon_id WHERE b.id = ?`;
 const SQL_LIST_TRIGGERS = `SELECT * FROM dungeon_triggers WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_TRIGGER = `SELECT * FROM dungeon_triggers WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_TRIGGER_AT = `SELECT * FROM dungeon_triggers WHERE dungeon_id = ? AND x = ? AND y = ?`;
@@ -50,10 +48,10 @@ const SQL_INSERT_TRIGGER = `INSERT INTO dungeon_triggers (id, dungeon_id, x, y, 
 const SQL_UPDATE_TRIGGER = `UPDATE dungeon_triggers SET x = ?, y = ?, label = ?, unused_tile_gid = ?, used_tile_gid = ?, updated_at = ? WHERE dungeon_id = ? AND id = ?`;
 const SQL_DELETE_TRIGGER = `DELETE FROM dungeon_triggers WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_TARGET = `SELECT * FROM dungeon_trigger_targets WHERE trigger_id = ?`;
-const SQL_INSERT_TARGET = `INSERT INTO dungeon_trigger_targets (id, trigger_id, kind, door_id, target_x, target_y, used_tile_gid, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_INSERT_TARGET = `INSERT INTO dungeon_trigger_targets (id, trigger_id, kind, door_id, bridge_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`;
 const SQL_DELETE_TARGET = `DELETE FROM dungeon_trigger_targets WHERE trigger_id = ?`;
-const SQL_GET_DOOR = `SELECT id FROM dungeon_doors WHERE id = ? AND dungeon_id = ?`;
-const SQL_GET_BRIDGE_TRIGGER_IDS = `SELECT t.trigger_id FROM dungeon_trigger_targets t JOIN dungeon_triggers g ON g.id = t.trigger_id WHERE t.kind = 'bridge' AND t.target_x = ? AND t.target_y = ? AND g.dungeon_id = ?`;
+const SQL_DOOR_TARGETING_TRIGGERS = `SELECT tt.trigger_id FROM dungeon_trigger_targets tt JOIN dungeon_triggers t ON t.id = tt.trigger_id WHERE tt.kind = 'door' AND tt.door_id = ?`;
+const SQL_BRIDGE_TRIGGER_IDS_AT = `SELECT tt.trigger_id FROM dungeon_trigger_targets tt JOIN dungeon_triggers t ON t.id = tt.trigger_id JOIN dungeon_bridges b ON b.id = tt.bridge_id WHERE tt.kind = 'bridge' AND b.dungeon_id = ? AND b.x = ? AND b.y = ?`;
 
 function triggerFromRow(row: TriggerRow, targets: readonly DungeonTriggerTarget[]): DungeonTrigger {
   return {
@@ -75,9 +73,7 @@ function targetFromRow(row: TargetRow): DungeonTriggerTarget {
     id: row.id,
     kind: row.kind as TriggerTargetKind,
     doorId: row.door_id ?? null,
-    targetX: row.target_x ?? null,
-    targetY: row.target_y ?? null,
-    usedTileGid: row.used_tile_gid ?? null,
+    bridgeId: row.bridge_id ?? null,
   };
 }
 
@@ -106,32 +102,44 @@ export async function getTriggerById(triggerId: string): Promise<DungeonTrigger 
   return triggerFromRow(row, await listTargets(row.id));
 }
 
-/** Trigger ids whose bridge target sits on (x, y) — used for walkability in moveRun. */
-export async function getBridgeTriggerIdsAt(dungeonId: string, x: number, y: number): Promise<readonly string[]> {
-  const rows = await q<{ readonly trigger_id: string }>(SQL_GET_BRIDGE_TRIGGER_IDS, x, y, dungeonId);
+/** Trigger ids whose door target is `doorId` (any map, same group by construction). */
+export async function getDoorTargetingTriggerIds(doorId: string): Promise<readonly string[]> {
+  const rows = await q<{ readonly trigger_id: string }>(SQL_DOOR_TARGETING_TRIGGERS, doorId);
   return rows.map((row) => row.trigger_id);
 }
 
-async function validateTarget(dungeonId: string, target: TriggerInput['target']): Promise<boolean> {
+/** Trigger ids whose bridge target sits on a bridge at (x, y) in this dungeon. */
+export async function getBridgeTriggerIdsAt(dungeonId: string, x: number, y: number): Promise<readonly string[]> {
+  const rows = await q<{ readonly trigger_id: string }>(SQL_BRIDGE_TRIGGER_IDS_AT, dungeonId, x, y);
+  return rows.map((row) => row.trigger_id);
+}
+
+async function targetSharesScope(triggerDungeonId: string, target: TriggerInput['target']): Promise<boolean> {
+  const triggerScope = await one<{ readonly dungeon_group_id: string | null }>(SQL_GET_TRIGGER_SCOPE, triggerDungeonId);
+  if (!triggerScope) return false;
+  const triggerScopeKey = triggerScope.dungeon_group_id ?? triggerDungeonId;
   if (target.kind === 'door') {
     if (target.doorId === undefined || target.doorId === null) return false;
-    return (await one<{ readonly id: string }>(SQL_GET_DOOR, target.doorId, dungeonId)) !== null;
+    const targetScope = await one<{ readonly dungeon_id: string; readonly dungeon_group_id: string | null }>(SQL_GET_DOOR_SCOPE, target.doorId);
+    return targetScope !== null && (targetScope.dungeon_group_id ?? targetScope.dungeon_id) === triggerScopeKey;
   }
-  return target.targetX !== undefined && target.targetX !== null && target.targetY !== undefined && target.targetY !== null;
+  if (target.bridgeId === undefined || target.bridgeId === null) return false;
+  const targetScope = await one<{ readonly dungeon_id: string; readonly dungeon_group_id: string | null }>(SQL_GET_BRIDGE_SCOPE, target.bridgeId);
+  return targetScope !== null && (targetScope.dungeon_group_id ?? targetScope.dungeon_id) === triggerScopeKey;
 }
 
 export async function createTrigger(
   dungeonId: string,
   input: TriggerInput,
 ): Promise<DungeonTrigger | 'not-found' | 'conflict' | 'invalid-target'> {
-  if (!(await one<{ readonly id: string }>(SQL_GET_DUNGEON_EXISTS, dungeonId))) return 'not-found';
+  if (!(await one<{ readonly id: string }>(SQL_GET_TRIGGER_SCOPE, dungeonId))) return 'not-found';
   if (await getTriggerAt(dungeonId, input.x, input.y)) return 'conflict';
-  if (!(await validateTarget(dungeonId, input.target))) return 'invalid-target';
+  if (!(await targetSharesScope(dungeonId, input.target))) return 'invalid-target';
   const id = newId('trg');
   const now = Date.now();
   await tx(async (t) => {
     await t.run(SQL_INSERT_TRIGGER, [id, dungeonId, input.x, input.y, input.label ?? null, input.unusedTileGid ?? null, input.usedTileGid ?? null, now, now]);
-    await t.run(SQL_INSERT_TARGET, [newId('trgt'), id, input.target.kind, input.target.kind === 'door' ? (input.target.doorId ?? null) : null, input.target.kind === 'bridge' ? (input.target.targetX ?? null) : null, input.target.kind === 'bridge' ? (input.target.targetY ?? null) : null, input.target.usedTileGid ?? null, now]);
+    await t.run(SQL_INSERT_TARGET, [newId('trgt'), id, input.target.kind, input.target.kind === 'door' ? (input.target.doorId ?? null) : null, input.target.kind === 'bridge' ? (input.target.bridgeId ?? null) : null, now]);
   });
   const row = await one<TriggerRow>(SQL_GET_TRIGGER_BY_ID, id);
   return row ? triggerFromRow(row, await listTargets(row.id)) : 'not-found';
@@ -147,12 +155,12 @@ export async function updateTrigger(
   const nextX = input.x ?? existing.x;
   const nextY = input.y ?? existing.y;
   if ((nextX !== existing.x || nextY !== existing.y) && (await getTriggerAt(dungeonId, nextX, nextY))) return 'conflict';
-  if (input.target !== undefined && !(await validateTarget(dungeonId, input.target))) return 'invalid-target';
+  if (input.target !== undefined && !(await targetSharesScope(dungeonId, input.target))) return 'invalid-target';
   await tx(async (t) => {
     await t.run(SQL_UPDATE_TRIGGER, [nextX, nextY, input.label !== undefined ? input.label : existing.label, input.unusedTileGid !== undefined ? input.unusedTileGid : existing.unused_tile_gid, input.usedTileGid !== undefined ? input.usedTileGid : existing.used_tile_gid, Date.now(), dungeonId, triggerId]);
     if (input.target !== undefined) {
       await t.run(SQL_DELETE_TARGET, [triggerId]);
-      await t.run(SQL_INSERT_TARGET, [newId('trgt'), triggerId, input.target.kind, input.target.kind === 'door' ? (input.target.doorId ?? null) : null, input.target.kind === 'bridge' ? (input.target.targetX ?? null) : null, input.target.kind === 'bridge' ? (input.target.targetY ?? null) : null, input.target.usedTileGid ?? null, Date.now()]);
+      await t.run(SQL_INSERT_TARGET, [newId('trgt'), triggerId, input.target.kind, input.target.kind === 'door' ? (input.target.doorId ?? null) : null, input.target.kind === 'bridge' ? (input.target.bridgeId ?? null) : null, Date.now()]);
     }
   });
   const row = await one<TriggerRow>(SQL_GET_TRIGGER, dungeonId, triggerId);

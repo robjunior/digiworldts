@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router';
 
 import { LAYER_KINDS } from '@digiworld/shared';
-import type { DungeonChest, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonTrigger, DungeonView, DungeonWarp, DungeonZone, LayerKind } from '@digiworld/shared';
+import type { DungeonBridge, DungeonChest, DungeonDoor, DungeonEncounter, DungeonItem, DungeonTile, DungeonTrap, DungeonTrigger, DungeonView, DungeonWarp, DungeonZone, LayerKind } from '@digiworld/shared';
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
@@ -164,7 +164,7 @@ export function AdminDungeon(): JSX.Element {
   if (!id) return <div>Missing dungeon id.</div>;
   if (dungeonQuery.isLoading || !data) return <div>Loading...</div>;
 
-  const { dungeon, encounters, items, warps, doors, traps, chests, zones, triggers } = data;
+  const { dungeon, encounters, items, warps, doors, traps, chests, zones, triggers, bridges } = data;
   const encounterAt = (cell: Cell): DungeonEncounter | undefined =>
     encounters.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const itemAt = (cell: Cell): DungeonItem | undefined =>
@@ -179,6 +179,8 @@ export function AdminDungeon(): JSX.Element {
     chests.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const triggerAt = (cell: Cell): DungeonTrigger | undefined =>
     triggers.find((entry) => entry.x === cell.x && entry.y === cell.y);
+  const bridgeAt = (cell: Cell): DungeonBridge | undefined =>
+    bridges.find((entry) => entry.x === cell.x && entry.y === cell.y);
   const isWalkable = (cell: Cell): boolean => tileSet.has(cellKey(cell));
 
   function showToast(message: string): void {
@@ -237,7 +239,7 @@ export function AdminDungeon(): JSX.Element {
       return;
     }
     if (
-      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS' || tool === 'TRAPS' || tool === 'CHESTS' || tool === 'TRIGGERS') &&
+      (tool === 'SPAWN' || tool === 'ENCOUNTERS' || tool === 'ITEMS' || tool === 'WARPS' || tool === 'DOORS' || tool === 'TRAPS' || tool === 'CHESTS' || tool === 'TRIGGERS' || tool === 'BRIDGES') &&
       !isWalkable(cell)
     ) {
       showToast('Pick a walkable tile first.');
@@ -517,6 +519,7 @@ export function AdminDungeon(): JSX.Element {
             shopItems={shopItemsQuery.data?.items ?? []}
             tilesets={tilesets}
             doors={doors}
+            bridges={bridges}
             {...(selectedCell && encounterAt(selectedCell) ? { encounter: encounterAt(selectedCell) } : {})}
             {...(selectedCell && itemAt(selectedCell) ? { item: itemAt(selectedCell) } : {})}
             {...(selectedCell && warpAt(selectedCell) ? { warp: warpAt(selectedCell) } : {})}
@@ -524,6 +527,7 @@ export function AdminDungeon(): JSX.Element {
             {...(selectedCell && trapAt(selectedCell) ? { trap: trapAt(selectedCell) } : {})}
             {...(selectedCell && chestAt(selectedCell) ? { chest: chestAt(selectedCell) } : {})}
             {...(selectedCell && triggerAt(selectedCell) ? { trigger: triggerAt(selectedCell) } : {})}
+            {...(selectedCell && bridgeAt(selectedCell) ? { bridge: bridgeAt(selectedCell) } : {})}
           />
         </aside>
         {toast ? (

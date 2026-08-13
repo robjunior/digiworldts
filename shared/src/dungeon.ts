@@ -182,13 +182,10 @@ export type TriggerTargetKind = (typeof TRIGGER_TARGET_KINDS)[number];
 export type DungeonTriggerTarget = {
   readonly id: string;
   readonly kind: TriggerTargetKind;
-  /** kind='door': existing dungeon door id that opens without a key. */
+  /** kind='door': existing dungeon door that opens without a key when the trigger fires. */
   readonly doorId: string | null;
-  /** kind='bridge': the gap cell that becomes walkable once the trigger fires. */
-  readonly targetX: number | null;
-  readonly targetY: number | null;
-  /** kind='bridge': GID rendered on the cell once the trigger fires. */
-  readonly usedTileGid: number | null;
+  /** kind='bridge': existing bridge (any map of the same dungeon group) that lowers when the trigger fires. */
+  readonly bridgeId: string | null;
 };
 
 export type DungeonTrigger = {
@@ -200,8 +197,22 @@ export type DungeonTrigger = {
   /** Lever visual: GID while unused (down) vs used (pulled). */
   readonly unusedTileGid: number | null;
   readonly usedTileGid: number | null;
-  /** Always exactly 0 or 1 targets (MVP: one target per lever). */
+  /** Always exactly 0 or 1 targets (one target per lever). */
   readonly targets: readonly DungeonTriggerTarget[];
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
+export type DungeonBridge = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly label: string | null;
+  /** Tile rendered while the bridge is down (walkable). */
+  readonly downTileGid: number | null;
+  /** Tile rendered while the bridge is up (blocked). */
+  readonly upTileGid: number | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -276,6 +287,8 @@ export type DungeonView = {
   readonly chests: readonly DungeonChest[];
   /** S10 — lever POIs that fire once per run and activate a door or bridge. */
   readonly triggers: readonly DungeonTrigger[];
+  /** S10 — bridge POIs: down = walkable, up = blocked. Lowered by lever triggers. */
+  readonly bridges: readonly DungeonBridge[];
   /** S9 — group-scoped. Includes keys from every floor of `dungeonGroupId`. */
   readonly dungeonKeys: readonly DungeonKey[];
 };
@@ -306,8 +319,6 @@ export type UserDungeonRun = {
   readonly collectedItems: readonly string[];
   readonly unlockedDoors: readonly string[];
   readonly oneshotTriggeredIds: readonly string[];
-  /** S10 — lever trigger ids already fired this run. */
-  readonly triggeredTriggers: readonly string[];
   readonly startedAt: number;
   readonly completedAt: number | null;
   readonly state: RunState;
@@ -393,16 +404,28 @@ export type DungeonRunView = {
   readonly chests: readonly DungeonChest[];
   /** S10 — lever POIs that fire once per run and activate a door or bridge. */
   readonly triggers: readonly DungeonTrigger[];
+  /** S10 — bridge POIs: down = walkable, up = blocked. Lowered by lever triggers. */
+  readonly bridges: readonly DungeonBridge[];
   /** S9 — placed keys reachable in this run's group. */
   readonly dungeonKeys: readonly DungeonKey[];
   /** S9 — per-run POI state deltas from default 'unused'. */
   readonly poiStates: readonly DungeonRunPoiState[];
+  /** S10 — lever trigger ids already fired this run, scoped to the whole dungeon group (cross-map). */
+  readonly firedTriggerIds: readonly string[];
   /** S9 — group-scoped inventory for this user (keys + event items). */
   readonly groupInventory: readonly DungeonRunGroupInventoryEntry[];
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
-export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly blockedByChestId?: string | null; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[]; readonly trapTriggered?: TrapTriggered; readonly triggeredTriggerId?: string | null; readonly triggerTargetKind?: TriggerTargetKind | null; readonly activatedDoorId?: string | null };
+export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly blockedByChestId?: string | null; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[]; readonly trapTriggered?: TrapTriggered };
+
+export type DungeonTriggerActivateResponse = {
+  readonly view: DungeonRunView;
+  readonly triggeredTriggerId: string;
+  readonly triggerTargetKind: TriggerTargetKind | null;
+  readonly activatedDoorId: string | null;
+  readonly activatedBridgeId: string | null;
+};
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };
 
 export type KitItem = {
