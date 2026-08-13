@@ -1,8 +1,11 @@
+import type { Element } from '@digiworld/shared/digimon';
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import { useState } from 'react';
 
-import { useT } from '../../hooks/useLocale';
+import { useLocale, useT } from '../../hooks/useLocale';
+import { localizedName } from '../../lib/locale';
 import { ItemsMenu } from './ItemsMenu';
-import { SkillMenu } from './SkillMenu';
+import { AffinityCue, SkillMenu, affinity } from './SkillMenu';
 
 export type CommandMode = 'menu' | 'skills' | 'items' | 'target-fight' | 'target-skill';
 
@@ -23,6 +26,7 @@ type CommandPanelProps = {
 
 export function CommandPanel(props: CommandPanelProps): JSX.Element {
   const { mode, actor, target, aliveEnemies, friendly, yourTurn, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
+  const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
 
   if (!yourTurn) {
     return (
@@ -51,6 +55,8 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
       aliveEnemies={aliveEnemies}
       friendly={friendly}
       pveMode={pveMode}
+      pendingSkillId={pendingSkillId}
+      setPendingSkillId={setPendingSkillId}
       onMode={onMode}
       onFight={onFight}
       onSkill={onSkill}
@@ -60,8 +66,17 @@ export function CommandPanel(props: CommandPanelProps): JSX.Element {
   );
 }
 
-function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly actor: FriendlyUnitView }): JSX.Element {
-  const { mode, actor, target, aliveEnemies, friendly, pveMode, onMode, onFight, onSkill, onUseItem, onFlee } = props;
+type PanelContentProps = Omit<CommandPanelProps, 'yourTurn'> & {
+  readonly actor: FriendlyUnitView;
+  readonly pendingSkillId: string | null;
+  readonly setPendingSkillId: (id: string | null) => void;
+};
+
+function PanelContent(props: PanelContentProps): JSX.Element {
+  const { mode, actor, target, aliveEnemies, friendly, pveMode, pendingSkillId, setPendingSkillId, onMode, onFight, onSkill, onUseItem, onFlee } = props;
+  const t = useT();
+  const locale = useLocale();
+
   switch (mode) {
     case 'menu':
       return (
@@ -69,26 +84,66 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
           target={target}
           pveMode={pveMode}
           onMode={onMode}
-          onFight={onFight}
           onFlee={onFlee}
         />
       );
     case 'skills':
-      return <SkillMenu unit={actor} target={target} aliveEnemies={aliveEnemies} onSkill={onSkill} onBack={() => onMode('menu')} />;
+      return (
+        <SkillMenu
+          unit={actor}
+          target={target}
+          aliveEnemies={aliveEnemies}
+          onSkill={onSkill}
+          onPickSkill={(skillId) => {
+            setPendingSkillId(skillId);
+            onMode('target-skill');
+          }}
+          onBack={() => onMode('menu')}
+        />
+      );
     case 'items':
       return <ItemsMenu actor={actor} friendly={friendly} onUseItem={onUseItem} onBack={() => onMode('menu')} />;
     case 'target-fight':
       return (
-        <MenuActions
-          target={target}
-          pveMode={pveMode}
-          onMode={onMode}
-          onFight={onFight}
-          onFlee={onFlee}
+        <TargetPick
+          title={t('combat.fight')}
+          hint="Choose an enemy to attack."
+          enemies={aliveEnemies}
+          onPick={onFight}
+          onBack={() => onMode('menu')}
         />
       );
-    case 'target-skill':
-      return <SkillMenu unit={actor} target={target} aliveEnemies={aliveEnemies} onSkill={onSkill} onBack={() => onMode('menu')} />;
+    case 'target-skill': {
+      const skill = pendingSkillId !== null ? actor.skills.find((s) => s.id === pendingSkillId) : undefined;
+      if (skill === undefined) {
+        return (
+          <SkillMenu
+            unit={actor}
+            target={target}
+            aliveEnemies={aliveEnemies}
+            onSkill={onSkill}
+            onPickSkill={(skillId) => {
+              setPendingSkillId(skillId);
+              onMode('target-skill');
+            }}
+            onBack={() => onMode('menu')}
+          />
+        );
+      }
+      return (
+        <TargetPick
+          title={localizedName(skill, locale)}
+          hint="Choose an enemy to strike."
+          enemies={aliveEnemies}
+          affinityElement={skill.element}
+          onPick={(targetId) => onSkill(skill.id, targetId)}
+          onBack={() => {
+            setPendingSkillId(null);
+            onMode('skills');
+          }}
+        />
+      );
+    }
     default:
       mode satisfies never;
       return (
@@ -101,11 +156,10 @@ function PanelContent(props: Omit<CommandPanelProps, 'yourTurn'> & { readonly ac
   }
 }
 
-function MenuActions({ target, pveMode, onMode, onFight, onFlee }: {
+function MenuActions({ target, pveMode, onMode, onFlee }: {
   readonly target: EnemyUnitView | null;
   readonly pveMode: boolean;
   readonly onMode: (mode: CommandMode) => void;
-  readonly onFight: (targetId: UnitId) => void;
   readonly onFlee: () => void;
 }): JSX.Element {
   const t = useT();
@@ -115,7 +169,7 @@ function MenuActions({ target, pveMode, onMode, onFight, onFlee }: {
       <div className="chelp"><span className="htag">Help</span><span>{t('combat.select_action')}</span></div>
       <div className="chead"><span className="sect">Command</span></div>
       <div className="rows">
-        <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={() => target && onFight(target.id)}>
+        <button className={`mrow ${!targetReady ? 'disabled' : ''}`} type="button" disabled={!targetReady} onClick={() => onMode('target-fight')}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">{t('combat.fight')}</div>
         </button>
@@ -132,6 +186,48 @@ function MenuActions({ target, pveMode, onMode, onFight, onFlee }: {
         <button className="mrow" type="button" onClick={onFlee}>
           <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
           <div className="mnm">{t('combat.flee')}</div>
+        </button>
+      </div>
+    </>
+  );
+}
+
+function TargetPick({ title, hint, enemies, affinityElement, onPick, onBack }: {
+  readonly title: string;
+  readonly hint: string;
+  readonly enemies: readonly EnemyUnitView[];
+  readonly affinityElement?: Element;
+  readonly onPick: (targetId: UnitId) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  return (
+    <>
+      <div className="chelp"><span className="htag">Target</span><span>{hint}</span></div>
+      <div className="chead"><span className="sect">{title}</span><span className="cnt">{enemies.length} foe{enemies.length === 1 ? '' : 's'}</span></div>
+      <div className="rows">
+        {enemies.length === 0 ? (
+          <div className="mrow disabled"><div className="mnm">No targets left.</div></div>
+        ) : enemies.map((enemy) => {
+          const cue = affinityElement ? affinity(affinityElement, enemy) : 'none';
+          return (
+            <button
+              key={enemy.id}
+              className="mrow"
+              type="button"
+              onClick={() => onPick(enemy.id)}
+            >
+              <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+              <div className="mtxt">
+                <div className="mnm">{enemy.name}<AffinityCue cue={cue} /></div>
+                <div className="mdesc">Lv {enemy.level} · {enemy.hp}/{enemy.hpMax} HP</div>
+              </div>
+              <div className="mtag" style={{ ['--el' as string]: `var(--el-${enemy.element})` }}>{enemy.element}</div>
+            </button>
+          );
+        })}
+        <button className="mrow back" type="button" onClick={onBack}>
+          <div className="cur"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 4l14 8-14 8z"/></svg></div>
+          <div className="mnm">← Back</div>
         </button>
       </div>
     </>

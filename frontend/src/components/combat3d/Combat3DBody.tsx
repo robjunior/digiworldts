@@ -371,7 +371,7 @@ export function Combat3DBody(): JSX.Element | null {
           <AutobattleToggle on={autobattle} onToggle={() => setAutobattle((v) => !v)} />
         ) : null}
 
-        <div className="cmd" data-od-id="command-menu" ref={cmdRef}>
+        <div className="cmd" data-mode={commandMode} data-od-id="command-menu" ref={cmdRef}>
           <CommandPanel
             mode={commandMode}
             actor={actor}

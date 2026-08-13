@@ -11,10 +11,11 @@ type SkillMenuProps = {
   readonly target: EnemyUnitView | null;
   readonly aliveEnemies: readonly EnemyUnitView[];
   readonly onSkill: (skillId: string, targetId: UnitId, extraTargetIds?: readonly UnitId[]) => void;
+  readonly onPickSkill: (skillId: string) => void;
   readonly onBack: () => void;
 };
 
-export function SkillMenu({ unit, target, aliveEnemies, onSkill, onBack }: SkillMenuProps): JSX.Element {
+export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, onBack }: SkillMenuProps): JSX.Element {
   const [hoveredDesc, setHoveredDesc] = useState<string | null>(null);
   const [multiPickSkillId, setMultiPickSkillId] = useState<string | null>(null);
   const [pickedTargets, setPickedTargets] = useState<Set<UnitId>>(new Set());
@@ -104,7 +105,7 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onBack }: Skill
                 if (!target) return;
                 const pickCount = skillPlayerPickCount(skill);
                 if (pickCount === 1) {
-                  onSkill(skill.id, target.id);
+                  onPickSkill(skill.id);
                 } else {
                   setMultiPickSkillId(skill.id);
                   setPickedTargets(new Set([target.id]));
@@ -130,7 +131,7 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onBack }: Skill
   );
 }
 
-function AffinityCue({ cue }: { readonly cue: Affinity }): JSX.Element | null {
+export function AffinityCue({ cue }: { readonly cue: Affinity }): JSX.Element | null {
   switch (cue) {
     case 'weak':
       return <span className="cue cue--weak">Weak!</span>;
@@ -144,7 +145,7 @@ function AffinityCue({ cue }: { readonly cue: Affinity }): JSX.Element | null {
   }
 }
 
-type Affinity = 'weak' | 'resist' | 'none';
+export type Affinity = 'weak' | 'resist' | 'none';
 
 const WEAK_AFFINITY = {
   fire: 'plant',
@@ -174,7 +175,7 @@ const RESIST_AFFINITY = {
   null: null,
 } as const satisfies Record<Element, Element | null>;
 
-function affinity(attackerElement: Element, defender: EnemyUnitView): Affinity {
+export function affinity(attackerElement: Element, defender: EnemyUnitView): Affinity {
   const resist = defender.resistances?.[attackerElement];
   if (resist !== undefined) {
     if (resist >= 1.5) return 'weak';
