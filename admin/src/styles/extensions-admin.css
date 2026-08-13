@@ -3313,3 +3313,9 @@
   gap: 8px;
   margin-top: 6px;
 }
+
+.dungeon-cell .tile-bg.poi-sprite {
+  z-index: 0;
+}
+.mk-bridge { color: #7ec8e3; background: color-mix(in oklab, #7ec8e3 16%, var(--bg)); }
+.mk-trigger { color: #f4b942; background: color-mix(in oklab, #f4b942 16%, var(--bg)); }

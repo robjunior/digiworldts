@@ -48,8 +48,6 @@ export function ToolContext({
   chest,
   trigger,
   bridge,
-  doors,
-  bridges,
   catalog,
   dungeons,
   shopItems,
@@ -70,8 +68,6 @@ export function ToolContext({
   readonly chest?: DungeonChest | undefined;
   readonly trigger?: DungeonTrigger | undefined;
   readonly bridge?: DungeonBridge | undefined;
-  readonly doors: readonly DungeonDoor[];
-  readonly bridges: readonly DungeonBridge[];
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
@@ -194,10 +190,7 @@ export function ToolContext({
         dungeonId={dungeonId}
         x={selectedCell.x}
         y={selectedCell.y}
-        doors={doors}
-        bridges={bridges}
         tilesets={tilesets}
-        dungeonGroupId={dungeon.dungeonGroupId}
         {...(trigger ? { trigger } : {})}
       />
     );

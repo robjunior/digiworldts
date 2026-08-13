@@ -199,6 +199,8 @@ export type DungeonTrigger = {
   readonly usedTileGid: number | null;
   /** Always exactly 0 or 1 targets (one target per lever). */
   readonly targets: readonly DungeonTriggerTarget[];
+  /** S10 — off = not rendered and cannot be pulled. */
+  readonly enabled: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -213,6 +215,8 @@ export type DungeonBridge = {
   readonly downTileGid: number | null;
   /** Tile rendered while the bridge is up (blocked). */
   readonly upTileGid: number | null;
+  /** S10 — off = treated as absent (gap stays blocked, nothing renders). */
+  readonly enabled: boolean;
   readonly createdAt: number;
   readonly updatedAt: number;
 };

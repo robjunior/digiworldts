@@ -181,11 +181,6 @@ type DungeonGridProps = {
   readonly poiStates: DungeonRunView['poiStates'];
   /** S10 — group-scoped fired lever ids (cross-map). */
   readonly firedTriggerIds: readonly string[];
-  /** S10 — lever the player clicked; tooltip rendered over its cell. */
-  readonly pendingLever: { readonly x: number; readonly y: number; readonly triggerId: string; readonly label: string | null } | null;
-  readonly onPullLever: (triggerId: string) => void;
-  readonly onDismissLever: () => void;
-  readonly isPullingLever: boolean;
   readonly facing: 'left' | 'right';
   readonly party: readonly RosterView[];
   /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
@@ -207,10 +202,6 @@ export const DungeonGrid = memo(function DungeonGrid({
   bridges,
   poiStates,
   firedTriggerIds,
-  pendingLever,
-  onPullLever,
-  onDismissLever,
-  isPullingLever,
   facing,
   party,
   partyTrail,
@@ -251,11 +242,11 @@ export const DungeonGrid = memo(function DungeonGrid({
     [traps],
   );
   const triggerByKey = useMemo(
-    () => new Map<string, DungeonRunView['triggers'][number]>(triggers.map((t) => [`${t.x},${t.y}`, t] as const)),
+    () => new Map<string, DungeonRunView['triggers'][number]>(triggers.filter((t) => t.enabled).map((t) => [`${t.x},${t.y}`, t] as const)),
     [triggers],
   );
   const bridgeByKey = useMemo(
-    () => new Map<string, DungeonRunView['bridges'][number]>(bridges.map((b) => [`${b.x},${b.y}`, b] as const)),
+    () => new Map<string, DungeonRunView['bridges'][number]>(bridges.filter((b) => b.enabled).map((b) => [`${b.x},${b.y}`, b] as const)),
     [bridges],
   );
   const firedTriggerSet = useMemo(() => new Set(firedTriggerIds), [firedTriggerIds]);
@@ -402,26 +393,6 @@ export const DungeonGrid = memo(function DungeonGrid({
       <div className="dgrid-layer dgrid-entities" style={{ ...gridSize, display: 'grid' }}>
         {entityCells}
       </div>
-      {pendingLever !== null ? (
-        <div
-          className="lever-tooltip"
-          role="dialog"
-          aria-label="Lever"
-          style={{ left: (pendingLever.x + 0.5) * cellSize, top: pendingLever.y * cellSize }}
-        >
-          <b>{pendingLever.label ?? 'Lever'}</b>
-          <div className="lever-tooltip-actions">
-            <button
-              type="button"
-              disabled={isPullingLever}
-              onClick={() => onPullLever(pendingLever.triggerId)}
-            >
-              {isPullingLever ? 'Pulling…' : 'Pull lever'}
-            </button>
-            <button type="button" onClick={onDismissLever}>Close</button>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 });

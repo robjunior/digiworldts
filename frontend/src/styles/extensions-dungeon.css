@@ -808,59 +808,6 @@
   }
 }
 
-/* lever tooltip — anchored above the clicked lever cell */
-.dungeon-page .view .lever-tooltip {
-  position: absolute;
-  z-index: 7;
-  transform: translate(-50%, calc(-100% - 8px));
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 140px;
-  padding: 8px 12px;
-  background: color-mix(in oklab, var(--panel) 92%, transparent);
-  border: 1px solid var(--hair);
-  clip-path: var(--notch-sm-clip);
-  backdrop-filter: blur(3px);
-  font: 700 11px/1.2 var(--font);
-  letter-spacing: .04em;
-  color: var(--ink);
-}
-.dungeon-page .view .lever-tooltip::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  transform: translateX(-50%);
-  border: 6px solid transparent;
-  border-top-color: var(--hair);
-  border-bottom: none;
-}
-.dungeon-page .view .lever-tooltip-actions {
-  display: flex;
-  gap: 6px;
-}
-.dungeon-page .view .lever-tooltip-actions button {
-  font: 800 10px/1 var(--font);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid var(--hair);
-  clip-path: var(--notch-sm-clip);
-  padding: 5px 9px;
-  cursor: pointer;
-}
-.dungeon-page .view .lever-tooltip-actions button:first-child {
-  border-color: var(--signal);
-  color: #fff;
-  background: color-mix(in oklab, var(--signal) 78%, transparent);
-}
-.dungeon-page .view .lever-tooltip-actions button:disabled {
-  opacity: .5;
-  cursor: not-allowed;
-}
-
 /* boss digimon — rendered on the map like a player sprite; click to start */
 .dungeon-page .view .boss-marker {
   position: absolute;

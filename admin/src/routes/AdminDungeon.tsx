@@ -289,6 +289,8 @@ export function AdminDungeon(): JSX.Element {
               const door = doorAt(cell);
               const trap = trapAt(cell);
               const chest = chestAt(cell);
+              const trigger = triggerAt(cell);
+              const bridge = bridgeAt(cell);
               const preview = previewSet.has(key);
               const cellTiles = (tilesByCoord.get(key) ?? []).filter((tile) => visibleLayers[tile.layerKind]);
               return (
@@ -315,6 +317,15 @@ export function AdminDungeon(): JSX.Element {
                       />
                     ) : null;
                   })}
+                  {bridge ? (() => {
+                    const gid = bridge.downTileGid ?? bridge.upTileGid;
+                    const style = gid !== null ? gidCellStyle(gid, tilesets, cellSize) : null;
+                    return style ? <span className="tile-bg poi-sprite" style={style} aria-hidden="true" /> : null;
+                  })() : null}
+                  {trigger ? (() => {
+                    const style = trigger.unusedTileGid !== null ? gidCellStyle(trigger.unusedTileGid, tilesets, cellSize) : null;
+                    return style ? <span className="tile-bg poi-sprite" style={style} aria-hidden="true" /> : null;
+                  })() : null}
                   <span className="mk-stack">
                     {spawn ? <span className="mk mk-spawn">S</span> : null}
                     {enc ? <span className="mk mk-encounter">E</span> : null}
@@ -323,6 +334,8 @@ export function AdminDungeon(): JSX.Element {
                     {door ? <span className="mk mk-door">D</span> : null}
                     {chest ? <span className="mk mk-item" title={chest.label ?? 'Chest'}>C</span> : null}
                     {trap ? <span className="mk mk-trap" title={`${trap.kind} sev ${trap.severity}`}>T</span> : null}
+                    {bridge ? <span className="mk mk-bridge" title={bridge.label ?? 'Bridge'}>B</span> : null}
+                    {trigger ? <span className="mk mk-trigger" title={trigger.label ?? 'Trigger'}>L</span> : null}
                   </span>
                 </button>
               );
@@ -518,8 +531,6 @@ export function AdminDungeon(): JSX.Element {
             dungeons={dungeonsQuery.data?.dungeons ?? []}
             shopItems={shopItemsQuery.data?.items ?? []}
             tilesets={tilesets}
-            doors={doors}
-            bridges={bridges}
             {...(selectedCell && encounterAt(selectedCell) ? { encounter: encounterAt(selectedCell) } : {})}
             {...(selectedCell && itemAt(selectedCell) ? { item: itemAt(selectedCell) } : {})}
             {...(selectedCell && warpAt(selectedCell) ? { warp: warpAt(selectedCell) } : {})}

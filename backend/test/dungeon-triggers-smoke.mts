@@ -16,7 +16,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 
 import { closeDb, run } from '../src/db/index.ts';
 import { closeDbAdapter, getDb } from '../src/db/adapter.ts';
-import { createBridge, getBridgeAt } from '../src/dungeons/bridges.ts';
+import { createBridge, getBridgeAt, updateBridge } from '../src/dungeons/bridges.ts';
 import { createDoor } from '../src/dungeons/doors.ts';
 import { activateTrigger, createEncounter, moveRun, resetRun, startOrGetRun } from '../src/dungeons/repo.ts';
 import { createTrigger, deleteTrigger, getTriggerAt, updateTrigger } from '../src/dungeons/triggers.ts';
@@ -87,6 +87,17 @@ async function main(): Promise<void> {
   if (typeof doorB === 'string') throw new Error('missing door fixture');
   const bridgeB = await createBridge(DUNGEON_B, { x: 6, y: 0, downTileGid: 30, upTileGid: 31 });
   assert(typeof bridgeB !== 'string' && bridgeB.downTileGid === 30, 'createBridge on floor B');
+  const DUNGEON_C = 'dgn_trigger_c';
+  await run(
+    'INSERT INTO dungeons (id, name, description, biome, width, height, spawn_x, spawn_y, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, random_pool_json, dungeon_group_id, floor_index, challenge_kind, challenge_config, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    DUNGEON_C, 'Trigger Solo Map', 'seeded', 'null', 8, 3, 0, 0, 0, 0, 1, 1, 'Rookie', 1, 1, '[]', '[]', null, 0, 'none', null, Date.now(), Date.now(),
+  );
+  for (const x of [0, 1, 2, 3, 4, 5]) {
+    await run('INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, ?, ?)', DUNGEON_C, x, 0, 1, 'floor');
+  }
+  const bridgeC = await createBridge(DUNGEON_C, { x: 6, y: 0, downTileGid: 40 });
+  assert(typeof bridgeC !== 'string', 'createBridge on ungrouped solo map');
+  if (typeof bridgeC === 'string') throw new Error('missing bridgeC fixture');
 
   console.log('== admin CRUD (cross-map targets) ==');
   const leverBridge = await createTrigger(DUNGEON_A, {
@@ -97,9 +108,11 @@ async function main(): Promise<void> {
     x: 2, y: 0, label: 'Door lever', target: { kind: 'door', doorId: doorB.id },
   });
   assert(typeof leverDoor !== 'string' && leverDoor.targets[0]?.doorId === doorB.id, 'trigger on A can target a door on B (same group)');
-  const badDoor = await createTrigger(DUNGEON_A, { x: 3, y: 0, target: { kind: 'door', doorId: 'dor-nope' } });
+  const soloTarget = await createTrigger(DUNGEON_A, { x: 3, y: 0, label: 'Solo bridge lever', target: { kind: 'bridge', bridgeId: bridgeC.id } });
+  assert(typeof soloTarget !== 'string' && soloTarget.targets[0]?.bridgeId === bridgeC.id, 'trigger can target a bridge on an ungrouped map (global pool)');
+  const badDoor = await createTrigger(DUNGEON_A, { x: 4, y: 0, target: { kind: 'door', doorId: 'dor-nope' } });
   assert(badDoor === 'invalid-target', 'unknown door target rejected');
-  const badBridge = await createTrigger(DUNGEON_A, { x: 3, y: 0, target: { kind: 'bridge', bridgeId: 'brg-nope' } });
+  const badBridge = await createTrigger(DUNGEON_A, { x: 5, y: 0, target: { kind: 'bridge', bridgeId: 'brg-nope' } });
   assert(badBridge === 'invalid-target', 'unknown bridge target rejected');
   const conflict = await createTrigger(DUNGEON_A, { x: 1, y: 0, target: { kind: 'bridge', bridgeId: bridgeB.id } });
   assert(conflict === 'conflict', 'second trigger at same cell conflicts');
@@ -140,6 +153,34 @@ async function main(): Promise<void> {
   assert(bridgeActivate.ok && bridgeActivate.activatedBridgeId === bridgeB.id, 'lever on A fires and lowers the bridge on B');
   const bridgeOpen = await moveRun(USER, DUNGEON_B, 6, 0);
   assert(bridgeOpen.kind === 'ok', 'bridge gap on B is walkable after lever on A');
+
+  console.log('== global pool state: lever on A lowers bridge on solo map C ==');
+  const firedGlobal = await listFiredTriggerIds(USER);
+  assert(!firedGlobal.includes(soloTarget.id), 'solo-map lever not fired yet');
+  const soloWalk = await walk(DUNGEON_A, [[1, 0], [2, 0], [3, 0]]);
+  assert(soloWalk.every((kind) => kind === 'ok'), 'approach to solo lever works');
+  const soloActivate = await activateTrigger(USER, DUNGEON_A, soloTarget.id);
+  assert(soloActivate.ok && soloActivate.activatedBridgeId === bridgeC.id, 'lever on A fires bridge on ungrouped map C (global pool)');
+  const firedGlobalAfter = await listFiredTriggerIds(USER);
+  assert(firedGlobalAfter.includes(soloTarget.id), 'fired state is global by trigger id');
+  await startOrGetRun(USER, DUNGEON_C);
+  const cWalk = await walk(DUNGEON_C, [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0]]);
+  assert(cWalk.every((kind) => kind === 'ok'), 'approach on solo map works');
+  const cGap = await moveRun(USER, DUNGEON_C, 6, 0);
+  assert(cGap.kind === 'ok', 'bridge on the ungrouped map is walkable after lever fired elsewhere');
+
+  console.log('== enabled flags ==');
+  const backWalk = await walk(DUNGEON_A, [[2, 0], [1, 0]]);
+  assert(backWalk.every((kind) => kind === 'ok'), 'walk back to the bridge lever');
+  const disabledBridge = await updateBridge(DUNGEON_B, bridgeB.id, { enabled: false });
+  assert(typeof disabledBridge !== 'string' && disabledBridge.enabled === false, 'updateBridge can disable');
+  const gapWithDisabled = await moveRun(USER, DUNGEON_B, 6, 0);
+  assert(gapWithDisabled.kind === 'blocked', 'disabled bridge does NOT become walkable even with lever fired');
+  const disabledTrigger = await updateTrigger(DUNGEON_A, leverBridge.id, { enabled: false });
+  assert(typeof disabledTrigger !== 'string' && disabledTrigger.enabled === false, 'updateTrigger can disable');
+  const pullDisabled = await activateTrigger(USER, DUNGEON_A, leverBridge.id);
+  assert(!pullDisabled.ok && pullDisabled.error === 'disabled', 'disabled lever cannot be pulled');
+  await updateTrigger(DUNGEON_A, leverBridge.id, { enabled: true });
 
   console.log('== one-shot + reset ==');
   const alreadyFired = await activateTrigger(USER, DUNGEON_A, leverBridge.id);
