@@ -132,9 +132,7 @@ import type { TriggerTargetKind } from '@digiworld/shared';
 export type AdminTriggerTargetBody = {
   readonly kind: TriggerTargetKind;
   readonly doorId?: string | null;
-  readonly targetX?: number | null;
-  readonly targetY?: number | null;
-  readonly usedTileGid?: number | null;
+  readonly bridgeId?: string | null;
 };
 
 export function createAdminTrigger(dungeonId: string, body: { readonly x: number; readonly y: number; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null; readonly target: AdminTriggerTargetBody }): Promise<{ readonly view: DungeonView }> {
@@ -147,6 +145,18 @@ export function updateAdminTrigger(dungeonId: string, triggerId: string, body: {
 
 export function deleteAdminTrigger(dungeonId: string, triggerId: string): Promise<{ readonly view: DungeonView }> {
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/triggers/${triggerId}`, { method: 'DELETE' });
+}
+
+export function createAdminBridge(dungeonId: string, body: { readonly x: number; readonly y: number; readonly label?: string | null; readonly downTileGid?: number | null; readonly upTileGid?: number | null }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/bridges`, { method: 'POST', body });
+}
+
+export function updateAdminBridge(dungeonId: string, bridgeId: string, body: { readonly x?: number; readonly y?: number; readonly label?: string | null; readonly downTileGid?: number | null; readonly upTileGid?: number | null }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/bridges/${bridgeId}`, { method: 'PUT', body });
+}
+
+export function deleteAdminBridge(dungeonId: string, bridgeId: string): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/bridges/${bridgeId}`, { method: 'DELETE' });
 }
 
 export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> {

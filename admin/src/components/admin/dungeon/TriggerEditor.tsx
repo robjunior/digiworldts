@@ -2,12 +2,13 @@ import type { FormEvent, JSX } from 'react';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import type { DungeonDoor, DungeonTrigger, DungeonView, TilesetGrant, TriggerTargetKind } from '@digiworld/shared';
+import type { DungeonBridge, DungeonDoor, DungeonTrigger, DungeonView, TilesetGrant, TriggerTargetKind } from '@digiworld/shared';
 import { TRIGGER_TARGET_KINDS } from '@digiworld/shared';
 
 import { ADMIN_DUNGEON_QUERY } from './query-keys';
 import { TileGidPicker } from './TileGidPicker';
-import { toOptionalText, toPositiveInt } from './utils';
+import { toOptionalText } from './utils';
+import { TriggerTargetPicker, type PickedTriggerTarget } from './TriggerTargetPicker';
 import { createAdminTrigger, deleteAdminTrigger, updateAdminTrigger, type AdminTriggerTargetBody } from '../../../lib/api-dungeon-admin';
 
 export function TriggerEditor({
@@ -16,14 +17,18 @@ export function TriggerEditor({
   y,
   trigger,
   doors,
+  bridges,
   tilesets,
+  dungeonGroupId,
 }: {
   readonly dungeonId: string;
   readonly x: number;
   readonly y: number;
   readonly trigger?: DungeonTrigger;
   readonly doors: readonly DungeonDoor[];
+  readonly bridges: readonly DungeonBridge[];
   readonly tilesets: readonly TilesetGrant[];
+  readonly dungeonGroupId: string | null;
 }): JSX.Element {
   const queryClient = useQueryClient();
   const applyView = (result: { readonly view: DungeonView }): void => {
@@ -31,10 +36,17 @@ export function TriggerEditor({
   };
   const target = trigger?.targets[0] ?? null;
   const [targetKind, setTargetKind] = useState<TriggerTargetKind>(target?.kind ?? 'door');
-  const [doorId, setDoorId] = useState<string>(target?.doorId ?? doors[0]?.id ?? '');
-  const [bridgeX, setBridgeX] = useState<number>(target?.targetX ?? 0);
-  const [bridgeY, setBridgeY] = useState<number>(target?.targetY ?? 0);
-  const [bridgeTileGid, setBridgeTileGid] = useState<number | null>(target?.usedTileGid ?? null);
+  const [picked, setPicked] = useState<PickedTriggerTarget | null>(target === null
+    ? null
+    : {
+        kind: target.kind,
+        id: target.kind === 'door' ? (target.doorId ?? '') : (target.bridgeId ?? ''),
+        dungeonId: '',
+        x: 0,
+        y: 0,
+        label: null,
+      });
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [unusedTileGid, setUnusedTileGid] = useState<number | null>(trigger?.unusedTileGid ?? null);
   const [usedTileGid, setUsedTileGid] = useState<number | null>(trigger?.usedTileGid ?? null);
 
@@ -51,20 +63,27 @@ export function TriggerEditor({
     onSuccess: applyView,
   });
 
-  const buildTarget = (): AdminTriggerTargetBody | null => {
-    if (targetKind === 'door') {
-      if (!doorId) return null;
-      return { kind: 'door', doorId };
+  const resolvePickedLabel = (entry: PickedTriggerTarget): string => {
+    if (entry.dungeonId === dungeonId) {
+      if (entry.kind === 'door') {
+        const door = doors.find((d) => d.id === entry.id);
+        if (door) return `Door at (${door.x}, ${door.y})${door.label ? ` — ${door.label}` : ''}`;
+      } else {
+        const bridge = bridges.find((b) => b.id === entry.id);
+        if (bridge) return `Bridge at (${bridge.x}, ${bridge.y})${bridge.label ? ` — ${bridge.label}` : ''}`;
+      }
     }
-    return { kind: 'bridge', targetX: bridgeX, targetY: bridgeY, usedTileGid: bridgeTileGid };
+    return `${entry.kind === 'door' ? 'Door' : 'Bridge'} on another map`;
   };
 
   const save = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const label = toOptionalText(form.get('label'));
-    const targetBody = buildTarget();
-    if (targetBody === null) return;
+    if (picked === null) return;
+    const targetBody: AdminTriggerTargetBody = picked.kind === 'door'
+      ? { kind: 'door', doorId: picked.id }
+      : { kind: 'bridge', bridgeId: picked.id };
     if (trigger) updateMut.mutate({ label, unusedTileGid, usedTileGid, target: targetBody });
     else createMut.mutate({ x, y, label, unusedTileGid, usedTileGid, target: targetBody });
   };
@@ -77,7 +96,7 @@ export function TriggerEditor({
           Label
           <input name="label" defaultValue={trigger?.label ?? ''} placeholder="Optional lever label" />
         </label>
-        <p className="muted">Fires once when a player steps on this tile.</p>
+        <p className="muted">Fires once when a player steps on this tile. The target can be on another map of the same group.</p>
         <TileGidPicker label="Unused tile (lever down)" value={unusedTileGid} tilesets={tilesets} onChange={setUnusedTileGid} />
         <TileGidPicker label="Used tile (lever pulled)" value={usedTileGid} tilesets={tilesets} onChange={setUsedTileGid} />
         <fieldset>
@@ -86,43 +105,26 @@ export function TriggerEditor({
             Kind
             <select
               value={targetKind}
-              onChange={(event) => setTargetKind(event.target.value as TriggerTargetKind)}
+              onChange={(event) => { setTargetKind(event.target.value as TriggerTargetKind); setPicked(null); }}
             >
               {TRIGGER_TARGET_KINDS.map((kind) => (
                 <option key={kind} value={kind}>
-                  {kind === 'door' ? 'A door (opens without key)' : 'A bridge tile (raises bridge)'}
+                  {kind === 'door' ? 'A door (opens without key)' : 'A bridge (lowers it)'}
                 </option>
               ))}
             </select>
           </label>
-          {targetKind === 'door' ? (
-            <label>
-              Door
-              <select value={doorId} onChange={(event) => setDoorId(event.target.value)}>
-                {doors.map((entry) => (
-                  <option key={entry.id} value={entry.id}>
-                    Door at ({entry.x}, {entry.y}){entry.label ? ` — ${entry.label}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {picked !== null ? (
+            <div className="tpt-picked">
+              <span>{resolvePickedLabel(picked)}</span>
+              <button type="button" onClick={() => setPickerOpen(true)}>Change…</button>
+            </div>
           ) : (
-            <>
-              <label>
-                Bridge cell X
-                <input type="number" min={0} max={199} value={bridgeX} onChange={(event) => setBridgeX(toPositiveInt(event.currentTarget.value, 0))} />
-              </label>
-              <label>
-                Bridge cell Y
-                <input type="number" min={0} max={199} value={bridgeY} onChange={(event) => setBridgeY(toPositiveInt(event.currentTarget.value, 0))} />
-              </label>
-              <p className="muted">The gap cell becomes walkable and renders the tile below once the lever is pulled.</p>
-              <TileGidPicker label="Raised bridge tile" value={bridgeTileGid} tilesets={tilesets} onChange={setBridgeTileGid} />
-            </>
+            <button type="button" onClick={() => setPickerOpen(true)}>Pick {targetKind} by clicking the map…</button>
           )}
         </fieldset>
         <div className="admin-poi-actions">
-          <button type="submit" disabled={createMut.isPending || updateMut.isPending}>
+          <button type="submit" disabled={picked === null || createMut.isPending || updateMut.isPending}>
             Save
           </button>
           {trigger ? (
@@ -132,6 +134,15 @@ export function TriggerEditor({
           ) : null}
         </div>
       </form>
+      {pickerOpen ? (
+        <TriggerTargetPicker
+          currentDungeonId={dungeonId}
+          groupId={dungeonGroupId}
+          kind={targetKind}
+          onPicked={(entry) => { setPicked(entry); setPickerOpen(false); }}
+          onClose={() => setPickerOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }

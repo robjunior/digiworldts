@@ -3,6 +3,7 @@ import type {
   DungeonRunView,
   DungeonMoveResponse,
   DungeonCompleteResponse,
+  DungeonTriggerActivateResponse,
   EncounterDigimon,
 } from '@digiworld/shared';
 import { apiFetch } from './api';
@@ -49,4 +50,8 @@ export async function resetDungeon(id: string): Promise<{ run: DungeonRunView['r
 
 export function unlockDungeonDoor(dungeonId: string, doorId: string): Promise<{ readonly view: DungeonRunView }> {
   return apiFetch<{ readonly view: DungeonRunView }>(`/api/dungeons/${dungeonId}/doors/${doorId}/unlock`, { method: 'POST' });
+}
+
+export function activateDungeonTrigger(dungeonId: string, triggerId: string): Promise<DungeonTriggerActivateResponse> {
+  return apiFetch<DungeonTriggerActivateResponse>(`/api/dungeon/${dungeonId}/triggers/${triggerId}/activate`, { method: 'POST' });
 }

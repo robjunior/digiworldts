@@ -178,12 +178,21 @@ export const UpdateTrapInputSchema = TrapInputSchema.partial();
 export type TrapInput = z.infer<typeof TrapInputSchema>;
 export type UpdateTrapInput = z.infer<typeof UpdateTrapInputSchema>;
 
+export const BridgeInputSchema = z.object({
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  label: z.string().trim().max(80).nullable().optional(),
+  downTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  upTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+});
+export const UpdateBridgeInputSchema = BridgeInputSchema.partial();
+export type BridgeInput = z.infer<typeof BridgeInputSchema>;
+export type UpdateBridgeInput = z.infer<typeof UpdateBridgeInputSchema>;
+
 export const TriggerTargetInputSchema = z.object({
   kind: z.enum(TRIGGER_TARGET_KINDS),
   doorId: IdSchema.nullable().optional(),
-  targetX: z.number().int().min(0).max(199).nullable().optional(),
-  targetY: z.number().int().min(0).max(199).nullable().optional(),
-  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  bridgeId: IdSchema.nullable().optional(),
 });
 
 export const TriggerInputSchema = z.object({

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
+  activateDungeonTrigger,
   completeDungeon,
   getDungeon,
   moveInDungeon,
@@ -84,15 +85,18 @@ export function Dungeon(): JSX.Element {
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
   const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
+  const [pendingLever, setPendingLever] = useState<{ readonly x: number; readonly y: number; readonly triggerId: string; readonly label: string | null } | null>(null);
   const [stepCount, setStepCount] = useState(0);
   const [selectedInvItemId, setSelectedInvItemId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [partyTrail, setPartyTrail] = useState<readonly { readonly x: number; readonly y: number }[]>([]);
+  const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
 
   useEffect(() => {
     setPartyTrail([]);
+    setFacing('right');
   }, [id]);
 
   useEffect(() => {
@@ -148,6 +152,8 @@ export function Dungeon(): JSX.Element {
       return moveInDungeon(id, x, y);
     },
     onSuccess: (res, { x, y }) => {
+      const dx = x - posRef.current.x;
+      if (dx !== 0) setFacing(dx < 0 ? 'left' : 'right');
       posRef.current = { x: res.run.currentX, y: res.run.currentY };
       setStepCount((s) => s + 1);
       if (res.blockedByDoorId) {
@@ -157,6 +163,7 @@ export function Dungeon(): JSX.Element {
         return;
       }
       setPendingUnlock(null);
+      setPendingLever(null);
       setActiveRandomEncounter(null);
       pushLog(`Moved to ${x}, ${y}.`, '');
       queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
@@ -169,12 +176,6 @@ export function Dungeon(): JSX.Element {
           ? `Trap avoided! (party avg SPD ${t.partyAvgSpd}, ${Math.round(t.avoidChance * 100)}% dodge)`
           : `Trap! ${t.effectSummary}.`;
         pushLog(detail, t.dodged ? '' : 'hit');
-      }
-      if (res.triggeredTriggerId) {
-        const trigger = data?.triggers.find((entry) => entry.id === res.triggeredTriggerId);
-        pushLog(`Pulled ${trigger?.label ?? 'a lever'}!`, 'item');
-        flashToast(`${trigger?.label ?? 'Lever'} activated!`);
-        if (res.activatedDoorId) pushLog('A door swung open.', 'item');
       }
       if (res.pickedUpItemId) {
         const item = data?.items.find((i) => i.id === res.pickedUpItemId);
@@ -226,6 +227,28 @@ export function Dungeon(): JSX.Element {
     },
     onError: (err: Error) => {
       flashToast(err.message || 'Could not unlock door.');
+    },
+  });
+
+  const activateLeverMutation = useMutation({
+    mutationFn: async (triggerId: string) => {
+      if (!id) throw new Error('No dungeon id');
+      return activateDungeonTrigger(id, triggerId);
+    },
+    onSuccess: (res) => {
+      queryClient.setQueryData(['dungeon', id], res.view);
+      setPendingLever(null);
+      const trigger = res.view.triggers.find((entry) => entry.id === res.triggeredTriggerId);
+      pushLog(`Pulled ${trigger?.label ?? 'a lever'}!`, 'item');
+      flashToast(`${trigger?.label ?? 'Lever'} activated!`);
+      if (res.activatedDoorId) pushLog('A door swung open.', 'item');
+      if (res.activatedBridgeId) {
+        const bridge = res.view.bridges.find((entry) => entry.id === res.activatedBridgeId);
+        pushLog(`The ${bridge?.label ?? 'bridge'} lowers!`, 'item');
+      }
+    },
+    onError: (err: Error) => {
+      flashToast(err.message || 'Could not activate lever.');
     },
   });
 
@@ -365,11 +388,14 @@ export function Dungeon(): JSX.Element {
     const tileKey = `${nx},${ny}`;
     const walkable = run.tiles.some((t) => `${t.x},${t.y}` === tileKey);
     if (!walkable) {
-      const bridgeOpen = run.triggers.some((tr) =>
-        run.run.triggeredTriggers.includes(tr.id) &&
-        tr.targets.some((target) => target.kind === 'bridge' && target.targetX === nx && target.targetY === ny),
+      const bridgeDown = run.bridges.some((bridge) =>
+        bridge.x === nx && bridge.y === ny &&
+        run.triggers.some((trigger) =>
+          run.firedTriggerIds.includes(trigger.id) &&
+          trigger.targets.some((target) => target.kind === 'bridge' && target.bridgeId === bridge.id),
+        ),
       );
-      if (!bridgeOpen) {
+      if (!bridgeDown) {
         // Just silently do nothing if trying to move into a wall
         return;
       }
@@ -387,12 +413,30 @@ export function Dungeon(): JSX.Element {
     const cx = posRef.current.x;
     const cy = posRef.current.y;
     const dist = Math.abs(cx - x) + Math.abs(cy - y);
-    if (dist !== 1) {
+    if (dist > 1) {
       flashToast('Can only move to adjacent tiles.');
       return;
     }
+    if (dist <= 1) {
+      const run = queryClient.getQueryData<DungeonRunView>(['dungeon', id]);
+      const bossEnc = run?.encounters.find((e) =>
+        e.difficulty === 'boss' && e.x === x && e.y === y && !run.run.defeatedEncounters.includes(e.id),
+      );
+      if (bossEnc !== undefined) {
+        setPendingLever(null);
+        setActiveEncounterId(bossEnc.id);
+        return;
+      }
+      const lever = run?.triggers.find((t) => t.x === x && t.y === y);
+      if (lever && run !== undefined && !run.firedTriggerIds.includes(lever.id)) {
+        setPendingLever({ x, y, triggerId: lever.id, label: lever.label });
+        return;
+      }
+    }
+    setPendingLever(null);
+    if (dist === 0) return;
     tryMove(x - cx, y - cy);
-  }, [tryMove, flashToast]);
+  }, [tryMove, flashToast, queryClient, id]);
 
   useEffect(() => {
     if (!data) return;
@@ -437,7 +481,7 @@ export function Dungeon(): JSX.Element {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory, triggers } = data;
+  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory, triggers, bridges, firedTriggerIds } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
@@ -488,7 +532,14 @@ export function Dungeon(): JSX.Element {
               chests={chests}
               traps={traps}
               triggers={triggers}
+              bridges={bridges}
               poiStates={poiStates}
+              firedTriggerIds={firedTriggerIds}
+              pendingLever={pendingLever}
+              onPullLever={(triggerId) => activateLeverMutation.mutate(triggerId)}
+              onDismissLever={() => setPendingLever(null)}
+              isPullingLever={activateLeverMutation.isPending}
+              facing={facing}
               party={party}
               partyTrail={partyTrail}
               onCellClick={handleCellClick}

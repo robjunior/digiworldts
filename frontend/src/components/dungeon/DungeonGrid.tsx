@@ -114,6 +114,8 @@ type EntityCellProps = {
   readonly trailMember: RosterView | null;
   readonly isPlayer: boolean;
   readonly marker: 'door' | 'chest' | 'trap' | 'lever' | null;
+  readonly boss: { readonly catalogId: string; readonly label: string } | null;
+  readonly facing: 'left' | 'right';
 };
 
 const EntityCell = memo(function EntityCell({
@@ -122,6 +124,8 @@ const EntityCell = memo(function EntityCell({
   trailMember,
   isPlayer,
   marker,
+  boss,
+  facing,
 }: EntityCellProps): ReactElement {
   return (
     <div
@@ -134,8 +138,21 @@ const EntityCell = memo(function EntityCell({
         <div className="party-marker" aria-label={isPlayer ? 'Your party' : undefined}>
           <img
             className="party-sprite"
+            style={isPlayer && facing === 'left' ? { transform: 'scaleX(-1)' } : undefined}
             src={`/assets/digimon/${trailMember.catalogId}/dot.gif`}
             alt={trailMember.nickname || trailMember.template?.name || 'party member'}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+            }}
+          />
+        </div>
+      ) : null}
+      {boss !== null ? (
+        <div className="boss-marker" aria-label={boss.label}>
+          <img
+            className="boss-sprite"
+            src={`/assets/digimon/${boss.catalogId}/dot.gif`}
+            alt={boss.label}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
             }}
@@ -160,7 +177,16 @@ type DungeonGridProps = {
   readonly chests: DungeonRunView['chests'];
   readonly traps: DungeonRunView['traps'];
   readonly triggers: DungeonRunView['triggers'];
+  readonly bridges: DungeonRunView['bridges'];
   readonly poiStates: DungeonRunView['poiStates'];
+  /** S10 — group-scoped fired lever ids (cross-map). */
+  readonly firedTriggerIds: readonly string[];
+  /** S10 — lever the player clicked; tooltip rendered over its cell. */
+  readonly pendingLever: { readonly x: number; readonly y: number; readonly triggerId: string; readonly label: string | null } | null;
+  readonly onPullLever: (triggerId: string) => void;
+  readonly onDismissLever: () => void;
+  readonly isPullingLever: boolean;
+  readonly facing: 'left' | 'right';
   readonly party: readonly RosterView[];
   /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
@@ -178,7 +204,14 @@ export const DungeonGrid = memo(function DungeonGrid({
   chests,
   traps,
   triggers,
+  bridges,
   poiStates,
+  firedTriggerIds,
+  pendingLever,
+  onPullLever,
+  onDismissLever,
+  isPullingLever,
+  facing,
   party,
   partyTrail,
   onCellClick,
@@ -221,18 +254,31 @@ export const DungeonGrid = memo(function DungeonGrid({
     () => new Map<string, DungeonRunView['triggers'][number]>(triggers.map((t) => [`${t.x},${t.y}`, t] as const)),
     [triggers],
   );
-  const bridgeGidByKey = useMemo(() => {
-    const map = new Map<string, number>();
+  const bridgeByKey = useMemo(
+    () => new Map<string, DungeonRunView['bridges'][number]>(bridges.map((b) => [`${b.x},${b.y}`, b] as const)),
+    [bridges],
+  );
+  const firedTriggerSet = useMemo(() => new Set(firedTriggerIds), [firedTriggerIds]);
+  const doorOpenByTriggerIds = useMemo(() => {
+    const set = new Set<string>();
     for (const trigger of triggers) {
-      if (!run.triggeredTriggers.includes(trigger.id)) continue;
+      if (!firedTriggerSet.has(trigger.id)) continue;
       for (const target of trigger.targets) {
-        if (target.kind === 'bridge' && target.targetX !== null && target.targetY !== null && target.usedTileGid !== null) {
-          map.set(`${target.targetX},${target.targetY}`, target.usedTileGid);
-        }
+        if (target.kind === 'door' && target.doorId !== null) set.add(target.doorId);
       }
     }
-    return map;
-  }, [triggers, run.triggeredTriggers]);
+    return set;
+  }, [triggers, firedTriggerSet]);
+  const bridgeDownByKey = useMemo(() => {
+    const down = new Map<string, DungeonRunView['bridges'][number]>();
+    for (const bridge of bridges) {
+      const lowered = triggers.some((trigger) =>
+        firedTriggerSet.has(trigger.id) && trigger.targets.some((target) => target.kind === 'bridge' && target.bridgeId === bridge.id),
+      );
+      if (lowered) down.set(`${bridge.x},${bridge.y}`, bridge);
+    }
+    return down;
+  }, [bridges, triggers, firedTriggerSet]);
   const canonicalTileset = primaryTileset(tilesets);
   const cellSize = canonicalTileset ? canonicalTileset.tileWidth * PLAYER_ZOOM : CELL_SIZE_FALLBACK;
 
@@ -255,8 +301,9 @@ export const DungeonGrid = memo(function DungeonGrid({
     for (let x = 0; x < dungeon.width; x++) {
       const key = `${x},${y}`;
       const cellTiles = tilesByCoord.get(key) ?? EMPTY_TILES;
-      const bridgeGid = bridgeGidByKey.get(key);
-      const isWalkable = cellIsWalkable(cellTiles) || bridgeGid !== undefined;
+      const bridgeAt = bridgeByKey.get(key);
+      const bridgeDown = bridgeAt !== undefined && bridgeDownByKey.has(key);
+      const isWalkable = cellIsWalkable(cellTiles) || bridgeDown;
       const isPlayer = run.currentX === x && run.currentY === y;
       const isAdjacent =
         !isPlayer && isWalkable && Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1;
@@ -264,10 +311,14 @@ export const DungeonGrid = memo(function DungeonGrid({
       const encounterAt = encounterByKey.get(key);
       const isUndefeatedEncounter =
         encounterAt !== undefined && !run.defeatedEncounters.includes(encounterAt.id);
+      const bossAt = encounterAt !== undefined && encounterAt.difficulty === 'boss' && isUndefeatedEncounter ? encounterAt : null;
+      const bossSprite = bossAt !== null && bossAt.digimon[0] !== undefined
+        ? { catalogId: bossAt.digimon[0].catalogId, label: bossAt.label ?? 'Boss' }
+        : null;
       const itemAt = itemByKey.get(key);
       const isUncollectedItem = itemAt !== undefined && !run.collectedItems.includes(itemAt.id);
       const doorAt = doorByKey.get(key);
-      const isLockedDoor = doorAt !== undefined && !run.unlockedDoors.includes(doorAt.id);
+      const isLockedDoor = doorAt !== undefined && !run.unlockedDoors.includes(doorAt.id) && !doorOpenByTriggerIds.has(doorAt.id);
       const chestAt = chestByKey.get(key);
       const chestState = chestAt
         ? (poiStateByKey.get(`chest:${chestAt.id}`) ?? 'unused')
@@ -275,7 +326,7 @@ export const DungeonGrid = memo(function DungeonGrid({
       const trapAt = trapByKey.get(key);
       const trapState = trapAt ? (poiStateByKey.get(`trap:${trapAt.id}`) ?? 'unused') : 'unused';
       const triggerAt = triggerByKey.get(key);
-      const triggerUsed = triggerAt !== undefined && run.triggeredTriggers.includes(triggerAt.id);
+      const triggerUsed = triggerAt !== undefined && firedTriggerSet.has(triggerAt.id);
 
       let cellClass = 'dcell';
       if (!isWalkable) {
@@ -283,13 +334,14 @@ export const DungeonGrid = memo(function DungeonGrid({
       } else {
         cellClass += ' walk';
         if (isPlayer) cellClass += ' player';
-        else if (isUndefeatedEncounter) cellClass += ' enc';
+        else if (isUndefeatedEncounter && encounterAt?.difficulty !== 'boss') cellClass += ' enc';
+        else if (bossAt !== null) cellClass += ' is-boss';
         else if (isUncollectedItem) cellClass += ' item';
         if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
-        if (bridgeGid !== undefined) cellClass += ' is-bridge';
+        if (bridgeDown) cellClass += ' is-bridge';
       }
 
-      const bgTileGid = doorAt || chestAt || (trapAt && trapState === 'used') || triggerAt !== undefined || bridgeGid !== undefined
+      const bgTileGid = doorAt || chestAt || (trapAt && trapState === 'used') || triggerAt !== undefined || bridgeAt !== undefined
         ? partitionTiles(cellTiles).background[0]?.gid
         : undefined;
       const poiGid = doorAt
@@ -300,7 +352,9 @@ export const DungeonGrid = memo(function DungeonGrid({
             ? trapAt.usedTileGid ?? bgTileGid
             : triggerAt !== undefined
               ? (triggerUsed ? triggerAt.usedTileGid : triggerAt.unusedTileGid) ?? bgTileGid
-              : bridgeGid ?? undefined;
+              : bridgeAt !== undefined
+                ? (bridgeDown ? bridgeAt.downTileGid : bridgeAt.upTileGid) ?? bgTileGid
+                : undefined;
 
       bgCells.push(
         <BgCell
@@ -333,6 +387,8 @@ export const DungeonGrid = memo(function DungeonGrid({
           trailMember={trailMember}
           isPlayer={isPlayer}
           marker={marker}
+          boss={bossSprite}
+          facing={facing}
         />,
       );
     }
@@ -346,6 +402,26 @@ export const DungeonGrid = memo(function DungeonGrid({
       <div className="dgrid-layer dgrid-entities" style={{ ...gridSize, display: 'grid' }}>
         {entityCells}
       </div>
+      {pendingLever !== null ? (
+        <div
+          className="lever-tooltip"
+          role="dialog"
+          aria-label="Lever"
+          style={{ left: (pendingLever.x + 0.5) * cellSize, top: pendingLever.y * cellSize }}
+        >
+          <b>{pendingLever.label ?? 'Lever'}</b>
+          <div className="lever-tooltip-actions">
+            <button
+              type="button"
+              disabled={isPullingLever}
+              onClick={() => onPullLever(pendingLever.triggerId)}
+            >
+              {isPullingLever ? 'Pulling…' : 'Pull lever'}
+            </button>
+            <button type="button" onClick={onDismissLever}>Close</button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 });
