@@ -180,9 +180,23 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
         : manager.loadArenaModelWithAtmosphere(url, resolution.arenaKey);
       void loader
         .then(() => {
-          if (cancelled) manager.clearArenaModel();
+          if (cancelled) {
+            manager.clearArenaModel();
+            return;
+          }
+          // Arena GLB is in the scene: the loop + camera entrance start now,
+          // so the first painted frame is the arena itself.
+          manager.startLoop();
+          manager.runEntrance();
         })
-        .catch((err) => { console.warn('arena.load.fail', url, err); });
+        .catch((err) => {
+          console.warn('arena.load.fail', url, err);
+          // Arena failed to load: still run the loop over the default backdrop
+          // so the stage renders and combat stays playable.
+          if (!cancelled) manager.startLoop();
+        });
+    } else {
+      manager.startLoop();
     }
     if (!resolution.useGlbSettings) {
       const localKeys = new Set<string>();
@@ -249,8 +263,11 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     sceneRef.current = manager;
     const rect = container.getBoundingClientRect();
     manager.resize(rect.width, rect.height);
-    manager.startLoop();
-    manager.runEntrance();
+    // The render loop is NOT started here: it starts once the arena GLB has
+    // actually been added to the scene (see the arena-load effect below), so
+    // the first painted frame is the arena itself — never the default backdrop
+    // that SceneManager builds in its constructor. On arena-load failure the
+    // loop still starts over the backdrop so the stage isn't left blank.
     if (!isAdmin) {
       try {
         window.localStorage.removeItem('digiworld.scene-settings-override');
