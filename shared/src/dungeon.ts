@@ -176,6 +176,36 @@ export type DungeonChest = {
   readonly updatedAt: number;
 };
 
+export const TRIGGER_TARGET_KINDS = ['door', 'bridge'] as const;
+export type TriggerTargetKind = (typeof TRIGGER_TARGET_KINDS)[number];
+
+export type DungeonTriggerTarget = {
+  readonly id: string;
+  readonly kind: TriggerTargetKind;
+  /** kind='door': existing dungeon door id that opens without a key. */
+  readonly doorId: string | null;
+  /** kind='bridge': the gap cell that becomes walkable once the trigger fires. */
+  readonly targetX: number | null;
+  readonly targetY: number | null;
+  /** kind='bridge': GID rendered on the cell once the trigger fires. */
+  readonly usedTileGid: number | null;
+};
+
+export type DungeonTrigger = {
+  readonly id: string;
+  readonly dungeonId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly label: string | null;
+  /** Lever visual: GID while unused (down) vs used (pulled). */
+  readonly unusedTileGid: number | null;
+  readonly usedTileGid: number | null;
+  /** Always exactly 0 or 1 targets (MVP: one target per lever). */
+  readonly targets: readonly DungeonTriggerTarget[];
+  readonly createdAt: number;
+  readonly updatedAt: number;
+};
+
 /**
  * Dungeon-scoped key auto-generated when the admin places a locked door
  * or chest. Lives in the dungeon-group's item pool (scoped to
@@ -244,6 +274,8 @@ export type DungeonView = {
   readonly zones: readonly DungeonZone[];
   /** S9 — locked/unlocked container POIs with deterministic rewards. */
   readonly chests: readonly DungeonChest[];
+  /** S10 — lever POIs that fire once per run and activate a door or bridge. */
+  readonly triggers: readonly DungeonTrigger[];
   /** S9 — group-scoped. Includes keys from every floor of `dungeonGroupId`. */
   readonly dungeonKeys: readonly DungeonKey[];
 };
@@ -274,6 +306,8 @@ export type UserDungeonRun = {
   readonly collectedItems: readonly string[];
   readonly unlockedDoors: readonly string[];
   readonly oneshotTriggeredIds: readonly string[];
+  /** S10 — lever trigger ids already fired this run. */
+  readonly triggeredTriggers: readonly string[];
   readonly startedAt: number;
   readonly completedAt: number | null;
   readonly state: RunState;
@@ -357,6 +391,8 @@ export type DungeonRunView = {
   readonly traps: readonly DungeonTrap[];
   /** S9 — locked/unlocked container POIs. */
   readonly chests: readonly DungeonChest[];
+  /** S10 — lever POIs that fire once per run and activate a door or bridge. */
+  readonly triggers: readonly DungeonTrigger[];
   /** S9 — placed keys reachable in this run's group. */
   readonly dungeonKeys: readonly DungeonKey[];
   /** S9 — per-run POI state deltas from default 'unused'. */
@@ -366,7 +402,7 @@ export type DungeonRunView = {
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
-export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly blockedByChestId?: string | null; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[]; readonly trapTriggered?: TrapTriggered };
+export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly blockedByChestId?: string | null; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[]; readonly trapTriggered?: TrapTriggered; readonly triggeredTriggerId?: string | null; readonly triggerTargetKind?: TriggerTargetKind | null; readonly activatedDoorId?: string | null };
 export type DungeonCompleteResponse = { readonly run: UserDungeonRun; readonly questCompleted: boolean };
 
 export type KitItem = {

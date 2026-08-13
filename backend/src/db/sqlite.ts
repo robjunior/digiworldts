@@ -41,6 +41,7 @@ export function applyColumnMigrations(handle: DatabaseHandle): void {
   ]);
   addMissingColumns(handle, 'user_dungeon_runs', [
     ['unlocked_doors', `TEXT NOT NULL DEFAULT '[]'`],
+    ['triggered_triggers', `TEXT NOT NULL DEFAULT '[]'`],
   ]);
   addMissingColumns(handle, 'dungeons', [
     ['random_encounters_enabled', 'INTEGER NOT NULL DEFAULT 0'],

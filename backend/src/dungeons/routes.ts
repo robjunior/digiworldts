@@ -38,6 +38,7 @@ import {
 } from './repo.js';
 import { parseTiledJson, tiledMapToImportPayload, validateTiledImportTilesets } from './tiled-import.js';
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
+import { createTrigger, deleteTrigger, updateTrigger } from './triggers.js';
 import { findTilesetByName, listTilesets, updateTilesetGeometry } from '../tilesets/repo.js';
 import type { ImportedTilesetRef } from './tiled-import.js';
 import { createChest, deleteChest, updateChest } from './chests.js';
@@ -61,11 +62,13 @@ import {
   StartRandomEncounterInputSchema,
   TilesInputSchema,
   TrapInputSchema,
+  TriggerInputSchema,
   UpdateChestInputSchema,
   UpdateDungeonInputSchema,
   UpdateDoorInputSchema,
   UpdateEncounterInputSchema,
   UpdateTrapInputSchema,
+  UpdateTriggerInputSchema,
   UpdateWarpInputSchema,
   asEncounterDigimon,
 } from './validation.js';
@@ -418,7 +421,7 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
     if (moved.kind === 'blocked-by-chest') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}) });
+    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}), ...(moved.triggeredTriggerId !== undefined ? { triggeredTriggerId: moved.triggeredTriggerId, triggerTargetKind: moved.triggerTargetKind ?? null, activatedDoorId: moved.activatedDoorId ?? null } : {}) });
     return reply.code(500).send({ error: 'internal error' });
   });
 
@@ -561,6 +564,44 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const deleted = await deleteTrap(req.params.id, req.params.trapId);
     if (!deleted) return reply.code(404).send({ error: 'not-found' });
     log.info('admin.dungeon.trap.delete', { adminId: admin.id, dungeonId: req.params.id, id: req.params.trapId });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ view });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/dungeons/:id/triggers', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = TriggerInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-trigger', details: parsed.error.issues });
+    const trigger = await createTrigger(req.params.id, parsed.data);
+    if (trigger === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (trigger === 'conflict') return reply.code(409).send({ error: 'trigger-position-conflict' });
+    if (trigger === 'invalid-target') return reply.code(400).send({ error: 'invalid-trigger-target' });
+    log.info('admin.dungeon.trigger.create', { adminId: admin.id, dungeonId: req.params.id, id: trigger.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.code(201).send({ view });
+  });
+
+  app.put<{ Params: { id: string; triggerId: string } }>('/api/admin/dungeons/:id/triggers/:triggerId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const parsed = UpdateTriggerInputSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid-trigger', details: parsed.error.issues });
+    const trigger = await updateTrigger(req.params.id, req.params.triggerId, parsed.data);
+    if (trigger === 'not-found') return reply.code(404).send({ error: 'not-found' });
+    if (trigger === 'conflict') return reply.code(409).send({ error: 'trigger-position-conflict' });
+    if (trigger === 'invalid-target') return reply.code(400).send({ error: 'invalid-trigger-target' });
+    log.info('admin.dungeon.trigger.update', { adminId: admin.id, dungeonId: req.params.id, id: trigger.id });
+    const view = await getDungeonView(req.params.id);
+    if (!view) return reply.code(404).send({ error: 'not-found' });
+    return reply.send({ view });
+  });
+
+  app.delete<{ Params: { id: string; triggerId: string } }>('/api/admin/dungeons/:id/triggers/:triggerId', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const deleted = await deleteTrigger(req.params.id, req.params.triggerId);
+    if (!deleted) return reply.code(404).send({ error: 'not-found' });
+    log.info('admin.dungeon.trigger.delete', { adminId: admin.id, dungeonId: req.params.id, id: req.params.triggerId });
     const view = await getDungeonView(req.params.id);
     if (!view) return reply.code(404).send({ error: 'not-found' });
     return reply.send({ view });

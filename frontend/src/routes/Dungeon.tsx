@@ -170,6 +170,12 @@ export function Dungeon(): JSX.Element {
           : `Trap! ${t.effectSummary}.`;
         pushLog(detail, t.dodged ? '' : 'hit');
       }
+      if (res.triggeredTriggerId) {
+        const trigger = data?.triggers.find((entry) => entry.id === res.triggeredTriggerId);
+        pushLog(`Pulled ${trigger?.label ?? 'a lever'}!`, 'item');
+        flashToast(`${trigger?.label ?? 'Lever'} activated!`);
+        if (res.activatedDoorId) pushLog('A door swung open.', 'item');
+      }
       if (res.pickedUpItemId) {
         const item = data?.items.find((i) => i.id === res.pickedUpItemId);
         if (item) {
@@ -359,8 +365,14 @@ export function Dungeon(): JSX.Element {
     const tileKey = `${nx},${ny}`;
     const walkable = run.tiles.some((t) => `${t.x},${t.y}` === tileKey);
     if (!walkable) {
-      // Just silently do nothing if trying to move into a wall
-      return;
+      const bridgeOpen = run.triggers.some((tr) =>
+        run.run.triggeredTriggers.includes(tr.id) &&
+        tr.targets.some((target) => target.kind === 'bridge' && target.targetX === nx && target.targetY === ny),
+      );
+      if (!bridgeOpen) {
+        // Just silently do nothing if trying to move into a wall
+        return;
+      }
     }
     const exitWarp = run.warps.find((warp) => warp.x === nx && warp.y === ny && warp.targetDungeonId === null);
     if (exitWarp && (run.groupInventory.length ?? 0) > 0) {
@@ -425,7 +437,7 @@ export function Dungeon(): JSX.Element {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory } = data;
+  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory, triggers } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
@@ -475,6 +487,7 @@ export function Dungeon(): JSX.Element {
               doors={doors}
               chests={chests}
               traps={traps}
+              triggers={triggers}
               poiStates={poiStates}
               party={party}
               partyTrail={partyTrail}

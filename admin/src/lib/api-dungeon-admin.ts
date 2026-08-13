@@ -127,6 +127,28 @@ export function deleteAdminTrap(dungeonId: string, trapId: string): Promise<{ re
   return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/traps/${trapId}`, { method: 'DELETE' });
 }
 
+import type { TriggerTargetKind } from '@digiworld/shared';
+
+export type AdminTriggerTargetBody = {
+  readonly kind: TriggerTargetKind;
+  readonly doorId?: string | null;
+  readonly targetX?: number | null;
+  readonly targetY?: number | null;
+  readonly usedTileGid?: number | null;
+};
+
+export function createAdminTrigger(dungeonId: string, body: { readonly x: number; readonly y: number; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null; readonly target: AdminTriggerTargetBody }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/triggers`, { method: 'POST', body });
+}
+
+export function updateAdminTrigger(dungeonId: string, triggerId: string, body: { readonly x?: number; readonly y?: number; readonly label?: string | null; readonly unusedTileGid?: number | null; readonly usedTileGid?: number | null; readonly target?: AdminTriggerTargetBody }): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/triggers/${triggerId}`, { method: 'PUT', body });
+}
+
+export function deleteAdminTrigger(dungeonId: string, triggerId: string): Promise<{ readonly view: DungeonView }> {
+  return apiFetch<{ readonly view: DungeonView }>(`/api/admin/dungeons/${dungeonId}/triggers/${triggerId}`, { method: 'DELETE' });
+}
+
 export async function listAdminWorldObjects(): Promise<WorldObjectListResponse> {
   return apiFetch<WorldObjectListResponse>('/api/world/objects'); // this is what World uses
 }
