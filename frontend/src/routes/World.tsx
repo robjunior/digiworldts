@@ -98,7 +98,9 @@ export function World(): JSX.Element {
   }, [regions]);
   
   const enterDungeon = useCallback((dungeonId: string) => {
-    navigate('/dungeon/' + dungeonId);
+    navigate('/loading', {
+      state: { mode: 'dungeon', dungeonId, returnTo: '/dungeon/' + dungeonId },
+    });
   }, [navigate]);
 
   const handleHoverChange = useCallback((idx: number) => setHoveredIdx(idx), []);

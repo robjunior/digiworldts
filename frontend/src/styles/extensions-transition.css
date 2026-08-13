@@ -1,0 +1,163 @@
+/* ============================================================
+   DigiWorld — Transition loading buffer
+   Full-screen splash shown while navigating World→Dungeon and
+   Dungeon→Combat, so destination assets preload off-screen.
+   Reuses the global design tokens (--bg, --panel, --hair, --el,
+   --signal, --notch-clip, etc.) from extensions-ui/base.
+   ============================================================ */
+
+.transition-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 100% at 50% 30%,
+    color-mix(in oklab, var(--el) 10%, var(--bg)), var(--bg) 72%);
+}
+
+.transition-screen .tr-card {
+  width: min(560px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 34px 34px 28px;
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-clip);
+  text-align: center;
+}
+
+.transition-screen .tr-kicker {
+  font: 800 10px/1 var(--font);
+  letter-spacing: .24em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.transition-screen .tr-title {
+  font: 800 22px/1.15 var(--font);
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: .02em;
+}
+
+.transition-screen .tr-sub {
+  font: 600 12px/1.5 var(--font);
+  color: var(--muted);
+  margin: 0;
+}
+
+/* enemy row: portraits + VS separators */
+.transition-screen .tr-enemy-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.transition-screen .tr-enemy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.transition-screen .tr-portrait-frame {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  overflow: hidden;
+}
+
+.transition-screen .tr-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.transition-screen .tr-level {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font: 800 8px/1 var(--font);
+  letter-spacing: .08em;
+  color: var(--ink);
+  background: var(--signal);
+  padding: 3px 5px;
+  clip-path: var(--notch-sm-clip);
+}
+
+.transition-screen .tr-enemy-name {
+  font: 700 11px/1 var(--font);
+  color: var(--ink);
+  letter-spacing: .04em;
+}
+
+.transition-screen .tr-vs {
+  font: 800 14px/1 var(--font);
+  letter-spacing: .14em;
+  color: var(--signal);
+  text-transform: uppercase;
+}
+
+/* progress bar: CSS animation fills over the minimum duration; the
+   destination navigation is gated by the same duration in JS */
+.transition-screen .tr-progress {
+  width: 100%;
+  height: 6px;
+  margin-top: 8px;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border: 1px solid var(--hair);
+  overflow: hidden;
+}
+
+.transition-screen .tr-progress-bar {
+  height: 100%;
+  width: 0;
+  background: var(--signal);
+  animation-name: tr-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+/* Suspense fallback: loops while the lazy chunk downloads (no fixed end). */
+.transition-screen .tr-progress-bar.tr-progress-indeterminate {
+  animation-name: tr-pulse;
+  animation-duration: 1.2s;
+  animation-iteration-count: infinite;
+}
+
+@keyframes tr-pulse {
+  0%   { width: 0; }
+  55%  { width: 100%; }
+  100% { width: 100%; }
+}
+
+@keyframes tr-fill {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+
+.transition-screen .tr-hint {
+  font: 700 9px/1 var(--font);
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .transition-screen .tr-progress-bar {
+    animation-duration: 0s !important;
+    width: 100%;
+  }
+}
