@@ -240,7 +240,7 @@ export function Dungeon(): JSX.Element {
       if (!id) return;
       handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
       sessionStorage.setItem('dungeon-return', JSON.stringify({ dungeonId: id, encounterId: encId }));
-      navigate('/combat');
+      navigate('/loading', { state: { mode: 'combat', battle, returnTo: '/combat' } });
     },
     onError: (err: Error) => {
       flashToast(err.message || 'Could not start battle.');
@@ -257,7 +257,7 @@ export function Dungeon(): JSX.Element {
       handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
       sessionStorage.setItem('dungeon-return', JSON.stringify({ dungeonId: id, encounterId: null, kind: 'random' }));
       setActiveRandomEncounter(null);
-      navigate('/combat');
+      navigate('/loading', { state: { mode: 'combat', battle, returnTo: '/combat' } });
     },
     onError: (err: Error) => {
       flashToast(err.message || 'Could not start wild battle.');

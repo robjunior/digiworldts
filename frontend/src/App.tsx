@@ -16,6 +16,7 @@ import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
 import { Intro } from './routes/Intro';
 import { Inventory } from './routes/Inventory';
+import { LoadingTransition } from './routes/LoadingTransition';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
@@ -29,9 +30,25 @@ import { Training } from './routes/Training';
 import { useWsStore } from './state/wsStore';
 import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
+import './styles/extensions-transition.css';
 
 const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
 const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
+
+function SuspenseFallback(): JSX.Element {
+  return (
+    <div className="transition-screen" data-mode="generic" role="status" aria-live="polite">
+      <div className="tr-card">
+        <div className="tr-kicker">DigiWorld</div>
+        <h1 className="tr-title">Loading…</h1>
+        <div className="tr-progress" aria-hidden="true">
+          <div className="tr-progress-bar tr-progress-indeterminate" />
+        </div>
+        <div className="tr-hint">Preparing the terminal…</div>
+      </div>
+    </div>
+  );
+}
 
 function RealtimeBridge(): JSX.Element | null {
   useWebSocket();
@@ -67,13 +84,14 @@ export function App(): JSX.Element {
     <>
       <RealtimeBridge />
       <TutorialManager />
-      <Suspense fallback={null}>
+      <Suspense fallback={<SuspenseFallback />}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/reset" element={<Reset />} />
           <Route path="/oauth/decide" element={<OAuthDecide />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/intro" element={<Intro />} />
+            <Route path="/loading" element={<LoadingTransition />} />
             <Route path="/combat" element={<Combat />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
