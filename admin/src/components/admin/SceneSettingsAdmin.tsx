@@ -423,7 +423,7 @@ export function SceneSettingsAdmin(): JSX.Element {
                 </select>
               </label>
               <p className="scene-admin-note">
-                Any <code>.glb</code> in <code>frontend/src/assets/arenas/</code>. Leave empty to use the built-in arena mesh for the scene's primary element.
+                Any <code>.glb</code> in <code>scene3d/assets/arenas/</code>. Leave empty to use the built-in arena mesh for the scene's primary element.
               </p>
             </section>
 
