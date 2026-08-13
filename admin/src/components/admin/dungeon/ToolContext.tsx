@@ -7,6 +7,7 @@ import type {
   DungeonEncounter,
   DungeonItem,
   DungeonTrap,
+  DungeonTrigger,
   DungeonWarp,
   TilesetGrant,
 } from '@digiworld/shared';
@@ -19,6 +20,7 @@ import { BossEditor } from './BossEditor';
 import { ItemEditor } from './ItemEditor';
 import { RandomEncountersEditor } from './RandomEncountersEditor';
 import { TrapEditor } from './TrapEditor';
+import { TriggerEditor } from './TriggerEditor';
 import { WarpEditor } from './WarpEditor';
 import { ZonesEditor } from './ZonesEditor';
 import type { Cell, PathTool, Tool } from './types';
@@ -42,6 +44,8 @@ export function ToolContext({
   door,
   trap,
   chest,
+  trigger,
+  doors,
   catalog,
   dungeons,
   shopItems,
@@ -60,6 +64,8 @@ export function ToolContext({
   readonly door?: DungeonDoor | undefined;
   readonly trap?: DungeonTrap | undefined;
   readonly chest?: DungeonChest | undefined;
+  readonly trigger?: DungeonTrigger | undefined;
+  readonly doors: readonly DungeonDoor[];
   readonly catalog: readonly TemplateDigimon[];
   readonly dungeons: readonly { readonly id: string; readonly name: string }[];
   readonly shopItems: readonly ShopItemView[];
@@ -173,6 +179,18 @@ export function ToolContext({
         shopItems={shopItems}
         tilesets={tilesets}
         {...(chest ? { chest } : {})}
+      />
+    );
+  }
+  if (tool === 'TRIGGERS') {
+    return (
+      <TriggerEditor
+        dungeonId={dungeonId}
+        x={selectedCell.x}
+        y={selectedCell.y}
+        doors={doors}
+        tilesets={tilesets}
+        {...(trigger ? { trigger } : {})}
       />
     );
   }

@@ -113,7 +113,7 @@ type EntityCellProps = {
   readonly y: number;
   readonly trailMember: RosterView | null;
   readonly isPlayer: boolean;
-  readonly marker: 'door' | 'chest' | 'trap' | null;
+  readonly marker: 'door' | 'chest' | 'trap' | 'lever' | null;
 };
 
 const EntityCell = memo(function EntityCell({
@@ -143,7 +143,7 @@ const EntityCell = memo(function EntityCell({
         </div>
       ) : null}
       {marker !== null && !isPlayer ? (
-        <span className="door-marker">{marker === 'door' ? 'D' : marker === 'chest' ? 'C' : 'T'}</span>
+        <span className="door-marker">{marker === 'door' ? 'D' : marker === 'chest' ? 'C' : marker === 'trap' ? 'T' : 'L'}</span>
       ) : null}
     </div>
   );
@@ -159,6 +159,7 @@ type DungeonGridProps = {
   readonly doors: DungeonRunView['doors'];
   readonly chests: DungeonRunView['chests'];
   readonly traps: DungeonRunView['traps'];
+  readonly triggers: DungeonRunView['triggers'];
   readonly poiStates: DungeonRunView['poiStates'];
   readonly party: readonly RosterView[];
   /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
@@ -176,6 +177,7 @@ export const DungeonGrid = memo(function DungeonGrid({
   doors,
   chests,
   traps,
+  triggers,
   poiStates,
   party,
   partyTrail,
@@ -215,6 +217,22 @@ export const DungeonGrid = memo(function DungeonGrid({
     () => new Map<string, DungeonRunView['traps'][number]>(traps.map((t) => [`${t.x},${t.y}`, t] as const)),
     [traps],
   );
+  const triggerByKey = useMemo(
+    () => new Map<string, DungeonRunView['triggers'][number]>(triggers.map((t) => [`${t.x},${t.y}`, t] as const)),
+    [triggers],
+  );
+  const bridgeGidByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const trigger of triggers) {
+      if (!run.triggeredTriggers.includes(trigger.id)) continue;
+      for (const target of trigger.targets) {
+        if (target.kind === 'bridge' && target.targetX !== null && target.targetY !== null && target.usedTileGid !== null) {
+          map.set(`${target.targetX},${target.targetY}`, target.usedTileGid);
+        }
+      }
+    }
+    return map;
+  }, [triggers, run.triggeredTriggers]);
   const canonicalTileset = primaryTileset(tilesets);
   const cellSize = canonicalTileset ? canonicalTileset.tileWidth * PLAYER_ZOOM : CELL_SIZE_FALLBACK;
 
@@ -237,7 +255,8 @@ export const DungeonGrid = memo(function DungeonGrid({
     for (let x = 0; x < dungeon.width; x++) {
       const key = `${x},${y}`;
       const cellTiles = tilesByCoord.get(key) ?? EMPTY_TILES;
-      const isWalkable = cellIsWalkable(cellTiles);
+      const bridgeGid = bridgeGidByKey.get(key);
+      const isWalkable = cellIsWalkable(cellTiles) || bridgeGid !== undefined;
       const isPlayer = run.currentX === x && run.currentY === y;
       const isAdjacent =
         !isPlayer && isWalkable && Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1;
@@ -255,6 +274,8 @@ export const DungeonGrid = memo(function DungeonGrid({
         : 'unused';
       const trapAt = trapByKey.get(key);
       const trapState = trapAt ? (poiStateByKey.get(`trap:${trapAt.id}`) ?? 'unused') : 'unused';
+      const triggerAt = triggerByKey.get(key);
+      const triggerUsed = triggerAt !== undefined && run.triggeredTriggers.includes(triggerAt.id);
 
       let cellClass = 'dcell';
       if (!isWalkable) {
@@ -265,9 +286,10 @@ export const DungeonGrid = memo(function DungeonGrid({
         else if (isUndefeatedEncounter) cellClass += ' enc';
         else if (isUncollectedItem) cellClass += ' item';
         if (doorAt) cellClass += ` is-door ${isLockedDoor ? 'is-locked' : 'is-unlocked'}`;
+        if (bridgeGid !== undefined) cellClass += ' is-bridge';
       }
 
-      const bgTileGid = doorAt || chestAt || (trapAt && trapState === 'used')
+      const bgTileGid = doorAt || chestAt || (trapAt && trapState === 'used') || triggerAt !== undefined || bridgeGid !== undefined
         ? partitionTiles(cellTiles).background[0]?.gid
         : undefined;
       const poiGid = doorAt
@@ -276,7 +298,9 @@ export const DungeonGrid = memo(function DungeonGrid({
           ? (chestState === 'used' ? chestAt.usedTileGid : chestAt.unusedTileGid) ?? bgTileGid
           : trapAt && trapState === 'used'
             ? trapAt.usedTileGid ?? bgTileGid
-            : undefined;
+            : triggerAt !== undefined
+              ? (triggerUsed ? triggerAt.usedTileGid : triggerAt.unusedTileGid) ?? bgTileGid
+              : bridgeGid ?? undefined;
 
       bgCells.push(
         <BgCell
@@ -298,7 +322,8 @@ export const DungeonGrid = memo(function DungeonGrid({
       const doorMarker = doorAt !== undefined && !isPlayer ? 'door' : null;
       const chestMarker = chestAt !== undefined && !isPlayer ? 'chest' : null;
       const trapUsed = trapAt !== undefined && trapState === 'used' && !isPlayer;
-      const marker = doorMarker ?? chestMarker ?? (trapUsed ? 'trap' : null);
+      const leverMarker = triggerAt !== undefined && !isPlayer ? 'lever' : null;
+      const marker = doorMarker ?? chestMarker ?? (trapUsed ? 'trap' : null) ?? leverMarker;
 
       entityCells.push(
         <EntityCell

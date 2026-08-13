@@ -1,5 +1,5 @@
 import type { Dungeon, EncounterDigimon, EncounterSkillOverride, EncounterStatOverride } from '@digiworld/shared';
-import { LAYER_KINDS } from '@digiworld/shared';
+import { LAYER_KINDS, TRIGGER_TARGET_KINDS } from '@digiworld/shared';
 import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { BIOMES } from '@digiworld/shared/world';
 import { z } from 'zod';
@@ -177,6 +177,26 @@ export const TrapInputSchema = z.object({
 export const UpdateTrapInputSchema = TrapInputSchema.partial();
 export type TrapInput = z.infer<typeof TrapInputSchema>;
 export type UpdateTrapInput = z.infer<typeof UpdateTrapInputSchema>;
+
+export const TriggerTargetInputSchema = z.object({
+  kind: z.enum(TRIGGER_TARGET_KINDS),
+  doorId: IdSchema.nullable().optional(),
+  targetX: z.number().int().min(0).max(199).nullable().optional(),
+  targetY: z.number().int().min(0).max(199).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+});
+
+export const TriggerInputSchema = z.object({
+  x: z.number().int().min(0).max(199),
+  y: z.number().int().min(0).max(199),
+  label: z.string().trim().max(80).nullable().optional(),
+  unusedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  usedTileGid: z.number().int().min(1).max(0xffffffff).nullable().optional(),
+  target: TriggerTargetInputSchema,
+});
+export const UpdateTriggerInputSchema = TriggerInputSchema.partial();
+export type TriggerInput = z.infer<typeof TriggerInputSchema>;
+export type UpdateTriggerInput = z.infer<typeof UpdateTriggerInputSchema>;
 
 export const MoveInputSchema = z.object({
   x: z.number().int().min(0).max(199),

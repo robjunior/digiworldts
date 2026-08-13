@@ -307,6 +307,7 @@ export type UserDungeonRunRow = {
   collected_items: string;
   unlocked_doors: string;
   oneshot_triggered_ids: string;
+  triggered_triggers: string;
   started_at: number;
   completed_at: number | null;
   state: string;
