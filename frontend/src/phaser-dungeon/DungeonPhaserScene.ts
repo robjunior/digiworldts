@@ -69,6 +69,10 @@ export type DungeonPhaserDebugState = {
   readonly layers: readonly DungeonLayerInfo[];
   /** Composed world size in pixels (all map slots). */
   readonly world: { readonly width: number; readonly height: number };
+  /** Slot dimensions in pixels: max map size × tile size (Todo 4, mirrors
+   * ContinuousDungeonGrid's `slotWidth`/`slotHeight`). */
+  readonly slotW: number;
+  readonly slotH: number;
   readonly tileSize: number;
   /** Count of cells painted with the flat walkable fallback color. */
   readonly flatCells: number;
@@ -191,11 +195,16 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private mapCount = 0;
   private rendered = false;
   private worldInfo: { readonly width: number; readonly height: number } = { width: 0, height: 0 };
+  private slotInfo: { readonly w: number; readonly h: number } = { w: 0, h: 0 };
   private tileSize = TILE_SIZE_FALLBACK;
   private partyGroup: Phaser.GameObjects.Group | null = null;
   private leaderSprite: Phaser.GameObjects.Sprite | null = null;
   private lastLeaderCatalogId: string | null = null;
   private dotsLoading = false;
+  private followTween: Phaser.Tweens.Tween | null = null;
+  private lastFollowTarget: { readonly x: number; readonly y: number } | null = null;
+  private clampBounds: { readonly width: number; readonly height: number } | null = null;
+  private lastComposedNeighbors: readonly DungeonGridNeighbor[] | null = null;
 
   constructor() {
     super({ key: DUNGEON_SCENE_KEY });
@@ -207,6 +216,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.cameras.main.setZoom(DUNGEON_CAMERA_ZOOM);
     this.followTarget = this.add.container(0, 0);
     this.cameras.main.startFollow(this.followTarget, true, 1, 1);
+    this.cameras.main.on(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.clampCameraScroll, this);
     window.__dungeonPhaser = {
       scene: this,
       getState: () => this.getState(),
@@ -221,6 +231,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       delete window.__dungeonPhaser;
     }
     if (this.leaderSprite !== null) this.tweens.killTweensOf(this.leaderSprite);
+    if (this.followTween !== null) this.followTween.destroy();
+    this.followTween = null;
+    this.lastFollowTarget = null;
+    this.clampBounds = null;
+    this.cameras.main.off(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.clampCameraScroll, this);
     this.partyGroup?.destroy(true);
     this.partyGroup = null;
     this.leaderSprite = null;
@@ -273,6 +288,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
       follow: { x: follow?.x ?? 0, y: follow?.y ?? 0 },
       layers: this.layerInfos,
       world: this.worldInfo,
+      slotW: this.slotInfo.w,
+      slotH: this.slotInfo.h,
       tileSize: this.tileSize,
       flatCells: this.flatCells,
       mixedSizes: this.mixedSizes,
@@ -289,21 +306,34 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private recompose(): void {
     const props = this.latestProps;
     if (props === null || this.followTarget === null) return;
-    const camera = this.cameras.main;
-    const layout = computeLayout(props.view, props.neighbors);
+    // Crossing continuity: when the run crosses into a neighbor, the route
+    // navigates (replace:true) and the neighbors query refetches for the new
+    // dungeon id — for a few renders the wrapper passes `neighbors: []`. That
+    // empty list must NOT collapse the composed world to a single map mid-
+    // crossing (a rebuild would snap the camera). Until the fresh neighbors
+    // land, reuse the last composed neighbor list (the two slots are the same
+    // two maps, just with the active swapped).
+    let neighbors = props.neighbors;
+    if (neighbors.length === 0 && this.lastComposedNeighbors !== null && this.lastComposedNeighbors.length > 0) {
+      neighbors = this.lastComposedNeighbors;
+    }
+    const layout = computeLayout(props.view, neighbors);
+    this.lastComposedNeighbors = neighbors;
+    this.clampBounds = { width: layout.width, height: layout.height };
     // startFollow (lerp 1) tracks this target every frame, so moving it in
     // place keeps camera continuity across grid-crossing re-compositions.
-    this.followTarget.setPosition(layout.playerX, layout.playerY);
-    // Small maps: with useBounds, Phaser's clamp re-centers the whole world
-    // (bx = (displayWidth - width)/2) and tiles drift off-screen — match the
-    // DOM grid by leaving bounds off so the follow target stays centered.
-    const viewW = camera.width / camera.zoom;
-    const viewH = camera.height / camera.zoom;
-    if (layout.width <= viewW && layout.height <= viewH) {
-      camera.useBounds = false;
-    } else {
-      camera.setBounds(0, 0, layout.width, layout.height);
-    }
+    // A position change (a walk or a grid cross) glides the target to the new
+    // cell over moveDurationMs instead of teleporting it — the camera follows
+    // the glide, so crossing the seam stays continuous (the DOM animates the
+    // canvas transform the same way via its 180ms CSS transition).
+    this.moveFollowTarget(layout.playerX, layout.playerY, props.moveDurationMs);
+    // The camera is NOT bounded via Phaser's setBounds: clampX/clampY mix the
+    // camera's pixel width with displayWidth (width/zoom) and pin a world
+    // narrower than the viewport to the corner. Instead clamp each axis
+    // independently, exactly like ContinuousDungeonGrid: an axis that fits the
+    // viewport stays free (the follow target keeps the player screen-centered,
+    // the small-map centering branch); an overflowing axis clamps so no void
+    // shows past the composed world's edge.
     const grants = uniqueGrants([props.view, ...props.neighbors.map((neighbor) => neighbor.view)]);
     const missing = grants.filter((grant) => !this.textures.exists(tilesetKey(grant)));
     if (missing.length > 0) {
@@ -317,6 +347,50 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // Party dots load independently of tilesets — render regardless (a
     // fallback dungeon with no tilesets must still show the party).
     this.renderParty(props, layout);
+  }
+
+  private moveFollowTarget(x: number, y: number, durationMs: number): void {
+    const target = this.followTarget;
+    if (target === null) return;
+    const last = this.lastFollowTarget;
+    if (last === null) {
+      target.setPosition(x, y);
+      this.lastFollowTarget = { x, y };
+      return;
+    }
+    if (last.x === x && last.y === y) {
+      if (this.followTween !== null && this.followTween.isPlaying()) return;
+      target.setPosition(x, y);
+      return;
+    }
+    if (this.followTween !== null) this.followTween.destroy();
+    this.followTween = this.tweens.add({
+      targets: target,
+      x,
+      y,
+      duration: Math.max(1, durationMs),
+      ease: 'Linear',
+    });
+    this.lastFollowTarget = { x, y };
+  }
+
+  private clampCameraScroll(): void {
+    const camera = this.cameras.main;
+    const bounds = this.clampBounds;
+    if (bounds === null) return;
+    // camera.scrollX is in SCREEN pixels ("not impacted by zooming" — Phaser).
+    // Clamping to [0, bounds - displayW] would be off by that offset; the
+    // zoom-aware window below mirrors Phaser's own clampX/clampY (BaseCamera).
+    const displayW = camera.width / camera.zoom;
+    const displayH = camera.height / camera.zoom;
+    if (bounds.width > displayW) {
+      const minX = (displayW - camera.width) / 2;
+      camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, minX + bounds.width - displayW);
+    }
+    if (bounds.height > displayH) {
+      const minY = (displayH - camera.height) / 2;
+      camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, minY + bounds.height - displayH);
+    }
   }
 
   /**
@@ -480,6 +554,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.mapCount = 0;
     this.rendered = false;
     this.worldInfo = { width: 0, height: 0 };
+    this.slotInfo = { w: 0, h: 0 };
     this.tileSize = TILE_SIZE_FALLBACK;
   }
 
@@ -487,6 +562,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private renderWorld(props: SceneProps, layout: WorldLayout): void {
     this.tileSize = layout.tileSize;
     this.worldInfo = { width: layout.width, height: layout.height };
+    this.slotInfo = { w: layout.slotW, h: layout.slotH };
     for (const position of layout.positions) {
       const offsetX = (position.gridX - layout.minGridX) * layout.slotW;
       const offsetY = (position.gridY - layout.minGridY) * layout.slotH;
