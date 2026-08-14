@@ -207,6 +207,10 @@ export type ImportTiledNewBody = {
   readonly name: string;
   readonly biome: Dungeon['biome'];
   readonly description?: string;
+  readonly dungeonGroupId?: string;
+  readonly floorIndex?: number | null;
+  readonly gridX?: number | null;
+  readonly gridY?: number | null;
 };
 
 export type ImportTiledResponse = {

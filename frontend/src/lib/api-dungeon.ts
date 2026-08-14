@@ -4,12 +4,17 @@ import type {
   DungeonMoveResponse,
   DungeonCompleteResponse,
   DungeonTriggerActivateResponse,
+  DungeonGridNeighborsResponse,
   EncounterDigimon,
 } from '@digiworld/shared';
 import { apiFetch } from './api';
 
 export async function getDungeon(id: string): Promise<DungeonRunView> {
   return apiFetch<DungeonRunView>(`/api/dungeon/${id}`);
+}
+
+export async function getDungeonNeighbors(id: string): Promise<DungeonGridNeighborsResponse> {
+  return apiFetch<DungeonGridNeighborsResponse>(`/api/dungeon/${id}/neighbors`);
 }
 
 export async function moveInDungeon(id: string, x: number, y: number): Promise<DungeonMoveResponse> {

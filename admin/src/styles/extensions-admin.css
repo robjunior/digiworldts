@@ -3319,3 +3319,145 @@
 }
 .mk-bridge { color: #7ec8e3; background: color-mix(in oklab, #7ec8e3 16%, var(--bg)); }
 .mk-trigger { color: #f4b942; background: color-mix(in oklab, #f4b942 16%, var(--bg)); }
+
+/* ---- Grid World editor (admin Grids tab) ---- */
+.grid-world-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(100vh - 150px);
+  min-height: 420px;
+}
+.grid-world-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.grid-world-toolbar label,
+.grid-world-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.grid-world-toolbar select,
+.grid-world-panel select,
+.grid-world-toolbar-new input {
+  min-width: 220px;
+}
+.grid-world-toolbar-new {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.grid-world-toolbar-zoom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.grid-world-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 8px;
+  border: 1px dashed var(--hair);
+  background: var(--panel);
+  padding: 24px;
+}
+.grid-world-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 10px;
+}
+.grid-world-canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--hair);
+  background: var(--bg);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+.grid-world-canvas-wrap:active { cursor: grabbing; }
+.grid-world-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+  background:
+    repeating-linear-gradient(0deg, var(--hair) 0 1px, transparent 1px 128px),
+    repeating-linear-gradient(90deg, var(--hair) 0 1px, transparent 1px 128px);
+  background-size: 128px 128px, 128px 128px;
+}
+.grid-world-cell {
+  position: absolute;
+  border: 1px solid color-mix(in oklab, var(--hair) 60%, transparent);
+  background: color-mix(in oklab, var(--panel) 55%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px;
+  overflow: hidden;
+  cursor: pointer;
+}
+.grid-world-cell.is-occupied { background: color-mix(in oklab, var(--panel) 80%, transparent); }
+.grid-world-cell.is-selected { outline: 2px solid var(--gold); z-index: 2; }
+.grid-world-cell.is-drop-target { outline: 2px dashed var(--signal); background: color-mix(in oklab, var(--signal) 22%, var(--panel)); z-index: 2; }
+.grid-world-cell.is-dragging { opacity: 0.4; }
+.grid-world-cell-add { font-size: 28px; color: var(--hair); line-height: 1; }
+.grid-world-mini {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  background: color-mix(in oklab, var(--bg) 70%, transparent);
+  border: 1px solid var(--hair);
+}
+.grid-world-cell-name {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.grid-world-cell-meta {
+  font-size: 10px;
+  color: var(--el-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.grid-world-panel {
+  width: 340px;
+  flex: 0 0 auto;
+  overflow-y: auto;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.grid-world-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.grid-world-import {
+  border-top: 1px dashed var(--hair);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.grid-world-move-warning { color: var(--signal); }

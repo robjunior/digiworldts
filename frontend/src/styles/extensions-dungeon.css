@@ -276,23 +276,17 @@
 .dungeon-page .view .dgrid-scroll {
   position: absolute;
   inset: 0;
-  /* hidden, not clip: the camera still pans via scrollTo when the player walks, but the wheel cannot. */
   overflow: hidden;
-  padding: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  scroll-behavior: smooth;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+}
+.dungeon-page .view .dgrid-scroll-inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 .dungeon-page .view .dgrid-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .dungeon-page .view .dgrid {
   display: grid;
   box-sizing: content-box;
-  flex: 0 0 auto;
-  margin: auto;
-  position: relative;
 }
 .dungeon-page .view .dgrid-layer {
   position: absolute;
@@ -817,8 +811,8 @@
   place-items: center;
 }
 .dungeon-page .view .boss-sprite {
-  width: 72%;
-  height: 72%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -830,4 +824,16 @@
 }
 .dungeon-page .view .dcell.is-boss:not(.player):hover {
   background: color-mix(in oklab, var(--signal) 26%, var(--bg));
+}
+
+/* smooth party walk — leader sprite glides cell to cell via transform */
+.dungeon-page .view .dgrid-party {
+  z-index: 5;
+  pointer-events: none;
+}
+.dungeon-page .view .party-walk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  will-change: transform;
 }

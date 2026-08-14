@@ -24,8 +24,10 @@ import { one, q, run, closeDb } from '../src/db/index.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 import {
   getDungeon,
+  getDungeonGridNeighbors,
   getRun,
   maybeMigrateStashBetweenFloors,
+  moveRun,
   startOrGetRun,
 } from '../src/dungeons/repo.ts';
 
@@ -53,11 +55,11 @@ async function seedUser(id: string): Promise<void> {
   );
 }
 
-async function seedDungeon(id: string, spawnX: number, spawnY: number, groupId: string | null, floorIndex: number | null): Promise<void> {
+async function seedDungeon(id: string, spawnX: number, spawnY: number, groupId: string | null, floorIndex: number | null, gridX: number | null = null, gridY: number | null = null): Promise<void> {
   const now = Date.now();
   await run(
-    'INSERT INTO dungeons (id, name, description, biome, width, height, spawn_x, spawn_y, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, challenge_kind, challenge_config, dungeon_group_id, floor_index, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
-    id, `Dungeon ${id}`, 'seeded', 'null', 10, 10, spawnX, spawnY, 0, 0, 1, 1, 'Rookie', 1, 1, '[]', 'none', null, groupId, floorIndex, now, now,
+    'INSERT INTO dungeons (id, name, description, biome, width, height, spawn_x, spawn_y, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, challenge_kind, challenge_config, dungeon_group_id, floor_index, grid_x, grid_y, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+    id, `Dungeon ${id}`, 'seeded', 'null', 10, 10, spawnX, spawnY, 0, 0, 1, 1, 'Rookie', 1, 1, '[]', 'none', null, groupId, floorIndex, gridX, gridY, now, now,
   );
 }
 
@@ -66,6 +68,13 @@ async function seedStash(userId: string, dungeonId: string, itemId: string, qty:
   await run(
     "INSERT INTO dungeon_run_stash (user_id, dungeon_id, item_id, qty, origin, updated_at) VALUES (?, ?, ?, ?, 'loot', ?) ON CONFLICT(user_id, dungeon_id, item_id, origin) DO UPDATE SET qty = dungeon_run_stash.qty + excluded.qty, updated_at = excluded.updated_at",
     userId, dungeonId, itemId, qty, now,
+  );
+}
+
+async function seedWalkableTile(dungeonId: string, x: number, y: number): Promise<void> {
+  await run(
+    "INSERT INTO dungeon_tiles (dungeon_id, x, y, gid, layer_kind) VALUES (?, ?, ?, 1, 'floor')",
+    dungeonId, x, y,
   );
 }
 
@@ -91,15 +100,19 @@ async function main(): Promise<void> {
 
   console.log('== seed 3-floor tower + one single-floor legacy dungeon ==');
   await seedUser(USER);
-  await seedDungeon('dgn-tower-f1', 0, 0, 'grp-tower', 0);
-  await seedDungeon('dgn-tower-f2', 1, 1, 'grp-tower', 1);
-  await seedDungeon('dgn-tower-f3', 2, 2, 'grp-tower', 2);
+  await seedDungeon('dgn-tower-f1', 0, 0, 'grp-tower', 0, 0, 0);
+  await seedDungeon('dgn-tower-f2', 1, 1, 'grp-tower', 1, 1, 0);
+  await seedDungeon('dgn-tower-f3', 2, 2, 'grp-tower', 2, 2, 0);
+  await seedDungeon('dgn-tower-diagonal', 2, 2, 'grp-tower', 3, 2, 1);
   await seedDungeon('dgn-legacy', 3, 3, null, null);
 
   console.log('== Dungeon round-trip: dungeonGroupId + floorIndex ==');
   const f1 = await getDungeon('dgn-tower-f1');
   assert(f1?.dungeonGroupId === 'grp-tower', 'dgn-tower-f1.dungeonGroupId === grp-tower');
   assert(f1?.floorIndex === 0, 'dgn-tower-f1.floorIndex === 0');
+  assert(f1?.gridX === 0 && f1?.gridY === 0, 'dgn-tower-f1 grid position round-trips');
+  const neighbors = await getDungeonGridNeighbors(USER, 'dgn-tower-f2');
+  assert(neighbors?.neighbors.map((entry) => entry.dungeonId).join(',') === 'dgn-tower-f1,dgn-tower-f3', 'grid neighbors include only orthogonal same-group dungeons');
   const legacy = await getDungeon('dgn-legacy');
   assert(legacy?.dungeonGroupId === null, 'legacy dungeon.dungeonGroupId === null');
   assert(legacy?.floorIndex === null, 'legacy dungeon.floorIndex === null');
@@ -145,6 +158,41 @@ async function main(): Promise<void> {
   const legacyRun = await getRun(USER, 'dgn-legacy');
   assert(legacyRun !== null, 'legacy dungeon startOrGetRun succeeds');
   assert(legacyRun?.dungeonId === 'dgn-legacy', 'legacy run.dungeonId === dgn-legacy (no group fallback)');
+
+  console.log('== automatic grid edge transition ==');
+  await seedDungeon('dgn-grid-west', 1, 1, 'grp-grid', 0, 0, 0);
+  await seedDungeon('dgn-grid-east', 1, 1, 'grp-grid', 1, 1, 0);
+  await seedWalkableTile('dgn-grid-west', 8, 1);
+  await seedWalkableTile('dgn-grid-west', 9, 1);
+  await seedWalkableTile('dgn-grid-east', 1, 1);
+  await startOrGetRun(USER, 'dgn-grid-west');
+  await run('UPDATE user_dungeon_runs SET current_x = 8, current_y = 1 WHERE user_id = ? AND dungeon_id = ?', USER, 'dgn-grid-west');
+  const crossed = await moveRun(USER, 'dgn-grid-west', 9, 1);
+  assert(crossed.kind === 'ok', 'edge move succeeds');
+  assert(crossed.kind === 'ok' && crossed.warpToDungeonId === 'dgn-grid-east', 'edge move reports the orthogonal neighbor');
+  assert(crossed.kind === 'ok' && crossed.run.dungeonId === 'dgn-grid-east' && crossed.run.currentX === 1 && crossed.run.currentY === 1, 'edge move enters one tile inside the target');
+
+  console.log('== automatic grid edge transition: west (enter from the right side of the neighbor) ==');
+  await seedDungeon('dgn-grid-south', 1, 1, 'grp-grid2', 0, 0, 1);
+  await startOrGetRun(USER, 'dgn-grid-east');
+  await run('UPDATE user_dungeon_runs SET current_x = 1, current_y = 1 WHERE user_id = ? AND dungeon_id = ?', USER, 'dgn-grid-east');
+  const crossedWest = await moveRun(USER, 'dgn-grid-east', 0, 1);
+  assert(crossedWest.kind === 'ok', 'west edge move succeeds (exit cell is a wall)');
+  assert(crossedWest.kind === 'ok' && crossedWest.warpToDungeonId === 'dgn-grid-west', 'west edge move reports the west neighbor');
+  assert(crossedWest.kind === 'ok' && crossedWest.run.dungeonId === 'dgn-grid-west' && crossedWest.run.currentX === 8 && crossedWest.run.currentY === 1, 'west edge move enters one tile inside the target (x = width - 2)');
+
+  console.log('== automatic grid edge transition: north (enter from the bottom side of the neighbor) ==');
+  await seedDungeon('dgn-grid-north', 1, 1, 'grp-grid2', 0, 0, 0);
+  await seedWalkableTile('dgn-grid-south', 1, 0);
+  await seedWalkableTile('dgn-grid-south', 1, 1);
+  await seedWalkableTile('dgn-grid-north', 1, 7);
+  await run('DELETE FROM user_dungeon_runs WHERE user_id = ?', USER);
+  await startOrGetRun(USER, 'dgn-grid-south');
+  await run('UPDATE user_dungeon_runs SET current_x = 1, current_y = 1 WHERE user_id = ? AND dungeon_id = ?', USER, 'dgn-grid-south');
+  const crossedNorth = await moveRun(USER, 'dgn-grid-south', 1, 0);
+  assert(crossedNorth.kind === 'ok', 'north edge move succeeds');
+  assert(crossedNorth.kind === 'ok' && crossedNorth.warpToDungeonId === 'dgn-grid-north', 'north edge move reports the north neighbor');
+  assert(crossedNorth.kind === 'ok' && crossedNorth.run.dungeonId === 'dgn-grid-north' && crossedNorth.run.currentX === 1 && crossedNorth.run.currentY === 7, 'north edge move slides to the nearest walkable entry cell (y = 7)');
 
   await closeDb();
   await closeDbAdapter();
