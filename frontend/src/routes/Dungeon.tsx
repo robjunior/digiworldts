@@ -24,6 +24,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 
 import { ContinuousDungeonGrid } from '../components/dungeon/ContinuousDungeonGrid';
+import { DungeonPhaserView } from '../phaser-dungeon/DungeonPhaserView';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
@@ -122,6 +123,12 @@ export function Dungeon(): JSX.Element {
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
+
+  const [usePhaser] = useState<boolean>(() => {
+    const rendererParam = new URLSearchParams(window.location.search).get('renderer');
+    if (rendererParam === 'phaser') sessionStorage.setItem('dungeonRenderer', 'phaser');
+    return sessionStorage.getItem('dungeonRenderer') === 'phaser';
+  });
 
   useEffect(() => {
     setPartyTrail([]);
@@ -563,16 +570,29 @@ export function Dungeon(): JSX.Element {
             />
           ) : null}
           <div className="dgrid-scroll">
-            <ContinuousDungeonGrid
-              viewportRef={continuousViewportRef}
-              active={data}
-              neighbors={neighborsQuery.data?.neighbors ?? []}
-              facing={facing}
-              moveDurationMs={moveDurationMs}
-              party={party}
-              partyTrail={partyTrail}
-              onCellClick={handleCellClick}
-            />
+            {usePhaser ? (
+              <DungeonPhaserView
+                viewportRef={continuousViewportRef}
+                active={data}
+                neighbors={neighborsQuery.data?.neighbors ?? []}
+                facing={facing}
+                moveDurationMs={moveDurationMs}
+                party={party}
+                partyTrail={partyTrail}
+                onCellClick={handleCellClick}
+              />
+            ) : (
+              <ContinuousDungeonGrid
+                viewportRef={continuousViewportRef}
+                active={data}
+                neighbors={neighborsQuery.data?.neighbors ?? []}
+                facing={facing}
+                moveDurationMs={moveDurationMs}
+                party={party}
+                partyTrail={partyTrail}
+                onCellClick={handleCellClick}
+              />
+            )}
           </div>
         </div>
 
