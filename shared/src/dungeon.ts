@@ -272,6 +272,8 @@ export type Dungeon = {
   readonly walkableMask: readonly (readonly [number, number])[] | null;
   readonly dungeonGroupId: string | null;
   readonly floorIndex: number | null;
+  readonly gridX: number | null;
+  readonly gridY: number | null;
   readonly createdAt: number;
   readonly updatedAt: number;
 };
@@ -421,6 +423,18 @@ export type DungeonRunView = {
 };
 
 export type DungeonListResponse = { readonly dungeons: readonly Dungeon[] };
+export type DungeonGridNeighbor = {
+  readonly dungeonId: string;
+  readonly gridX: number;
+  readonly gridY: number;
+  readonly view: DungeonRunView;
+};
+export type DungeonGridNeighborsResponse = {
+  readonly dungeonId: string;
+  readonly gridX: number | null;
+  readonly gridY: number | null;
+  readonly neighbors: readonly DungeonGridNeighbor[];
+};
 export type DungeonMoveResponse = { readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly blockedByDoorId?: string | null; readonly blockedByChestId?: string | null; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[]; readonly trapTriggered?: TrapTriggered };
 
 export type DungeonTriggerActivateResponse = {

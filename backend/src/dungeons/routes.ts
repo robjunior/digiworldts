@@ -21,6 +21,7 @@ import {
   extractRun,
   getEncounter,
   getDungeon,
+  getDungeonGridNeighbors,
   getRun,
   getDungeonView,
   listDungeons,
@@ -87,7 +88,17 @@ const ImportTiledNewInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2000).optional(),
   biome: z.union([z.enum(BIOMES), z.literal('null')]),
-});
+  dungeonGroupId: z.string().trim().min(1).max(120).optional(),
+  floorIndex: z.number().int().min(0).max(99).nullable().optional(),
+  gridX: z.number().int().min(-10_000).max(10_000).nullable().optional(),
+  gridY: z.number().int().min(-10_000).max(10_000).nullable().optional(),
+}).refine((value) => {
+  const hasGrid = value.gridX !== undefined || value.gridY !== undefined || value.floorIndex !== undefined;
+  if (hasGrid && value.dungeonGroupId === undefined) return false;
+  if ((value.gridX === null) !== (value.gridY === null)) return false;
+  if ((value.gridX !== undefined && value.gridX !== null) !== (value.gridY !== undefined && value.gridY !== null)) return false;
+  return true;
+}, { message: 'grid requires a group and X/Y together' });
 
 const ImportTiledReplaceInputSchema = z.object({
   tiledJson: z.unknown(),
@@ -187,9 +198,20 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
         name: parsedBody.data.name,
         biome: parsedBody.data.biome,
         ...(parsedBody.data.description !== undefined ? { description: parsedBody.data.description } : {}),
+        ...(parsedBody.data.dungeonGroupId !== undefined
+          ? {
+              dungeonGroupId: parsedBody.data.dungeonGroupId,
+              floorIndex: parsedBody.data.floorIndex ?? null,
+              gridX: parsedBody.data.gridX ?? null,
+              gridY: parsedBody.data.gridY ?? null,
+            }
+          : {}),
         payload: payload.payload,
       });
-      if (!result.ok) return reply.code(409).send({ error: result.error, missing: result.missing });
+      if (!result.ok) {
+        if (result.error === 'grid-conflict') return reply.code(409).send({ error: 'grid-conflict' });
+        return reply.code(409).send({ error: result.error, missing: result.missing });
+      }
       log.info('admin.dungeon.import.new', {
         adminId: admin.id,
         id: result.dungeon.id,
@@ -258,6 +280,8 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     const parsed = UpdateDungeonInputSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-dungeon', details: parsed.error.issues });
     const dungeon = await updateDungeon(req.params.id, parsed.data);
+    if (dungeon === 'grid-conflict') return reply.code(409).send({ error: 'grid-position-conflict' });
+    if (dungeon === 'grid-group-required') return reply.code(400).send({ error: 'grid-group-required' });
     if (!dungeon) return reply.code(404).send({ error: 'not-found' });
     log.info('admin.dungeon.update', { adminId: admin.id, id: dungeon.id });
     return reply.send({ dungeon });
@@ -413,6 +437,13 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
       });
     }
     return reply.send(view);
+  });
+
+  app.get<{ Params: { id: string } }>('/api/dungeon/:id/neighbors', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const neighbors = await getDungeonGridNeighbors(user.id, req.params.id);
+    if (!neighbors) return reply.code(404).send({ error: 'not-found' });
+    return reply.send(neighbors);
   });
 
   app.post<{ Params: { id: string } }>('/api/dungeon/:id/move', async (req, reply) => {

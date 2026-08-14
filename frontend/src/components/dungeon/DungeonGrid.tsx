@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactElement } from 'react';
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 
 type CSSVars = CSSProperties & { [key: `--${string}`]: string | number };
 
@@ -116,6 +116,7 @@ type EntityCellProps = {
   readonly marker: 'door' | 'chest' | 'trap' | 'lever' | null;
   readonly boss: { readonly catalogId: string; readonly label: string } | null;
   readonly facing: 'left' | 'right';
+  readonly bossFacing: 'left' | 'right';
 };
 
 const EntityCell = memo(function EntityCell({
@@ -126,6 +127,7 @@ const EntityCell = memo(function EntityCell({
   marker,
   boss,
   facing,
+  bossFacing,
 }: EntityCellProps): ReactElement {
   return (
     <div
@@ -134,11 +136,11 @@ const EntityCell = memo(function EntityCell({
       data-cell-x={x}
       data-cell-y={y}
     >
-      {trailMember !== null ? (
+      {trailMember !== null && !isPlayer ? (
         <div className="party-marker" aria-label={isPlayer ? 'Your party' : undefined}>
           <img
             className="party-sprite"
-            style={isPlayer && facing === 'left' ? { transform: 'scaleX(-1)' } : undefined}
+            style={facing === 'left' ? { transform: 'scaleX(-1)' } : undefined}
             src={`/assets/digimon/${trailMember.catalogId}/dot.gif`}
             alt={trailMember.nickname || trailMember.template?.name || 'party member'}
             onError={(e) => {
@@ -151,6 +153,7 @@ const EntityCell = memo(function EntityCell({
         <div className="boss-marker" aria-label={boss.label}>
           <img
             className="boss-sprite"
+            style={bossFacing === 'left' ? { transform: 'scaleX(-1)' } : undefined}
             src={`/assets/digimon/${boss.catalogId}/dot.gif`}
             alt={boss.label}
             onError={(e) => {
@@ -166,7 +169,7 @@ const EntityCell = memo(function EntityCell({
   );
 });
 
-type DungeonGridProps = {
+export type DungeonGridProps = {
   readonly dungeon: DungeonType;
   readonly run: DungeonRunView['run'];
   readonly tiles: readonly DungeonTile[];
@@ -182,10 +185,16 @@ type DungeonGridProps = {
   /** S10 — group-scoped fired lever ids (cross-map). */
   readonly firedTriggerIds: readonly string[];
   readonly facing: 'left' | 'right';
+  /** Walk animation duration in ms for a one-cell move (scales with party SPD). */
+  readonly moveDurationMs: number;
   readonly party: readonly RosterView[];
   /** Newest-first cells the party has occupied; `partyTrail[i]` maps to `party[i]`. Length ≤ 3. */
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
+  readonly cellSizeOverride?: number;
+  readonly cameraMode?: 'follow' | 'none';
+  readonly interactive?: boolean;
+  readonly renderParty?: boolean;
 };
 
 export const DungeonGrid = memo(function DungeonGrid({
@@ -203,9 +212,14 @@ export const DungeonGrid = memo(function DungeonGrid({
   poiStates,
   firedTriggerIds,
   facing,
+  moveDurationMs,
   party,
   partyTrail,
   onCellClick,
+  cellSizeOverride,
+  cameraMode = 'follow',
+  interactive = true,
+  renderParty = true,
 }: DungeonGridProps): ReactElement {
   const tilesByCoord = useMemo(() => {
     const map = new Map<string, DungeonTile[]>();
@@ -271,7 +285,40 @@ export const DungeonGrid = memo(function DungeonGrid({
     return down;
   }, [bridges, triggers, firedTriggerSet]);
   const canonicalTileset = primaryTileset(tilesets);
-  const cellSize = canonicalTileset ? canonicalTileset.tileWidth * PLAYER_ZOOM : CELL_SIZE_FALLBACK;
+  const cellSize = cellSizeOverride ?? (canonicalTileset ? canonicalTileset.tileWidth * PLAYER_ZOOM : CELL_SIZE_FALLBACK);
+
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [viewSize, setViewSize] = useState<{ readonly w: number; readonly h: number }>(() => ({
+    w: typeof window === 'undefined' ? 1200 : window.innerWidth,
+    h: typeof window === 'undefined' ? 800 : window.innerHeight,
+  }));
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const r = entries[0]?.contentRect;
+      if (r) setViewSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const gridW = dungeon.width * cellSize;
+  const gridH = dungeon.height * cellSize;
+  const playerCenterX = run.currentX * cellSize + cellSize / 2;
+  const playerCenterY = run.currentY * cellSize + cellSize / 2;
+  const camX = cameraMode === 'none'
+    ? 0
+    : Math.min(
+        Math.max(viewSize.w / 2 - playerCenterX, Math.min(0, viewSize.w - gridW)),
+        Math.max(0, viewSize.w - gridW),
+      );
+  const camY = cameraMode === 'none'
+    ? 0
+    : Math.min(
+        Math.max(viewSize.h / 2 - playerCenterY, Math.min(0, viewSize.h - gridH)),
+        Math.max(0, viewSize.h - gridH),
+      );
 
   const gridTemplateColumns = `repeat(${dungeon.width}, ${cellSize}px)`;
   const gridTemplateRows = `repeat(${dungeon.height}, ${cellSize}px)`;
@@ -281,9 +328,20 @@ export const DungeonGrid = memo(function DungeonGrid({
     '--cell-size': `${cellSize}px`,
     gridTemplateColumns,
     gridTemplateRows,
-    width: `${dungeon.width * cellSize}px`,
-    height: `${dungeon.height * cellSize}px`,
+    width: `${gridW}px`,
+    height: `${gridH}px`,
   };
+  const cameraStyle: CSSProperties = cameraMode === 'none'
+    ? { ...gridSize, position: 'absolute', top: 0, left: 0 }
+    : {
+        ...gridSize,
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        willChange: 'transform',
+        transition: 'transform 180ms ease-out',
+        transform: `translate(${camX}px, ${camY}px)`,
+      };
 
   const bgCells: ReactElement[] = [];
   const entityCells: ReactElement[] = [];
@@ -295,9 +353,9 @@ export const DungeonGrid = memo(function DungeonGrid({
       const bridgeAt = bridgeByKey.get(key);
       const bridgeDown = bridgeAt !== undefined && bridgeDownByKey.has(key);
       const isWalkable = cellIsWalkable(cellTiles) || bridgeDown;
-      const isPlayer = run.currentX === x && run.currentY === y;
+      const isPlayer = renderParty && run.currentX === x && run.currentY === y;
       const isAdjacent =
-        !isPlayer && isWalkable && Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1;
+        interactive && !isPlayer && isWalkable && Math.abs(x - run.currentX) + Math.abs(y - run.currentY) === 1;
 
       const encounterAt = encounterByKey.get(key);
       const isUndefeatedEncounter =
@@ -362,13 +420,17 @@ export const DungeonGrid = memo(function DungeonGrid({
         />,
       );
 
+      // trail[0] is the leader's own cell — rendered by the party layer, so
+      // followers (index >= 1) only. This also avoids a transient double
+      // leader while the trail state catches up after a move.
       const trailIdx = partyTrail.findIndex((p) => p.x === x && p.y === y);
-      const trailMember = trailIdx >= 0 ? party[trailIdx] ?? null : null;
+      const trailMember = trailIdx >= 1 ? party[trailIdx] ?? null : null;
       const doorMarker = doorAt !== undefined && !isPlayer ? 'door' : null;
       const chestMarker = chestAt !== undefined && !isPlayer ? 'chest' : null;
       const trapUsed = trapAt !== undefined && trapState === 'used' && !isPlayer;
       const leverMarker = triggerAt !== undefined && !isPlayer ? 'lever' : null;
       const marker = doorMarker ?? chestMarker ?? (trapUsed ? 'trap' : null) ?? leverMarker;
+      const bossFacing = bossSprite !== null && run.currentX < x ? 'left' : 'right';
 
       entityCells.push(
         <EntityCell
@@ -380,19 +442,45 @@ export const DungeonGrid = memo(function DungeonGrid({
           marker={marker}
           boss={bossSprite}
           facing={facing}
+          bossFacing={bossFacing}
         />,
       );
     }
   }
 
   return (
-    <div className="dgrid" style={{ ...gridSize, position: 'relative' }}>
+    <div className="dgrid-scroll-inner" ref={scrollRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+    <div className="dgrid" style={cameraStyle}>
       <div className="dgrid-layer dgrid-bg" style={{ ...gridSize, display: 'grid' }}>
         {bgCells}
       </div>
       <div className="dgrid-layer dgrid-entities" style={{ ...gridSize, display: 'grid' }}>
         {entityCells}
       </div>
+      {renderParty && party[0] !== undefined ? (
+        <div className="dgrid-layer dgrid-party" style={gridSize}>
+          <div
+            className="party-walk"
+            style={{
+              width: cellSize,
+              height: cellSize,
+              transform: `translate(${run.currentX * cellSize}px, ${run.currentY * cellSize}px)`,
+              transition: `transform ${moveDurationMs}ms linear`,
+            }}
+          >
+            <img
+              className="party-sprite"
+              style={facing === 'left' ? { transform: 'scaleX(-1)' } : undefined}
+              src={`/assets/digimon/${party[0].catalogId}/dot.gif`}
+              alt={party[0].nickname || party[0].template?.name || 'party member'}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.visibility = 'hidden';
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
     </div>
   );
 });

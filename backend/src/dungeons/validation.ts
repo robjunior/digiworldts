@@ -76,8 +76,23 @@ export const CreateDungeonInputSchema = z.object({
   challenge: ChallengeConfigSchema.optional(),
   dungeonGroupId: z.string().trim().min(1).max(120).nullable().optional(),
   floorIndex: z.number().int().min(0).max(99).nullable().optional(),
+  gridX: z.number().int().min(-10_000).max(10_000).nullable().optional(),
+  gridY: z.number().int().min(-10_000).max(10_000).nullable().optional(),
   ...RandomEncounterSettingsShape,
-}).superRefine(refineRandomEncounterSettings);
+}).superRefine((input, ctx) => {
+  refineRandomEncounterSettings(input, ctx);
+  if ((input.gridX === null) !== (input.gridY === null)) {
+    ctx.addIssue({ code: 'custom', path: ['gridX'], message: 'gridX and gridY must be set together' });
+  }
+  if ((input.gridX !== undefined && input.gridX !== null) !== (input.gridY !== undefined && input.gridY !== null)) {
+    ctx.addIssue({ code: 'custom', path: ['gridY'], message: 'gridX and gridY must be set together' });
+  }
+  if (input.dungeonGroupId === undefined || input.dungeonGroupId === null) {
+    if (input.gridX !== undefined && input.gridX !== null || input.gridY !== undefined && input.gridY !== null) {
+      ctx.addIssue({ code: 'custom', path: ['dungeonGroupId'], message: 'grid coordinates require a dungeon group' });
+    }
+  }
+});
 
 export const UpdateDungeonInputSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -102,7 +117,20 @@ export const UpdateDungeonInputSchema = z.object({
   challenge: ChallengeConfigSchema.optional(),
   dungeonGroupId: z.string().trim().min(1).max(120).nullable().optional(),
   floorIndex: z.number().int().min(0).max(99).nullable().optional(),
-}).superRefine(refineRandomEncounterSettings);
+  gridX: z.number().int().min(-10_000).max(10_000).nullable().optional(),
+  gridY: z.number().int().min(-10_000).max(10_000).nullable().optional(),
+}).superRefine((input, ctx) => {
+  refineRandomEncounterSettings(input, ctx);
+  if ((input.gridX === null) !== (input.gridY === null)) {
+    ctx.addIssue({ code: 'custom', path: ['gridX'], message: 'gridX and gridY must be set together' });
+  }
+  if ((input.gridX !== undefined && input.gridX !== null) !== (input.gridY !== undefined && input.gridY !== null)) {
+    ctx.addIssue({ code: 'custom', path: ['gridY'], message: 'gridX and gridY must be set together' });
+  }
+  if (input.dungeonGroupId === null && (input.gridX !== undefined && input.gridX !== null || input.gridY !== undefined && input.gridY !== null)) {
+    ctx.addIssue({ code: 'custom', path: ['dungeonGroupId'], message: 'grid coordinates require a dungeon group' });
+  }
+});
 
 export const TileSchema = z.object({
   x: z.number().int().min(0).max(199),
@@ -210,8 +238,10 @@ export type TriggerInput = z.infer<typeof TriggerInputSchema>;
 export type UpdateTriggerInput = z.infer<typeof UpdateTriggerInputSchema>;
 
 export const MoveInputSchema = z.object({
-  x: z.number().int().min(0).max(199),
-  y: z.number().int().min(0).max(199),
+  // One tile outside the bounds is legal: it signals an automatic grid
+  // crossing attempt through the map border.
+  x: z.number().int().min(-1).max(200),
+  y: z.number().int().min(-1).max(200),
 });
 
 export const PlayerEncounterDigimonSchema = EncounterDigimonSchema.omit({
@@ -294,6 +324,8 @@ export function asCreateDungeonPayload(input: CreateDungeonInput): Omit<Dungeon,
     walkableMask: null,
     dungeonGroupId: input.dungeonGroupId ?? null,
     floorIndex: input.floorIndex ?? null,
+    gridX: input.dungeonGroupId ? input.gridX ?? null : null,
+    gridY: input.dungeonGroupId ? input.gridY ?? null : null,
   };
 }
 

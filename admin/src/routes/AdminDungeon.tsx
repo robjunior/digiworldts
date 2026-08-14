@@ -8,6 +8,7 @@ import type { DungeonBridge, DungeonChest, DungeonDoor, DungeonEncounter, Dungeo
 
 import { AdminGuard } from '../components/admin/AdminGuard';
 import { ToolContext } from '../components/admin/dungeon/ToolContext';
+import { GridPositionEditor } from '../components/admin/dungeon/GridPositionEditor';
 import { TiledImportButton } from '../components/admin/dungeon/TiledImportButton';
 import { ADMIN_DUNGEON_QUERY } from '../components/admin/dungeon/query-keys';
 import type { Cell, PathTool, Tool } from '../components/admin/dungeon/types';
@@ -456,6 +457,7 @@ export function AdminDungeon(): JSX.Element {
               Fit
             </button>
           </div>
+          <GridPositionEditor dungeon={dungeon} />
           <div className="layer-picker tool-picker" aria-label="Dungeon tools">
             {TOOLS.map((entry) => (
               <button

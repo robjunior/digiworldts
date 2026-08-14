@@ -6,6 +6,7 @@ import {
   activateDungeonTrigger,
   completeDungeon,
   getDungeon,
+  getDungeonNeighbors,
   moveInDungeon,
   startEncounter,
   startRandomEncounter,
@@ -16,13 +17,13 @@ import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon, UserDungeonRun } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
 import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 
-import { DungeonGrid } from '../components/dungeon/DungeonGrid';
+import { ContinuousDungeonGrid } from '../components/dungeon/ContinuousDungeonGrid';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
@@ -50,10 +51,33 @@ export function Dungeon(): JSX.Element {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['dungeon', id],
-    queryFn: () => getDungeon(id!),
+    queryFn: () => {
+      if (id === undefined) throw new Error('Dungeon id is required');
+      return getDungeon(id);
+    },
     enabled: !!id,
     staleTime: 0,
   });
+  const neighborsQuery = useQuery({
+    queryKey: ['dungeon-neighbors', id],
+    queryFn: () => {
+      if (id === undefined) throw new Error('Dungeon id is required');
+      return getDungeonNeighbors(id);
+    },
+    enabled: !!id,
+    staleTime: 30_000,
+  });
+
+  useEffect(() => {
+    const neighbors = neighborsQuery.data?.neighbors ?? [];
+    const activeIds = new Set([id, ...neighbors.map((neighbor) => neighbor.dungeonId)]);
+    for (const neighbor of neighbors) {
+      queryClient.setQueryData(['dungeon', neighbor.dungeonId], neighbor.view);
+    }
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] === 'dungeon' && typeof query.queryKey[1] === 'string' && !activeIds.has(query.queryKey[1]),
+    });
+  }, [id, neighborsQuery.data, queryClient]);
 
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, staleTime: 30_000 });
   const shopQuery = useQuery({ queryKey: ['shop'] as const, queryFn: getShop, staleTime: 15_000 });
@@ -66,6 +90,12 @@ export function Dungeon(): JSX.Element {
     const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
     return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
   }, [rosterQuery.data]);
+
+  const partySpd = useMemo(() => {
+    const leader = party[0];
+    return (leader?.template?.baseStats.spd ?? 50) + (leader?.statBonus.spd ?? 0);
+  }, [party]);
+  const moveDurationMs = useMemo(() => Math.max(70, 260 - partySpd * 2), [partySpd]);
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -81,7 +111,7 @@ export function Dungeon(): JSX.Element {
   // `not-adjacent` → swallowed steps + repeated warning toasts (feels laggy).
   const posRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const wildStartPendingRef = useRef(false);
-  const gridScrollRef = useRef<HTMLDivElement | null>(null);
+  const continuousViewportRef = useRef<HTMLDivElement>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
   const [activeRandomEncounter, setActiveRandomEncounter] = useState<readonly EncounterDigimon[] | null>(null);
   const [pendingUnlock, setPendingUnlock] = useState<PendingUnlock | null>(null);
@@ -114,18 +144,6 @@ export function Dungeon(): JSX.Element {
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const scroller = gridScrollRef.current;
-    if (!scroller) return;
-    const cell = scroller.querySelector<HTMLElement>(`[data-cell-x="${data?.run.currentX ?? -1}"][data-cell-y="${data?.run.currentY ?? -1}"]`);
-    if (!cell) return;
-    const scrollerRect = scroller.getBoundingClientRect();
-    const cellRect = cell.getBoundingClientRect();
-    const targetLeft = scroller.scrollLeft + (cellRect.left - scrollerRect.left) - scrollerRect.width / 2 + cellRect.width / 2;
-    const targetTop = scroller.scrollTop + (cellRect.top - scrollerRect.top) - scrollerRect.height / 2 + cellRect.height / 2;
-    scroller.scrollTo({ left: targetLeft, top: targetTop, behavior: 'instant' });
-  }, [data?.run.currentX, data?.run.currentY]);
-
   const productById = useMemo(() => {
     const m = new Map<string, import('../lib/api-shop').ShopItemView>();
     for (const p of shopQuery.data?.catalog ?? []) m.set(p.id, p);
@@ -144,6 +162,20 @@ export function Dungeon(): JSX.Element {
       return [...prev, { text, cls, step }];
     });
   }, []);
+
+  const transitionToDungeon = useCallback(async (targetDungeonId: string, targetRun: UserDungeonRun): Promise<void> => {
+    const neighbor = neighborsQuery.data?.neighbors.find((entry) => entry.dungeonId === targetDungeonId);
+    try {
+      if (neighbor) {
+        queryClient.setQueryData(['dungeon', targetDungeonId], { ...neighbor.view, run: targetRun });
+      } else {
+        await queryClient.fetchQuery({ queryKey: ['dungeon', targetDungeonId], queryFn: () => getDungeon(targetDungeonId) });
+      }
+      navigate(`/dungeon/${targetDungeonId}`, { replace: true });
+    } catch (err) {
+      flashToast(err instanceof Error ? err.message : 'Could not load the next dungeon.');
+    }
+  }, [flashToast, navigate, neighborsQuery.data, queryClient]);
 
   const moveMutation = useMutation({
     mutationFn: async ({ x, y }: { x: number; y: number }) => {
@@ -199,7 +231,9 @@ export function Dungeon(): JSX.Element {
         }
       }
       if (Object.hasOwn(res, 'warpToDungeonId')) {
-        navigate(res.warpToDungeonId === null ? '/world' : `/dungeon/${res.warpToDungeonId}`);
+        const targetDungeonId = res.warpToDungeonId;
+        if (targetDungeonId === null) navigate('/world');
+        else if (targetDungeonId !== undefined) void transitionToDungeon(targetDungeonId, res.run);
       }
     },
     onError: (err: Error) => {
@@ -393,7 +427,19 @@ export function Dungeon(): JSX.Element {
           trigger.targets.some((target) => target.kind === 'bridge' && target.bridgeId === bridge.id),
         ),
       );
-      if (!bridgeDown) {
+      // Grid crossing: stepping off the map edge (or into a border wall) is a
+      // legal move when a grid neighbor exists in that direction — the server
+      // transitions automatically. Silent wall-block otherwise.
+      const { dungeon } = run;
+      const gridX = dungeon.gridX;
+      const gridY = dungeon.gridY;
+      const atBorder = nx < 0 || nx >= dungeon.width || ny < 0 || ny >= dungeon.height
+        || (dx !== 0 && nx === (dx > 0 ? dungeon.width - 1 : 0))
+        || (dy !== 0 && ny === (dy > 0 ? dungeon.height - 1 : 0));
+      const crossable = atBorder && dungeon.dungeonGroupId !== null && gridX !== null && gridY !== null
+        && (neighborsQuery.data?.neighbors ?? []).some((neighbor) =>
+          neighbor.gridX === gridX + (dx !== 0 ? dx : 0) && neighbor.gridY === gridY + (dy !== 0 ? dy : 0));
+      if (!bridgeDown && !crossable) {
         // Just silently do nothing if trying to move into a wall
         return;
       }
@@ -477,7 +523,7 @@ export function Dungeon(): JSX.Element {
     return <div className="stage"><div style={{ padding: 20, color: 'var(--el)' }}>Loading...</div></div>;
   }
 
-  const { dungeon, run, tiles, tilesets, encounters, items, doors, chests, traps, poiStates, groupInventory, triggers, bridges, firedTriggerIds } = data;
+  const { dungeon, run, encounters, doors, groupInventory } = data;
   const isComplete = !!run.completedAt;
   const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
@@ -516,22 +562,13 @@ export function Dungeon(): JSX.Element {
               onUnlock={(doorId) => unlockMutation.mutate(doorId)}
             />
           ) : null}
-          <div className="dgrid-scroll" ref={gridScrollRef}>
-            <DungeonGrid
-              dungeon={dungeon}
-              run={run}
-              tiles={tiles}
-              tilesets={tilesets}
-              encounters={encounters}
-              items={items}
-              doors={doors}
-              chests={chests}
-              traps={traps}
-              triggers={triggers}
-              bridges={bridges}
-              poiStates={poiStates}
-              firedTriggerIds={firedTriggerIds}
+          <div className="dgrid-scroll">
+            <ContinuousDungeonGrid
+              viewportRef={continuousViewportRef}
+              active={data}
+              neighbors={neighborsQuery.data?.neighbors ?? []}
               facing={facing}
+              moveDurationMs={moveDurationMs}
               party={party}
               partyTrail={partyTrail}
               onCellClick={handleCellClick}
