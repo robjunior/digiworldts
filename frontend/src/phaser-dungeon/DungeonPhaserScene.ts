@@ -23,6 +23,12 @@ const TILE_SIZE_FALLBACK = 32;
 const BACKGROUND_COLOR = '#1c1f2a';
 const UNDERLAY_DEPTH = -1;
 const FLAT_CELL_DEPTH = -2;
+// Flat (tileset-less) cells paint a dark-neutral distinct from the camera
+// background (#1c1f2a) with a 1px gridline so adjacent cells stay
+// distinguishable — a tileset-less dungeon is visible and playable, not a
+// void-colored maze. Same muted PSX palette family as BACKGROUND_COLOR.
+const FLAT_CELL_FILL = '#232733';
+const FLAT_CELL_GRIDLINE = '#1a1e28';
 // Party sprites sit above every tile layer (BG_KIND_ORDER maps to depths
 // -1..9 plus 99 for unknown kinds) — 1000 keeps the party on top.
 const PARTY_DEPTH = 1000;
@@ -772,17 +778,29 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
     if (flatCells.size > 0) {
       const gfx = this.add.graphics();
-      gfx.fillStyle(Phaser.Display.Color.HexStringToColor(BACKGROUND_COLOR).color, 1);
+      const flatFill = Phaser.Display.Color.HexStringToColor(FLAT_CELL_FILL).color;
+      const gridFill = Phaser.Display.Color.HexStringToColor(FLAT_CELL_GRIDLINE).color;
       for (const key of flatCells) {
         const coords = key.split(',').map(Number);
-        gfx.fillRect(offsetX + coords[0]! * tileSize, offsetY + coords[1]! * tileSize, tileSize, tileSize);
+        const px = offsetX + coords[0]! * tileSize;
+        const py = offsetY + coords[1]! * tileSize;
+        gfx.fillStyle(flatFill, 1);
+        gfx.fillRect(px, py, tileSize, tileSize);
+        gfx.fillStyle(gridFill, 1);
+        gfx.fillRect(px, py, tileSize, 1);
+        gfx.fillRect(px, py + tileSize - 1, tileSize, 1);
+        gfx.fillRect(px, py, 1, tileSize);
+        gfx.fillRect(px + tileSize - 1, py, 1, tileSize);
       }
       gfx.setDepth(FLAT_CELL_DEPTH);
       this.flatGraphics.push(gfx);
       this.flatCells += flatCells.size;
+      const totalCells = new Set(view.tiles.map((tile) => `${tile.x},${tile.y}`)).size;
+      if (totalCells > 0 && flatCells.size === totalCells) {
+        console.warn(`[dungeon] map ${view.dungeon.id} rendered with zero owned tiles (${flatCells.size}/${totalCells} cells flat) — tileset-less dungeon`);
+      }
     }
 
-    if (primary !== null) {
     const run = view.run;
     const firedSet = new Set(view.firedTriggerIds);
     const doorOpenIds = new Set<string>();
@@ -808,7 +826,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const doorOpen = run.unlockedDoors.includes(door.id) || doorOpenIds.has(door.id);
       const gid = doorOpen ? door.usedTileGid : door.unusedTileGid;
       if (gid === null) continue;
-      const frame = tileFrame(primary, gid);
+      const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(door.x, door.y), poiRow(door.x, door.y), frame.texture, frame.frame);
         sprite.setOrigin(0.5, 0.5);
@@ -826,7 +844,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const chestState = poiStateByKey.get(`chest:${chest.id}`) ?? 'unused';
       const gid = chestState === 'used' ? chest.usedTileGid : chest.unusedTileGid;
       if (gid === null) continue;
-      const frame = tileFrame(primary, gid);
+      const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(chest.x, chest.y), poiRow(chest.x, chest.y), frame.texture, frame.frame);
         sprite.setOrigin(0.5, 0.5);
@@ -845,7 +863,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (trapState !== 'used') continue;
       const gid = trap.usedTileGid;
       if (gid === null) continue;
-      const frame = tileFrame(primary, gid);
+      const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(trap.x, trap.y), poiRow(trap.x, trap.y), frame.texture, frame.frame);
         sprite.setOrigin(0.5, 0.5);
@@ -864,7 +882,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const triggerUsed = firedSet.has(trigger.id);
       const gid = triggerUsed ? trigger.usedTileGid : trigger.unusedTileGid;
       if (gid === null) continue;
-      const frame = tileFrame(primary, gid);
+      const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), frame.texture, frame.frame);
         sprite.setOrigin(0.5, 0.5);
@@ -883,7 +901,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const bridgeDown = bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
       const gid = bridgeDown ? bridge.downTileGid : bridge.upTileGid;
       if (gid === null) continue;
-      const frame = tileFrame(primary, gid);
+      const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(bridge.x, bridge.y), poiRow(bridge.x, bridge.y), frame.texture, frame.frame);
         sprite.setOrigin(0.5, 0.5);
@@ -925,7 +943,6 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (run.collectedItems.includes(item.id)) continue;
       this.poiInfos.push({ kind: 'item', x: item.x, y: item.y, gid: null, slotGridX, slotGridY });
       this.addPoiBadge(poiCell(item.x, item.y), poiRow(item.x, item.y), 'I');
-    }
     }
   }
 
