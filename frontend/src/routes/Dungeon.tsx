@@ -12,7 +12,7 @@ import {
   startRandomEncounter,
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
-import { ApiError, getRoster } from '../lib/api';
+import { ApiError, getBattleView, getRoster } from '../lib/api';
 import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
@@ -159,6 +159,27 @@ export function Dungeon(): JSX.Element {
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1900);
   }, []);
 
+  // Reconnect to a PvE battle the server still has active for this user but
+  // the client lost track of (refresh mid-transition, failed navigation, etc).
+  // GET /api/world/battle returns the same activeByUser battle dungeon
+  // encounters live in; 404 means no battle to resume.
+  const recoverActiveBattle = useCallback((): void => {
+    if (!id) return;
+    void getBattleView()
+      .then((battle) => {
+        handleServerMessage({ type: 'match', matchId: battle.id, view: battle });
+        navigate('/loading', { state: { mode: 'combat', battle, returnTo: '/combat' } });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof ApiError && (error.status === 404 || error.status === 400)) return;
+        flashToast(error instanceof Error ? error.message : 'Could not resume battle.');
+      });
+  }, [id, handleServerMessage, navigate, flashToast]);
+
+  useEffect(() => {
+    recoverActiveBattle();
+  }, [recoverActiveBattle]);
+
   const handleTextureFallback = useCallback(
     (failed: readonly TilesetGrant[]): void => {
       const names = failed.map((grant) => grant.id).join(', ');
@@ -248,6 +269,10 @@ export function Dungeon(): JSX.Element {
       }
     },
     onError: (err: Error) => {
+      if (err instanceof ApiError && err.message === 'battle-in-progress') {
+        recoverActiveBattle();
+        return;
+      }
       flashToast(err.message || 'Cannot move there.');
     },
     onSettled: () => {
@@ -308,6 +333,11 @@ export function Dungeon(): JSX.Element {
       navigate('/loading', { state: { mode: 'combat', battle, returnTo: '/combat' } });
     },
     onError: (err: Error) => {
+      if (err instanceof ApiError && err.message === 'battle-in-progress') {
+        setActiveEncounterId(null);
+        recoverActiveBattle();
+        return;
+      }
       flashToast(err.message || 'Could not start battle.');
     },
   });
@@ -325,6 +355,11 @@ export function Dungeon(): JSX.Element {
       navigate('/loading', { state: { mode: 'combat', battle, returnTo: '/combat' } });
     },
     onError: (err: Error) => {
+      if (err instanceof ApiError && err.message === 'battle-in-progress') {
+        setActiveRandomEncounter(null);
+        recoverActiveBattle();
+        return;
+      }
       flashToast(err.message || 'Could not start wild battle.');
     },
     onSettled: () => {
