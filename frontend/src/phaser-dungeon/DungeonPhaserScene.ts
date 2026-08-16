@@ -238,6 +238,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private lastFollowTarget: { readonly x: number; readonly y: number } | null = null;
   private clampBounds: { readonly width: number; readonly height: number } | null = null;
   private lastComposedNeighbors: readonly DungeonGridNeighbor[] | null = null;
+  private lastComposedActiveView: DungeonRunView | null = null;
   private poiInfos: DungeonPoiInfo[] = [];
   private renderedTexts: Phaser.GameObjects.Text[] = [];
   private activeSlotOrigin: { readonly x: number; readonly y: number } | null = null;
@@ -283,6 +284,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.clearRendered();
     this.booted = false;
     this.latestProps = null;
+    this.lastComposedNeighbors = null;
+    this.lastComposedActiveView = null;
     this.followTarget = null;
   }
 
@@ -366,11 +369,32 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // dungeon id — for a few renders the wrapper passes `neighbors: []`. That
     // empty list must NOT collapse the composed world to a single map mid-
     // crossing (a rebuild would snap the camera). Until the fresh neighbors
-    // land, reuse the last composed neighbor list (the two slots are the same
-    // two maps, just with the active swapped).
+    // land, rebuild the SAME slot set as the last composition: the crossed-
+    // into dungeon (now the active view) drops out of its own neighbor slot
+    // and the previous active view takes that slot's place as a neighbor. The
+    // two maps swap roles, so world size + origin are unchanged and the camera
+    // never snaps; when the real neighbor list lands (same slot set), the
+    // recomposition is a no-op render.
     let neighbors = props.neighbors;
-    if (neighbors.length === 0 && this.lastComposedNeighbors !== null && this.lastComposedNeighbors.length > 0) {
-      neighbors = this.lastComposedNeighbors;
+    if (neighbors.length === 0 && this.lastComposedActiveView !== null && this.lastComposedNeighbors !== null && this.lastComposedNeighbors.length > 0) {
+      const activeId = props.view.dungeon.id;
+      const previousActive = this.lastComposedActiveView;
+      if (previousActive.dungeon.id === activeId) {
+        neighbors = this.lastComposedNeighbors;
+      } else {
+        const crossedInto = this.lastComposedNeighbors.find((neighbor) => neighbor.dungeonId === activeId);
+        if (crossedInto !== undefined) {
+          neighbors = [
+            {
+              dungeonId: previousActive.dungeon.id,
+              gridX: previousActive.dungeon.gridX ?? 0,
+              gridY: previousActive.dungeon.gridY ?? 0,
+              view: previousActive,
+            },
+            ...this.lastComposedNeighbors.filter((neighbor) => neighbor.dungeonId !== activeId),
+          ];
+        }
+      }
     }
     const grants = uniqueGrants([props.view, ...neighbors.map((neighbor) => neighbor.view)]);
     const abandonedIds = new Set(
@@ -378,6 +402,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     );
     const layout = computeLayout(props.view, neighbors, abandonedIds);
     this.lastComposedNeighbors = neighbors;
+    this.lastComposedActiveView = props.view;
     this.clampBounds = { width: layout.width, height: layout.height };
     // startFollow (lerp 1) tracks this target every frame, so moving it in
     // place keeps camera continuity across grid-crossing re-compositions.
