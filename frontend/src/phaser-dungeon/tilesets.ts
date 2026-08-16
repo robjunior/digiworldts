@@ -183,34 +183,49 @@ export function bareGidForTile(rawGid: number): number {
 }
 
 export type TiledFlipState = {
-  readonly flipX: boolean;
-  readonly flipY: boolean;
-  /** 90 when the anti-diagonal flip bit is set, else 0. */
+  /** Rotation in radians (Phaser convention — clockwise in screen space). */
   readonly rotation: number;
+  /** Horizontal mirror (Phaser flipX). Phaser never derives flipY from GID flags. */
+  readonly flipped: boolean;
 };
 
 /**
- * Extract the Tiled flip flags from a raw GID, mirroring the shared
- * `tiledGidTransform` semantics for the tilemap path (flipX/flipY/rotation).
+ * Decode the Tiled flip/rotation flags from a raw GID using Phaser's
+ * canonical ParseGID 8-case table (`phaser/src/tilemaps/parsers/tiled/ParseGID.js`):
+ * the H/V/D bits are NOT independent — each combination collapses into a
+ * single rotation (radians, clockwise-positive in screen space) plus one
+ * horizontal-mirror flag. This is visually identical to Tiled's own
+ * `CellRenderer::render` (and thus the shared `tiledGidTransform` the DOM
+ * grid used), but expressed the way Phaser's tile + sprite renderers apply it.
  */
 export function tiledFlipBits(rawGid: number): TiledFlipState {
-  return {
-    flipX: (rawGid & TILED_GID_FLIP_H) !== 0,
-    flipY: (rawGid & TILED_GID_FLIP_V) !== 0,
-    rotation: (rawGid & TILED_GID_FLIP_D) !== 0 ? 90 : 0,
-  };
+  const flipH = (rawGid & TILED_GID_FLIP_H) !== 0;
+  const flipV = (rawGid & TILED_GID_FLIP_V) !== 0;
+  const flipD = (rawGid & TILED_GID_FLIP_D) !== 0;
+  const HALF_PI = Math.PI / 2;
+  // ParseGID case order (H, V, D):
+  if (flipH && flipV && flipD) return { rotation: HALF_PI, flipped: true };
+  if (flipH && flipV) return { rotation: Math.PI, flipped: false };
+  if (flipH && flipD) return { rotation: HALF_PI, flipped: false };
+  if (flipH) return { rotation: 0, flipped: true };
+  if (flipV && flipD) return { rotation: 3 * HALF_PI, flipped: false };
+  if (flipV) return { rotation: Math.PI, flipped: true };
+  if (flipD) return { rotation: 3 * HALF_PI, flipped: true };
+  return { rotation: 0, flipped: false };
 }
 
 /**
  * Re-apply Tiled flip flags to an already-placed tile. Call AFTER
  * `putTileAt`/layer creation with the tile's BARE gid — the data array must
  * never hold flagged gids, the flags are applied here on the Phaser Tile.
+ * `Tile.rotation` is in RADIANS (same as `ParseTileLayers`), so the ParseGID
+ * rotation is written directly; flipY is always false per Phaser semantics.
  */
 export function applyTiledFlips(tile: Phaser.Tilemaps.Tile, rawGid: number): void {
   const flip = tiledFlipBits(rawGid);
-  tile.flipX = flip.flipX;
-  tile.flipY = flip.flipY;
   tile.rotation = flip.rotation;
+  tile.flipX = flip.flipped;
+  tile.flipY = false;
 }
 
 /**

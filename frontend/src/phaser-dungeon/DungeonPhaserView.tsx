@@ -42,13 +42,14 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
     facing,
     moveDurationMs,
     partyTrail,
+    onCellClick,
   } = props;
 
   const gameRef = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<DungeonPhaserScene | null>(null);
 
-  const latestPropsRef = useRef({ active, neighbors, party, facing, moveDurationMs, partyTrail });
-  latestPropsRef.current = { active, neighbors, party, facing, moveDurationMs, partyTrail };
+  const latestPropsRef = useRef({ active, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick });
+  latestPropsRef.current = { active, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick };
 
   useEffect(() => {
     const container = viewportRef.current;
@@ -61,7 +62,7 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
       const scene = sceneRef.current;
       if (!scene) return;
       const props = latestPropsRef.current;
-      scene.setProps(props.active, props.neighbors, props.party, props.facing, props.moveDurationMs, props.partyTrail);
+      scene.setProps(props.active, props.neighbors, props.party, props.facing, props.moveDurationMs, props.partyTrail, props.onCellClick);
     };
 
     game.events.once(Phaser.Core.Events.READY, () => {
@@ -80,8 +81,8 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-    scene.setProps(active, neighbors, party, facing, moveDurationMs, partyTrail);
-  }, [active, neighbors, party, facing, moveDurationMs, partyTrail]);
+    scene.setProps(active, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick);
+  }, [active, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick]);
 
   useEffect(() => {
     const game = gameRef.current;

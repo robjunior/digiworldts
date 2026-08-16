@@ -23,7 +23,6 @@ import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 
-import { ContinuousDungeonGrid } from '../components/dungeon/ContinuousDungeonGrid';
 import { DungeonPhaserView } from '../phaser-dungeon/DungeonPhaserView';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
@@ -123,12 +122,6 @@ export function Dungeon(): JSX.Element {
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
-
-  const [usePhaser] = useState<boolean>(() => {
-    const rendererParam = new URLSearchParams(window.location.search).get('renderer');
-    if (rendererParam === 'phaser') sessionStorage.setItem('dungeonRenderer', 'phaser');
-    return sessionStorage.getItem('dungeonRenderer') === 'phaser';
-  });
 
   useEffect(() => {
     setPartyTrail([]);
@@ -443,9 +436,15 @@ export function Dungeon(): JSX.Element {
       const atBorder = nx < 0 || nx >= dungeon.width || ny < 0 || ny >= dungeon.height
         || (dx !== 0 && nx === (dx > 0 ? dungeon.width - 1 : 0))
         || (dy !== 0 && ny === (dy > 0 ? dungeon.height - 1 : 0));
+      // Grid crossing: the server is authoritative (resolveGridEntry +
+      // getAutomaticGridTransition) and rejects an invalid border step with a
+      // 400 (toast) — never a crash. While the neighbors query is loading or
+      // errored, defer to the server instead of silently swallowing the move,
+      // so a legal crossing isn't blocked by an empty in-flight list.
       const crossable = atBorder && dungeon.dungeonGroupId !== null && gridX !== null && gridY !== null
-        && (neighborsQuery.data?.neighbors ?? []).some((neighbor) =>
-          neighbor.gridX === gridX + (dx !== 0 ? dx : 0) && neighbor.gridY === gridY + (dy !== 0 ? dy : 0));
+        && ((neighborsQuery.data?.neighbors ?? []).some((neighbor) =>
+          neighbor.gridX === gridX + (dx !== 0 ? dx : 0) && neighbor.gridY === gridY + (dy !== 0 ? dy : 0))
+          || neighborsQuery.isLoading || neighborsQuery.isError);
       if (!bridgeDown && !crossable) {
         // Just silently do nothing if trying to move into a wall
         return;
@@ -458,7 +457,7 @@ export function Dungeon(): JSX.Element {
     }
     movePendingRef.current = true;
     moveMutation.mutate({ x: nx, y: ny });
-  }, [id, dialogueOpen, activeEncounterId, activeRandomEncounter, moveMutation, flashToast]);
+  }, [id, dialogueOpen, activeEncounterId, activeRandomEncounter, moveMutation, flashToast, neighborsQuery]);
 
   const handleCellClick = useCallback((x: number, y: number) => {
     const cx = posRef.current.x;
@@ -569,31 +568,16 @@ export function Dungeon(): JSX.Element {
               onUnlock={(doorId) => unlockMutation.mutate(doorId)}
             />
           ) : null}
-          <div className="dgrid-scroll">
-            {usePhaser ? (
-              <DungeonPhaserView
-                viewportRef={continuousViewportRef}
-                active={data}
-                neighbors={neighborsQuery.data?.neighbors ?? []}
-                facing={facing}
-                moveDurationMs={moveDurationMs}
-                party={party}
-                partyTrail={partyTrail}
-                onCellClick={handleCellClick}
-              />
-            ) : (
-              <ContinuousDungeonGrid
-                viewportRef={continuousViewportRef}
-                active={data}
-                neighbors={neighborsQuery.data?.neighbors ?? []}
-                facing={facing}
-                moveDurationMs={moveDurationMs}
-                party={party}
-                partyTrail={partyTrail}
-                onCellClick={handleCellClick}
-              />
-            )}
-          </div>
+          <DungeonPhaserView
+            viewportRef={continuousViewportRef}
+            active={data}
+            neighbors={neighborsQuery.data?.neighbors ?? []}
+            facing={facing}
+            moveDurationMs={moveDurationMs}
+            party={party}
+            partyTrail={partyTrail}
+            onCellClick={handleCellClick}
+          />
         </div>
 
         <div className="controls">
