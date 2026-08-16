@@ -113,6 +113,10 @@ export function Dungeon(): JSX.Element {
   // re-render used to target a cell 2 tiles away → server rejects with
   // `not-adjacent` → swallowed steps + repeated warning toasts (feels laggy).
   const posRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  // Set when a move response warps into an adjacent dungeon (grid crossing).
+  // The useEffect([id]) below must NOT reset facing/trail on that id change —
+  // the crossing is a seam walk, not a fresh entry.
+  const gridCrossingRef = useRef(false);
   const wildStartPendingRef = useRef(false);
   const continuousViewportRef = useRef<HTMLDivElement>(null);
   const [activeEncounterId, setActiveEncounterId] = useState<string | null>(null);
@@ -127,6 +131,10 @@ export function Dungeon(): JSX.Element {
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
 
   useEffect(() => {
+    if (gridCrossingRef.current) {
+      gridCrossingRef.current = false;
+      return;
+    }
     setPartyTrail([]);
     setFacing('right');
   }, [id]);
@@ -203,6 +211,7 @@ export function Dungeon(): JSX.Element {
       } else {
         await queryClient.fetchQuery({ queryKey: ['dungeon', targetDungeonId], queryFn: () => getDungeon(targetDungeonId) });
       }
+      gridCrossingRef.current = true;
       navigate(`/dungeon/${targetDungeonId}`, { replace: true });
     } catch (err) {
       flashToast(err instanceof Error ? err.message : 'Could not load the next dungeon.');
@@ -216,6 +225,7 @@ export function Dungeon(): JSX.Element {
     },
     onSuccess: (res, { x, y }) => {
       const dx = x - posRef.current.x;
+      const dy = y - posRef.current.y;
       if (dx !== 0) setFacing(dx < 0 ? 'left' : 'right');
       posRef.current = { x: res.run.currentX, y: res.run.currentY };
       setStepCount((s) => s + 1);
@@ -228,10 +238,12 @@ export function Dungeon(): JSX.Element {
       setPendingUnlock(null);
       setActiveRandomEncounter(null);
       pushLog(`Moved to ${x}, ${y}.`, '');
-      queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
-        if (!old) return old;
-        return { ...old, run: res.run };
-      });
+      if (!Object.hasOwn(res, 'warpToDungeonId')) {
+        queryClient.setQueryData(['dungeon', id], (old: DungeonRunView | undefined) => {
+          if (!old) return old;
+          return { ...old, run: res.run };
+        });
+      }
       if (res.trapTriggered) {
         const t = res.trapTriggered;
         const detail = t.dodged
@@ -265,7 +277,22 @@ export function Dungeon(): JSX.Element {
       if (Object.hasOwn(res, 'warpToDungeonId')) {
         const targetDungeonId = res.warpToDungeonId;
         if (targetDungeonId === null) navigate('/world');
-        else if (targetDungeonId !== undefined) void transitionToDungeon(targetDungeonId, res.run);
+        else if (targetDungeonId !== undefined) {
+          // Re-anchor the party trail into the target map's coordinate space:
+          // the old cells were in the source map, so followers would render
+          // off-position (or vanish) for one frame. Place them trailing behind
+          // the leader's entry cell along the walk direction instead.
+          const entryX = res.run.currentX;
+          const entryY = res.run.currentY;
+          const dirX = Math.sign(dx);
+          const dirY = Math.sign(dy);
+          setPartyTrail([
+            { x: entryX, y: entryY },
+            { x: entryX - dirX, y: entryY - dirY },
+            { x: entryX - dirX * 2, y: entryY - dirY * 2 },
+          ]);
+          void transitionToDungeon(targetDungeonId, res.run);
+        }
       }
     },
     onError: (err: Error) => {
