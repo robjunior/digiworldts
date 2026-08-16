@@ -79,7 +79,7 @@ import {
 } from './validation.js';
 import { loadCatalog, findTemplate } from '../digimon/xml.js';
 import { countPartyMembers } from '../roster/routes.js';
-import { setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
+import { hasActivePveBattle, setPveDungeonContext, startPveBattleFromEncounter } from '../world/pve-battle.js';
 import type { WildMon } from '../world/engine.js';
 import { randomEncounterMatchesDungeonConfig } from './random.js';
 
@@ -448,6 +448,9 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
 
   app.post<{ Params: { id: string } }>('/api/dungeon/:id/move', async (req, reply) => {
     const user = await requireAuth(req, reply);
+    if (hasActivePveBattle(user.id)) {
+      return reply.code(409).send({ error: 'battle-in-progress', message: 'Resolve your active battle first.' });
+    }
     const parsed = MoveInputSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid-move', details: parsed.error.issues });
     const moved = await moveRun(user.id, req.params.id, parsed.data.x, parsed.data.y);
