@@ -31,6 +31,10 @@ import type { TilesetGrant } from '@digiworld/shared';
  *     flag bits and re-apply flipX/flipY/rotation per tile AFTER placement.
  *   - `preloadDigimonDot(scene, catalogId)` — shared digimon dot loader
  *     (Todo 5/6 party + boss sprites), deduped by catalogId.
+ *   - `markTextureLoadFailed(scene, key)` / `isTextureAbandoned(textures, key)` —
+ *     retry budget: each failed load quarantines the key for FAILED_RETRY_MS;
+ *     after `MAX_TEXTURE_RETRIES` failures the key is abandoned, no further
+ *     loads are queued, and callers fall back to flat rendering.
  *
  * All GID math is imported from `@digiworld/shared` — never duplicated here.
  */
@@ -50,35 +54,94 @@ export function digimonDotKey(catalogId: string): string {
 }
 
 /**
- * Per-TextureManager set of texture keys already queued for load. Guards
- * against queueing the same image twice in one game (a fresh Phaser.Game has
- * a fresh TextureManager, so this never leaks stale state across games).
+ * Per-TextureManager bookkeeping for the texture pipeline. A key lives in one
+ * of three states beyond "not requested":
+ *
+ *  - `pendingTextures`: queued for load right now, not yet settled by the
+ *    loader. Guards against queueing the same image twice while a load is
+ *    in flight.
+ *  - `failedTextures`: a previous load ERRORED (404, network, ...) and the
+ *    image never landed in the texture manager. The key is quarantined for
+ *    FAILED_RETRY_MS so a permanently-broken URL cannot re-queue (and re-fail)
+ *    in a hot loop, but a transient failure is retried on a later pass
+ *    instead of wedging the pipeline forever.
+ *  - loaded: no bookkeeping needed — `textures.exists()` covers it.
+ *
+ * A fresh Phaser.Game has a fresh TextureManager, so neither map leaks stale
+ * state across games.
  */
-const requestedTextures = new WeakMap<Phaser.Textures.TextureManager, Set<string>>();
+const FAILED_RETRY_MS = 30_000;
 
-function trackRequest(textures: Phaser.Textures.TextureManager, key: string): boolean {
-  let set = requestedTextures.get(textures);
+/** Max retries (attempts beyond the initial load) per key per scene lifetime before giving up. */
+export const MAX_TEXTURE_RETRIES = 2;
+
+type FailedEntry = { readonly failedAt: number; readonly retries: number };
+
+const pendingTextures = new WeakMap<Phaser.Textures.TextureManager, Set<string>>();
+const failedTextures = new WeakMap<Phaser.Textures.TextureManager, Map<string, FailedEntry>>();
+
+/** Claim a texture key as queued (in-flight). False when it is already pending. */
+function claimPending(textures: Phaser.Textures.TextureManager, key: string): boolean {
+  let set = pendingTextures.get(textures);
   if (!set) {
     set = new Set();
-    requestedTextures.set(textures, set);
+    pendingTextures.set(textures, set);
   }
   if (set.has(key)) return false;
   set.add(key);
   return true;
 }
 
+/** True while `key` is quarantined after a failed load (still within the retry window). */
+function isQuarantined(textures: Phaser.Textures.TextureManager, key: string, now: number): boolean {
+  const entry = failedTextures.get(textures)?.get(key);
+  if (entry === undefined) return false;
+  return now - entry.failedAt < FAILED_RETRY_MS;
+}
+
+/**
+ * True once a key has exhausted its retry budget: the pipeline gives up, stops
+ * queueing further loads, and callers fall back to flat rendering.
+ */
+export function isTextureAbandoned(textures: Phaser.Textures.TextureManager, key: string): boolean {
+  const entry = failedTextures.get(textures)?.get(key);
+  return entry !== undefined && entry.retries > MAX_TEXTURE_RETRIES;
+}
+
+/**
+ * Report a queued texture load that failed — the key's image never landed in
+ * the texture manager (404, network error, ...). Releases the in-flight claim
+ * and quarantines the key for FAILED_RETRY_MS. Call from the loader's COMPLETE
+ * handler for every key that was queued but is still missing afterwards —
+ * never from the queueing path itself.
+ */
+export function markTextureLoadFailed(scene: Phaser.Scene, key: string): void {
+  const textures = scene.textures;
+  pendingTextures.get(textures)?.delete(key);
+  let failed = failedTextures.get(textures);
+  if (!failed) {
+    failed = new Map();
+    failedTextures.set(textures, failed);
+  }
+  const prev = failed.get(key);
+  failed.set(key, { failedAt: Date.now(), retries: (prev?.retries ?? 0) + 1 });
+}
+
 /**
  * Queue the tileset images for a scene's loader. Dedupes by grant id (same
  * grant listed twice is queued once), skips grants whose texture is already
- * in the manager (previous scene of the same game), and skips grants already
- * queued this session — the same image is NEVER loaded twice.
+ * in the manager (previous scene of the same game), skips keys still pending
+ * (in-flight from an earlier queue), and skips keys quarantined after a
+ * failed load — so the same image is never loaded twice, and a broken URL is
+ * retried only after FAILED_RETRY_MS.
  *
  * Returns the texture keys actually queued by this call — empty when every
- * grant is already loaded or already requested (so a caller can tell a
+ * grant is already loaded, pending, or quarantined (so a caller can tell a
  * real in-flight load apart from a re-queue that would spin forever).
  */
 export function preloadTilesets(scene: Phaser.Scene, grants: readonly TilesetGrant[]): readonly string[] {
   const textures = scene.textures;
+  const now = Date.now();
   const seen = new Set<string>();
   const queued: string[] = [];
   for (const grant of grants) {
@@ -86,7 +149,9 @@ export function preloadTilesets(scene: Phaser.Scene, grants: readonly TilesetGra
     seen.add(grant.id);
     const key = tilesetKey(grant);
     if (textures.exists(key)) continue;
-    if (!trackRequest(textures, key)) continue;
+    if (isTextureAbandoned(textures, key)) continue;
+    if (isQuarantined(textures, key, now)) continue;
+    if (!claimPending(textures, key)) continue;
     scene.load.image(key, grant.imageUrl);
     queued.push(key);
   }
@@ -231,14 +296,16 @@ export function applyTiledFlips(tile: Phaser.Tilemaps.Tile, rawGid: number): voi
 /**
  * Load a digimon dot GIF as a texture (`dot-<catalogId>`, URL
  * `/assets/digimon/:catalogId/dot.gif`) — shared by the party + boss sprite
- * paths (Todo 5/6). Deduped by catalogId; returns the texture key to use when
- * creating sprites.
+ * paths (Todo 5/6). Deduped by catalogId (loaded, pending, or quarantined);
+ * returns the texture key to use when creating sprites.
  */
 export function preloadDigimonDot(scene: Phaser.Scene, catalogId: string): string {
   const key = digimonDotKey(catalogId);
   const textures = scene.textures;
   if (textures.exists(key)) return key;
-  if (!trackRequest(textures, key)) return key;
+  if (isTextureAbandoned(textures, key)) return key;
+  if (isQuarantined(textures, key, Date.now())) return key;
+  if (!claimPending(textures, key)) return key;
   scene.load.image(key, `/assets/digimon/${encodeURIComponent(catalogId)}/dot.gif`);
   return key;
 }
