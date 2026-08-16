@@ -65,7 +65,10 @@ export function Dungeon(): JSX.Element {
       return getDungeonNeighbors(id);
     },
     enabled: !!id,
-    staleTime: 30_000,
+    // Fresh neighbors on every entry — a 30s stale window keeps a stale grid
+    // (crossing a bridge/path onto another dungeon's boundary) visible after
+    // returning to the same dungeon, making the walk appear stuck.
+    staleTime: 0,
   });
 
   useEffect(() => {
