@@ -17,7 +17,7 @@ import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon, UserDungeonRun } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon, TilesetGrant, UserDungeonRun } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
 import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
@@ -155,6 +155,14 @@ export function Dungeon(): JSX.Element {
     if (toastTimerRef.current !== null) window.clearTimeout(toastTimerRef.current);
     toastTimerRef.current = window.setTimeout(() => setToast(null), 1900);
   }, []);
+
+  const handleTextureFallback = useCallback(
+    (failed: readonly TilesetGrant[]): void => {
+      const names = failed.map((grant) => grant.id).join(', ');
+      flashToast(`Tileset texture failed to load (${names}) — showing fallback map.`);
+    },
+    [flashToast],
+  );
 
   const pushLog = useCallback((text: string, cls: '' | 'hit' | 'item'): void => {
     setLogs((prev) => {
@@ -577,6 +585,7 @@ export function Dungeon(): JSX.Element {
             party={party}
             partyTrail={partyTrail}
             onCellClick={handleCellClick}
+            onTextureFallback={handleTextureFallback}
           />
         </div>
 

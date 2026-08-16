@@ -8,6 +8,9 @@ import {
   applyTiledFlips,
   bareGidForTile,
   digimonDotKey,
+  isTextureAbandoned,
+  markTextureLoadFailed,
+  MAX_TEXTURE_RETRIES,
   preloadDigimonDot,
   preloadTilesets,
   registerTilesets,
@@ -121,6 +124,7 @@ type SceneProps = {
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
+  readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
 };
 
 type PositionedView = {
@@ -148,7 +152,11 @@ type WorldLayout = {
  * tile size; the camera zooms ×2 so the screen cell matches the DOM's
  * PLAYER_ZOOM. The player's world position is the follow target.
  */
-function computeLayout(view: DungeonRunView, neighbors: readonly DungeonGridNeighbor[]): WorldLayout {
+function computeLayout(
+  view: DungeonRunView,
+  neighbors: readonly DungeonGridNeighbor[],
+  abandonedIds?: ReadonlySet<string>,
+): WorldLayout {
   const active: PositionedView = {
     view,
     gridX: view.dungeon.gridX ?? 0,
@@ -158,7 +166,11 @@ function computeLayout(view: DungeonRunView, neighbors: readonly DungeonGridNeig
     active,
     ...neighbors.map((neighbor) => ({ view: neighbor.view, gridX: neighbor.gridX, gridY: neighbor.gridY })),
   ];
-  const tileSize = primaryTileset(view.tilesets)?.tileWidth ?? TILE_SIZE_FALLBACK;
+  const usableGrants =
+    abandonedIds === undefined || abandonedIds.size === 0
+      ? view.tilesets
+      : view.tilesets.filter((grant) => !abandonedIds.has(grant.id));
+  const tileSize = primaryTileset(usableGrants)?.tileWidth ?? TILE_SIZE_FALLBACK;
   const slotWidth = Math.max(...positions.map((entry) => entry.view.dungeon.width)) * tileSize;
   const slotHeight = Math.max(...positions.map((entry) => entry.view.dungeon.height)) * tileSize;
   const minGridX = Math.min(...positions.map((entry) => entry.gridX));
@@ -229,6 +241,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private poiInfos: DungeonPoiInfo[] = [];
   private renderedTexts: Phaser.GameObjects.Text[] = [];
   private activeSlotOrigin: { readonly x: number; readonly y: number } | null = null;
+  private textureFallbackReported = new Set<string>();
 
   constructor() {
     super({ key: DUNGEON_SCENE_KEY });
@@ -266,6 +279,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.leaderSprite = null;
     this.lastLeaderCatalogId = null;
     this.dotsLoading = false;
+    this.textureFallbackReported.clear();
     this.clearRendered();
     this.booted = false;
     this.latestProps = null;
@@ -288,9 +302,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
     moveDurationMs: number,
     partyTrail: readonly { readonly x: number; readonly y: number }[],
     onCellClick: (x: number, y: number) => void,
+    onTextureFallback: (failed: readonly TilesetGrant[]) => void,
   ): void {
     const prev = this.latestProps;
-    this.latestProps = { view, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick };
+    this.latestProps = { view, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick, onTextureFallback };
     if (!this.booted) return;
     if (
       prev !== null &&
@@ -357,7 +372,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
     if (neighbors.length === 0 && this.lastComposedNeighbors !== null && this.lastComposedNeighbors.length > 0) {
       neighbors = this.lastComposedNeighbors;
     }
-    const layout = computeLayout(props.view, neighbors);
+    const grants = uniqueGrants([props.view, ...neighbors.map((neighbor) => neighbor.view)]);
+    const abandonedIds = new Set(
+      grants.filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant))).map((grant) => grant.id),
+    );
+    const layout = computeLayout(props.view, neighbors, abandonedIds);
     this.lastComposedNeighbors = neighbors;
     this.clampBounds = { width: layout.width, height: layout.height };
     // startFollow (lerp 1) tracks this target every frame, so moving it in
@@ -377,11 +396,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // viewport stays free (the follow target keeps the player screen-centered,
     // the small-map centering branch); an overflowing axis clamps so no void
     // shows past the composed world's edge.
-    const grants = uniqueGrants([props.view, ...neighbors.map((neighbor) => neighbor.view)]);
     const missing = grants.filter((grant) => !this.textures.exists(tilesetKey(grant)));
-    if (missing.length > 0) {
+    const retryable = missing.filter((grant) => !abandonedIds.has(grant.id));
+    if (retryable.length > 0) {
       // Textures land async — queue the load, register frames on complete,
       // then recompose again (which renders once every grant has a texture).
+      // Grants past their retry budget are excluded, so a permanently missing
+      // image falls back to the flat path instead of deadlocking forever.
       this.ensureTilesetsLoaded(grants);
     } else {
       this.clearRendered();
@@ -556,30 +577,35 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * exist. Loads piggyback on any in-flight tileset load (Phaser `start()` is
    * a no-op while loading) and re-render on COMPLETE. The idle-with-empty-list
    * guard prevents a failed load from spinning: start() on an empty queue
-   * emits COMPLETE synchronously, which would otherwise recompose forever.
+   * emits COMPLETE synchronously, which would otherwise recompose forever. On
+   * COMPLETE, dots whose GIF never landed (404/network) are reported to the
+   * pipeline so they can be retried after the quarantine window instead of
+   * being stuck "requested" forever.
    */
   private ensureDigimonDotsLoaded(catalogIds: readonly string[]): boolean {
     const missing = catalogIds.filter((catalogId) => !this.textures.exists(digimonDotKey(catalogId)));
     if (missing.length === 0) return true;
     if (this.dotsLoading) return false;
     const loader = this.load;
+    const settle = () => {
+      this.dotsLoading = false;
+      for (const catalogId of missing) {
+        const key = digimonDotKey(catalogId);
+        if (!this.textures.exists(key)) markTextureLoadFailed(this, key);
+      }
+      this.recompose();
+    };
     if (loader.isLoading()) {
       this.dotsLoading = true;
       for (const catalogId of missing) preloadDigimonDot(this, catalogId);
-      loader.once(Phaser.Loader.Events.COMPLETE, () => {
-        this.dotsLoading = false;
-        this.recompose();
-      });
+      loader.once(Phaser.Loader.Events.COMPLETE, settle);
       return false;
     }
     const listSizeBefore = loader.list.size;
     for (const catalogId of missing) preloadDigimonDot(this, catalogId);
     if (loader.list.size === listSizeBefore) return false;
     this.dotsLoading = true;
-    loader.once(Phaser.Loader.Events.COMPLETE, () => {
-      this.dotsLoading = false;
-      this.recompose();
-    });
+    loader.once(Phaser.Loader.Events.COMPLETE, settle);
     loader.start();
     return false;
   }
@@ -589,8 +615,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
   /**
    * Kick off a runtime tileset load for grants that have no texture yet.
    * `preloadTilesets` returns only the keys actually queued, so a re-entrant
-   * call for already-requested (e.g. failed) grants registers no listener and
-   * cannot spin on an empty loader.
+   * call for grants that are already loaded, in-flight, or quarantined after
+   * a failure registers no listener and cannot spin on an empty loader. On
+   * COMPLETE, grants whose texture still never landed (404/network) are
+   * reported to the pipeline so they can be retried after the quarantine
+   * window instead of being stuck "requested" forever.
    */
   private ensureTilesetsLoaded(grants: readonly TilesetGrant[]): void {
     if (this.texturesLoading) return;
@@ -601,6 +630,23 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.texturesLoading = true;
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
       this.texturesLoading = false;
+      const newlyAbandoned: TilesetGrant[] = [];
+      for (const grant of missing) {
+        const key = tilesetKey(grant);
+        if (this.textures.exists(key)) continue;
+        markTextureLoadFailed(this, key);
+        if (isTextureAbandoned(this.textures, key) && !this.textureFallbackReported.has(key)) {
+          this.textureFallbackReported.add(key);
+          newlyAbandoned.push(grant);
+        }
+      }
+      if (newlyAbandoned.length > 0) {
+        console.error(
+          `[dungeon] tileset textures failed after ${MAX_TEXTURE_RETRIES} retries — falling back to flat rendering: ` +
+            newlyAbandoned.map((grant) => `${grant.id} (${grant.imageUrl})`).join(', '),
+        );
+        this.latestProps?.onTextureFallback(newlyAbandoned);
+      }
       registerTilesets(this, missing);
       this.recompose();
     });
@@ -694,7 +740,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * No collision/physics — `setCollision` is never called.
    */
   renderMap(view: DungeonRunView, offsetX = 0, offsetY = 0, slotGridX = 0, slotGridY = 0): void {
-    const grants = view.tilesets;
+    const grants = view.tilesets.filter((grant) => !isTextureAbandoned(this.textures, tilesetKey(grant)));
     const primary = primaryTileset(grants);
     const tileSize = primary?.tileWidth ?? TILE_SIZE_FALLBACK;
     const mixed = primary !== null && grants.some((grant) => grant.tileWidth !== primary.tileWidth || grant.tileHeight !== primary.tileHeight);
