@@ -136,6 +136,10 @@ type PositionedView = {
 type WorldLayout = {
   readonly width: number;
   readonly height: number;
+  /** World-space origin of the slot grid (minGridX * slotW). Kept stable
+   * across re-compositions so a grid crossing never re-anchors the world. */
+  readonly originX: number;
+  readonly originY: number;
   readonly playerX: number;
   readonly playerY: number;
   readonly positions: readonly PositionedView[];
@@ -179,11 +183,21 @@ function computeLayout(
   const maxGridY = Math.max(...positions.map((entry) => entry.gridY));
   const width = (maxGridX - minGridX + 1) * slotWidth;
   const height = (maxGridY - minGridY + 1) * slotHeight;
-  const playerX = (active.gridX - minGridX) * slotWidth + view.run.currentX * tileSize + tileSize / 2;
-  const playerY = (active.gridY - minGridY) * slotHeight + view.run.currentY * tileSize + tileSize / 2;
+  // Absolute slot coordinates: `gridX * slotW`, NOT `(gridX - minGridX) * slotW`.
+  // A relative anchor shifts the world origin whenever the slot set changes, so
+  // a grid crossing re-renders every map a full slot away from where it was and
+  // the follow target's relative position jumps -> the camera pans half a
+  // viewport and the map content "warps" under the player. Absolute anchoring
+  // keeps each map at its grid position forever; a crossing merely glides the
+  // player one tile into an already-rendered neighbor and the follow target
+  // never moves when real neighbors land.
+  const playerX = active.gridX * slotWidth + view.run.currentX * tileSize + tileSize / 2;
+  const playerY = active.gridY * slotHeight + view.run.currentY * tileSize + tileSize / 2;
   return {
     width,
     height,
+    originX: minGridX * slotWidth,
+    originY: minGridY * slotHeight,
     playerX,
     playerY,
     positions,
@@ -236,7 +250,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private dotsLoading = false;
   private followTween: Phaser.Tweens.Tween | null = null;
   private lastFollowTarget: { readonly x: number; readonly y: number } | null = null;
-  private clampBounds: { readonly width: number; readonly height: number } | null = null;
+  private clampBounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } | null = null;
   private lastComposedNeighbors: readonly DungeonGridNeighbor[] | null = null;
   private lastComposedActiveView: DungeonRunView | null = null;
   private poiInfos: DungeonPoiInfo[] = [];
@@ -403,7 +417,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const layout = computeLayout(props.view, neighbors, abandonedIds);
     this.lastComposedNeighbors = neighbors;
     this.lastComposedActiveView = props.view;
-    this.clampBounds = { width: layout.width, height: layout.height };
+    this.clampBounds = { x: layout.originX, y: layout.originY, width: layout.width, height: layout.height };
     // startFollow (lerp 1) tracks this target every frame, so moving it in
     // place keeps camera continuity across grid-crossing re-compositions.
     // A position change (a walk or a grid cross) glides the target to the new
@@ -485,11 +499,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // player screen-centered through the seam, so a crossing is visually
     // indistinguishable from an ordinary walk.
     if (bounds.width > displayW) {
-      const minX = (displayW - camera.width) / 2;
+      const minX = bounds.x + (displayW - camera.width) / 2;
       camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, minX + bounds.width - displayW);
     }
     if (bounds.height > displayH) {
-      const minY = (displayH - camera.height) / 2;
+      const minY = bounds.y + (displayH - camera.height) / 2;
       camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, minY + bounds.height - displayH);
     }
   }
@@ -512,8 +526,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const tileSize = layout.tileSize;
     const gridX = props.view.dungeon.gridX ?? 0;
     const gridY = props.view.dungeon.gridY ?? 0;
-    const slotOffsetX = (gridX - layout.minGridX) * layout.slotW;
-    const slotOffsetY = (gridY - layout.minGridY) * layout.slotH;
+    const slotOffsetX = gridX * layout.slotW;
+    const slotOffsetY = gridY * layout.slotH;
     const leader = props.party[0];
     const members: { readonly catalogId: string; readonly isLeader: boolean; readonly x: number; readonly y: number }[] = [];
     if (leader !== undefined) {
@@ -695,8 +709,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const activeGridX = props.view.dungeon.gridX ?? 0;
     const activeGridY = props.view.dungeon.gridY ?? 0;
     this.activeSlotOrigin = {
-      x: (activeGridX - layout.minGridX) * layout.slotW,
-      y: (activeGridY - layout.minGridY) * layout.slotH,
+      x: activeGridX * layout.slotW,
+      y: activeGridY * layout.slotH,
     };
     const bossDots = [
       ...new Set(
@@ -722,8 +736,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const cullTop = layout.playerY - cullHalfH;
     const cullBottom = layout.playerY + cullHalfH;
     for (const position of layout.positions) {
-      const offsetX = (position.gridX - layout.minGridX) * layout.slotW;
-      const offsetY = (position.gridY - layout.minGridY) * layout.slotH;
+      const offsetX = position.gridX * layout.slotW;
+      const offsetY = position.gridY * layout.slotH;
       if (offsetX + layout.slotW < cullLeft || offsetX > cullRight || offsetY + layout.slotH < cullTop || offsetY > cullBottom) continue;
       this.renderMap(position.view, offsetX, offsetY, position.gridX, position.gridY);
       this.mapCount++;
@@ -733,8 +747,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   /**
    * Render ONE dungeon map onto tilemap layers. `offsetX`/`offsetY` are the
-   * slot's world pixel origin (0,0 for the active map; Todo 4 lays out
-   * neighbor slots via `(gridX - minGridX) * slotW`).
+   * slot's world pixel origin (0,0 for the active map at grid (0,0); Todo 4
+   * lays out neighbor slots via `gridX * slotW` — absolute grid coordinates,
+   * so a grid crossing never re-anchors the composed world).
    *
    * Tiles are grouped by `layerKind`; each group becomes a tilemap whose data
    * holds BARE GIDs (`bareGidForTile`), empty cells = -1, positioned via
