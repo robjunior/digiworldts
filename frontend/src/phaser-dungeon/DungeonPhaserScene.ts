@@ -472,30 +472,18 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // zoom-aware window below mirrors Phaser's own clampX/clampY (BaseCamera).
     const displayW = camera.width / camera.zoom;
     const displayH = camera.height / camera.zoom;
-    // Bug 2 focus: the camera frames the ACTIVE map slot — the visible window
-    // is the active slot expanded by half a viewport on each side, intersected
-    // with the composed world. Neighbors peek in only near the seam; the rest
-    // of the grid stays off-screen. An axis whose window fits the viewport
-    // stays free (the follow target keeps the player screen-centered). Falls
-    // back to the composed-world clamp before the active slot is known.
-    const origin = this.activeSlotOrigin;
-    if (origin !== null && this.slotInfo.w > 0 && this.slotInfo.h > 0) {
-      const winLeft = Math.max(0, origin.x - displayW / 2);
-      const winRight = Math.min(bounds.width, origin.x + this.slotInfo.w + displayW / 2);
-      const winTop = Math.max(0, origin.y - displayH / 2);
-      const winBottom = Math.min(bounds.height, origin.y + this.slotInfo.h + displayH / 2);
-      const winW = winRight - winLeft;
-      const winH = winBottom - winTop;
-      if (winW > displayW) {
-        const minX = (displayW - camera.width) / 2;
-        camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX + winLeft, minX + winLeft + winW - displayW);
-      }
-      if (winH > displayH) {
-        const minY = (displayH - camera.height) / 2;
-        camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY + winTop, minY + winTop + winH - displayH);
-      }
-      return;
-    }
+    // Clamp to the composed world, exactly like the pre-cutover
+    // ContinuousDungeonGrid: an axis that fits the viewport stays free (the
+    // follow target keeps the player screen-centered); an overflowing axis
+    // clamps so no void shows past the world's edge.
+    //
+    // The active-slot window clamp ("Bug 2 focus", added in the Phaser cutover)
+    // is gone: it pinned the camera at the active slot's edge while the player
+    // approached the seam, then teleported the view half a viewport when the
+    // window jumped to the crossed-into slot — the "warp away then recentralize"
+    // the grid crossing showed. Framing the whole composed world keeps the
+    // player screen-centered through the seam, so a crossing is visually
+    // indistinguishable from an ordinary walk.
     if (bounds.width > displayW) {
       const minX = (displayW - camera.width) / 2;
       camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, minX + bounds.width - displayW);
