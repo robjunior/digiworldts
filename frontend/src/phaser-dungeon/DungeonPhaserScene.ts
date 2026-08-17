@@ -481,15 +481,21 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const camera = this.cameras.main;
     const bounds = this.clampBounds;
     if (bounds === null) return;
-    // camera.scrollX is in SCREEN pixels ("not impacted by zooming" — Phaser).
-    // Clamping to [0, bounds - displayW] would be off by that offset; the
-    // zoom-aware window below mirrors Phaser's own clampX/clampY (BaseCamera).
+    // camera.scrollX/Y are in WORLD coordinates (Phaser: "not impacted by
+    // zooming"), while camera.width/height are screen pixels, so the view's
+    // world extent is width/zoom. The clamp window is therefore
+    // [bounds.x, bounds.x + bounds.width - displayW]: at the max scroll the
+    // view's right edge sits exactly on the world's right edge, so the
+    // extreme of the map (and the player standing there) stays visible. The
+    // previous window shifted both ends left by (camera.width - displayW)/2 —
+    // it pinned the camera short of the world's right/bottom edge, the extreme
+    // tiles fell outside the camera's worldView, and the tilemap layers culled
+    // them per frame: the extreme of the map unrendered.
     const displayW = camera.width / camera.zoom;
     const displayH = camera.height / camera.zoom;
-    // Clamp to the composed world, exactly like the pre-cutover
-    // ContinuousDungeonGrid: an axis that fits the viewport stays free (the
-    // follow target keeps the player screen-centered); an overflowing axis
-    // clamps so no void shows past the world's edge.
+    // An axis that fits the viewport stays free (the follow target keeps the
+    // player screen-centered, the world floating inside the viewport); an
+    // overflowing axis clamps so no void shows past the world's edge.
     //
     // The active-slot window clamp ("Bug 2 focus", added in the Phaser cutover)
     // is gone: it pinned the camera at the active slot's edge while the player
@@ -499,12 +505,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // player screen-centered through the seam, so a crossing is visually
     // indistinguishable from an ordinary walk.
     if (bounds.width > displayW) {
-      const minX = bounds.x + (displayW - camera.width) / 2;
-      camera.scrollX = Phaser.Math.Clamp(camera.scrollX, minX, minX + bounds.width - displayW);
+      camera.scrollX = Phaser.Math.Clamp(camera.scrollX, bounds.x, bounds.x + bounds.width - displayW);
     }
     if (bounds.height > displayH) {
-      const minY = bounds.y + (displayH - camera.height) / 2;
-      camera.scrollY = Phaser.Math.Clamp(camera.scrollY, minY, minY + bounds.height - displayH);
+      camera.scrollY = Phaser.Math.Clamp(camera.scrollY, bounds.y, bounds.y + bounds.height - displayH);
     }
   }
 
