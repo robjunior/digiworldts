@@ -819,22 +819,37 @@ async function getAutomaticGridTransition(source: Dungeon, currentX: number, cur
   if (source.dungeonGroupId === null || source.gridX === null || source.gridY === null) return null;
   const dx = targetX - currentX;
   const dy = targetY - currentY;
+  const offMapX = targetX < 0 || targetX >= source.width;
+  const offMapY = targetY < 0 || targetY >= source.height;
+  const borderX = (dx > 0 && targetX === source.width - 1) || (dx < 0 && targetX === 0);
+  const borderY = (dy > 0 && targetY === source.height - 1) || (dy < 0 && targetY === 0);
+  // A crossing fires when the press leaves the map (off-map target) OR when it
+  // lands on a NON-walkable border cell (the wall acts as the doorway). A
+  // WALKABLE border cell is a normal standable tile: the walk lands there and
+  // the crossing fires on the next press (off-map). Every step, seam included,
+  // then moves exactly the one tile the player walked, instead of skipping the
+  // doorway and jumping 2-3 tiles into the neighbor in a single press.
+  if (!offMapX && !offMapY) {
+    if (!(borderX || borderY)) return null;
+    if (await isWalkable(source, targetX, targetY)) return null;
+  }
   let neighborGridX = source.gridX;
   let neighborGridY = source.gridY;
-  if (dx > 0 && targetX >= source.width - 1) neighborGridX += 1;
-  else if (dx < 0 && targetX <= 0) neighborGridX -= 1;
-  else if (dy > 0 && targetY >= source.height - 1) neighborGridY += 1;
-  else if (dy < 0 && targetY <= 0) neighborGridY -= 1;
+  if (dx > 0) neighborGridX += 1;
+  else if (dx < 0) neighborGridX -= 1;
+  else if (dy > 0) neighborGridY += 1;
+  else if (dy < 0) neighborGridY -= 1;
   else return null;
   const row = await one<DungeonRow>(SQL_GET_GRID_NEIGHBOR, source.dungeonGroupId, neighborGridX, neighborGridY);
   if (!row) return null;
   const dungeon = dungeonFromRow(row);
-  // Mirror the crossing point one tile inside the neighbor: east/south skip
-  // the leading border cell (entry 1); west/north approach from the opposite
-  // side, so the entry is width-2 / height-2. The player's own row/column is
-  // preserved for perpendicular moves.
-  const entryX = dx !== 0 ? (dx < 0 ? dungeon.width - 2 : 1) : targetX;
-  const entryY = dx !== 0 ? targetY : (dy < 0 ? dungeon.height - 2 : 1);
+  // Land on the cell the press enters: east/south at 0, west/north at
+  // width-1/height-1 — one tile past the source's border cell, so the seam
+  // crossing moves exactly the one walked tile. resolveGridEntry slides
+  // inward only if that entry cell is not walkable. The player's own
+  // row/column is preserved for perpendicular moves.
+  const entryX = dx !== 0 ? (dx < 0 ? dungeon.width - 1 : 0) : targetX;
+  const entryY = dx !== 0 ? targetY : (dy < 0 ? dungeon.height - 1 : 0);
   const entry = await resolveGridEntry(dungeon, entryX, entryY);
   if (entry === null) return null;
   return { dungeon, entryX: entry.x, entryY: entry.y };

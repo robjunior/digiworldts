@@ -167,10 +167,14 @@ async function main(): Promise<void> {
   await seedWalkableTile('dgn-grid-east', 1, 1);
   await startOrGetRun(USER, 'dgn-grid-west');
   await run('UPDATE user_dungeon_runs SET current_x = 8, current_y = 1 WHERE user_id = ? AND dungeon_id = ?', USER, 'dgn-grid-west');
-  const crossed = await moveRun(USER, 'dgn-grid-west', 9, 1);
-  assert(crossed.kind === 'ok', 'edge move succeeds');
-  assert(crossed.kind === 'ok' && crossed.warpToDungeonId === 'dgn-grid-east', 'edge move reports the orthogonal neighbor');
-  assert(crossed.kind === 'ok' && crossed.run.dungeonId === 'dgn-grid-east' && crossed.run.currentX === 1 && crossed.run.currentY === 1, 'edge move enters one tile inside the target');
+  const borderStep = await moveRun(USER, 'dgn-grid-west', 9, 1);
+  assert(borderStep.kind === 'ok', 'walkable border cell is a normal step');
+  assert(borderStep.kind === 'ok' && borderStep.warpToDungeonId === undefined, 'border step does not warp');
+  assert(borderStep.kind === 'ok' && borderStep.run.dungeonId === 'dgn-grid-west' && borderStep.run.currentX === 9 && borderStep.run.currentY === 1, 'border step lands on the border cell (x = width - 1)');
+  const crossed = await moveRun(USER, 'dgn-grid-west', 10, 1);
+  assert(crossed.kind === 'ok', 'off-map edge move succeeds');
+  assert(crossed.kind === 'ok' && crossed.warpToDungeonId === 'dgn-grid-east', 'off-map edge move reports the orthogonal neighbor');
+  assert(crossed.kind === 'ok' && crossed.run.dungeonId === 'dgn-grid-east' && crossed.run.currentX === 1 && crossed.run.currentY === 1, 'off-map entry slides inward from the non-walkable border cell (x = 1)');
 
   console.log('== automatic grid edge transition: west (enter from the right side of the neighbor) ==');
   await seedDungeon('dgn-grid-south', 1, 1, 'grp-grid2', 0, 0, 1);
@@ -179,7 +183,7 @@ async function main(): Promise<void> {
   const crossedWest = await moveRun(USER, 'dgn-grid-east', 0, 1);
   assert(crossedWest.kind === 'ok', 'west edge move succeeds (exit cell is a wall)');
   assert(crossedWest.kind === 'ok' && crossedWest.warpToDungeonId === 'dgn-grid-west', 'west edge move reports the west neighbor');
-  assert(crossedWest.kind === 'ok' && crossedWest.run.dungeonId === 'dgn-grid-west' && crossedWest.run.currentX === 8 && crossedWest.run.currentY === 1, 'west edge move enters one tile inside the target (x = width - 2)');
+  assert(crossedWest.kind === 'ok' && crossedWest.run.dungeonId === 'dgn-grid-west' && crossedWest.run.currentX === 9 && crossedWest.run.currentY === 1, 'west edge move enters on the walkable border cell (x = width - 1)');
 
   console.log('== automatic grid edge transition: north (enter from the bottom side of the neighbor) ==');
   await seedDungeon('dgn-grid-north', 1, 1, 'grp-grid2', 0, 0, 0);
@@ -189,7 +193,11 @@ async function main(): Promise<void> {
   await run('DELETE FROM user_dungeon_runs WHERE user_id = ?', USER);
   await startOrGetRun(USER, 'dgn-grid-south');
   await run('UPDATE user_dungeon_runs SET current_x = 1, current_y = 1 WHERE user_id = ? AND dungeon_id = ?', USER, 'dgn-grid-south');
-  const crossedNorth = await moveRun(USER, 'dgn-grid-south', 1, 0);
+  const northBorderStep = await moveRun(USER, 'dgn-grid-south', 1, 0);
+  assert(northBorderStep.kind === 'ok', 'walkable north border cell is a normal step');
+  assert(northBorderStep.kind === 'ok' && northBorderStep.warpToDungeonId === undefined, 'north border step does not warp');
+  assert(northBorderStep.kind === 'ok' && northBorderStep.run.dungeonId === 'dgn-grid-south' && northBorderStep.run.currentX === 1 && northBorderStep.run.currentY === 0, 'north border step lands on the border cell (y = 0)');
+  const crossedNorth = await moveRun(USER, 'dgn-grid-south', 1, -1);
   assert(crossedNorth.kind === 'ok', 'north edge move succeeds');
   assert(crossedNorth.kind === 'ok' && crossedNorth.warpToDungeonId === 'dgn-grid-north', 'north edge move reports the north neighbor');
   assert(crossedNorth.kind === 'ok' && crossedNorth.run.dungeonId === 'dgn-grid-north' && crossedNorth.run.currentX === 1 && crossedNorth.run.currentY === 7, 'north edge move slides to the nearest walkable entry cell (y = 7)');
