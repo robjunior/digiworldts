@@ -41,6 +41,15 @@ import {
 } from '../battle/routes.js';
 import { joinSpectate, leaveSpectate } from '../battle/spectate.js';
 import { isMember as isChatRoomMember, listMembers as listChatRoomMembers } from '../chat/rooms.js';
+import { listBlockedUserIds } from '../social/friends.js';
+import {
+  CHAN_PATTERN as DUNGEON_CHAN_PATTERN,
+  CHAN_PREFIX as DUNGEON_CHAN_PREFIX,
+  dungeonPresenceSnapshot,
+  publishDungeonPayload,
+  removeDungeonPresence,
+  setDungeonPresence,
+} from '../dungeons/presence.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
 
@@ -112,8 +121,18 @@ function parsePubSubEnvelope(
   return parsed as { readonly type: string; readonly [k: string]: unknown };
 }
 const SpectateSchema = z.object({ type: z.literal('spectate'), matchId: z.string().min(1).max(64), join: z.boolean() });
+const DungeonJoinSchema = z.object({
+  type: z.literal('dungeon:join'),
+  dungeonId: z.string().min(1).max(64),
+  x: z.number().int().min(0).max(9999),
+  y: z.number().int().min(0).max(9999),
+  gridX: z.number().int().min(-999).max(999),
+  gridY: z.number().int().min(-999).max(999),
+  leaderCatalogId: z.string().min(1).max(64),
+});
+const DungeonLeaveSchema = z.object({ type: z.literal('dungeon:leave') });
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -131,6 +150,10 @@ type PresenceEntry = {
   // so all verbs (ping/queue/act/chat) are rate-limited, not just chat.
   msgTokens: number;
   msgTokensTs: number;
+  /** Dungeon this socket is currently joined to (presence fanout target). */
+  dungeonId: string | null;
+  /** Users blocked by this player (both friendship directions). */
+  blockedIds: ReadonlySet<string>;
 };
 
 const MSG_BURST = 40;
@@ -153,7 +176,10 @@ function ensureUnique(userId: string, socket: WebSocket, displayName: string): P
     try { existing.socket.close(4409, 'displaced'); } catch {}
   }
   const now = Date.now();
-  const entry: PresenceEntry = { userId, displayName, socket, connectedAt: now, chatLog: [], msgTokens: MSG_BURST, msgTokensTs: now };
+  const entry: PresenceEntry = {
+    userId, displayName, socket, connectedAt: now, chatLog: [], msgTokens: MSG_BURST, msgTokensTs: now,
+    dungeonId: null, blockedIds: new Set(),
+  };
   connections.set(userId, entry);
   return entry;
 }
@@ -277,7 +303,53 @@ const handleHello: Handler = async (entry) => {
   if (inMatch) safeSend(entry.socket, { type: 'match', matchId: inMatch.matchId, view: inMatch.view });
 };
 
-const handlePing: Handler = async (entry) => safeSend(entry.socket, { type: 'pong' });
+const handlePing: Handler = async (entry) => {
+  safeSend(entry.socket, { type: 'pong' });
+  if (entry.dungeonId !== null) {
+    const cluster = await getCluster();
+    await cluster.expire(`dungeon:presence:${entry.dungeonId}:${entry.userId}`, 15);
+  }
+};
+
+async function leaveDungeon(entry: PresenceEntry): Promise<void> {
+  const dungeonId = entry.dungeonId;
+  if (dungeonId === null) return;
+  entry.dungeonId = null;
+  entry.blockedIds = new Set();
+  await removeDungeonPresence(dungeonId, entry.userId);
+  await publishDungeonPayload(dungeonId, { type: 'dungeon:player-left', dungeonId, userId: entry.userId });
+}
+
+const handleDungeonJoin: Handler = async (entry, msg) => {
+  if (msg.type !== 'dungeon:join') return;
+  await leaveDungeon(entry);
+  entry.dungeonId = msg.dungeonId;
+  entry.blockedIds = new Set(await listBlockedUserIds(entry.userId));
+  const me = {
+    userId: entry.userId,
+    displayName: entry.displayName,
+    x: msg.x,
+    y: msg.y,
+    gridX: msg.gridX,
+    gridY: msg.gridY,
+    leaderCatalogId: msg.leaderCatalogId,
+  };
+  await setDungeonPresence(msg.dungeonId, me);
+  const snapshot = (await dungeonPresenceSnapshot(msg.dungeonId)).filter(
+    (player) => player.userId !== entry.userId && !entry.blockedIds.has(player.userId),
+  );
+  safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: snapshot });
+  await publishDungeonPayload(msg.dungeonId, {
+    type: 'dungeon:player-update',
+    dungeonId: msg.dungeonId,
+    player: me,
+    blockedBy: [...entry.blockedIds],
+  });
+};
+
+const handleDungeonLeave: Handler = async (entry) => {
+  await leaveDungeon(entry);
+};
 
 const handleChat: Handler = async (entry, msg) => {
   if (msg.type !== 'chat') return;
@@ -390,6 +462,8 @@ const dispatcher: Record<IncomingMessage['type'], Handler> = {
   queue: handleQueue,
   act: handleAct,
   spectate: handleSpectate,
+  'dungeon:join': handleDungeonJoin,
+  'dungeon:leave': handleDungeonLeave,
 };
 
 // ============================================================================
@@ -404,6 +478,9 @@ let sceneDefaultsUnsub: Unsubscribe | null = null;
 let scenesUnsub: Unsubscribe | null = null;
 let weatherUnsub: Unsubscribe | null = null;
 let deliverUnsub: Unsubscribe | null = null;
+let dungeonUnsub: Unsubscribe | null = null;
+
+const DUNGEON_CHAN_ALLOWED_TYPES = new Set(['dungeon:player-update', 'dungeon:player-left']);
 
 async function runPairing(): Promise<void> {
   await matchmaker.purgeStale();
@@ -489,6 +566,25 @@ async function startCloudLoops(): Promise<void> {
     safeSend(entry.socket, parsed);
   });
 
+  if (dungeonUnsub) await dungeonUnsub();
+  dungeonUnsub = await cluster.psubscribe(DUNGEON_CHAN_PATTERN, (msg, channel) => {
+    const dungeonId = channel.slice(DUNGEON_CHAN_PREFIX.length);
+    const parsed = parsePubSubEnvelope(msg, DUNGEON_CHAN_ALLOWED_TYPES);
+    if (parsed === null) return;
+    for (const e of connections.values()) {
+      if (e.dungeonId !== dungeonId) continue;
+      if (parsed.type === 'dungeon:player-update') {
+        const player = parsed.player as { userId?: unknown };
+        const blockedBy = Array.isArray(parsed.blockedBy) ? (parsed.blockedBy as unknown[]) : [];
+        if (typeof player.userId !== 'string') continue;
+        if (player.userId === e.userId) continue;
+        if (e.blockedIds.has(player.userId)) continue;
+        if (blockedBy.includes(e.userId)) continue;
+      }
+      safeSend(e.socket, parsed);
+    }
+  });
+
   if (!pairingTimer) {
     pairingTimer = setInterval(() => { void runPairing(); }, PAIRING_INTERVAL_MS);
     pairingTimer.unref?.();
@@ -513,6 +609,7 @@ export async function stopLobbyLoops(): Promise<void> {
   if (scenesUnsub) { await scenesUnsub(); scenesUnsub = null; }
   if (weatherUnsub) { await weatherUnsub(); weatherUnsub = null; }
   if (deliverUnsub) { await deliverUnsub(); deliverUnsub = null; }
+  if (dungeonUnsub) { await dungeonUnsub(); dungeonUnsub = null; }
   for (const entry of connections.values()) {
     await presenceMarkOffline(entry.userId);
   }
@@ -608,6 +705,7 @@ export const lobbyPlugin: FastifyPluginAsync = async (app): Promise<void> => {
         }
         connections.delete(entry.userId);
         await presenceMarkOffline(entry.userId);
+        await leaveDungeon(entry);
         schedulePendingAbandon(entry.userId);
         await matchmaker.dequeue(entry.userId);
         log.info('ws.close', { userId: entry.userId, size: connections.size, nodeId: config.NODE_ID });

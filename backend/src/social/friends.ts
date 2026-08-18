@@ -59,6 +59,14 @@ function otherOf(row: FriendshipRow, me: string): string {
   return row.requester_id === me ? row.addressee_id : row.requester_id;
 }
 
+const SQL_BLOCKED_IDS = `SELECT requester_id, addressee_id FROM friendships WHERE (requester_id = ? OR addressee_id = ?) AND status = 'blocked'`;
+
+/** Every user blocked by `userId` in either direction of the friendship row. */
+export async function listBlockedUserIds(userId: string): Promise<string[]> {
+  const rows = await q<Pick<FriendshipRow, 'requester_id' | 'addressee_id'>>(SQL_BLOCKED_IDS, userId, userId);
+  return rows.map((row) => (row.requester_id === userId ? row.addressee_id : row.requester_id));
+}
+
 export const friendsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   app.get('/api/friends', async (req, reply) => {
     const me = await requireAuth(req, reply);

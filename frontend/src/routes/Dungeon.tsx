@@ -22,6 +22,7 @@ import type { TemplateDigimon } from '@digiworld/shared/digimon';
 import { useWsStore } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 import { DungeonPhaserView } from '../phaser-dungeon/DungeonPhaserView';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
@@ -42,6 +43,9 @@ export function Dungeon(): JSX.Element {
   const t = useT();
   const queryClient = useQueryClient();
   const handleServerMessage = useWsStore((state) => state.handleServerMessage);
+  const dungeonPlayers = useWsStore((state) => state.dungeonPlayers);
+  const clearDungeonPlayers = useWsStore((state) => state.clearDungeonPlayers);
+  const { send, readyState } = useWebSocket();
 
   useEffect(() => {
     if (!id) {
@@ -93,6 +97,47 @@ export function Dungeon(): JSX.Element {
     const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
     return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
   }, [rosterQuery.data]);
+
+  // Join the dungeon presence channel once the socket is open AND the
+  // dungeon + roster queries have landed (an early join with an empty leader
+  // catalogId is rejected by the server schema). Refs feed the latest
+  // position so moves never retrigger the join; the joined ref dedupes and
+  // resets on disconnect so a reconnect re-announces.
+  const dataRef = useRef<DungeonRunView | undefined>(undefined);
+  dataRef.current = data;
+  const partyRef = useRef(party);
+  partyRef.current = party;
+  const joinedDungeonRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!id || readyState !== WebSocket.OPEN) {
+      joinedDungeonRef.current = null;
+      return;
+    }
+    const d = dataRef.current;
+    const leaderCatalogId = partyRef.current[0]?.catalogId ?? '';
+    if (d === undefined || leaderCatalogId === '') return;
+    if (joinedDungeonRef.current === id) return;
+    joinedDungeonRef.current = id;
+    send({
+      type: 'dungeon:join',
+      dungeonId: id,
+      x: d.run.currentX,
+      y: d.run.currentY,
+      gridX: d.dungeon.gridX ?? 0,
+      gridY: d.dungeon.gridY ?? 0,
+      leaderCatalogId,
+    });
+  }, [id, readyState, data, party, send]);
+
+  useEffect(() => {
+    return () => {
+      if (joinedDungeonRef.current !== null) {
+        joinedDungeonRef.current = null;
+        send({ type: 'dungeon:leave' });
+        clearDungeonPlayers();
+      }
+    };
+  }, [id, send, clearDungeonPlayers]);
 
   const partySpd = useMemo(() => {
     const leader = party[0];
@@ -645,6 +690,7 @@ export function Dungeon(): JSX.Element {
             viewportRef={continuousViewportRef}
             active={data}
             neighbors={neighborsQuery.data?.neighbors ?? []}
+            remotePlayers={dungeonPlayers}
             facing={facing}
             moveDurationMs={moveDurationMs}
             party={party}

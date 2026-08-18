@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { DungeonGridNeighbor, DungeonRunView, DungeonTile, TilesetGrant } from '@digiworld/shared';
+import type { DungeonGridNeighbor, DungeonRemotePlayer, DungeonRunView, DungeonTile, TilesetGrant } from '@digiworld/shared';
 import { findTilesetForGid, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
 import type { RosterView } from '../lib/api';
 import { primaryTileset } from '../lib/tileset-sprite';
@@ -119,12 +119,19 @@ declare global {
 type SceneProps = {
   readonly view: DungeonRunView;
   readonly neighbors: readonly DungeonGridNeighbor[];
+  readonly remotePlayers: readonly DungeonRemotePlayer[];
   readonly party: readonly RosterView[];
   readonly facing: Facing;
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
   readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
+};
+
+type RemotePlayerRender = {
+  readonly container: Phaser.GameObjects.Container;
+  readonly cell: { x: number; y: number; gridX: number; gridY: number };
+  catalogId: string | null;
 };
 
 type PositionedView = {
@@ -257,6 +264,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private renderedTexts: Phaser.GameObjects.Text[] = [];
   private activeSlotOrigin: { readonly x: number; readonly y: number } | null = null;
   private textureFallbackReported = new Set<string>();
+  private remotePlayers = new Map<string, RemotePlayerRender>();
 
   constructor() {
     super({ key: DUNGEON_SCENE_KEY });
@@ -295,6 +303,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.lastLeaderCatalogId = null;
     this.dotsLoading = false;
     this.textureFallbackReported.clear();
+    for (const render of this.remotePlayers.values()) this.destroyRemotePlayer(render);
+    this.remotePlayers.clear();
     this.clearRendered();
     this.booted = false;
     this.latestProps = null;
@@ -314,6 +324,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   setProps(
     view: DungeonRunView,
     neighbors: readonly DungeonGridNeighbor[],
+    remotePlayers: readonly DungeonRemotePlayer[],
     party: readonly RosterView[],
     facing: Facing,
     moveDurationMs: number,
@@ -322,7 +333,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     onTextureFallback: (failed: readonly TilesetGrant[]) => void,
   ): void {
     const prev = this.latestProps;
-    this.latestProps = { view, neighbors, party, facing, moveDurationMs, partyTrail, onCellClick, onTextureFallback };
+    this.latestProps = { view, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onTextureFallback };
     if (!this.booted) return;
     if (
       prev !== null &&
@@ -333,6 +344,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       prev.moveDurationMs === moveDurationMs &&
       prev.partyTrail === partyTrail
     ) {
+      if (prev.remotePlayers !== remotePlayers) this.renderRemotePlayers(this.latestProps);
       return;
     }
     this.recompose();
@@ -450,6 +462,84 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // Party dots load independently of tilesets — render regardless (a
     // fallback dungeon with no tilesets must still show the party).
     this.renderParty(props, layout);
+    this.renderRemotePlayers(props);
+  }
+
+  private destroyRemotePlayer(render: RemotePlayerRender): void {
+    this.tweens.killTweensOf(render.container);
+    render.container.removeAll(true);
+    render.container.destroy();
+  }
+
+  /**
+   * Diff the remote-player list against the rendered sprites: create a
+   * dot (or placeholder circle) + name tag per newcomer, tween moves cell
+   * to cell with the same glide the local party uses, and destroy leavers.
+   */
+  private renderRemotePlayers(props: SceneProps): void {
+    const layout = computeLayout(props.view, props.neighbors);
+    const tileSize = layout.tileSize;
+    const byId = new Map(props.remotePlayers.map((player) => [player.userId, player] as const));
+
+    for (const [userId, render] of this.remotePlayers) {
+      if (!byId.has(userId)) {
+        this.destroyRemotePlayer(render);
+        this.remotePlayers.delete(userId);
+      }
+    }
+
+    for (const player of props.remotePlayers) {
+      const cell = { x: player.x, y: player.y, gridX: player.gridX, gridY: player.gridY };
+      const targetX = player.gridX * layout.slotW + player.x * tileSize + tileSize / 2;
+      const targetY = player.gridY * layout.slotH + player.y * tileSize + tileSize / 2;
+      const known = this.remotePlayers.get(player.userId);
+      if (known !== undefined) {
+        const dotArrived =
+          known.catalogId === null &&
+          player.leaderCatalogId !== undefined &&
+          player.leaderCatalogId !== '' &&
+          this.ensureDigimonDotsLoaded([player.leaderCatalogId]);
+        if (dotArrived) {
+          this.destroyRemotePlayer(known);
+          this.remotePlayers.delete(player.userId);
+        } else {
+          const moved =
+            known.cell.x !== cell.x || known.cell.y !== cell.y || known.cell.gridX !== cell.gridX || known.cell.gridY !== cell.gridY;
+          if (moved) {
+            this.tweens.killTweensOf(known.container);
+            this.tweens.add({
+              targets: known.container,
+              x: targetX,
+              y: targetY,
+              duration: Math.max(1, props.moveDurationMs),
+              ease: 'Linear',
+            });
+            this.remotePlayers.set(player.userId, { container: known.container, cell, catalogId: known.catalogId });
+          }
+          continue;
+        }
+      }
+      const container = this.add.container(targetX, targetY);
+      const catalogId = player.leaderCatalogId ?? '';
+      if (catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
+        const dot = this.add.sprite(0, 0, digimonDotKey(catalogId));
+        dot.setDisplaySize(tileSize, tileSize);
+        container.add(dot);
+      } else {
+        container.add(this.add.circle(0, 0, tileSize * 0.3, 0x9aa3b5));
+      }
+      const name = this.add.text(0, -tileSize / 2 - 4, player.displayName, {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      });
+      name.setOrigin(0.5, 1);
+      container.add(name);
+      container.setDepth(PARTY_DEPTH - 1);
+      this.remotePlayers.set(player.userId, { container, cell, catalogId: catalogId === '' ? null : catalogId });
+    }
   }
 
   private clampFollowTargetPos(x: number, y: number): { readonly x: number; readonly y: number } {

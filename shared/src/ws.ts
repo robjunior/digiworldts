@@ -22,6 +22,18 @@ export type PresenceUser = {
   displayName: string;
 };
 
+/** Another player visible in a dungeon (presence-only payload). */
+export type DungeonRemotePlayer = {
+  userId: string;
+  displayName: string;
+  x: number;
+  y: number;
+  gridX: number;
+  gridY: number;
+  /** Leader digimon dot. Absent on move deltas — receivers keep the known value. */
+  leaderCatalogId?: string;
+};
+
 // ============================================================================
 // Client → Server
 // ============================================================================
@@ -32,7 +44,17 @@ export type WSClientMessage =
   | { type: 'chat'; text: string; room?: string }
   | { type: 'queue'; join: boolean }
   | { type: 'act'; matchId: string; action: Action }
-  | { type: 'spectate'; matchId: string; join: boolean };
+  | { type: 'spectate'; matchId: string; join: boolean }
+  | {
+      type: 'dungeon:join';
+      dungeonId: string;
+      x: number;
+      y: number;
+      gridX: number;
+      gridY: number;
+      leaderCatalogId: string;
+    }
+  | { type: 'dungeon:leave' };
 
 // ============================================================================
 // Server → Client
@@ -136,7 +158,10 @@ export type WSServerMessage =
       durationMs: number;
       startedAt: number;
     }
-  | { type: 'error'; code: WSErrorCode; message: string };
+  | { type: 'error'; code: WSErrorCode; message: string }
+  | { type: 'dungeon:players'; dungeonId: string; players: DungeonRemotePlayer[] }
+  | { type: 'dungeon:player-update'; dungeonId: string; player: DungeonRemotePlayer }
+  | { type: 'dungeon:player-left'; dungeonId: string; userId: string };
 
 // ============================================================================
 // Narrowing helpers (frontend convenience)

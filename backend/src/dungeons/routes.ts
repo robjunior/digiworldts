@@ -42,6 +42,7 @@ import { parseTiledJson, tiledMapToImportPayload, validateTiledImportTilesets } 
 import { createTrap, deleteTrap, listTraps, updateTrap } from './traps.js';
 import { createTrigger, deleteTrigger, updateTrigger } from './triggers.js';
 import { createBridge, deleteBridge, updateBridge } from './bridges.js';
+import { announceDungeonMove } from './presence.js';
 import { findTilesetByName, listTilesets, updateTilesetGeometry } from '../tilesets/repo.js';
 import type { ImportedTilesetRef } from './tiled-import.js';
 import { createChest, deleteChest, updateChest } from './chests.js';
@@ -459,7 +460,10 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'not-adjacent') return reply.code(400).send({ error: 'not-adjacent' });
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
     if (moved.kind === 'blocked-by-chest') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId });
-    if (moved.kind === 'ok') return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}) });
+    if (moved.kind === 'ok') {
+      await announceDungeonMove(user.id, user.displayName, req.params.id, parsed.data.x, parsed.data.y, moved.warpToDungeonId ?? null);
+      return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}) });
+    }
     return reply.code(500).send({ error: 'internal error' });
   });
 
