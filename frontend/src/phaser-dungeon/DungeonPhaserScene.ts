@@ -7,7 +7,10 @@ import { primaryTileset } from '../lib/tileset-sprite';
 import {
   applyTiledFlips,
   bareGidForTile,
+  buildDotTexture,
   digimonDotKey,
+  dotAnimKey,
+  fallbackStaticDot,
   isTextureAbandoned,
   markTextureLoadFailed,
   MAX_TEXTURE_RETRIES,
@@ -130,8 +133,9 @@ type SceneProps = {
 
 type RemotePlayerRender = {
   readonly container: Phaser.GameObjects.Container;
-  readonly cell: { x: number; y: number; gridX: number; gridY: number };
+  cell: { x: number; y: number; gridX: number; gridY: number };
   catalogId: string | null;
+  followers: { sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc; cell: { x: number; y: number } }[];
 };
 
 type PositionedView = {
@@ -467,6 +471,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   private destroyRemotePlayer(render: RemotePlayerRender): void {
     this.tweens.killTweensOf(render.container);
+    for (const follower of render.followers) {
+      this.tweens.killTweensOf(follower.sprite);
+      follower.sprite.destroy();
+    }
+    render.followers = [];
     render.container.removeAll(true);
     render.container.destroy();
   }
@@ -474,7 +483,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
   /**
    * Diff the remote-player list against the rendered sprites: create a
    * dot (or placeholder circle) + name tag per newcomer, tween moves cell
-   * to cell with the same glide the local party uses, and destroy leavers.
+   * to cell with the same glide the local party uses, keep the follower
+   * fileira in sync with the trail, and destroy leavers.
    */
   private renderRemotePlayers(props: SceneProps): void {
     const layout = computeLayout(props.view, props.neighbors);
@@ -490,40 +500,47 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
     for (const player of props.remotePlayers) {
       const cell = { x: player.x, y: player.y, gridX: player.gridX, gridY: player.gridY };
-      const targetX = player.gridX * layout.slotW + player.x * tileSize + tileSize / 2;
-      const targetY = player.gridY * layout.slotH + player.y * tileSize + tileSize / 2;
+      const slotX = player.gridX * layout.slotW;
+      const slotY = player.gridY * layout.slotH;
+      const targetX = slotX + player.x * tileSize + tileSize / 2;
+      const targetY = slotY + player.y * tileSize + tileSize / 2;
       const known = this.remotePlayers.get(player.userId);
-      if (known !== undefined) {
-        const dotArrived =
-          known.catalogId === null &&
-          player.leaderCatalogId !== undefined &&
-          player.leaderCatalogId !== '' &&
-          this.ensureDigimonDotsLoaded([player.leaderCatalogId]);
-        if (dotArrived) {
-          this.destroyRemotePlayer(known);
-          this.remotePlayers.delete(player.userId);
-        } else {
-          const moved =
-            known.cell.x !== cell.x || known.cell.y !== cell.y || known.cell.gridX !== cell.gridX || known.cell.gridY !== cell.gridY;
-          if (moved) {
-            this.tweens.killTweensOf(known.container);
-            this.tweens.add({
-              targets: known.container,
-              x: targetX,
-              y: targetY,
-              duration: Math.max(1, props.moveDurationMs),
-              ease: 'Linear',
-            });
-            this.remotePlayers.set(player.userId, { container: known.container, cell, catalogId: known.catalogId });
-          }
-          continue;
+
+      const dotArrived =
+        known !== undefined &&
+        known.catalogId === null &&
+        player.leaderCatalogId !== undefined &&
+        player.leaderCatalogId !== '' &&
+        this.ensureDigimonDotsLoaded([player.leaderCatalogId]);
+      if (dotArrived) {
+        this.destroyRemotePlayer(known);
+        this.remotePlayers.delete(player.userId);
+      } else if (known !== undefined) {
+        const moved =
+          known.cell.x !== cell.x || known.cell.y !== cell.y || known.cell.gridX !== cell.gridX || known.cell.gridY !== cell.gridY;
+        if (moved) {
+          this.tweens.killTweensOf(known.container);
+          this.tweens.add({
+            targets: known.container,
+            x: targetX,
+            y: targetY,
+            duration: Math.max(1, props.moveDurationMs),
+            ease: 'Linear',
+          });
+          known.cell = cell;
         }
+        this.syncRemoteFollowers(known, player, slotX, slotY, tileSize, props.moveDurationMs);
+        continue;
       }
+
       const container = this.add.container(targetX, targetY);
-      const catalogId = player.leaderCatalogId ?? '';
-      if (catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
+      const catalogId = player.leaderCatalogId ?? player.party?.[0] ?? '';
+      const dotReady = catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId]);
+      if (dotReady) {
         const dot = this.add.sprite(0, 0, digimonDotKey(catalogId));
         dot.setDisplaySize(tileSize, tileSize);
+        const animKey = dotAnimKey(catalogId);
+        if (this.anims.exists(animKey)) dot.play(animKey);
         container.add(dot);
       } else {
         container.add(this.add.circle(0, 0, tileSize * 0.3, 0x9aa3b5));
@@ -538,7 +555,75 @@ export class DungeonPhaserScene extends Phaser.Scene {
       name.setOrigin(0.5, 1);
       container.add(name);
       container.setDepth(PARTY_DEPTH - 1);
-      this.remotePlayers.set(player.userId, { container, cell, catalogId: catalogId === '' ? null : catalogId });
+      const render: RemotePlayerRender = {
+        container,
+        cell,
+        // When the dot texture wasn't ready yet, the container holds a
+        // placeholder circle — keep catalogId null so the dotArrived branch
+        // above can destroy it and rebuild with the real sprite on the next
+        // recompose once the texture lands.
+        catalogId: dotReady ? catalogId : null,
+        followers: [],
+      };
+      this.remotePlayers.set(player.userId, render);
+      this.syncRemoteFollowers(render, player, slotX, slotY, tileSize, props.moveDurationMs);
+    }
+  }
+
+  private syncRemoteFollowers(
+    render: RemotePlayerRender,
+    player: DungeonRemotePlayer,
+    slotX: number,
+    slotY: number,
+    tileSize: number,
+    moveDurationMs: number,
+  ): void {
+    const party = player.party ?? [];
+    const trail = player.trail ?? [];
+    const wanted = Math.max(0, Math.min(party.length - 1, trail.length - 1, 2));
+    while (render.followers.length > wanted) {
+      const removed = render.followers.pop();
+      if (removed === undefined) break;
+      this.tweens.killTweensOf(removed.sprite);
+      removed.sprite.destroy();
+    }
+    for (let i = 0; i < wanted; i++) {
+      const memberIndex = i + 1;
+      const trailCell = trail[memberIndex];
+      if (trailCell === undefined) continue;
+      const catalogId = party[memberIndex] ?? '';
+      const targetX = slotX + trailCell.x * tileSize + tileSize / 2;
+      const targetY = slotY + trailCell.y * tileSize + tileSize / 2;
+      const existing = render.followers[i];
+      if (existing !== undefined) {
+        if (existing.cell.x !== trailCell.x || existing.cell.y !== trailCell.y) {
+          this.tweens.killTweensOf(existing.sprite);
+          this.tweens.add({ targets: existing.sprite, x: targetX, y: targetY, duration: Math.max(1, moveDurationMs), ease: 'Linear' });
+          existing.cell = { x: trailCell.x, y: trailCell.y };
+        }
+        if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
+          const dot = this.add.sprite(targetX, targetY, digimonDotKey(catalogId));
+          dot.setDisplaySize(tileSize, tileSize);
+          dot.setDepth(PARTY_DEPTH - 1);
+          const animKey = dotAnimKey(catalogId);
+          if (this.anims.exists(animKey)) dot.play(animKey);
+          existing.sprite.destroy();
+          render.followers[i] = { sprite: dot, cell: { x: trailCell.x, y: trailCell.y } };
+        }
+        continue;
+      }
+      let sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
+      if (catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
+        const dot = this.add.sprite(targetX, targetY, digimonDotKey(catalogId));
+        dot.setDisplaySize(tileSize, tileSize);
+        dot.setDepth(PARTY_DEPTH - 1);
+        const animKey = dotAnimKey(catalogId);
+        if (this.anims.exists(animKey)) dot.play(animKey);
+        sprite = dot;
+      } else {
+        sprite = this.add.circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5).setDepth(PARTY_DEPTH - 1);
+      }
+      render.followers.push({ sprite, cell: { x: trailCell.x, y: trailCell.y } });
     }
   }
 
@@ -666,6 +751,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
       sprite.setDisplaySize(tileSize, tileSize);
       sprite.setFlipX(flipX);
       sprite.setDepth(PARTY_DEPTH);
+      const animKey = dotAnimKey(member.catalogId);
+      if (this.anims.exists(animKey)) sprite.play(animKey);
       sprite.setData('catalogId', member.catalogId);
       group.add(sprite);
       if (member.isLeader) {
@@ -704,7 +791,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.dotsLoading = false;
       for (const catalogId of missing) {
         const key = digimonDotKey(catalogId);
-        if (!this.textures.exists(key)) markTextureLoadFailed(this, key);
+        if (this.textures.exists(key)) continue;
+        if (buildDotTexture(this, catalogId)) continue;
+        fallbackStaticDot(this, catalogId, () => this.recompose());
+        markTextureLoadFailed(this, key);
       }
       this.recompose();
     };

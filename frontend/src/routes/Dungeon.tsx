@@ -97,6 +97,7 @@ export function Dungeon(): JSX.Element {
     const list = (rosterQuery.data?.roster ?? []).filter((m) => m.status === 'party');
     return list.slice().sort((a, b) => (a.slot ?? 99) - (b.slot ?? 99));
   }, [rosterQuery.data]);
+  const partyCatalogIds = useMemo(() => party.map((m) => m.catalogId), [party]);
 
   // Join the dungeon presence channel once the socket is open AND the
   // dungeon + roster queries have landed (an early join with an empty leader
@@ -107,6 +108,7 @@ export function Dungeon(): JSX.Element {
   dataRef.current = data;
   const partyRef = useRef(party);
   partyRef.current = party;
+  const trailRef = useRef<readonly { readonly x: number; readonly y: number }[]>([]);
   const joinedDungeonRef = useRef<string | null>(null);
   useEffect(() => {
     if (!id || readyState !== WebSocket.OPEN) {
@@ -126,6 +128,8 @@ export function Dungeon(): JSX.Element {
       gridX: d.dungeon.gridX ?? 0,
       gridY: d.dungeon.gridY ?? 0,
       leaderCatalogId,
+      party: partyRef.current.map((m) => m.catalogId),
+      trail: trailRef.current.map((cell) => ({ x: cell.x, y: cell.y })),
     });
   }, [id, readyState, data, party, send]);
 
@@ -171,6 +175,7 @@ export function Dungeon(): JSX.Element {
   const [selectedInvItemId, setSelectedInvItemId] = useState<string | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
   const [partyTrail, setPartyTrail] = useState<readonly { readonly x: number; readonly y: number }[]>([]);
+  trailRef.current = partyTrail;
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
@@ -266,7 +271,10 @@ export function Dungeon(): JSX.Element {
   const moveMutation = useMutation({
     mutationFn: async ({ x, y }: { x: number; y: number }) => {
       if (!id) throw new Error('No dungeon id');
-      return moveInDungeon(id, x, y);
+      return moveInDungeon(id, x, y, {
+        party: partyCatalogIds,
+        trail: partyTrail,
+      });
     },
     onSuccess: (res, { x, y }) => {
       const dx = x - posRef.current.x;
@@ -326,15 +334,24 @@ export function Dungeon(): JSX.Element {
           // Re-anchor the party trail into the target map's coordinate space:
           // the old cells were in the source map, so followers would render
           // off-position (or vanish) for one frame. Place them trailing behind
-          // the leader's entry cell along the walk direction instead.
+          // the leader's entry cell along the walk direction instead. Clamp
+          // into the target map — an entry at the map edge extrapolates cells
+          // outside the schema bounds (e.g. x=-2) and the next move would 400.
           const entryX = res.run.currentX;
           const entryY = res.run.currentY;
           const dirX = Math.sign(dx);
           const dirY = Math.sign(dy);
+          const targetView = neighborsQuery.data?.neighbors.find((entry) => entry.dungeonId === targetDungeonId)?.view;
+          const maxX = Math.max(0, (targetView?.dungeon.width ?? 200) - 1);
+          const maxY = Math.max(0, (targetView?.dungeon.height ?? 200) - 1);
+          const clampCell = (x: number, y: number) => ({
+            x: Math.max(0, Math.min(maxX, x)),
+            y: Math.max(0, Math.min(maxY, y)),
+          });
           setPartyTrail([
-            { x: entryX, y: entryY },
-            { x: entryX - dirX, y: entryY - dirY },
-            { x: entryX - dirX * 2, y: entryY - dirY * 2 },
+            clampCell(entryX, entryY),
+            clampCell(entryX - dirX, entryY - dirY),
+            clampCell(entryX - dirX * 2, entryY - dirY * 2),
           ]);
           void transitionToDungeon(targetDungeonId, res.run);
         }

@@ -461,7 +461,16 @@ export const dungeonsPlugin: FastifyPluginAsync = async (app): Promise<void> => 
     if (moved.kind === 'blocked-by-door') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId });
     if (moved.kind === 'blocked-by-chest') return reply.send({ run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId });
     if (moved.kind === 'ok') {
-      await announceDungeonMove(user.id, user.displayName, req.params.id, parsed.data.x, parsed.data.y, moved.warpToDungeonId ?? null);
+      await announceDungeonMove(
+        user.id,
+        user.displayName,
+        req.params.id,
+        parsed.data.x,
+        parsed.data.y,
+        moved.warpToDungeonId ?? null,
+        parsed.data.party ?? [],
+        parsed.data.trail ?? [],
+      );
       return reply.send({ run: moved.run, triggeredEncounterId: moved.triggeredEncounterId, pickedUpItemId: moved.pickedUpItemId, ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}), ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}), ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}), ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}) });
     }
     return reply.code(500).send({ error: 'internal error' });

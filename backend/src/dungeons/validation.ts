@@ -242,6 +242,13 @@ export const MoveInputSchema = z.object({
   // crossing attempt through the map border.
   x: z.number().int().min(-1).max(200),
   y: z.number().int().min(-1).max(200),
+  // Presence-only payload echoed into the dungeon fanout (display, never
+  // validated against gameplay rules).
+  party: z.array(z.string().min(1).max(64)).max(3).optional(),
+  trail: z
+    .array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) }))
+    .max(3)
+    .optional(),
 });
 
 export const PlayerEncounterDigimonSchema = EncounterDigimonSchema.omit({
