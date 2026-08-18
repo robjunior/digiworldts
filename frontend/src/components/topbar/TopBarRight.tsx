@@ -7,6 +7,7 @@ import { useLocale, useT } from '../../hooks/useLocale';
 import { getFriends } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
 import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
+import { useWsStore } from '../../state/wsStore';
 
 type MenuKind = 'notif' | 'user' | null;
 
@@ -26,6 +27,7 @@ export function TopBarRight(): JSX.Element | null {
   const queryClient = useQueryClient();
   const [openMenu, setOpenMenu] = useState<MenuKind>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const socialNotifyVersion = useWsStore((s) => s.socialNotifyVersion);
 
   const authed = user !== null;
 
@@ -55,6 +57,11 @@ export function TopBarRight(): JSX.Element | null {
       void queryClient.invalidateQueries({ queryKey: ['roster'] });
     },
   });
+
+  useEffect(() => {
+    if (socialNotifyVersion === 0) return;
+    void queryClient.invalidateQueries({ queryKey: ['friends'] });
+  }, [socialNotifyVersion, queryClient]);
 
   const notifications: NotificationItem[] = [];
   const buildings = farmQuery.data?.buildings ?? [];
