@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   assert(f1?.floorIndex === 0, 'dgn-tower-f1.floorIndex === 0');
   assert(f1?.gridX === 0 && f1?.gridY === 0, 'dgn-tower-f1 grid position round-trips');
   const neighbors = await getDungeonGridNeighbors(USER, 'dgn-tower-f2');
-  assert(neighbors?.neighbors.map((entry) => entry.dungeonId).join(',') === 'dgn-tower-f1,dgn-tower-f3', 'grid neighbors include only orthogonal same-group dungeons');
+  assert(neighbors?.neighbors.map((entry) => entry.dungeonId).join(',') === 'dgn-tower-f1,dgn-tower-f3,dgn-tower-diagonal', 'grid neighbors include every same-group map except the active one');
   const legacy = await getDungeon('dgn-legacy');
   assert(legacy?.dungeonGroupId === null, 'legacy dungeon.dungeonGroupId === null');
   assert(legacy?.floorIndex === null, 'legacy dungeon.floorIndex === null');
