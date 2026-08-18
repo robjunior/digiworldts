@@ -87,9 +87,31 @@ jobs:
         run: pnpm typecheck
 
       - name: Roll containers in place
-        # Self-hosted runner IS the deploy host. .env was materialized into
-        # $GITHUB_WORKSPACE above; COMPOSE_FILE and COMPOSE_PROJECT_NAME in
-        # .env drive the compose invocation.
+        # Self-hosted runner IS the deploy host. `.env` was materialized into
+        # $GITHUB_WORKSPACE above. The compose project name is fixed by `name:`
+        # in docker-compose.yml (materialize-env.sh emits neither COMPOSE_FILE
+        # nor COMPOSE_PROJECT_NAME), so `docker compose` always targets the
+        # `digiworld-*` production stack.
+        #
+        # `--wait` makes `up` exit non-zero (red run) if any service lands
+        # unhealthy, instead of green-listing a crash-looping backend behind the
+        # tunnel — the exact "runner green, site 502" failure mode.
+        #
+        # `--remove-orphans` is deliberately NOT passed: `admin` is
+        # profile-gated (`profiles: [admin]`) and not enabled in prod, so
+        # `--remove-orphans` would delete `digiworld-admin-1` on every deploy.
+        # If admin should run in prod, add `--profile admin` (then re-adding
+        # `--remove-orphans` is safe again).
         run: |
-          docker compose --profile discord up -d --build --remove-orphans
+          docker compose --profile discord up -d --build --wait
           docker compose ps
+
+      - name: Container logs (on failure)
+        if: failure()
+        run: |
+          docker compose --profile discord ps -a
+          for svc in backend frontend cloudflared discord-bot; do
+            echo "::group::$svc"
+            docker compose --profile discord logs --tail 120 "$svc" 2>&1 || true
+            echo "::endgroup::"
+          done
