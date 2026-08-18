@@ -94,7 +94,7 @@ jobs:
             -f docker-compose.yml \
             -f docker-compose.staging.override.yml \
             --profile discord --profile admin \
-            up -d --build --remove-orphans
+            up -d --build --remove-orphans --wait
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.staging.override.yml \
@@ -106,12 +106,14 @@ jobs:
           docker compose \
             -f docker-compose.yml \
             -f docker-compose.staging.override.yml \
+            --profile discord --profile admin \
             ps -a
-          for svc in backend frontend admin; do
+          for svc in backend frontend cloudflared discord-bot admin; do
             echo "::group::$svc"
             docker compose \
               -f docker-compose.yml \
               -f docker-compose.staging.override.yml \
+              --profile discord --profile admin \
               logs --tail 120 "$svc" 2>&1 || true
             echo "::endgroup::"
           done
