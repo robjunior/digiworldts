@@ -54,8 +54,8 @@ Jogadores bloqueados não aparecem e não podem interagir (checagem barata de fr
 ### D5 — Identidade visual mínima
 Dot do digimon líder (mesma pipeline `ensureDigimonDotsLoaded`) + nome acima (Phaser `Text`, fonte pequena, estilo PSX). Sem sprite completo — perf e estética.
 
-### D6 — Interação por proximidade
-Menu de contexto exige o alvo dentro de um raio pequeno (ex.: 1 célula — "adjacent"). Evita clique fantasma em jogador longe e reforça a sensação de interação física.
+### D6 — Interação à distância (viewport)
+Sem requisito de proximidade: qualquer jogador **visível** no mapa pode ser clicado para abrir o menu de contexto. A célula clicada identifica o avatar (raycast canvas → célula → presença), então o alvo é sempre explícito. Densidade alvo: **40 players** por dungeon.
 
 ## 4. Arquitetura
 
@@ -145,7 +145,7 @@ GET  /api/trades/mine                                              → trades at
 - Interpolação por célula (nada de física contínua — coerente com o movimento por tile).
 
 **Menu de contexto** (`Dungeon.tsx`):
-- Click no canvas → `scene.getState()`/handler retorna célula clicada → match com presença **adjacente** → painel de contexto (componente React fora do canvas):
+- Click no canvas → `scene.getState()`/handler retorna célula clicada → match com a presença **naquela célula, a qualquer distância visível** → painel de contexto (componente React fora do canvas):
   - **PvP (x1)** → `pvp:invite` → aguarda resposta (toast "convite enviado").
   - **Trocar** → abre painel de trade (fase 3).
   - **Amigo** → `POST /api/friends/request` (+ toast).
@@ -185,16 +185,16 @@ A clica em B → PvP (x1)
 
 | Fase | Escopo | Critérios de aceite | Est. |
 |---|---|---|---|
-| **1 — Presença + render** | hash de presença, hook no move, WS join/leave/players/update/left, camada de sprites + nomes + interpolação | Dois clientes na mesma dungeon se veem andar suave; sair remove o fantasma ≤ TTL; bloqueado não aparece; **todos os players do grupo visíveis** (viewport = mundo inteiro, sem cap) | ~1-2d |
-| **2 — Contexto + PvP + amigo + chat overlay** | menu de contexto, invite PvP (regras da arena, convite direto), `social:notify` de amigo, overlay de chat global + local (dungeon) | Batalha 3v3 começa por convite e termina voltando pra dungeon; request de amigo notifica o alvo; chat local só ecoa pra quem está na dungeon | ~2-3d |
+| **1 — Presença + render** | hash de presença, hook no move, WS join/leave/players/update/left, camada de sprites + nomes + interpolação | Dois clientes na mesma dungeon se veem andar suave; sair remove o fantasma ≤ TTL; bloqueado não aparece; **todos os players do grupo visíveis** (viewport = mundo inteiro, densidade alvo 40) | ~1-2d |
+| **2 — Contexto + PvP + amigo + chat overlay** | menu de contexto (interação a qualquer distância visível), invite PvP (regras da arena, convite direto), `social:notify` de amigo, overlay de chat global + local (dungeon) | Batalha 3v3 começa por convite e termina voltando pra dungeon; request de amigo notifica o alvo; chat local só ecoa pra quem está na dungeon | ~2-3d |
 | **3 — Trade** | migration `can_trade`, tabela `trades`, endpoints, painel de trade, escrow em `tx` | Confirm duplo transfere itens `can_trade` sem dupe; cancel/timeout devolve; itens sem flag recusados | ~2d |
 | **4 — Seguir** | modo follow | Follow acompanha por mapa cruzando seams | ~1d |
 
 ## 6. Riscos e mitigações
 
 - **Fantasma/teleport**: posição só entra na presença via move validado → sem teleport; TTL remove offline.
-- **Fanout**: canal por dungeonId; hash enxuto; broadcast só do delta (player-update), snapshot só no join. Sem cap de densidade: o viewport do jogador é o mapa inteiro do grupo — presença cobre todos.
-- **Colisão de interação**: raio de 1 célula + target explícito no clique.
+- **Fanout**: canal por dungeonId; hash enxuto; broadcast só do delta (player-update), snapshot só no join. Densidade alvo 40 players/dungeon: N² de interações na UI é confortável nesse teto.
+- **Colisão de interação**: target explícito — a célula clicada identifica o avatar (qualquer distância visível), sem ambiguidade.
 - **Trade duplicado**: escrow no confirm + `tx` com guarda de posse (mesmo padrão do market).
 - **Perf do render**: N players = N dots (sprites leves, já deduped).
 - **Instância vs mundo**: mundo compartilhado é só visual — sem mudança de gameplay single-player (decisão D1).
@@ -204,6 +204,6 @@ A clica em B → PvP (x1)
 1. **PvP (x1)** — mesmas regras da arena (3v3, party atual), iniciado por convite direto do menu de contexto. ✅
 2. **Trade** — v1 só itens; flag `can_trade` no catálogo (`shop_items`); digimon com flag equivalente fica pra v2. ✅
 3. **Chat** — overlay in-game com **global + local (por dungeon)**. ✅
-4. **Raio de interação** — 1 célula (default proposto; não contestado).
-5. **Densidade** — sem cap: o mapa inteiro do grupo é o viewport; todos os players do grupo são renderizados. ✅
+4. **Raio de interação** — viewport: interação a qualquer distância visível (sem requisito de adjacência). ✅
+5. **Densidade** — 40 players por dungeon (teto de escala alvo; sem cap de render, o mapa inteiro do grupo é o viewport). ✅
 
