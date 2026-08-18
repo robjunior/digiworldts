@@ -45,8 +45,10 @@ export type DungeonRemotePlayer = {
 export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
-  | { type: 'chat'; text: string; room?: string }
+  | { type: 'chat'; text: string; room?: string; dungeonId?: string }
   | { type: 'queue'; join: boolean }
+  | { type: 'pvp:invite'; targetUserId: string; dungeonId: string }
+  | { type: 'pvp:response'; inviteId: string; accept: boolean }
   | { type: 'act'; matchId: string; action: Action }
   | { type: 'spectate'; matchId: string; join: boolean }
   | {
@@ -93,6 +95,11 @@ export type WSErrorCode =
   | 'target-down'
   | 'match-not-found'
   | 'match-ended'
+  | 'pvp-self-invite'
+  | 'pvp-target-offline'
+  | 'pvp-target-in-match'
+  | 'pvp-blocked'
+  | 'pvp-invite-not-found'
   | 'internal-error'
   | (string & {});
 
@@ -119,6 +126,8 @@ export type WSServerMessage =
       nodeId: string;
       /** Present iff this is a per-room message. Absent = global chat. */
       room?: string;
+      /** Present iff this is a dungeon-local message (fanout via dungeon scope). */
+      dungeonId?: string;
     }
   | {
       type: 'queue';
@@ -167,7 +176,11 @@ export type WSServerMessage =
   | { type: 'error'; code: WSErrorCode; message: string }
   | { type: 'dungeon:players'; dungeonId: string; players: DungeonRemotePlayer[] }
   | { type: 'dungeon:player-update'; dungeonId: string; player: DungeonRemotePlayer }
-  | { type: 'dungeon:player-left'; userId: string; dungeonId?: string };
+  | { type: 'dungeon:player-left'; userId: string; dungeonId?: string }
+  | { type: 'pvp:invite'; inviteId: string; fromUserId: string; fromName: string; dungeonId: string }
+  | { type: 'pvp:invite-declined'; inviteId: string; fromName: string }
+  | { type: 'pvp:invite-expired'; inviteId: string }
+  | { type: 'social:notify'; kind: 'friend-request'; fromName: string; fromUserId: string };
 
 // ============================================================================
 // Narrowing helpers (frontend convenience)
