@@ -11,6 +11,14 @@ type ChatMessage = {
   readonly displayName: string;
   readonly text: string;
   readonly at: number;
+  readonly dungeonId?: string;
+};
+
+type PvpInvite = {
+  readonly inviteId: string;
+  readonly fromUserId: string;
+  readonly fromName: string;
+  readonly dungeonId: string;
 };
 
 type QueueState = {
@@ -46,10 +54,16 @@ type WsState = {
   readonly welcome: WelcomeState | null;
   readonly weatherOverride: WeatherOverrideState | null;
   readonly dungeonPlayers: DungeonRemotePlayer[];
+  readonly pvpInvite: PvpInvite | null;
+  readonly pvpNotice: string | null;
+  readonly socialNotifyVersion: number;
+  readonly chatByDungeon: Record<string, ChatMessage[]>;
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
   readonly clearDungeonPlayers: () => void;
+  readonly clearPvpInvite: () => void;
+  readonly clearPvpNotice: () => void;
   readonly reset: () => void;
 };
 
@@ -68,7 +82,20 @@ const initialState = {
   welcome: null,
   weatherOverride: null,
   dungeonPlayers: [],
-} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat' | 'clearDungeonPlayers'>;
+  pvpInvite: null,
+  pvpNotice: null,
+  socialNotifyVersion: 0,
+  chatByDungeon: {},
+} satisfies Omit<
+  WsState,
+  | 'handleServerMessage'
+  | 'reset'
+  | 'clearActiveBattle'
+  | 'clearRoomChat'
+  | 'clearDungeonPlayers'
+  | 'clearPvpInvite'
+  | 'clearPvpNotice'
+>;
 
 export const useWsStore = create<WsState>((set) => ({
   ...initialState,
@@ -86,6 +113,19 @@ export const useWsStore = create<WsState>((set) => ({
         set({ presence: msg.users, presenceCount: msg.count });
         return;
       case 'chat':
+        if (msg.dungeonId !== undefined) {
+          const dungeonId = msg.dungeonId;
+          set((state) => ({
+            chatByDungeon: {
+              ...state.chatByDungeon,
+              [dungeonId]: [
+                ...(state.chatByDungeon[dungeonId] ?? []),
+                { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, dungeonId },
+              ].slice(-MAX_LOG_MESSAGES),
+            },
+          }));
+          return;
+        }
         if (msg.room !== undefined) {
           const roomId = msg.room;
           set((state) => ({
@@ -164,6 +204,9 @@ export const useWsStore = create<WsState>((set) => ({
         });
         return;
       case 'error':
+        if (msg.code.startsWith('pvp-')) {
+          set({ pvpNotice: msg.message });
+        }
         return;
       case 'pong':
         return;
@@ -184,6 +227,24 @@ export const useWsStore = create<WsState>((set) => ({
       case 'dungeon:player-left':
         set((state) => ({ dungeonPlayers: state.dungeonPlayers.filter((p) => p.userId !== msg.userId) }));
         return;
+      case 'pvp:invite':
+        set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName, dungeonId: msg.dungeonId } });
+        return;
+      case 'pvp:invite-declined':
+        set((state) => ({
+          pvpInvite: state.pvpInvite?.inviteId === msg.inviteId ? null : state.pvpInvite,
+          pvpNotice: `${msg.fromName} declined your battle invite.`,
+        }));
+        return;
+      case 'pvp:invite-expired':
+        set((state) => ({
+          pvpInvite: state.pvpInvite?.inviteId === msg.inviteId ? null : state.pvpInvite,
+          pvpNotice: state.pvpInvite?.inviteId === msg.inviteId ? 'Battle invite expired.' : state.pvpNotice,
+        }));
+        return;
+      case 'social:notify':
+        set((state) => ({ socialNotifyVersion: state.socialNotifyVersion + 1 }));
+        return;
       default:
         msg satisfies never;
     }
@@ -203,5 +264,11 @@ export const useWsStore = create<WsState>((set) => ({
   },
   clearDungeonPlayers: () => {
     set({ dungeonPlayers: [] });
+  },
+  clearPvpInvite: () => {
+    set({ pvpInvite: null });
+  },
+  clearPvpNotice: () => {
+    set({ pvpNotice: null });
   },
 }));
