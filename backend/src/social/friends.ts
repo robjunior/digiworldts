@@ -30,6 +30,11 @@ export function setOnlineChecker(fn: (userId: string) => boolean): void {
   isOnlineFn = fn;
 }
 
+let notifyFn: (userId: string, payload: unknown) => Promise<void> = async () => {};
+export function setFriendNotifier(fn: (userId: string, payload: unknown) => Promise<void>): void {
+  notifyFn = fn;
+}
+
 const SQL_SELECT_USER_BY_USERNAME = `SELECT * FROM users WHERE username = ?`;
 const SQL_SELECT_USER_BY_ID = `SELECT * FROM users WHERE id = ?`;
 const SQL_INSERT_FRIENDSHIP = `INSERT INTO friendships (requester_id, addressee_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`;
@@ -127,6 +132,7 @@ export const friendsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     }
     try {
       await run(SQL_INSERT_FRIENDSHIP, me.id, target.id, 'pending', now, now);
+      await notifyFn(target.id, { type: 'social:notify', kind: 'friend-request', fromName: me.displayName, fromUserId: me.id });
     } catch {
       return reply.send({ status: 'pending' });
     }

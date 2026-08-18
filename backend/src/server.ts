@@ -39,12 +39,12 @@ import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
-import { friendsPlugin, setOnlineChecker } from './social/friends.js';
+import { friendsPlugin, setFriendNotifier, setOnlineChecker } from './social/friends.js';
 import { seedShopItems, shopPlugin } from './social/shop.js';
 import { seedDefaultRarityTables } from './dungeons/rarity-tables.js';
 import { dailyPlugin } from './social/daily.js';
 import { trainingPlugin } from './training/routes.js';
-import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot } from './lobby/ws.js';
+import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot, deliverToUser } from './lobby/ws.js';
 import { onboardingPlugin } from './onboarding/routes.js';
 import { seedDefaultOnboarding } from './onboarding/engine.js';
 import { tutorialPlugin } from './tutorial/routes.js';
@@ -262,6 +262,7 @@ async function main(): Promise<void> {
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
 
   setOnlineChecker(isUserOnlineFromLobby);
+  setFriendNotifier((userId, payload) => deliverToUser(userId, payload));
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.url;
