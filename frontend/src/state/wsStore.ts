@@ -1,5 +1,5 @@
 import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
-import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
+import type { DungeonRemotePlayer, PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
 
@@ -45,9 +45,11 @@ type WsState = {
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
   readonly weatherOverride: WeatherOverrideState | null;
+  readonly dungeonPlayers: DungeonRemotePlayer[];
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
+  readonly clearDungeonPlayers: () => void;
   readonly reset: () => void;
 };
 
@@ -65,7 +67,8 @@ const initialState = {
   battleOutcome: null,
   welcome: null,
   weatherOverride: null,
-} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat'>;
+  dungeonPlayers: [],
+} satisfies Omit<WsState, 'handleServerMessage' | 'reset' | 'clearActiveBattle' | 'clearRoomChat' | 'clearDungeonPlayers'>;
 
 export const useWsStore = create<WsState>((set) => ({
   ...initialState,
@@ -164,6 +167,23 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'pong':
         return;
+      case 'dungeon:players':
+        set({ dungeonPlayers: msg.players });
+        return;
+      case 'dungeon:player-update':
+        set((state) => {
+          const known = state.dungeonPlayers.find((p) => p.userId === msg.player.userId);
+          const player = known === undefined ? msg.player : { ...known, ...msg.player };
+          return {
+            dungeonPlayers: known === undefined
+              ? [...state.dungeonPlayers, player]
+              : state.dungeonPlayers.map((p) => (p.userId === player.userId ? player : p)),
+          };
+        });
+        return;
+      case 'dungeon:player-left':
+        set((state) => ({ dungeonPlayers: state.dungeonPlayers.filter((p) => p.userId !== msg.userId) }));
+        return;
       default:
         msg satisfies never;
     }
@@ -180,5 +200,8 @@ export const useWsStore = create<WsState>((set) => ({
       delete next[roomId];
       return { chatsByRoom: next };
     });
+  },
+  clearDungeonPlayers: () => {
+    set({ dungeonPlayers: [] });
   },
 }));
