@@ -24,6 +24,7 @@ import type {} from '@fastify/websocket';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { newId } from '../util/ids.js';
 import { readSessionCookie, resolveSession } from '../auth/session.js';
 import { matchmaker, type MatchPair } from '../matchmaking/queue.js';
 import { PARTY_SIZE } from '../digimon/types.js';
@@ -62,6 +63,7 @@ const PAIRING_INTERVAL_MS = 500;
 const CHAT_WINDOW_MS = 8_000;
 const CHAT_MAX_IN_WINDOW = 4;
 const DISCONNECT_GRACE_MS = 15_000;
+const PVP_INVITE_TTL_SEC = 30;
 
 const CHAT_CHANNEL = 'chat:global';
 const SCENE_DEFAULTS_CHANNEL = 'scene:defaults:updated';
@@ -70,6 +72,7 @@ const WEATHER_CHANNEL = 'weather:triggered';
 const WSDELIVER_PREFIX = 'wsdeliver:';
 const WSDELIVER_PATTERN = `${WSDELIVER_PREFIX}*`;
 const K_PRESENCE = (userId: string): string => `presence:user:${userId}`;
+const K_INVITE = (id: string): string => `pvp:invite:${id}`;
 
 // ============================================================================
 // Client → server message schemas
@@ -78,6 +81,17 @@ const ChatSchema = z.object({
   type: z.literal('chat'),
   text: z.string().trim().min(1).max(300),
   room: z.string().min(3).max(64).optional(),
+  dungeonId: z.string().min(1).max(64).optional(),
+});
+const PvpInviteSchema = z.object({
+  type: z.literal('pvp:invite'),
+  targetUserId: z.string().min(3).max(64),
+  dungeonId: z.string().min(1).max(64),
+});
+const PvpResponseSchema = z.object({
+  type: z.literal('pvp:response'),
+  inviteId: z.string().min(1).max(64),
+  accept: z.boolean(),
 });
 const QueueSchema = z.object({ type: z.literal('queue'), join: z.boolean() });
 const HelloSchema = z.object({ type: z.literal('hello') });
@@ -108,6 +122,10 @@ const WSDELIVER_ALLOWED_TYPES = new Set([
   'scene-defaults-updated',
   'scene-updated',
   'weather-triggered',
+  'pvp:invite',
+  'pvp:invite-declined',
+  'pvp:invite-expired',
+  'social:notify',
 ]);
 
 function parsePubSubEnvelope(
@@ -136,7 +154,7 @@ const DungeonJoinSchema = z.object({
 });
 const DungeonLeaveSchema = z.object({ type: z.literal('dungeon:leave') });
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -285,6 +303,46 @@ function schedulePendingAbandon(userId: string): void {
   pendingAbandons.set(userId, timer);
 }
 
+const pvpInviteExpiries = new Map<string, NodeJS.Timeout>();
+
+function parsePvpInvite(raw: string): { fromUserId: string; toUserId: string } | null {
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return null; }
+  if (parsed === null || typeof parsed !== 'object') return null;
+  const fromUserId = (parsed as { fromUserId?: unknown }).fromUserId;
+  const toUserId = (parsed as { toUserId?: unknown }).toUserId;
+  if (typeof fromUserId !== 'string' || typeof toUserId !== 'string') return null;
+  return { fromUserId, toUserId };
+}
+
+function cancelPvpInviteExpiry(inviteId: string): boolean {
+  const timer = pvpInviteExpiries.get(inviteId);
+  if (!timer) return false;
+  clearTimeout(timer);
+  pvpInviteExpiries.delete(inviteId);
+  return true;
+}
+
+function schedulePvpInviteExpiry(inviteId: string, fromUserId: string, toUserId: string): void {
+  cancelPvpInviteExpiry(inviteId);
+  const timer = setTimeout(() => {
+    void (async () => {
+      pvpInviteExpiries.delete(inviteId);
+      const cluster = await getCluster();
+      const raw = await cluster.get(K_INVITE(inviteId));
+      if (raw === null) return;
+      const invite = parsePvpInvite(raw);
+      if (invite === null || invite.fromUserId !== fromUserId || invite.toUserId !== toUserId) return;
+      await cluster.del(K_INVITE(inviteId));
+      await deliverToUser(fromUserId, { type: 'pvp:invite-expired', inviteId });
+      await deliverToUser(toUserId, { type: 'pvp:invite-expired', inviteId });
+      log.info('pvp.invite.expired', { inviteId, fromUserId, toUserId, nodeId: config.NODE_ID });
+    })();
+  }, PVP_INVITE_TTL_SEC * 1000);
+  timer.unref?.();
+  pvpInviteExpiries.set(inviteId, timer);
+}
+
 // ============================================================================
 // Message handlers
 // ============================================================================
@@ -380,6 +438,10 @@ const handleChat: Handler = async (entry, msg) => {
     at: now,
     nodeId: config.NODE_ID,
   };
+  if (msg.room !== undefined && msg.dungeonId !== undefined) {
+    safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'room and dungeonId are mutually exclusive' });
+    return;
+  }
   if (msg.room !== undefined) {
     const member = await isChatRoomMember(msg.room, entry.userId);
     if (!member) {
@@ -389,6 +451,15 @@ const handleChat: Handler = async (entry, msg) => {
     const members = await listChatRoomMembers(msg.room);
     const payload = JSON.stringify({ ...basePayload, room: msg.room });
     await Promise.all(members.map((uid) => cluster.publish(`${WSDELIVER_PREFIX}${uid}`, payload)));
+    return;
+  }
+  if (msg.dungeonId !== undefined) {
+    const expectedScope = await dungeonPresenceScope(msg.dungeonId);
+    if (expectedScope === null || entry.dungeonScope !== expectedScope) {
+      safeSend(entry.socket, { type: 'error', code: 'not-in-room', message: 'you are not in that dungeon' });
+      return;
+    }
+    await publishDungeonPayload(entry.dungeonScope, { ...basePayload, dungeonId: msg.dungeonId });
     return;
   }
   await cluster.publish(CHAT_CHANNEL, JSON.stringify(basePayload));
@@ -466,6 +537,86 @@ const handleSpectate: Handler = async (entry, msg) => {
   }
 };
 
+const handlePvpInvite: Handler = async (entry, msg) => {
+  if (msg.type !== 'pvp:invite') return;
+  if (msg.targetUserId === entry.userId) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-self-invite', message: 'you cannot challenge yourself' });
+    return;
+  }
+  if (await isInMatch(entry.userId)) {
+    safeSend(entry.socket, { type: 'error', code: 'in-match', message: 'you are already in a match' });
+    return;
+  }
+  const cluster = await getCluster();
+  if ((await cluster.get(K_PRESENCE(msg.targetUserId))) === null) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-target-offline', message: 'that player is not online' });
+    return;
+  }
+  if (await isInMatch(msg.targetUserId)) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-target-in-match', message: 'that player is already in a match' });
+    return;
+  }
+  const blockedByMe = await listBlockedUserIds(entry.userId);
+  const blockedByTarget = await listBlockedUserIds(msg.targetUserId);
+  // A block in either direction kills the challenge.
+  if (blockedByMe.includes(msg.targetUserId) || blockedByTarget.includes(entry.userId)) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-blocked', message: 'you cannot challenge that player' });
+    return;
+  }
+  const inviteId = newId('pvp');
+  await cluster.set(
+    K_INVITE(inviteId),
+    JSON.stringify({ fromUserId: entry.userId, toUserId: msg.targetUserId, dungeonId: msg.dungeonId, at: Date.now() }),
+    PVP_INVITE_TTL_SEC,
+  );
+  schedulePvpInviteExpiry(inviteId, entry.userId, msg.targetUserId);
+  await deliverToUser(msg.targetUserId, {
+    type: 'pvp:invite',
+    inviteId,
+    fromUserId: entry.userId,
+    fromName: entry.displayName,
+    dungeonId: msg.dungeonId,
+  });
+};
+
+const handlePvpResponse: Handler = async (entry, msg) => {
+  if (msg.type !== 'pvp:response') return;
+  const cluster = await getCluster();
+  const raw = await cluster.get(K_INVITE(msg.inviteId));
+  if (raw === null) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-invite-not-found', message: 'invite expired or not found' });
+    return;
+  }
+  const invite = parsePvpInvite(raw);
+  // Consume before acting — a replayed response must not reuse the invite.
+  await cluster.del(K_INVITE(msg.inviteId));
+  if (invite === null || invite.toUserId !== entry.userId) {
+    safeSend(entry.socket, { type: 'error', code: 'pvp-invite-not-found', message: 'invite expired or not found' });
+    return;
+  }
+  cancelPvpInviteExpiry(msg.inviteId);
+  if (!msg.accept) {
+    await deliverToUser(invite.fromUserId, {
+      type: 'pvp:invite-declined',
+      inviteId: msg.inviteId,
+      fromName: entry.displayName,
+    });
+    return;
+  }
+  const outcome = await createBattleForPair(invite.fromUserId, entry.userId);
+  if (!outcome.ok) {
+    log.warn('pvp.response.reject', { error: outcome.error, who: outcome.who });
+    if (outcome.who) {
+      await deliverToUser(outcome.who, { type: 'error', code: 'loadout-invalid', message: outcome.error });
+    }
+    await deliverToUser(outcome.who === invite.fromUserId ? entry.userId : invite.fromUserId, {
+      type: 'pvp:invite-declined',
+      inviteId: msg.inviteId,
+      fromName: entry.displayName,
+    });
+  }
+};
+
 const dispatcher: Record<IncomingMessage['type'], Handler> = {
   hello: handleHello,
   ping: handlePing,
@@ -475,6 +626,8 @@ const dispatcher: Record<IncomingMessage['type'], Handler> = {
   spectate: handleSpectate,
   'dungeon:join': handleDungeonJoin,
   'dungeon:leave': handleDungeonLeave,
+  'pvp:invite': handlePvpInvite,
+  'pvp:response': handlePvpResponse,
 };
 
 // ============================================================================
@@ -491,7 +644,7 @@ let weatherUnsub: Unsubscribe | null = null;
 let deliverUnsub: Unsubscribe | null = null;
 let dungeonUnsub: Unsubscribe | null = null;
 
-const DUNGEON_CHAN_ALLOWED_TYPES = new Set(['dungeon:player-update', 'dungeon:player-left']);
+const DUNGEON_CHAN_ALLOWED_TYPES = new Set(['dungeon:player-update', 'dungeon:player-left', 'chat']);
 
 async function runPairing(): Promise<void> {
   await matchmaker.purgeStale();
@@ -584,6 +737,12 @@ async function startCloudLoops(): Promise<void> {
     if (parsed === null) return;
     for (const e of connections.values()) {
       if (e.dungeonScope !== scope) continue;
+      if (parsed.type === 'chat') {
+        const from = parsed.from;
+        if (typeof from === 'string' && e.blockedIds.has(from)) continue;
+        safeSend(e.socket, parsed);
+        continue;
+      }
       if (parsed.type === 'dungeon:player-update') {
         const player = parsed.player as { userId?: unknown };
         const blockedBy = Array.isArray(parsed.blockedBy) ? (parsed.blockedBy as unknown[]) : [];
