@@ -675,3 +675,199 @@
     flex: 0 0 auto;
   }
 }
+
+/* ---- Phase 2: player interaction (context menu, PvP invite, chat) ---- */
+
+/* The plain .sheet-backdrop is display:none on desktop (it only dims the
+   mobile bottom sheets), so these dialogs add a modifier that forces a
+   full-screen dim at every width. */
+.dungeon-page .sheet-backdrop.dialog-backdrop {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 88;
+}
+
+.dungeon-page .context-menu-panel {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  z-index: 6;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(300px, calc(100% - 48px));
+  padding: 14px;
+  background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--el) 54%, var(--hair));
+  clip-path: var(--notch-sm-clip);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 16px 44px color-mix(in oklab, black 30%, transparent);
+}
+.dungeon-page .context-menu-panel b {
+  font: 900 11px/1.2 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-align: center;
+  padding: 2px 0 4px;
+}
+.dungeon-page .context-menu-panel button {
+  border: 1px solid var(--hair);
+  background: var(--bg);
+  color: var(--ink);
+  clip-path: var(--notch-sm-clip);
+  cursor: pointer;
+  font: 800 10px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 11px 14px;
+  transition: border-color .12s, color .12s, filter .12s;
+}
+.dungeon-page .context-menu-panel button:hover:not(:disabled) {
+  border-color: var(--el);
+  color: var(--el);
+}
+.dungeon-page .context-menu-panel button:focus-visible {
+  outline: 2px solid var(--el);
+  outline-offset: 2px;
+}
+.dungeon-page .context-menu-panel button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+.dungeon-page .context-menu-panel button.is-primary {
+  border-color: var(--el);
+  background: var(--el);
+  color: #fff;
+}
+.dungeon-page .context-menu-panel button.is-primary:hover:not(:disabled) {
+  color: #fff;
+  filter: brightness(1.1);
+}
+.dungeon-page .context-menu-panel .context-menu-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+.dungeon-page .context-menu-panel .context-menu-row button {
+  flex: 1 1 auto;
+}
+
+/* In-game chat overlay: floating panel over the map, bottom-left (the
+   minimap slot — currently unused by the Phaser view). */
+.dungeon-page .dungeon-chat {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 60;
+  width: min(340px, calc(100% - 32px));
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in oklab, var(--panel) 94%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-clip);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 16px 44px color-mix(in oklab, black 30%, transparent);
+}
+.dungeon-page .dungeon-chat-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 8px;
+}
+.dungeon-page .dungeon-chat-tabs {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+.dungeon-page .dungeon-chat-tabs button {
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  color: var(--muted);
+  cursor: pointer;
+  font: 800 9px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.dungeon-page .dungeon-chat-tabs button.is-active {
+  border-color: var(--el);
+  color: var(--el);
+  background: color-mix(in oklab, var(--el) 12%, var(--bg));
+}
+.dungeon-page .dungeon-chat-tabs button:focus-visible {
+  outline: 2px solid var(--el);
+  outline-offset: 2px;
+}
+.dungeon-page .dungeon-chat-close {
+  background: none;
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  color: var(--muted);
+  cursor: pointer;
+  font: 800 11px/1 var(--font);
+  padding: 6px 9px;
+  transition: color .12s, border-color .12s;
+}
+.dungeon-page .dungeon-chat-close:hover {
+  color: var(--ink);
+  border-color: var(--muted);
+}
+.dungeon-page .dungeon-chat-log {
+  height: 200px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scrollbar-width: thin;
+  font: 600 11px/1.45 var(--font);
+  color: var(--muted);
+}
+.dungeon-page .dungeon-chat-log::-webkit-scrollbar { width: 8px; }
+.dungeon-page .dungeon-chat-log::-webkit-scrollbar-thumb { background: var(--hair); }
+.dungeon-page .dungeon-chat-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dungeon-page .dungeon-chat-msg .from {
+  color: var(--el);
+  font-weight: 800;
+  margin-right: 6px;
+}
+.dungeon-page .dungeon-chat-msg .time {
+  color: color-mix(in oklab, var(--muted) 60%, var(--bg));
+  font-size: 9px;
+  margin-left: 6px;
+}
+.dungeon-page .dungeon-chat-empty {
+  font: 600 11px/1.4 var(--font);
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 6px;
+}
+.dungeon-page .dungeon-chat-form {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.dungeon-page .dungeon-chat-form .dungeon-chat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .dungeon-page .dungeon-chat {
+    bottom: 74px;
+  }
+}
