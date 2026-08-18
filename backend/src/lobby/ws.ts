@@ -45,8 +45,10 @@ import { listBlockedUserIds } from '../social/friends.js';
 import {
   CHAN_PATTERN as DUNGEON_CHAN_PATTERN,
   CHAN_PREFIX as DUNGEON_CHAN_PREFIX,
+  dungeonPresenceScope,
   dungeonPresenceSnapshot,
   publishDungeonPayload,
+  refreshDungeonPresence,
   removeDungeonPresence,
   setDungeonPresence,
 } from '../dungeons/presence.js';
@@ -129,6 +131,8 @@ const DungeonJoinSchema = z.object({
   gridX: z.number().int().min(-999).max(999),
   gridY: z.number().int().min(-999).max(999),
   leaderCatalogId: z.string().min(1).max(64),
+  party: z.array(z.string().min(1).max(64)).max(3),
+  trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
 });
 const DungeonLeaveSchema = z.object({ type: z.literal('dungeon:leave') });
 
@@ -150,8 +154,8 @@ type PresenceEntry = {
   // so all verbs (ping/queue/act/chat) are rate-limited, not just chat.
   msgTokens: number;
   msgTokensTs: number;
-  /** Dungeon this socket is currently joined to (presence fanout target). */
-  dungeonId: string | null;
+  /** Presence scope this socket is joined to (group:... or dungeon:...). */
+  dungeonScope: string | null;
   /** Users blocked by this player (both friendship directions). */
   blockedIds: ReadonlySet<string>;
 };
@@ -178,7 +182,7 @@ function ensureUnique(userId: string, socket: WebSocket, displayName: string): P
   const now = Date.now();
   const entry: PresenceEntry = {
     userId, displayName, socket, connectedAt: now, chatLog: [], msgTokens: MSG_BURST, msgTokensTs: now,
-    dungeonId: null, blockedIds: new Set(),
+    dungeonScope: null, blockedIds: new Set(),
   };
   connections.set(userId, entry);
   return entry;
@@ -305,25 +309,29 @@ const handleHello: Handler = async (entry) => {
 
 const handlePing: Handler = async (entry) => {
   safeSend(entry.socket, { type: 'pong' });
-  if (entry.dungeonId !== null) {
-    const cluster = await getCluster();
-    await cluster.expire(`dungeon:presence:${entry.dungeonId}:${entry.userId}`, 15);
+  if (entry.dungeonScope !== null) {
+    await refreshDungeonPresence(entry.dungeonScope, entry.userId);
   }
 };
 
 async function leaveDungeon(entry: PresenceEntry): Promise<void> {
-  const dungeonId = entry.dungeonId;
-  if (dungeonId === null) return;
-  entry.dungeonId = null;
+  const scope = entry.dungeonScope;
+  if (scope === null) return;
+  entry.dungeonScope = null;
   entry.blockedIds = new Set();
-  await removeDungeonPresence(dungeonId, entry.userId);
-  await publishDungeonPayload(dungeonId, { type: 'dungeon:player-left', dungeonId, userId: entry.userId });
+  await removeDungeonPresence(scope, entry.userId);
+  await publishDungeonPayload(scope, { type: 'dungeon:player-left', userId: entry.userId });
 }
 
 const handleDungeonJoin: Handler = async (entry, msg) => {
   if (msg.type !== 'dungeon:join') return;
   await leaveDungeon(entry);
-  entry.dungeonId = msg.dungeonId;
+  const scope = await dungeonPresenceScope(msg.dungeonId);
+  if (scope === null) {
+    safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'unknown dungeon' });
+    return;
+  }
+  entry.dungeonScope = scope;
   entry.blockedIds = new Set(await listBlockedUserIds(entry.userId));
   const me = {
     userId: entry.userId,
@@ -332,14 +340,17 @@ const handleDungeonJoin: Handler = async (entry, msg) => {
     y: msg.y,
     gridX: msg.gridX,
     gridY: msg.gridY,
+    dungeonId: msg.dungeonId,
     leaderCatalogId: msg.leaderCatalogId,
+    party: msg.party,
+    trail: msg.trail ?? [],
   };
-  await setDungeonPresence(msg.dungeonId, me);
-  const snapshot = (await dungeonPresenceSnapshot(msg.dungeonId)).filter(
+  await setDungeonPresence(scope, me);
+  const snapshot = (await dungeonPresenceSnapshot(scope)).filter(
     (player) => player.userId !== entry.userId && !entry.blockedIds.has(player.userId),
   );
   safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: snapshot });
-  await publishDungeonPayload(msg.dungeonId, {
+  await publishDungeonPayload(scope, {
     type: 'dungeon:player-update',
     dungeonId: msg.dungeonId,
     player: me,
@@ -568,11 +579,11 @@ async function startCloudLoops(): Promise<void> {
 
   if (dungeonUnsub) await dungeonUnsub();
   dungeonUnsub = await cluster.psubscribe(DUNGEON_CHAN_PATTERN, (msg, channel) => {
-    const dungeonId = channel.slice(DUNGEON_CHAN_PREFIX.length);
+    const scope = channel.slice(DUNGEON_CHAN_PREFIX.length);
     const parsed = parsePubSubEnvelope(msg, DUNGEON_CHAN_ALLOWED_TYPES);
     if (parsed === null) return;
     for (const e of connections.values()) {
-      if (e.dungeonId !== dungeonId) continue;
+      if (e.dungeonScope !== scope) continue;
       if (parsed.type === 'dungeon:player-update') {
         const player = parsed.player as { userId?: unknown };
         const blockedBy = Array.isArray(parsed.blockedBy) ? (parsed.blockedBy as unknown[]) : [];

@@ -32,6 +32,10 @@ export type DungeonRemotePlayer = {
   gridY: number;
   /** Leader digimon dot. Absent on move deltas — receivers keep the known value. */
   leaderCatalogId?: string;
+  /** Ordered party catalogIds (leader first). */
+  party?: string[];
+  /** Previous leader cells, trail[i] maps to party[i]; trail[0] is the leader's own cell. */
+  trail?: { x: number; y: number }[];
 };
 
 // ============================================================================
@@ -53,6 +57,8 @@ export type WSClientMessage =
       gridX: number;
       gridY: number;
       leaderCatalogId: string;
+      party: string[];
+      trail: { x: number; y: number }[];
     }
   | { type: 'dungeon:leave' };
 
@@ -161,7 +167,7 @@ export type WSServerMessage =
   | { type: 'error'; code: WSErrorCode; message: string }
   | { type: 'dungeon:players'; dungeonId: string; players: DungeonRemotePlayer[] }
   | { type: 'dungeon:player-update'; dungeonId: string; player: DungeonRemotePlayer }
-  | { type: 'dungeon:player-left'; dungeonId: string; userId: string };
+  | { type: 'dungeon:player-left'; userId: string; dungeonId?: string };
 
 // ============================================================================
 // Narrowing helpers (frontend convenience)

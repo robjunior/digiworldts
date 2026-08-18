@@ -8,6 +8,7 @@ import {
   stripTiledGidFlags,
 } from '@digiworld/shared';
 import type { TilesetGrant } from '@digiworld/shared';
+import { decodeGifFrames } from './gif';
 
 /**
  * Phaser texture pipeline for Tiled tilesets (Todo 2 of the dungeon-to-phaser
@@ -297,7 +298,9 @@ export function applyTiledFlips(tile: Phaser.Tilemaps.Tile, rawGid: number): voi
  * Load a digimon dot GIF as a texture (`dot-<catalogId>`, URL
  * `/assets/digimon/:catalogId/dot.gif`) — shared by the party + boss sprite
  * paths (Todo 5/6). Deduped by catalogId (loaded, pending, or quarantined);
- * returns the texture key to use when creating sprites.
+ * returns the texture key to use when creating sprites. The gif is loaded
+ * as binary so `buildDotTexture` can decode its walk frames — Phaser only
+ * renders the first frame of an animated gif on its own.
  */
 export function preloadDigimonDot(scene: Phaser.Scene, catalogId: string): string {
   const key = digimonDotKey(catalogId);
@@ -306,6 +309,63 @@ export function preloadDigimonDot(scene: Phaser.Scene, catalogId: string): strin
   if (isTextureAbandoned(textures, key)) return key;
   if (isQuarantined(textures, key, Date.now())) return key;
   if (!claimPending(textures, key)) return key;
-  scene.load.image(key, `/assets/digimon/${encodeURIComponent(catalogId)}/dot.gif`);
+  scene.load.binary(key, `/assets/digimon/${encodeURIComponent(catalogId)}/dot.gif`, Uint8Array);
   return key;
+}
+
+/** Anim key for a dot walk cycle (2 frames, looped). */
+export function dotAnimKey(catalogId: string): string {
+  return `dot-anim-${catalogId}`;
+}
+
+/**
+ * Build the dot texture from the binary gif cache: decode the frames, stack
+ * them side by side as a spritesheet texture, and register the looped walk
+ * anim. Returns false when the binary is missing or the gif is not
+ * decodable (caller falls back to the static first-frame path).
+ */
+export function buildDotTexture(scene: Phaser.Scene, catalogId: string): boolean {
+  const key = digimonDotKey(catalogId);
+  if (scene.textures.exists(key)) return true;
+  const raw = scene.cache.binary.get(key);
+  if (!(raw instanceof Uint8Array)) return false;
+  const decoded = decodeGifFrames(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength));
+  if (decoded === null || decoded.frames.length === 0) return false;
+  const canvas = document.createElement('canvas');
+  canvas.width = decoded.width * decoded.frames.length;
+  canvas.height = decoded.height;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return false;
+  decoded.frames.forEach((frame, i) => ctx.putImageData(frame, i * decoded.width, 0));
+  const texture = scene.textures.addCanvas(key, canvas);
+  if (texture === null) return false;
+  decoded.frames.forEach((_, i) => texture.add(i, 0, i * decoded.width, 0, decoded.width, decoded.height));
+  if (!scene.anims.exists(dotAnimKey(catalogId))) {
+    scene.anims.create({
+      key: dotAnimKey(catalogId),
+      frames: decoded.frames.map((_, i) => ({ key, frame: i })),
+      frameRate: Math.max(1, Math.round(1000 / Math.max(40, decoded.delayMs))),
+      repeat: -1,
+    });
+  }
+  return true;
+}
+
+/**
+ * Static fallback for undecodable gifs: load the image through the DOM
+ * (browser renders the first frame) and register it as a plain texture.
+ * `onLoaded` fires once the texture exists.
+ */
+export function fallbackStaticDot(scene: Phaser.Scene, catalogId: string, onLoaded: () => void): void {
+  const key = digimonDotKey(catalogId);
+  if (scene.textures.exists(key)) {
+    onLoaded();
+    return;
+  }
+  const img = new Image();
+  img.onload = () => {
+    if (!scene.textures.exists(key)) scene.textures.addImage(key, img);
+    onLoaded();
+  };
+  img.src = `/assets/digimon/${encodeURIComponent(catalogId)}/dot.gif`;
 }

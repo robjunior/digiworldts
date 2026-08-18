@@ -17,10 +17,15 @@ export async function getDungeonNeighbors(id: string): Promise<DungeonGridNeighb
   return apiFetch<DungeonGridNeighborsResponse>(`/api/dungeon/${id}/neighbors`);
 }
 
-export async function moveInDungeon(id: string, x: number, y: number): Promise<DungeonMoveResponse> {
+export async function moveInDungeon(
+  id: string,
+  x: number,
+  y: number,
+  presence?: { readonly party: readonly string[]; readonly trail: readonly { readonly x: number; readonly y: number }[] },
+): Promise<DungeonMoveResponse> {
   return apiFetch<DungeonMoveResponse>(`/api/dungeon/${id}/move`, {
     method: 'POST',
-    body: JSON.stringify({ x, y }),
+    body: JSON.stringify({ x, y, ...(presence ?? {}) }),
   });
 }
 
