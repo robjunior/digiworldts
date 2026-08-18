@@ -12,7 +12,7 @@ import {
   startRandomEncounter,
   unlockDungeonDoor,
 } from '../lib/api-dungeon';
-import { ApiError, getBattleView, getRoster } from '../lib/api';
+import { ApiError, getBattleView, getRoster, requestFriend } from '../lib/api';
 import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
@@ -25,6 +25,8 @@ import { useT } from '../hooks/useLocale';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 import { DungeonPhaserView } from '../phaser-dungeon/DungeonPhaserView';
+import { AutoToast } from '../components/common/Toast';
+import { DungeonChatOverlay } from '../components/dungeon/DungeonChatOverlay';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
@@ -45,6 +47,11 @@ export function Dungeon(): JSX.Element {
   const handleServerMessage = useWsStore((state) => state.handleServerMessage);
   const dungeonPlayers = useWsStore((state) => state.dungeonPlayers);
   const clearDungeonPlayers = useWsStore((state) => state.clearDungeonPlayers);
+  const pvpInvite = useWsStore((state) => state.pvpInvite);
+  const pvpNotice = useWsStore((state) => state.pvpNotice);
+  const clearPvpInvite = useWsStore((state) => state.clearPvpInvite);
+  const clearPvpNotice = useWsStore((state) => state.clearPvpNotice);
+  const activeBattle = useWsStore((state) => state.activeBattle);
   const { send, readyState } = useWebSocket();
 
   useEffect(() => {
@@ -179,6 +186,8 @@ export function Dungeon(): JSX.Element {
   const [facing, setFacing] = useState<'left' | 'right'>('right');
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
+  const [contextTarget, setContextTarget] = useState<{ readonly userId: string; readonly displayName: string } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     if (gridCrossingRef.current) {
@@ -237,6 +246,27 @@ export function Dungeon(): JSX.Element {
   useEffect(() => {
     recoverActiveBattle();
   }, [recoverActiveBattle]);
+
+  // PvP/PvE match navigation: when the store transitions activeBattle
+  // null→non-null and nothing else navigated first (the PvE encounter
+  // callbacks navigate themselves and set 'dungeon-return' BEFORE this
+  // effect can run — the sessionStorage guard preserves their
+  // encounterId/kind payload), route into combat reusing the same
+  // dungeon-return mechanism Combat's useDungeonReturn consumes.
+  const hadActiveBattleRef = useRef(activeBattle !== null);
+  useEffect(() => {
+    const had = hadActiveBattleRef.current;
+    hadActiveBattleRef.current = activeBattle !== null;
+    if (had || activeBattle === null || id === undefined) return;
+    if (sessionStorage.getItem('dungeon-return') === null) {
+      sessionStorage.setItem('dungeon-return', JSON.stringify({ dungeonId: id }));
+    }
+    navigate('/loading', { state: { mode: 'combat', battle: activeBattle, returnTo: '/combat' } });
+  }, [activeBattle, id, navigate]);
+
+  const handlePlayerClick = useCallback((userId: string, displayName: string): void => {
+    setContextTarget({ userId, displayName });
+  }, []);
 
   const handleTextureFallback = useCallback(
     (failed: readonly TilesetGrant[]): void => {
@@ -713,6 +743,7 @@ export function Dungeon(): JSX.Element {
             party={party}
             partyTrail={partyTrail}
             onCellClick={handleCellClick}
+            onPlayerClick={handlePlayerClick}
             onTextureFallback={handleTextureFallback}
           />
         </div>
@@ -815,7 +846,88 @@ export function Dungeon(): JSX.Element {
         </div>
       ) : null}
 
+      {contextTarget !== null ? (
+        <div className="sheet-backdrop dialog-backdrop" onClick={() => setContextTarget(null)}>
+          <div className="context-menu-panel" role="dialog" aria-modal="true">
+            <b>{contextTarget.displayName}</b>
+            <button
+              type="button"
+              onClick={() => {
+                send({ type: 'pvp:invite', targetUserId: contextTarget.userId, dungeonId: id! });
+                setContextTarget(null);
+                flashToast('Battle invite sent.');
+              }}
+            >
+              PvP (x1)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void requestFriend(contextTarget.displayName)
+                  .then(() => {
+                    setContextTarget(null);
+                    flashToast('Friend request sent.');
+                  })
+                  .catch((err: unknown) => {
+                    setContextTarget(null);
+                    flashToast(err instanceof Error ? err.message : 'Could not send friend request.');
+                  });
+              }}
+            >
+              Amigo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setContextTarget(null);
+                setChatOpen(true);
+              }}
+            >
+              Chat
+            </button>
+            <button type="button" disabled>
+              Seguir
+            </button>
+            <button type="button" disabled>
+              Trocar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {pvpInvite !== null ? (
+        <div className="sheet-backdrop dialog-backdrop" role="presentation">
+          <div className="context-menu-panel pvp-invite-panel" role="dialog" aria-modal="true" aria-live="polite">
+            <b>{pvpInvite.fromName} invites you to battle!</b>
+            <div className="context-menu-row">
+              <button
+                type="button"
+                className="is-primary"
+                onClick={() => {
+                  send({ type: 'pvp:response', inviteId: pvpInvite.inviteId, accept: true });
+                  clearPvpInvite();
+                }}
+              >
+                Aceitar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  send({ type: 'pvp:response', inviteId: pvpInvite.inviteId, accept: false });
+                  clearPvpInvite();
+                }}
+              >
+                Recusar
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {chatOpen && id !== undefined && <DungeonChatOverlay dungeonId={id} onClose={() => setChatOpen(false)} />}
+
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
+      <AutoToast message={pvpNotice} onDismiss={clearPvpNotice} durationMs={3000} />
     </>
   );
 }

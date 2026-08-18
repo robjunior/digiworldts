@@ -261,6 +261,13 @@ export function getFriends(): Promise<FriendsResponse> {
   return apiFetch<FriendsResponse>('/api/friends');
 }
 
+export function requestFriend(username: string): Promise<{ readonly status: string }> {
+  return apiFetch<{ readonly status: string }>('/api/friends/request', {
+    method: 'POST',
+    body: { username },
+  });
+}
+
 export function claimDaily(): Promise<DailyClaimResponse> {
   return apiFetch<DailyClaimResponse>('/api/daily/claim', { method: 'POST' });
 }
