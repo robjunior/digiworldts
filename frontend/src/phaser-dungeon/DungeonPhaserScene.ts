@@ -452,64 +452,56 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.renderParty(props, layout);
   }
 
+  private clampFollowTargetPos(x: number, y: number): { readonly x: number; readonly y: number } {
+    const bounds = this.clampBounds;
+    if (bounds === null) return { x, y };
+    const camera = this.cameras.main;
+    const displayW = camera.width / camera.zoom;
+    const displayH = camera.height / camera.zoom;
+    const cx = bounds.width > displayW
+      ? Phaser.Math.Clamp(x, bounds.x + displayW / 2, bounds.x + bounds.width - displayW / 2)
+      : bounds.x + bounds.width / 2;
+    const cy = bounds.height > displayH
+      ? Phaser.Math.Clamp(y, bounds.y + displayH / 2, bounds.y + bounds.height - displayH / 2)
+      : bounds.y + bounds.height / 2;
+    return { x: cx, y: cy };
+  }
+
   private moveFollowTarget(x: number, y: number, durationMs: number): void {
     const target = this.followTarget;
     if (target === null) return;
+    const clamped = this.clampFollowTargetPos(x, y);
     const last = this.lastFollowTarget;
     if (last === null) {
-      target.setPosition(x, y);
-      this.lastFollowTarget = { x, y };
+      target.setPosition(clamped.x, clamped.y);
+      this.lastFollowTarget = { x: clamped.x, y: clamped.y };
       return;
     }
-    if (last.x === x && last.y === y) {
+    if (last.x === clamped.x && last.y === clamped.y) {
       if (this.followTween !== null && this.followTween.isPlaying()) return;
-      target.setPosition(x, y);
+      target.setPosition(clamped.x, clamped.y);
       return;
     }
     if (this.followTween !== null) this.followTween.destroy();
     this.followTween = this.tweens.add({
       targets: target,
-      x,
-      y,
+      x: clamped.x,
+      y: clamped.y,
       duration: Math.max(1, durationMs),
       ease: 'Linear',
     });
-    this.lastFollowTarget = { x, y };
+    this.lastFollowTarget = { x: clamped.x, y: clamped.y };
   }
 
   private clampCameraScroll(): void {
-    const camera = this.cameras.main;
     const bounds = this.clampBounds;
-    if (bounds === null) return;
-    // camera.scrollX/Y are in WORLD coordinates (Phaser: "not impacted by
-    // zooming"), while camera.width/height are screen pixels, so the view's
-    // world extent is width/zoom. The clamp window is therefore
-    // [bounds.x, bounds.x + bounds.width - displayW]: at the max scroll the
-    // view's right edge sits exactly on the world's right edge, so the
-    // extreme of the map (and the player standing there) stays visible. The
-    // previous window shifted both ends left by (camera.width - displayW)/2 —
-    // it pinned the camera short of the world's right/bottom edge, the extreme
-    // tiles fell outside the camera's worldView, and the tilemap layers culled
-    // them per frame: the extreme of the map unrendered.
-    const displayW = camera.width / camera.zoom;
-    const displayH = camera.height / camera.zoom;
-    // An axis that fits the viewport stays free (the follow target keeps the
-    // player screen-centered, the world floating inside the viewport); an
-    // overflowing axis clamps so no void shows past the world's edge.
-    //
-    // The active-slot window clamp ("Bug 2 focus", added in the Phaser cutover)
-    // is gone: it pinned the camera at the active slot's edge while the player
-    // approached the seam, then teleported the view half a viewport when the
-    // window jumped to the crossed-into slot — the "warp away then recentralize"
-    // the grid crossing showed. Framing the whole composed world keeps the
-    // player screen-centered through the seam, so a crossing is visually
-    // indistinguishable from an ordinary walk.
-    if (bounds.width > displayW) {
-      camera.scrollX = Phaser.Math.Clamp(camera.scrollX, bounds.x, bounds.x + bounds.width - displayW);
-    }
-    if (bounds.height > displayH) {
-      camera.scrollY = Phaser.Math.Clamp(camera.scrollY, bounds.y, bounds.y + bounds.height - displayH);
-    }
+    const target = this.followTarget;
+    if (bounds === null || target === null) return;
+    if (this.followTween !== null && this.followTween.isPlaying()) return;
+    // Safety net for mid-game viewport resizes (the walk path pre-clamps its
+    // destination, so this only ever corrects a stale target after a resize).
+    const clamped = this.clampFollowTargetPos(target.x, target.y);
+    if (clamped.x !== target.x || clamped.y !== target.y) target.setPosition(clamped.x, clamped.y);
   }
 
   /**
