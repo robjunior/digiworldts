@@ -128,6 +128,10 @@ type SceneProps = {
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
+  /** Phase 2 player interaction: fired when a remote player's cell is
+   * clicked (any visible distance). Wins over movement when the cell is
+   * also adjacent — the route opens the context menu instead of stepping. */
+  readonly onPlayerClick?: (userId: string, displayName: string, x: number, y: number) => void;
   readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
 };
 
@@ -334,10 +338,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
     moveDurationMs: number,
     partyTrail: readonly { readonly x: number; readonly y: number }[],
     onCellClick: (x: number, y: number) => void,
+    onPlayerClick: (userId: string, displayName: string, x: number, y: number) => void,
     onTextureFallback: (failed: readonly TilesetGrant[]) => void,
   ): void {
     const prev = this.latestProps;
-    this.latestProps = { view, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onTextureFallback };
+    this.latestProps = { view, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback };
     if (!this.booted) return;
     if (
       prev !== null &&
@@ -1219,6 +1224,21 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const x = Math.floor((pointer.worldX - origin.x) / tileSize);
     const y = Math.floor((pointer.worldY - origin.y) / tileSize);
     if (x < 0 || y < 0 || x >= view.dungeon.width || y >= view.dungeon.height) return;
+    // Remote-player hit test: only players standing on the CURRENT map slot
+    // match — neighbor slots share the same x/y cell space, so the grid
+    // coords disambiguate (mirrors renderWorld's activeSlotOrigin math).
+    const onPlayerClick = props.onPlayerClick;
+    if (onPlayerClick !== undefined) {
+      const activeGridX = view.dungeon.gridX ?? 0;
+      const activeGridY = view.dungeon.gridY ?? 0;
+      const remote = props.remotePlayers.find(
+        (player) => player.x === x && player.y === y && player.gridX === activeGridX && player.gridY === activeGridY,
+      );
+      if (remote !== undefined) {
+        onPlayerClick(remote.userId, remote.displayName, x, y);
+        return;
+      }
+    }
     const run = view.run;
     if (run.currentX === x && run.currentY === y) return;
     if (Math.abs(x - run.currentX) + Math.abs(y - run.currentY) !== 1) return;
