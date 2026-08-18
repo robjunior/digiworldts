@@ -92,7 +92,7 @@ type RunRow = {
 const SQL_LIST_DUNGEONS = `SELECT * FROM dungeons ORDER BY created_at DESC`;
 const SQL_GET_DUNGEON = `SELECT * FROM dungeons WHERE id = ?`;
 const SQL_GET_GRID_POSITION_CONFLICT = `SELECT id FROM dungeons WHERE id <> ? AND dungeon_group_id = ? AND grid_x = ? AND grid_y = ? LIMIT 1`;
-const SQL_LIST_GRID_NEIGHBORS = `SELECT * FROM dungeons WHERE dungeon_group_id = ? AND ((grid_x = ? AND grid_y = ?) OR (grid_x = ? AND grid_y = ?) OR (grid_x = ? AND grid_y = ?) OR (grid_x = ? AND grid_y = ?)) ORDER BY grid_y, grid_x`;
+const SQL_LIST_GROUP_MAPS = `SELECT * FROM dungeons WHERE dungeon_group_id = ? AND id <> ? AND grid_x IS NOT NULL AND grid_y IS NOT NULL ORDER BY grid_y, grid_x`;
 const SQL_GET_GRID_NEIGHBOR = `SELECT * FROM dungeons WHERE dungeon_group_id = ? AND grid_x = ? AND grid_y = ? LIMIT 1`;
 const SQL_INSERT_DUNGEON = `INSERT INTO dungeons (id, world_object_id, quest_id, parent_id, name, description, biome, width, height, spawn_x, spawn_y, biome_region, random_encounters_enabled, random_encounter_rate, random_min_level, random_max_level, random_max_stage, random_min_party_size, random_max_party_size, random_allowed_elements, random_pool_json, challenge_kind, challenge_config, walkable_mask_json, dungeon_group_id, floor_index, grid_x, grid_y, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_DUNGEON = `UPDATE dungeons SET world_object_id = ?, quest_id = ?, parent_id = ?, name = ?, description = ?, biome = ?, width = ?, height = ?, spawn_x = ?, spawn_y = ?, biome_region = ?, random_encounters_enabled = ?, random_encounter_rate = ?, random_min_level = ?, random_max_level = ?, random_max_stage = ?, random_min_party_size = ?, random_max_party_size = ?, random_allowed_elements = ?, random_pool_json = ?, challenge_kind = ?, challenge_config = ?, walkable_mask_json = ?, dungeon_group_id = ?, floor_index = ?, grid_x = ?, grid_y = ?, updated_at = ? WHERE id = ?`;
@@ -762,13 +762,7 @@ export async function getDungeonGridNeighbors(userId: string, dungeonId: string)
     return { dungeonId, gridX: dungeon.gridX, gridY: dungeon.gridY, neighbors: [] };
   }
   const groupId = dungeon.dungeonGroupId;
-  const rows = await q<DungeonRow>(SQL_LIST_GRID_NEIGHBORS,
-    groupId,
-    dungeon.gridX, dungeon.gridY - 1,
-    dungeon.gridX, dungeon.gridY + 1,
-    dungeon.gridX - 1, dungeon.gridY,
-    dungeon.gridX + 1, dungeon.gridY,
-  );
+  const rows = await q<DungeonRow>(SQL_LIST_GROUP_MAPS, groupId, dungeonId);
   const neighbors = await Promise.all(rows.map(async (row) => {
     const baseView = await getDungeonView(row.id);
     const view = baseView ? {
