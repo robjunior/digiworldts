@@ -32,10 +32,12 @@ import { log } from '../util/log.js';
 import {
   ATTRIBUTES,
   AILMENTS,
+  CONTENT_STATUSES,
   ELEMENTS,
   STAGES,
   type Attribute,
   type Catalog,
+  type ContentStatus,
   type Element,
   type EvolveEdge,
   type ResistanceMap,
@@ -44,6 +46,8 @@ import {
   type SkillEffect,
   type TemplateDigimon,
 } from './types.js';
+
+export type { Catalog, TemplateDigimon, Skill, EvolveEdge, SkillEffect, ContentStatus };
 
 const StatsZ = z.object({
   '@_hp': z.coerce.number().int().nonnegative(),
@@ -127,6 +131,8 @@ const DigimonZ = z.object({
   // custom-route regex.
   '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   '@_signatureSkillId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
+  // Content lifecycle status. Absent on legacy XML ⇒ treated as 'published'.
+  '@_status': z.enum(CONTENT_STATUSES).optional(),
   assets: AssetsZ,
   stats: StatsZ,
   resistances: ResistancesZ.optional(),
@@ -214,6 +220,7 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
   if (raw['@_sourceUrl']) tpl.sourceUrl = raw['@_sourceUrl'];
   if (raw['@_type']) tpl.type = raw['@_type'];
   if (raw['@_signatureSkillId']) tpl.signatureSkillId = raw['@_signatureSkillId'];
+  if (raw['@_status']) tpl.status = raw['@_status'] as ContentStatus;
   if (raw.evolutions && 'evolve' in raw.evolutions) {
     const list = Array.isArray(raw.evolutions.evolve) ? raw.evolutions.evolve : [raw.evolutions.evolve];
     const edges: EvolveEdge[] = list.map((e) => {
@@ -284,6 +291,7 @@ function fromTemplate(t: TemplateDigimon): unknown {
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
   if (t.type) out['@_type'] = t.type;
   if (t.signatureSkillId) out['@_signatureSkillId'] = t.signatureSkillId;
+  if (t.status) out['@_status'] = t.status;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
     out.evolutions = {
       evolve: t.evolvesInto.map((edge) => {
@@ -349,6 +357,38 @@ export function loadCatalog(): Catalog {
   };
   log.info('catalog.load.ok', { path, count: catalog.digimons.length });
   return catalog;
+}
+
+/**
+ * Parse a raw XML catalog string into a Catalog object.
+ * Does not read from disk — useful for validating artifact assets.
+ */
+export function parseCatalogXml(raw: string, opts?: { publishedOnly?: boolean }): Catalog {
+  let parsed: unknown;
+  try {
+    parsed = parser.parse(raw);
+  } catch (err) {
+    throw new Error(`catalog XML parse error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const check = RootZ.safeParse(parsed);
+  if (!check.success) {
+    const detail = check.error.issues
+      .slice(0, 6)
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    throw new Error(`catalog XML failed validation:\n${detail}`);
+  }
+  const list = check.data.catalog.digimon ?? [];
+  const arr = Array.isArray(list) ? list : [list];
+  let digimons = arr.map(toTemplate);
+  if (opts?.publishedOnly) {
+    digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
+  }
+  return {
+    version: check.data.catalog['@_version'],
+    updatedAt: check.data.catalog['@_updatedAt'],
+    digimons,
+  };
 }
 
 // Monotonic counter for temp filename uniqueness within a single process —

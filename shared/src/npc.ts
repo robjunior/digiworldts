@@ -27,6 +27,8 @@ export type Npc = {
   readonly id: string;
   readonly displayName: string;
   readonly expressions: readonly NpcExpression[];
+  /** Content lifecycle status: draft (default) or published. Only published NPCs are visible to players. */
+  readonly status: 'draft' | 'published';
   readonly createdAt: number;
   readonly updatedAt: number;
 };

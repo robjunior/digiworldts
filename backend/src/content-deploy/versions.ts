@@ -1,0 +1,688 @@
+/**
+ * Content-deploy engine — transactional version pointer swaps.
+ *
+ * `content:deploy --apply` promotes a seed artifact into the target DB by
+ * doing three things inside a SINGLE transaction:
+ *
+ *   1. UPSERT every artifact row into its content table (this is the actual
+ *      deploy — the artifact is the deployment unit).
+ *   2. INSERT one `content_versions` row per (domain, ref_id) — an immutable,
+ *      frozen JSON snapshot of the row with an incrementing version_number.
+ *   3. UPSERT `active_versions` so the (domain, ref_id) pointer targets the
+ *      new snapshot.
+ *
+ * `content:deploy --rollback` walks `active_versions`, restores each content
+ * row from its PREVIOUS snapshot (definition_json) and re-points the pointer
+ * to that previous version — again all in one transaction.
+ *
+ * Guardrails (see .omo/plans/content-lifecycle-v1.md):
+ *   - Never mutates player-state tables (player_*, user_*, pending_*,
+ *     wallet_*, friendships, coin_offers, sessions, resources,
+ *     login_attempts) — enforced by the caller's forbidden-table check.
+ *   - `--apply` refuses to run until cross-domain references inside the
+ *     artifact validate cleanly (validateXref). Broken refs abort before any
+ *     write touches the DB.
+ *   - apply is ADDITIVE: rows present in the artifact are upserted; rows only
+ *     in the DB are left untouched (deletes are reported by --diff, never
+ *     executed by --apply).
+ *
+ * Domain model: `domain` = content table name, `ref_id` = the row's primary
+ * key value (from CONTENT_TABLES orderBy, composite keys JSON-joined). This
+ * maps 1:1 onto the seed artifact's `tables` object and keeps the version
+ * ledger per content row.
+ */
+import type { DbAdapter } from '../db/adapter.js';
+import { tx } from '../db/index.js';
+import { CONTENT_TABLES } from '../seed-export/content-tables.js';
+import { newId } from '../util/ids.js';
+import { unresolvedReferences, type CrossRefChecker } from '../dialogues/xref.js';
+import type { DialogueDefinition } from '@digiworld/shared/dialogue';
+import type { Catalog, TemplateDigimon } from '../digimon/xml.js';
+
+type Row = Record<string, unknown>;
+
+/** Structured cross-reference validation issue. */
+export type XrefIssue = {
+  /** Domain the issue belongs to (table name or 'digimon'). */
+  domain: string;
+  /** Reference identifier (e.g., row id, quest id, digimon id). */
+  ref: string;
+  /** Human-readable message (kept byte-identical to prior strings). */
+  message: string;
+};
+
+/** Digimon context for cross-domain checks (optional). */
+export type DigimonXrefContext = {
+  /** All digimon template ids from the catalog XML. */
+  ids: ReadonlySet<string>;
+  /** Per-digimon skill pool ids (local s0-s3 style ids). */
+  skillsByTemplate: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Per-digimon signatureSkillId (when present). */
+  signaturesByTemplate: ReadonlyMap<string, string>;
+  /** Required items on evolutions (targetId -> requiredItemId). */
+  requiredItemsByEvolve: ReadonlyMap<string, string>;
+};
+
+// ============================================================================
+// Version ledger SQL
+// ============================================================================
+
+const SQL_NEXT_VERSION = `SELECT COALESCE(MAX(version_number), 0) + 1 AS next
+  FROM content_versions WHERE domain = ? AND ref_id = ?`;
+
+const SQL_INSERT_VERSION = `INSERT INTO content_versions
+  (id, domain, ref_id, version_number, status, definition_json, created_at, created_by)
+  VALUES (?, ?, ?, ?, ?, ?, ?, NULL)`;
+
+const SQL_UPSERT_ACTIVE = `INSERT INTO active_versions (domain, ref_id, version_id)
+  VALUES (?, ?, ?)
+  ON CONFLICT(domain, ref_id) DO UPDATE SET version_id = excluded.version_id`;
+
+const SQL_ALL_ACTIVE = `SELECT domain, ref_id, version_id FROM active_versions ORDER BY domain, ref_id`;
+
+const SQL_VERSION_BY_ID = `SELECT id, domain, ref_id, version_number, status, definition_json, created_at, created_by
+  FROM content_versions WHERE id = ?`;
+
+const SQL_PREV_VERSION = `SELECT id, domain, ref_id, version_number, status, definition_json, created_at, created_by
+  FROM content_versions WHERE domain = ? AND ref_id = ? AND version_number < ?
+  ORDER BY version_number DESC LIMIT 1`;
+
+const SQL_UPDATE_ACTIVE = `UPDATE active_versions SET version_id = ? WHERE domain = ? AND ref_id = ?`;
+
+// ============================================================================
+// Row helpers
+// ============================================================================
+
+/** Canonical JSON serialization so row equality ignores key order. */
+export function canon(row: Row): string {
+  return JSON.stringify(Object.keys(row).sort().map((k) => [k, row[k]]));
+}
+
+/** PK column names for a content table (falls back to `id`). */
+export function pkColumnsOf(name: string): readonly string[] {
+  return CONTENT_TABLES.find((t) => t.name === name)?.orderBy ?? ['id'];
+}
+
+/** Stable per-row identity from its PK values (composite keys JSON-joined). */
+export function rowKey(row: Row, pk: readonly string[]): string {
+  return JSON.stringify(pk.map((col) => row[col]));
+}
+
+/** Double-quoted identifier — safe for the whitelisted CONTENT_TABLES names
+ *  and artifact column names coming from `SELECT *` of the same schema. */
+function qid(ident: string): string {
+  return `"${ident}"`;
+}
+
+/** Build `INSERT ... ON CONFLICT(pk) DO UPDATE SET ...` for one content table.
+ *  Columns come from the artifact row keys; PKs from CONTENT_TABLES. */
+function buildUpsertSql(table: string, cols: readonly string[], pk: readonly string[]): string {
+  const colList = cols.map(qid).join(', ');
+  const placeholders = cols.map(() => '?').join(', ');
+  const conflict = pk.map(qid).join(', ');
+  const updatable = cols.filter((c) => !pk.includes(c));
+  const updateClause = updatable.length === 0
+    ? 'DO NOTHING'
+    : `DO UPDATE SET ${updatable.map((c) => `${qid(c)} = excluded.${qid(c)}`).join(', ')}`;
+  return `INSERT INTO ${qid(table)} (${colList}) VALUES (${placeholders}) ON CONFLICT (${conflict}) ${updateClause}`;
+}
+
+// ============================================================================
+// Cross-domain reference validation (the --apply gate)
+// ============================================================================
+
+/**
+ * Validate every cross-domain reference inside the artifact against the
+ * artifact's OWN tables (self-contained — the artifact must be internally
+ * consistent before it may be deployed anywhere).
+ *
+ * Checks (with digimon context when provided):
+ *   quests.data          → talk objective npcId → npcs
+ *                          collect objective itemId → shop_items
+ *                          capture objective catalogId → digimon
+ *                          dialogue step / introDialogueId → dialogue_definitions
+ *                          finalReward items itemId → shop_items
+ *                          unlocksQuestIds → quests
+ *                          battle/boss step enemies[].templateId → digimon
+ *                          loot step pool.items[].itemId → shop_items
+ *   dialogue ir_json     → speaker npcId + expression → npcs
+ *                          give_item / remove_item / player_has_item → shop_items
+ *                          start_quest → quests
+ *   dungeon_encounters   → digimon_data[].catalogId → digimon
+ *                          loots[].itemId → shop_items
+ *                          rarity_table_id → dungeon_rarity_tables
+ *   dungeon_chests       → contents_json[].itemId → shop_items
+ *                          locked_by_key_id → dungeon_keys
+ *   dungeon_doors        → key_item_id → shop_items
+ *   dungeon_warps        → target_dungeon_id → dungeons
+ *   dungeon_items        → item_id → shop_items
+ *   dungeon_kits         → kit_id (self)
+ *   dungeon_kit_items    → kit_id → dungeon_kits, item_id → shop_items
+ *   shop_bundles         → bundle_id (self)
+ *   shop_bundle_items    → bundle_id → shop_bundles, item_id → shop_items
+ *   catalog_loot_entries → catalog_id → digimon, item_id → shop_items
+ *   farm_recipes         → item_id → shop_items
+ *   world_objects        → quest_id → quests
+ *   dungeons             → quest_id → quests, world_object_id → world_objects
+ *   onboarding_teams     → mon_1/2/3_catalog_id → digimon
+ *   skills_catalog       → upgrade_of → skills_catalog, owner_template_id → digimon
+ *   digimon (XML)        → evolvesInto[].targetId → digimon
+ *                          signatureSkillId → own skillPool
+ *                          evolvesInto[].requiredItemId → shop_items
+ *
+ * Reuses `unresolvedReferences` from dialogues/xref.ts with an artifact-backed
+ * checker, so dialogue validation is the same logic the dialogue importer
+ * already runs against the live DB — just scoped to the artifact.
+ *
+ * Returns structured issues (empty = clean).
+ */
+export function validateXref(
+  env: { tables: Record<string, Row[]> },
+  digimon?: DigimonXrefContext,
+  catalog?: Catalog,
+): XrefIssue[] {
+  const errors: XrefIssue[] = [];
+  const push = (domain: string, ref: string, message: string) =>
+    errors.push({ domain, ref, message });
+
+  const table = (n: string): Map<string, Row> =>
+    new Map((env.tables[n] ?? []).map((r) => [String(r[pkColumnsOf(n)[0] ?? 'id']), r]));
+
+  // --- Build all ID sets from artifact tables ---
+  const quests = env.tables['quests'] ?? [];
+  const npcs = env.tables['npcs'] ?? [];
+  const items = env.tables['shop_items'] ?? [];
+  const dialogues = env.tables['dialogue_definitions'] ?? [];
+  const dungeonEncounters = env.tables['dungeon_encounters'] ?? [];
+  const dungeonChests = env.tables['dungeon_chests'] ?? [];
+  const dungeonDoors = env.tables['dungeon_doors'] ?? [];
+  const dungeonWarps = env.tables['dungeon_warps'] ?? [];
+  const dungeonItems = env.tables['dungeon_items'] ?? [];
+  const dungeonKits = env.tables['dungeon_kits'] ?? [];
+  const dungeonKitItems = env.tables['dungeon_kit_items'] ?? [];
+  const shopBundles = env.tables['shop_bundles'] ?? [];
+  const shopBundleItems = env.tables['shop_bundle_items'] ?? [];
+  const catalogLootEntries = env.tables['catalog_loot_entries'] ?? [];
+  const farmRecipes = env.tables['farm_recipes'] ?? [];
+  const worldObjects = env.tables['world_objects'] ?? [];
+  const dungeons = env.tables['dungeons'] ?? [];
+  const onboardingTeams = env.tables['onboarding_teams'] ?? [];
+  const skillsCatalog = env.tables['skills_catalog'] ?? [];
+  const dungeonRarityTables = env.tables['dungeon_rarity_tables'] ?? [];
+  const dungeonKeys = env.tables['dungeon_keys'] ?? [];
+
+  const questIds = new Set(quests.map((r) => String(r['id'])));
+  const npcIds = new Set(npcs.map((r) => String(r['id'])));
+  const itemIds = new Set(items.map((r) => String(r['id'])));
+  const dialogueIds = new Set(dialogues.map((r) => String(r['dialogue_id'])));
+  const dungeonEncounterIds = new Set(dungeonEncounters.map((r) => String(r['id'])));
+  const dungeonChestIds = new Set(dungeonChests.map((r) => String(r['id'])));
+  const dungeonDoorIds = new Set(dungeonDoors.map((r) => String(r['id'])));
+  const dungeonWarpIds = new Set(dungeonWarps.map((r) => String(r['id'])));
+  const dungeonItemIds = new Set(dungeonItems.map((r) => String(r['id'])));
+  const dungeonKitIds = new Set(dungeonKits.map((r) => String(r['id'])));
+  const shopBundleIds = new Set(shopBundles.map((r) => String(r['id'])));
+  const farmRecipeIds = new Set(farmRecipes.map((r) => String(r['id'])));
+  const worldObjectIds = new Set(worldObjects.map((r) => String(r['id'])));
+  const dungeonIds = new Set(dungeons.map((r) => String(r['id'])));
+  const onboardingTeamIds = new Set(onboardingTeams.map((r) => String(r['id'])));
+  const skillIds = new Set(skillsCatalog.map((r) => String(r['id'])));
+  const rarityTableIds = new Set(dungeonRarityTables.map((r) => String(r['id'])));
+  const dungeonKeyIds = new Set(dungeonKeys.map((r) => String(r['id'])));
+
+  // NPC expression index for the dialogue checker.
+  const npcExpressions = new Map<string, Set<string>>();
+  for (const n of npcs) {
+    let exprs: Array<{ key: string }> = [];
+    try {
+      exprs = JSON.parse(String(n['expressions'] ?? '[]')) as Array<{ key: string }>;
+    } catch {
+      exprs = [];
+    }
+    npcExpressions.set(String(n['id']), new Set(exprs.map((e) => e.key)));
+  }
+
+  // --- Helper for parsing JSON arrays safely ---
+  const parseJsonArray = <T>(raw: unknown): T[] => {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(String(raw));
+      return Array.isArray(parsed) ? (parsed as T[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  // --- quest → * refs (quests.data JSON blob) ---
+  for (const q of quests) {
+    const qid = String(q['id']);
+    let data: {
+      objectives?: unknown;
+      steps?: unknown;
+      introDialogueId?: unknown;
+      finalReward?: unknown;
+      unlocksQuestIds?: unknown;
+    };
+    try {
+      data = JSON.parse(String(q['data'] ?? '{}')) as typeof data;
+    } catch {
+      push('quests', qid, `quest ${qid}: data is not valid JSON`);
+      continue;
+    }
+    for (const obj of Array.isArray(data.objectives) ? (data.objectives as Array<Record<string, unknown>>) : []) {
+      if (obj['kind'] === 'talk' && typeof obj['npcId'] === 'string' && !npcIds.has(obj['npcId'])) {
+        push('quests', qid, `quest ${qid}: talk objective references unknown npc "${obj['npcId']}"`);
+      }
+      if (obj['kind'] === 'collect' && typeof obj['itemId'] === 'string' && !itemIds.has(obj['itemId'])) {
+        push('quests', qid, `quest ${qid}: collect objective references unknown item "${obj['itemId']}"`);
+      }
+      // capture objective → digimon catalogId
+      if (obj['kind'] === 'capture' && typeof obj['catalogId'] === 'string') {
+        const catId = obj['catalogId'];
+        if (digimon && !digimon.ids.has(catId)) {
+          push('quests', qid, `quest ${qid}: capture objective references unknown digimon "${catId}"`);
+        }
+      }
+    }
+    for (const step of Array.isArray(data.steps) ? (data.steps as Array<Record<string, unknown>>) : []) {
+      if (step['type'] === 'dialogue' && typeof step['dialogueId'] === 'string' && !dialogueIds.has(step['dialogueId'])) {
+        push('quests', qid, `quest ${qid}: dialogue step references unknown dialogue "${step['dialogueId']}"`);
+      }
+      // battle/boss step enemies[].templateId → digimon
+      if ((step['type'] === 'battle' || step['type'] === 'boss') && Array.isArray(step['enemies'])) {
+        for (const enemy of step['enemies'] as Array<Record<string, unknown>>) {
+          if (typeof enemy['templateId'] === 'string') {
+            const tplId = enemy['templateId'];
+            if (digimon && !digimon.ids.has(tplId)) {
+              push('quests', qid, `quest ${qid}: ${step['type']} step references unknown digimon "${tplId}"`);
+            }
+          }
+        }
+      }
+      // loot step pool.items[].itemId → shop_items
+      if (step['type'] === 'loot' && step['pool'] && typeof step['pool'] === 'object') {
+        const pool = step['pool'] as { items?: Array<{ itemId: unknown }> };
+        for (const it of pool.items ?? []) {
+          if (typeof it.itemId === 'string' && !itemIds.has(it.itemId)) {
+            push('quests', qid, `quest ${qid}: loot step references unknown item "${it.itemId}"`);
+          }
+        }
+      }
+    }
+    if (typeof data.introDialogueId === 'string' && !dialogueIds.has(data.introDialogueId)) {
+      push('quests', qid, `quest ${qid}: introDialogueId references unknown dialogue "${data.introDialogueId}"`);
+    }
+    const reward = data.finalReward as { items?: Array<{ itemId: unknown }> } | undefined;
+    for (const it of reward?.items ?? []) {
+      if (typeof it.itemId === 'string' && !itemIds.has(it.itemId)) {
+        push('quests', qid, `quest ${qid}: finalReward references unknown item "${it.itemId}"`);
+      }
+    }
+    for (const uid of Array.isArray(data.unlocksQuestIds) ? (data.unlocksQuestIds as unknown[]) : []) {
+      if (typeof uid === 'string' && !questIds.has(uid)) {
+        push('quests', qid, `quest ${qid}: unlocksQuestIds references unknown quest "${uid}"`);
+      }
+    }
+  }
+
+  // --- dialogue → * refs (reuse the dialogue importer's checker) ---
+  const checker: CrossRefChecker = {
+    npcExists: (id) => npcIds.has(id),
+    npcHasExpression: (id, expression) => npcExpressions.get(id)?.has(expression) ?? false,
+    questExists: (id) => questIds.has(id),
+    itemExists: (id) => itemIds.has(id),
+  };
+  for (const d of dialogues) {
+    const did = String(d['dialogue_id']);
+    let def: DialogueDefinition;
+    try {
+      def = JSON.parse(String(d['ir_json'])) as DialogueDefinition;
+    } catch {
+      push('dialogue_definitions', did, `dialogue ${did}: ir_json is not valid JSON`);
+      continue;
+    }
+    for (const u of unresolvedReferences(def, checker)) {
+      push('dialogue_definitions', did, `dialogue ${did}: ${u.message}`);
+    }
+  }
+
+  // --- dungeon_encounters: digimon_data, loots, rarity_table_id ---
+  for (const e of dungeonEncounters) {
+    const eid = String(e['id']);
+    const digimonData = parseJsonArray<{ catalogId?: unknown }>(e['digimon_data']);
+    for (const d of digimonData) {
+      if (typeof d.catalogId === 'string') {
+        if (digimon && !digimon.ids.has(d.catalogId)) {
+          push('dungeon_encounters', eid, `dungeon_encounters ${eid}: digimon_data references unknown digimon "${d.catalogId}"`);
+        }
+      }
+    }
+    const loots = parseJsonArray<{ itemId?: unknown; qty?: unknown; chance?: unknown }>(e['loots']);
+    for (const l of loots) {
+      if (typeof l.itemId === 'string' && !itemIds.has(l.itemId)) {
+        push('dungeon_encounters', eid, `dungeon_encounters ${eid}: loots references unknown item "${l.itemId}"`);
+      }
+    }
+    if (typeof e['rarity_table_id'] === 'string') {
+      const rtId = String(e['rarity_table_id']);
+      if (rtId && !rarityTableIds.has(rtId)) {
+        push('dungeon_encounters', eid, `dungeon_encounters ${eid}: rarity_table_id references unknown rarity table "${rtId}"`);
+      }
+    }
+  }
+
+  // --- dungeon_chests: contents_json, locked_by_key_id ---
+  for (const c of dungeonChests) {
+    const cid = String(c['id']);
+    const contents = parseJsonArray<{ itemId?: unknown }>(c['contents_json']);
+    for (const r of contents) {
+      if (typeof r.itemId === 'string' && !itemIds.has(r.itemId)) {
+        push('dungeon_chests', cid, `dungeon_chests ${cid}: contents references unknown item "${r.itemId}"`);
+      }
+    }
+    if (typeof c['locked_by_key_id'] === 'string') {
+      const keyId = String(c['locked_by_key_id']);
+      if (keyId && !dungeonKeyIds.has(keyId)) {
+        push('dungeon_chests', cid, `dungeon_chests ${cid}: locked_by_key_id references unknown key "${keyId}"`);
+      }
+    }
+  }
+
+  // --- dungeon_doors: key_item_id → shop_items ---
+  for (const d of dungeonDoors) {
+    const did = String(d['id']);
+    if (typeof d['key_item_id'] === 'string' && !itemIds.has(d['key_item_id'])) {
+      push('dungeon_doors', did, `dungeon_doors ${did}: key_item_id references unknown item "${d['key_item_id']}"`);
+    }
+  }
+
+  // --- dungeon_warps: target_dungeon_id → dungeons ---
+  for (const w of dungeonWarps) {
+    const wid = String(w['id']);
+    if (typeof w['target_dungeon_id'] === 'string') {
+      const tgt = String(w['target_dungeon_id']);
+      if (tgt && !dungeonIds.has(tgt)) {
+        push('dungeon_warps', wid, `dungeon_warps ${wid}: target_dungeon_id references unknown dungeon "${tgt}"`);
+      }
+    }
+  }
+
+  // --- dungeon_items: item_id → shop_items ---
+  for (const i of dungeonItems) {
+    const iid = String(i['id']);
+    if (typeof i['item_id'] === 'string' && !itemIds.has(i['item_id'])) {
+      push('dungeon_items', iid, `dungeon_items ${iid}: item_id references unknown item "${i['item_id']}"`);
+    }
+  }
+
+  // --- dungeon_kit_items: kit_id → dungeon_kits, item_id → shop_items ---
+  for (const ki of dungeonKitItems) {
+    const key = String(ki['kit_id']) + ':' + String(ki['item_id']);
+    if (typeof ki['kit_id'] === 'string' && !dungeonKitIds.has(ki['kit_id'])) {
+      push('dungeon_kit_items', key, `dungeon_kit_items ${key}: kit_id references unknown kit "${ki['kit_id']}"`);
+    }
+    if (typeof ki['item_id'] === 'string' && !itemIds.has(ki['item_id'])) {
+      push('dungeon_kit_items', key, `dungeon_kit_items ${key}: item_id references unknown item "${ki['item_id']}"`);
+    }
+  }
+
+  // --- shop_bundle_items: bundle_id → shop_bundles, item_id → shop_items ---
+  for (const bi of shopBundleItems) {
+    const key = String(bi['bundle_id']) + ':' + String(bi['item_id']);
+    if (typeof bi['bundle_id'] === 'string' && !shopBundleIds.has(bi['bundle_id'])) {
+      push('shop_bundle_items', key, `shop_bundle_items ${key}: bundle_id references unknown bundle "${bi['bundle_id']}"`);
+    }
+    if (typeof bi['item_id'] === 'string' && !itemIds.has(bi['item_id'])) {
+      push('shop_bundle_items', key, `shop_bundle_items ${key}: item_id references unknown item "${bi['item_id']}"`);
+    }
+  }
+
+  // --- catalog_loot_entries: catalog_id → digimon, item_id → shop_items ---
+  for (const cle of catalogLootEntries) {
+    const cid = String(cle['id']);
+    if (typeof cle['catalog_id'] === 'string') {
+      const catId = String(cle['catalog_id']);
+      if (digimon && !digimon.ids.has(catId)) {
+        push('catalog_loot_entries', cid, `catalog_loot_entries ${cid}: catalog_id references unknown digimon "${catId}"`);
+      }
+    }
+    if (typeof cle['item_id'] === 'string' && !itemIds.has(cle['item_id'])) {
+      push('catalog_loot_entries', cid, `catalog_loot_entries ${cid}: item_id references unknown item "${cle['item_id']}"`);
+    }
+  }
+
+  // --- farm_recipes: item_id → shop_items ---
+  for (const f of farmRecipes) {
+    const fid = String(f['id']);
+    if (typeof f['item_id'] === 'string' && !itemIds.has(f['item_id'])) {
+      push('farm_recipes', fid, `farm_recipes ${fid}: item_id references unknown item "${f['item_id']}"`);
+    }
+  }
+
+  // --- world_objects: quest_id → quests ---
+  for (const wo of worldObjects) {
+    const wid = String(wo['id']);
+    if (typeof wo['quest_id'] === 'string') {
+      const qid = String(wo['quest_id']);
+      if (qid && !questIds.has(qid)) {
+        push('world_objects', wid, `world_objects ${wid}: quest_id references unknown quest "${qid}"`);
+      }
+    }
+  }
+
+  // --- dungeons: quest_id → quests, world_object_id → world_objects ---
+  for (const d of dungeons) {
+    const did = String(d['id']);
+    if (typeof d['quest_id'] === 'string') {
+      const qid = String(d['quest_id']);
+      if (qid && !questIds.has(qid)) {
+        push('dungeons', did, `dungeons ${did}: quest_id references unknown quest "${qid}"`);
+      }
+    }
+    if (typeof d['world_object_id'] === 'string') {
+      const woid = String(d['world_object_id']);
+      if (woid && !worldObjectIds.has(woid)) {
+        push('dungeons', did, `dungeons ${did}: world_object_id references unknown world_object "${woid}"`);
+      }
+    }
+  }
+
+  // --- onboarding_teams: mon_1/2/3_catalog_id → digimon ---
+  for (const ot of onboardingTeams) {
+    const oid = String(ot['id']);
+    for (const col of ['mon_1_catalog_id', 'mon_2_catalog_id', 'mon_3_catalog_id'] as const) {
+      if (typeof ot[col] === 'string') {
+        const catId = String(ot[col]);
+        if (digimon && !digimon.ids.has(catId)) {
+          push('onboarding_teams', oid, `onboarding_teams ${oid}: ${col} references unknown digimon "${catId}"`);
+        }
+      }
+    }
+  }
+
+  // --- skills_catalog: upgrade_of → skills_catalog, owner_template_id → digimon ---
+  for (const s of skillsCatalog) {
+    const sid = String(s['id']);
+    if (typeof s['upgrade_of'] === 'string') {
+      const up = String(s['upgrade_of']);
+      if (up && !skillIds.has(up)) {
+        push('skills_catalog', sid, `skills_catalog ${sid}: upgrade_of references unknown skill "${up}"`);
+      }
+    }
+    if (typeof s['owner_template_id'] === 'string') {
+      const owner = String(s['owner_template_id']);
+      if (owner && digimon && !digimon.ids.has(owner)) {
+        push('skills_catalog', sid, `skills_catalog ${sid}: owner_template_id references unknown digimon "${owner}"`);
+      }
+    }
+  }
+
+  // --- Digimon catalog internal refs (when full Catalog provided) ---
+  if (catalog) {
+    const catalogDigimonIds = new Set(catalog.digimons.map((d) => d.id));
+    // Precompute per-digimon skillPool ids and signatureSkillId
+    const skillPoolById = new Map<string, Set<string>>();
+    const signatureSkillById = new Map<string, string>();
+    for (const d of catalog.digimons) {
+      skillPoolById.set(d.id, new Set(d.skillPool.map((s) => s.id)));
+      if (d.signatureSkillId) signatureSkillById.set(d.id, d.signatureSkillId);
+    }
+
+    for (const d of catalog.digimons) {
+      const did = d.id;
+
+      // evolvesInto[].targetId → digimon
+      for (const ev of d.evolvesInto ?? []) {
+        if (!catalogDigimonIds.has(ev.targetId)) {
+          push('digimon', did, `digimon ${did}: evolution targets unknown digimon "${ev.targetId}"`);
+        }
+        // evolvesInto[].requiredItemId → shop_items
+        if (ev.requiredItemId && !itemIds.has(ev.requiredItemId)) {
+          push('digimon', did, `digimon ${did}: evolution requires unknown item "${ev.requiredItemId}"`);
+        }
+      }
+
+      // signatureSkillId → own skillPool
+      const sig = d.signatureSkillId;
+      if (sig) {
+        const ownSkills = skillPoolById.get(did) ?? new Set();
+        if (!ownSkills.has(sig)) {
+          push('digimon', did, `digimon ${did}: signatureSkillId references unknown skill "${sig}"`);
+        }
+      }
+
+// skillPool vfxPresetId → skill-vfx presets (when skill-vfx context provided)
+    }
+  }
+
+  return errors;
+}
+
+// ============================================================================
+// Apply
+// ============================================================================
+
+export type ApplySummary = {
+  tables: Record<string, { rows: number; versions: number }>;
+  totalVersions: number;
+};
+
+/**
+ * Deploy a validated seed artifact into the target DB — one transaction.
+ * For every artifact table: UPSERT each row into the content table, record an
+ * immutable content_versions snapshot, and point active_versions at it.
+ */
+export async function applySeed(env: { tables: Record<string, Row[]> }): Promise<ApplySummary> {
+  // The xref gate is enforced here (not just in the CLI) so apply can never be
+  // reached with a broken artifact, regardless of entry point.
+  const xrefErrors = validateXref(env);
+  if (xrefErrors.length > 0) {
+    const sample = xrefErrors.slice(0, 15).map((e) => `  - ${e.message}`).join('\n');
+    throw new Error(`cross-domain references broken (${xrefErrors.length}):\n${sample}`);
+  }
+
+  const now = Date.now();
+  return tx(async (t) => {
+    const tables: ApplySummary['tables'] = {};
+    let totalVersions = 0;
+
+    for (const name of Object.keys(env.tables)) {
+      const rows = env.tables[name] ?? [];
+      const pk = pkColumnsOf(name);
+      const cols: string[] = [];
+      const seen = new Set<string>();
+      for (const r of rows) for (const c of Object.keys(r)) if (!seen.has(c)) { seen.add(c); cols.push(c); }
+      const upsertSql = buildUpsertSql(name, cols, pk);
+
+      for (const row of rows) {
+        await t.run(upsertSql, cols.map((c) => row[c]));
+        await recordVersion(t, name, row, pk, now);
+      }
+      tables[name] = { rows: rows.length, versions: rows.length };
+      totalVersions += rows.length;
+    }
+
+    return { tables, totalVersions };
+  });
+}
+
+/** INSERT a content_versions snapshot + UPSERT the active_versions pointer. */
+async function recordVersion(
+  t: DbAdapter,
+  domain: string,
+  row: Row,
+  pk: readonly string[],
+  now: number,
+): Promise<void> {
+  const refId = rowKey(row, pk);
+  const next = await t.one<{ next: number }>(SQL_NEXT_VERSION, [domain, refId]);
+  const versionNumber = next?.next ?? 1;
+  const status = typeof row['status'] === 'string' ? String(row['status']) : 'published';
+  const versionId = newId('cv');
+  await t.run(SQL_INSERT_VERSION, [
+    versionId,
+    domain,
+    refId,
+    versionNumber,
+    status,
+    JSON.stringify(row),
+    now,
+  ]);
+  await t.run(SQL_UPSERT_ACTIVE, [domain, refId, versionId]);
+}
+
+// ============================================================================
+// Rollback
+// ============================================================================
+
+export type RollbackSummary = {
+  restored: number;
+  skipped: number;
+  details: string[];
+};
+
+/**
+ * Roll every active content row back to its PREVIOUS version snapshot — one
+ * transaction. For each (domain, ref_id): restore the content table row from
+ * the previous definition_json and re-point active_versions at it. Rows with
+ * no previous version (first deploy) are skipped and reported.
+ */
+export async function rollback(): Promise<RollbackSummary> {
+  return tx(async (t) => {
+    const active = await t.query<{ domain: string; ref_id: string; version_id: string }>(SQL_ALL_ACTIVE);
+    const details: string[] = [];
+    let restored = 0;
+    let skipped = 0;
+
+    for (const a of active) {
+      const current = await t.one<{ version_number: number; definition_json: string }>(SQL_VERSION_BY_ID, [a.version_id]);
+      if (!current) {
+        skipped += 1;
+        details.push(`${a.domain}/${a.ref_id}: active pointer missing version row (skipped)`);
+        continue;
+      }
+      const prev = await t.one<{ id: string; definition_json: string }>(
+        SQL_PREV_VERSION,
+        [a.domain, a.ref_id, current.version_number],
+      );
+      if (!prev) {
+        skipped += 1;
+        details.push(`${a.domain}/${a.ref_id}: no previous version (v${current.version_number}, skipped)`);
+        continue;
+      }
+
+      // Restore the content row from the previous frozen snapshot.
+      const row = JSON.parse(prev.definition_json) as Row;
+      const pk = pkColumnsOf(a.domain);
+      const cols = Object.keys(row);
+      const upsertSql = buildUpsertSql(a.domain, cols, pk);
+      await t.run(upsertSql, cols.map((c) => row[c]));
+      await t.run(SQL_UPDATE_ACTIVE, [prev.id, a.domain, a.ref_id]);
+
+      restored += 1;
+      details.push(`${a.domain}/${a.ref_id}: v${current.version_number} → v${current.version_number - 1}`);
+    }
+
+    return { restored, skipped, details };
+  });
+}

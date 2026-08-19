@@ -7,14 +7,15 @@ import { NPC_ID_PATTERN, NPC_EXPRESSION_PATTERN } from '@digiworld/shared/npc';
 import { config } from '../config.js';
 import { one, q, run } from '../db/index.js';
 
-const SQL_SELECT_ALL = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs ORDER BY id`;
-const SQL_SELECT_ONE = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs WHERE id = ?`;
+const SQL_SELECT_ALL = `SELECT id, display_name, expressions, status, created_at, updated_at FROM npcs ORDER BY id`;
+const SQL_SELECT_ONE = `SELECT id, display_name, expressions, status, created_at, updated_at FROM npcs WHERE id = ?`;
 const SQL_UPSERT = `
-  INSERT INTO npcs (id, display_name, expressions, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?)
+  INSERT INTO npcs (id, display_name, expressions, status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
   ON CONFLICT (id) DO UPDATE SET
     display_name = excluded.display_name,
     expressions  = excluded.expressions,
+    status       = excluded.status,
     updated_at   = excluded.updated_at
 `;
 const SQL_DELETE = `DELETE FROM npcs WHERE id = ?`;
@@ -24,6 +25,7 @@ type NpcRow = {
   readonly id: string;
   readonly display_name: string;
   readonly expressions: string;
+  readonly status: string;
   readonly created_at: number;
   readonly updated_at: number;
 };
@@ -34,6 +36,7 @@ export type NpcInput = {
   readonly id: string;
   readonly displayName: string;
   readonly expressions: readonly { readonly key: string; readonly label?: string | undefined }[];
+  readonly status?: 'draft' | 'published' | undefined;
 };
 
 export class NpcValidationError extends Error {
@@ -78,6 +81,7 @@ function hydrate(row: NpcRow): Npc {
     id: row.id,
     displayName: row.display_name,
     expressions,
+    status: (row.status === 'published' ? 'published' : 'draft'),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -130,7 +134,7 @@ export async function saveNpc(input: NpcInput): Promise<Npc> {
   const serialized = JSON.stringify(
     input.expressions.map((e) => ({ key: e.key, ...(e.label !== undefined ? { label: e.label } : {}) })),
   );
-  await run(SQL_UPSERT, [input.id, input.displayName.trim(), serialized, now, now]);
+  await run(SQL_UPSERT, [input.id, input.displayName.trim(), serialized, input.status ?? 'draft', now, now]);
   const saved = await getNpc(input.id);
   if (saved === null) throw new Error('npc-save-readback-failed');
   return saved;
