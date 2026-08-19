@@ -2,16 +2,18 @@
  * Content-deploy CLI.
  *
  * Promotes a seed artifact (produced by `pnpm seed:export`) into a target
- * environment. Skeleton pass: subcommand surface, seed.json envelope loading,
- * read-only `--validate` and `--diff`, and a hard guard that refuses to touch
- * player-state tables. `--apply` / `--rollback` are stubs until the
- * transactional version-pointer logic lands.
+ * environment. `--validate` and `--diff` are read-only; `--apply` deploys the
+ * artifact (upsert content rows + record immutable content_versions snapshots
+ * + swap active_versions pointers) and `--rollback` restores the previous
+ * snapshot — both inside a single transaction (see versions.ts). A hard guard
+ * refuses to touch player-state tables, and `--apply` validates cross-domain
+ * references inside the artifact before any write.
  *
  * Usage:
  *   pnpm content:deploy --validate <seed.json>
  *   pnpm content:deploy --diff [--tables <csv>] <seed.json>
- *   pnpm content:deploy --apply <seed.json>       (stub — later pass)
- *   pnpm content:deploy --rollback                (stub — later pass)
+ *   pnpm content:deploy --apply <seed.json>
+ *   pnpm content:deploy --rollback
  *   pnpm content:deploy --help
  *
  * Safety: `--validate` and `--diff` are read-only. No code path here may read
@@ -23,6 +25,7 @@ import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { CONTENT_TABLES } from '../seed-export/content-tables.js';
+import { applySeed, rollback, canon, pkColumnsOf, rowKey } from './versions.js';
 
 type Row = Record<string, unknown>;
 
@@ -103,8 +106,8 @@ function printHelp(): void {
 Usage:
   pnpm content:deploy --validate <seed.json>                 read-only artifact check
   pnpm content:deploy --diff [--tables <csv>] <seed.json>    read-only diff vs target DB
-  pnpm content:deploy --apply <seed.json>                    deploy artifact (stub — later pass)
-  pnpm content:deploy --rollback                             restore previous version (stub — later pass)
+  pnpm content:deploy --apply <seed.json>                    deploy artifact (transactional)
+  pnpm content:deploy --rollback                             restore previous version (transactional)
   pnpm content:deploy --help
 
 Subcommands:
@@ -112,8 +115,11 @@ Subcommands:
                         artifacts that carry player-state tables. Read-only.
   --diff                Compare artifact rows against the target database and
                         print changed rows only. Read-only.
-  --apply               Apply the artifact (not implemented yet).
-  --rollback            Roll back to the previous version (not implemented yet).
+  --apply               Validate cross-domain refs, then in ONE transaction:
+                        upsert content rows, record immutable content_versions
+                        snapshots, and swap active_versions pointers.
+  --rollback            In ONE transaction: restore every active content row
+                        from its previous snapshot and re-point active_versions.
 
 Options:
   -t, --tables <csv>    Restrict --diff to a subset of content tables.
@@ -186,20 +192,6 @@ async function runValidate(seedPath: string): Promise<void> {
   console.log(`content-deploy: artifact OK schemaVersion=${env.schemaVersion} assets=${env.assetManifest?.length ?? 0} tables(${Object.keys(env.tables).length}) ${counts}`);
 }
 
-/** Canonical JSON serialization so row equality ignores key order. */
-function canon(row: Row): string {
-  return JSON.stringify(Object.keys(row).sort().map((k) => [k, row[k]]));
-}
-
-/** PK column names for a content table (falls back to `id`). */
-function pkColumnsOf(name: string): readonly string[] {
-  return CONTENT_TABLES.find((t) => t.name === name)?.orderBy ?? ['id'];
-}
-
-function rowKey(row: Row, pk: readonly string[]): string {
-  return pk.map((col) => JSON.stringify(row[col])).join('|');
-}
-
 async function runDiff(seedPath: string, requested: readonly string[]): Promise<void> {
   const env = await loadSeed(seedPath);
   const forbidden = forbiddenTablesIn(env);
@@ -262,19 +254,46 @@ async function runDiff(seedPath: string, requested: readonly string[]): Promise<
   }
 }
 
-async function runApply(seedPath: string): Promise<never> {
-  // Envelope is loaded (and player-state guard checked) even in the stub so a
-  // broken artifact never sails past this point once the logic lands.
-  await loadSeed(seedPath);
-  const forbidden = forbiddenTablesIn(await loadSeed(seedPath));
+async function runApply(seedPath: string): Promise<void> {
+  const env = await loadSeed(seedPath);
+  const forbidden = forbiddenTablesIn(env);
   if (forbidden.length > 0) {
     throw new Error(`seed artifact contains player-state tables: ${forbidden.join(', ')}`);
   }
-  throw new Error(`--apply is not implemented yet (skeleton pass)`);
+
+  const [{ closeDbAdapter }] = await Promise.all([
+    import('../db/index.js'),
+  ]);
+
+  try {
+    const summary = await applySeed(env);
+    // eslint-disable-next-line no-console
+    console.log(`content-deploy: applied ${Object.keys(summary.tables).length} table(s), ${summary.totalVersions} version(s) in one transaction`);
+    for (const [name, t] of Object.entries(summary.tables)) {
+      // eslint-disable-next-line no-console
+      console.log(`  ${name}: ${t.rows} row(s) -> ${t.versions} version(s)`);
+    }
+  } finally {
+    await closeDbAdapter();
+  }
 }
 
-async function runRollback(): Promise<never> {
-  throw new Error(`--rollback is not implemented yet (skeleton pass)`);
+async function runRollback(): Promise<void> {
+  const [{ closeDbAdapter }] = await Promise.all([
+    import('../db/index.js'),
+  ]);
+
+  try {
+    const summary = await rollback();
+    // eslint-disable-next-line no-console
+    console.log(`content-deploy: rollback: restored ${summary.restored} row(s), skipped ${summary.skipped} (no previous version)`);
+    for (const line of summary.details) {
+      // eslint-disable-next-line no-console
+      console.log(`  ${line}`);
+    }
+  } finally {
+    await closeDbAdapter();
+  }
 }
 
 async function main(): Promise<void> {
