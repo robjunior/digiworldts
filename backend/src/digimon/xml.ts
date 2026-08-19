@@ -32,10 +32,12 @@ import { log } from '../util/log.js';
 import {
   ATTRIBUTES,
   AILMENTS,
+  CONTENT_STATUSES,
   ELEMENTS,
   STAGES,
   type Attribute,
   type Catalog,
+  type ContentStatus,
   type Element,
   type EvolveEdge,
   type ResistanceMap,
@@ -127,6 +129,9 @@ const DigimonZ = z.object({
   // custom-route regex.
   '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   '@_signatureSkillId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
+  // Content lifecycle status. Absent on legacy XML ⇒ treated as 'published'
+  // (backward compat — existing catalogs predate the attribute entirely).
+  '@_status': z.enum(CONTENT_STATUSES).optional(),
   assets: AssetsZ,
   stats: StatsZ,
   resistances: ResistancesZ.optional(),
@@ -214,6 +219,7 @@ function toTemplate(raw: ParsedDigimon): TemplateDigimon {
   if (raw['@_sourceUrl']) tpl.sourceUrl = raw['@_sourceUrl'];
   if (raw['@_type']) tpl.type = raw['@_type'];
   if (raw['@_signatureSkillId']) tpl.signatureSkillId = raw['@_signatureSkillId'];
+  if (raw['@_status']) tpl.status = raw['@_status'] as ContentStatus;
   if (raw.evolutions && 'evolve' in raw.evolutions) {
     const list = Array.isArray(raw.evolutions.evolve) ? raw.evolutions.evolve : [raw.evolutions.evolve];
     const edges: EvolveEdge[] = list.map((e) => {
@@ -284,6 +290,7 @@ function fromTemplate(t: TemplateDigimon): unknown {
   if (t.sourceUrl) out['@_sourceUrl'] = t.sourceUrl;
   if (t.type) out['@_type'] = t.type;
   if (t.signatureSkillId) out['@_signatureSkillId'] = t.signatureSkillId;
+  if (t.status) out['@_status'] = t.status;
   if (t.evolvesInto && t.evolvesInto.length > 0) {
     out.evolutions = {
       evolve: t.evolvesInto.map((edge) => {
@@ -314,8 +321,12 @@ const MAX_CATALOG_BYTES = 10 * 1024 * 1024;
  * Load the catalog from disk. Returns an EMPTY catalog if the file does not
  * exist yet (fresh install) rather than throwing — the admin seeds it later.
  * Any parse or Zod error is thrown with a readable prefix.
+ *
+ * Default returns ALL digimons — lookup-by-id callers (roster, evolve,
+ * battle) must still resolve templates for owned draft Digimons. Pass
+ * `{ publishedOnly: true }` only for player-facing LIST endpoints.
  */
-export function loadCatalog(): Catalog {
+export function loadCatalog(opts?: { publishedOnly?: boolean }): Catalog {
   const path = config.paths.catalogXml;
   if (!existsSync(path)) {
     log.info('catalog.load.missing', { path });
@@ -342,12 +353,16 @@ export function loadCatalog(): Catalog {
   }
   const list = check.data.catalog.digimon ?? [];
   const arr = Array.isArray(list) ? list : [list];
+  let digimons = arr.map(toTemplate);
+  if (opts?.publishedOnly) {
+    digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
+  }
   const catalog: Catalog = {
     version: check.data.catalog['@_version'],
     updatedAt: check.data.catalog['@_updatedAt'],
-    digimons: arr.map(toTemplate),
+    digimons,
   };
-  log.info('catalog.load.ok', { path, count: catalog.digimons.length });
+  log.info('catalog.load.ok', { path, count: catalog.digimons.length, publishedOnly: opts?.publishedOnly ?? false });
   return catalog;
 }
 

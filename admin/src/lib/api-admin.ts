@@ -190,7 +190,7 @@ export function getAdminStats(): Promise<AdminStats> {
 }
 
 export function getCatalog(): Promise<CatalogResponse> {
-  return apiFetch<CatalogResponse>('/api/catalog');
+  return apiFetch<CatalogResponse>('/api/catalog?includeDrafts=1');
 }
 
 export function getScrapedList(query: ScrapedListQuery): Promise<ScrapedListResponse> {
