@@ -14,7 +14,8 @@
     "dev:admin:production": "pnpm --filter @digiworld/admin dev:production",
     "build": "pnpm -r build",
     "typecheck": "pnpm shared:build && pnpm -r typecheck",
-    "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native"
+    "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native",
+    "content:deploy": "pnpm --filter @digiworld/backend content:deploy"
   },
   "engines": {
     "node": ">=22",
