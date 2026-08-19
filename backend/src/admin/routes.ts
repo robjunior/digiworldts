@@ -716,6 +716,18 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     return reply.send(result);
   });
 
+  app.post<{ Params: { id: string } }>('/api/admin/shop/:id/publish', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const item = await getShopItem(req.params.id);
+    if (!item) return reply.code(404).send({ error: 'not-found' });
+    if (item.status === 'published') {
+      return reply.code(409).send({ error: 'already-published', message: 'Shop item is already published' });
+    }
+    const published = await updateShopItem(req.params.id, { ...item, status: 'published' });
+    log.info('admin.shop.publish', { adminId: admin.id, id: item.id });
+    return reply.send({ item: published });
+  });
+
   function statusForBundleError(err: BundleError): number {
     if (err === 'not-found' || err === 'invalid-item-ref') return 404;
     if (err === 'currency-mismatch' || err === 'duplicate-item') return 409;

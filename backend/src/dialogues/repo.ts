@@ -4,13 +4,13 @@ import type { DialogueDefinition } from '@digiworld/shared/dialogue';
 
 import { one, q, run } from '../db/index.js';
 
-const SQL_SELECT_ALL = `SELECT dialogue_id, title, source_path, source_hash, start_node_id, npc_ids, node_count, imported_at, updated_at FROM dialogue_definitions ORDER BY dialogue_id`;
+const SQL_SELECT_ALL = `SELECT dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, status, imported_at, updated_at FROM dialogue_definitions ORDER BY dialogue_id`;
 const SQL_SELECT_ONE = `SELECT * FROM dialogue_definitions WHERE dialogue_id = ?`;
 const SQL_DELETE = `DELETE FROM dialogue_definitions WHERE dialogue_id = ?`;
 const SQL_UPSERT = `
   INSERT INTO dialogue_definitions
-      (dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, imported_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, status, imported_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT (dialogue_id) DO UPDATE SET
     title = excluded.title,
     source_path = excluded.source_path,
@@ -20,6 +20,7 @@ const SQL_UPSERT = `
     npc_ids = excluded.npc_ids,
     ir_json = excluded.ir_json,
     node_count = excluded.node_count,
+    status = excluded.status,
     updated_at = excluded.updated_at
 `;
 
@@ -33,6 +34,7 @@ type DialogueRow = {
   readonly npc_ids: string;
   readonly ir_json: string;
   readonly node_count: number;
+  readonly status: string;
   readonly imported_at: number;
   readonly updated_at: number;
 };
@@ -116,6 +118,7 @@ export async function saveDialogue(input: {
     JSON.stringify(input.definition.npcIds),
     JSON.stringify(input.definition),
     nodeCount,
+    input.definition.status ?? 'draft',
     now,
     now,
   ]);

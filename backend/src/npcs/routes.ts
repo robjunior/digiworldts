@@ -20,8 +20,16 @@ const NpcInputSchema = z.object({
     key: ExpressionKeySchema,
     label: z.string().trim().min(1).max(64).optional(),
   })).min(1),
+  status: z.enum(['draft', 'published']).default('draft').optional(),
 });
-const NpcUpdateSchema = NpcInputSchema.omit({ id: true });
+const NpcUpdateSchema = z.object({
+  displayName: z.string().trim().min(1).max(120).optional(),
+  expressions: z.array(z.object({
+    key: ExpressionKeySchema,
+    label: z.string().trim().min(1).max(64).optional(),
+  })).min(1).optional(),
+  status: z.enum(['draft', 'published']).default('draft').optional(),
+});
 
 const MAX_PORTRAIT_BYTES = 1_000_000;
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -68,7 +76,12 @@ export const npcsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const existing = await getNpc(parsedId.data);
     if (existing === null) return reply.code(404).send({ error: 'npc-not-found' });
     try {
-      const npc = await saveNpc({ id: parsedId.data, ...parsedBody.data });
+      const npc = await saveNpc({
+        id: parsedId.data,
+        displayName: parsedBody.data.displayName ?? existing.displayName,
+        expressions: parsedBody.data.expressions ?? existing.expressions,
+        status: parsedBody.data.status ?? existing.status,
+      });
       log.info('npc.update.ok', { id: npc.id, expressions: npc.expressions.length });
       return reply.send({ npc });
     } catch (err) {
@@ -88,6 +101,18 @@ export const npcsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     await deleteNpc(npc.id);
     log.info('npc.delete.ok', { id: npc.id });
     return reply.send({ ok: true });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/npcs/:id/publish', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const npc = await getNpc(req.params.id);
+    if (npc === null) return reply.code(404).send({ error: 'npc-not-found' });
+    if (npc.status === 'published') {
+      return reply.code(409).send({ error: 'already-published', message: 'NPC is already published' });
+    }
+    const published = await saveNpc({ ...npc, status: 'published' });
+    log.info('admin.npc.publish', { adminId: (req as any).user?.id ?? 'unknown', id: npc.id });
+    return reply.send({ npc: published });
   });
 
   app.post<{ Params: { id: string; expression: string } }>('/api/admin/npcs/:id/portrait/:expression', async (req, reply) => {

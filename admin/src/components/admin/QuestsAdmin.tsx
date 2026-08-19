@@ -323,6 +323,7 @@ function bodyFromEditor(state: EditorState): QuestAdminBody {
     steps: parseQuestSteps(state.steps),
     finalReward: parseLootPool(state.finalReward),
     unlocksQuestIds: state.unlocksQuestIds.split(',').map((id) => id.trim()).filter(Boolean),
+    status: 'draft',
     ...(state.objectives.length > 0 ? { objectives: state.objectives } : {}),
     ...(state.requiredFlags.length > 0 ? { requiredFlags: state.requiredFlags } : {}),
     ...(state.completesFlag.trim() !== '' ? { completesFlag: state.completesFlag.trim() } : {}),

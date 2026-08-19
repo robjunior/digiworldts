@@ -64,6 +64,8 @@ export type DialogueDefinition = {
   /** Security gate: true when any node carries an action or a condition, so the client must never resolve this dialogue on its own. */
   readonly requiresServerAdvance: boolean;
   readonly nodes: Readonly<Record<string, DialogueNode>>;
+  /** Content lifecycle status: draft (default) or published. Only published dialogues are visible to players. */
+  readonly status: 'draft' | 'published';
 };
 
 export const DIALOGUE_END_NODE = 'END' as const;
