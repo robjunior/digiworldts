@@ -1,11 +1,11 @@
-import type { FastifyPluginAsync } from 'fastify';
-import { z } from 'zod';
-import { config } from '../config.js';
-import { one, tx, type UserRow } from '../db/index.js';
-import type { DbAdapter } from '../db/adapter.js';
-import { log } from '../util/log.js';
-import { requireServiceAuth } from './middleware.js';
-import { consumeDiscordLinkCode } from '../auth/discord-link.js';
+import type { FastifyPluginAsync } from "fastify";
+import { z } from "zod";
+import { config } from "../config.js";
+import { one, tx, type UserRow } from "../db/index.js";
+import type { DbAdapter } from "../db/adapter.js";
+import { log } from "../util/log.js";
+import { requireServiceAuth } from "./middleware.js";
+import { consumeDiscordLinkCode } from "../auth/discord-link.js";
 
 const SQL_SELECT_LINK_BY_DISCORD = `SELECT id, display_name, discord_id FROM users WHERE discord_id = ?`;
 const SQL_SELECT_USER_BY_ID = `SELECT id FROM users WHERE id = ?`;
@@ -28,140 +28,272 @@ const IdempotencyKeySchema = z.string().trim().min(8).max(200);
 const ReasonSchema = z.string().trim().min(1).max(200);
 
 const LinkInitSchema = z.object({ discordId: DiscordIdSchema }).strict();
-const LinkCompleteSchema = z.object({ discordId: DiscordIdSchema, code: z.string().trim().min(1).max(64) }).strict();
+const LinkCompleteSchema = z
+  .object({
+    discordId: DiscordIdSchema,
+    code: z.string().trim().min(1).max(64),
+  })
+  .strict();
 const UnlinkSchema = z.object({ discordId: DiscordIdSchema }).strict();
-const WalletCreditSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
-const WalletDebitSchema = z.object({ userId: z.string().trim().min(1), amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT), idempotencyKey: IdempotencyKeySchema, reason: ReasonSchema }).strict();
+const WalletCreditSchema = z
+  .object({
+    userId: z.string().trim().min(1),
+    amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT),
+    idempotencyKey: IdempotencyKeySchema,
+    reason: ReasonSchema,
+  })
+  .strict();
+const WalletDebitSchema = z
+  .object({
+    userId: z.string().trim().min(1),
+    amount: z.number().int().positive().max(MAX_SERVICE_CREDIT_GRANT),
+    idempotencyKey: IdempotencyKeySchema,
+    reason: ReasonSchema,
+  })
+  .strict();
 
-type LinkRow = Pick<UserRow, 'id' | 'display_name'> & { readonly discord_id: string | null };
-type ServiceUserRow = Pick<UserRow, 'id' | 'display_name' | 'locale_pref'> & {
+type LinkRow = Pick<UserRow, "id" | "display_name"> & {
+  readonly discord_id: string | null;
+};
+type ServiceUserRow = Pick<UserRow, "id" | "display_name" | "locale_pref"> & {
   readonly discord_id: string;
   readonly credits: number | null;
   readonly premium_until: number | null;
 };
-type GrantReservation = { readonly kind: 'reserved' } | { readonly kind: 'cached'; readonly response: unknown };
+type GrantReservation =
+  | { readonly kind: "reserved" }
+  | { readonly kind: "cached"; readonly response: unknown };
 
 class ServiceRouteError extends Error {
-  constructor(readonly status: number, readonly code: string) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
     super(code);
   }
 }
 
-async function reserveGrant(t: DbAdapter, input: { readonly endpoint: string; readonly idempotencyKey: string; readonly now: number }): Promise<GrantReservation> {
-  const reserved = await t.run(SQL_RESERVE_GRANT, [input.idempotencyKey, input.endpoint, '{}', input.now]);
-  if (reserved.changes === 1) return { kind: 'reserved' };
-  const cached = await t.one<{ readonly response_json: string }>(SQL_SELECT_GRANT_RESPONSE, [input.idempotencyKey]);
-  if (!cached) throw new ServiceRouteError(500, 'idempotency-log-missing');
-  return { kind: 'cached', response: JSON.parse(cached.response_json) };
+async function reserveGrant(
+  t: DbAdapter,
+  input: {
+    readonly endpoint: string;
+    readonly idempotencyKey: string;
+    readonly now: number;
+  },
+): Promise<GrantReservation> {
+  const reserved = await t.run(SQL_RESERVE_GRANT, [
+    input.idempotencyKey,
+    input.endpoint,
+    "{}",
+    input.now,
+  ]);
+  if (reserved.changes === 1) return { kind: "reserved" };
+  const cached = await t.one<{ readonly response_json: string }>(
+    SQL_SELECT_GRANT_RESPONSE,
+    [input.idempotencyKey],
+  );
+  if (!cached) throw new ServiceRouteError(500, "idempotency-log-missing");
+  return { kind: "cached", response: JSON.parse(cached.response_json) };
 }
 
-async function storeGrantResponse(t: DbAdapter, input: { readonly idempotencyKey: string; readonly response: Record<string, unknown> }): Promise<void> {
-  await t.run(SQL_UPDATE_GRANT_RESPONSE, [JSON.stringify(input.response), input.idempotencyKey]);
+async function storeGrantResponse(
+  t: DbAdapter,
+  input: {
+    readonly idempotencyKey: string;
+    readonly response: Record<string, unknown>;
+  },
+): Promise<void> {
+  await t.run(SQL_UPDATE_GRANT_RESPONSE, [
+    JSON.stringify(input.response),
+    input.idempotencyKey,
+  ]);
 }
 
 async function requireUserInTx(t: DbAdapter, userId: string): Promise<void> {
-  const user = await t.one<{ readonly id: string }>(SQL_SELECT_USER_BY_ID, [userId]);
-  if (!user) throw new ServiceRouteError(404, 'user-not-found');
+  const user = await t.one<{ readonly id: string }>(SQL_SELECT_USER_BY_ID, [
+    userId,
+  ]);
+  if (!user) throw new ServiceRouteError(404, "user-not-found");
 }
 
 export const servicePlugin: FastifyPluginAsync = async (app): Promise<void> => {
   if (!config.SERVICE_TOKEN_DISCORD) {
-    log.warn('service.plugin.skipped', { reason: 'SERVICE_TOKEN_DISCORD unset' });
+    log.warn("service.plugin.skipped", {
+      reason: "SERVICE_TOKEN_DISCORD unset",
+    });
     return;
   }
-  if (config.DATABASE !== 'postgres') {
-    log.warn('service.plugin.skipped', { reason: 'DATABASE is not postgres' });
+  if (config.DATABASE !== "postgres") {
+    log.warn("service.plugin.skipped", { reason: "DATABASE is not postgres" });
     return;
   }
 
-  app.post('/api/service/link-init', async (req, reply) => {
+  app.post("/api/service/link-init", async (req, reply) => {
     await requireServiceAuth(req, reply);
     const parsed = LinkInitSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
-    const linked = await one<LinkRow>(SQL_SELECT_LINK_BY_DISCORD, parsed.data.discordId);
-    return reply.send(linked ? { linked: true, userId: linked.id } : { linked: false });
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: "invalid input", details: parsed.error.issues });
+    const linked = await one<LinkRow>(
+      SQL_SELECT_LINK_BY_DISCORD,
+      parsed.data.discordId,
+    );
+    return reply.send(
+      linked ? { linked: true, userId: linked.id } : { linked: false },
+    );
   });
 
-  app.post('/api/service/link-complete', async (req, reply) => {
+  app.post("/api/service/link-complete", async (req, reply) => {
     await requireServiceAuth(req, reply);
     const parsed = LinkCompleteSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: "invalid input", details: parsed.error.issues });
     const result = await consumeDiscordLinkCode(parsed.data);
-    if (result.kind === 'error') return reply.code(result.status).send({ error: result.code });
-    return reply.send(result.alreadyLinked === true
-      ? { linked: true, userId: result.userId, alreadyLinked: true }
-      : { linked: true, userId: result.userId });
+    if (result.kind === "error")
+      return reply.code(result.status).send({ error: result.code });
+    return reply.send(
+      result.alreadyLinked === true
+        ? { linked: true, userId: result.userId, alreadyLinked: true }
+        : { linked: true, userId: result.userId },
+    );
   });
 
-  app.post('/api/service/unlink', async (req, reply) => {
+  app.post("/api/service/unlink", async (req, reply) => {
     await requireServiceAuth(req, reply);
     const parsed = UnlinkSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
-    const result = await tx((t) => t.run(SQL_UNLINK_DISCORD, [Date.now(), parsed.data.discordId]));
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: "invalid input", details: parsed.error.issues });
+    const result = await tx((t) =>
+      t.run(SQL_UNLINK_DISCORD, [Date.now(), parsed.data.discordId]),
+    );
     return reply.send({ ok: true, unlinked: result.changes > 0 });
   });
 
-  app.get<{ Params: { readonly discordId: string } }>('/api/service/user-by-discord/:discordId', async (req, reply) => {
-    await requireServiceAuth(req, reply);
-    const row = await one<ServiceUserRow>(SQL_SELECT_SERVICE_USER, req.params.discordId);
-    if (!row) return reply.code(404).send({ error: 'discord-user-not-linked' });
-    return reply.send({
-      userId: row.id,
-      displayName: row.display_name,
-      discordId: row.discord_id,
-      credits: row.credits ?? 0,
-      premiumUntil: row.premium_until,
-      locale: row.locale_pref,
-    });
-  });
+  app.get<{ Params: { readonly discordId: string } }>(
+    "/api/service/user-by-discord/:discordId",
+    async (req, reply) => {
+      await requireServiceAuth(req, reply);
+      const row = await one<ServiceUserRow>(
+        SQL_SELECT_SERVICE_USER,
+        req.params.discordId,
+      );
+      if (!row)
+        return reply.code(404).send({ error: "discord-user-not-linked" });
+      return reply.send({
+        userId: row.id,
+        displayName: row.display_name,
+        discordId: row.discord_id,
+        credits: row.credits ?? 0,
+        premiumUntil: row.premium_until,
+        locale: row.locale_pref,
+      });
+    },
+  );
 
-  app.post('/api/service/wallet-credit', async (req, reply) => {
+  app.post("/api/service/wallet-credit", async (req, reply) => {
     await requireServiceAuth(req, reply);
     const parsed = WalletCreditSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: "invalid input", details: parsed.error.issues });
     try {
       const response = await tx(async (t) => {
         const now = Date.now();
-        const reservation = await reserveGrant(t, { endpoint: 'wallet-credit', idempotencyKey: parsed.data.idempotencyKey, now });
-        if (reservation.kind === 'cached') return reservation.response;
+        const reservation = await reserveGrant(t, {
+          endpoint: "wallet-credit",
+          idempotencyKey: parsed.data.idempotencyKey,
+          now,
+        });
+        if (reservation.kind === "cached") return reservation.response;
         await requireUserInTx(t, parsed.data.userId);
-        await t.run(SQL_UPSERT_WALLET_CREDIT, [parsed.data.userId, parsed.data.amount, now]);
-        const wallet = await t.one<{ readonly credits: number }>(SQL_SELECT_WALLET_GRANT, [parsed.data.userId]);
-        const body = { ok: true, userId: parsed.data.userId, amount: parsed.data.amount, credits: wallet?.credits ?? parsed.data.amount, reason: parsed.data.reason };
-        await storeGrantResponse(t, { idempotencyKey: parsed.data.idempotencyKey, response: body });
+        await t.run(SQL_UPSERT_WALLET_CREDIT, [
+          parsed.data.userId,
+          parsed.data.amount,
+          now,
+        ]);
+        const wallet = await t.one<{ readonly credits: number }>(
+          SQL_SELECT_WALLET_GRANT,
+          [parsed.data.userId],
+        );
+        const body = {
+          ok: true,
+          userId: parsed.data.userId,
+          amount: parsed.data.amount,
+          credits: wallet?.credits ?? parsed.data.amount,
+          reason: parsed.data.reason,
+        };
+        await storeGrantResponse(t, {
+          idempotencyKey: parsed.data.idempotencyKey,
+          response: body,
+        });
         return body;
       });
       return reply.send(response);
     } catch (err) {
-      if (err instanceof ServiceRouteError) return reply.code(err.status).send({ error: err.code });
+      if (err instanceof ServiceRouteError)
+        return reply.code(err.status).send({ error: err.code });
       throw err;
     }
   });
 
-  app.post('/api/service/wallet-debit', async (req, reply) => {
+  app.post("/api/service/wallet-debit", async (req, reply) => {
     await requireServiceAuth(req, reply);
     const parsed = WalletDebitSchema.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    if (!parsed.success)
+      return reply
+        .code(400)
+        .send({ error: "invalid input", details: parsed.error.issues });
     try {
       const response = await tx(async (t) => {
         const now = Date.now();
-        const reservation = await reserveGrant(t, { endpoint: 'wallet-debit', idempotencyKey: parsed.data.idempotencyKey, now });
-        if (reservation.kind === 'cached') return reservation.response;
+        const reservation = await reserveGrant(t, {
+          endpoint: "wallet-debit",
+          idempotencyKey: parsed.data.idempotencyKey,
+          now,
+        });
+        if (reservation.kind === "cached") return reservation.response;
         await requireUserInTx(t, parsed.data.userId);
-        const wallet = await t.one<{ readonly credits: number }>(SQL_SELECT_WALLET_GRANT, [parsed.data.userId]);
+        const wallet = await t.one<{ readonly credits: number }>(
+          SQL_SELECT_WALLET_GRANT,
+          [parsed.data.userId],
+        );
         // player_wallet enforces CHECK (credits >= 0), so the wallet itself can never
         // absorb a shortfall. Claw back only what is actually there and report the gap,
         // letting the caller decide whether the remainder becomes debt or is written off.
         const available = wallet?.credits ?? 0;
         const debited = Math.min(parsed.data.amount, available);
-        if (debited > 0) await t.run(SQL_DEBIT_WALLET, [debited, now, parsed.data.userId, debited]);
-        const body = { ok: true, userId: parsed.data.userId, requested: parsed.data.amount, debited, shortfall: parsed.data.amount - debited, credits: available - debited, reason: parsed.data.reason };
-        await storeGrantResponse(t, { idempotencyKey: parsed.data.idempotencyKey, response: body });
+        if (debited > 0)
+          await t.run(SQL_DEBIT_WALLET, [
+            debited,
+            now,
+            parsed.data.userId,
+            debited,
+          ]);
+        const body = {
+          ok: true,
+          userId: parsed.data.userId,
+          requested: parsed.data.amount,
+          debited,
+          shortfall: parsed.data.amount - debited,
+          credits: available - debited,
+          reason: parsed.data.reason,
+        };
+        await storeGrantResponse(t, {
+          idempotencyKey: parsed.data.idempotencyKey,
+          response: body,
+        });
         return body;
       });
       return reply.send(response);
     } catch (err) {
-      if (err instanceof ServiceRouteError) return reply.code(err.status).send({ error: err.code });
+      if (err instanceof ServiceRouteError)
+        return reply.code(err.status).send({ error: err.code });
       throw err;
     }
   });
