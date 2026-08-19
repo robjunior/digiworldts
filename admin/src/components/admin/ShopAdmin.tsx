@@ -2,8 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 
-import { createShopItem, deleteShopItem, getShopItems, updateShopItem, type ItemType, type KitClass, type ShopItemClass, type ShopItemInput, type ShopItemKind, type ShopItemView, ITEM_TYPES, KIT_CLASSES } from '../../lib/api-admin';
-import { AdminMessage, AdminSection, ErrorText, Field } from './AdminShared';
+import { createShopItem, deleteShopItem, getShopItems, updateShopItem, publishShopItem, getShopItemHistory, type ItemType, type KitClass, type ShopItemClass, type ShopItemInput, type ShopItemKind, type ShopItemView, type ShopItemHistoryEntry, ITEM_TYPES, KIT_CLASSES } from '../../lib/api-admin';
+import { AdminMessage, AdminSection, ErrorText, Field, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 import { RARITIES, RARITY_LABEL_EN, RARITY_COLOR, type Rarity } from '@digiworld/shared/item-rarity';
 
 const SHOP_QUERY_KEY = ['admin', 'shop'] as const;
@@ -15,11 +15,34 @@ import { ShopBundlesSection } from './ShopBundlesSection';
 export function ShopAdmin(): JSX.Element {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<ShopItemView | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<ShopItemView | null>(null);
+  const [historyData, setHistoryData] = useState<readonly ShopItemHistoryEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const shopQuery = useQuery({ queryKey: SHOP_QUERY_KEY, queryFn: getShopItems });
   const createMutation = useMutation({ mutationFn: createShopItem, onSuccess: () => queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY }) });
   const updateMutation = useMutation({ mutationFn: ({ id, input }: { readonly id: string; readonly input: ShopItemInput }) => updateShopItem(id, input), onSuccess: () => queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY }) });
   const deleteMutation = useMutation({ mutationFn: deleteShopItem, onSuccess: () => queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY }) });
-  const items = shopQuery.data?.items ?? [];
+
+  const publishShopItemMutation = useMutation({
+    mutationFn: publishShopItem,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY });
+      setMessage('Shop item published.');
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const loadHistory = async (item: ShopItemView): Promise<void> => {
+    setHistoryOpen(item);
+    setHistoryData([]);
+    try {
+      const { history } = await getShopItemHistory(item.id);
+      setHistoryData(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    }
+  };
 
   const submit = async (input: ShopItemInput): Promise<void> => {
     if (editing) {
@@ -30,6 +53,8 @@ export function ShopAdmin(): JSX.Element {
     setEditing(null);
   };
 
+  const items = shopQuery.data?.items ?? [];
+
   return (
     <div className="admin-two-column">
       <div className="stack">
@@ -37,7 +62,7 @@ export function ShopAdmin(): JSX.Element {
           <ErrorText error={shopQuery.error ?? createMutation.error ?? updateMutation.error ?? deleteMutation.error} />
           <div className="admin-scroll">
             <table className="admin-table">
-              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Type</th><th>Rarity</th><th>Kit</th><th>Price</th><th>Enabled</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Name</th><th>Class</th><th>Kind</th><th>Type</th><th>Rarity</th><th>Kit</th><th>Price</th><th>Enabled</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id}>
@@ -49,7 +74,17 @@ export function ShopAdmin(): JSX.Element {
                     <td>{item.kitClass ? <span className="badge">{item.kitClass}{item.kitMaxQty !== null ? ` ≤${item.kitMaxQty}` : ''}</span> : <span className="muted">—</span>}</td>
                     <td>{item.priceCredits}</td>
                     <td>{item.enabled ? 'yes' : 'no'}</td>
-                    <td className="admin-actions-cell"><button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button><button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button></td>
+                    <td><StatusBadge status={item.status ?? 'draft'} /></td>
+                    <td className="admin-actions-cell">
+                      <button className="btn btn--secondary btn--sm" type="button" onClick={() => setEditing(item)}>Edit</button>
+                      {(item.status ?? 'draft') === 'draft' ? (
+                        <button className="btn btn--primary btn--sm" type="button" onClick={() => publishShopItemMutation.mutate(item.id)}>Publish</button>
+                      ) : (
+                        <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+                      )}
+                      <button className="btn btn--secondary btn--sm" type="button" onClick={() => loadHistory(item)}>History</button>
+                      <button className="btn btn--danger btn--sm" type="button" onClick={() => void deleteMutation.mutate(item.id)}>Delete</button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -57,6 +92,14 @@ export function ShopAdmin(): JSX.Element {
           </div>
           {shopQuery.isPending ? <AdminMessage tone="muted">Loading shop items…</AdminMessage> : null}
         </AdminSection>
+        {historyOpen ? (
+          <HistoryModal
+            isOpen={true}
+            onClose={() => setHistoryOpen(null)}
+            title={historyOpen.name}
+            history={historyData}
+          />
+        ) : null}
         <ShopBundlesSection />
       </div>
       <ShopItemForm key={editing?.id ?? 'new'} item={editing} busy={createMutation.isPending || updateMutation.isPending} onCancel={() => setEditing(null)} onSubmit={submit} />

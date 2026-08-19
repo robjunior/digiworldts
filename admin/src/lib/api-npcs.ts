@@ -63,3 +63,21 @@ export function deleteNpcPortrait(id: string, expression: string): Promise<{ rea
 export function npcPortraitUrl(id: string, expression: string): string {
   return `/assets/npc/${encodeURIComponent(id)}/${encodeURIComponent(expression)}.png`;
 }
+
+export function publishNpc(id: string): Promise<{ readonly npc: Npc }> {
+  return apiFetch<{ readonly npc: Npc }>(`/api/admin/npcs/${encodeURIComponent(id)}/publish`, {
+    method: 'POST',
+  });
+}
+
+export type NpcHistoryEntry = {
+  readonly version: number;
+  readonly status: 'draft' | 'published';
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly definition: Npc;
+};
+
+export function getNpcHistory(id: string): Promise<{ readonly history: readonly NpcHistoryEntry[] }> {
+  return apiFetch<{ readonly history: readonly NpcHistoryEntry[] }>(`/api/admin/npcs/${encodeURIComponent(id)}/history`);
+}
