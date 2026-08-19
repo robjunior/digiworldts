@@ -8,7 +8,9 @@ import { config } from '../config.js';
 import { one, q, run } from '../db/index.js';
 
 const SQL_SELECT_ALL = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs ORDER BY id`;
+const SQL_SELECT_ALL_PUBLISHED = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs WHERE status = 'published' ORDER BY id`;
 const SQL_SELECT_ONE = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs WHERE id = ?`;
+const SQL_SELECT_ONE_PUBLISHED = `SELECT id, display_name, expressions, created_at, updated_at FROM npcs WHERE id = ? AND status = 'published'`;
 const SQL_UPSERT = `
   INSERT INTO npcs (id, display_name, expressions, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?)
@@ -83,13 +85,13 @@ function hydrate(row: NpcRow): Npc {
   };
 }
 
-export async function listNpcs(): Promise<readonly Npc[]> {
-  const rows = await q<NpcRow>(SQL_SELECT_ALL);
+export async function listNpcs(publishedOnly = false): Promise<readonly Npc[]> {
+  const rows = await q<NpcRow>(publishedOnly ? SQL_SELECT_ALL_PUBLISHED : SQL_SELECT_ALL);
   return rows.map(hydrate);
 }
 
-export async function getNpc(id: string): Promise<Npc | null> {
-  const row = await one<NpcRow>(SQL_SELECT_ONE, id);
+export async function getNpc(id: string, publishedOnly = false): Promise<Npc | null> {
+  const row = await one<NpcRow>(publishedOnly ? SQL_SELECT_ONE_PUBLISHED : SQL_SELECT_ONE, id);
   return row === null ? null : hydrate(row);
 }
 

@@ -19,11 +19,11 @@ export type NpcInput = {
 export type NpcUpdate = Omit<NpcInput, 'id'>;
 
 export function listNpcs(): Promise<{ readonly npcs: readonly Npc[] }> {
-  return apiFetch<{ readonly npcs: readonly Npc[] }>('/api/npcs');
+  return apiFetch<{ readonly npcs: readonly Npc[] }>('/api/npcs?includeDrafts=1');
 }
 
 export function getNpc(id: string): Promise<{ readonly npc: Npc }> {
-  return apiFetch<{ readonly npc: Npc }>(`/api/npcs/${encodeURIComponent(id)}`);
+  return apiFetch<{ readonly npc: Npc }>(`/api/npcs/${encodeURIComponent(id)}?includeDrafts=1`);
 }
 
 export function createNpc(input: NpcInput): Promise<{ readonly npc: Npc }> {

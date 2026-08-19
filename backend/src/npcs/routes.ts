@@ -31,14 +31,16 @@ function isPng(buffer: Buffer): boolean {
 }
 
 export const npcsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
-  app.get('/api/npcs', async (req, reply) => {
+  app.get<{ Querystring: { includeDrafts?: string } }>('/api/npcs', async (req, reply) => {
     await requireAuth(req, reply);
-    return reply.send({ npcs: await listNpcs() });
+    const includeDrafts = req.query.includeDrafts === '1';
+    return reply.send({ npcs: await listNpcs(!includeDrafts) });
   });
 
-  app.get<{ Params: { id: string } }>('/api/npcs/:id', async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { includeDrafts?: string } }>('/api/npcs/:id', async (req, reply) => {
     await requireAuth(req, reply);
-    const npc = await getNpc(req.params.id);
+    const includeDrafts = req.query.includeDrafts === '1';
+    const npc = await getNpc(req.params.id, !includeDrafts);
     if (npc === null) return reply.code(404).send({ error: 'npc-not-found' });
     return reply.send({ npc });
   });
