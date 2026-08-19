@@ -47,6 +47,8 @@ import {
   type TemplateDigimon,
 } from './types.js';
 
+export type { Catalog, TemplateDigimon, Skill, EvolveEdge, SkillEffect };
+
 const StatsZ = z.object({
   '@_hp': z.coerce.number().int().nonnegative(),
   '@_en': z.coerce.number().int().nonnegative(),
@@ -402,6 +404,38 @@ export function saveCatalog(catalog: Catalog): void {
     throw err;
   }
   log.info('catalog.save.ok', { path, count: catalog.digimons.length });
+}
+
+/**
+ * Parse a raw XML catalog string into a Catalog object.
+ * Does not read from disk — useful for validating artifact assets.
+ */
+export function parseCatalogXml(raw: string, opts?: { publishedOnly?: boolean }): Catalog {
+  let parsed: unknown;
+  try {
+    parsed = parser.parse(raw);
+  } catch (err) {
+    throw new Error(`catalog XML parse error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const check = RootZ.safeParse(parsed);
+  if (!check.success) {
+    const detail = check.error.issues
+      .slice(0, 6)
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    throw new Error(`catalog XML failed validation:\n${detail}`);
+  }
+  const list = check.data.catalog.digimon ?? [];
+  const arr = Array.isArray(list) ? list : [list];
+  let digimons = arr.map(toTemplate);
+  if (opts?.publishedOnly) {
+    digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
+  }
+  return {
+    version: check.data.catalog['@_version'],
+    updatedAt: check.data.catalog['@_updatedAt'],
+    digimons,
+  };
 }
 
 /**

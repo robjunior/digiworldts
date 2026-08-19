@@ -9,6 +9,7 @@
     "start": "node --enable-source-maps dist/server.js",
     "build": "tsc -p tsconfig.json && node -e \"const {cpSync,mkdirSync}=require('node:fs');mkdirSync('dist/db',{recursive:true});cpSync('src/db/schema.sql','dist/db/schema.sql');cpSync('src/db/schema-pg.sql','dist/db/schema-pg.sql');cpSync('src/db/migrations','dist/db/migrations',{recursive:true});\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:xref": "tsx src/content-deploy/xref.ts",
     "scrape": "tsx src/scraper/cli.ts",
     "db:init": "tsx src/db/init.ts",
     "test:pg-portability": "tsx test/postgres-portability.mts",
