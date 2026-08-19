@@ -56,7 +56,8 @@
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2",
     "test:initiative-sign": "tsx test/initiative-sign.mts",
     "test:element-identity": "tsx test/element-identity.mts",
-    "seed:export": "tsx src/seed-export/cli.ts"
+    "seed:export": "tsx src/seed-export/cli.ts",
+    "content:deploy": "tsx src/content-deploy/cli.ts"
   },
   "dependencies": {
     "@digiworld/shared": "workspace:*",
