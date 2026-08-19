@@ -8,10 +8,14 @@ import {
   dialogueExportUrl,
   listDialogues,
   syncDialogues,
+  publishDialogue,
+  getDialogueHistory,
   type DialogueSummary,
   type SyncReport,
+  type DialogueHistoryEntry,
+  type StoredDialogue,
 } from '../../lib/api-dialogues';
-import { AdminMessage, AdminSection, ErrorText, StatTile } from './AdminShared';
+import { AdminMessage, AdminSection, ErrorText, StatTile, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 import { TweeImportButton } from './DialoguesAdmin/TweeImportButton';
 
 const DIALOGUES_KEY = ['admin', 'dialogues'] as const;
@@ -51,10 +55,12 @@ function SyncSummary({ report }: { readonly report: SyncReport }): JSX.Element {
   );
 }
 
-function DialogueRow({ dialogue, onDelete, busy }: {
-  readonly dialogue: DialogueSummary;
+function DialogueRow({ dialogue, onDelete, busy, onPublish, onHistory }: {
+  readonly dialogue: DialogueSummary & { status?: ContentStatus };
   readonly onDelete: (id: string) => void;
   readonly busy: boolean;
+  readonly onPublish: () => void;
+  readonly onHistory: () => void;
 }): JSX.Element {
   return (
     <tr>
@@ -66,10 +72,17 @@ function DialogueRow({ dialogue, onDelete, busy }: {
       <td>{dialogue.nodeCount}</td>
       <td><code>{dialogue.startNodeId}</code></td>
       <td>{dialogue.npcIds.length > 0 ? dialogue.npcIds.join(', ') : <span className="dlg-muted">—</span>}</td>
+      <td><StatusBadge status={dialogue.status ?? 'draft'} /></td>
       <td>{formatDate(dialogue.updatedAt)}</td>
       <td className="dlg-actions">
         <Link className="btn btn--secondary btn--sm" to={`/dialogues/${encodeURIComponent(dialogue.dialogueId)}/simulate`}>Simulate</Link>
         <a className="btn btn--secondary btn--sm" href={dialogueExportUrl(dialogue.dialogueId)} download>Export</a>
+        {(dialogue.status ?? 'draft') === 'draft' ? (
+          <button className="btn btn--primary btn--sm" type="button" onClick={onPublish}>Publish</button>
+        ) : (
+          <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+        )}
+        <button className="btn btn--secondary btn--sm" type="button" onClick={onHistory}>History</button>
         <button
           className="btn btn--secondary btn--sm"
           type="button"
@@ -87,11 +100,34 @@ export function DialoguesAdmin(): JSX.Element {
   const queryClient = useQueryClient();
   const [syncReport, setSyncReport] = useState<SyncReport | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<StoredDialogue | null>(null);
+  const [historyData, setHistoryData] = useState<readonly DialogueHistoryEntry[]>([]);
 
   const dialoguesQuery = useQuery({ queryKey: DIALOGUES_KEY, queryFn: listDialogues });
   const dialogues = dialoguesQuery.data?.dialogues ?? [];
 
   const invalidate = (): void => { void queryClient.invalidateQueries({ queryKey: DIALOGUES_KEY }); };
+
+  const publishDialogueMutation = useMutation({
+    mutationFn: publishDialogue,
+    onSuccess: () => {
+      invalidate();
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const loadHistory = async (dialogue: StoredDialogue): Promise<void> => {
+    setHistoryOpen(dialogue);
+    setHistoryData([]);
+    try {
+      const { history } = await getDialogueHistory(dialogue.dialogueId);
+      setHistoryData(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    }
+  };
+
+  const [error, setError] = useState<string | null>(null);
 
   const syncMutation = useMutation({
     mutationFn: syncDialogues,
@@ -143,7 +179,7 @@ export function DialoguesAdmin(): JSX.Element {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ID</th><th>Source</th><th>Nodes</th><th>Start</th><th>Speakers</th><th>Updated</th><th />
+                <th>ID</th><th>Source</th><th>Nodes</th><th>Start</th><th>Speakers</th><th>Status</th><th>Updated</th><th />
               </tr>
             </thead>
             <tbody>
@@ -153,6 +189,8 @@ export function DialoguesAdmin(): JSX.Element {
                   dialogue={dialogue}
                   busy={deleteMutation.isPending}
                   onDelete={setConfirmId}
+                  onPublish={() => publishDialogueMutation.mutate(dialogue.dialogueId)}
+                  onHistory={() => loadHistory(dialogue as StoredDialogue)}
                 />
               ))}
             </tbody>
@@ -169,6 +207,15 @@ export function DialoguesAdmin(): JSX.Element {
               <button className="btn btn--secondary" type="button" onClick={() => setConfirmId(null)}>Cancel</button>
             </div>
           </AdminMessage>
+        ) : null}
+
+        {historyOpen ? (
+          <HistoryModal
+            isOpen={true}
+            onClose={() => setHistoryOpen(null)}
+            title={historyOpen.dialogueId}
+            history={historyData}
+          />
         ) : null}
       </AdminSection>
     </div>

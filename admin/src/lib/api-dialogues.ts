@@ -91,6 +91,24 @@ export function dialogueExportUrl(dialogueId: string): string {
   return `/api/admin/dialogues/${encodeURIComponent(dialogueId)}/export`;
 }
 
+export function publishDialogue(dialogueId: string): Promise<{ readonly dialogue: StoredDialogue }> {
+  return apiFetch<{ readonly dialogue: StoredDialogue }>(`/api/admin/dialogues/${encodeURIComponent(dialogueId)}/publish`, {
+    method: 'POST',
+  });
+}
+
+export type DialogueHistoryEntry = {
+  readonly version: number;
+  readonly status: 'draft' | 'published';
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly definition: DialogueDefinition;
+};
+
+export function getDialogueHistory(dialogueId: string): Promise<{ readonly history: readonly DialogueHistoryEntry[] }> {
+  return apiFetch<{ readonly history: readonly DialogueHistoryEntry[] }>(`/api/admin/dialogues/${encodeURIComponent(dialogueId)}/history`);
+}
+
 export type SimulatorStep = {
   readonly nodeId: string;
   readonly choiceId: string;
