@@ -19,7 +19,7 @@ export const AILMENTS = [
 ] as const;
 export type Ailment = (typeof AILMENTS)[number];
 
-export const CONTENT_STATUSES = ['draft', 'published', 'archived'] as const;
+export const CONTENT_STATUSES = ['draft', 'published'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 
 export const BUFF_KINDS = [
@@ -97,7 +97,7 @@ export type TemplateDigimon = {
   resistances?: ResistanceMap;
   type?: string;
   signatureSkillId?: string;
-  /** Content lifecycle status. Absent on old entries ⇒ treated as 'published'. */
+  /** Content lifecycle status. Absent on legacy XML ⇒ treated as 'published'. */
   status?: ContentStatus;
 };
 

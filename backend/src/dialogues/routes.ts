@@ -137,6 +137,22 @@ export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> =>
     return reply.send({ ok: true });
   });
 
+  app.post<{ Params: { id: string } }>('/api/admin/dialogues/:id/publish', async (req, reply) => {
+    await requireAdmin(req, reply);
+    const dialogue = await getDialogue(req.params.id);
+    if (dialogue === null) return reply.code(404).send({ error: 'dialogue-not-found' });
+    if (dialogue.definition.status === 'published') {
+      return reply.code(409).send({ error: 'already-published', message: 'Dialogue is already published' });
+    }
+    const published = await saveDialogue({
+      definition: { ...dialogue.definition, status: 'published' },
+      sourceTwee: dialogue.sourceTwee,
+      sourcePath: dialogue.sourcePath,
+    });
+    log.info('admin.dialogue.publish', { adminId: (req as any).user?.id ?? 'unknown', dialogueId: dialogue.dialogueId });
+    return reply.send({ dialogue: published });
+  });
+
   app.post<{ Params: { id: string } }>('/api/admin/dialogues/:id/simulate', async (req, reply) => {
     await requireAdmin(req, reply);
     const parsed = SimulatorRequestSchema.safeParse(req.body ?? {});

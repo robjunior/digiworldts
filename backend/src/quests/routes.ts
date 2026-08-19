@@ -81,6 +81,18 @@ export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     return reply.send({ ok: true });
   });
 
+  app.post<{ Params: { id: string } }>('/api/admin/quests/:id/publish', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const quest = await getQuest(req.params.id);
+    if (!quest) return reply.code(404).send({ error: 'not-found' });
+    if (quest.status === 'published') {
+      return reply.code(409).send({ error: 'already-published', message: 'Quest is already published' });
+    }
+    const published = await updateQuest(quest.id, { ...quest, status: 'published' });
+    log.info('admin.quest.publish', { adminId: admin.id, id: quest.id });
+    return reply.send({ quest: published });
+  });
+
   app.get<{ Params: { id: string } }>('/api/admin/quests/:id/export', async (req, reply) => {
     await requireAdmin(req, reply);
     const quest = await getQuest(req.params.id);

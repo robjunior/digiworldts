@@ -1,19 +1,16 @@
 import { createHash } from 'node:crypto';
 
 import type { DialogueDefinition } from '@digiworld/shared/dialogue';
-import type { ContentStatus } from '@digiworld/shared/digimon';
 
 import { one, q, run } from '../db/index.js';
 
-const SQL_SELECT_ALL = `SELECT dialogue_id, title, source_path, source_hash, start_node_id, npc_ids, node_count, imported_at, updated_at, status FROM dialogue_definitions ORDER BY dialogue_id`;
-const SQL_SELECT_ALL_PUBLISHED = `SELECT dialogue_id, title, source_path, source_hash, start_node_id, npc_ids, node_count, imported_at, updated_at, status FROM dialogue_definitions WHERE status = 'published' ORDER BY dialogue_id`;
+const SQL_SELECT_ALL = `SELECT dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, status, imported_at, updated_at FROM dialogue_definitions ORDER BY dialogue_id`;
 const SQL_SELECT_ONE = `SELECT * FROM dialogue_definitions WHERE dialogue_id = ?`;
-const SQL_SELECT_ONE_PUBLISHED = `SELECT * FROM dialogue_definitions WHERE dialogue_id = ? AND status = 'published'`;
 const SQL_DELETE = `DELETE FROM dialogue_definitions WHERE dialogue_id = ?`;
 const SQL_UPSERT = `
   INSERT INTO dialogue_definitions
-      (dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, imported_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (dialogue_id, title, source_path, source_hash, source_twee, start_node_id, npc_ids, ir_json, node_count, status, imported_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   ON CONFLICT (dialogue_id) DO UPDATE SET
     title = excluded.title,
     source_path = excluded.source_path,
@@ -23,6 +20,7 @@ const SQL_UPSERT = `
     npc_ids = excluded.npc_ids,
     ir_json = excluded.ir_json,
     node_count = excluded.node_count,
+    status = excluded.status,
     updated_at = excluded.updated_at
 `;
 
@@ -36,7 +34,7 @@ type DialogueRow = {
   readonly npc_ids: string;
   readonly ir_json: string;
   readonly node_count: number;
-  readonly status: ContentStatus;
+  readonly status: string;
   readonly imported_at: number;
   readonly updated_at: number;
 };
@@ -51,7 +49,6 @@ export type DialogueSummary = {
   readonly startNodeId: string;
   readonly npcIds: readonly string[];
   readonly nodeCount: number;
-  readonly status: ContentStatus;
   readonly importedAt: number;
   readonly updatedAt: number;
 };
@@ -83,19 +80,18 @@ function toSummary(row: DialogueSummaryRow): DialogueSummary {
     startNodeId: row.start_node_id,
     npcIds: parseIds(row.npc_ids),
     nodeCount: row.node_count,
-    status: row.status,
     importedAt: row.imported_at,
     updatedAt: row.updated_at,
   };
 }
 
-export async function listDialogues(publishedOnly = false): Promise<readonly DialogueSummary[]> {
-  const rows = await q<DialogueSummaryRow>(publishedOnly ? SQL_SELECT_ALL_PUBLISHED : SQL_SELECT_ALL);
+export async function listDialogues(): Promise<readonly DialogueSummary[]> {
+  const rows = await q<DialogueSummaryRow>(SQL_SELECT_ALL);
   return rows.map(toSummary);
 }
 
-export async function getDialogue(dialogueId: string, publishedOnly = false): Promise<StoredDialogue | null> {
-  const row = await one<DialogueRow>(publishedOnly ? SQL_SELECT_ONE_PUBLISHED : SQL_SELECT_ONE, dialogueId);
+export async function getDialogue(dialogueId: string): Promise<StoredDialogue | null> {
+  const row = await one<DialogueRow>(SQL_SELECT_ONE, dialogueId);
   if (row === null) return null;
   return {
     ...toSummary(row),
@@ -122,6 +118,7 @@ export async function saveDialogue(input: {
     JSON.stringify(input.definition.npcIds),
     JSON.stringify(input.definition),
     nodeCount,
+    input.definition.status ?? 'draft',
     now,
     now,
   ]);

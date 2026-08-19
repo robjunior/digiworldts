@@ -131,6 +131,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     ],
     giver: 'Tamer Guild',
     rewardText: '320 XP · 140 NetCore',
+    status: 'draft',
   },
   {
     id: 'qst-basin',
@@ -147,6 +148,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     ],
     giver: 'Nursery',
     rewardText: '260 XP · Water Data +20%',
+    status: 'draft',
   },
   {
     id: 'qst-highwind',
@@ -163,6 +165,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     ],
     giver: 'The World',
     rewardText: '410 XP · 200 NetCore',
+    status: 'draft',
   },
   {
     id: 'qst-circuit',
@@ -180,6 +183,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     ],
     giver: 'Tamer Guild',
     rewardText: '560 XP · Rare Chip',
+    status: 'draft',
   },
   {
     id: 'qst-firstscout',
@@ -195,6 +199,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     ],
     giver: 'Tamer Guild',
     rewardText: '120 XP · claimed',
+    status: 'draft',
   },
   {
     id: 'qst-static',
@@ -211,6 +216,7 @@ const DEFAULT_QUESTS: readonly (Omit<Quest, 'createdAt' | 'updatedAt'>)[] = [
     giver: '???',
     rewardText: '1200 XP · ???',
     lockHint: 'Reach Tamer Lv 30 to unlock',
+    status: 'draft',
   },
 ];
 
