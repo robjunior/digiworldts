@@ -47,7 +47,7 @@ import {
   type TemplateDigimon,
 } from './types.js';
 
-export type { Catalog, TemplateDigimon, Skill, EvolveEdge, SkillEffect };
+export type { Catalog, TemplateDigimon, Skill, EvolveEdge, SkillEffect, ContentStatus };
 
 const StatsZ = z.object({
   '@_hp': z.coerce.number().int().nonnegative(),
@@ -131,8 +131,7 @@ const DigimonZ = z.object({
   // custom-route regex.
   '@_sourceUrl': z.string().url().regex(/^https?:\/\//i, 'sourceUrl must use http(s) scheme').optional(),
   '@_signatureSkillId': z.string().min(1).max(64).regex(/^[a-z0-9_-]+$/i).optional(),
-  // Content lifecycle status. Absent on legacy XML ⇒ treated as 'published'
-  // (backward compat — existing catalogs predate the attribute entirely).
+  // Content lifecycle status. Absent on legacy XML ⇒ treated as 'published'.
   '@_status': z.enum(CONTENT_STATUSES).optional(),
   assets: AssetsZ,
   stats: StatsZ,
@@ -323,12 +322,8 @@ const MAX_CATALOG_BYTES = 10 * 1024 * 1024;
  * Load the catalog from disk. Returns an EMPTY catalog if the file does not
  * exist yet (fresh install) rather than throwing — the admin seeds it later.
  * Any parse or Zod error is thrown with a readable prefix.
- *
- * Default returns ALL digimons — lookup-by-id callers (roster, evolve,
- * battle) must still resolve templates for owned draft Digimons. Pass
- * `{ publishedOnly: true }` only for player-facing LIST endpoints.
  */
-export function loadCatalog(opts?: { publishedOnly?: boolean }): Catalog {
+export function loadCatalog(): Catalog {
   const path = config.paths.catalogXml;
   if (!existsSync(path)) {
     log.info('catalog.load.missing', { path });
@@ -355,17 +350,45 @@ export function loadCatalog(opts?: { publishedOnly?: boolean }): Catalog {
   }
   const list = check.data.catalog.digimon ?? [];
   const arr = Array.isArray(list) ? list : [list];
+  const catalog: Catalog = {
+    version: check.data.catalog['@_version'],
+    updatedAt: check.data.catalog['@_updatedAt'],
+    digimons: arr.map(toTemplate),
+  };
+  log.info('catalog.load.ok', { path, count: catalog.digimons.length });
+  return catalog;
+}
+
+/**
+ * Parse a raw XML catalog string into a Catalog object.
+ * Does not read from disk — useful for validating artifact assets.
+ */
+export function parseCatalogXml(raw: string, opts?: { publishedOnly?: boolean }): Catalog {
+  let parsed: unknown;
+  try {
+    parsed = parser.parse(raw);
+  } catch (err) {
+    throw new Error(`catalog XML parse error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  const check = RootZ.safeParse(parsed);
+  if (!check.success) {
+    const detail = check.error.issues
+      .slice(0, 6)
+      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
+      .join('\n');
+    throw new Error(`catalog XML failed validation:\n${detail}`);
+  }
+  const list = check.data.catalog.digimon ?? [];
+  const arr = Array.isArray(list) ? list : [list];
   let digimons = arr.map(toTemplate);
   if (opts?.publishedOnly) {
     digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
   }
-  const catalog: Catalog = {
+  return {
     version: check.data.catalog['@_version'],
     updatedAt: check.data.catalog['@_updatedAt'],
     digimons,
   };
-  log.info('catalog.load.ok', { path, count: catalog.digimons.length, publishedOnly: opts?.publishedOnly ?? false });
-  return catalog;
 }
 
 // Monotonic counter for temp filename uniqueness within a single process —
@@ -404,38 +427,6 @@ export function saveCatalog(catalog: Catalog): void {
     throw err;
   }
   log.info('catalog.save.ok', { path, count: catalog.digimons.length });
-}
-
-/**
- * Parse a raw XML catalog string into a Catalog object.
- * Does not read from disk — useful for validating artifact assets.
- */
-export function parseCatalogXml(raw: string, opts?: { publishedOnly?: boolean }): Catalog {
-  let parsed: unknown;
-  try {
-    parsed = parser.parse(raw);
-  } catch (err) {
-    throw new Error(`catalog XML parse error: ${err instanceof Error ? err.message : String(err)}`);
-  }
-  const check = RootZ.safeParse(parsed);
-  if (!check.success) {
-    const detail = check.error.issues
-      .slice(0, 6)
-      .map((i) => `  - ${i.path.join('.')}: ${i.message}`)
-      .join('\n');
-    throw new Error(`catalog XML failed validation:\n${detail}`);
-  }
-  const list = check.data.catalog.digimon ?? [];
-  const arr = Array.isArray(list) ? list : [list];
-  let digimons = arr.map(toTemplate);
-  if (opts?.publishedOnly) {
-    digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
-  }
-  return {
-    version: check.data.catalog['@_version'],
-    updatedAt: check.data.catalog['@_updatedAt'],
-    digimons,
-  };
 }
 
 /**

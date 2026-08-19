@@ -242,6 +242,7 @@ export function parseTwee(source: string, options: { readonly dialogueId: string
     npcIds,
     requiresServerAdvance: stats.actions > 0 || stats.conditions > 0,
     nodes,
+    status: 'draft',
   };
 
   return { definition, errors, warnings, stats };

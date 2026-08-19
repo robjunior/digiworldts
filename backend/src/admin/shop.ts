@@ -54,6 +54,7 @@ type ExtendedShopItemRow = ShopItemRow & {
   item_type?: string;
   kit_class?: string | null;
   kit_max_qty?: number | null;
+  status?: string;
 };
 
 export type ShopItemView = {
@@ -77,6 +78,8 @@ export type ShopItemView = {
   itemType: ItemType;
   kitClass: KitClass | null;
   kitMaxQty: number | null;
+  /** Content lifecycle status: draft (default) or published. Only published items are visible to players. */
+  status: 'draft' | 'published';
   createdAt: number;
 };
 
@@ -100,6 +103,7 @@ export type ShopItemInput = {
   itemType?: ItemType | undefined;
   kitClass?: KitClass | null | undefined;
   kitMaxQty?: number | null | undefined;
+  status?: 'draft' | 'published' | undefined;
 };
 
 function parsePayload(raw: string): Record<string, unknown> {
@@ -143,6 +147,7 @@ function rowToView(row: ExtendedShopItemRow): ShopItemView {
     itemType,
     kitClass,
     kitMaxQty: row.kit_max_qty ?? null,
+    status: (row.status === 'published' ? 'published' : 'draft'),
     createdAt: row.created_at,
   };
 }

@@ -194,6 +194,7 @@ export function asQuestPayload(input: QuestInput): Omit<Quest, 'id' | 'createdAt
     ...(input.lockHint !== undefined ? { lockHint: input.lockHint } : {}),
     ...(input.requiredFlags !== undefined && input.requiredFlags.length > 0 ? { requiredFlags: input.requiredFlags } : {}),
     ...(input.completesFlag !== undefined ? { completesFlag: input.completesFlag } : {}),
+    status: 'draft',
   };
 }
 

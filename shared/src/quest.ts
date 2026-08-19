@@ -77,6 +77,8 @@ export type Quest = {
   readonly requiredFlags?: readonly string[];
   /** Set on the user automatically when this quest is claimed (not accepted). */
   readonly completesFlag?: string;
+  /** Content lifecycle status: draft (default) or published. Only published quests are visible to players. */
+  readonly status: 'draft' | 'published';
   readonly createdAt: number;
   readonly updatedAt: number;
 };

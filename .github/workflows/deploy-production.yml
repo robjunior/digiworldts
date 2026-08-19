@@ -14,9 +14,88 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  xref-check:
+    name: Cross-domain reference check
+    runs-on: [self-hosted, production]
+    environment:
+      name: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Materialize .env from GH Environment secrets/vars
+        run: ./scripts/materialize-env.sh
+        env:
+          # ── Secrets (Environment > Secrets) ────────────────────────────
+          POSTGRES_PASSWORD:       ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD:          ${{ secrets.REDIS_PASSWORD }}
+          SESSION_SECRET:          ${{ secrets.SESSION_SECRET }}
+          CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+          SERVICE_TOKEN_DISCORD:   ${{ secrets.SERVICE_TOKEN_DISCORD }}
+          DISCORD_TOKEN:           ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_CLIENT_SECRET:   ${{ secrets.DISCORD_CLIENT_SECRET }}
+          MP_ACCESS_TOKEN:         ${{ secrets.MP_ACCESS_TOKEN }}
+          MP_WEBHOOK_SECRET:       ${{ secrets.MP_WEBHOOK_SECRET }}
+          MP_PAYER_EMAIL:          ${{ secrets.MP_PAYER_EMAIL }}
+          MP_PAYER_NAME:           ${{ secrets.MP_PAYER_NAME }}
+          MP_PAYER_LAST_NAME:      ${{ secrets.MP_PAYER_LAST_NAME }}
+          MP_PAYER_ID_NUMBER:      ${{ secrets.MP_PAYER_ID_NUMBER }}
+          # ── Non-secret per-env config (Environment > Variables) ────────
+          DISCORD_PUBLIC_URL:      ${{ vars.DISCORD_PUBLIC_URL }}
+          GAME_PUBLIC_URL:         ${{ vars.GAME_PUBLIC_URL }}
+          DISCORD_CLIENT_ID:       ${{ vars.DISCORD_CLIENT_ID }}
+          DISCORD_GUILD_ID:        ${{ vars.DISCORD_GUILD_ID }}
+          DISCORD_ADMIN_ROLE_IDS:  ${{ vars.DISCORD_ADMIN_ROLE_IDS }}
+          MP_PAYER_ID_TYPE:        ${{ vars.MP_PAYER_ID_TYPE }}
+          ADMIN_BOOTSTRAP:         ${{ vars.ADMIN_BOOTSTRAP }}
+          HOST_PORT:               ${{ vars.HOST_PORT }}
+          CORS_ORIGINS:            ${{ vars.CORS_ORIGINS }}
+          # ── Runtime knobs (opt-in overrides; empty ⇒ code default) ────
+          PIX_EXPIRATION_MINUTES:     ${{ vars.PIX_EXPIRATION_MINUTES }}
+          PURCHASE_SWEEP_INTERVAL_MS: ${{ vars.PURCHASE_SWEEP_INTERVAL_MS }}
+          TICKET_INACTIVITY_HOURS:    ${{ vars.TICKET_INACTIVITY_HOURS }}
+          RATE_LIMIT_COMMANDS:        ${{ vars.RATE_LIMIT_COMMANDS }}
+          RATE_LIMIT_BUY:             ${{ vars.RATE_LIMIT_BUY }}
+          CREDITS_PER_BRL:            ${{ vars.CREDITS_PER_BRL }}
+          BUY_MIN_BRL:                ${{ vars.BUY_MIN_BRL }}
+          BUY_MAX_BRL:                ${{ vars.BUY_MAX_BRL }}
+
+      - name: Typecheck (validates every Zod config schema parses)
+        run: pnpm typecheck
+
+      - name: Export seed for xref validation
+        run: |
+          if [ -f "backend/data/digiworld.db" ]; then
+            pnpm --filter @digiworld/backend seed:export --out /tmp/seed-artifact
+            echo "SEED_PATH=/tmp/seed-artifact/seed.json" >> $GITHUB_ENV
+          else
+            echo "No local DB found, skipping seed export"
+          fi
+
+      - name: Xref check (fails deploy on broken cross-domain refs)
+        if: env.SEED_PATH != ''
+        run: pnpm typecheck:xref "$SEED_PATH"
+
   deploy:
     name: Materialize env, validate, deploy
     runs-on: [self-hosted, production]
+    needs: xref-check
 
     # The `production` GH Environment gates secrets + required-reviewer approval.
     # Configure at:  Settings > Environments > production
@@ -82,9 +161,6 @@ jobs:
           CREDITS_PER_BRL:            ${{ vars.CREDITS_PER_BRL }}
           BUY_MIN_BRL:                ${{ vars.BUY_MIN_BRL }}
           BUY_MAX_BRL:                ${{ vars.BUY_MAX_BRL }}
-
-      - name: Typecheck (validates every Zod config schema parses)
-        run: pnpm typecheck
 
       - name: Roll containers in place
         # Self-hosted runner IS the deploy host. `.env` was materialized into
