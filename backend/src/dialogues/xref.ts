@@ -81,7 +81,7 @@ export function unresolvedReferences(
         });
       }
     }
-    for (const action of node.entryActions) {
+    for (const action of node.entryActions ?? []) {
       const ref = firstStringArg(action.args);
       if (ref === null) continue;
       if (ITEM_ACTION_NAMES.has(action.name) && !checker.itemExists(ref)) {
@@ -92,9 +92,9 @@ export function unresolvedReferences(
       }
     }
     const predicateNodes: { readonly condition: import('@digiworld/shared/dialogue').DialogueCondition | null }[] = [
-      { condition: node.condition },
-      ...node.choices.map((c) => ({ condition: c.condition })),
-      ...node.jumps.map((j) => ({ condition: j.condition })),
+      { condition: node.condition ?? null },
+      ...(node.choices ?? []).map((c) => ({ condition: c.condition ?? null })),
+      ...(node.jumps ?? []).map((j) => ({ condition: j.condition ?? null })),
     ];
     for (const { condition } of predicateNodes) {
       if (condition === null) continue;

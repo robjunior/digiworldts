@@ -3,8 +3,8 @@ import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-import { createCustomTemplate, deleteTemplate, downloadTemplateAssets, getCatalog, getShopItems, replaceTemplate, type TemplateDraft } from '../../lib/api-admin';
-import { AdminMessage, AdminSection, ErrorText } from './AdminShared';
+import { createCustomTemplate, deleteTemplate, downloadTemplateAssets, getCatalog, getShopItems, replaceTemplate, publishTemplate, getCatalogHistory, type TemplateDraft, type CatalogHistoryEntry } from '../../lib/api-admin';
+import { AdminMessage, AdminSection, ErrorText, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 import { CatalogEditDialog } from './CatalogEditDialog';
 import { LootEditorDialog } from './LootEditorDialog';
 
@@ -37,6 +37,10 @@ export function CatalogTable(): JSX.Element {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [lootTarget, setLootTarget] = useState<TemplateDigimon | null>(null);
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+  const [historyOpen, setHistoryOpen] = useState<TemplateDigimon | null>(null);
+  const [historyData, setHistoryData] = useState<readonly CatalogHistoryEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const catalogQuery = useQuery({ queryKey: CATALOG_QUERY_KEY, queryFn: getCatalog });
   const shopItemsQuery = useQuery({ queryKey: ADMIN_SHOP_ITEMS_QUERY_KEY, queryFn: getShopItems, staleTime: 60_000 });
   const createMutation = useMutation({ mutationFn: createCustomTemplate, onSuccess: () => queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY }) });
@@ -48,6 +52,26 @@ export function CatalogTable(): JSX.Element {
   const assetMutation = useMutation({ mutationFn: downloadTemplateAssets });
   const digimons = catalogQuery.data?.digimons ?? [];
   const shopItems = shopItemsQuery.data?.items ?? [];
+
+  const publishTemplateMutation = useMutation({
+    mutationFn: publishTemplate,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });
+      setMessage('Catalog entry published.');
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const loadHistory = async (template: TemplateDigimon): Promise<void> => {
+    setHistoryOpen(template);
+    setHistoryData([]);
+    try {
+      const { history } = await getCatalogHistory(template.id);
+      setHistoryData(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    }
+  };
 
   const knownTypes = useMemo(() => {
     const set = new Set<string>();
@@ -169,6 +193,8 @@ export function CatalogTable(): JSX.Element {
             onDownload={() => void assetMutation.mutate(template.id)}
             onEditLoot={() => setLootTarget(template)}
             onEdit={() => setDialog({ kind: 'edit', template })}
+            onPublish={() => publishTemplateMutation.mutate(template.id)}
+            onHistory={() => loadHistory(template)}
           />
         ))}
       </div>
@@ -188,11 +214,19 @@ export function CatalogTable(): JSX.Element {
           onClose={() => setLootTarget(null)}
         />
       ) : null}
+      {historyOpen ? (
+        <HistoryModal
+          isOpen={true}
+          onClose={() => setHistoryOpen(null)}
+          title={historyOpen.name}
+          history={historyData}
+        />
+      ) : null}
     </AdminSection>
   );
 }
 
-function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, onDownload, onEditLoot, onEdit }: {
+function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, onDownload, onEditLoot, onEdit, onPublish, onHistory }: {
   readonly template: TemplateDigimon;
   readonly expanded: boolean;
   readonly busy: boolean;
@@ -202,6 +236,8 @@ function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, o
   readonly onDownload: () => void;
   readonly onEditLoot: () => void;
   readonly onEdit: () => void;
+  readonly onPublish: () => void;
+  readonly onHistory: () => void;
 }): JSX.Element {
   const itemNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -216,6 +252,7 @@ function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, o
         <span className="badge">{template.stage}</span>
         <span className="badge">{template.attribute}</span>
         <span className={`pill pill--${template.element}`}>{template.element}</span>
+        <StatusBadge status={template.status ?? 'draft'} size="small" />
         <span className="chevron">⌄</span>
       </button>
       {expanded ? (
@@ -254,7 +291,13 @@ function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, o
           </div>
           <div className="actions">
             <button className="btn btn--sm" type="button" onClick={onEdit}>Edit</button>
-            <button className="btn btn--secondary btn--sm" type="button" onClick={onEditLoot}>Edit loot</button>
+            {(template.status ?? 'draft') === 'draft' ? (
+              <button className="btn btn--primary btn--sm" type="button" onClick={onPublish}>Publish</button>
+            ) : (
+              <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+            )}
+            <button className="btn btn--secondary btn--sm" type="button" onClick={onHistory}>History</button>
+            <button className="btn btn--secondary btn--sm" type="button" disabled={busy} onClick={onEditLoot}>Edit loot</button>
             <button className="btn btn--secondary btn--sm" type="button" disabled={busy} onClick={onDownload}>Re-download assets</button>
             <button className="btn btn--danger btn--sm" type="button" disabled={busy} onClick={onDelete}>Delete</button>
           </div>

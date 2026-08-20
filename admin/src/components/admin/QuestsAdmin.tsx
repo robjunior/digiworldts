@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BIOMES, ELEMENTS, STAGES } from '@digiworld/shared';
 import type { Biome, Element, Stage, LootItem, LootPool, Quest, QuestStep, QuestObjective } from '@digiworld/shared';
 
-import { createAdminQuest, deleteAdminQuest, exportAdminQuest, importAdminQuest, listAdminQuests, updateAdminQuest } from '../../lib/api-quest-admin';
-import type { QuestAdminBody } from '../../lib/api-quest-admin';
-import { AdminMessage, AdminSection, Field } from './AdminShared';
+import { createAdminQuest, deleteAdminQuest, exportAdminQuest, importAdminQuest, listAdminQuests, updateAdminQuest, publishQuest, getQuestHistory } from '../../lib/api-quest-admin';
+import type { QuestAdminBody, QuestHistoryEntry } from '../../lib/api-quest-admin';
+import { AdminMessage, AdminSection, Field, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 
 const QUESTS_QUERY_KEY = ['admin', 'quests'] as const;
 const STEPS_TEMPLATE = '[]';
@@ -38,9 +38,22 @@ export function QuestsAdmin(): JSX.Element {
   const [importText, setImportText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<Quest | null>(null);
+  const [historyData, setHistoryData] = useState<readonly QuestHistoryEntry[]>([]);
 
   const refreshQuests = (): void => {
     void queryClient.invalidateQueries({ queryKey: QUESTS_QUERY_KEY });
+  };
+
+  const loadHistory = async (quest: Quest): Promise<void> => {
+    setHistoryOpen(quest);
+    setHistoryData([]);
+    try {
+      const { history } = await getQuestHistory(quest.id);
+      setHistoryData(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    }
   };
 
   const saveQuest = useMutation({
@@ -59,6 +72,15 @@ export function QuestsAdmin(): JSX.Element {
     onSuccess: () => {
       refreshQuests();
       setMessage('Quest deleted.');
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const publishQuestMutation = useMutation({
+    mutationFn: publishQuest,
+    onSuccess: () => {
+      refreshQuests();
+      setMessage('Quest published.');
     },
     onError: (mutationError: Error) => setError(mutationError.message),
   });
@@ -106,23 +128,32 @@ export function QuestsAdmin(): JSX.Element {
         <div className="admin-scroll">
           <table className="admin-table admin-quests-table">
             <thead>
-              <tr><th>Name</th><th>Req. level</th><th>Steps</th><th>Unlocks</th><th>Updated</th><th>Actions</th></tr>
+              <tr><th>Name</th><th>Req. level</th><th>Steps</th><th>Unlocks</th><th>Status</th><th>Updated</th><th>Actions</th></tr>
             </thead>
             <tbody>
-              {quests.length === 0 ? <tr><td colSpan={6}><span className="muted">No quests yet. Use New Quest to create one.</span></td></tr> : null}
+              {quests.length === 0 ? <tr><td colSpan={7}><span className="muted">No quests yet. Use New Quest to create one.</span></td></tr> : null}
               {quests.map((quest) => (
                 <tr key={quest.id}>
                   <td><button type="button" className="admin-link-button" onClick={() => setEditor(editorFromQuest(quest))}>{quest.name}<span>{quest.description || 'No description'}</span></button></td>
                   <td>{quest.requiredLevel}</td>
                   <td>{quest.steps.length}</td>
                   <td>{quest.unlocksQuestIds.length}</td>
+                  <td><StatusBadge status={quest.status} /></td>
                   <td>{new Date(quest.updatedAt).toLocaleString()}</td>
-                  <td><QuestActions quest={quest} onEdit={() => setEditor(editorFromQuest(quest))} onDelete={() => { if (window.confirm(`Delete ${quest.name}?`)) deleteQuest.mutate(quest.id); }} /></td>
+                  <td><QuestActions quest={quest} onEdit={() => setEditor(editorFromQuest(quest))} onDelete={() => { if (window.confirm(`Delete ${quest.name}?`)) deleteQuest.mutate(quest.id); }} onPublish={() => publishQuestMutation.mutate(quest.id)} onHistory={() => loadHistory(quest)} status={quest.status} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        {historyOpen ? (
+          <HistoryModal
+            isOpen={true}
+            onClose={() => setHistoryOpen(null)}
+            title={historyOpen.name}
+            history={historyData}
+          />
+        ) : null}
       </AdminSection>
     </div>
   );
@@ -293,8 +324,20 @@ function FlagListEditor({ flags, onChange }: { readonly flags: readonly string[]
   );
 }
 
-function QuestActions({ quest, onEdit, onDelete }: { readonly quest: Quest; readonly onEdit: () => void; readonly onDelete: () => void }): JSX.Element {
-  return <div className="admin-actions-cell"><button type="button" onClick={onEdit}>Edit</button><button type="button" onClick={() => void downloadQuest(quest)}>Export</button><button type="button" onClick={onDelete}>Delete</button></div>;
+function QuestActions({ quest, onEdit, onDelete, onPublish, onHistory, status }: { readonly quest: Quest; readonly onEdit: () => void; readonly onDelete: () => void; readonly onPublish: () => void; readonly onHistory: () => void; readonly status: ContentStatus }): JSX.Element {
+  return (
+    <div className="admin-actions-cell">
+      <button type="button" onClick={onEdit}>Edit</button>
+      <button type="button" onClick={() => void downloadQuest(quest)}>Export</button>
+      {status === 'draft' ? (
+        <button type="button" className="btn btn--primary btn--sm" onClick={onPublish}>Publish</button>
+      ) : (
+        <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+      )}
+      <button type="button" className="btn btn--secondary btn--sm" onClick={onHistory}>History</button>
+      <button type="button" onClick={onDelete}>Delete</button>
+    </div>
+  );
 }
 
 async function downloadQuest(quest: Quest): Promise<void> {

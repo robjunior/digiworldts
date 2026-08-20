@@ -48,6 +48,8 @@
     "test:npc-registry": "DB_PATH=/tmp/dw-npc-registry.db tsx test/npc-registry-smoke.mts",
     "test:onboarding-intro": "DB_PATH=/tmp/dw-onboarding-intro.db tsx test/onboarding-intro-dialogue-smoke.mts",
     "test:dialogue-runtime-b": "DB_PATH=/tmp/dw-dlg-b.db tsx test/dialogue-runtime-b-smoke.mts",
+    "test:content-deploy-lifecycle": "DATABASE=sqlite DB_PATH=/tmp/dw-lifecycle-test.db tsx test/content-deploy-lifecycle.test.ts",
+    "test:xref-integrity": "DATABASE=sqlite DB_PATH=/tmp/dw-xref-test.db tsx test/xref-integrity.test.ts",
     "test:starter-teams": "DATABASE=sqlite DATABASE_URL= DB_PATH=/tmp/dw-starter-teams.db tsx test/starter-teams.mts",
     "test:seed-v2": "tsx test/seed-catalog-v2-smoke.mts",
     "test:pool": "tsx test/pool-smoke.mts",
