@@ -617,6 +617,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS adventures_unique_active_user
   ON adventures(user_id)
   WHERE collected_at IS NULL;
 
+-- ============================================================================
+-- Content version ledger tables
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS content_versions (
+  id              TEXT PRIMARY KEY,
+  domain          TEXT NOT NULL,
+  ref_id          TEXT NOT NULL,
+  version_number  INTEGER NOT NULL CHECK (version_number > 0),
+  status          TEXT NOT NULL CHECK (status IN ('draft', 'published')),
+  definition_json TEXT NOT NULL,
+  created_at      INTEGER NOT NULL,
+  created_by      TEXT,
+  UNIQUE (domain, ref_id, version_number)
+);
+CREATE INDEX IF NOT EXISTS idx_content_versions_domain_ref ON content_versions(domain, ref_id);
+CREATE INDEX IF NOT EXISTS idx_content_versions_created_at ON content_versions(created_at);
+
+CREATE TABLE IF NOT EXISTS active_versions (
+  domain      TEXT NOT NULL,
+  ref_id      TEXT NOT NULL,
+  version_id  TEXT NOT NULL REFERENCES content_versions(id),
+  PRIMARY KEY (domain, ref_id),
+  UNIQUE (domain, ref_id)
+);
+CREATE INDEX IF NOT EXISTS idx_active_versions_version_id ON active_versions(version_id);
+
 -- ----------------------------------------------------------------------------
 -- Views + helpful pragmas set on connection (not schema, but documented here):
 --   journal_mode = WAL, synchronous = NORMAL, foreign_keys = ON, busy_timeout = 5000

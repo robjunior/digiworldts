@@ -595,7 +595,14 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
       const upsertSql = buildUpsertSql(name, cols, pk);
 
       for (const row of rows) {
-        await t.run(upsertSql, cols.map((c) => row[c]));
+        try {
+          await t.run(upsertSql, cols.map((c) => row[c]));
+        } catch (e) {
+          console.error(`  FAILED upsert for table ${name}:`, e instanceof Error ? e.message : String(e));
+          console.error(`  SQL: ${upsertSql}`);
+          console.error(`  Params:`, cols.map((c) => row[c]));
+          throw e;
+        }
         await recordVersion(t, name, row, pk, now);
       }
       tables[name] = { rows: rows.length, versions: rows.length };
