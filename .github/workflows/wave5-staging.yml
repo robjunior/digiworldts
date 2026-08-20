@@ -78,6 +78,15 @@ jobs:
             --profile discord --profile admin up -d --build --remove-orphans --wait
           echo "Fresh deploy complete"
           docker compose -f docker-compose.yml -f docker-compose.staging.override.yml ps
+        continue-on-error: true
+
+      - name: Capture backend logs on failure
+        if: failure()
+        run: |
+          echo "=== Backend logs (last 200 lines) ==="
+          docker compose -f docker-compose.yml -f docker-compose.staging.override.yml logs --tail 200 backend || true
+          echo "=== DB logs ==="
+          docker compose -f docker-compose.yml -f docker-compose.staging.override.yml logs --tail 50 db || true
 
       - name: Todo 11 — content:deploy --apply the backup artifact
         run: |
