@@ -132,7 +132,7 @@ export async function startDialogue(
 ): Promise<DialogueResult> {
   const outcome = await withUserLock(userId, async (): Promise<DialogueResult> => {
     const stored = await getDialogue(dialogueId);
-    if (stored === null) return { ok: false, error: 'unknown-dialogue' };
+    if (stored === null || stored.status !== 'published') return { ok: false, error: 'unknown-dialogue' };
     const ctx = await buildContext(userId, displayName, dialogueId);
     const node = await resolveNode(stored.definition, stored.definition.startNodeId, ctx);
     if (node === null) return { ok: false, error: 'unknown-node' };
