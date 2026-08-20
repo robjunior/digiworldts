@@ -54,7 +54,8 @@ jobs:
           docker cp "$(docker compose -f docker-compose.yml -f docker-compose.staging.override.yml ps -q backend):/tmp/seed-backup" /tmp/seed-backup-host
           echo "Artifact copied to /tmp/seed-backup-host"
           ls -la /tmp/seed-backup-host/
-          cat /tmp/seed-backup-host/seed.json | node -e "const fs=require('fs'); let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{console.log(JSON.parse(d).tables)});"
+          # Display table counts using grep/sed (no node dependency)
+          cat /tmp/seed-backup-host/seed.json | grep -o '"[^"]*":[0-9]*' | sed 's/"//g' | head -40
 
       - name: Todo 9 — content:deploy --validate the backup artifact
         run: |
