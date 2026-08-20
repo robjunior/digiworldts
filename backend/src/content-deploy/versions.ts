@@ -284,7 +284,7 @@ export function validateXref(
             try {
               data = JSON.parse(lastCommaRemoved) as typeof data;
             } catch {
-              data = null as typeof data;
+              data = ({} as typeof data);
             }
           }
         }
