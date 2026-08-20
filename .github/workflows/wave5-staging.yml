@@ -11,6 +11,7 @@ jobs:
   wipe-reseed:
     name: Wave 5 — Backup, wipe, redeploy, apply content
     runs-on: [self-hosted, staging]
+    environment: staging
     steps:
       - name: Checkout
         uses: actions/checkout@v4
