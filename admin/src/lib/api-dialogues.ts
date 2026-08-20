@@ -10,6 +10,7 @@ export type DialogueSummary = {
   readonly startNodeId: string;
   readonly npcIds: readonly string[];
   readonly nodeCount: number;
+  readonly status: 'draft' | 'published' | 'archived';
   readonly importedAt: number;
   readonly updatedAt: number;
 };
@@ -42,11 +43,11 @@ export type SyncReport = {
 };
 
 export function listDialogues(): Promise<{ readonly dialogues: readonly DialogueSummary[] }> {
-  return apiFetch<{ readonly dialogues: readonly DialogueSummary[] }>('/api/dialogues');
+  return apiFetch<{ readonly dialogues: readonly DialogueSummary[] }>('/api/dialogues?includeDrafts=1');
 }
 
 export function getDialogue(dialogueId: string): Promise<{ readonly dialogue: StoredDialogue }> {
-  return apiFetch<{ readonly dialogue: StoredDialogue }>(`/api/dialogues/${encodeURIComponent(dialogueId)}`);
+  return apiFetch<{ readonly dialogue: StoredDialogue }>(`/api/dialogues/${encodeURIComponent(dialogueId)}?includeDrafts=1`);
 }
 
 export function previewDialogue(input: { readonly source: string; readonly dialogueId?: string }): Promise<DialoguePreview> {
