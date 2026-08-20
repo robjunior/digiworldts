@@ -42,18 +42,19 @@ jobs:
           HOST_PORT:               ${{ vars.HOST_PORT }}
           CORS_ORIGINS:            ${{ vars.CORS_ORIGINS }}
 
-      - name: Todo 8 — seed:export backup from LIVE staging DB
+      - name: Todo 8 — seed:export backup from LIVE staging DB (content tables only)
         run: |
           set -euo pipefail
           mkdir -p /tmp/seed-backup
-          # Run inside the staging backend container (has dist/seed-export/cli.js)
+          # Export ONLY content tables (exclude player-state: coin_offers, sessions, etc.)
+          CONTENT_TABLES="quests,world_objects,dialogue_definitions,npcs,dungeons,dungeon_tiles,dungeon_encounters,dungeon_doors,dungeon_warps,dungeon_traps,dungeon_chests,dungeon_zones,dungeon_keys,dungeon_kits,dungeon_kit_items,dungeon_rarity_tables,dungeon_tilesets,dungeon_items,dungeon_triggers,dungeon_trigger_targets,tilesets,shop_items,shop_bundles,shop_bundle_items,onboarding_config,onboarding_teams,game_settings,skills_catalog,building_blueprints,farm_recipes,adventures,catalog_loot_entries,seasons"
           docker compose -f docker-compose.yml -f docker-compose.staging.override.yml \
-            exec -T backend node dist/seed-export/cli.js --out /tmp/seed-backup
+            exec -T backend node dist/seed-export/cli.js --out /tmp/seed-backup --tables "$CONTENT_TABLES"
           # Copy artifact to host
           docker cp "$(docker compose -f docker-compose.yml -f docker-compose.staging.override.yml ps -q backend):/tmp/seed-backup" /tmp/seed-backup-host
           echo "Artifact copied to /tmp/seed-backup-host"
           ls -la /tmp/seed-backup-host/
-          cat /tmp/seed-backup-host/seed.json | jq '.tables' || true
+          cat /tmp/seed-backup-host/seed.json | node -e "const fs=require('fs'); let d=''; process.stdin.on('data',c=>d+=c).on('end',()=>{console.log(JSON.parse(d).tables)});"
 
       - name: Todo 9 — content:deploy --validate the backup artifact
         run: |
