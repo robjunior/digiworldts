@@ -11,7 +11,7 @@ export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly str
   { name: 'dialogue_definitions', orderBy: ['dialogue_id'] },
   { name: 'npcs', orderBy: ['id'] },
   { name: 'dungeons', orderBy: ['id'] },
-  { name: 'dungeon_tiles', orderBy: ['dungeon_id', 'x', 'y'] },
+  { name: 'dungeon_tiles', orderBy: ['dungeon_id', 'x', 'y', 'layer_kind'] },
   { name: 'dungeon_encounters', orderBy: ['id'] },
   { name: 'dungeon_doors', orderBy: ['id'] },
   { name: 'dungeon_warps', orderBy: ['id'] },

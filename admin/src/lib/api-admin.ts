@@ -88,6 +88,7 @@ export type ShopItemView = {
   readonly itemType: ItemType;
   readonly kitClass: KitClass | null;
   readonly kitMaxQty: number | null;
+  readonly status: 'draft' | 'published';
   readonly createdAt: number;
 };
 
@@ -217,6 +218,10 @@ export function deleteTemplate(id: string): Promise<{ readonly ok: true }> {
   return apiFetch<{ readonly ok: true }>(`/api/admin/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }
 
+export function publishTemplate(id: string): Promise<{ readonly template: TemplateDigimon }> {
+  return apiFetch<{ readonly template: TemplateDigimon }>(`/api/admin/catalog/${encodeURIComponent(id)}/publish`, { method: 'POST' });
+}
+
 export function downloadTemplateAssets(id: string): Promise<{ readonly result: Record<string, unknown> }> {
   return apiFetch<{ readonly result: Record<string, unknown> }>(`/api/admin/assets/${encodeURIComponent(id)}/download`, { method: 'POST' });
 }
@@ -235,6 +240,34 @@ export function updateShopItem(id: string, input: ShopItemInput): Promise<{ read
 
 export function deleteShopItem(id: string): Promise<{ readonly ok: true; readonly item: { readonly id: string } }> {
   return apiFetch<{ readonly ok: true; readonly item: { readonly id: string } }>(`/api/admin/shop/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export function publishShopItem(id: string): Promise<{ readonly ok: true; readonly item: ShopItemView }> {
+  return apiFetch<{ readonly ok: true; readonly item: ShopItemView }>(`/api/admin/shop/${encodeURIComponent(id)}/publish`, { method: 'POST' });
+}
+
+export type ShopItemHistoryEntry = {
+  readonly version: number;
+  readonly status: 'draft' | 'published';
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly definition: ShopItemView;
+};
+
+export function getShopItemHistory(id: string): Promise<{ readonly history: readonly ShopItemHistoryEntry[] }> {
+  return apiFetch<{ readonly history: readonly ShopItemHistoryEntry[] }>(`/api/admin/shop/${encodeURIComponent(id)}/history`);
+}
+
+export type CatalogHistoryEntry = {
+  readonly version: number;
+  readonly status: 'draft' | 'published';
+  readonly createdAt: number;
+  readonly updatedAt: number;
+  readonly definition: TemplateDigimon;
+};
+
+export function getCatalogHistory(id: string): Promise<{ readonly history: readonly CatalogHistoryEntry[] }> {
+  return apiFetch<{ readonly history: readonly CatalogHistoryEntry[] }>(`/api/admin/catalog/${encodeURIComponent(id)}/history`);
 }
 
 export type BundleAdminItem = {

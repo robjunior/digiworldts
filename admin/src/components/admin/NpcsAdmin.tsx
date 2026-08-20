@@ -13,10 +13,13 @@ import {
   npcPortraitUrl,
   updateNpc,
   uploadNpcPortrait,
+  publishNpc,
+  getNpcHistory,
   type NpcInput,
   type NpcUpdate,
+  type NpcHistoryEntry,
 } from '../../lib/api-npcs';
-import { AdminMessage, AdminSection, ErrorText, Field, StatTile } from './AdminShared';
+import { AdminMessage, AdminSection, ErrorText, Field, StatTile, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 
 const NPCS_KEY = ['admin', 'npcs'] as const;
 
@@ -326,6 +329,10 @@ export function NpcsAdmin(): JSX.Element {
   const queryClient = useQueryClient();
   const [dialogNpc, setDialogNpc] = useState<Npc | null | undefined>(undefined);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState<Npc | null>(null);
+  const [historyData, setHistoryData] = useState<readonly NpcHistoryEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const npcsQuery = useQuery({ queryKey: NPCS_KEY, queryFn: listNpcs });
   const npcs = npcsQuery.data?.npcs ?? [];
@@ -336,6 +343,26 @@ export function NpcsAdmin(): JSX.Element {
     mutationFn: deleteNpc,
     onSuccess: () => { setConfirmDeleteId(null); invalidate(); },
   });
+
+  const publishNpcMutation = useMutation({
+    mutationFn: publishNpc,
+    onSuccess: () => {
+      invalidate();
+      setMessage('NPC published.');
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const loadHistory = async (npc: Npc): Promise<void> => {
+    setHistoryOpen(npc);
+    setHistoryData([]);
+    try {
+      const { history } = await getNpcHistory(npc.id);
+      setHistoryData(history);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    }
+  };
 
   const portraitTotal = npcs.reduce((sum, n) => sum + n.expressions.filter((e) => e.hasPortrait).length, 0);
   const expressionTotal = npcs.reduce((sum, n) => sum + n.expressions.length, 0);
@@ -370,6 +397,7 @@ export function NpcsAdmin(): JSX.Element {
                 <th>Display name</th>
                 <th>Expressions</th>
                 <th>Portraits</th>
+                <th>Status</th>
                 <th />
               </tr>
             </thead>
@@ -388,8 +416,15 @@ export function NpcsAdmin(): JSX.Element {
                       ))}
                     </td>
                     <td>{uploaded} / {npc.expressions.length}</td>
+                    <td><StatusBadge status={npc.status} /></td>
                     <td className="dlg-actions">
                       <button className="btn btn--secondary btn--sm" type="button" onClick={() => setDialogNpc(npc)}>Edit</button>
+                      {npc.status === 'draft' ? (
+                        <button className="btn btn--primary btn--sm" type="button" onClick={() => publishNpcMutation.mutate(npc.id)}>Publish</button>
+                      ) : (
+                        <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+                      )}
+                      <button className="btn btn--secondary btn--sm" type="button" onClick={() => loadHistory(npc)}>History</button>
                       <button
                         className="btn btn--secondary btn--sm"
                         type="button"
