@@ -28,7 +28,7 @@ const NpcUpdateSchema = z.object({
     key: ExpressionKeySchema,
     label: z.string().trim().min(1).max(64).optional(),
   })).min(1).optional(),
-  status: z.enum(['draft', 'published']).default('draft').optional(),
+  status: z.enum(['draft', 'published']).optional(),
 });
 
 const MAX_PORTRAIT_BYTES = 1_000_000;

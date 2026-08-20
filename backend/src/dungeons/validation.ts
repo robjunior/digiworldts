@@ -160,7 +160,11 @@ export const CreateEncounterInputSchema = z.object({
   sceneId: z.string().trim().min(1).max(80).nullable().optional(),
 });
 
-export const UpdateEncounterInputSchema = CreateEncounterInputSchema.partial();
+export const UpdateEncounterInputSchema = CreateEncounterInputSchema.partial().extend({
+  // Override: partial() would otherwise fire the create schema's default('normal')
+  // on a partial update and clobber an existing difficulty.
+  difficulty: z.enum(['easy', 'normal', 'elite', 'boss']).optional(),
+});
 
 export const CreateItemInputSchema = z.object({
   x: z.number().int().min(0).max(199),
@@ -382,7 +386,12 @@ export const CreateZoneInputSchema = z.object({
   rollOverrides: WildPoolRollParamsPartialSchema.optional(),
 });
 
-export const UpdateZoneInputSchema = CreateZoneInputSchema.partial();
+export const UpdateZoneInputSchema = CreateZoneInputSchema.partial().extend({
+  // Override: partial() would otherwise fire the create schema's defaults
+  // (safe=false, pool=[]) on a partial update and clobber existing values.
+  safe: z.boolean().optional(),
+  pool: WildPoolSchema.optional(),
+});
 
 export const ReplaceZonesInputSchema = z.object({
   zones: z.array(CreateZoneInputSchema).max(200),

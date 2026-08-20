@@ -232,6 +232,7 @@ function NpcDialog({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'save failed');
+    } finally {
       setBusy(false);
     }
   };
