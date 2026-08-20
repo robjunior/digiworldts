@@ -321,9 +321,9 @@ export function getEvade(unit: BattleUnit): number {
   return ev;
 }
 
-/** True = miss. Formula: BASE_HIT + accuracy - evade clamped [MIN, MAX]. */
-export function rollMiss(actor: BattleUnit, target: BattleUnit): boolean {
-  const hitChance = clamp(BASE_HIT_PCT + getAccuracy(actor) - getEvade(target), MIN_HIT_PCT, MAX_HIT_PCT);
+/** True = miss. Formula: baseHitPct + accuracy - evade clamped [MIN, MAX]. */
+export function rollMiss(actor: BattleUnit, target: BattleUnit, baseHitPct: number = BASE_HIT_PCT): boolean {
+  const hitChance = clamp(baseHitPct + getAccuracy(actor) - getEvade(target), MIN_HIT_PCT, MAX_HIT_PCT);
   return Math.random() * 100 > hitChance;
 }
 
@@ -451,6 +451,8 @@ function execDealDamage(
 ): void {
   const targets = resolveTargets(battle, actor, action.target, primaryTarget, extraPicks);
   const element: Element = action.element ?? actor.element;
+  // Accuracy: 100 = auto-hit; else use action.accuracy if set, else BASE_HIT_PCT
+  const accuracy = action.accuracy ?? BASE_HIT_PCT;
   const now = Date.now();
   const baseAmount = Math.max(0, resolveAmount(actor, action.amount));
   const prev = battle.lastAction;
@@ -463,7 +465,7 @@ function execDealDamage(
   const rate = typeof battle.damageRate === 'number' && battle.damageRate > 0 ? battle.damageRate : 1.0;
 
   for (const target of targets) {
-    const missed = rollMiss(actor, target);
+    const missed = action.accuracy === 100 ? false : rollMiss(actor, target, accuracy);
     if (missed) {
       pushEvent(battle, {
         at: now,
@@ -483,7 +485,8 @@ function execDealDamage(
       battle.lastAction = { side: actingSide, element, attribute: actor.attribute, wasHit: false };
       continue;
     }
-    const critted = Math.random() < CRIT_CHANCE;
+const critPct = action.crit ?? (CRIT_CHANCE * 100);
+    const critted = Math.random() * 100 < critPct;
     const resMult = resolveResistance(element, target.element, target.resistances);
     const aff = affinity(element, target.element);
     const attrKind = attrAffinity(actor.attribute, target.attribute);

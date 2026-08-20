@@ -78,7 +78,7 @@ export type Condition = z.infer<typeof ConditionSchema>;
 // Recursive Zod schemas need z.lazy + explicit ZodType<Action> annotation.
 // ---------------------------------------------------------------------------
 export type Action =
-  | { kind: 'deal_damage'; target: Target; amount: Amount; element?: (typeof ELEMENTS)[number] | undefined; ignore_defense?: boolean | undefined }
+  | { kind: 'deal_damage'; target: Target; amount: Amount; element?: (typeof ELEMENTS)[number] | undefined; ignore_defense?: boolean | undefined; accuracy?: number | undefined; crit?: number | undefined }
   | { kind: 'heal'; target: Target; amount: Amount }
   | { kind: 'apply_status'; target: Target; status: (typeof AILMENTS)[number]; chance: number; turns: number }
   | { kind: 'modify_stat'; target: Target; stat: (typeof MODIFIABLE_STATS)[number]; delta: number; turns: number }
@@ -101,6 +101,8 @@ export const ActionSchema: z.ZodType<Action> = z.lazy(() =>
       amount: AmountSchema,
       element: z.enum(ELEMENTS).optional(),
       ignore_defense: z.boolean().optional(),
+      accuracy: z.number().min(0).max(100).optional(),
+      crit: z.number().min(0).max(100).optional(),
     }),
     z.object({
       kind: z.literal('heal'),
