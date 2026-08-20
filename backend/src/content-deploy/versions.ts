@@ -264,7 +264,34 @@ export function validateXref(
       unlocksQuestIds?: unknown;
     };
     try {
-      data = JSON.parse(String(q['data'] ?? '{}')) as typeof data;
+      // Handle data that may already be an object, string, or invalid JSON
+      let raw = q['data'];
+      if (typeof raw === 'object' && raw !== null) {
+        // Already a parsed object - use as-is
+        data = raw as typeof data;
+      } else if (typeof raw === 'string') {
+        // Try to parse the string as JSON
+        try {
+          data = JSON.parse(raw) as typeof data;
+        } catch {
+          // Attempt to strip trailing commas and re-parse
+          const cleaned = raw.replace(/,\s*\n\s*[\]\}]/g, "\n\s*[\]\]").replace(/,\s*\r?\n\s*[\]\}]/g, "\n\s*[\]\]");
+          try {
+            data = JSON.parse(cleaned) as typeof data;
+          } catch {
+            // Remove the very last comma in the string
+            const lastCommaRemoved = raw.replace(/,\s*$/, "");
+            try {
+              data = JSON.parse(lastCommaRemoved) as typeof data;
+            } catch {
+              data = null as typeof data;
+            }
+          }
+        }
+      } else {
+        // No data - use empty object
+        data = ({} as typeof data);
+      }
     } catch {
       push('quests', qid, `quest ${qid}: data is not valid JSON`);
       continue;
