@@ -45,14 +45,16 @@ const SimulatorRequestSchema = z.object({
 });
 
 export const dialoguesPlugin: FastifyPluginAsync = async (app): Promise<void> => {
-  app.get('/api/dialogues', async (req, reply) => {
+  app.get<{ Querystring: { includeDrafts?: string } }>('/api/dialogues', async (req, reply) => {
     await requireAuth(req, reply);
-    return reply.send({ dialogues: await listDialogues() });
+    const includeDrafts = req.query.includeDrafts === '1';
+    return reply.send({ dialogues: await listDialogues(!includeDrafts) });
   });
 
-  app.get<{ Params: { id: string } }>('/api/dialogues/:id', async (req, reply) => {
+  app.get<{ Params: { id: string }; Querystring: { includeDrafts?: string } }>('/api/dialogues/:id', async (req, reply) => {
     await requireAuth(req, reply);
-    const dialogue = await getDialogue(req.params.id);
+    const includeDrafts = req.query.includeDrafts === '1';
+    const dialogue = await getDialogue(req.params.id, !includeDrafts);
     if (dialogue === null) return reply.code(404).send({ error: 'dialogue-not-found' });
     return reply.send({ dialogue });
   });
