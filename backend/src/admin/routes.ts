@@ -342,9 +342,12 @@ function buildTemplateFromScraped(
 
 export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
   // -------- PUBLIC: catalog read (any authed user) --------------------------
-  app.get('/api/catalog', async (req, reply) => {
+  // Default = published only (player-facing). Admin frontend passes
+  // `?includeDrafts=1` so the CatalogTable can edit drafts.
+  app.get<{ Querystring: { includeDrafts?: string } }>('/api/catalog', async (req, reply) => {
     await requireAuth(req, reply);
-    const catalog = loadCatalog();
+    const includeDrafts = req.query.includeDrafts === '1';
+    const catalog = loadCatalog({ publishedOnly: !includeDrafts });
     return reply.send(catalog);
   });
 

@@ -23,9 +23,9 @@ import { rarityFromRankOrCommon } from '@digiworld/shared/item-rarity';
 // ============================================================================
 // SQL
 // ============================================================================
-const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
-const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND class = 'product' ORDER BY sort_order ASC, name ASC`;
-const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1`;
+const SQL_SELECT_ITEMS = `SELECT * FROM shop_items WHERE enabled = 1 AND status = 'published' ORDER BY sort_order ASC, name ASC`;
+const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND status = 'published' AND class = 'product' ORDER BY sort_order ASC, name ASC`;
+const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND status = 'published'`;
 const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, drop_pool, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.rarity
@@ -47,7 +47,7 @@ const SQL_SELECT_ROSTER_MON_FULL = `SELECT * FROM player_roster WHERE id = ? AND
 const SQL_UPDATE_CURRENT_HPEN = `UPDATE player_roster SET current_hp = ?, current_en = ?, updated_at = ? WHERE id = ?`;
 const SQL_INSERT_SHOP_PURCHASE = `INSERT INTO player_shop_purchases (user_id, item_id, purchased_at)
 SELECT ?, id, ? FROM shop_items
-WHERE id = ? AND enabled = 1 AND class = 'product' AND one_time = 1
+WHERE id = ? AND enabled = 1 AND status = 'published' AND class = 'product' AND one_time = 1
 ON CONFLICT(user_id, item_id) DO NOTHING`;
 const SQL_SELECT_PURCHASES = `SELECT item_id FROM player_shop_purchases WHERE user_id = ?`;
 
@@ -57,7 +57,7 @@ const SQL_SELECT_BUNDLE_ITEMS = `SELECT bi.bundle_id, bi.item_id, bi.qty, bi.sor
        s.name, s.description, s.price, s.currency, s.kind, s.class, s.payload, s.shop_category
   FROM shop_bundle_items bi
   JOIN shop_items s ON s.id = bi.item_id
- WHERE bi.bundle_id = ? AND s.enabled = 1
+ WHERE bi.bundle_id = ? AND s.enabled = 1 AND s.status = 'published'
  ORDER BY bi.sort_order ASC, s.name ASC`;
 
 type BundleRow = {

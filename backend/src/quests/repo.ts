@@ -9,7 +9,7 @@ import type {
   WorldObjectAdjacent,
 } from '@digiworld/shared/quest';
 import type { Biome } from '@digiworld/shared/world';
-import type { Element, Stage } from '@digiworld/shared/digimon';
+import type { ContentStatus, Element, Stage } from '@digiworld/shared/digimon';
 import type { DbExecutor } from '../db/executor.js';
 import { one, q, run, tx } from '../db/index.js';
 import { hasFlag, listFlags, setFlag } from '../flags/repo.js';
@@ -23,6 +23,7 @@ type QuestRow = {
   readonly description_pt: string | null;
   readonly required_level: number;
   readonly data: string | Quest;
+  readonly status: ContentStatus;
   readonly created_at: number;
   readonly updated_at: number;
 };
@@ -79,6 +80,7 @@ type WorldObjectInput = {
 };
 
 const SQL_LIST_QUESTS = `SELECT * FROM quests ORDER BY created_at DESC`;
+const SQL_LIST_QUESTS_PUBLISHED = `SELECT * FROM quests WHERE status = 'published' ORDER BY created_at DESC`;
 const SQL_GET_QUEST = `SELECT * FROM quests WHERE id = ?`;
 const SQL_INSERT_QUEST = `INSERT INTO quests (id, name, description, required_level, data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_QUEST = `UPDATE quests SET name = ?, description = ?, required_level = ?, data = ?, updated_at = ? WHERE id = ?`;
@@ -86,6 +88,7 @@ const SQL_DELETE_QUEST = `DELETE FROM quests WHERE id = ?`;
 const SQL_LIST_AVAILABLE_QUESTS = `
   SELECT q.* FROM quests q
    WHERE q.required_level <= ?
+     AND q.status = 'published'
      AND NOT EXISTS (
        SELECT 1 FROM user_quest_progress p
         WHERE p.user_id = ? AND p.quest_id = q.id AND p.completed_at IS NOT NULL
@@ -261,6 +264,10 @@ export async function startQuestWithin(t: DbExecutor, userId: string, questId: s
   if (!questRow) return null;
   const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
   if (existing) return { quest: questFromRow(questRow), progress: progressFromRow(existing) };
+  // Draft/archived quests must not be started by players. An existing in-flight
+  // progress (started while published) is still returned above so the player is
+  // not stranded mid-quest.
+  if (questRow.status !== 'published') return null;
   const quest = questFromRow(questRow);
   if (!(await questFlagsSatisfiedTx(t, quest, userId))) return null;
   const now = Date.now();
@@ -371,7 +378,7 @@ function formatRewardText(quest: Quest): string {
 
 export async function listQuestsForUser(userId: string, meanLevel: number, locale?: 'en' | 'pt'): Promise<QuestWithProgress[]> {
   const [quests, progressRows, userFlags] = await Promise.all([
-    q<QuestRow>(SQL_LIST_QUESTS),
+    q<QuestRow>(SQL_LIST_QUESTS_PUBLISHED),
     q<ProgressRow>(SQL_LIST_PROGRESS_FOR_USER, userId),
     listFlags(userId),
   ]);
@@ -395,6 +402,8 @@ export async function acceptQuest(userId: string, questId: string, meanLevel: nu
     if (!(await questFlagsSatisfiedTx(t, quest, userId))) return null;
     const existing = await t.one<ProgressRow>(SQL_GET_PROGRESS, [userId, questId]);
     if (existing) return questWithProgress(quest, meanLevel, existing);
+    // Draft/archived quests must not be newly accepted by players.
+    if (questRow.status !== 'published') return null;
     const now = Date.now();
     const firstDialogue = quest.introDialogueId;
     const initialObjectiveProgress = quest.objectives && quest.objectives.length > 0

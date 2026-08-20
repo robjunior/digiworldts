@@ -29,7 +29,7 @@ export type DigdexResponse = {
 export const digdexPlugin: FastifyPluginAsync = async (app) => {
   app.get('/api/digdex', async (req, reply) => {
     const user = await requireAuth(req, reply);
-    const catalog = loadCatalog();
+    const catalog = loadCatalog({ publishedOnly: true });
     const metSet = await computeMetSet(user.id);
     let metCount = 0;
     const entries: DigdexEntry[] = catalog.digimons.map((t) => {
