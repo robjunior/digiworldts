@@ -15,6 +15,7 @@ import {
   MarketIcon,
   NurseryIcon,
   RosterIcon,
+  ShopIcon,
   TrainingIcon,
   WorldIcon,
 } from './common/icons';
@@ -111,6 +112,7 @@ const ICON_DUNGEON: ReactNode = <DungeonIcon />;
 const ICON_ADMIN_DOT: ReactNode = <AdminDotIcon />;
 const ICON_ADMIN_COG: ReactNode = <AdminCogIcon />;
 const ICON_BACK: ReactNode = <BackIcon />;
+const ICON_SHOP: ReactNode = <ShopIcon />;
 
 const TOWN: readonly NavEntry[] = [
   { to: '/factory',   label: 'Factory',    labelKey: 'nav.factory',   svg: ICON_FACTORY },
@@ -118,6 +120,7 @@ const TOWN: readonly NavEntry[] = [
   { to: '/adventure', label: 'Adventure',  labelKey: 'nav.adventure', svg: ICON_ADVENTURE },
   { to: '/nursery',   label: 'Nursery',    labelKey: 'nav.nursery',   svg: ICON_NURSERY },
   { to: '/training',  label: 'Training',   labelKey: 'nav.training',  svg: ICON_TRAINING },
+  { to: '/shop',      label: 'Shop',       labelKey: 'nav.shop',      svg: ICON_SHOP },
 ];
 
 const BEYOND: readonly NavEntry[] = [

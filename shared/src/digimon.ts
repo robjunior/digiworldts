@@ -19,7 +19,7 @@ export const AILMENTS = [
 ] as const;
 export type Ailment = (typeof AILMENTS)[number];
 
-export const CONTENT_STATUSES = ['draft', 'published'] as const;
+export const CONTENT_STATUSES = ['draft', 'published', 'archived'] as const;
 export type ContentStatus = (typeof CONTENT_STATUSES)[number];
 
 export const BUFF_KINDS = [
