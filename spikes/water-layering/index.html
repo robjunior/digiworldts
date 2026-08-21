@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike: água por cima do terreno (tileset transparente) — DigiWorld</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin:0; background:#11141c; color:#e6e9f0; font:13px/1.5 ui-monospace,Menlo,Consolas,monospace; }
+  header { padding:12px 16px; border-bottom:1px solid #232838; }
+  h1 { font-size:15px; margin:0 0 4px; }
+  .sub { color:#8b93a7; font-size:12px; }
+  .wrap { display:flex; gap:14px; padding:14px 16px; align-items:flex-start; flex-wrap:wrap; }
+  #stage { border:1px solid #2a3142; border-radius:6px; image-rendering:pixelated; background:#1c1f2a; touch-action:none; }
+  .panel { min-width:300px; max-width:380px; }
+  .row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+  button { background:#222a3a; color:#e6e9f0; border:1px solid #36405a; border-radius:5px; padding:6px 10px; cursor:pointer; font:inherit; }
+  button:hover { background:#2c3650; }
+  button.active { background:#2f6df0; border-color:#2f6df0; color:#fff; }
+  label { color:#aab2c5; }
+  .legend { font-size:12px; color:#9aa3b5; margin-top:10px; padding:10px; background:#171b25; border:1px solid #232838; border-radius:6px; }
+  .legend b { color:#cdd4e2; }
+  #drop { margin-top:10px; padding:14px; border:1px dashed #3a4358; border-radius:6px; background:#171b25; color:#8b93a7; text-align:center; }
+  #drop.over { border-color:#2f6df0; color:#cdd4e2; background:#1a2233; }
+  .stat { color:#7fd1a0; }
+  .err { color:#ff8e8e; }
+  code { background:#0e1118; padding:1px 4px; border-radius:3px; color:#9fd0ff; }
+  .kv { display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Spike — água renderizada <span class="stat">POR CIMA</span> do terreno (tileset de água transparente)</h1>
+  <div class="sub">Canvas2D (determinístico/verificável) usando o tilesheet real do jogo (Kenney <code>colored.png</code>). Alterna para o modelo "bugado" (água embaixo) para comparar.</div>
+</header>
+
+<div class="wrap">
+  <canvas id="stage" width="640" height="640"></canvas>
+
+  <div class="panel">
+    <div class="row">
+      <button id="btnFix" class="active">✓ Correto: água por cima</button>
+      <button id="btnBug">✗ Bugado: água por baixo</button>
+    </div>
+    <div class="row">
+      <label>Opacidade da água</label>
+      <input id="alpha" type="range" min="0.25" max="1" step="0.05" value="0.72" style="flex:1" />
+      <span id="alphaVal">0.72</span>
+    </div>
+    <div class="row">
+      <label>Animar ondulação</label>
+      <input id="anim" type="checkbox" checked />
+    </div>
+    <div class="row">
+      <label>Mostrar foam de borda</label>
+      <input id="foam" type="checkbox" checked />
+    </div>
+
+    <div id="drop">Solte aqui o .tmj / .json do seu mapa RD (Tiled) para usar os tiles reais</div>
+
+    <div class="legend">
+      <div class="kv"><span>Modelo atual</span><b id="modeLabel">água por cima</b></div>
+      <div class="kv"><span>Mapa</span><b id="mapLabel">procedural (real tilesheet)</b></div>
+      <div class="kv"><span>Water tiles</span><b id="wtLabel">—</b></div>
+      <hr style="border-color:#232838" />
+      <p style="margin:6px 0 0"><b>Como funciona:</b> o leito (terra/pedra) é desenhado primeiro.
+      A camada de água é desenhada <b>depois</b>, em cima, com alpha &lt; 1 — então o leito aparece
+      "através" da água (efeito de tileset transparente). A espuma de borda usa uma transformada
+      de distância: células na margem da massa d'água recebem um realce claro. No Phaser do jogo isso
+      equivale a trocar <code>liquid</code> (underlay, depth −1) por <code>water</code> (foreground).</p>
+    </div>
+    <div id="log" style="margin-top:10px;font-size:12px"></div>
+  </div>
+</div>
+
+<script src="tilesheet-data.js"></script>
+<script>
+"use strict";
+// ============================================================
+//  Spike: water layering proof-of-concept (Canvas2D, real tilesheet)
+//  Goal: prove water must render ABOVE terrain, using a
+//  semi-transparent "transparent tileset" so the bed shows through.
+//  Canvas2D is used (instead of WebGL) for deterministic, pixel-verifiable
+//  atlas blits; the production technique is a WebGL water shader (see report).
+// ============================================================
+const TILE = 32;
+const SHEET_COLS = 26;
+// Real Kenney colored.png tile indices (from inspection)
+const WATER_TILES = [56, 57, 58, 130];
+const GROUND_TILES = [2, 3, 140];
+const WALL_TILES = [4, 5, 6];
+const SAND_TILE = 2; // bed shown under the water
+
+const canvas = document.getElementById("stage");
+const ctx = canvas.getContext("2d");
+
+let MAP_W = 20, MAP_H = 20;
+let waterMask = new Uint8Array(0);
+let terrainGrid = new Int16Array(0);
+let foamField = new Float32Array(0);
+let sheetImg = null;
+
+function buildProceduralMap() {
+  MAP_W = 20; MAP_H = 20;
+  waterMask = new Uint8Array(MAP_W * MAP_H);
+  terrainGrid = new Int16Array(MAP_W * MAP_H);
+  for (let y = 0; y < MAP_H; y++) {
+    for (let x = 0; x < MAP_W; x++) {
+      const i = y * MAP_W + x;
+      const border = x === 0 || y === 0 || x === MAP_W - 1 || y === MAP_H - 1;
+      const dx = x - MAP_W / 2 + 0.5, dy = y - MAP_H / 2 + 0.5;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const isWater = !border && r < 6.2;
+      const isWall = border || (x % 7 === 0 && y % 9 === 0);
+      terrainGrid[i] = isWall ? WALL_TILES[(x + y) % WALL_TILES.length]
+                              : GROUND_TILES[(x * 3 + y) % GROUND_TILES.length];
+      waterMask[i] = isWater ? 1 : 0;
+    }
+  }
+}
+
+function computeFoam() {
+  const INF = 1e9, f = foamField, W = MAP_W, H = MAP_H;
+  for (let i = 0; i < f.length; i++) f[i] = waterMask[i] ? 0 : INF;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y*W+x; if (f[i]===0) continue;
+    let m=f[i];
+    if (x>0) m=Math.min(m,f[i-1]+1);
+    if (y>0) m=Math.min(m,f[i-W]+1);
+    if (x>0&&y>0) m=Math.min(m,f[i-W-1]+1.414);
+    if (x<W-1&&y>0) m=Math.min(m,f[i-W+1]+1.414);
+    f[i]=m;
+  }
+  for (let y=H-1;y>=0;y--) for (let x=W-1;x>=0;x--){
+    const i=y*W+x; if(f[i]===0) continue;
+    let m=f[i];
+    if (x<W-1) m=Math.min(m,f[i+1]+1);
+    if (y<H-1) m=Math.min(m,f[i+W]+1);
+    if (x<W-1&&y<H-1) m=Math.min(m,f[i+W+1]+1.414);
+    if (x>0&&y<H-1) m=Math.min(m,f[i+W-1]+1.414);
+    f[i]=m;
+  }
+}
+
+function tileSrcRect(localIdx) {
+  const tx = localIdx % SHEET_COLS, ty = Math.floor(localIdx / SHEET_COLS);
+  return [tx * TILE, ty * TILE, TILE, TILE];
+}
+
+let mode = "fix";
+let alpha = 0.72, animate = true, showFoam = true;
+let t0 = performance.now();
+
+function drawTerrain() {
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i=y*MAP_W+x;
+    const tile = waterMask[i] ? SAND_TILE : terrainGrid[i];
+    const [sx,sy] = tileSrcRect(tile);
+    ctx.drawImage(sheetImg, sx, sy, TILE, TILE, x*TILE, y*TILE, TILE, TILE);
+  }
+}
+
+function drawWater() {
+  const t = animate ? (performance.now() - t0) / 1000 : 0;
+  for (let y=0;y<MAP_H;y++) for (let x=0;x<MAP_W;x++){
+    const i=y*MAP_W+x;
+    if (!waterMask[i]) continue;
+    const tile = WATER_TILES[(x*7+y*3) % WATER_TILES.length];
+    const [sx,sy] = tileSrcRect(tile);
+    // ripple: subtle vertical bob via clip offset (Canvas2D can't shade easily,
+    // so we nudge the source rect by 1px on a sine for a living feel).
+    const bob = animate ? Math.round(Math.sin(t*2 + x*0.6 + y*0.4)) : 0;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sheetImg, sx, sy + bob, TILE, TILE, x*TILE, y*TILE, TILE, TILE);
+    // foam: lighten shoreline cells
+    if (showFoam) {
+      const d = foamField[i];
+      const foam = Math.max(0, 1 - d / 2.5); // 1 at shore, 0 deep
+      if (foam > 0.01) {
+        ctx.globalAlpha = foam * 0.7;
+        ctx.fillStyle = "rgb(200,235,255)";
+        ctx.fillRect(x*TILE, y*TILE, TILE, TILE);
+      }
+    }
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function render() {
+  if (!sheetImg) return;
+  if (canvas.width !== MAP_W*TILE || canvas.height !== MAP_H*TILE) {
+    canvas.width = MAP_W*TILE; canvas.height = MAP_H*TILE;
+  }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // terrain always first (opaque). Then either water-on-top (fix) or water-first (bug).
+  const order = mode === "fix" ? ["terrain","water"] : ["water","terrain"];
+  for (const layer of order) { if (layer === "terrain") drawTerrain(); else drawWater(); }
+  requestAnimationFrame(render);
+}
+window.__renderOnce = function() { render(); };
+
+// ---- RD map support (user dropped Tiled .tmj/.json) ----
+function ingestTiled(json) {
+  try {
+    const w = json.width, h = json.height;
+    if (!w || !h) throw new Error("mapa sem width/height");
+    const terrain = new Int16Array(w*h).fill(GROUND_TILES[0]);
+    const water = new Uint8Array(w*h);
+    const ts = (json.tilesets && json.tilesets[0]) || null;
+    const firstgid = ts ? (ts.firstgid || 1) : 1;
+    for (const layer of json.layers || []) {
+      if (layer.type !== "tilelayer" || !layer.data) continue;
+      const kind = (layer.name||"").toLowerCase();
+      const isWater = /water|liquid|agua/.test(kind);
+      for (let i=0;i<layer.data.length;i++){
+        const gid = layer.data[i]; if (!gid) continue;
+        const lx = gid - firstgid; // assumes same sheet as colored.png
+        const x = i % w, y = Math.floor(i / w);
+        if (isWater) water[i] = 1;
+        if (lx >= 0) terrain[i] = lx;
+      }
+    }
+    MAP_W = w; MAP_H = h; terrainGrid = terrain; waterMask = water;
+    computeFoam();
+    document.getElementById("mapLabel").textContent = "RD map ("+w+"x"+h+")";
+    document.getElementById("wtLabel").textContent = water.reduce((a,b)=>a+b,0);
+    log('<span class="stat">Mapa RD carregado:</span> '+w+"x"+h+", "+water.reduce((a,b)=>a+b,0)+" tiles d'água");
+  } catch(e){ log('<span class="err">Falha ao ler mapa: '+e.message+"</span>"); }
+}
+
+// ---- UI wiring ----
+function log(s){ const el=document.getElementById("log"); el.innerHTML=s+"<br>"+el.innerHTML; }
+const btnFix=document.getElementById("btnFix"), btnBug=document.getElementById("btnBug");
+btnFix.onclick=()=>{mode="fix";btnFix.classList.add("active");btnBug.classList.remove("active");document.getElementById("modeLabel").textContent="água por cima";};
+btnBug.onclick=()=>{mode="bug";btnBug.classList.add("active");btnFix.classList.remove("active");document.getElementById("modeLabel").textContent="água por baixo (bug)";};
+const alphaEl=document.getElementById("alpha");
+alphaEl.oninput=()=>{alpha=parseFloat(alphaEl.value);document.getElementById("alphaVal").textContent=alpha.toFixed(2);};
+document.getElementById("anim").onchange=e=>{animate=e.target.checked;};
+document.getElementById("foam").onchange=e=>{showFoam=e.target.checked;};
+const drop=document.getElementById("drop");
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over");};
+drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");const f=e.dataTransfer.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{ingestTiled(JSON.parse(r.result));}catch(err){log('<span class="err">JSON inválido: '+err.message+"</span>");}};r.readAsText(f);};
+
+// ---- Boot ----
+buildProceduralMap();
+computeFoam();
+const img = new Image();
+img.onload = () => {
+  sheetImg = img;
+  window.__sheetReady = true;
+  document.getElementById("wtLabel").textContent = waterMask.reduce((a,b)=>a+b,0);
+  log('<span class="stat">Tilesheet real carregado:</span> '+img.width+"x"+img.height);
+  requestAnimationFrame(render);
+};
+img.onerror = () => { document.getElementById("log").innerHTML='<span class="err">Falha ao carregar tilesheet</span>'; };
+img.src = "data:image/png;base64," + window.TILESET_B64;
+</script>
+</body>
+</html>
