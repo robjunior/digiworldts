@@ -33,7 +33,9 @@ import { ThunderFlashController } from './particles/ThunderFlashController';
 import { WEATHER_EMITTER_PRESETS } from './particles/presets';
 import { TimeOfDayDriver, interpolatePhases, type PhasePreset } from './time-of-day';
 
-export type SpriteInit = SpriteRigConfig;
+export type SpriteInit = SpriteRigConfig & {
+  readonly onClick: (() => void | undefined) | undefined;
+};
 
 function forceTransparencyIfAlpha(mat: THREE.Material): void {
   if (!('alphaMap' in mat)) return;
@@ -1363,7 +1365,7 @@ export class SceneManager {
     this.updateProjection();
   }
 
-  addSprite(config: SpriteInit): SpriteRig {
+  async addSprite(config: SpriteInit): Promise<SpriteRig> {
     const existing = this.sprites.get(config.unitId);
     if (existing !== undefined) return existing;
     const sprite = new SpriteRig(this.scene, config);
@@ -1543,14 +1545,48 @@ export class SceneManager {
 
   private readonly projectScratch = new THREE.Vector3();
 
-  projectWorldToScreen(worldPos: THREE.Vector3): { readonly x: number; readonly y: number } {
-    const v = this.projectScratch.copy(worldPos);
-    v.project(this.camera);
-    return {
-      x: (v.x * 0.5 + 0.5) * this.stageWidth,
-      y: (-v.y * 0.5 + 0.5) * this.stageHeight,
-    };
-  }
+    projectWorldToScreen(worldPos: THREE.Vector3): { readonly x: number; readonly y: number } {
+      const v = this.projectScratch.copy(worldPos);
+      v.project(this.camera);
+      return {
+        x: (v.x * 0.5 + 0.5) * this.stageWidth,
+        y: (-v.y * 0.5 + 0.5) * this.stageHeight,
+      };
+    }
+
+    getSpriteAtScreenPosition(screenX: number, screenY: number): { unitId: string; side: SpriteSide; downed: boolean } | null {
+      const ndc = new THREE.Vector2(
+        (screenX / this.stageWidth) * 2 - 1,
+        -(screenY / this.stageHeight) * 2 + 1
+      );
+    
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(ndc, this.camera);
+    
+      const spriteMeshes: THREE.Mesh[] = [];
+      for (const sprite of this.sprites.values()) {
+        spriteMeshes.push(sprite.mesh);
+      }
+    
+      if (spriteMeshes.length === 0) return null;
+    
+      const intersects = raycaster.intersectObjects(spriteMeshes, false);
+            if (intersects.length === 0) return null;
+   
+            const hitMesh = intersects[0]?.object;
+            if (!hitMesh) return null;
+            const unitId = hitMesh.userData?.spriteRig?.unitId;
+            if (!unitId) return null;
+    
+      const sprite = this.sprites.get(unitId);
+      if (!sprite) return null;
+    
+      return {
+        unitId: sprite.unitId,
+        side: sprite.side,
+        downed: sprite.downed,
+      };
+    }
 
   dispose(): void {
     if (this.disposedFlag) return;
