@@ -626,7 +626,7 @@ CREATE TABLE IF NOT EXISTS content_versions (
   domain          TEXT NOT NULL,
   ref_id          TEXT NOT NULL,
   version_number  INTEGER NOT NULL CHECK (version_number > 0),
-  status          TEXT NOT NULL CHECK (status IN ('draft', 'published')),
+  status          TEXT NOT NULL CHECK (status IN ('draft', 'published', 'archived')),
   definition_json TEXT NOT NULL,
   created_at      INTEGER NOT NULL,
   created_by      TEXT,

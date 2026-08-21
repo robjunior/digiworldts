@@ -454,6 +454,21 @@ body:has(.combat3d-shell) {
   border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline));
 }
 
+/* ---- cursor styles for targeting modes ---- */
+.stage[data-targeting="true"] .c3d-canvas-host {
+  cursor: crosshair;
+}
+
+.stage[data-targeting="true"] .c3d-canvas-host:hover {
+  cursor: crosshair;
+}
+
+.c3d-cmd[data-mode="target-skill"] ~ .c3d-canvas-host,
+.c3d-cmd[data-mode="target-fight"] ~ .c3d-canvas-host,
+.c3d-cmd[data-mode="items"] ~ .c3d-canvas-host {
+  cursor: crosshair;
+}
+
 .c3d-cmd > .command-panel {
   height: auto;
   min-height: 0;
@@ -1047,6 +1062,23 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .erow.sel::before{background:var(--signal)}
 .erow.sel .edot{background:var(--signal)}
 .erow:focus-visible{outline:none;border-color:var(--signal)}
+
+/* ---- enemy tooltip ---------------------------------------------------- */
+.enemy-tooltip{position:fixed;z-index:100;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:12px 14px;min-width:180px;max-width:260px;font:inherit;color:var(--ink);pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.35);animation:tooltipFade 0.12s ease-out}
+@keyframes tooltipFade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.tooltip-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--hair)}
+.tooltip-element{font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--el,var(--muted));padding:2px 6px;border:1px solid color-mix(in oklab,var(--el,var(--hair)) 45%,var(--hair));clip-path:var(--notch-sm-clip)}
+.tooltip-name{font:800 14px/1.2 var(--font);flex:1}
+.tooltip-stats{display:flex;flex-direction:column;gap:4px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.stat-label{font:700 11px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat-value{font:800 12px/1 var(--font);color:var(--ink);text-align:right}
+.tooltip-ailments{margin-top:8px;padding-top:8px;border-top:1px solid var(--hair)}
+.tooltip-ailments .stat-value{color:var(--signal);word-break:break-word}
+
+/* ---- 3D sprite hover tooltip ------------------------------------------ */
+.sprite-tooltip{position:fixed;z-index:100;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:12px 14px;min-width:180px;max-width:260px;font:inherit;color:var(--ink);pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.35);animation:tooltipFade 0.12s ease-out}
+
 /* ---- bottom-left: party HP cards --------------------------------------- */
 .party-cards{position:absolute;left:16px;bottom:16px;z-index:3;display:flex;flex-direction:column;gap:6px;width:clamp(196px,14.5vw,224px);max-width:24vw}
 .pcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);position:relative;padding:8px 11px 9px;overflow:hidden}

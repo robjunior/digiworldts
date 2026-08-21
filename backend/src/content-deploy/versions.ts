@@ -613,13 +613,31 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
     const tables: ApplySummary['tables'] = {};
     let totalVersions = 0;
 
-    for (const name of Object.keys(env.tables)) {
+    // Iterate in CONTENT_TABLES order to respect FK dependencies
+    for (const { name } of CONTENT_TABLES) {
       const rows = env.tables[name] ?? [];
       const pk = pkColumnsOf(name);
       const cols: string[] = [];
       const seen = new Set<string>();
       for (const r of rows) for (const c of Object.keys(r)) if (!seen.has(c)) { seen.add(c); cols.push(c); }
       const upsertSql = buildUpsertSql(name, cols, pk);
+
+      // For dungeons, pre-clear any existing rows that would violate the
+      // idx_dungeons_group_grid_position unique index (same grid coords, different ID)
+      if (name === 'dungeons') {
+        for (const row of rows) {
+          const groupId = row['dungeon_group_id'];
+          const gx = row['grid_x'];
+          const gy = row['grid_y'];
+          if (groupId && gx !== null && gx !== undefined && gy !== null && gy !== undefined) {
+            // Delete any existing dungeon at this grid position with a different ID
+            await t.run(
+              `DELETE FROM dungeons WHERE dungeon_group_id = ? AND grid_x = ? AND grid_y = ? AND id <> ?`,
+              [groupId, gx, gy, row['id']]
+            );
+          }
+        }
+      }
 
       for (const row of rows) {
         try {

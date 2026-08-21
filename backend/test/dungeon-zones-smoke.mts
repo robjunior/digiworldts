@@ -50,7 +50,7 @@ function mkDungeon(overrides: Partial<Dungeon> = {}): Dungeon {
     spawnX: 0,
     spawnY: 0,
     biomeRegion: null,
-    randomEncountersEnabled: false,
+    randomEncountersEnabled: true,
     randomEncounterRate: 1.0,
     randomMinLevel: 1,
     randomMaxLevel: 5,
@@ -89,10 +89,12 @@ function mkZone(overrides: Partial<DungeonZone> = {}): DungeonZone {
 }
 
 const catalog: Catalog = {
+  version: 'test',
+  updatedAt: 0,
   digimons: [
     mkTemplate('agu', 'fire'),
     mkTemplate('gab', 'water'),
-    mkTemplate('meta', 'nature'),
+    mkTemplate('meta', 'plant'),
   ],
 };
 
@@ -110,6 +112,11 @@ function main(): void {
   const d3 = mkDungeon({ randomPool: [{ catalogId: 'agu' }] });
   const r3 = rollDungeonEncounter(d3, [], { x: 10, y: 10 }, catalog);
   check('branch 3 dungeon pool: fires agu', r3 !== null && r3[0]?.catalogId === 'agu');
+
+  // Enabled is the master switch for ALL branches (pool + zone + legacy).
+  const d3off = mkDungeon({ randomEncountersEnabled: false, randomPool: [{ catalogId: 'agu' }] });
+  const r3off = rollDungeonEncounter(d3off, [], { x: 10, y: 10 }, catalog);
+  check('branch 3 disabled: Enabled=OFF suppresses curated pool', r3off === null);
 
   const dPool = mkDungeon({ randomPool: [{ catalogId: 'agu' }] });
   const zonePool = mkZone({ pool: [{ catalogId: 'gab' }] });
