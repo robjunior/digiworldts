@@ -320,7 +320,7 @@ export function Combat3DBody(): JSX.Element | null {
   const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
 
   return (
-    <div className="stage" data-od-id="battle-stage">
+    <div className="stage" data-od-id="battle-stage" data-targeting={commandMode === 'target-fight' || commandMode === 'target-skill' || commandMode === 'items'}>
       <Combat3DScene ref={sceneRef} battle={activeBattle} />
       
       <div className="arena-fallback" id="arena-fallback" role="img" aria-label="3D arena unavailable — combat still playable">
@@ -359,6 +359,7 @@ export function Combat3DBody(): JSX.Element | null {
           selectedTargetId={selectedTargetId}
           canAct={canAct}
           onSelect={setSelectedTargetId}
+          onSpriteClick={setSelectedTargetId}
         />
 
         <div className="party-cards" role="group" aria-label="Your party">

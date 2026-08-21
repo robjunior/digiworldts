@@ -13,11 +13,11 @@ type ScenePreviewProps = {
 };
 
 const PLACEHOLDER_UNITS = [
-  { unitId: 'preview:you:0', side: 'you' as const, slotIndex: 0, textureUrl: '/assets/digimon/skb-1/dot.gif' },
-  { unitId: 'preview:you:1', side: 'you' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-2/dot.gif' },
-  { unitId: 'preview:you:2', side: 'you' as const, slotIndex: 2, textureUrl: '/assets/digimon/skb-3/dot.gif' },
-  { unitId: 'preview:opp:0', side: 'opp' as const, slotIndex: 0, textureUrl: '/assets/digimon/skb-10/dot.gif' },
-  { unitId: 'preview:opp:1', side: 'opp' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-12/dot.gif' },
+  { unitId: 'preview:you:0', side: 'you' as const, slotIndex: 0, textureUrl: '/assets/digimon/skb-1/dot.gif', onClick: undefined },
+  { unitId: 'preview:you:1', side: 'you' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-2/dot.gif', onClick: undefined },
+  { unitId: 'preview:you:2', side: 'you' as const, slotIndex: 2, textureUrl: '/assets/digimon/skb-3/dot.gif', onClick: undefined },
+  { unitId: 'preview:opp:0', side: 'opp' as const, slotIndex: 0, textureUrl: '/assets/digimon/skb-10/dot.gif', onClick: undefined },
+  { unitId: 'preview:opp:1', side: 'opp' as const, slotIndex: 1, textureUrl: '/assets/digimon/skb-12/dot.gif', onClick: undefined },
 ];
 
 export function ScenePreview({ arenaKey, settings, weather, timeOfDay }: ScenePreviewProps): JSX.Element {
