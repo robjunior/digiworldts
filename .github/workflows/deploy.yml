@@ -101,6 +101,18 @@ jobs:
           docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait
           docker compose -p "$PROJECT" ps
 
+      - name: Deploy content (content:deploy --apply)
+        if: always()
+        env:
+          ENV_NAME: ${{ inputs.target_env || (github.ref_name == 'staging' && 'staging' || 'production') }}
+        run: |
+          PROJECT="digiworld-${ENV_NAME}"
+          # Wait a moment for DB to be fully ready
+          sleep 5
+          # Copy seed artifact to backend container and run content:deploy
+          docker cp /tmp/seed-artifact/seed.json "${PROJECT}-backend-1":/app/seed.json
+          docker compose -p "$PROJECT" exec -T backend pnpm content:deploy --apply /app/seed.json
+
       - name: Container logs (on failure)
         if: failure()
         env:
