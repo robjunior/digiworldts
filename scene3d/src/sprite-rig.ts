@@ -8,6 +8,7 @@ export type SpriteRigConfig = {
   readonly slotIndex: number;
   readonly textureUrl: string;
   readonly initiallyDowned?: boolean;
+  readonly onClick?: (() => void | undefined) | undefined;
 };
 
 export type SpriteRigApi = {
@@ -150,6 +151,10 @@ export class SpriteRig implements SpriteRigApi {
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly worldPosition: THREE.Vector3;
+  
+  get downed(): boolean {
+    return this._downed;
+  }
 
   private readonly scene: THREE.Scene;
   readonly mesh: THREE.Mesh;
@@ -165,8 +170,9 @@ export class SpriteRig implements SpriteRigApi {
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
   private illumination: IlluminationState | null = null;
-  private downed: boolean;
+  private _downed: boolean;
   private disposedFlag = false;
+  private onClick: ((unitId: string) => void | undefined) | undefined;
   private facingSign: 1 | -1 = 1;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
@@ -176,7 +182,8 @@ export class SpriteRig implements SpriteRigApi {
     this.slotIndex = config.slotIndex;
     this.basePosition = slotWorldPosition(config.side, config.slotIndex);
     this.worldPosition = this.basePosition.clone();
-    this.downed = config.initiallyDowned === true;
+    this._downed = config.initiallyDowned === true;
+    this.onClick = config.onClick ?? undefined;
 
     const placeholder = makePlaceholderTexture();
     this.baseColor = new THREE.Color(0xffffff);
@@ -200,6 +207,7 @@ export class SpriteRig implements SpriteRigApi {
       depthPacking: THREE.RGBADepthPacking,
     });
     this.mesh.userData = { spriteRig: this };
+    
     this.scene.add(this.mesh);
 
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -518,7 +526,7 @@ export class SpriteRig implements SpriteRigApi {
 
   setDowned(down: boolean): void {
     if (this.disposedFlag) return;
-    this.downed = down;
+    this._downed = down;
     this.mesh.visible = !down;
     this.shadow.visible = !down;
   }
