@@ -29,6 +29,7 @@
     "test:dialogue-parser": "tsx test/dialogue-parser.mts",
     "test:flags": "DB_PATH=/tmp/dw-flags-smoke.db tsx test/flags-smoke.mts",
     "test:rarity": "DATABASE=sqlite DB_PATH=/tmp/dw-rarity-smoke.db tsx test/rarity-column-smoke.mts",
+    "test:shop-publish": "DATABASE=sqlite DB_PATH=/tmp/dw-shop-publish.db tsx test/shop-publish-smoke.mts",
     "test:dungeon-kits": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-kits-smoke.db tsx test/dungeon-kits-smoke.mts",
     "test:dungeon-extraction": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-extraction-smoke.db tsx test/dungeon-extraction-smoke.mts",
     "test:dungeon-challenge": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-challenge-smoke.db tsx test/dungeon-challenge-smoke.mts",
