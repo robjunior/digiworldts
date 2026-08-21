@@ -65,6 +65,16 @@ export function MarketIcon(): JSX.Element {
   );
 }
 
+export function ShopIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+      <path d="M20 4H4v16h16V4z" />
+      <path d="M8 12h8M12 8v8" strokeWidth="1.5" />
+      <path d="M16 4v-2M16 20v2M4 8h-2M20 8h2" />
+    </svg>
+  );
+}
+
 export function DigidexIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">

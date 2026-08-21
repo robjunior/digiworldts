@@ -44,11 +44,11 @@ export function ErrorText({ error }: { readonly error: Error | null }): JSX.Elem
   return <AdminMessage tone="error">{error.message}</AdminMessage>;
 }
 
-export type ContentStatus = 'draft' | 'published';
+export type ContentStatus = 'draft' | 'published' | 'archived';
 
 export function StatusBadge({ status, size = 'normal' }: { readonly status: ContentStatus; readonly size?: 'small' | 'normal' }): JSX.Element {
   const className = `status-badge status-badge--${status} ${size === 'small' ? 'status-badge--sm' : ''}`;
-  return <span className={className}>{status === 'draft' ? 'Draft' : 'Published'}</span>;
+  return <span className={className}>{status === 'draft' ? 'Draft' : status === 'published' ? 'Published' : 'Archived'}</span>;
 }
 
 export type HistoryEntry<T> = {

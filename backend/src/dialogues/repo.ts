@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 
+import type { ContentStatus } from '@digiworld/shared/digimon';
 import type { DialogueDefinition } from '@digiworld/shared/dialogue';
 
 import { one, q, run } from '../db/index.js';
@@ -50,6 +51,7 @@ export type DialogueSummary = {
   readonly npcIds: readonly string[];
   readonly nodeCount: number;
   readonly importedAt: number;
+  readonly status?: ContentStatus;
   readonly updatedAt: number;
 };
 
@@ -85,12 +87,17 @@ function toSummary(row: DialogueSummaryRow): DialogueSummary {
   };
 }
 
-export async function listDialogues(): Promise<readonly DialogueSummary[]> {
+export async function listDialogues(
+  drafts?: boolean
+): Promise<readonly DialogueSummary[]> {
   const rows = await q<DialogueSummaryRow>(SQL_SELECT_ALL);
   return rows.map(toSummary);
 }
 
-export async function getDialogue(dialogueId: string): Promise<StoredDialogue | null> {
+export async function getDialogue(
+  dialogueId: string,
+  drafts?: boolean
+): Promise<StoredDialogue | null> {
   const row = await one<DialogueRow>(SQL_SELECT_ONE, dialogueId);
   if (row === null) return null;
   return {
