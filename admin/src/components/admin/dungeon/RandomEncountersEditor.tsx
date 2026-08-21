@@ -87,14 +87,16 @@ export function RandomEncountersEditor({
       </p>
 
       <section className="editor-sub-panel">
-        <h4>Curated pool (S8 — takes precedence when non-empty)</h4>
-        {pool.length > 0 && enabled ? (
+        <h4>Curated pool (always used when non-empty)</h4>
+        {pool.length > 0 ? (
           <p className="muted">
-            <b>Note:</b> pool has {pool.length} entries + legacy filter is enabled. Pool wins at roll time; filter only applies while the pool is empty.
+            <b>Note:</b> pool has {pool.length} entries. Entries here ALWAYS roll — the legacy filter below does not exclude them. The legacy
+            filter's level bounds are used as the default level range for pool entries that omit min/max level. Leave the pool empty to use the
+            legacy filter instead.
           </p>
-        ) : pool.length === 0 && enabled ? (
+        ) : (
           <p className="muted">Pool empty — the legacy filter below controls the roll.</p>
-        ) : null}
+        )}
         <WildPoolEditor pool={pool} onChange={setPool} catalog={catalog} />
         <div className="admin-poi-actions">
           <button type="button" onClick={() => savePoolMut.mutate(pool)} disabled={savePoolMut.isPending}>

@@ -43,12 +43,19 @@ export function rollRandomEncounter(dungeon: Dungeon, catalog: Catalog): readonl
 export function randomEncounterMatchesDungeonConfig(dungeon: Dungeon, catalog: Catalog, digimon: readonly EncounterDigimon[]): boolean {
   if (digimon.length < dungeon.randomMinPartySize || digimon.length > dungeon.randomMaxPartySize) return false;
   const templates = new Map(catalog.digimons.map((entry) => [entry.id, entry] as const));
+  // When a curated pool is active, the legacy filter's stage/element limits
+  // do NOT apply — those entries were curated on purpose and rollFromPool no
+  // longer filters them. Only the level + party-size bounds gate the
+  // client-supplied encounter (anti-cheat). Zone-pool encounters also flow
+  // through here and are accepted under the same level bounds.
+  const curatedPoolActive = dungeon.randomPool.length > 0;
   const maxStageRank = stageRank(dungeon.randomMaxStage);
   const allowedElements = dungeon.randomAllowedElements ? new Set(dungeon.randomAllowedElements) : null;
   return digimon.every((mon) => {
     if (mon.level < dungeon.randomMinLevel || mon.level > dungeon.randomMaxLevel) return false;
     const template = templates.get(mon.catalogId);
     if (!template) return false;
+    if (curatedPoolActive) return true;
     if (stageRank(template.stage) > maxStageRank) return false;
     if (allowedElements && !allowedElements.has(template.element)) return false;
     return true;
@@ -81,8 +88,11 @@ function mergeRollParams(base: WildPoolRollParams, overrides: Partial<WildPoolRo
 function rollFromPool(pool: WildPool, params: WildPoolRollParams, catalog: Catalog): readonly EncounterDigimon[] | null {
   if (pool.length === 0) return null;
   if (Math.random() >= params.encounterRate) return null;
-  const maxStageRank = stageRank(params.maxStage);
-  const allowedElements = params.allowedElements.length > 0 ? new Set(params.allowedElements) : null;
+  // Curated pool entries always roll. The legacy filter's `allowedElements`
+  // / `maxStage` only gate the branch-4 fallback (rollRandomEncounter), never
+  // the curated pool — otherwise a mismatched filter silently emptied the
+  // pool (random encounter "does nothing"). Per-entry level fallbacks still
+  // inherit from params when the entry omits them.
   const templates = new Map(catalog.digimons.map((entry) => [entry.id, entry] as const));
   const partySize = randomInt(params.minPartySize, params.maxPartySize);
   const mons: EncounterDigimon[] = [];
@@ -91,8 +101,6 @@ function rollFromPool(pool: WildPool, params: WildPoolRollParams, catalog: Catal
     if (!entry) break;
     const template = templates.get(entry.catalogId);
     if (!template) continue;
-    if (stageRank(template.stage) > maxStageRank) continue;
-    if (allowedElements && !allowedElements.has(template.element)) continue;
     const minLevel = entry.minLevel ?? params.minLevel;
     const maxLevel = entry.maxLevel ?? params.maxLevel;
     mons.push({ catalogId: template.id, level: randomInt(minLevel, maxLevel) });
@@ -106,6 +114,7 @@ export function rollDungeonEncounter(
   playerPos: { readonly x: number; readonly y: number },
   catalog: Catalog,
 ): readonly EncounterDigimon[] | null {
+  if (!dungeon.randomEncountersEnabled) return null;
   const zone = findEnclosingZone(zones, playerPos.x, playerPos.y);
   if (zone?.safe) return null;
   if (zone && zone.pool.length > 0) {
