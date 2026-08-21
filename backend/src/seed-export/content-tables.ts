@@ -7,10 +7,10 @@
  */
 export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly string[] }> = [
   { name: 'quests', orderBy: ['id'] },
+  { name: 'dungeons', orderBy: ['id'] },
   { name: 'world_objects', orderBy: ['id'] },
   { name: 'dialogue_definitions', orderBy: ['dialogue_id'] },
   { name: 'npcs', orderBy: ['id'] },
-  { name: 'dungeons', orderBy: ['id'] },
   { name: 'dungeon_tiles', orderBy: ['dungeon_id', 'x', 'y', 'layer_kind'] },
   { name: 'dungeon_encounters', orderBy: ['id'] },
   { name: 'dungeon_doors', orderBy: ['id'] },
