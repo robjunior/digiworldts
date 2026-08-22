@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { PendingHatchEntry } from '../../lib/api-nursery';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 type PendingEggProps = {
   readonly entry: PendingHatchEntry;
@@ -24,7 +25,7 @@ export function PendingEgg({ entry, busy, onCollect }: PendingEggProps): JSX.Ele
   return (
     <div className={`egg ${ready ? 'ready' : ''}`} data-egg={entry.id}>
       <span className="espr">
-        <img src={`/assets/digimon/${entry.babyCatalogId}/dot.gif`} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+        <DigimonSprite catalogId={entry.babyCatalogId} />
       </span>
       <div className="emid">
         <div className="en">{entry.babyName}</div>

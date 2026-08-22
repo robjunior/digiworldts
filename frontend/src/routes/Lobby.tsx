@@ -6,6 +6,7 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { getLastMatch, getRoster } from '../lib/api';
 import type { LastMatchSummary } from '../lib/api';
 import { useWsStore } from '../state/wsStore';
+import { DigimonSprite } from '../components/common/DigimonSprite';
 import '../styles/extensions-lobby.css';
 
 const ROSTER_QUERY_KEY = ['roster'] as const;
@@ -127,7 +128,7 @@ export function Lobby(): JSX.Element {
 
                 return (
                   <div key={p.id} className="pcard" aria-label={`${nickname}, Level ${p.level}, HP ${hp} of ${hpMax}`}>
-                    <span className="sp"><img src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} /></span>
+                    <span className="sp"><DigimonSprite catalogId={p.catalogId} /></span>
                     <div>
                       <div className="pn">{nickname}</div>
                       <div className="pl">Lv {p.level} · {species}</div>

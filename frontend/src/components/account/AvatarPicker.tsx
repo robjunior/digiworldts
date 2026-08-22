@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 export type AvatarPickChoice = {
   readonly value: string | null;
@@ -81,7 +82,7 @@ export function AvatarPicker(props: AvatarPickerProps): JSX.Element {
                   <span className="mono">{initialLetter}</span>
                 ) : (
                   <img
-                    src={`/assets/digimon/${choice.catalogId}/dot.gif`}
+                    src={choice.catalogId != null ? unitSpriteStaticUrl(choice.catalogId) : ''}
                     alt=""
                     onError={(ev) => {
                       const span = document.createElement('span');

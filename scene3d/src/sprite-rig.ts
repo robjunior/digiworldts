@@ -7,6 +7,15 @@ export type SpriteRigConfig = {
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly textureUrl: string;
+  /**
+   * Treat `textureUrl` as a 2×2 four-frame spritesheet:
+   *   row 0 = WALK cycle (frames 0,1) — always loops,
+   *   row 1 = HIT cycle  (frames 2,3) — played on attack/skill via playAttack().
+   * When false (the default), the legacy path applies: a single image / GIF is
+   * loaded as one texture (dot.gif portraits, pen sprites, admin previews).
+   * Combat passes `isSpritesheet: true`; everything else keeps the old path.
+   */
+  readonly isSpritesheet?: boolean;
   readonly initiallyDowned?: boolean;
   readonly onClick?: (() => void | undefined) | undefined;
 };
@@ -47,6 +56,18 @@ const HIT_ANIM_S = 0.35;
 const ATTACK_LUNGE_UNITS = 1.2;
 const HIT_SHAKE_UNITS = 0.07;
 const ALPHA_THRESHOLD = 24;
+
+// Spritesheet cycle durations (ms per frame).
+const WALK_FRAME_MS = 320;
+const HIT_FRAME_MS = 160;
+
+// Spritesheet layout: 2 columns × 2 rows, each cell is one 32×32 frame.
+const SHEET_COLS = 2;
+const SHEET_ROWS = 2;
+// Indices into the flattened cell array (row * cols + col).
+const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle
+const ATTACK_FRAME_INDEX = 3;               // row 1, col 1 = giving hit / attacking
+const TAKE_HIT_FRAME_INDEX = 2;             // row 1, col 0 = taking hit / recoil
 
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
@@ -146,12 +167,59 @@ type IlluminationState = {
   decayPerSec: number;
 };
 
+const SPRITE_SHEET_SERVER_PREFIX = '/assets/sprites/';
+const SPRITE_SHEET_STATIC_PREFIX = '/assets/sprites-static/';
+const SKULLBOT_DOT_PREFIX = '/assets/digimon/';
+
+/**
+ * Resolve the 2×2 four-frame sprite-sheet URL for a digimon (walk row + hit row).
+ * Sheets live at `/assets/sprites/<skullbotId>.png`, keyed by the integer the
+ * catalog id encodes (`skb-317` → `317`), matching `data/sprites/dot317.PNG`.
+ * The rig (and the 2D/Phaser consumers) fall back to dot.gif on a 404.
+ */
+export function unitSpriteSheetUrl(templateId: string): string {
+  const numeric = templateId.replace(/^skb-/, '');
+  return `${SPRITE_SHEET_SERVER_PREFIX}${numeric}.png`;
+}
+
+/**
+ * Resolve the static (frame-0) sprite URL for a digimon — a single 32×32 cell
+ * cut from the same sheet, used by still/2D surfaces (roster, lobby, cards...)
+ * so every display of a digimon reads from the generated sheet rather than the
+ * legacy `dot.gif`. Falls back to dot.gif when the cell is missing.
+ */
+export function unitSpriteStaticUrl(templateId: string): string {
+  const numeric = templateId.replace(/^skb-/, '');
+  return `${SPRITE_SHEET_STATIC_PREFIX}${numeric}.png`;
+}
+
+/** Legacy single-frame dot.gif URL; kept as the universal fallback. */
+export function unitDotUrl(templateId: string): string {
+  return `${SKULLBOT_DOT_PREFIX}${templateId}/dot.gif`;
+}
+
+/**
+ * Spritesheet playback state. The source image is a 2×2 grid of 32×32 cells.
+ * `walk` loops continuously; `hitActive` triggers a single-frame pose (TAKE_HIT on
+ * playHit, ATTACK on playAttack) for HIT_FRAME_MS then returns to walking.
+ */
+type SheetState = {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly texture: THREE.CanvasTexture;
+  readonly image: HTMLImageElement;
+  walkIndex: number;
+  walkElapsed: number;
+  hitActive: boolean;
+  hitElapsed: number;
+};
+
 export class SpriteRig implements SpriteRigApi {
   readonly unitId: string;
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly worldPosition: THREE.Vector3;
-  
+
   get downed(): boolean {
     return this._downed;
   }
@@ -169,11 +237,13 @@ export class SpriteRig implements SpriteRigApi {
   private arenaBaselineY = 0;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
+  private sheet: SheetState | null = null;
   private illumination: IlluminationState | null = null;
   private _downed: boolean;
   private disposedFlag = false;
   private onClick: ((unitId: string) => void | undefined) | undefined;
   private facingSign: 1 | -1 = 1;
+  private readonly isSpritesheet: boolean;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -184,6 +254,7 @@ export class SpriteRig implements SpriteRigApi {
     this.worldPosition = this.basePosition.clone();
     this._downed = config.initiallyDowned === true;
     this.onClick = config.onClick ?? undefined;
+    this.isSpritesheet = config.isSpritesheet === true;
 
     const placeholder = makePlaceholderTexture();
     this.baseColor = new THREE.Color(0xffffff);
@@ -207,7 +278,7 @@ export class SpriteRig implements SpriteRigApi {
       depthPacking: THREE.RGBADepthPacking,
     });
     this.mesh.userData = { spriteRig: this };
-    
+
     this.scene.add(this.mesh);
 
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -264,6 +335,10 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private loadTexture(url: string): void {
+    if (this.isSpritesheet) {
+      this.loadSpritesheet(url);
+      return;
+    }
     if (/\.gif(\?|$)/i.test(url)) {
       this.loadGif(url);
       return;
@@ -289,6 +364,76 @@ export class SpriteRig implements SpriteRigApi {
       }
       this.analyzeStaticAlphaBbox(tex);
     });
+  }
+
+  private loadSpritesheet(url: string): void {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
+    img.onload = () => {
+      if (this.disposedFlag) {
+        img.remove();
+        return;
+      }
+      const w = img.naturalWidth || 64;
+      const h = img.naturalHeight || 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx === null) {
+        img.remove();
+        return;
+      }
+      ctx.imageSmoothingEnabled = false;
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      // Spritesheet is authored facing the 'opp' side (right); flip for 'you'.
+      this.applyFacingFlip(texture);
+      const previous = this.mat.map;
+      this.mat.map = texture;
+      this.mat.needsUpdate = true;
+      this.syncDepthMap();
+      previous?.dispose();
+      this.applyAspect(w, h);
+      const sheet: SheetState = {
+        canvas,
+        ctx,
+        texture,
+        image: img,
+        walkIndex: 0,
+        walkElapsed: 0,
+        hitActive: false,
+        hitElapsed: 0,
+      };
+      this.sheet = sheet;
+      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+      try {
+        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, w, h));
+      } catch {
+        /* bbox analysis is best-effort */
+      }
+    };
+    img.onerror = () => {
+      // Sheet failed: keep the placeholder so the unit still renders.
+      img.remove();
+    };
+    img.src = url;
+  }
+
+  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
+  private drawSheetFrame(sheet: SheetState, cell: number): void {
+    const cellW = sheet.canvas.width / SHEET_COLS;
+    const cellH = sheet.canvas.height / SHEET_ROWS;
+    const col = cell % SHEET_COLS;
+    const row = Math.floor(cell / SHEET_COLS);
+    const sx = col * cellW;
+    const sy = row * cellH;
+    sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
+    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, sheet.canvas.width, sheet.canvas.height);
+    sheet.texture.needsUpdate = true;
   }
 
   private loadGif(url: string): void {
@@ -431,7 +576,9 @@ export class SpriteRig implements SpriteRigApi {
     if (this.disposedFlag || !this.mesh.visible) return;
     this.mesh.quaternion.copy(cameraQuat);
 
-    if (this.gif !== null) {
+    if (this.sheet !== null) {
+      this.updateSheet(this.sheet, dt);
+    } else if (this.gif !== null) {
       const gif = this.gif;
       if (gif.frames.length > 0) {
         gif.elapsedMsInFrame += dt * 1000;
@@ -504,14 +651,48 @@ export class SpriteRig implements SpriteRigApi {
     void elapsedS;
   }
 
+  /** Advance spritesheet playback (walk loop, or the hit cycle while active). */
+  private updateSheet(sheet: SheetState, dt: number): void {
+    if (sheet.hitActive) {
+      sheet.hitElapsed += dt * 1000;
+      if (sheet.hitElapsed >= HIT_FRAME_MS) {
+        sheet.hitElapsed -= HIT_FRAME_MS;
+        // Single-frame hit pose (TAKE_HIT = frame 2). Just hold it; on timeout revert to walk.
+        sheet.hitActive = false;
+        sheet.walkIndex = 0;
+        sheet.walkElapsed = 0;
+        this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+      }
+      return;
+    }
+    sheet.walkElapsed += dt * 1000;
+    if (sheet.walkElapsed >= WALK_FRAME_MS) {
+      sheet.walkElapsed -= WALK_FRAME_MS;
+      sheet.walkIndex = (sheet.walkIndex + 1) % WALK_FRAME_INDICES.length;
+      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[sheet.walkIndex]!);
+    }
+  }
+
   playAttack(): void {
     if (this.disposedFlag) return;
+    // Lunge transform (kept for spatial weight) + the sheet's ATTACK frame (frame 3).
     this.anim = { type: 'attack', t: 0, dur: ATTACK_ANIM_S };
+    if (this.sheet !== null) {
+      this.sheet.hitActive = true;
+      this.sheet.hitElapsed = 0;
+      this.drawSheetFrame(this.sheet, ATTACK_FRAME_INDEX);
+    }
   }
 
   playHit(): void {
     if (this.disposedFlag) return;
+    // Shake-on-take-damage (spatial) + sheet's TAKE_HIT frame (frame 2).
     this.anim = { type: 'hit', t: 0, dur: HIT_ANIM_S };
+    if (this.sheet !== null) {
+      this.sheet.hitActive = true;
+      this.sheet.hitElapsed = 0;
+      this.drawSheetFrame(this.sheet, TAKE_HIT_FRAME_INDEX);
+    }
   }
 
   illuminate(color: THREE.Color | number, intensity: number, decayPerSec = 4): void {
@@ -558,6 +739,10 @@ export class SpriteRig implements SpriteRigApi {
       this.gif.fallbackImg?.remove();
       this.gif.texture.dispose();
       for (const frame of this.gif.frames) frame.bitmap.close();
+    }
+    if (this.sheet !== null) {
+      this.sheet.image.remove();
+      this.sheet.texture.dispose();
     }
   }
 }

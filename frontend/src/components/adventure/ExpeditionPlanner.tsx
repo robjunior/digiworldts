@@ -3,6 +3,7 @@ import type { JSX, ReactNode } from 'react';
 import { CheckIcon } from '../common/icons';
 import type { AdventureConfigView } from '../../lib/api-adventure';
 import type { RosterView } from '../../lib/api';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 /**
  * "Send an expedition" planner — the panel that lets the player pick 3 resting mons,
@@ -59,7 +60,7 @@ export function ExpeditionPlanner({
                 </span>
                 {isDowned && <span className="ko">Downed</span>}
                 <span className="spr">
-                  <img src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
+                  <img src={unitSpriteStaticUrl(mon.catalogId)} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
                 </span>
                 <span className="nick">{mon.nickname}</span>
                 <span className="sub">

@@ -10,6 +10,7 @@ import type { SpriteSide } from '@digiworld/scene3d/sprite-rig';
 import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
+import { unitSpriteSheetUrl } from '../../lib/asset-preload';
 import { useAuth } from '../../hooks/useAuth';
 import { useWsStore } from '../../state/wsStore';
 import { useT } from '../../hooks/useLocale';
@@ -89,13 +90,16 @@ type UnitPlacement = {
   onClick?: () => void | undefined;
 };
 
+// Combat uses the 2×2 four-frame sprite sheets (walk row + hit row). The dot.gif
+// is the fallback for digimons that lack a generated sheet; the rig detects a
+// missing image and keeps the placeholder, so a bad URL never hard-fails.
 function toPlacements(battle: BattleView, onEnemyClick?: (unitId: string) => void): readonly UnitPlacement[] {
   const you = battle.friendly.map((unit, index) => {
     const placement: UnitPlacement = {
       unitId: unit.id,
       side: 'you' as SpriteSide,
       slotIndex: index,
-      textureUrl: `/assets/digimon/${unit.templateId}/dot.gif`,
+      textureUrl: unitSpriteSheetUrl(unit.templateId),
       down: unit.down,
     };
     return placement;
@@ -105,7 +109,7 @@ function toPlacements(battle: BattleView, onEnemyClick?: (unitId: string) => voi
       unitId: unit.id,
       side: 'opp' as SpriteSide,
       slotIndex: index,
-      textureUrl: `/assets/digimon/${unit.templateId}/dot.gif`,
+      textureUrl: unitSpriteSheetUrl(unit.templateId),
       down: unit.down,
     };
     if (onEnemyClick) {
@@ -331,6 +335,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           side: placement.side,
           slotIndex: placement.slotIndex,
           textureUrl: placement.textureUrl,
+          isSpritesheet: true,
           initiallyDowned: placement.down,
           onClick: onClickHandler,
         };

@@ -1,23 +1,31 @@
 import Phaser from 'phaser';
 
-import type { DungeonGridNeighbor, DungeonRemotePlayer, DungeonRunView, DungeonTile, TilesetGrant } from '@digiworld/shared';
-import { findTilesetForGid, WALKABLE_LAYER_KINDS } from '@digiworld/shared';
+import type { DungeonGridNeighbor, DungeonRemotePlayer, DungeonRunView, DungeonTile, LayerKind, TilesetGrant } from '@digiworld/shared';
+import { findTilesetForGid, LAYER_DEPTH, layerDepth, WALKABLE_LAYER_KINDS, WATER_ALPHA } from '@digiworld/shared';
 import type { RosterView } from '../lib/api';
 import { primaryTileset } from '../lib/tileset-sprite';
 import {
   applyTiledFlips,
   bareGidForTile,
+  buildDigimonSheet,
   buildDotTexture,
   digimonDotKey,
+  digimonSheetKey,
   dotAnimKey,
+  ensureDigimonSpriteLoaded,
   fallbackStaticDot,
   isTextureAbandoned,
   markTextureLoadFailed,
   MAX_TEXTURE_RETRIES,
   preloadDigimonDot,
   preloadTilesets,
+  preloadDigimonSheet,
   registerTilesets,
   registerTilesetsOnTilemap,
+  sheetHitAnimKey,
+  sheetWalkAnimKey,
+  sheetTakeHitAnimKey,
+  sheetAttackAnimKey,
   tileFrame,
   tilesetKey,
   tiledFlipBits,
@@ -43,24 +51,22 @@ const BOSS_DEPTH = 125;
 const MARKER_DEPTH = 130;
 
 /**
- * Background layer stacking, mirrored from DungeonGrid (frontend
- * `components/dungeon/DungeonGrid.tsx` BG_KIND_ORDER): tiles within one cell
- * paint lowest-depth-first, so `floor` sits under `grass` under `wall`s.
- * The `liquid` underlay paints beneath `floor` (depth -1). Unknown kinds
- * fall through to a high depth (99) so they always stack on top.
+ * Background layer stacking. Tiles within one cell paint lowest-depth-first,
+ * so `floor` sits under `grass` under `wall`s. `water` and `liquid` are the
+ * topmost terrain kinds: they render ABOVE floor/grass/walls (so the water is
+ * actually visible) but still BELOW the party sprites (PARTY_DEPTH 1000) and
+ * BELOW the POI overlays (bridges/triggers at POI_DEPTH+). They are drawn at
+ * < 1 alpha (WATER_ALPHA) so the terrain bed shows through — the "transparent
+ * tileset" look. `liquid` sits just above `water` so e.g. lava/water-under-
+ * bridge composites correctly. Unknown kinds fall through to a high depth (99)
+ * so they always stack on top of the known terrain kinds.
+ *
+ * The authoritative depth values live in `@digiworld/shared` (`LAYER_DEPTH`,
+ * `layerDepth`, `WATER_ALPHA`) — kept in one place so the renderer, the admin
+ * preview, and any tests can't drift apart (this is what regressed `liquid`
+ * into an invisible underlay before).
  */
-const BG_KIND_ORDER: Record<string, number> = {
-  floor: 0,
-  grass: 1,
-  doors: 2,
-  hidden: 3,
-  decoration: 4,
-  tree: 5,
-  wall: 6,
-  walls: 7,
-  water: 8,
-  pit: 9,
-};
+const BG_KIND_ORDER = LAYER_DEPTH;
 
 export type Facing = 'left' | 'right';
 
@@ -115,6 +121,7 @@ declare global {
     __dungeonPhaser?: {
       readonly scene: DungeonPhaserScene;
       getState(): DungeonPhaserDebugState;
+      triggerBossHit(catalogId: string): void;
     };
   }
 }
@@ -289,6 +296,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     window.__dungeonPhaser = {
       scene: this,
       getState: () => this.getState(),
+      triggerBossHit: (catalogId: string) => this.triggerBossHit(catalogId),
     };
     // Props arrive after create() (wrapper READY event) — the texture pipeline
     // runs lazily from setProps → recompose, not from a preload() hook.
@@ -392,8 +400,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
   }
 
   private kindDepth(kind: string): number {
-    if (kind === 'liquid') return UNDERLAY_DEPTH;
-    return BG_KIND_ORDER[kind] ?? 99;
+    // `liquid` is no longer an underlay: it renders above the floor/grass bed
+    // (see `LAYER_DEPTH` in @digiworld/shared) so the water is visible, while
+    // still sitting below the party and the bridge/trigger POIs. Unknown kinds
+    // fall to 99 (top of the terrain stack).
+    return layerDepth(kind as LayerKind);
   }
 
   private recompose(): void {
@@ -516,7 +527,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         known.catalogId === null &&
         player.leaderCatalogId !== undefined &&
         player.leaderCatalogId !== '' &&
-        this.ensureDigimonDotsLoaded([player.leaderCatalogId]);
+        this.ensureDigimonSheetPreloaded([player.leaderCatalogId]);
       if (dotArrived) {
         this.destroyRemotePlayer(known);
         this.remotePlayers.delete(player.userId);
@@ -540,15 +551,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
       const container = this.add.container(targetX, targetY);
       const catalogId = player.leaderCatalogId ?? player.party?.[0] ?? '';
-      const dotReady = catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId]);
-      if (dotReady) {
-        const dot = this.add.sprite(0, 0, digimonDotKey(catalogId));
-        dot.setDisplaySize(tileSize, tileSize);
-        const animKey = dotAnimKey(catalogId);
-        if (this.anims.exists(animKey)) dot.play(animKey);
-        container.add(dot);
-      } else {
+      const dot = catalogId !== '' ? this.spawnDigimonSprite(catalogId, 0, 0, 0, false) : null;
+      if (dot === null) {
         container.add(this.add.circle(0, 0, tileSize * 0.3, 0x9aa3b5));
+      } else {
+        container.add(dot);
       }
       const name = this.add.text(0, -tileSize / 2 - 4, player.displayName, {
         fontFamily: 'monospace',
@@ -567,7 +574,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         // placeholder circle — keep catalogId null so the dotArrived branch
         // above can destroy it and rebuild with the real sprite on the next
         // recompose once the texture lands.
-        catalogId: dotReady ? catalogId : null,
+        catalogId: dot !== null ? catalogId : null,
         followers: [],
       };
       this.remotePlayers.set(player.userId, render);
@@ -606,27 +613,21 @@ export class DungeonPhaserScene extends Phaser.Scene {
           this.tweens.add({ targets: existing.sprite, x: targetX, y: targetY, duration: Math.max(1, moveDurationMs), ease: 'Linear' });
           existing.cell = { x: trailCell.x, y: trailCell.y };
         }
-        if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
-          const dot = this.add.sprite(targetX, targetY, digimonDotKey(catalogId));
-          dot.setDisplaySize(tileSize, tileSize);
-          dot.setDepth(PARTY_DEPTH - 1);
-          const animKey = dotAnimKey(catalogId);
-          if (this.anims.exists(animKey)) dot.play(animKey);
+        if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== '') {
+          const dot = this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false);
           existing.sprite.destroy();
-          render.followers[i] = { sprite: dot, cell: { x: trailCell.x, y: trailCell.y } };
+          if (dot !== null) {
+            render.followers[i] = { sprite: dot, cell: { x: trailCell.x, y: trailCell.y } };
+          }
         }
         continue;
       }
       let sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
-      if (catalogId !== '' && this.ensureDigimonDotsLoaded([catalogId])) {
-        const dot = this.add.sprite(targetX, targetY, digimonDotKey(catalogId));
-        dot.setDisplaySize(tileSize, tileSize);
-        dot.setDepth(PARTY_DEPTH - 1);
-        const animKey = dotAnimKey(catalogId);
-        if (this.anims.exists(animKey)) dot.play(animKey);
-        sprite = dot;
-      } else {
+      const dot = catalogId !== '' ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false) : null;
+      if (dot === null) {
         sprite = this.add.circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5).setDepth(PARTY_DEPTH - 1);
+      } else {
+        sprite = dot;
       }
       render.followers.push({ sprite, cell: { x: trailCell.x, y: trailCell.y } });
     }
@@ -727,7 +728,6 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }
 
     const neededDots = [...new Set(members.map((member) => member.catalogId))];
-    if (!this.ensureDigimonDotsLoaded(neededDots)) return;
 
     const previousLeader = this.leaderSprite;
     const previousLeaderPos =
@@ -751,13 +751,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
       (previousLeaderPos.x !== leaderMember.x || previousLeaderPos.y !== leaderMember.y);
 
     for (const member of members) {
-      const sprite = this.add.sprite(member.x, member.y, digimonDotKey(member.catalogId));
-      sprite.setOrigin(0.5, 0.5);
-      sprite.setDisplaySize(tileSize, tileSize);
-      sprite.setFlipX(flipX);
-      sprite.setDepth(PARTY_DEPTH);
-      const animKey = dotAnimKey(member.catalogId);
-      if (this.anims.exists(animKey)) sprite.play(animKey);
+      const sprite = this.spawnDigimonSprite(member.catalogId, member.x, member.y, PARTY_DEPTH, flipX);
+      if (sprite === null) continue;
       sprite.setData('catalogId', member.catalogId);
       group.add(sprite);
       if (member.isLeader) {
@@ -816,6 +811,91 @@ export class DungeonPhaserScene extends Phaser.Scene {
     loader.once(Phaser.Loader.Events.COMPLETE, settle);
     loader.start();
     return false;
+  }
+
+  /**
+   * Pre-queue the 2×2 sprite sheets for the given catalog ids (bosses, remote
+   * leaders) so they are ready before the sprites are spawned. Mirrors
+   * `ensureDigimonDotsLoaded` but targets the generated sheet endpoint; missing
+   * sheets simply 404 and fall back to the GIF dot when the sprite is spawned.
+   */
+  private ensureDigimonSheetPreloaded(catalogIds: readonly string[]): boolean {
+    const loader = this.load;
+    if (loader.isLoading()) return false;
+    const listSizeBefore = loader.list.size;
+    for (const catalogId of catalogIds) preloadDigimonSheet(this, catalogId);
+    if (loader.list.size === listSizeBefore) return false;
+    loader.once(Phaser.Loader.Events.COMPLETE, () => this.recompose());
+    loader.start();
+    return false;
+  }
+
+  /**
+   * Create a digimon sprite at `(x, y)` using the shared 2×2 sprite-sheet system
+   * (walk + hit rows). Prefers the generated sheet; on a 404 it falls back to the
+   * legacy GIF dot. The sprite is added to `renderedSprites` and plays its walk
+   * anim immediately. Returns the sprite (or null if it could not be placed yet).
+   */
+  private spawnDigimonSprite(
+    catalogId: string,
+    x: number,
+    y: number,
+    depth: number,
+    flipX: boolean,
+  ): Phaser.GameObjects.Sprite | null {
+    const existing = this.children.getByName(`digimon:${catalogId}:${x}:${y}`) as Phaser.GameObjects.Sprite | null;
+    if (existing !== null) return existing;
+    let sprite: Phaser.GameObjects.Sprite | null = null;
+    ensureDigimonSpriteLoaded(this, catalogId, (load) => {
+      if (load.kind === 'none') return;
+      if (this.textures.exists(load.key)) {
+        sprite = this.add.sprite(x, y, load.key);
+        sprite.setName(`digimon:${catalogId}:${x}:${y}`);
+        sprite.setOrigin(0.5, 0.5);
+        sprite.setDisplaySize(this.tileSize, this.tileSize);
+        sprite.setFlipX(flipX);
+        sprite.setDepth(depth);
+        if (this.anims.exists(load.walkAnim)) sprite.play(load.walkAnim);
+        this.renderedSprites.push(sprite);
+      }
+    });
+    return sprite;
+  }
+
+  /** Play the attack pose (frame 3) on a digimon sprite; after a brief hold return to walk. */
+  private playDigimonAttack(sprite: Phaser.GameObjects.Sprite): void {
+    const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
+    const attackAnim = sheetAttackAnimKey(`skb-${catalogId}`);
+    if (sprite.anims.currentAnim?.key !== attackAnim && this.anims.exists(attackAnim)) {
+      sprite.play(attackAnim);
+      this.time.delayedCall(400, () => {
+        const walkAnim = sheetWalkAnimKey(`skb-${catalogId}`);
+        if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
+      });
+    }
+  }
+
+  /** Play the take-hit pose (frame 2) on a digimon sprite; after a brief hold return to walk. */
+  private playDigimonTakeHit(sprite: Phaser.GameObjects.Sprite): void {
+    const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
+    const takeHitAnim = sheetTakeHitAnimKey(`skb-${catalogId}`);
+    if (sprite.anims.currentAnim?.key !== takeHitAnim && this.anims.exists(takeHitAnim)) {
+      sprite.play(takeHitAnim);
+      this.time.delayedCall(400, () => {
+        const walkAnim = sheetWalkAnimKey(`skb-${catalogId}`);
+        if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
+      });
+    }
+  }
+
+  /** Trigger the boss's attack pose when an encounter starts. */
+  triggerBossHit(catalogId: string): void {
+    for (const sprite of this.renderedSprites) {
+      if (sprite.getData('poiKind') === 'boss' && sprite.getData('bossCatalogId') === catalogId) {
+        this.playDigimonAttack(sprite);
+        return;
+      }
+    }
   }
 
   private texturesLoading = false;
@@ -902,7 +982,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         ),
       ),
     ];
-    if (bossDots.length > 0) this.ensureDigimonDotsLoaded(bossDots);
+    if (bossDots.length > 0) this.ensureDigimonSheetPreloaded(bossDots);
     const camera = this.cameras.main;
     const displayW = camera.width / camera.zoom;
     const displayH = camera.height / camera.zoom;
@@ -997,6 +1077,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
         const layer = map.createLayer(0, map.tilesets, offsetX, offsetY);
         if (layer !== null) {
           layer.setDepth(depth);
+          // `water` / `liquid` are transparent overlays: render them at < 1
+          // alpha so the floor/grass bed beneath shows through (the spike
+          // proved this "water on top of an opaque bed" model). Other terrain
+          // kinds stay fully opaque.
+          if (kind === 'water' || kind === 'liquid') layer.setAlpha(WATER_ALPHA);
           // Re-apply the Tiled flip flags from the raw GIDs (never put flagged
           // gids in the data array — Phaser resolves bare gids through the
           // tileset firstgid spaces).
@@ -1136,7 +1221,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (!trigger.enabled) continue;
       const triggerUsed = firedSet.has(trigger.id);
       const gid = triggerUsed ? trigger.usedTileGid : trigger.unusedTileGid;
-      if (gid === null) continue;
+      if (gid === null) {
+        // No tile picked for this lever — still surface it on top of the map.
+        this.addPoiFallbackMarker(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), 'L', 0xffcf4d);
+        this.poiInfos.push({ kind: 'trigger', x: trigger.x, y: trigger.y, gid: null, slotGridX, slotGridY });
+        continue;
+      }
       const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), frame.texture, frame.frame);
@@ -1155,7 +1245,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (!bridge.enabled) continue;
       const bridgeDown = bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
       const gid = bridgeDown ? bridge.downTileGid : bridge.upTileGid;
-      if (gid === null) continue;
+      if (gid === null) {
+        this.addPoiFallbackMarker(poiCell(bridge.x, bridge.y), poiRow(bridge.x, bridge.y), 'B', 0x4aa3ff);
+        this.poiInfos.push({ kind: 'bridge', x: bridge.x, y: bridge.y, gid: null, slotGridX, slotGridY });
+        continue;
+      }
       const frame = primary !== null ? tileFrame(primary, gid) : null;
       if (frame !== null && this.textures.exists(frame.texture)) {
         const sprite = this.add.sprite(poiCell(bridge.x, bridge.y), poiRow(bridge.x, bridge.y), frame.texture, frame.frame);
@@ -1174,18 +1268,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (encounter.difficulty === 'boss') {
         const leader = encounter.digimon[0];
         if (leader === undefined) continue;
-        const dotKey = digimonDotKey(leader.catalogId);
         const bossWorldX = poiCell(encounter.x, encounter.y);
         const bossWorldY = poiRow(encounter.x, encounter.y);
-        if (this.textures.exists(dotKey)) {
-          const sprite = this.add.sprite(bossWorldX, bossWorldY, dotKey);
-          sprite.setOrigin(0.5, 0.5);
-          sprite.setDisplaySize(tileSize, tileSize);
-          sprite.setDepth(BOSS_DEPTH);
-          sprite.setFlipX(run.currentX < encounter.x);
-          sprite.setData('poiKind', 'boss');
-          sprite.setData('bossCatalogId', leader.catalogId);
-          this.renderedSprites.push(sprite);
+        const boss = this.spawnDigimonSprite(leader.catalogId, bossWorldX, bossWorldY, BOSS_DEPTH, run.currentX < encounter.x);
+        if (boss !== null) {
+          boss.setData('poiKind', 'boss');
+          boss.setData('bossCatalogId', leader.catalogId);
         }
         this.poiInfos.push({ kind: 'boss', x: encounter.x, y: encounter.y, gid: leader.catalogId, slotGridX, slotGridY });
       } else {
@@ -1199,6 +1287,21 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.poiInfos.push({ kind: 'item', x: item.x, y: item.y, gid: null, slotGridX, slotGridY });
       this.addPoiBadge(poiCell(item.x, item.y), poiRow(item.x, item.y), 'I');
     }
+  }
+
+  /**
+   * Visible, always-on-top fallback marker for a POI whose tile GID is missing
+   * (e.g. a lever trigger / bridge the admin placed without picking a tile).
+   * Draws a translucent colored tile + letter at POI_DEPTH so the POI is
+   * unmistakably on the map surface, above grass/floor/liquid/water.
+   */
+  private addPoiFallbackMarker(x: number, y: number, letter: string, color: number): void {
+    const rect = this.add.rectangle(x, y, this.tileSize * 0.9, this.tileSize * 0.9, color, 0.55);
+    rect.setStrokeStyle(2, color, 1);
+    rect.setDepth(POI_DEPTH);
+    rect.setData('poiBadge', letter);
+    this.renderedSprites.push(rect as unknown as Phaser.GameObjects.Sprite);
+    this.addPoiBadge(x, y, letter);
   }
 
   private addPoiBadge(x: number, y: number, letter: string): void {

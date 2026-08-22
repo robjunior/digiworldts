@@ -206,6 +206,21 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyStatic, {
+    root: resolve(config.paths.assetsDir, '..', 'sprites'),
+    prefix: '/assets/sprites/',
+    decorateReply: false,
+  });
+
+  // Static (frame-0) sprite cells cut from the same generated sheets — used by
+  // still/2D surfaces (roster, lobby, cards) so every digimon display reads
+  // from the sheet rather than the legacy dot.gif. Missing cells 404 (below).
+  await app.register(fastifyStatic, {
+    root: resolve(config.paths.assetsDir, '..', 'sprites-static'),
+    prefix: '/assets/sprites-static/',
+    decorateReply: false,
+  });
+
+  await app.register(fastifyStatic, {
     root: config.paths.npcPortraitsDir,
     prefix: '/assets/npc/',
     decorateReply: false,
@@ -266,7 +281,7 @@ async function main(): Promise<void> {
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.url;
-    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon');
+    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon') || url.startsWith('/assets/sprites') || url.startsWith('/assets/sprites-static');
     if (req.method === 'GET' && !isApi && existsSync(config.paths.frontendDistDir)) {
       return reply.sendFile('index.html');
     }

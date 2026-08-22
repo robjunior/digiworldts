@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import type { BattleView } from '@digiworld/shared/battle';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 export const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonly battle: BattleView }): JSX.Element | null {
   const upcoming = battle.upcomingTurns ?? [];
@@ -30,9 +31,10 @@ export const TurnOrderStrip = memo(function TurnOrderStrip({ battle }: { readonl
           >
             <img
               className="c3d-order-mon"
-              src={`/assets/digimon/${meta.templateId}/dot.gif`}
+              src={unitSpriteStaticUrl(meta.templateId)}
               alt={meta.name}
               loading="eager"
+              onError={(e) => (e.currentTarget.style.visibility = 'hidden')}
             />
             {isCurrent ? <span className="c3d-order-caret" aria-hidden="true" /> : null}
           </div>

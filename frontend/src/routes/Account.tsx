@@ -11,6 +11,7 @@ import { fetchLinkedIdentities, oauthLinkUrl, unlinkProvider } from '../lib/api-
 import { getPlayerCareer, getPvpHistory, type PlayerCareer, type PvpMatchSummary } from '../lib/api-player';
 import { fmtRelative } from '../lib/format';
 import { setLocale, type Locale } from '../lib/locale';
+import { DigimonSprite } from '../components/common/DigimonSprite';
 import '../styles/extensions-account.css';
 
 const LOCALE_CHOICES: readonly { readonly id: Locale; readonly label: string }[] = [
@@ -302,13 +303,7 @@ export function Account(): JSX.Element {
           aria-label={t('account.avatar.change')}
         >
           {chosenMonRow ? (
-            <img
-              src={`/assets/digimon/${chosenMonRow.catalogId}/dot.gif`}
-              alt=""
-              onError={(ev) => {
-                ev.currentTarget.style.visibility = 'hidden';
-              }}
-            />
+            <DigimonSprite catalogId={chosenMonRow.catalogId} />
           ) : (
             <span className="acc-avatar-init">{initialLetter}</span>
           )}
@@ -428,13 +423,7 @@ export function Account(): JSX.Element {
                 party.map((mon) => (
                   <div className="acc-pmon" data-el={elementFor(mon)} key={mon.id}>
                     <span className="mug">
-                      <img
-                        src={`/assets/digimon/${mon.catalogId}/dot.gif`}
-                        alt=""
-                        onError={(ev) => {
-                          ev.currentTarget.style.visibility = 'hidden';
-                        }}
-                      />
+                      <DigimonSprite catalogId={mon.catalogId} />
                     </span>
                     <div className="txt">
                       <div className="nm">{mon.nickname}</div>
@@ -495,13 +484,7 @@ export function Account(): JSX.Element {
                       <div className="ti">
                         <span className="tico">
                           {chosenMonRow ? (
-                            <img
-                              src={`/assets/digimon/${chosenMonRow.catalogId}/dot.gif`}
-                              alt=""
-                              onError={(ev) => {
-                                ev.currentTarget.style.visibility = 'hidden';
-                              }}
-                            />
+                            <DigimonSprite catalogId={chosenMonRow.catalogId} />
                           ) : (
                             initialLetter
                           )}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getCatalog } from '../../lib/api-admin';
 import { WORLD_BIOMES } from '../../lib/api-world';
 import { SceneSettingsAdmin } from './SceneSettingsAdmin';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 const STORAGE_KEY = 'digiworld.biome-config';
 
@@ -205,7 +206,7 @@ export function BiomeEditor(): JSX.Element {
                       const pct = totalWeight > 0 ? (spawn.weight / totalWeight) * 100 : 0;
                       return (
                         <div key={spawn.catalogId} className="biome-editor-spawn-row">
-                          <img className="biome-editor-spawn-icon" src={`/assets/digimon/${spawn.catalogId}/dot.gif`} alt="" aria-hidden="true" />
+                          <img className="biome-editor-spawn-icon" src={unitSpriteStaticUrl(spawn.catalogId)} alt="" aria-hidden="true" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
                           <div className="biome-editor-spawn-meta">
                             <b>{meta?.name ?? spawn.catalogId}</b>
                             <span>{meta?.stage ?? '?'} · {meta?.element ?? '?'}</span>

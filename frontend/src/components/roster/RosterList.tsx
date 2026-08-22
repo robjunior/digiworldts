@@ -9,6 +9,7 @@ import { formatRemaining, isDowned, perStatTrainingProgress, scaledStats, traini
 import { PartyPicker } from './PartyPicker';
 import { SkillEditor } from './SkillEditor';
 import { ResistanceChart } from './ResistanceChart';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 const el = (r: RosterMon): string => r.template?.element ?? 'null';
 
@@ -138,7 +139,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
                     event.dataTransfer.setData('text/plain', r.id);
                   }}
                 >
-                  <span className="mug"><img src={`/assets/digimon/${r.catalogId}/dot.gif`} alt="" onError={(ev) => (ev.currentTarget.style.visibility = 'hidden')} /></span>
+                  <span className="mug"><DigimonSprite catalogId={r.catalogId} /></span>
                   <span className="who">
                     <span className="nm">{r.nickname}</span>
                     <span className="rn">{template?.name ?? r.catalogId}</span>
