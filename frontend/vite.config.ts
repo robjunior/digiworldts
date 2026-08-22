@@ -40,6 +40,8 @@ export default defineConfig(({ mode }) => {
         '/api': { target: backendUrl, ...proxyCommon },
         '/ws': { target: wsBackend, ws: true, ...proxyCommon },
         '/assets/digimon': { target: backendUrl, ...proxyCommon },
+        '/assets/sprites': { target: backendUrl, ...proxyCommon },
+        '/assets/sprites-static': { target: backendUrl, ...proxyCommon },
         '/assets/arenas': { target: backendUrl, ...proxyCommon },
       },
     },

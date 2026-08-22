@@ -1,5 +1,6 @@
 import type { ActivityByMon, RosterActions, RosterMon } from './types';
 import { elementStyle, formatRemaining, isDowned, moodInfo, percentStyle, totalStats, trainingProgress, xpPct } from './types';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }: { readonly mon: RosterMon; readonly now: number; readonly activityByMon: ActivityByMon; readonly actions: RosterActions; readonly onTouchAssign: (monId: string) => void }): JSX.Element {
   const stats = totalStats(mon);
@@ -24,7 +25,7 @@ export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }
         <div className="card-meta">
           <div className="name-row">
             <div className="name-group">
-              <img className="mon-icon" src={`/assets/digimon/${mon.catalogId}/dot.gif`} alt="" loading="lazy" />
+              <DigimonSprite catalogId={mon.catalogId} className="mon-icon" />
               <div className="name">{mon.nickname}</div>
             </div>
             <span className="lvl"><span>LV</span> {mon.level}</span>

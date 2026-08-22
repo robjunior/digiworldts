@@ -88,10 +88,14 @@ jobs:
 
       - name: Export seeds e check
         run: |
-          if [ -f "backend/data/digiworld.db" ]; then
-            pnpm --filter @digiworld/backend seed:export --out /tmp/seed-artifact
-            pnpm typecheck:xref /tmp/seed-artifact/seed.json
-          fi
+          pnpm --filter @digiworld/backend seed:export --out /tmp/seed-artifact
+          pnpm typecheck:xref /tmp/seed-artifact/seed.json
+
+      - name: Upload seed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: seed-artifact
+          path: /tmp/seed-artifact/
 
       - name: Deploy containers
         env:
@@ -100,6 +104,12 @@ jobs:
           PROJECT="digiworld-${ENV_NAME}"
           docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait
           docker compose -p "$PROJECT" ps
+
+      - name: Download seed artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: seed-artifact
+          path: /tmp/seed-artifact
 
       - name: Deploy content (content:deploy --apply)
         if: always()

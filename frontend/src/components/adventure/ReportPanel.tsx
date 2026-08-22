@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { AlertIcon } from '../common/icons';
 import type { AdventureReport, AdventureView } from '../../lib/api-adventure';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 /**
  * Right-column "Last Report" pane that shows wins/losses, loot totals,
@@ -80,7 +81,7 @@ export function ReportPanel({
         return (
           <div className="xprow" key={x.monId}>
             <span className="xspr">
-              <img src={`/assets/digimon/${mon?.catalogId}/dot.gif`} alt="" loading="lazy" />
+              <img src={mon != null ? unitSpriteStaticUrl(mon.catalogId) : ''} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
             </span>
             <span className="xn">{mon?.nickname ?? x.monId}</span>
             <span className="xg">

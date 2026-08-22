@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PenSpriteRig } from '@digiworld/scene3d/pen-sprite';
+import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager } from '@digiworld/scene3d/scene';
 import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 import type { NurseryPenMon, NurseryPenStage } from '../../lib/api-nursery';
@@ -110,7 +111,7 @@ export function NurseryPen3D({
     // Add or update
     for (const mon of penMons) {
       let rig = currentRigs.get(mon.id);
-      const url = `/assets/digimon/${mon.catalogId}/dot.gif`;
+      const url = unitSpriteSheetUrl(mon.catalogId);
       if (!rig) {
         const initialX = PEN_BOUNDS.minX + Math.random() * (PEN_BOUNDS.maxX - PEN_BOUNDS.minX);
         const initialZ = PEN_BOUNDS.minZ + Math.random() * (PEN_BOUNDS.maxZ - PEN_BOUNDS.minZ);

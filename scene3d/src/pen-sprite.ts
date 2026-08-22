@@ -47,6 +47,7 @@ export class PenSpriteRig {
       side: 'opp',
       slotIndex: 1,
       textureUrl,
+      isSpritesheet: true,
     });
     this.setWorldXZ(initialX, initialZ);
   }

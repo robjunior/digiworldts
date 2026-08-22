@@ -56,6 +56,7 @@
     "test:pool": "tsx test/pool-smoke.mts",
     "test:backfill": "tsx test/backfill-smoke.mts",
     "test:catalog-e2e": "tsx test/catalog-battle-e2e.mts",
+    "test:water-layering": "DATABASE=sqlite DB_PATH=/tmp/dw-water-layering-smoke.db tsx test/water-layering-smoke.mts",
     "db:backfill-equipped": "tsx src/db/data-migrations/populate-equipped-defaults.ts",
     "rebuild:native": "pnpm rebuild better-sqlite3 argon2",
     "test:initiative-sign": "tsx test/initiative-sign.mts",

@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import type { ItemDrop, StatSnapshot, XpAward } from '../../lib/api-world';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
@@ -222,7 +223,7 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
 
   const showLevelUp = done && leveledUp;
   const displayLevel = showLevelUp ? award.newLevel : award.previousLevel;
-  const portraitUrl = `/assets/digimon/${award.catalogId}/dot.gif`;
+  const portraitUrl = unitSpriteStaticUrl(award.catalogId);
   const rowClass = ['pve-xp-row', award.defeated ? 'is-defeated' : '', leveledUp ? 'is-levelup' : '', showLevelUp ? 'is-lvlup-open' : ''].filter(Boolean).join(' ');
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>

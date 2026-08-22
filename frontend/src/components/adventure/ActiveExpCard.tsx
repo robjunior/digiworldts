@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { formatClock } from './utils';
 import type { AdventureConfigView, AdventureView } from '../../lib/api-adventure';
+import { unitSpriteStaticUrl } from '@digiworld/scene3d';
 
 /**
  * Active expedition card — a single in-progress adventure with countdown,
@@ -32,7 +33,7 @@ export function ActiveExpCard({
       <div className="ehead">
         <span className="emini">
           {active.party.map((p) => (
-            <img key={p.monId} src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" loading="lazy" />
+            <img key={p.monId} src={unitSpriteStaticUrl(p.catalogId)} alt="" loading="lazy" onError={(e) => (e.currentTarget.style.visibility = 'hidden')} />
           ))}
         </span>
         <span className="enames">

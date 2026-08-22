@@ -54,6 +54,31 @@ export function digimonDotKey(catalogId: string): string {
   return `dot-${catalogId}`;
 }
 
+/** Stable Phaser texture key for a digimon's 2×2 four-frame sprite sheet. */
+export function digimonSheetKey(catalogId: string): string {
+  return `sheet-${catalogId}`;
+}
+
+/** Anim key for the sheet's walk cycle (top row, frames 0→1, looped). */
+export function sheetWalkAnimKey(catalogId: string): string {
+  return `sheet-walk-${catalogId}`;
+}
+
+/** Anim key for the sheet's hit cycle (bottom row, frames 2→3, looped). */
+export function sheetHitAnimKey(catalogId: string): string {
+  return `sheet-hit-${catalogId}`;
+}
+
+/** Anim key for the sheet's take-hit pose (frame 2, single frame). */
+export function sheetTakeHitAnimKey(catalogId: string): string {
+  return `sheet-takehit-${catalogId}`;
+}
+
+/** Anim key for the sheet's attack pose (frame 3, single frame). */
+export function sheetAttackAnimKey(catalogId: string): string {
+  return `sheet-attack-${catalogId}`;
+}
+
 /**
  * Per-TextureManager bookkeeping for the texture pipeline. A key lives in one
  * of three states beyond "not requested":
@@ -368,4 +393,155 @@ export function fallbackStaticDot(scene: Phaser.Scene, catalogId: string, onLoad
     onLoaded();
   };
   img.src = `/assets/digimon/${encodeURIComponent(catalogId)}/dot.gif`;
+}
+
+/**
+ * Load a digimon's 2×2 four-frame sprite sheet (`/assets/sprites/<id>.png`) and
+ * register its walk (top row, looped) + hit (bottom row, looped) anims. This is
+ * the dungeon's preferred digimon display: it uses the same generated sheet as
+ * the 3D combat/pen rig. Falls back to the legacy GIF dot when the sheet is
+ * missing.
+ */
+export function preloadDigimonSheet(scene: Phaser.Scene, catalogId: string): string {
+  const key = digimonSheetKey(catalogId);
+  const textures = scene.textures;
+  if (textures.exists(key)) return key;
+  if (isTextureAbandoned(textures, key)) return key;
+  if (isQuarantined(textures, key, Date.now())) return key;
+  if (!claimPending(textures, key)) return key;
+  const numeric = catalogId.replace(/^skb-/, '');
+  scene.load.image(key, `/assets/sprites/${encodeURIComponent(numeric)}.png`);
+  return key;
+}
+
+/**
+ * Build the sheet's walk + hit anims from the loaded image. Returns false when
+ * the texture never landed (caller falls back to the GIF dot path).
+ */
+export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boolean {
+  const key = digimonSheetKey(catalogId);
+  if (scene.textures.exists(key)) {
+    const texture = scene.textures.get(key);
+    const frame0 = texture.get(0);
+    const w = frame0?.width ?? 32;
+    const h = frame0?.height ?? 32;
+    const cellW = Math.floor(w / 2);
+    const cellH = Math.floor(h / 2);
+    for (let row = 0; row < 2; row++) {
+      for (let col = 0; col < 2; col++) {
+        const idx = String(row * 2 + col);
+        if (!texture.has(idx)) texture.add(idx, 0, col * cellW, row * cellH, cellW, cellH);
+      }
+    }
+    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
+      scene.anims.create({
+        key: sheetWalkAnimKey(catalogId),
+        frames: [
+          { key, frame: '0' },
+          { key, frame: '1' },
+        ],
+        frameRate: 3,
+        repeat: -1,
+      });
+    }
+    // Frame 2 (row 1, col 0) = taking hit (defender recoil). Single frame, no loop.
+    if (!scene.anims.exists(sheetTakeHitAnimKey(catalogId))) {
+      scene.anims.create({
+        key: sheetTakeHitAnimKey(catalogId),
+        frames: [{ key, frame: '2' }],
+        frameRate: 1,
+        repeat: 0,
+      });
+    }
+    // Frame 3 (row 1, col 1) = giving hit / attacking (attacker strike). Single frame, no loop.
+    if (!scene.anims.exists(sheetAttackAnimKey(catalogId))) {
+      scene.anims.create({
+        key: sheetAttackAnimKey(catalogId),
+        frames: [{ key, frame: '3' }],
+        frameRate: 1,
+        repeat: 0,
+      });
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Ensure a digimon's sheet texture + anims exist, trying the sheet first and
+ * falling back to the legacy GIF dot when the sheet 404s. `onSettled` reports
+ * which path resolved so callers know which key/anim to play.
+ */
+export type DigimonSpriteLoad =
+  | { readonly kind: 'sheet'; readonly key: string; readonly walkAnim: string; readonly hitAnim: string; readonly takeHitAnim: string; readonly attackAnim: string }
+  | { readonly kind: 'dot'; readonly key: string; readonly walkAnim: string }
+  | { readonly kind: 'none' };
+
+export function ensureDigimonSpriteLoaded(
+  scene: Phaser.Scene,
+  catalogId: string,
+  onSettled: (result: DigimonSpriteLoad) => void,
+): void {
+  const sheetKey = digimonSheetKey(catalogId);
+  if (scene.textures.exists(sheetKey)) {
+    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) buildDigimonSheet(scene, catalogId);
+    onSettled({
+      kind: 'sheet',
+      key: sheetKey,
+      walkAnim: sheetWalkAnimKey(catalogId),
+      hitAnim: sheetHitAnimKey(catalogId),
+      takeHitAnim: sheetTakeHitAnimKey(catalogId),
+      attackAnim: sheetAttackAnimKey(catalogId),
+    });
+    return;
+  }
+  if (scene.textures.exists(digimonDotKey(catalogId))) {
+    onSettled({ kind: 'dot', key: digimonDotKey(catalogId), walkAnim: dotAnimKey(catalogId) });
+    return;
+  }
+
+  let sheetTried = false;
+  let dotTried = false;
+
+  const tryDot = (): void => {
+    if (dotTried) return;
+    dotTried = true;
+    const dotKey = preloadDigimonDot(scene, catalogId);
+    scene.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      if (scene.textures.exists(dotKey) && buildDotTexture(scene, catalogId)) {
+        onSettled({ kind: 'dot', key: dotKey, walkAnim: dotAnimKey(catalogId) });
+      } else {
+        fallbackStaticDot(scene, catalogId, () => {
+          if (scene.textures.exists(dotKey)) buildDotTexture(scene, catalogId);
+          onSettled({ kind: 'dot', key: dotKey, walkAnim: dotAnimKey(catalogId) });
+        });
+        markTextureLoadFailed(scene, dotKey);
+      }
+    });
+    scene.load.start();
+  };
+
+  const trySheet = (): void => {
+    if (sheetTried) return;
+    sheetTried = true;
+    const key = preloadDigimonSheet(scene, catalogId);
+    scene.load.once(Phaser.Loader.Events.COMPLETE, () => {
+      if (scene.textures.exists(key) && buildDigimonSheet(scene, catalogId)) {
+        onSettled({
+          kind: 'sheet',
+          key,
+          walkAnim: sheetWalkAnimKey(catalogId),
+          hitAnim: sheetHitAnimKey(catalogId),
+          takeHitAnim: sheetTakeHitAnimKey(catalogId),
+          attackAnim: sheetAttackAnimKey(catalogId),
+        });
+      } else {
+        markTextureLoadFailed(scene, key);
+        tryDot();
+      }
+    });
+    scene.load.start();
+  };
+
+  trySheet();
 }
