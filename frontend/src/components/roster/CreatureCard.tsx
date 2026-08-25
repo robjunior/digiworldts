@@ -23,11 +23,11 @@ export function CreatureCard({ mon, now, activityByMon, actions, onTouchAssign }
         <span className="rail" aria-hidden="true" />
         {downed ? <DownedOverlay mon={mon} now={now} onRevive={actions.onRevive} /> : null}
         <div className="card-meta">
-          <div className="name-row">
-            <div className="name-group">
-              <DigimonSprite catalogId={mon.catalogId} className="mon-icon" />
-              <div className="name">{mon.nickname}</div>
-            </div>
+<div className="name-row">
+              <div className="name-group">
+                <DigimonSprite catalogId={mon.catalogId} className="mon-icon" variant="portrait" />
+                <div className="name">{mon.nickname}</div>
+              </div>
             <span className="lvl"><span>LV</span> {mon.level}</span>
           </div>
           <div className="xp-track" title={`XP ${Math.max(0, mon.xp - mon.xpFloor)} / ${Math.max(1, mon.xpNext - mon.xpFloor)}`}>

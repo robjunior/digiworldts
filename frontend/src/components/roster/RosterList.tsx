@@ -139,7 +139,7 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
                     event.dataTransfer.setData('text/plain', r.id);
                   }}
                 >
-                  <span className="mug"><DigimonSprite catalogId={r.catalogId} /></span>
+                  <span className="mug"><DigimonSprite catalogId={r.catalogId} variant="portrait" /></span>
                   <span className="who">
                     <span className="nm">{r.nickname}</span>
                     <span className="rn">{template?.name ?? r.catalogId}</span>

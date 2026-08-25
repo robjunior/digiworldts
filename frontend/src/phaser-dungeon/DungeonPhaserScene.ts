@@ -849,7 +849,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     ensureDigimonSpriteLoaded(this, catalogId, (load) => {
       if (load.kind === 'none') return;
       if (this.textures.exists(load.key)) {
-        sprite = this.add.sprite(x, y, load.key);
+        sprite = this.add.sprite(x, y, load.key, load.kind === 'sheet' ? '0' : undefined);
         sprite.setName(`digimon:${catalogId}:${x}:${y}`);
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
@@ -865,11 +865,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
   /** Play the attack pose (frame 3) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonAttack(sprite: Phaser.GameObjects.Sprite): void {
     const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
-    const attackAnim = sheetAttackAnimKey(`skb-${catalogId}`);
+    const attackAnim = sheetAttackAnimKey(catalogId);
     if (sprite.anims.currentAnim?.key !== attackAnim && this.anims.exists(attackAnim)) {
       sprite.play(attackAnim);
       this.time.delayedCall(400, () => {
-        const walkAnim = sheetWalkAnimKey(`skb-${catalogId}`);
+        const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
     }
@@ -878,11 +878,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
   /** Play the take-hit pose (frame 2) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonTakeHit(sprite: Phaser.GameObjects.Sprite): void {
     const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
-    const takeHitAnim = sheetTakeHitAnimKey(`skb-${catalogId}`);
+    const takeHitAnim = sheetTakeHitAnimKey(catalogId);
     if (sprite.anims.currentAnim?.key !== takeHitAnim && this.anims.exists(takeHitAnim)) {
       sprite.play(takeHitAnim);
       this.time.delayedCall(400, () => {
-        const walkAnim = sheetWalkAnimKey(`skb-${catalogId}`);
+        const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
     }

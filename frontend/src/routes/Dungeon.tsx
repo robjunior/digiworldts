@@ -17,9 +17,9 @@ import { getCatalog } from '../lib/api-catalog';
 import { getDialogue } from '../lib/api-dialogues';
 import { getQuests } from '../lib/api-quests';
 import { applyShopItem, getShop } from '../lib/api-shop';
-import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonRunView, DungeonTile, EncounterDigimon, TilesetGrant, UserDungeonRun } from '@digiworld/shared';
+import type { DungeonDoor, DungeonEncounter, DungeonItem, DungeonMoveResponse, DungeonRunView, DungeonTile, EncounterDigimon, TilesetGrant, UserDungeonRun } from '@digiworld/shared';
 import type { TemplateDigimon } from '@digiworld/shared/digimon';
-import { useWsStore } from '../state/wsStore';
+import { useWsStore, registerDungeonMoveResolver } from '../state/wsStore';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -299,11 +299,36 @@ export function Dungeon(): JSX.Element {
   }, [flashToast, navigate, neighborsQuery.data, queryClient]);
 
   const moveMutation = useMutation({
-    mutationFn: async ({ x, y }: { x: number; y: number }) => {
+    mutationFn: async ({ x, y }: { x: number; y: number }): Promise<DungeonMoveResponse> => {
       if (!id) throw new Error('No dungeon id');
-      return moveInDungeon(id, x, y, {
-        party: partyCatalogIds,
-        trail: partyTrail,
+      const dungeonId = id;
+      const doHttp = (): Promise<DungeonMoveResponse> =>
+        moveInDungeon(dungeonId, x, y, { party: partyCatalogIds, trail: partyTrail });
+      if (readyState !== WebSocket.OPEN) return doHttp();
+      const correlationId = crypto.randomUUID();
+      return await new Promise<DungeonMoveResponse>((resolve, reject) => {
+        let settled = false;
+        const guard = window.setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          void doHttp().then(resolve, reject);
+        }, 2500);
+        registerDungeonMoveResolver(
+          correlationId,
+          (result) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(guard);
+            resolve(result);
+          },
+          (error) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(guard);
+            reject(error);
+          },
+        );
+        send({ type: 'dungeon:move', dungeonId, x, y, party: partyCatalogIds, trail: [...partyTrail], correlationId });
       });
     },
     onSuccess: (res, { x, y }) => {

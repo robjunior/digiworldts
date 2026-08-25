@@ -56,6 +56,41 @@ export const LAYER_KINDS = ['liquid', 'floor', 'grass', 'tree', 'wall', 'walls',
 export type LayerKind = (typeof LAYER_KINDS)[number];
 
 /**
+ * Background tile-layer depth ordering for the dungeon renderer.
+ * Tiles within one cell paint lowest-depth-first, so `floor` sits under
+ * `grass` under `tree`/`wall`s; `water` is the topmost terrain kind (drawn
+ * above floor/grass/walls, below party sprites and POI overlays). `liquid`
+ * is intentionally absent so it falls through to `99` via `layerDepth`.
+ *
+ * Kept in `@digiworld/shared` so the renderer, the admin preview, and any
+ * tests share one source of truth (a regression here previously pushed
+ * `liquid` into an invisible underlay).
+ */
+export const LAYER_DEPTH: Readonly<Record<string, number>> = {
+  floor: 0,
+  grass: 1,
+  doors: 2,
+  hidden: 3,
+  decoration: 4,
+  tree: 5,
+  wall: 6,
+  walls: 7,
+  water: 8,
+  pit: 9,
+};
+
+/** Resolve the render depth for a dungeon layer kind. Unknown kinds (and
+ * `liquid`) return `99` — the top of the terrain stack — so they never
+ * disappear under the known kinds. */
+export function layerDepth(kind: LayerKind): number {
+  return LAYER_DEPTH[kind] ?? 99;
+}
+
+/** Alpha applied to `water`/`liquid` tile layers so the terrain bed shows
+ * through — the "transparent tileset" look. */
+export const WATER_ALPHA = 0.7;
+
+/**
  * Layer kinds whose tiles contribute to the walkable mask. `tree`, `wall`,
  * `walls`, `water`, `pit`, `liquid`, and `decoration` are visual overlays or
  * obstacles — the mask omits them so `moveRun` refuses to walk onto them.
