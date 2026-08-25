@@ -8,9 +8,11 @@ export type SpriteRigConfig = {
   readonly slotIndex: number;
   readonly textureUrl: string;
   /**
-   * Treat `textureUrl` as a 2×2 four-frame spritesheet:
-   *   row 0 = WALK cycle (frames 0,1) — always loops,
-   *   row 1 = HIT cycle  (frames 2,3) — played on attack/skill via playAttack().
+   * Treat `textureUrl` as a spritesheet laid out as a 2×2 grid of 32×32 px
+   * frames (a 64×64 image). The top row holds the walk cycle:
+   *   frames 0,1 = WALK cycle — always loops,
+   *   frame  2   = TAKE_HIT (taking a hit / recoil),
+   *   frame  3   = ATTACK   (giving a hit) — played via playAttack().
    * When false (the default), the legacy path applies: a single image / GIF is
    * loaded as one texture (dot.gif portraits, pen sprites, admin previews).
    * Combat passes `isSpritesheet: true`; everything else keeps the old path.
@@ -62,12 +64,12 @@ const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
 // Spritesheet layout: 2 columns × 2 rows, each cell is one 32×32 frame.
-const SHEET_COLS = 2;
-const SHEET_ROWS = 2;
+const SHEET_COLS = 4;
+const SHEET_ROWS = 4;
 // Indices into the flattened cell array (row * cols + col).
-const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle
-const ATTACK_FRAME_INDEX = 3;               // row 1, col 1 = giving hit / attacking
-const TAKE_HIT_FRAME_INDEX = 2;             // row 1, col 0 = taking hit / recoil
+const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
+const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
+const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
@@ -423,7 +425,7 @@ export class SpriteRig implements SpriteRigApi {
     img.src = url;
   }
 
-  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
+/** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
   private drawSheetFrame(sheet: SheetState, cell: number): void {
     const cellW = sheet.canvas.width / SHEET_COLS;
     const cellH = sheet.canvas.height / SHEET_ROWS;

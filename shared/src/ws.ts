@@ -11,6 +11,7 @@
  */
 
 import type { Action, BattleEvent, BattleOutcome, BattleView } from './battle.js';
+import type { DungeonMoveResponse } from './dungeon.js';
 import type { WeatherConfig } from './weather.js';
 
 // ============================================================================
@@ -62,7 +63,16 @@ export type WSClientMessage =
       party: string[];
       trail: { x: number; y: number }[];
     }
-  | { type: 'dungeon:leave' };
+  | { type: 'dungeon:leave' }
+  | {
+      type: 'dungeon:move';
+      correlationId: string;
+      dungeonId: string;
+      x: number;
+      y: number;
+      party?: string[];
+      trail?: { x: number; y: number }[];
+    };
 
 // ============================================================================
 // Server → Client
@@ -177,6 +187,8 @@ export type WSServerMessage =
   | { type: 'dungeon:players'; dungeonId: string; players: DungeonRemotePlayer[] }
   | { type: 'dungeon:player-update'; dungeonId: string; player: DungeonRemotePlayer }
   | { type: 'dungeon:player-left'; userId: string; dungeonId?: string }
+  | { type: 'dungeon:move-result'; correlationId: string; result: DungeonMoveResponse }
+  | { type: 'dungeon:move-error'; correlationId: string; code: WSErrorCode; message: string }
   | { type: 'pvp:invite'; inviteId: string; fromUserId: string; fromName: string; dungeonId: string }
   | { type: 'pvp:invite-declined'; inviteId: string; fromName: string }
   | { type: 'pvp:invite-expired'; inviteId: string }

@@ -1,4 +1,5 @@
 import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import type { DungeonMoveResponse } from '@digiworld/shared';
 import type { DungeonRemotePlayer, PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
@@ -68,6 +69,22 @@ type WsState = {
 };
 
 const MAX_LOG_MESSAGES = 200;
+
+// Correlated dungeon-move replies (server → client) keyed by the client-issued
+// correlationId. The Dungeon route awaits these instead of round-tripping HTTP.
+type DungeonMoveResolver = {
+  readonly resolve: (result: DungeonMoveResponse) => void;
+  readonly reject: (error: Error) => void;
+};
+const pendingDungeonMoves = new Map<string, DungeonMoveResolver>();
+
+export function registerDungeonMoveResolver(
+  correlationId: string,
+  resolve: (result: DungeonMoveResponse) => void,
+  reject: (error: Error) => void,
+): void {
+  pendingDungeonMoves.set(correlationId, { resolve, reject });
+}
 
 const initialState = {
   presence: [],
@@ -227,6 +244,22 @@ export const useWsStore = create<WsState>((set) => ({
       case 'dungeon:player-left':
         set((state) => ({ dungeonPlayers: state.dungeonPlayers.filter((p) => p.userId !== msg.userId) }));
         return;
+      case 'dungeon:move-result': {
+        const resolver = pendingDungeonMoves.get(msg.correlationId);
+        if (resolver !== undefined) {
+          pendingDungeonMoves.delete(msg.correlationId);
+          resolver.resolve(msg.result);
+        }
+        return;
+      }
+      case 'dungeon:move-error': {
+        const resolver = pendingDungeonMoves.get(msg.correlationId);
+        if (resolver !== undefined) {
+          pendingDungeonMoves.delete(msg.correlationId);
+          resolver.reject(new Error(msg.message));
+        }
+        return;
+      }
       case 'pvp:invite':
         set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName, dungeonId: msg.dungeonId } });
         return;

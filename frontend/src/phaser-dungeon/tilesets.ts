@@ -417,20 +417,30 @@ export function preloadDigimonSheet(scene: Phaser.Scene, catalogId: string): str
 /**
  * Build the sheet's walk + hit anims from the loaded image. Returns false when
  * the texture never landed (caller falls back to the GIF dot path).
+ *
+ * Generated sheets are a 2x2 grid of 32x32 px frames (a 64x64 image). Each
+ * cell is one full digimon frame; slice the cells apart so the digimon renders
+ * as ONE sprite, not a 2x2 block of four. Frame semantics (documented in
+ * scene3d sprite-rig): 0,1 = walk cycle (top row, bob A / bob B); 2 = take-hit
+ * (bottom-left); 3 = attack (bottom-right).
  */
 export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boolean {
   const key = digimonSheetKey(catalogId);
   if (scene.textures.exists(key)) {
     const texture = scene.textures.get(key);
-    const frame0 = texture.get(0);
-    const w = frame0?.width ?? 32;
-    const h = frame0?.height ?? 32;
-    const cellW = Math.floor(w / 2);
-    const cellH = Math.floor(h / 2);
-    for (let row = 0; row < 2; row++) {
-      for (let col = 0; col < 2; col++) {
-        const idx = String(row * 2 + col);
-        if (!texture.has(idx)) texture.add(idx, 0, col * cellW, row * cellH, cellW, cellH);
+    const src = texture.getSourceImage() as { width?: number; height?: number };
+    const w = src?.width ?? 64;
+    const h = src?.height ?? 64;
+    const FRAME = 16;
+    const cols = Math.max(1, Math.floor(w / FRAME));
+    const rows = Math.max(1, Math.floor(h / FRAME));
+    const cellW = Math.floor(w / cols);
+    const cellH = Math.floor(h / rows);
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const idx = String(row * cols + col);
+        const frameY = row * cellH;
+        if (!texture.has(idx)) texture.add(idx, 0, col * cellW, frameY, cellW, cellH);
       }
     }
     if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {

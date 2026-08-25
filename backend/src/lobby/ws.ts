@@ -52,9 +52,13 @@ import {
   refreshDungeonPresence,
   removeDungeonPresence,
   setDungeonPresence,
+  announceDungeonMove,
 } from '../dungeons/presence.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
+import { moveRun } from '../dungeons/repo.js';
+import { hasActivePveBattle } from '../world/pve-battle.js';
+import type { DungeonMoveResponse } from '@digiworld/shared';
 
 const PRESENCE_INTERVAL_MS = 3_000;
 const PRESENCE_TTL_SEC = 30;
@@ -153,8 +157,17 @@ const DungeonJoinSchema = z.object({
   trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
 });
 const DungeonLeaveSchema = z.object({ type: z.literal('dungeon:leave') });
+const DungeonMoveSchema = z.object({
+  type: z.literal('dungeon:move'),
+  correlationId: z.string().min(1).max(64),
+  dungeonId: z.string().min(1).max(64),
+  x: z.number().int().min(0).max(9999),
+  y: z.number().int().min(0).max(9999),
+  party: z.array(z.string().min(1).max(64)).max(3).optional(),
+  trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
+});
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema, DungeonMoveSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -420,6 +433,55 @@ const handleDungeonLeave: Handler = async (entry) => {
   await leaveDungeon(entry);
 };
 
+const handleDungeonMove: Handler = async (entry, msg) => {
+  if (msg.type !== 'dungeon:move') return;
+  if (entry.dungeonScope === null) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'bad-message', message: 'Not in a dungeon.' });
+    return;
+  }
+  const scope = await dungeonPresenceScope(msg.dungeonId);
+  if (scope === null || scope !== entry.dungeonScope) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'bad-message', message: 'Dungeon mismatch.' });
+    return;
+  }
+  if (hasActivePveBattle(entry.userId)) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'battle-in-progress', message: 'Resolve your active battle first.' });
+    return;
+  }
+  const moved = await moveRun(entry.userId, msg.dungeonId, msg.x, msg.y);
+  switch (moved.kind) {
+    case 'not-found':
+      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-found', message: 'Dungeon not found.' });
+      return;
+    case 'blocked':
+      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-walkable', message: 'Not walkable.' });
+      return;
+    case 'not-adjacent':
+      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-adjacent', message: 'Not adjacent.' });
+      return;
+    case 'blocked-by-door':
+      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result: { run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId } });
+      return;
+    case 'blocked-by-chest':
+      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result: { run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId } });
+      return;
+    case 'ok': {
+      await announceDungeonMove(entry.userId, entry.displayName, msg.dungeonId, msg.x, msg.y, moved.warpToDungeonId ?? null, msg.party ?? [], msg.trail ?? []);
+      const result: DungeonMoveResponse = {
+        run: moved.run,
+        triggeredEncounterId: moved.triggeredEncounterId,
+        pickedUpItemId: moved.pickedUpItemId,
+        ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}),
+        ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}),
+        ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}),
+        ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}),
+      };
+      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result });
+      return;
+    }
+  }
+};
+
 const handleChat: Handler = async (entry, msg) => {
   if (msg.type !== 'chat') return;
   const now = Date.now();
@@ -626,6 +688,7 @@ const dispatcher: Record<IncomingMessage['type'], Handler> = {
   spectate: handleSpectate,
   'dungeon:join': handleDungeonJoin,
   'dungeon:leave': handleDungeonLeave,
+  'dungeon:move': handleDungeonMove,
   'pvp:invite': handlePvpInvite,
   'pvp:response': handlePvpResponse,
 };
