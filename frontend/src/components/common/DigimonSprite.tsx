@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 
 import {
   unitSpriteSheetUrl,
@@ -22,6 +22,10 @@ const SHEET_ROWS = 2;
 const CELL_W = 32;
 /** Height of one cell in pixels (sheet 64 / 2 rows = 32). */
 const CELL_H = 32;
+/** Hard cap on the number of cached frame promises. LRU evicts the oldest. */
+const MAX_CACHE_SIZE = 500;
+/** Max trimmed output side in px; guards against pathological huge sprites. */
+const MAX_SPRITE_SIZE = 512;
 
 type DigimonSpriteVariant = "sprite" | "portrait";
 
@@ -81,9 +85,12 @@ function trimCenterExport(
   let minY = sh;
   let maxX = -1;
   let maxY = -1;
+  let hasPixels = false;
   for (let y = 0; y < sh; y += 1) {
     for (let x = 0; x < sw; x += 1) {
-      if ((pixels[(y * sw + x) * 4 + 3] ?? 0) >= ALPHA_MIN) {
+      const alpha = pixels[(y * sw + x) * 4 + 3] ?? 0;
+      if (alpha >= ALPHA_MIN) {
+        hasPixels = true;
         if (x < minX) minX = x;
         if (y < minY) minY = y;
         if (x > maxX) maxX = x;
@@ -91,11 +98,17 @@ function trimCenterExport(
       }
     }
   }
-  if (maxX < 0) return null;
+  if (!hasPixels) return null;
 
   const boxW = maxX - minX + 1;
   const boxH = maxY - minY + 1;
   const side = Math.max(boxW, boxH) + PAD_PX * 2;
+  if (side > MAX_SPRITE_SIZE) {
+    console.warn(
+      `DigimonSprite: trimmed sprite exceeded max size (${side}px > ${MAX_SPRITE_SIZE}px); skipping export`,
+    );
+    return null;
+  }
 
   const out = document.createElement("canvas");
   out.width = side;
@@ -127,19 +140,36 @@ async function extractSingleFrame(
     const cellY = Math.floor(frameIndex / SHEET_COLS) * CELL_H;
     return trimCenterExport(img, cellX, cellY, CELL_W, CELL_H);
   } catch {
-    /* sheet missing too */
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[DigimonSprite] Failed to load ${catalogId} frame ${frameIndex}`,
+      );
+    }
   }
   return null;
 }
 
-/** catalogId → extracted-frame promise; shared across every mounted instance. */
+/** catalogId:frameIndex → extracted-frame promise; shared across every mounted instance. */
 const frameCache = new Map<string, Promise<string | null>>();
 
 function frameFor(catalogId: string, frameIndex = 0): Promise<string | null> {
-  const existing = frameCache.get(catalogId);
-  if (existing !== undefined) return existing;
+  const key = `${catalogId}:${frameIndex}`;
+  const existing = frameCache.get(key);
+  if (existing !== undefined) {
+    // LRU touch: move to most-recently-used end.
+    frameCache.delete(key);
+    frameCache.set(key, existing);
+    return existing;
+  }
+
+  // Evict oldest entry when over capacity.
+  if (frameCache.size >= MAX_CACHE_SIZE) {
+    const oldest = frameCache.keys().next().value;
+    if (oldest !== undefined) frameCache.delete(oldest);
+  }
+
   const created = extractSingleFrame(catalogId, frameIndex);
-  frameCache.set(catalogId, created);
+  frameCache.set(key, created);
   return created;
 }
 
@@ -153,7 +183,7 @@ function frameFor(catalogId: string, frameIndex = 0): Promise<string | null> {
  *   3. hidden (layout never breaks)
  * - 'portrait' variant passes the full portrait art through untouched.
  */
-export function DigimonSprite({
+export const DigimonSprite = memo(function DigimonSprite({
   catalogId,
   variant = "sprite",
   className,
@@ -197,4 +227,4 @@ useEffect(() => {
       onError={() => setHidden(true)}
     />
   );
-}
+});
