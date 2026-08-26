@@ -34,7 +34,7 @@ type WelcomeState = {
   readonly activeMatches: number;
 };
 
-type WeatherOverrideState = {
+export type WeatherOverrideState = {
   readonly sceneId: string | null;
   readonly matchId: string | null;
   readonly weather: WeatherConfig;
