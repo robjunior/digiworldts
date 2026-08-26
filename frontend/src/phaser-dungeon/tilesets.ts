@@ -431,7 +431,8 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     const src = texture.getSourceImage() as { width?: number; height?: number };
     const w = src?.width ?? 64;
     const h = src?.height ?? 64;
-    const FRAME = 16;
+    // Sheet is a 64x64 image holding 4 frames (2 per row) of 32x32 each.
+    const FRAME = 32;
     const cols = Math.max(1, Math.floor(w / FRAME));
     const rows = Math.max(1, Math.floor(h / FRAME));
     const cellW = Math.floor(w / cols);

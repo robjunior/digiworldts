@@ -18,6 +18,9 @@ export type SpriteRigConfig = {
    * Combat passes `isSpritesheet: true`; everything else keeps the old path.
    */
   readonly isSpritesheet?: boolean;
+  /** When true (default), the walk frames loop automatically (idle bob).
+   *  Combat units pass false so they stand still until an action plays. */
+  readonly idleAnimated?: boolean;
   readonly initiallyDowned?: boolean;
   readonly onClick?: (() => void | undefined) | undefined;
 };
@@ -246,6 +249,7 @@ export class SpriteRig implements SpriteRigApi {
   private onClick: ((unitId: string) => void | undefined) | undefined;
   private facingSign: 1 | -1 = 1;
   private readonly isSpritesheet: boolean;
+  private idleAnimated: boolean;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -257,6 +261,7 @@ export class SpriteRig implements SpriteRigApi {
     this._downed = config.initiallyDowned === true;
     this.onClick = config.onClick ?? undefined;
     this.isSpritesheet = config.isSpritesheet === true;
+    this.idleAnimated = config.idleAnimated !== false;
 
     const placeholder = makePlaceholderTexture();
     this.baseColor = new THREE.Color(0xffffff);
@@ -675,6 +680,7 @@ export class SpriteRig implements SpriteRigApi {
       }
       return;
     }
+    if (!this.idleAnimated) return; // combat units stand still on frame 0
     sheet.walkElapsed += dt * 1000;
     if (sheet.walkElapsed >= WALK_FRAME_MS) {
       sheet.walkElapsed -= WALK_FRAME_MS;
