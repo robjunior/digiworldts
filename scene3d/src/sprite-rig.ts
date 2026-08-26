@@ -1,6 +1,6 @@
-import * as THREE from "three";
+import * as THREE from 'three';
 
-export type SpriteSide = "you" | "opp";
+export type SpriteSide = 'you' | 'opp';
 
 export type SpriteRigConfig = {
   readonly unitId: string;
@@ -40,11 +40,7 @@ export type SpriteRigApi = {
   update(dt: number, elapsedS: number, cameraQuat: THREE.Quaternion): void;
   playAttack(): void;
   playHit(): void;
-  illuminate(
-    color: THREE.Color | number,
-    intensity: number,
-    decayPerSec?: number,
-  ): void;
+  illuminate(color: THREE.Color | number, intensity: number, decayPerSec?: number): void;
   setDowned(down: boolean): void;
   setTextureUrl(url: string): void;
   setArenaBaselineY(y: number): void;
@@ -68,12 +64,12 @@ const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
 // Spritesheet layout: 2 columns × 2 rows, each cell is one 32×32 frame.
-const SHEET_COLS = 2;
-const SHEET_ROWS = 2;
+const SHEET_COLS = 4;
+const SHEET_ROWS = 4;
 // Indices into the flattened cell array (row * cols + col).
 const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
-const ATTACK_FRAME_INDEX = 3; // bottom-right = giving hit / attacking
-const TAKE_HIT_FRAME_INDEX = 2; // bottom-left = taking hit / recoil
+const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
+const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
@@ -81,24 +77,20 @@ export const FORMATION_SLOT_Z_SPACING = 2.4;
 let gifCacheContainer: HTMLDivElement | null = null;
 function ensureGifCache(): HTMLDivElement {
   if (gifCacheContainer !== null) return gifCacheContainer;
-  if (typeof document === "undefined") {
-    throw new Error("sprite-rig: gif cache requires a document");
+  if (typeof document === 'undefined') {
+    throw new Error('sprite-rig: gif cache requires a document');
   }
-  const div = document.createElement("div");
-  div.setAttribute("aria-hidden", "true");
-  div.setAttribute("data-role", "c3d-gif-cache");
-  div.style.cssText =
-    "position:fixed;top:0;left:0;pointer-events:none;opacity:0;z-index:-1;contain:layout paint;";
+  const div = document.createElement('div');
+  div.setAttribute('aria-hidden', 'true');
+  div.setAttribute('data-role', 'c3d-gif-cache');
+  div.style.cssText = 'position:fixed;top:0;left:0;pointer-events:none;opacity:0;z-index:-1;contain:layout paint;';
   document.body.appendChild(div);
   gifCacheContainer = div;
   return div;
 }
 
-export function slotWorldPosition(
-  side: SpriteSide,
-  slotIndex: number,
-): THREE.Vector3 {
-  const sign = side === "you" ? -1 : 1;
+export function slotWorldPosition(side: SpriteSide, slotIndex: number): THREE.Vector3 {
+  const sign = side === 'you' ? -1 : 1;
   const x = sign * FORMATION_SIDE_X;
   const z = (slotIndex - 1) * FORMATION_SLOT_Z_SPACING;
   return new THREE.Vector3(x, SPRITE_MAX_DIMENSION / 2 + GROUND_Y, z);
@@ -106,24 +98,17 @@ export function slotWorldPosition(
 
 function makeShadowTexture(): THREE.CanvasTexture {
   const size = 64;
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (ctx === null) {
-    throw new Error("sprite-rig: 2d context unavailable for shadow texture");
+    throw new Error('sprite-rig: 2d context unavailable for shadow texture');
   }
-  const grd = ctx.createRadialGradient(
-    size / 2,
-    size / 2,
-    2,
-    size / 2,
-    size / 2,
-    size / 2 - 2,
-  );
-  grd.addColorStop(0, "rgba(10,14,22,0.55)");
-  grd.addColorStop(0.6, "rgba(10,14,22,0.28)");
-  grd.addColorStop(1, "rgba(10,14,22,0)");
+  const grd = ctx.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, size / 2 - 2);
+  grd.addColorStop(0, 'rgba(10,14,22,0.55)');
+  grd.addColorStop(0.6, 'rgba(10,14,22,0.28)');
+  grd.addColorStop(1, 'rgba(10,14,22,0)');
   ctx.fillStyle = grd;
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2 - 2, 0, Math.PI * 2);
@@ -140,17 +125,15 @@ function shadowTexture(): THREE.CanvasTexture {
 }
 
 function makePlaceholderTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = 32;
   canvas.height = 40;
-  const ctx = canvas.getContext("2d");
+  const ctx = canvas.getContext('2d');
   if (ctx === null) {
-    throw new Error(
-      "sprite-rig: 2d context unavailable for placeholder texture",
-    );
+    throw new Error('sprite-rig: 2d context unavailable for placeholder texture');
   }
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = "#8faad0";
+  ctx.fillStyle = '#8faad0';
   ctx.fillRect(8, 14, 16, 20);
   ctx.fillRect(10, 4, 12, 12);
   ctx.fillRect(9, 34, 5, 4);
@@ -178,7 +161,7 @@ type GifState = {
   fallbackImg: HTMLImageElement | null;
 };
 
-type AnimState = { type: "attack" | "hit"; t: number; dur: number };
+type AnimState = { type: 'attack' | 'hit'; t: number; dur: number };
 
 type IlluminationState = {
   readonly color: THREE.Color;
@@ -186,9 +169,9 @@ type IlluminationState = {
   decayPerSec: number;
 };
 
-const SPRITE_SHEET_SERVER_PREFIX = "/assets/sprites/";
-const SPRITE_SHEET_STATIC_PREFIX = "/assets/sprites-static/";
-const SKULLBOT_DOT_PREFIX = "/assets/digimon/";
+const SPRITE_SHEET_SERVER_PREFIX = '/assets/sprites/';
+const SPRITE_SHEET_STATIC_PREFIX = '/assets/sprites-static/';
+const SKULLBOT_DOT_PREFIX = '/assets/digimon/';
 
 /**
  * Resolve the 2×2 four-frame sprite-sheet URL for a digimon (walk row + hit row).
@@ -197,7 +180,7 @@ const SKULLBOT_DOT_PREFIX = "/assets/digimon/";
  * The rig (and the 2D/Phaser consumers) fall back to dot.gif on a 404.
  */
 export function unitSpriteSheetUrl(templateId: string): string {
-  const numeric = templateId.replace(/^skb-/, "");
+  const numeric = templateId.replace(/^skb-/, '');
   return `${SPRITE_SHEET_SERVER_PREFIX}${numeric}.png`;
 }
 
@@ -208,7 +191,7 @@ export function unitSpriteSheetUrl(templateId: string): string {
  * legacy `dot.gif`. Falls back to dot.gif when the cell is missing.
  */
 export function unitSpriteStaticUrl(templateId: string): string {
-  const numeric = templateId.replace(/^skb-/, "");
+  const numeric = templateId.replace(/^skb-/, '');
   return `${SPRITE_SHEET_STATIC_PREFIX}${numeric}.png`;
 }
 
@@ -249,10 +232,7 @@ export class SpriteRig implements SpriteRigApi {
   private readonly mat: THREE.MeshBasicMaterial;
   private readonly baseColor: THREE.Color;
   private readonly basePosition: THREE.Vector3;
-  private readonly baseScale: THREE.Vector2 = new THREE.Vector2(
-    SPRITE_MAX_DIMENSION,
-    SPRITE_MAX_DIMENSION,
-  );
+  private readonly baseScale: THREE.Vector2 = new THREE.Vector2(SPRITE_MAX_DIMENSION, SPRITE_MAX_DIMENSION);
   /** Same object as `baseScale`, surfaced read-only through `SpriteRigApi`. */
   readonly spriteSize: THREE.Vector2 = this.baseScale;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
@@ -309,17 +289,10 @@ export class SpriteRig implements SpriteRigApi {
       depthWrite: false,
       opacity: 0.9,
     });
-    const shadowGeometry = new THREE.PlaneGeometry(
-      SHADOW_MAX_WIDTH,
-      SHADOW_MAX_WIDTH,
-    );
+    const shadowGeometry = new THREE.PlaneGeometry(SHADOW_MAX_WIDTH, SHADOW_MAX_WIDTH);
     this.shadow = new THREE.Mesh(shadowGeometry, shadowMat);
     this.shadow.rotation.x = -Math.PI / 2;
-    this.shadow.position.set(
-      this.basePosition.x,
-      GROUND_Y,
-      this.basePosition.z,
-    );
+    this.shadow.position.set(this.basePosition.x, GROUND_Y, this.basePosition.z);
     this.scene.add(this.shadow);
 
     if (this.downed) {
@@ -336,7 +309,7 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private applyFacingFlip(texture: THREE.Texture): void {
-    if (this.side !== "you") return;
+    if (this.side !== 'you') return;
     texture.wrapS = THREE.RepeatWrapping;
     texture.repeat.x = -1;
     texture.offset.x = 1;
@@ -355,8 +328,7 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private syncDepthMap(): void {
-    const depth = this.mesh.customDepthMaterial as
-      THREE.MeshDepthMaterial | undefined;
+    const depth = this.mesh.customDepthMaterial as THREE.MeshDepthMaterial | undefined;
     if (depth === undefined) return;
     if (depth.map !== this.mat.map) {
       depth.map = this.mat.map;
@@ -388,13 +360,8 @@ export class SpriteRig implements SpriteRigApi {
       this.mat.needsUpdate = true;
       this.syncDepthMap();
       previous?.dispose();
-      const image = tex.image as
-        { width?: number; height?: number } | undefined;
-      if (
-        image &&
-        typeof image.width === "number" &&
-        typeof image.height === "number"
-      ) {
+      const image = tex.image as { width?: number; height?: number } | undefined;
+      if (image && typeof image.width === 'number' && typeof image.height === 'number') {
         this.applyAspect(image.width, image.height);
       }
       this.analyzeStaticAlphaBbox(tex);
@@ -403,8 +370,8 @@ export class SpriteRig implements SpriteRigApi {
 
   private loadSpritesheet(url: string): void {
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.decoding = "async";
+    img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
     img.onload = () => {
       if (this.disposedFlag) {
         img.remove();
@@ -412,10 +379,10 @@ export class SpriteRig implements SpriteRigApi {
       }
       const w = img.naturalWidth || 64;
       const h = img.naturalHeight || 64;
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx === null) {
         img.remove();
         return;
@@ -458,7 +425,7 @@ export class SpriteRig implements SpriteRigApi {
     img.src = url;
   }
 
-  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
+/** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
   private drawSheetFrame(sheet: SheetState, cell: number): void {
     const cellW = sheet.canvas.width / SHEET_COLS;
     const cellH = sheet.canvas.height / SHEET_ROWS;
@@ -467,22 +434,12 @@ export class SpriteRig implements SpriteRigApi {
     const sx = col * cellW;
     const sy = row * cellH;
     sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
-    sheet.ctx.drawImage(
-      sheet.image,
-      sx,
-      sy,
-      cellW,
-      cellH,
-      0,
-      0,
-      sheet.canvas.width,
-      sheet.canvas.height,
-    );
+    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, sheet.canvas.width, sheet.canvas.height);
     sheet.texture.needsUpdate = true;
   }
 
   private loadGif(url: string): void {
-    if (typeof globalThis.ImageDecoder !== "undefined") {
+    if (typeof globalThis.ImageDecoder !== 'undefined') {
       this.loadGifViaDecoder(url).catch(() => this.loadGifViaImgFallback(url));
       return;
     }
@@ -490,34 +447,22 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private async loadGifViaDecoder(url: string): Promise<void> {
-    const response = await fetch(url, { credentials: "same-origin" });
+    const response = await fetch(url, { credentials: 'same-origin' });
     if (!response.ok) throw new Error(`gif fetch failed: ${response.status}`);
     const blob = await response.blob();
     if (this.disposedFlag) return;
-    const decoder = new ImageDecoder({
-      data: blob.stream(),
-      type: blob.type || "image/gif",
-    });
+    const decoder = new ImageDecoder({ data: blob.stream(), type: blob.type || 'image/gif' });
     await decoder.tracks.ready;
-    if (this.disposedFlag) {
-      decoder.close();
-      return;
-    }
+    if (this.disposedFlag) { decoder.close(); return; }
     const track = decoder.tracks.selectedTrack;
-    if (track === null) {
-      decoder.close();
-      throw new Error("gif has no track");
-    }
+    if (track === null) { decoder.close(); throw new Error('gif has no track'); }
     const frameCount = Math.max(1, track.frameCount);
     const frames: GifFrame[] = [];
     let w = 0;
     let h = 0;
     for (let i = 0; i < frameCount; i++) {
       const result = await decoder.decode({ frameIndex: i });
-      if (this.disposedFlag) {
-        result.image.close();
-        break;
-      }
+      if (this.disposedFlag) { result.image.close(); break; }
       w = result.image.displayWidth;
       h = result.image.displayHeight;
       const bitmap = await createImageBitmap(result.image);
@@ -527,10 +472,10 @@ export class SpriteRig implements SpriteRigApi {
     }
     decoder.close();
     if (this.disposedFlag || frames.length === 0 || w <= 0 || h <= 0) return;
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (ctx === null) return;
     ctx.imageSmoothingEnabled = false;
     const texture = new THREE.CanvasTexture(canvas);
@@ -547,24 +492,15 @@ export class SpriteRig implements SpriteRigApi {
     ctx.clearRect(0, 0, w, h);
     ctx.drawImage(frames[0]!.bitmap, 0, 0);
     texture.needsUpdate = true;
-    this.gif = {
-      canvas,
-      ctx,
-      texture,
-      frames,
-      currentFrame: 0,
-      elapsedMsInFrame: 0,
-      bboxAnalyzed: false,
-      fallbackImg: null,
-    };
+    this.gif = { canvas, ctx, texture, frames, currentFrame: 0, elapsedMsInFrame: 0, bboxAnalyzed: false, fallbackImg: null };
   }
 
   private loadGifViaImgFallback(url: string): void {
     const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.decoding = "async";
+    img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
     const cache = ensureGifCache();
-    img.style.cssText = "display:block;width:auto;height:auto;";
+    img.style.cssText = 'display:block;width:auto;height:auto;';
     img.onload = () => {
       if (this.disposedFlag) {
         img.remove();
@@ -572,10 +508,10 @@ export class SpriteRig implements SpriteRigApi {
       }
       const cw = img.naturalWidth || 64;
       const ch = img.naturalHeight || 64;
-      const canvas = document.createElement("canvas");
+      const canvas = document.createElement('canvas');
       canvas.width = cw;
       canvas.height = ch;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx === null) return;
       ctx.imageSmoothingEnabled = false;
       const texture = new THREE.CanvasTexture(canvas);
@@ -589,32 +525,22 @@ export class SpriteRig implements SpriteRigApi {
       this.syncDepthMap();
       previous?.dispose();
       this.applyAspect(cw, ch);
-      this.gif = {
-        canvas,
-        ctx,
-        texture,
-        frames: [],
-        currentFrame: 0,
-        elapsedMsInFrame: 0,
-        bboxAnalyzed: false,
-        fallbackImg: img,
-      };
+      this.gif = { canvas, ctx, texture, frames: [], currentFrame: 0, elapsedMsInFrame: 0, bboxAnalyzed: false, fallbackImg: img };
     };
     cache.appendChild(img);
     img.src = url;
   }
 
   private analyzeStaticAlphaBbox(tex: THREE.Texture): void {
-    const image = tex.image as
-      HTMLImageElement | HTMLCanvasElement | ImageBitmap | undefined;
+    const image = tex.image as HTMLImageElement | HTMLCanvasElement | ImageBitmap | undefined;
     if (image === undefined) return;
-    const w = "width" in image ? Number(image.width) : 0;
-    const h = "height" in image ? Number(image.height) : 0;
+    const w = 'width' in image ? Number(image.width) : 0;
+    const h = 'height' in image ? Number(image.height) : 0;
     if (w <= 0 || h <= 0) return;
-    const canvas = document.createElement("canvas");
+    const canvas = document.createElement('canvas');
     canvas.width = w;
     canvas.height = h;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (ctx === null) return;
     try {
       ctx.drawImage(image as CanvasImageSource, 0, 0);
@@ -668,9 +594,7 @@ export class SpriteRig implements SpriteRigApi {
           gif.texture.needsUpdate = true;
           if (!gif.bboxAnalyzed) {
             try {
-              this.applyAlphaBboxFromImageData(
-                gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height),
-              );
+              this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
               gif.bboxAnalyzed = true;
             } catch {
               gif.bboxAnalyzed = true;
@@ -682,9 +606,7 @@ export class SpriteRig implements SpriteRigApi {
         gif.ctx.drawImage(gif.fallbackImg, 0, 0);
         gif.texture.needsUpdate = true;
         try {
-          this.applyAlphaBboxFromImageData(
-            gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height),
-          );
+          this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
         } catch {}
         gif.bboxAnalyzed = true;
       }
@@ -696,11 +618,11 @@ export class SpriteRig implements SpriteRigApi {
     if (this.anim !== null) {
       this.anim.t += dt;
       const p = Math.min(this.anim.t / this.anim.dur, 1);
-      if (this.anim.type === "attack") {
-        const dir = this.side === "you" ? 1 : -1;
+      if (this.anim.type === 'attack') {
+        const dir = this.side === 'you' ? 1 : -1;
         const lunge = Math.sin(p * Math.PI);
         lungeOffset = dir * lunge * ATTACK_LUNGE_UNITS;
-      } else if (this.anim.type === "hit") {
+      } else if (this.anim.type === 'hit') {
         ox = Math.sin(p * Math.PI * 6) * HIT_SHAKE_UNITS * (1 - p);
       }
       if (p >= 1) {
@@ -711,23 +633,11 @@ export class SpriteRig implements SpriteRigApi {
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
     this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(
-      this.baseScale.x * this.facingSign,
-      this.baseScale.y,
-      1,
-    );
+    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y, 1);
 
-    this.worldPosition.set(
-      this.mesh.position.x,
-      this.mesh.position.y,
-      this.mesh.position.z,
-    );
+    this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
-    this.shadow.scale.set(
-      this.shadowWidthUnits / SHADOW_MAX_WIDTH,
-      (this.shadowWidthUnits * SHADOW_DEPTH_RATIO) / SHADOW_MAX_WIDTH,
-      1,
-    );
+    this.shadow.scale.set(this.shadowWidthUnits / SHADOW_MAX_WIDTH, (this.shadowWidthUnits * SHADOW_DEPTH_RATIO) / SHADOW_MAX_WIDTH, 1);
     this.shadow.position.x = this.mesh.position.x;
 
     if (this.illumination !== null) {
@@ -737,9 +647,7 @@ export class SpriteRig implements SpriteRigApi {
         this.mat.color.copy(this.baseColor);
         this.illumination = null;
       } else {
-        this.mat.color
-          .copy(this.baseColor)
-          .lerp(illum.color, Math.min(1, illum.intensity));
+        this.mat.color.copy(this.baseColor).lerp(illum.color, Math.min(1, illum.intensity));
       }
     }
     void elapsedS;
@@ -770,7 +678,7 @@ export class SpriteRig implements SpriteRigApi {
   playAttack(): void {
     if (this.disposedFlag) return;
     // Lunge transform (kept for spatial weight) + the sheet's ATTACK frame (frame 3).
-    this.anim = { type: "attack", t: 0, dur: ATTACK_ANIM_S };
+    this.anim = { type: 'attack', t: 0, dur: ATTACK_ANIM_S };
     if (this.sheet !== null) {
       this.sheet.hitActive = true;
       this.sheet.hitElapsed = 0;
@@ -781,7 +689,7 @@ export class SpriteRig implements SpriteRigApi {
   playHit(): void {
     if (this.disposedFlag) return;
     // Shake-on-take-damage (spatial) + sheet's TAKE_HIT frame (frame 2).
-    this.anim = { type: "hit", t: 0, dur: HIT_ANIM_S };
+    this.anim = { type: 'hit', t: 0, dur: HIT_ANIM_S };
     if (this.sheet !== null) {
       this.sheet.hitActive = true;
       this.sheet.hitElapsed = 0;
@@ -789,14 +697,9 @@ export class SpriteRig implements SpriteRigApi {
     }
   }
 
-  illuminate(
-    color: THREE.Color | number,
-    intensity: number,
-    decayPerSec = 4,
-  ): void {
+  illuminate(color: THREE.Color | number, intensity: number, decayPerSec = 4): void {
     if (this.disposedFlag) return;
-    const c =
-      color instanceof THREE.Color ? color.clone() : new THREE.Color(color);
+    const c = color instanceof THREE.Color ? color.clone() : new THREE.Color(color);
     this.illumination = {
       color: c,
       intensity: Math.max(0, intensity),

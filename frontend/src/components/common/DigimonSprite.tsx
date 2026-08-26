@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 
-import { unitSpriteSheetUrl, unitSpriteStaticUrl } from "@digiworld/scene3d";
+import {
+  unitSpriteSheetUrl,
+  unitSpriteStaticUrl,
+} from "@digiworld/scene3d";
 
 const portraitUrl = (catalogId: string) =>
   `/assets/digimon/${catalogId}/portrait.webp`;
@@ -11,14 +14,14 @@ const ALPHA_MIN = 24;
 const PAD_PX = 1;
 /** Vertical offset applied after centering (positive = move down). Fixes top cropping. */
 const OFFSET_Y = 2;
-/** Number of cells per row in the sprite sheet grid (2×2 of 32px cells). */
-const SHEET_COLS = 2;
-/** Number of cells per column in the sprite sheet grid (2×2 of 32px cells). */
-const SHEET_ROWS = 2;
-/** Width of one cell in pixels (sheet width / SHEET_COLS = 64/2 = 32). */
-const CELL_W = 32;
-/** Height of one cell in pixels (sheet height / SHEET_ROWS = 64/2 = 32). */
-const CELL_H = 32;
+/** Number of cells per row in the sprite sheet grid. */
+const SHEET_COLS = 4;
+/** Number of cells per column in the sprite sheet grid. */
+const SHEET_ROWS = 4;
+/** Width of one cell in pixels (sheet width / SHEET_COLS). */
+const CELL_W = 16;
+/** Height of one cell in pixels (sheet height / SHEET_ROWS). */
+const CELL_H = 16;
 
 type DigimonSpriteVariant = "sprite" | "portrait";
 
@@ -162,7 +165,7 @@ export function DigimonSprite({
   );
   const [hidden, setHidden] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     setHidden(false);
     if (variant === "portrait") {
       setSrc(portraitUrl(catalogId));
