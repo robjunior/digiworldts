@@ -15,6 +15,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { useWsStore } from '../../state/wsStore';
 import { useT } from '../../hooks/useLocale';
 
+/** Opt-in perf HUD: append `?hud=1` to the URL to show FPS/ms/draws/triangles. */
+function hudFromUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const v = new URLSearchParams(window.location.search).get('hud');
+    return v === '1' || v === 'true';
+  } catch {
+    return false;
+  }
+}
+
 const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   plant: 'plant',
   nature: 'plant',
@@ -207,15 +218,20 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           // so the first painted frame is the arena itself.
           manager.startLoop();
           manager.runEntrance();
+          manager.setHud(hudFromUrl());
         })
         .catch((err) => {
           console.warn('arena.load.fail', url, err);
           // Arena failed to load: still run the loop over the default backdrop
           // so the stage renders and combat stays playable.
-          if (!cancelled) manager.startLoop();
+          if (!cancelled) {
+            manager.startLoop();
+            manager.setHud(hudFromUrl());
+          }
         });
     } else {
       manager.startLoop();
+      manager.setHud(hudFromUrl());
     }
     if (!resolution.useGlbSettings) {
       const localKeys = new Set<string>();
