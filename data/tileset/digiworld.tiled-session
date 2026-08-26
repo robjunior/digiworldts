@@ -1,19 +1,56 @@
 {
-    "activeFile": "",
+    "activeFile": "root-directory/rootdirectory.tmx",
     "expandedProjectPaths": [
+        ".",
+        "root-directory"
     ],
     "fileStates": {
+        "everything.tsx": {
+            "scaleInDock": 2,
+            "scaleInEditor": 1
+        },
+        "root-directory/colored.tsx": {
+            "scaleInDock": 3,
+            "scaleInEditor": 1
+        },
+        "root-directory/rootdirectory.tmx": {
+            "scale": 0.5,
+            "selectedLayer": 5,
+            "viewCenter": {
+                "x": 1760,
+                "y": 204
+            }
+        },
+        "root-directory/rootgrove.tmx": {
+            "scale": 0.5,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 960,
+                "y": 204
+            }
+        }
     },
     "last.imagePath": "/mnt/sdc/digiworld/data/tileset",
+    "last.worldFilePath": "/mnt/sdc/digiworld/data/tileset",
+    "loadedWorlds": [
+        "/mnt/sdc/digiworld/data/tileset/world.world",
+        "/mnt/sdc/digiworld/data/tileset/world.world"
+    ],
     "map.height": 50,
     "map.lastUsedFormat": "tmx",
     "map.tileHeight": 16,
     "map.tileWidth": 16,
     "map.width": 50,
     "openFiles": [
+        "root-directory/rootdirectory.tmx",
+        "root-directory/rootgrove.tmx"
     ],
     "project": "digiworld.tiled-project",
     "recentFiles": [
+        "root-directory/rootgrove.tmx",
+        "root-directory/rootdirectory.tmx",
+        "root-directory/colored.tsx",
+        "everything.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {

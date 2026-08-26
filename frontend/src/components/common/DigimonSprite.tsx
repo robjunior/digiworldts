@@ -1,15 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
-import { unitDotUrl, unitSpriteSheetUrl, unitSpriteStaticUrl } from '@digiworld/scene3d';
+import {
+  unitSpriteSheetUrl,
+  unitSpriteStaticUrl,
+} from "@digiworld/scene3d";
 
-const portraitUrl = (catalogId: string) => `/assets/digimon/${catalogId}/portrait.webp`;
+const portraitUrl = (catalogId: string) =>
+  `/assets/digimon/${catalogId}/portrait.webp`;
 
 /** Alpha >= this counts as digimon pixels (mirrors scene3d ALPHA_THRESHOLD). */
 const ALPHA_MIN = 24;
 /** Transparent breathing room around the trimmed silhouette, in px. */
 const PAD_PX = 1;
+/** Vertical offset applied after centering (positive = move down). Fixes top cropping. */
+const OFFSET_Y = 2;
+/** Number of cells per row in the sprite sheet grid. */
+const SHEET_COLS = 4;
+/** Number of cells per column in the sprite sheet grid. */
+const SHEET_ROWS = 4;
+/** Width of one cell in pixels (sheet width / SHEET_COLS). */
+const CELL_W = 16;
+/** Height of one cell in pixels (sheet height / SHEET_ROWS). */
+const CELL_H = 16;
 
-type DigimonSpriteVariant = 'sprite' | 'portrait';
+type DigimonSpriteVariant = "sprite" | "portrait";
 
 type DigimonSpriteProps = {
   /** Catalog id, e.g. `skb-317` (or the integer form `317`). */
@@ -20,6 +34,10 @@ type DigimonSpriteProps = {
   readonly className?: string;
   /** Accessible label; defaults to empty (decorative). */
   readonly alt?: string;
+  /** Frame index into the walk animation cell grid (0-based). Use 0 for static sprites.
+   *   Walk cycles typically use frames 0..3 for a 4-frame animation.
+   *   Defaults to 0 (first cell). */
+  readonly frameIndex?: number;
 };
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -35,6 +53,8 @@ function loadImage(url: string): Promise<HTMLImageElement> {
  * Draw `(sx, sy, sw, sh)` from `img`, trim transparent margins, center the
  * remaining silhouette in a tight square, export as a PNG data URL. Returns
  * null when the canvas is unavailable or the region is fully transparent.
+ * @param sx Source x offset (pixels) - use with sprite sheets to select specific cells
+ * @param sy Source y offset (pixels) - use with sprite sheets to select specific cells
  */
 function trimCenterExport(
   img: HTMLImageElement,
@@ -43,10 +63,10 @@ function trimCenterExport(
   sw: number,
   sh: number,
 ): string | null {
-  const region = document.createElement('canvas');
+  const region = document.createElement("canvas");
   region.width = sw;
   region.height = sh;
-  const rctx = region.getContext('2d', { willReadFrequently: true });
+  const rctx = region.getContext("2d", { willReadFrequently: true });
   if (rctx === null) return null;
   rctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
 
@@ -77,30 +97,35 @@ function trimCenterExport(
   const boxH = maxY - minY + 1;
   const side = Math.max(boxW, boxH) + PAD_PX * 2;
 
-  const out = document.createElement('canvas');
+  const out = document.createElement("canvas");
   out.width = side;
   out.height = side;
-  const octx = out.getContext('2d');
+  const octx = out.getContext("2d");
   if (octx === null) return null;
   octx.imageSmoothingEnabled = false;
   const ox = PAD_PX + Math.floor((side - PAD_PX * 2 - boxW) / 2);
-  const oy = PAD_PX + Math.floor((side - PAD_PX * 2 - boxH) / 2);
+  const oy = PAD_PX + Math.floor((side - PAD_PX * 2 - boxH) / 2) + OFFSET_Y;
   octx.drawImage(region, minX, minY, boxW, boxH, ox, oy, boxW, boxH);
-  return out.toDataURL('image/png');
+  return out.toDataURL("image/png");
 }
 
-async function extractSingleFrame(catalogId: string): Promise<string | null> {
+async function extractSingleFrame(
+  catalogId: string,
+  frameIndex = 0,
+): Promise<string | null> {
   try {
     const img = await loadImage(unitSpriteStaticUrl(catalogId));
-    return trimCenterExport(img, 0, 0, img.naturalWidth, img.naturalHeight);
+    const cellX = (frameIndex % SHEET_COLS) * CELL_W;
+    const cellY = Math.floor(frameIndex / SHEET_COLS) * CELL_H;
+    return trimCenterExport(img, cellX, cellY, CELL_W, CELL_H);
   } catch {
     /* static cell missing — try slicing it off the 2×2 sheet */
   }
   try {
     const img = await loadImage(unitSpriteSheetUrl(catalogId));
-    const w = img.naturalWidth || 64;
-    const h = img.naturalHeight || 64;
-    return trimCenterExport(img, 0, 0, Math.floor(w / 2), Math.floor(h / 2));
+    const cellX = (frameIndex % SHEET_COLS) * CELL_W;
+    const cellY = Math.floor(frameIndex / SHEET_COLS) * CELL_H;
+    return trimCenterExport(img, cellX, cellY, CELL_W, CELL_H);
   } catch {
     /* sheet missing too */
   }
@@ -110,10 +135,10 @@ async function extractSingleFrame(catalogId: string): Promise<string | null> {
 /** catalogId → extracted-frame promise; shared across every mounted instance. */
 const frameCache = new Map<string, Promise<string | null>>();
 
-function frameFor(catalogId: string): Promise<string | null> {
+function frameFor(catalogId: string, frameIndex = 0): Promise<string | null> {
   const existing = frameCache.get(catalogId);
   if (existing !== undefined) return existing;
-  const created = extractSingleFrame(catalogId);
+  const created = extractSingleFrame(catalogId, frameIndex);
   frameCache.set(catalogId, created);
   return created;
 }
@@ -125,36 +150,36 @@ function frameFor(catalogId: string): Promise<string | null> {
  * and centered, regardless of how the source cell was packed:
  *   1. static cell (`/assets/sprites-static/<id>.png`) → trim + center
  *   2. walk cell sliced from the 2×2 sheet (`/assets/sprites/<id>.png`)
- *   3. legacy `dot.gif`
- *   4. hidden (layout never breaks)
+ *   3. hidden (layout never breaks)
  * - 'portrait' variant passes the full portrait art through untouched.
  */
 export function DigimonSprite({
   catalogId,
-  variant = 'sprite',
+  variant = "sprite",
   className,
-  alt = '',
+  alt = "",
+  frameIndex,
 }: DigimonSpriteProps): JSX.Element {
   const [src, setSrc] = useState<string | null>(
-    variant === 'portrait' ? portraitUrl(catalogId) : null,
+    variant === "portrait" ? portraitUrl(catalogId) : null,
   );
   const [hidden, setHidden] = useState(false);
 
-  useEffect(() => {
+useEffect(() => {
     setHidden(false);
-    if (variant === 'portrait') {
+    if (variant === "portrait") {
       setSrc(portraitUrl(catalogId));
       return;
     }
     let alive = true;
     setSrc(null);
-    void frameFor(catalogId).then((url) => {
-      if (alive) setSrc(url ?? unitDotUrl(catalogId));
+    void frameFor(catalogId, frameIndex ?? 0).then((url) => {
+      if (alive) setSrc(url);
     });
     return () => {
       alive = false;
     };
-  }, [catalogId, variant]);
+  }, [catalogId, variant, frameIndex]);
 
   if (hidden || src === null) return <></>;
   return (
@@ -163,19 +188,13 @@ export function DigimonSprite({
       src={src}
       alt={alt}
       style={{
-        width: '100%',
-        height: '100%',
-        objectFit: 'contain',
-        display: 'block',
-        imageRendering: 'pixelated',
+        width: "100%",
+        height: "100%",
+        objectFit: "contain",
+        display: "block",
+        imageRendering: "pixelated",
       }}
-      onError={() => {
-        if (src !== unitDotUrl(catalogId)) {
-          setSrc(unitDotUrl(catalogId));
-          return;
-        }
-        setHidden(true);
-      }}
+      onError={() => setHidden(true)}
     />
   );
 }

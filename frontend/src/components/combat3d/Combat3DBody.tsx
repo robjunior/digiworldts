@@ -172,9 +172,13 @@ export function Combat3DBody(): JSX.Element | null {
 
   const playActionEvent = useCallback((event: BattleView['log'][number], playVfx = true): void => {
     if (event.type !== 'action') return;
+    console.time('playActionEvent');
     const targetId = event.targetId;
     const damage = event.damage;
-    if (targetId === undefined || targetId === null) return;
+    if (targetId === undefined || targetId === null) {
+      console.timeEnd('playActionEvent');
+      return;
+    }
     const yourSide = activeBattle?.yourSide ?? 'a';
     const actorIsFriendly = event.actor !== null && event.actor.startsWith(`${yourSide}:`);
     if (damage !== undefined) {
@@ -188,19 +192,25 @@ export function Combat3DBody(): JSX.Element | null {
     // `playHit` and flashes the target, which would read as a landed hit.
     const isMiss = event.cue === 'miss';
     if (playVfx && !actorIsFriendly && isAnimatedElement(event.skillElement) && !isMiss) {
+      console.time('playEffect');
       sceneRef.current?.playEffect(event.skillElement as AnimatedElement, event.actor, targetId, event.vfxPresetId !== undefined ? { vfxPresetId: event.vfxPresetId } : undefined);
+      console.timeEnd('playEffect');
     }
+    console.timeEnd('playActionEvent');
   }, [activeBattle?.yourSide, spawnFloater]);
 
   const drainEnemyQueue = useCallback((): void => {
+    console.time('drainEnemyQueue');
     const state = enemyPlaybackRef.current;
     const next = state.queue.shift();
     if (next === undefined) {
       state.timer = null;
+      console.timeEnd('drainEnemyQueue');
       return;
     }
     playActionEvent(next.event, next.playVfx);
     state.timer = window.setTimeout(() => drainEnemyQueue(), ATTACK_PROPAGATION_MS);
+    console.timeEnd('drainEnemyQueue');
   }, [playActionEvent]);
 
   useEffect(() => {
@@ -213,6 +223,7 @@ export function Combat3DBody(): JSX.Element | null {
   }, []);
 
   useEffect(() => {
+    console.time('eventProcessing');
     const nextEvents = battleEvents.slice(seenEventCountRef.current);
     const vfxSeen = new Set<string>();
     seenEventCountRef.current = battleEvents.length;
@@ -230,6 +241,7 @@ export function Combat3DBody(): JSX.Element | null {
         enemyPlaybackRef.current.queue.push({ event, playVfx });
       }
     }
+    console.timeEnd('eventProcessing');
     if (enemyPlaybackRef.current.timer === null && enemyPlaybackRef.current.queue.length > 0) {
       drainEnemyQueue();
     }
