@@ -503,6 +503,15 @@ export class SceneManager {
   private lastAppliedPatch: Partial<SceneSettings> = {};
   private applyingReplayFromAtmosphere = false;
 
+  // --- Optional perf HUD (off by default; zero cost when disabled) ---
+  private hudEnabled = false;
+  private hudEl: HTMLDivElement | null = null;
+  private hudAccumS = 0;
+  private hudFrames = 0;
+  private hudLastMs = 0;
+  private hudLastDrawCalls = 0;
+  private hudLastTriangles = 0;
+
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     this.renderer.setClearColor(0x0b1220, 1);
@@ -1527,6 +1536,7 @@ export class SceneManager {
         this.effects.delete(id);
       }
       this.renderer.render(this.scene, this.camera);
+      this.sampleHud(dt);
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
@@ -1535,6 +1545,57 @@ export class SceneManager {
   renderOnce(): void {
     if (this.disposedFlag) return;
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /**
+   * Toggle the on-screen perf HUD (FPS, frame ms, draw calls, triangles).
+   * Off by default. Use `scene.setHud(true)` / `scene.toggleHud()`, or pass
+   * `?hud=1` / `?hud=0` from the host (e.g. the combat3d debug route).
+   * Zero cost when disabled — sampling only runs while enabled.
+   */
+  setHud(on: boolean): void {
+    this.hudEnabled = on;
+    if (!on) {
+      if (this.hudEl !== null) {
+        this.hudEl.remove();
+        this.hudEl = null;
+      }
+      return;
+    }
+    if (this.hudEl === null) {
+      const el = document.createElement('div');
+      el.style.cssText =
+        'position:fixed;left:8px;top:8px;z-index:99999;padding:6px 8px;' +
+        'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#9effa0;' +
+        'background:rgba(0,0,0,0.55);border:1px solid rgba(120,255,140,0.35);' +
+        'border-radius:4px;pointer-events:none;white-space:pre;';
+      document.body.appendChild(el);
+      this.hudEl = el;
+    }
+  }
+
+  toggleHud(): boolean {
+    this.setHud(!this.hudEnabled);
+    return this.hudEnabled;
+  }
+
+  private sampleHud(dt: number): void {
+    if (!this.hudEnabled || this.hudEl === null) return;
+    this.hudFrames += 1;
+    this.hudAccumS += dt;
+    if (this.hudAccumS < 0.5) return;
+    const fps = this.hudFrames / this.hudAccumS;
+    const ms = (this.hudAccumS / this.hudFrames) * 1000;
+    const info = this.renderer.info;
+    this.hudLastMs = ms;
+    this.hudLastDrawCalls = info.render.calls;
+    this.hudLastTriangles = info.render.triangles;
+    this.hudEl.textContent =
+      `FPS ${fps.toFixed(0)}  ${ms.toFixed(1)} ms/frame\n` +
+      `draws ${this.hudLastDrawCalls}  tris ${this.hudLastTriangles.toLocaleString()}\n` +
+      `shadow ${this.renderer.shadowMap.enabled ? this.keyLight.shadow.mapSize.x + '²' : 'off'}`;
+    this.hudFrames = 0;
+    this.hudAccumS = 0;
   }
 
   stopLoop(): void {
