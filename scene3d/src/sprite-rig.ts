@@ -66,9 +66,10 @@ const ALPHA_THRESHOLD = 24;
 const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
-// Spritesheet layout: 2 columns × 2 rows of 16×16 frames (a 32×32 sheet).
-const SHEET_COLS = 2;
-const SHEET_ROWS = 2;
+// Spritesheet layout: 4 columns × 4 rows of 16×16 digimon (a 64×64 sheet).
+// Each 16x16 cell is ONE digimon; rows/cols are animation/facing variants.
+const SHEET_COLS = 4;
+const SHEET_ROWS = 4;
 // Indices into the flattened cell array (row * cols + col).
 const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
 const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
