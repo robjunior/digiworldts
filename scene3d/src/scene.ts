@@ -511,6 +511,7 @@ export class SceneManager {
   private hudLastMs = 0;
   private hudLastDrawCalls = 0;
   private hudLastTriangles = 0;
+  private hudParent: HTMLElement = document.body;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -521,6 +522,10 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    // Anchor the perf HUD into the canvas's parent so it can't be hidden behind
+    // the WebGL canvas or lost inside a transformed/portaled container.
+    if (canvas.parentElement !== null) this.hudParent = canvas.parentElement;
 
     this.scene = new THREE.Scene();
     this.skyTexture = buildSkyTexture();
@@ -576,6 +581,16 @@ export class SceneManager {
     this.scene.add(this.dust);
 
     this.clock = new THREE.Clock();
+
+    // Global escape hatch: `window.__sceneHud()` toggles the perf HUD from the
+    // devtools console, regardless of URL params. Useful when ?hud=1 doesn't
+    // survive a route redirect.
+    try {
+      (window as unknown as { __sceneHud?: () => boolean }).__sceneHud = () =>
+        this.toggleHud();
+    } catch {
+      /* window unavailable — skip */
+    }
   }
 
   private buildDust(count: number): THREE.Points {
@@ -1565,11 +1580,12 @@ export class SceneManager {
     if (this.hudEl === null) {
       const el = document.createElement('div');
       el.style.cssText =
-        'position:fixed;left:8px;top:8px;z-index:99999;padding:6px 8px;' +
+        'position:absolute;left:8px;top:8px;z-index:2147483647;padding:6px 8px;' +
         'font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#9effa0;' +
-        'background:rgba(0,0,0,0.55);border:1px solid rgba(120,255,140,0.35);' +
-        'border-radius:4px;pointer-events:none;white-space:pre;';
-      document.body.appendChild(el);
+        'background:rgba(0,0,0,0.65);border:1px solid rgba(120,255,140,0.45);' +
+        'border-radius:4px;pointer-events:none;white-space:pre;text-align:left;';
+      el.textContent = 'HUD…';
+      this.hudParent.appendChild(el);
       this.hudEl = el;
     }
   }
