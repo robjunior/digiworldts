@@ -352,6 +352,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           slotIndex: placement.slotIndex,
           textureUrl: placement.textureUrl,
           isSpritesheet: true,
+          idleAnimated: false,
           initiallyDowned: placement.down,
           onClick: onClickHandler,
         };
