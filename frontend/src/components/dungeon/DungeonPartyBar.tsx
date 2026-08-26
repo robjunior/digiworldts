@@ -36,6 +36,7 @@ export function DungeonPartyBar({ party, targeting, busy, now, onTarget }: Dunge
       <div className="dp-party-slots">
         {party.map((mon) => {
           const dot = mon.template?.assets?.dot;
+          const portrait = mon.template?.assets?.portrait ?? `/assets/digimon/${mon.catalogId}/portrait.webp`;
           const element = mon.template?.element ?? 'null';
           const stage = mon.template?.stage ?? 'Rookie';
           const isDown = mon.reviveAt !== null && mon.reviveAt > now;
@@ -58,7 +59,7 @@ export function DungeonPartyBar({ party, targeting, busy, now, onTarget }: Dunge
               title={isDown ? `${mon.nickname} — recovering` : targeting ? `Apply to ${mon.nickname}` : mon.nickname}
             >
               <span className="dp-slot-pic">
-                {dot ? <img src={dot} alt="" /> : <span className="dp-slot-q">?</span>}
+                {portrait ? <img src={portrait} alt="" /> : dot ? <img src={dot} alt="" /> : <span className="dp-slot-q">?</span>}
               </span>
               <span className="dp-slot-nm">{mon.nickname}</span>
               <span className="dp-slot-lv">Lv {mon.level}</span>
