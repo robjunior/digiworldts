@@ -62,7 +62,12 @@
     "test:initiative-sign": "tsx test/initiative-sign.mts",
     "test:element-identity": "tsx test/element-identity.mts",
     "seed:export": "tsx src/seed-export/cli.ts",
-    "content:deploy": "tsx src/content-deploy/cli.ts"
+    "content:deploy": "tsx src/content-deploy/cli.ts",
+    "content:refresh": "DB_PATH=data/digiworld.db tsx src/content-deploy/extract-local.ts",
+    "content:bundle": "content/content-bundle.json",
+    "content:validate": "tsx src/content-deploy/cli.ts --validate content/content-bundle.json",
+    "content:diff": "tsx src/content-deploy/cli.ts --diff content/content-bundle.json",
+    "content:xref": "tsx src/content-deploy/xref.ts content/content-bundle.json"
   },
   "dependencies": {
     "@digiworld/shared": "workspace:*",

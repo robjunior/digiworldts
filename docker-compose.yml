@@ -89,6 +89,9 @@ services:
       - ./backend/data/catalog:/app/backend/data/catalog
       # Read-only: sync only reads these, and they are git-versioned source.
       - ./backend/data/dialogues:/app/backend/data/dialogues:ro
+      # Committed content bundle (content/content-bundle.json) — mounted so the
+      # deploy step can run `content:deploy --apply` inside this container.
+      - ./content:/app/backend/content:ro
       - arenadata:/app/frontend/public/assets/arenas
     healthcheck:
       test:
