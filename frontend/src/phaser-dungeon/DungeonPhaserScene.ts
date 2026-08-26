@@ -1294,7 +1294,6 @@ export class DungeonPhaserScene extends Phaser.Scene {
     slotGridX = 0,
     slotGridY = 0,
   ): void {
-    console.time("renderMap");
     const grants = view.tilesets.filter(
       (grant) => !isTextureAbandoned(this.textures, tilesetKey(grant)),
     );
@@ -1732,7 +1731,6 @@ export class DungeonPhaserScene extends Phaser.Scene {
       });
       this.addPoiBadge(poiCell(item.x, item.y), poiRow(item.x, item.y), "I");
     }
-    console.timeEnd("renderMap");
   }
 
   /**

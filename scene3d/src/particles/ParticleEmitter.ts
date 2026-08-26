@@ -209,7 +209,6 @@ export class ParticleEmitter {
   }
 
   tick(dtS: number): void {
-    console.time("ParticleEmitter.tick");
     if (this.disposed) return;
     this.elapsedS += dtS;
 
@@ -327,7 +326,6 @@ export class ParticleEmitter {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.aLifeProgress.needsUpdate = true;
     this.aVelocity.needsUpdate = true;
-    console.timeEnd("ParticleEmitter.tick");
   }
 
   private spawn(i: number): void {
