@@ -1468,7 +1468,6 @@ export class SceneManager {
   startLoop(): void {
     if (this.disposedFlag) return;
     if (this.rafId !== 0) return;
-    console.time('SceneManager.tick');
     const tick = (): void => {
       if (this.disposedFlag) return;
       const dt = this.clock.getDelta();
