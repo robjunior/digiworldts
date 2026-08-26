@@ -379,9 +379,15 @@ export class SpriteRig implements SpriteRigApi {
       }
       const w = img.naturalWidth || 64;
       const h = img.naturalHeight || 64;
+      // Cell size is derived from the SOURCE sheet, independent of the canvas.
+      const cellW = Math.max(1, Math.floor(w / SHEET_COLS));
+      const cellH = Math.max(1, Math.floor(h / SHEET_ROWS));
+      // The texture holds exactly ONE cell (1:1, no upscale). Stretching a 16px
+      // cell into a 64px canvas and using that as the texture is what made
+      // frames look chunky/cropped through alphaTest.
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = cellW;
+      canvas.height = cellH;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx === null) {
         img.remove();
@@ -399,7 +405,7 @@ export class SpriteRig implements SpriteRigApi {
       this.mat.needsUpdate = true;
       this.syncDepthMap();
       previous?.dispose();
-      this.applyAspect(w, h);
+      this.applyAspect(cellW, cellH);
       const sheet: SheetState = {
         canvas,
         ctx,
@@ -413,7 +419,7 @@ export class SpriteRig implements SpriteRigApi {
       this.sheet = sheet;
       this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
       try {
-        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, w, h));
+        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
       } catch {
         /* bbox analysis is best-effort */
       }
@@ -425,16 +431,18 @@ export class SpriteRig implements SpriteRigApi {
     img.src = url;
   }
 
-/** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
+  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas at 1:1. */
   private drawSheetFrame(sheet: SheetState, cell: number): void {
-    const cellW = sheet.canvas.width / SHEET_COLS;
-    const cellH = sheet.canvas.height / SHEET_ROWS;
+    const imgW = sheet.image.naturalWidth || 64;
+    const imgH = sheet.image.naturalHeight || 64;
+    const cellW = Math.max(1, Math.floor(imgW / SHEET_COLS));
+    const cellH = Math.max(1, Math.floor(imgH / SHEET_ROWS));
     const col = cell % SHEET_COLS;
     const row = Math.floor(cell / SHEET_COLS);
     const sx = col * cellW;
     const sy = row * cellH;
     sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
-    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, sheet.canvas.width, sheet.canvas.height);
+    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, cellW, cellH);
     sheet.texture.needsUpdate = true;
   }
 
