@@ -14,13 +14,13 @@ const ALPHA_MIN = 24;
 const PAD_PX = 1;
 /** Vertical offset applied after centering (positive = move down). Fixes top cropping. */
 const OFFSET_Y = 2;
-/** Number of cells per row in the sprite sheet grid. */
-const SHEET_COLS = 4;
-/** Number of cells per column in the sprite sheet grid. */
-const SHEET_ROWS = 4;
-/** Width of one cell in pixels (sheet width / SHEET_COLS). */
+/** Number of cells per row in the sprite sheet grid (2 cols of 16px cells). */
+const SHEET_COLS = 2;
+/** Number of cells per column in the sprite sheet grid (2 rows of 16px cells). */
+const SHEET_ROWS = 2;
+/** Width of one cell in pixels (sheet 32 / 2 cols = 16). */
 const CELL_W = 16;
-/** Height of one cell in pixels (sheet height / SHEET_ROWS). */
+/** Height of one cell in pixels (sheet 32 / 2 rows = 16). */
 const CELL_H = 16;
 
 type DigimonSpriteVariant = "sprite" | "portrait";
