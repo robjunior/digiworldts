@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import * as THREE from "three";
 
 import type {
   ParticleBlending,
@@ -8,7 +8,7 @@ import type {
   ParticleShaderKind,
   ParticleSpawn,
   Vec3Range,
-} from '@digiworld/shared/weather';
+} from "@digiworld/shared/weather";
 
 import {
   createDefaultParticleMaterial,
@@ -19,7 +19,7 @@ import {
   createThunderCoreMaterial,
   createWetSparkMaterial,
   attachUpdater,
-} from './shaders.js';
+} from "./shaders.js";
 
 /**
  * Generic InstancedMesh-based particle emitter driven by a
@@ -77,9 +77,15 @@ export class ParticleEmitter {
     // Clamp capacity — combat-only rendering budget.
     this.capacity = Math.min(Math.max(1, config.maxParticles), 10000);
 
-    this.emissionMode = config.emissionMode ?? 'continuous';
-    this.burstCount = Math.min(Math.max(1, config.burstCount ?? 20), this.capacity);
-    this.totalLifetimeS = config.totalLifetimeMs !== undefined ? config.totalLifetimeMs / 1000 : null;
+    this.emissionMode = config.emissionMode ?? "continuous";
+    this.burstCount = Math.min(
+      Math.max(1, config.burstCount ?? 20),
+      this.capacity,
+    );
+    this.totalLifetimeS =
+      config.totalLifetimeMs !== undefined
+        ? config.totalLifetimeMs / 1000
+        : null;
 
     const geometry = buildInstanceGeometry(config.geometry);
     const material = buildMaterial(config, this.elapsedS);
@@ -94,14 +100,38 @@ export class ParticleEmitter {
     this.velocities = new Float32Array(this.capacity * 3);
     this.rotationSpeeds = new Float32Array(this.capacity);
 
-    this.aStartColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
-    this.aEndColor = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
-    this.aStartSize = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
-    this.aEndSize = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
-    this.aStartOpacity = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
-    this.aEndOpacity = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
-    this.aLifeProgress = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity), 1);
-    this.aVelocity = new THREE.InstancedBufferAttribute(new Float32Array(this.capacity * 3), 3);
+    this.aStartColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity * 3),
+      3,
+    );
+    this.aEndColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity * 3),
+      3,
+    );
+    this.aStartSize = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity),
+      1,
+    );
+    this.aEndSize = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity),
+      1,
+    );
+    this.aStartOpacity = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity),
+      1,
+    );
+    this.aEndOpacity = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity),
+      1,
+    );
+    this.aLifeProgress = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity),
+      1,
+    );
+    this.aVelocity = new THREE.InstancedBufferAttribute(
+      new Float32Array(this.capacity * 3),
+      3,
+    );
     for (const attr of [
       this.aStartColor,
       this.aEndColor,
@@ -113,7 +143,24 @@ export class ParticleEmitter {
       this.aVelocity,
     ]) {
       attr.setUsage(THREE.DynamicDrawUsage);
-      geometry.setAttribute(attr === this.aStartColor ? 'aStartColor' : attr === this.aEndColor ? 'aEndColor' : attr === this.aStartSize ? 'aStartSize' : attr === this.aEndSize ? 'aEndSize' : attr === this.aStartOpacity ? 'aStartOpacity' : attr === this.aEndOpacity ? 'aEndOpacity' : attr === this.aLifeProgress ? 'aLifeProgress' : 'aVelocity', attr);
+      geometry.setAttribute(
+        attr === this.aStartColor
+          ? "aStartColor"
+          : attr === this.aEndColor
+            ? "aEndColor"
+            : attr === this.aStartSize
+              ? "aStartSize"
+              : attr === this.aEndSize
+                ? "aEndSize"
+                : attr === this.aStartOpacity
+                  ? "aStartOpacity"
+                  : attr === this.aEndOpacity
+                    ? "aEndOpacity"
+                    : attr === this.aLifeProgress
+                      ? "aLifeProgress"
+                      : "aVelocity",
+        attr,
+      );
     }
 
     // Hide every instance until spawn touches it.
@@ -121,7 +168,11 @@ export class ParticleEmitter {
       this.ages[i] = -1;
       this.lifetimes[i] = 0;
       this.scaleVec.set(0, 0, 0);
-      this.matrix.compose(this.posVec.set(0, -1000, 0), this.quat.identity(), this.scaleVec);
+      this.matrix.compose(
+        this.posVec.set(0, -1000, 0),
+        this.quat.identity(),
+        this.scaleVec,
+      );
       this.mesh.setMatrixAt(i, this.matrix);
     }
     this.mesh.instanceMatrix.needsUpdate = true;
@@ -158,24 +209,32 @@ export class ParticleEmitter {
   }
 
   tick(dtS: number): void {
+    console.time("ParticleEmitter.tick");
     if (this.disposed) return;
     this.elapsedS += dtS;
 
-    if (this.emissionMode === 'oneshot' && this.totalLifetimeS !== null && this.elapsedS >= this.totalLifetimeS) {
+    if (
+      this.emissionMode === "oneshot" &&
+      this.totalLifetimeS !== null &&
+      this.elapsedS >= this.totalLifetimeS
+    ) {
       this.dispose();
       return;
     }
     const cfg = this.config;
 
     if (this.cameraRef !== null && cfg.spawn.followCamera === true) {
-      this.cameraTargetXZ.set(this.cameraRef.position.x, this.cameraRef.position.z);
+      this.cameraTargetXZ.set(
+        this.cameraRef.position.x,
+        this.cameraRef.position.z,
+      );
     }
 
     // Emission accumulator — mode-dependent.
     //   continuous: steady stream from emissionRate.
     //   burst / oneshot: spawn burstCount at t=0, zero after that.
     let spawnBudget: number;
-    if (this.emissionMode === 'continuous') {
+    if (this.emissionMode === "continuous") {
       this.emissionAcc.value += cfg.emissionRate * dtS;
       spawnBudget = Math.floor(this.emissionAcc.value);
       this.emissionAcc.value -= spawnBudget;
@@ -218,13 +277,18 @@ export class ParticleEmitter {
       const vx = i * 3;
 
       // Integrate velocity → position with gravity + wind + drag.
-      this.velocities[vx] = (this.velocities[vx]! + (gravity[0] + wind[0]) * dtS) * drag;
-      this.velocities[vx + 1] = (this.velocities[vx + 1]! + (gravity[1] + wind[1]) * dtS) * drag;
-      this.velocities[vx + 2] = (this.velocities[vx + 2]! + (gravity[2] + wind[2]) * dtS) * drag;
+      this.velocities[vx] =
+        (this.velocities[vx]! + (gravity[0] + wind[0]) * dtS) * drag;
+      this.velocities[vx + 1] =
+        (this.velocities[vx + 1]! + (gravity[1] + wind[1]) * dtS) * drag;
+      this.velocities[vx + 2] =
+        (this.velocities[vx + 2]! + (gravity[2] + wind[2]) * dtS) * drag;
 
       this.positions[px] = this.positions[px]! + this.velocities[vx]! * dtS;
-      this.positions[px + 1] = this.positions[px + 1]! + this.velocities[vx + 1]! * dtS;
-      this.positions[px + 2] = this.positions[px + 2]! + this.velocities[vx + 2]! * dtS;
+      this.positions[px + 1] =
+        this.positions[px + 1]! + this.velocities[vx + 1]! * dtS;
+      this.positions[px + 2] =
+        this.positions[px + 2]! + this.velocities[vx + 2]! * dtS;
 
       // Ground collision + bounce (hail).
       if (cfg.collideGround === true && this.positions[px + 1]! < groundY) {
@@ -249,7 +313,11 @@ export class ParticleEmitter {
       const size = startSize + (endSize - startSize) * progress;
       const rot = this.rotationSpeeds[i]! * age;
 
-      this.posVec.set(this.positions[px]!, this.positions[px + 1]!, this.positions[px + 2]!);
+      this.posVec.set(
+        this.positions[px]!,
+        this.positions[px + 1]!,
+        this.positions[px + 2]!,
+      );
       this.quat.setFromAxisAngle(AXIS_Y, rot);
       this.scaleVec.setScalar(size);
       this.matrix.compose(this.posVec, this.quat, this.scaleVec);
@@ -259,6 +327,7 @@ export class ParticleEmitter {
     this.mesh.instanceMatrix.needsUpdate = true;
     this.aLifeProgress.needsUpdate = true;
     this.aVelocity.needsUpdate = true;
+    console.timeEnd("ParticleEmitter.tick");
   }
 
   private spawn(i: number): void {
@@ -269,7 +338,12 @@ export class ParticleEmitter {
 
     // Position — sample spawn shape.
     const px = i * 3;
-    samplePosition(cfg.spawn, this.posVec, this.cameraTargetXZ, cfg.spawn.followCamera === true);
+    samplePosition(
+      cfg.spawn,
+      this.posVec,
+      this.cameraTargetXZ,
+      cfg.spawn.followCamera === true,
+    );
     if (this.useSpawnOverride) {
       this.posVec.x += this.spawnCenterOverride.x - cfg.spawn.center[0];
       this.posVec.y += this.spawnCenterOverride.y - cfg.spawn.center[1];
@@ -315,7 +389,11 @@ export class ParticleEmitter {
 
   private hideInstance(i: number): void {
     this.scaleVec.set(0, 0, 0);
-    this.matrix.compose(this.posVec.set(0, -1000, 0), this.quat.identity(), this.scaleVec);
+    this.matrix.compose(
+      this.posVec.set(0, -1000, 0),
+      this.quat.identity(),
+      this.scaleVec,
+    );
     this.mesh.setMatrixAt(i, this.matrix);
   }
 
@@ -326,8 +404,9 @@ export class ParticleEmitter {
    */
   hasFinished(): boolean {
     if (this.disposed) return true;
-    if (this.emissionMode === 'continuous') return false;
-    if (this.totalLifetimeS !== null && this.elapsedS >= this.totalLifetimeS) return true;
+    if (this.emissionMode === "continuous") return false;
+    if (this.totalLifetimeS !== null && this.elapsedS >= this.totalLifetimeS)
+      return true;
     if (!this.burstFired) return false;
     for (let i = 0; i < this.capacity; i += 1) {
       if (this.ages[i]! >= 0) return false;
@@ -350,19 +429,22 @@ const AXIS_Y = new THREE.Vector3(0, 1, 0);
 
 function buildInstanceGeometry(kind: ParticleGeometry): THREE.BufferGeometry {
   switch (kind) {
-    case 'sphere':
+    case "sphere":
       return new THREE.SphereGeometry(0.5, 8, 6);
-    case 'cube':
+    case "cube":
       return new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    case 'streak':
-    case 'plane':
-    case 'quad':
+    case "streak":
+    case "plane":
+    case "quad":
     default:
       return new THREE.PlaneGeometry(1, 1, 1, 1);
   }
 }
 
-function buildMaterial(cfg: ParticleEmitterConfig, elapsedS: number): THREE.ShaderMaterial {
+function buildMaterial(
+  cfg: ParticleEmitterConfig,
+  elapsedS: number,
+): THREE.ShaderMaterial {
   const opts = {
     color: cfg.startColor,
     opacity: cfg.startOpacity,
@@ -382,7 +464,10 @@ function buildMaterial(cfg: ParticleEmitterConfig, elapsedS: number): THREE.Shad
   return material;
 }
 
-const SHADER_FACTORIES: Record<ParticleShaderKind, (opts: ShaderFactoryOpts) => THREE.ShaderMaterial> = {
+const SHADER_FACTORIES: Record<
+  ParticleShaderKind,
+  (opts: ShaderFactoryOpts) => THREE.ShaderMaterial
+> = {
   default: createDefaultParticleMaterial,
   rainStreak: createRainStreakMaterial,
   wetSpark: createWetSparkMaterial,
@@ -422,14 +507,14 @@ function samplePosition(
   let y = 0;
   let z = 0;
   switch (spawn.shape) {
-    case 'point':
+    case "point":
       break;
-    case 'box':
+    case "box":
       x = (Math.random() * 2 - 1) * sx;
       y = (Math.random() * 2 - 1) * sy;
       z = (Math.random() * 2 - 1) * sz;
       break;
-    case 'disc': {
+    case "disc": {
       const r = Math.sqrt(Math.random()) * sx;
       const a = Math.random() * Math.PI * 2;
       x = Math.cos(a) * r;
@@ -437,7 +522,7 @@ function samplePosition(
       y = (Math.random() * 2 - 1) * sy;
       break;
     }
-    case 'sphere': {
+    case "sphere": {
       const u = Math.random();
       const v = Math.random();
       const theta = 2 * Math.PI * u;
@@ -448,7 +533,7 @@ function samplePosition(
       z = r * Math.cos(phi);
       break;
     }
-    case 'cone': {
+    case "cone": {
       const r = Math.sqrt(Math.random()) * sx;
       const a = Math.random() * Math.PI * 2;
       x = Math.cos(a) * r;
@@ -464,7 +549,11 @@ function samplePosition(
   out.set(x + cx, y + cy, z + cz);
 }
 
-function setHexToVec3(hex: number, arr: ArrayLike<number> & { [i: number]: number }, offset: number): void {
+function setHexToVec3(
+  hex: number,
+  arr: ArrayLike<number> & { [i: number]: number },
+  offset: number,
+): void {
   const r = ((hex >> 16) & 0xff) / 255;
   const g = ((hex >> 8) & 0xff) / 255;
   const b = (hex & 0xff) / 255;
