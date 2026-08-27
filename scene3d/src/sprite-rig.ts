@@ -73,17 +73,12 @@ const BREATHE_HZ = 0.5;          // breaths per second
 const BREATHE_SCALE_AMP = 0.03;   // ±3% height
 const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 
-// Spritesheet layout: 2 columns × 2 rows of equal frames (a 64×64 image with
-// 32×32 cells, or a 32×32 image with 16×16 cells — the cell size is derived
-// from the sheet's actual dimensions). Each frame is authored as ONE solid color
-// (the user's sprite convention: 4 frames = 4 colors, xadrez-color/black per
-// cell), so the WALK cycle must step through ALL FOUR frames to show the full
-// color cycle. ATTACK (frame 3) / TAKE_HIT (frame 2) are still reachable as
-// single-frame poses by the combat rig (playAttack/playHit).
+// Spritesheet layout: 2 columns × 2 rows of 32×32 frames (a 64×64 image).
+// Frame 1=top-left, 2=top-right, 3=bottom-left, 4=bottom-right.
 const SHEET_COLS = 2;
 const SHEET_ROWS = 2;
 // Indices into the flattened cell array (row * cols + col).
-const WALK_FRAME_INDICES = [0, 1, 2, 3] as const; // full 4-color walk cycle
+const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
 const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
 const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 

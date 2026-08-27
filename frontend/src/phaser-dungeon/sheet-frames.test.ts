@@ -36,7 +36,7 @@ function check(label: string, cond: boolean) {
   check("32x32: frame1 at (16,0,16,16)", at(1).x === 16 && at(1).y === 0 && at(1).w === 16 && at(1).h === 16);
   check("32x32: frame2 (take-hit) at (0,16,16,16)", at(2).x === 0 && at(2).y === 16 && at(2).w === 16 && at(2).h === 16);
   check("32x32: frame3 (attack) at (16,16,16,16)", at(3).x === 16 && at(3).y === 16 && at(3).w === 16 && at(3).h === 16);
-  check("32x32: walk cycle = full 4-color [0,1,2,3]", L.walkFrameIndices.join(",") === "0,1,2,3");
+  check("32x32: walk cycle = top row [0,1]", L.walkFrameIndices.join(",") === "0,1");
   check("32x32: takeHit index = 2", L.takeHitFrameIndex === 2);
   check("32x32: attack index = 3", L.attackFrameIndex === 3);
 }

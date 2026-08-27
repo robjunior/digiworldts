@@ -39,28 +39,20 @@ status.
   cell 0 em (0,0,16,16), walk→cell 1, attack→cell 3.
 - `pnpm run typecheck` passa em todos os pacotes.
 
-## Convenção do teu sprite: 4 cores, 1 por frame
-O sprite de teste `data/sprites/dot000.PNG` é **32×32, 4 células 16×16, cada
-célula UMA cor** (amarelo-verde / vermelho / azul / ciano), em padrão xadrez
-cor+preto. Ou seja: **cada frame é uma cor só**, não uma pose de digimon.
+## Como usar os teus sprites agora
+Coloca cada digimon como `backend/public/assets/sprites/<id>.png` num sheet
+**32×32** com 4 frames de 16×16 no layout:
+```
+ 1 2      (top row)    = walk bob A / bob B   → anima (loop)
+ 3 4      (bottom row) = take-hit (esq) / attack (dir)
+```
+O sistema fatia e anima automaticamente. Não precisas de converter para 64×64.
 
-Isto mudou a semântica do walk: o ciclo tem de percorrer **todas as 4 frames**
-(0→1→2→3) para mostrar o ciclo completo de 4 cores. Antes o walk usava só
-`[0,1]` (top row) e só mostrava 2 cores. Corrigido em:
-- `sprite-rig.ts`: `WALK_FRAME_INDICES = [0,1,2,3]` (rig 3D cicla as 4 cores;
-  `playAttack`/`playHit` continuam a usar células 3/2 como poses de cor).
-- `tilesets.ts` `buildDigimonSheet`: walk anim = `layout.walkFrameIndices`
-  (`[0,1,2,3]`), frameRate 4.
-- `sheet-frames.ts` `computeSheetFrames`: fonte única da verdade, retorna
-  `walkFrameIndices: [0,1,2,3]`.
-- `DigimonSprite.tsx` (2D/status): já aceita `frameIndex` 0-3.
-
-Validação: `scene3d/src/sprite-rig.32x32.test.ts` prova rig 3D com sheet 32×32
-cicla 0→1→2→3 e attack→cell 3. `sheet-frames.test.ts` prova a matemática.
-
-> Nota: NÃO uses `tools/gen-spritesheets.py` para estes sprites — ele espera
-> `dotNNN.PNG` de 1 frame e faz bob + red-tint, perdendo as 4 cores. Coloca o
-> sheet de 4 cores diretamente em `backend/public/assets/sprites/<id>.png`.
+> Nota: o `DigimonSprite` (2D / status / roster) tenta primeiro
+> `sprites-static/<id>.png` (frame 0 só). Se não existir, cai para o sheet 32×32
+> e fatia o frame `frameIndex` — funciona, mas para UI nítida convém gerar também
+> o `sprites-static` (ver `tools/gen-spritesheets.py`, que aceita `dotNNN.PNG`
+> 32×32 como fonte).
 
 ## Manipular pixels em status / habilidades (passo 2)
 A mecânica de recolor runtime (provei no spike anterior em `src/recolor.ts`) opera
