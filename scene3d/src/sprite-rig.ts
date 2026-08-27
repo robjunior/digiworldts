@@ -66,6 +66,13 @@ const ALPHA_THRESHOLD = 24;
 const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
+// Subtle "alive" breathing for combat units (idleAnimated: false). No frame
+// swap and no horizontal hop — just a gentle vertical scale + lift so a unit
+// standing still between actions doesn't read as frozen / broken.
+const BREATHE_HZ = 0.5;          // breaths per second
+const BREATHE_SCALE_AMP = 0.03;   // ±3% height
+const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
+
 // Spritesheet layout: 2 columns × 2 rows of 32×32 frames (a 64×64 image).
 // Frame 1=top-left, 2=top-right, 3=bottom-left, 4=bottom-right.
 const SHEET_COLS = 2;
@@ -251,6 +258,8 @@ export class SpriteRig implements SpriteRigApi {
   private facingSign: 1 | -1 = 1;
   private readonly isSpritesheet: boolean;
   private idleAnimated: boolean;
+  /** Per-rig phase so units don't breathe in lockstep. */
+  private readonly breathePhase = Math.random() * Math.PI * 2;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -644,10 +653,16 @@ export class SpriteRig implements SpriteRigApi {
       }
     }
 
+    // Gentle breathing so a still unit (combat passes idleAnimated:false) looks
+    // alive instead of frozen/broken. No frame swap, no horizontal "jump".
+    const breathe = Math.sin((elapsedS * BREATHE_HZ + this.breathePhase) * Math.PI * 2);
+    const breatheScaleY = 1 + breathe * BREATHE_SCALE_AMP;
+    const breatheLift = breathe * BREATHE_LIFT * this.baseScale.y;
+
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
-    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY + breatheLift;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y * breatheScaleY, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
