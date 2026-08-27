@@ -14,14 +14,10 @@ const ALPHA_MIN = 24;
 const PAD_PX = 1;
 /** Vertical offset applied after centering (positive = move down). Fixes top cropping. */
 const OFFSET_Y = 2;
-/** Number of cells per row in the sprite sheet grid (2 cols of 32px frames). */
+/** Number of cells per row in the sprite sheet grid (2 cols). */
 const SHEET_COLS = 2;
-/** Number of cells per column in the sprite sheet grid (2 rows of 32px frames). */
+/** Number of cells per column in the sprite sheet grid (2 rows). */
 const SHEET_ROWS = 2;
-/** Width of one cell in pixels (sheet 64 / 2 cols = 32). */
-const CELL_W = 32;
-/** Height of one cell in pixels (sheet 64 / 2 rows = 32). */
-const CELL_H = 32;
 /** Hard cap on the number of cached frame promises. LRU evicts the oldest. */
 const MAX_CACHE_SIZE = 500;
 /** Max trimmed output side in px; guards against pathological huge sprites. */
@@ -122,23 +118,40 @@ function trimCenterExport(
   return out.toDataURL("image/png");
 }
 
+/**
+ * Cell size is derived from the sheet's ACTUAL pixel dimensions, never
+ * hardcoded, so a user-supplied 32x32 sheet (16x16 cells) slices the same way
+ * as the authored 64x64 sheets (32x32 cells). A hardcoded 32px cell would
+ * collapse a 32x32 sheet into a single frame and freeze the walk cycle.
+ */
+function cellSizeOf(img: HTMLImageElement): { cellW: number; cellH: number } {
+  const w = img.naturalWidth || 64;
+  const h = img.naturalHeight || 64;
+  return {
+    cellW: Math.max(1, Math.floor(w / SHEET_COLS)),
+    cellH: Math.max(1, Math.floor(h / SHEET_ROWS)),
+  };
+}
+
 async function extractSingleFrame(
   catalogId: string,
   frameIndex = 0,
 ): Promise<string | null> {
   try {
     const img = await loadImage(unitSpriteStaticUrl(catalogId));
-    const cellX = (frameIndex % SHEET_COLS) * CELL_W;
-    const cellY = Math.floor(frameIndex / SHEET_COLS) * CELL_H;
-    return trimCenterExport(img, cellX, cellY, CELL_W, CELL_H);
+    const { cellW, cellH } = cellSizeOf(img);
+    const cellX = (frameIndex % SHEET_COLS) * cellW;
+    const cellY = Math.floor(frameIndex / SHEET_COLS) * cellH;
+    return trimCenterExport(img, cellX, cellY, cellW, cellH);
   } catch {
     /* static cell missing — try slicing it off the 2×2 sheet */
   }
   try {
     const img = await loadImage(unitSpriteSheetUrl(catalogId));
-    const cellX = (frameIndex % SHEET_COLS) * CELL_W;
-    const cellY = Math.floor(frameIndex / SHEET_COLS) * CELL_H;
-    return trimCenterExport(img, cellX, cellY, CELL_W, CELL_H);
+    const { cellW, cellH } = cellSizeOf(img);
+    const cellX = (frameIndex % SHEET_COLS) * cellW;
+    const cellY = Math.floor(frameIndex / SHEET_COLS) * cellH;
+    return trimCenterExport(img, cellX, cellY, cellW, cellH);
   } catch {
     if (import.meta.env.DEV) {
       console.warn(

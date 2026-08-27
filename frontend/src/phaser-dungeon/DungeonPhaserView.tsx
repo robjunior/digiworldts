@@ -34,22 +34,6 @@ type DungeonPhaserViewProps = {
   readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
 };
 
-/**
- * React wrapper around the Phaser dungeon scene — mirrors the
- * ContinuousDungeonGrid prop contract. Lifecycle:
- *
- *   mount           → createDungeonGame(container) + initial setProps
- *   any prop change → setProps (INCLUDING dungeon.id change: the grid-crossing
- *                     case navigates with replace:true so this instance
- *                     persists and MUST re-compose in place, never
- *                     destroy+recreate — a rebuild would snap the camera)
- *   unmount         → game.destroy(true) — the ONLY teardown path
- *   container resize → ResizeObserver → game.scale.resize(w, h)
- *
- * Phaser boots the scene asynchronously, so setProps calls before the scene
- * is ready are dropped; the READY callback applies the latest props once the
- * scene exists.
- */
 export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
   const {
     viewportRef,

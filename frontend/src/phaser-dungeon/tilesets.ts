@@ -9,6 +9,7 @@ import {
 } from '@digiworld/shared';
 import type { TilesetGrant } from '@digiworld/shared';
 import { decodeGifFrames } from './gif';
+import { computeSheetFrames } from './sheet-frames';
 
 /**
  * Phaser texture pipeline for Tiled tilesets (Todo 2 of the dungeon-to-phaser
@@ -431,18 +432,14 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     const src = texture.getSourceImage() as { width?: number; height?: number };
     const w = src?.width ?? 64;
     const h = src?.height ?? 64;
-    // Sheet is a 64x64 image holding 4 frames (2 per row) of 32x32 each.
-    const FRAME = 32;
-    const cols = Math.max(1, Math.floor(w / FRAME));
-    const rows = Math.max(1, Math.floor(h / FRAME));
-    const cellW = Math.floor(w / cols);
-    const cellH = Math.floor(h / rows);
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const idx = String(row * cols + col);
-        const frameY = row * cellH;
-        if (!texture.has(idx)) texture.add(idx, 0, col * cellW, frameY, cellW, cellH);
-      }
+    // Derive the 2×2 cell layout from the ACTUAL sheet dimensions (never a
+    // hardcoded 32px cell) so both the 64×64 authored sheets (32×32 cells) and
+    // user-supplied 32×32 sheets (16×16 cells) slice and animate. A hardcoded
+    // 32px cell would collapse a 32×32 sheet to a single column and freeze it.
+    const layout = computeSheetFrames(w, h);
+    for (const frame of layout.frames) {
+      const idx = String(frame.index);
+      if (!texture.has(idx)) texture.add(idx, 0, frame.x, frame.y, frame.w, frame.h);
     }
     if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
       scene.anims.create({
