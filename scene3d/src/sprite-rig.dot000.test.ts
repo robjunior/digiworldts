@@ -79,7 +79,6 @@ function installShims() {
   // @ts-expect-error test shim
   globalThis.Image = FakeImage;
   const origCreate = document.createElement.bind(document);
-  // @ts-expect-error test shim
   globalThis.document = {
     ...document,
     createElement: (tag: string) => {
