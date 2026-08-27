@@ -1,10 +1,19 @@
-import Phaser from 'phaser';
-import { useEffect, useRef, type ReactElement, type RefObject } from 'react';
+import Phaser from "phaser";
+import { useEffect, useRef, type ReactElement, type RefObject } from "react";
 
-import type { DungeonGridNeighbor, DungeonRemotePlayer, DungeonRunView, TilesetGrant } from '@digiworld/shared';
-import type { RosterView } from '../lib/api';
-import { DUNGEON_SCENE_KEY, DungeonPhaserScene, type Facing } from './DungeonPhaserScene';
-import { createDungeonGame } from './createGame';
+import type {
+  DungeonGridNeighbor,
+  DungeonRemotePlayer,
+  DungeonRunView,
+  TilesetGrant,
+} from "@digiworld/shared";
+import type { RosterView } from "../lib/api";
+import {
+  DUNGEON_SCENE_KEY,
+  DungeonPhaserScene,
+  type Facing,
+} from "./DungeonPhaserScene";
+import { createDungeonGame } from "./createGame";
 
 type DungeonPhaserViewProps = {
   readonly viewportRef: RefObject<HTMLDivElement>;
@@ -16,7 +25,12 @@ type DungeonPhaserViewProps = {
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
   readonly onCellClick: (x: number, y: number) => void;
-  readonly onPlayerClick: (userId: string, displayName: string, x: number, y: number) => void;
+  readonly onPlayerClick: (
+    userId: string,
+    displayName: string,
+    x: number,
+    y: number,
+  ) => void;
   readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
 };
 
@@ -54,8 +68,30 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
   const gameRef = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<DungeonPhaserScene | null>(null);
 
-  const latestPropsRef = useRef({ active, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback });
-  latestPropsRef.current = { active, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback };
+  const latestPropsRef = useRef({
+    active,
+    neighbors,
+    remotePlayers,
+    party,
+    facing,
+    moveDurationMs,
+    partyTrail,
+    onCellClick,
+    onPlayerClick,
+    onTextureFallback,
+  });
+  latestPropsRef.current = {
+    active,
+    neighbors,
+    remotePlayers,
+    party,
+    facing,
+    moveDurationMs,
+    partyTrail,
+    onCellClick,
+    onPlayerClick,
+    onTextureFallback,
+  };
 
   useEffect(() => {
     const container = viewportRef.current;
@@ -68,7 +104,18 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
       const scene = sceneRef.current;
       if (!scene) return;
       const props = latestPropsRef.current;
-      scene.setProps(props.active, props.neighbors, props.remotePlayers, props.party, props.facing, props.moveDurationMs, props.partyTrail, props.onCellClick, props.onPlayerClick, props.onTextureFallback);
+      scene.setProps(
+        props.active,
+        props.neighbors,
+        props.remotePlayers,
+        props.party,
+        props.facing,
+        props.moveDurationMs,
+        props.partyTrail,
+        props.onCellClick,
+        props.onPlayerClick,
+        props.onTextureFallback,
+      );
     };
 
     game.events.once(Phaser.Core.Events.READY, () => {
@@ -87,8 +134,30 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene) return;
-    scene.setProps(active, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback);
-  }, [active, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback]);
+    scene.setProps(
+      active,
+      neighbors,
+      remotePlayers,
+      party,
+      facing,
+      moveDurationMs,
+      partyTrail,
+      onCellClick,
+      onPlayerClick,
+      onTextureFallback,
+    );
+  }, [
+    active,
+    neighbors,
+    remotePlayers,
+    party,
+    facing,
+    moveDurationMs,
+    partyTrail,
+    onCellClick,
+    onPlayerClick,
+    onTextureFallback,
+  ]);
 
   useEffect(() => {
     const game = gameRef.current;
@@ -104,6 +173,10 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
   }, [viewportRef]);
 
   return (
-    <div ref={viewportRef} className="continuous-dungeon-grid" style={{ position: 'absolute', inset: 0, overflow: 'hidden' }} />
+    <div
+      ref={viewportRef}
+      className="continuous-dungeon-grid"
+      style={{ position: "absolute", inset: 0, overflow: "hidden" }}
+    />
   );
 }
