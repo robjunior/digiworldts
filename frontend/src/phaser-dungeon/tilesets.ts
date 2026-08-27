@@ -496,7 +496,11 @@ export function ensureDigimonSpriteLoaded(
 ): void {
   const sheetKey = digimonSheetKey(catalogId);
   if (scene.textures.exists(sheetKey)) {
-    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) buildDigimonSheet(scene, catalogId);
+    // Always (re)build the sliced frames. Guarded as a no-op when they already
+    // exist, so this is safe on hot-reload — where the texture AND the old
+    // (pre-fix) anims persist, which would otherwise skip the rebuild and leave
+    // the stale "0".."3" frames that resolve to __BASE (whole sheet).
+    buildDigimonSheet(scene, catalogId);
     onSettled({
       kind: 'sheet',
       key: sheetKey,

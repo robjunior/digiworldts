@@ -1174,6 +1174,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
         sprite.setName(digimonSpriteName(catalogId, x, y));
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
+        // Force the sliced cell frame explicitly: the numeric "0" frame name used
+        // to collide with Phaser's __BASE whole-sheet frame, so set it directly.
+        if (load.kind === "sheet") sprite.setFrame("cell0");
         sprite.setFlipX(flipX);
         sprite.setDepth(depth);
         if (this.anims.exists(load.walkAnim)) sprite.play(load.walkAnim);
