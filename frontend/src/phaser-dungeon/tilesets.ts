@@ -437,14 +437,21 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     // user-supplied 32×32 sheets (16×16 cells) slice and animate. A hardcoded
     // 32px cell would collapse a 32×32 sheet to a single column and freeze it.
     const layout = computeSheetFrames(w, h);
+    // Frame names are NON-numeric on purpose: Phaser reserves the numeric index
+    // 0 for the texture's `__BASE` (whole-image) frame. Naming our sub-frames
+    // "0".."3" makes `add.sprite(key, "0")` and anim frames `{ frame: '0' }`
+    // resolve to `__BASE` (the entire 2×2 sheet) instead of the sliced cell —
+    // which renders every digimon as a 2×2 block of 4 frames. Non-numeric names
+    // avoid that collision entirely.
     for (const frame of layout.frames) {
-      const idx = String(frame.index);
-      if (!texture.has(idx)) texture.add(idx, 0, frame.x, frame.y, frame.w, frame.h);
+      const name = `cell${frame.index}`;
+      if (!texture.has(name)) texture.add(name, 0, frame.x, frame.y, frame.w, frame.h);
     }
+    const frameName = (i: number) => `cell${i}`;
     if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
       scene.anims.create({
         key: sheetWalkAnimKey(catalogId),
-        frames: layout.walkFrameIndices.map((i) => ({ key, frame: String(i) })),
+        frames: layout.walkFrameIndices.map((i) => ({ key, frame: frameName(i) })),
         frameRate: 4,
         repeat: -1,
       });
@@ -453,7 +460,7 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     if (!scene.anims.exists(sheetTakeHitAnimKey(catalogId))) {
       scene.anims.create({
         key: sheetTakeHitAnimKey(catalogId),
-        frames: [{ key, frame: '2' }],
+        frames: [{ key, frame: frameName(2) }],
         frameRate: 1,
         repeat: 0,
       });
@@ -462,7 +469,7 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     if (!scene.anims.exists(sheetAttackAnimKey(catalogId))) {
       scene.anims.create({
         key: sheetAttackAnimKey(catalogId),
-        frames: [{ key, frame: '3' }],
+        frames: [{ key, frame: frameName(3) }],
         frameRate: 1,
         repeat: 0,
       });

@@ -1169,7 +1169,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           x,
           y,
           load.key,
-          load.kind === "sheet" ? "0" : undefined,
+          load.kind === "sheet" ? "cell0" : undefined,
         );
         sprite.setName(digimonSpriteName(catalogId, x, y));
         sprite.setOrigin(0.5, 0.5);
