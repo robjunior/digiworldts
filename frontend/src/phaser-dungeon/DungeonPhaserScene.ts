@@ -1015,7 +1015,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
     if (members.length === 0) return;
 
-    const flipX = props.facing === "left";
+    // The digimon art in these sheets faces LEFT by default, so we mirror
+    // (flipX) when the party is moving RIGHT — not left. (Previously
+    // flipX = facing === "left", which made walk-left face right: backwards.)
+    const flipX = props.facing === "right";
     // Keep a persistent group across recomposes (only (re)built when the party
     // set changes) so the walk animation is never restarted by a plain move.
     if (this.partyGroup === null) {
