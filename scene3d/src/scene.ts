@@ -45,6 +45,8 @@ import {
 import { ParticleEmitter } from "./particles/ParticleEmitter";
 import { ThunderFlashController } from "./particles/ThunderFlashController";
 import { WEATHER_EMITTER_PRESETS } from "./particles/presets";
+import { prewarmParticleMaterials } from "./particles/shaders";
+import type { ParticleShaderKind } from "@digiworld/shared/weather";
 import {
   TimeOfDayDriver,
   interpolatePhases,
@@ -54,6 +56,32 @@ import {
 export type SpriteInit = SpriteRigConfig & {
   readonly onClick: (() => void | undefined) | undefined;
 };
+
+/**
+ * Wraps a deferred attack-runner build so the (allocating) construction of
+ * ParticleEmitters / ShaderMaterials happens on the next render tick, never on
+ * the input/click frame. `playEffect` returns immediately with a runner-shaped
+ * object; the real `Runner3D` is built lazily on first `tick`. This is what
+ * removes the stutter on the first skill cast — the heavy work moves off the
+ * frame that also handles input + sprite animation.
+ */
+function createDeferredRunner(build: () => Runner3D): Runner3D {
+  let inner: Runner3D | null = null;
+  let disposed = false;
+  return {
+    tick(dtS: number, elapsedS: number, cameraQuat: THREE.Quaternion): void {
+      if (inner === null) {
+        if (disposed) return;
+        inner = build();
+      }
+      inner.tick(dtS, elapsedS, cameraQuat);
+    },
+    dispose(): void {
+      disposed = true;
+      if (inner !== null) inner.dispose();
+    },
+  };
+}
 
 function forceTransparencyIfAlpha(mat: THREE.Material): void {
   if (!("alphaMap" in mat)) return;
@@ -575,6 +603,11 @@ export class SceneManager {
   private hudLastTriangles = 0;
   private hudParent: HTMLElement = document.body;
 
+  /** Whether the shadow map has been rendered at least once this loop run.
+   *  Combined with `autoUpdate = false`, we prime it on the first frame and
+   *  then only re-render when a shadow-affecting change requests a refresh. */
+  private shadowPrimed = false;
+
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -588,6 +621,12 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // On-demand shadows. The shadow map is expensive to rebuild (2048² PCF over
+    // every caster), so we DON'T re-render it every frame. It is only refreshed
+    // on discrete shadow-affecting changes (arena load, sprite add/remove,
+    // attack/hit anim windows, light/settings changes, time-of-day). Idle
+    // frames skip a full shadow pass entirely — this is the main stutter fix.
+    this.renderer.shadowMap.autoUpdate = false;
 
     // Anchor the perf HUD into the canvas's parent so it can't be hidden behind
     // the WebGL canvas or lost inside a transformed/portaled container.
@@ -821,6 +860,17 @@ export class SceneManager {
     cam.near = 0.5;
     cam.far = Math.max(45, this.currentArenaSpan * 2.5);
     cam.updateProjectionMatrix();
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /**
+   * Request a single shadow-map re-render on the next frame. With
+   * `autoUpdate = false`, the shadow map is only rebuilt when this is called,
+   * so callers must invoke it on every shadow-affecting change (sprite add/
+   * remove, attack/hit animation windows, light or settings changes, time-of-
+   * day transitions, arena swaps). Cheap: just flips a flag the renderer reads.
+   */
+  requestShadowRefresh(): void {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
@@ -1746,7 +1796,14 @@ export class SceneManager {
     if (options.vfxPresetId !== undefined) {
       const preset = resolveSkillVfxPreset(options.vfxPresetId);
       if (preset !== null) {
-        const runner = buildPresetRunner(this.scene, wrappedEffect, preset);
+        // Defer the (allocating) runner construction off the input/click frame.
+        // Previously `buildPresetRunner` allocated a ParticleEmitter per slot
+        // (InstancedMesh + 8 attributes + ShaderMaterial) synchronously here, so
+        // the first skill cast paid a multi-ms GC + GPU upload hitch. The
+        // DeferredRunner builds it lazily on the next render tick instead.
+        const runner = createDeferredRunner(() =>
+          buildPresetRunner(this.scene, wrappedEffect, preset),
+        );
         this.effects.set(id, {
           runner,
           elapsed: 0,
@@ -1757,7 +1814,9 @@ export class SceneManager {
     }
 
     const builder = RUNNERS[element];
-    const runner = builder(this.scene, wrappedEffect);
+    const runner = createDeferredRunner(() =>
+      builder(this.scene, wrappedEffect),
+    );
     this.effects.set(id, { runner, elapsed: 0, duration: durationS });
     return id;
   }
@@ -1974,6 +2033,17 @@ export class SceneManager {
       side: sprite.side,
       downed: sprite.downed,
     };
+  }
+
+  /**
+   * Pre-compile the attack/skill particle materials so the first cast never pays
+   * a ShaderMaterial allocation or a synchronous GLSL compile on the click
+   * frame. Call once during scene init (while a loading screen is up). The
+   * material objects are cached by `createEmitterMaterial`, so every subsequent
+   * skill cast reuses them.
+   */
+  prewarmAttackVfx(shaderKinds: readonly ParticleShaderKind[]): void {
+    prewarmParticleMaterials(shaderKinds);
   }
 
   dispose(): void {

@@ -27,3 +27,4 @@ export {
 } from './skill-vfx-resolver';
 export type { SpriteInit, SceneSettings } from './scene';
 export { unitSpriteSheetUrl, unitSpriteStaticUrl, unitDotUrl } from './sprite-rig';
+export { prewarmParticleMaterials } from './particles/shaders';
