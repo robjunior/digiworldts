@@ -78,7 +78,11 @@ const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 const SHEET_COLS = 2;
 const SHEET_ROWS = 2;
 // Indices into the flattened cell array (row * cols + col).
-const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
+// User convention: each frame of the sheet is ONE solid color (4 colors, one
+// per frame). The walk cycle must step through ALL FOUR frames [0,1,2,3] to
+// show the full color cycle. Frames 2 (take-hit) and 3 (attack) stay reachable
+// as single poses via playHit/playAttack; they are simply also part of walk.
+const WALK_FRAME_INDICES = [0, 1, 2, 3] as const;
 const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
 const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
