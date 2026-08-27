@@ -66,13 +66,23 @@ export function computeSheetFrames(sheetW: number, sheetH: number): SheetLayout 
       });
     }
   }
+  // Walk cycle depends on the sheet's frame convention:
+  //  - The authored 64×64 digimon sheets (32×32 cells) use frames 0,1 as the
+  //    walk bob and 2,3 as take-hit / attack POSES — so walk is the top row
+  //    only: [0, 1].
+  //  - User-supplied 32×32 "4 colors, one per frame" sheets (16×16 cells) have
+  //    no distinct pose frames, so the walk must step through ALL FOUR cells
+  //    to show the full color cycle: [0, 1, 2, 3].
+  //  Derive from cell size so both asset types animate correctly without a
+  //  hardcoded global.
+  const isFourColorSheet = cellW <= 16;
   return {
     cols,
     rows,
     cellW,
     cellH,
     frames,
-    walkFrameIndices: [0, 1, 2, 3],
+    walkFrameIndices: isFourColorSheet ? [0, 1, 2, 3] : [0, 1],
     takeHitFrameIndex: 2,
     attackFrameIndex: 3,
   };
