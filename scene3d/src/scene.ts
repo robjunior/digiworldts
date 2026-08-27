@@ -764,6 +764,8 @@ export class SceneManager {
       this.scene.fog = null;
     }
     this.renderer.toneMappingExposure = atmosphere.exposure;
+    // Key light position (a shadow caster) changed: rebuild the shadow map.
+    this.requestShadowRefresh();
     if (this.dust !== null) {
       const mat = this.dust.material as THREE.PointsMaterial;
       mat.color.setHex(atmosphere.dustColor);
@@ -1237,6 +1239,9 @@ export class SceneManager {
         this.phaseBlend.toPreset,
         t,
       );
+      // Transition: the key light moves through the blend, so refresh the
+      // shadow map once per frame while the blend is active.
+      this.requestShadowRefresh();
       if (t >= 1) {
         this.phaseBlend.active = false;
         this.phaseBlend.fromPreset = this.phaseBlend.toPreset;
@@ -1289,6 +1294,8 @@ export class SceneManager {
       obj.frustumCulled = false;
     });
     this.renderer.shadowMap.needsUpdate = true;
+    // Arena caster geometry changed: ensure shadows are rebuilt on-demand.
+    this.requestShadowRefresh();
   }
 
   private detectPlayFloorY(root: THREE.Object3D): number {
@@ -1336,6 +1343,8 @@ export class SceneManager {
       });
     }
     this.arenaRoot = null;
+    // Arena casters removed: rebuild the shadow map next frame.
+    this.requestShadowRefresh();
   }
 
   clearArenaModel(): void {
@@ -1516,6 +1525,16 @@ export class SceneManager {
       );
       this.keyLight.shadow.map?.dispose();
       this.keyLight.shadow.map = null;
+    }
+    // Any shadow-related setting changed: rebuild the map once next frame.
+    if (
+      patch.shadowsEnabled !== undefined ||
+      patch.shadowRadius !== undefined ||
+      patch.shadowBias !== undefined ||
+      patch.shadowNormalBias !== undefined ||
+      patch.shadowMapSize !== undefined
+    ) {
+      this.requestShadowRefresh();
     }
   }
 
@@ -1698,6 +1717,8 @@ export class SceneManager {
     const sprite = new SpriteRig(this.scene, config);
     sprite.setArenaBaselineY(this.currentArenaOffsetY);
     this.sprites.set(config.unitId, sprite);
+    // New caster added: rebuild the shadow map once next frame.
+    this.requestShadowRefresh();
     return sprite;
   }
 
@@ -1706,6 +1727,8 @@ export class SceneManager {
     if (sprite === undefined) return;
     sprite.dispose();
     this.sprites.delete(unitId);
+    // Caster removed: rebuild the shadow map once next frame.
+    this.requestShadowRefresh();
   }
 
   getSprite(unitId: string): SpriteRig | undefined {
@@ -1782,6 +1805,9 @@ export class SceneManager {
     };
 
     if (source !== null) source.playAttack();
+    // Attacker lunges during its attack window: refresh the shadow map once so
+    // the moving silhouette casts a correct (on-demand) shadow for that moment.
+    this.requestShadowRefresh();
 
     const originalOnImpact = effect.onImpact;
     const wrappedEffect: AttackEffect3D = {
@@ -1789,6 +1815,8 @@ export class SceneManager {
       onImpact: () => {
         target.playHit();
         target.illuminate(ELEMENT_LIGHT_COLOR[element], 0.9, 3.5);
+        // Receiver shakes on hit: refresh the shadow map once for the hit pose.
+        this.requestShadowRefresh();
         originalOnImpact?.();
       },
     };
@@ -1846,6 +1874,13 @@ export class SceneManager {
       this.clock.update(rafTimestamp);
       const dt = this.clock.getDelta();
       const elapsed = this.clock.getElapsed();
+      // On-demand shadows: prime the map on the very first frame so the first
+      // painted frame already has correct shadows, then never rebuild unless a
+      // shadow-affecting change calls requestShadowRefresh().
+      if (!this.shadowPrimed) {
+        this.renderer.shadowMap.needsUpdate = true;
+        this.shadowPrimed = true;
+      }
       if (this.entranceActive) {
         this.entranceElapsed += dt;
         const t = Math.min(1, this.entranceElapsed / ENTRANCE_DURATION_S);
@@ -1892,13 +1927,13 @@ export class SceneManager {
         }
         positions.needsUpdate = true;
       }
-      const swayPhase = elapsed * 0.11;
+      // Key light + hemi sit at a fixed position each frame. Previously the
+      // key light was jiggled by a sine sway here, which forced the shadow map
+      // to recompute every frame (autoUpdate). With on-demand shadows the light
+      // is instead set once in applyAtmosphere/normalizeArenaTransform and only
+      // when a shadow-affecting change calls requestShadowRefresh().
       const basePos = this.atmosphere.keyPos;
-      this.keyLight.position.set(
-        basePos[0] + Math.sin(swayPhase) * 0.35,
-        basePos[1] + Math.sin(swayPhase * 1.7) * 0.15,
-        basePos[2] + Math.cos(swayPhase) * 0.35,
-      );
+      this.keyLight.position.set(basePos[0], basePos[1], basePos[2]);
       this.hemi.intensity =
         this.atmosphere.hemiIntensity + Math.sin(elapsed * 0.28) * 0.03;
       this.tickTimeOfDay(dt);
