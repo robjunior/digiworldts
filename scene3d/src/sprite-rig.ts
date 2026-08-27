@@ -78,11 +78,6 @@ const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 const SHEET_COLS = 2;
 const SHEET_ROWS = 2;
 // Indices into the flattened cell array (row * cols + col).
-// User convention: each frame of the sheet is ONE solid color (4 colors, one
-// per frame). The walk cycle must step through ALL FOUR frames [0,1,2,3] to
-// show the full color cycle. Frames 2 (take-hit) and 3 (attack) stay reachable
-// as single poses via playHit/playAttack; they are simply also part of walk.
-const WALK_FRAME_INDICES = [0, 1, 2, 3] as const;
 const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
 const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
@@ -229,6 +224,9 @@ type SheetState = {
   walkElapsed: number;
   hitActive: boolean;
   hitElapsed: number;
+  /** Walk cycle frames for THIS sheet: top row [0,1] for 64×64 real digimon,
+   *  all four [0,1,2,3] for 32×32 "4 colors per frame" user sheets. */
+  readonly walkIndices: readonly number[];
 };
 
 export class SpriteRig implements SpriteRigApi {
@@ -432,6 +430,7 @@ export class SpriteRig implements SpriteRigApi {
       this.syncDepthMap();
       previous?.dispose();
       this.applyAspect(cellW, cellH);
+      const walkIndices = cellW <= 16 ? [0, 1, 2, 3] : [0, 1];
       const sheet: SheetState = {
         canvas,
         ctx,
@@ -441,9 +440,10 @@ export class SpriteRig implements SpriteRigApi {
         walkElapsed: 0,
         hitActive: false,
         hitElapsed: 0,
+        walkIndices,
       };
       this.sheet = sheet;
-      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+      this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
       try {
         this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
       } catch {
@@ -703,7 +703,7 @@ export class SpriteRig implements SpriteRigApi {
         sheet.hitActive = false;
         sheet.walkIndex = 0;
         sheet.walkElapsed = 0;
-        this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+        this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
       }
       return;
     }
@@ -711,8 +711,8 @@ export class SpriteRig implements SpriteRigApi {
     sheet.walkElapsed += dt * 1000;
     if (sheet.walkElapsed >= WALK_FRAME_MS) {
       sheet.walkElapsed -= WALK_FRAME_MS;
-      sheet.walkIndex = (sheet.walkIndex + 1) % WALK_FRAME_INDICES.length;
-      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[sheet.walkIndex]!);
+      sheet.walkIndex = (sheet.walkIndex + 1) % sheet.walkIndices.length;
+      this.drawSheetFrame(sheet, sheet.walkIndices[sheet.walkIndex]!);
     }
   }
 
