@@ -14,6 +14,7 @@
     "dev:admin:production": "pnpm --filter @digiworld/admin dev:production",
     "build": "pnpm -r build",
     "typecheck": "pnpm shared:build && pnpm -r typecheck",
+    "test": "pnpm --filter @digiworld/scene3d test",
     "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native",
     "content:deploy": "pnpm --filter @digiworld/backend content:deploy",
     "typecheck:xref": "pnpm --filter @digiworld/backend typecheck:xref"
