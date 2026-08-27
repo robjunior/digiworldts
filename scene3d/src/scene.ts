@@ -1778,8 +1778,13 @@ export class SceneManager {
   startLoop(): void {
     if (this.disposedFlag) return;
     if (this.rafId !== 0) return;
-    const tick = (): void => {
+    const tick = (rafTimestamp: number): void => {
       if (this.disposedFlag) return;
+      // `THREE.Timer` only advances its internal delta/elapsed when `update()`
+      // is called each frame — unlike the old `THREE.Clock`. Without this,
+      // `getDelta()`/`getElapsed()` return 0 forever, freezing the entrance
+      // camera pan/zoom, sprite movement, and effect runners (all advanced by dt).
+      this.clock.update(rafTimestamp);
       const dt = this.clock.getDelta();
       const elapsed = this.clock.getElapsed();
       if (this.entranceActive) {

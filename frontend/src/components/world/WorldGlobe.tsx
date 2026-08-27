@@ -358,8 +358,11 @@ export function WorldGlobe({
     canvas.addEventListener("click", onClick);
 
     let rafId: number;
-    const animate = () => {
+    const animate = (rafTimestamp: number) => {
       rafId = requestAnimationFrame(animate);
+      // `THREE.Timer` needs `update()` each frame; otherwise `getElapsed()`
+      // stays 0 and the selection-ring pulse below is frozen.
+      clock.update(rafTimestamp);
       if (stateRef.current.autoSpin && !stateRef.current.dragging) {
         stateRef.current.rotY += 0.0016;
       }
@@ -379,7 +382,7 @@ export function WorldGlobe({
 
       renderer.render(scene, camera);
     };
-    animate();
+    animate(performance.now());
 
     return () => {
       cancelAnimationFrame(rafId);
