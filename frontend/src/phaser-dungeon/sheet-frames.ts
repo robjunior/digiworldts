@@ -72,7 +72,10 @@ export function computeSheetFrames(sheetW: number, sheetH: number): SheetLayout 
     cellW,
     cellH,
     frames,
-    walkFrameIndices: [0, 1],
+    // Each frame is one solid color (user sprite convention: 4 frames = 4 colors),
+    // so the walk cycle must step through ALL FOUR frames to show the full color
+    // cycle — not just the top row.
+    walkFrameIndices: [0, 1, 2, 3],
     takeHitFrameIndex: 2,
     attackFrameIndex: 3,
   };

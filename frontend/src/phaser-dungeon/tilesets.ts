@@ -442,13 +442,12 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
       if (!texture.has(idx)) texture.add(idx, 0, frame.x, frame.y, frame.w, frame.h);
     }
     if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
+      // Walk cycle steps through ALL FOUR frames (layout.walkFrameIndices) so a
+      // sprite authored as "one color per frame" shows its full 4-color cycle.
       scene.anims.create({
         key: sheetWalkAnimKey(catalogId),
-        frames: [
-          { key, frame: '0' },
-          { key, frame: '1' },
-        ],
-        frameRate: 3,
+        frames: layout.walkFrameIndices.map((idx) => ({ key, frame: String(idx) })),
+        frameRate: 4,
         repeat: -1,
       });
     }
