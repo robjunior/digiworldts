@@ -373,6 +373,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.clampCameraScroll,
       this,
     );
+    // Wire teardown to the scene SHUTDOWN event. Phaser does NOT auto-call a
+    // `shutdown` method — without this the scene is left in a zombie state:
+    // CameraManager nulls `cameras.main` on SHUTDOWN, but `booted` /
+    // `followTarget` / `latestProps` stay set (only reset inside shutdown()),
+    // so a later setProps → recompose dereferences a dead camera and throws
+    // "can't access property displayWidth, camera is undefined".
+    this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.input.on("pointerdown", this.handleCellPointer, this);
     window.__dungeonPhaser = {
       scene: this,
@@ -393,11 +400,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.followTween = null;
     this.lastFollowTarget = null;
     this.clampBounds = null;
-    this.cameras.main.off(
+    // CameraManager nulls `cameras.main` (and destroys the camera GameObject,
+    // dropping its FOLLOW_UPDATE listener) before this runs, so guard the off.
+    this.cameras?.main?.off(
       Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE,
       this.clampCameraScroll,
       this,
     );
+    this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.partyGroup?.destroy(true);
     this.partyGroup = null;
     this.leaderSprite = null;
@@ -871,6 +881,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const bounds = this.clampBounds;
     if (bounds === null) return { x, y };
     const camera = this.cameras.main;
+    // Defensive: a scene whose camera has been torn down (SHUTDOWN) must never
+    // throw here. If this still fires on a dead scene, booted/followTarget
+    // should have already short-circuited recompose — this is the backstop.
+    if (!camera) return { x, y };
     const displayW = camera.displayWidth / camera.zoom;
     const displayH = camera.displayHeight / camera.zoom;
     const cx =
