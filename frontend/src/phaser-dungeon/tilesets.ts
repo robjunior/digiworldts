@@ -437,43 +437,47 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     // user-supplied 32×32 sheets (16×16 cells) slice and animate. A hardcoded
     // 32px cell would collapse a 32×32 sheet to a single column and freeze it.
     const layout = computeSheetFrames(w, h);
-    // Frame names are NON-numeric on purpose: Phaser reserves the numeric index
-    // 0 for the texture's `__BASE` (whole-image) frame. Naming our sub-frames
-    // "0".."3" makes `add.sprite(key, "0")` and anim frames `{ frame: '0' }`
-    // resolve to `__BASE` (the entire 2×2 sheet) instead of the sliced cell —
-    // which renders every digimon as a 2×2 block of 4 frames. Non-numeric names
-    // avoid that collision entirely.
+    // Frame names are NON-numeric on purpose (see above). Always (re)create the
+    // frames; texture.add is a no-op when the name already exists.
     for (const frame of layout.frames) {
       const name = `cell${frame.index}`;
       if (!texture.has(name)) texture.add(name, 0, frame.x, frame.y, frame.w, frame.h);
     }
     const frameName = (i: number) => `cell${i}`;
-    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetWalkAnimKey(catalogId),
-        frames: layout.walkFrameIndices.map((i) => ({ key, frame: frameName(i) })),
-        frameRate: 4,
-        repeat: -1,
-      });
+    // CRITICAL: the anims MUST be recreated every time, not guarded by
+    // `if (!anims.exists(...))`. On hot-reload / a long-lived Phaser game the
+    // scene, texture and (stale, pre-fix) anims persist. A guarded create would
+    // skip recreation, leaving an anim that still references the old "0".."3"
+    // frame names -> play() resolves frame "0" to __BASE (whole sheet) and the
+    // digimon renders all 4 frames. Removing first guarantees the anim binds to
+    // the current cell0..cell3 frames.
+    for (const ak of [
+      sheetWalkAnimKey(catalogId),
+      sheetTakeHitAnimKey(catalogId),
+      sheetAttackAnimKey(catalogId),
+    ]) {
+      if (scene.anims.exists(ak)) scene.anims.remove(ak);
     }
+    scene.anims.create({
+      key: sheetWalkAnimKey(catalogId),
+      frames: layout.walkFrameIndices.map((i) => ({ key, frame: frameName(i) })),
+      frameRate: 4,
+      repeat: -1,
+    });
     // Frame 2 (row 1, col 0) = taking hit (defender recoil). Single frame, no loop.
-    if (!scene.anims.exists(sheetTakeHitAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetTakeHitAnimKey(catalogId),
-        frames: [{ key, frame: frameName(2) }],
-        frameRate: 1,
-        repeat: 0,
-      });
-    }
+    scene.anims.create({
+      key: sheetTakeHitAnimKey(catalogId),
+      frames: [{ key, frame: frameName(2) }],
+      frameRate: 1,
+      repeat: 0,
+    });
     // Frame 3 (row 1, col 1) = giving hit / attacking (attacker strike). Single frame, no loop.
-    if (!scene.anims.exists(sheetAttackAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetAttackAnimKey(catalogId),
-        frames: [{ key, frame: frameName(3) }],
-        frameRate: 1,
-        repeat: 0,
-      });
-    }
+    scene.anims.create({
+      key: sheetAttackAnimKey(catalogId),
+      frames: [{ key, frame: frameName(3) }],
+      frameRate: 1,
+      repeat: 0,
+    });
     return true;
   }
   return false;
