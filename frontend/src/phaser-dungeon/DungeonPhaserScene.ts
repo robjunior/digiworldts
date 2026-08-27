@@ -333,6 +333,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private partyGroup: Phaser.GameObjects.Group | null = null;
   private leaderSprite: Phaser.GameObjects.Sprite | null = null;
   private lastLeaderCatalogId: string | null = null;
+  /** Set of party catalog ids from the last renderParty; used to avoid rebuilding
+   * sprites (and restarting the walk animation) on every move. */
+  private lastPartyKey: string | null = null;
+  /** Live party sprites keyed by catalogId; preserved across recomposes so the
+   * walk animation keeps running. Rebuilt only when the party set changes. */
+  private partySprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private dotsLoading = false;
   private followTween: Phaser.Tweens.Tween | null = null;
   private lastFollowTarget: { readonly x: number; readonly y: number } | null =
@@ -972,6 +978,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }
 
     const neededDots = [...new Set(members.map((member) => member.catalogId))];
+    // Stability key: only the SET of digimon catalog ids forces a sprite rebuild.
+    // A plain move (position change, facing flip) must NOT destroy + recreate the
+    // sprites — recreate() restarts the walk animation on frame 0 every
+    // recompose, which made the whole party look frozen/static even though the
+    // sheets animated fine. When only positions change we reposition in place.
+    const partyKey = members.map((m) => m.catalogId).join("|");
+    const partyChanged = partyKey !== this.lastPartyKey;
+    this.lastPartyKey = partyKey;
 
     const previousLeader = this.leaderSprite;
     const previousLeaderPos =
@@ -979,15 +993,24 @@ export class DungeonPhaserScene extends Phaser.Scene {
         ? { x: previousLeader.x, y: previousLeader.y }
         : null;
     if (previousLeader !== null) this.tweens.killTweensOf(previousLeader);
-    this.partyGroup?.destroy(true);
-    this.partyGroup = null;
-    this.leaderSprite = null;
+    if (partyChanged) {
+      this.partyGroup?.destroy(true);
+      this.partyGroup = null;
+      this.leaderSprite = null;
+    }
 
     if (members.length === 0) return;
 
     const flipX = props.facing === "left";
-    const group = this.add.group();
-    this.partyGroup = group;
+    // Keep a persistent group across recomposes (only (re)built when the party
+    // set changes) so the walk animation is never restarted by a plain move.
+    if (this.partyGroup === null) {
+      this.partyGroup = this.add.group();
+    }
+    const group = this.partyGroup;
+    if (partyChanged) {
+      this.partySprites.clear();
+    }
 
     const leaderMember = members.find((member) => member.isLeader);
     const leaderMoved =
@@ -998,16 +1021,27 @@ export class DungeonPhaserScene extends Phaser.Scene {
         previousLeaderPos.y !== leaderMember.y);
 
     for (const member of members) {
-      const sprite = this.spawnDigimonSprite(
-        member.catalogId,
-        member.x,
-        member.y,
-        PARTY_DEPTH,
-        flipX,
-      );
+      // Reuse the existing sprite for this digimon instead of destroying it;
+      // only create once per catalog id, then reposition (preserves the walk
+      // animation that was running).
+      let sprite = this.partySprites.get(member.catalogId) ?? null;
+      if (sprite === null || !sprite.active) {
+        sprite = this.spawnDigimonSprite(
+          member.catalogId,
+          member.x,
+          member.y,
+          PARTY_DEPTH,
+          flipX,
+        );
+        if (sprite !== null) {
+          sprite.setName(`digimon-party:${member.catalogId}`);
+          this.partySprites.set(member.catalogId, sprite);
+        }
+      }
       if (sprite === null) continue;
       sprite.setData("catalogId", member.catalogId);
-      group.add(sprite);
+      if (!group.contains(sprite)) group.add(sprite);
+      sprite.setFlipX(flipX);
       if (member.isLeader) {
         this.leaderSprite = sprite;
         if (leaderMoved) {
@@ -1019,7 +1053,18 @@ export class DungeonPhaserScene extends Phaser.Scene {
             duration: props.moveDurationMs,
             ease: "Linear",
           });
+        } else {
+          sprite.setPosition(member.x, member.y);
         }
+      } else {
+        sprite.setPosition(member.x, member.y);
+      }
+    }
+    // Drop sprites whose digimon is no longer in the party.
+    for (const [catalogId, sprite] of this.partySprites) {
+      if (!members.some((m) => m.catalogId === catalogId)) {
+        sprite.destroy();
+        this.partySprites.delete(catalogId);
       }
     }
     this.lastLeaderCatalogId = leader?.catalogId ?? null;
