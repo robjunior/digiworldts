@@ -237,6 +237,13 @@ export class SpriteRig implements SpriteRigApi {
     return this._downed;
   }
 
+  /** True while an attack/hit animation is mid-flight. The billboard actually
+   *  translates (lunge) or shakes during these, so the scene must refresh the
+   *  shadow map across the whole window rather than just on the first frame. */
+  get animating(): boolean {
+    return this.anim !== null;
+  }
+
   private readonly scene: THREE.Scene;
   readonly mesh: THREE.Mesh;
   private readonly shadow: THREE.Mesh;

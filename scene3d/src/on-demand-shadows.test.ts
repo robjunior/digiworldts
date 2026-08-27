@@ -185,34 +185,45 @@ describe("SceneManager on-demand shadow updates", () => {
     expect(needsUpdateWrites.length).toBe(3);
   });
 
-  it("rebuilds when a skill attack plays (attack anim window)", () => {
+  it("tracks the shadow across the whole attack/hit anim window", async () => {
     manager!.startLoop();
     needsUpdateWrites.length = 0;
     stepFrames(1); // prime
-    const afterPrime = needsUpdateWrites.length;
-    expect(afterPrime).toBe(1);
+    expect(needsUpdateWrites.length).toBe(1);
 
-    // The effect needs a target sprite to exist, else playEffect early-returns.
-    manager!.addSprite({
-      unitId: "target",
-      side: "opp",
+    const sprite = await manager!.addSprite({
+      unitId: "attacker",
+      side: "you",
       slotIndex: 0,
-      textureUrl: "https://example.test/t.gif",
+      textureUrl: "https://example.test/a.gif",
       onClick: undefined,
       initiallyDowned: false,
       isSpritesheet: false,
       idleAnimated: false,
     });
+    // addSprite itself requested one rebuild.
+    expect(needsUpdateWrites.length).toBe(2);
 
-    // A skill cast triggers playAttack()/on-impact and the attack window
-    // requestShadowRefresh(); the map must be rebuilt exactly once for it (the
-    // addSprite above already requested its own rebuild, so +2 total here).
-    manager!.playEffect("fire", null, "target", {});
+    // Begin the attack anim (lunge window ~0.5s). The sprite now actually moves,
+    // so the loop must refresh the shadow map on every animation frame — this
+    // is what fixes the stale-shadow-during-lunge regression.
+    sprite.playAttack();
     stepFrames(1);
-    expect(needsUpdateWrites.length).toBe(afterPrime + 2);
-
-    // Idle after the cast must not keep rebuilding.
+    expect(needsUpdateWrites.length).toBe(3); // animating frame 1
     stepFrames(5);
-    expect(needsUpdateWrites.length).toBe(afterPrime + 2);
+    // 5 more animating frames => 5 more rebuilds (window spans ~0.5s ≈ 30 frames,
+    // so 6 frames are comfortably inside it).
+    expect(needsUpdateWrites.length).toBe(8);
+
+    // Trigger a hit anim too; step past BOTH anim windows (attack 0.5s + hit
+    // 0.35s ≈ 51 frames) so everything returns to idle.
+    sprite.playHit();
+    stepFrames(60);
+    const settled = needsUpdateWrites.length;
+    expect(settled).toBeGreaterThan(8); // hit window rebuilt across its frames
+
+    // Now idle: no further rebuilds (core on-demand invariant still holds).
+    stepFrames(30);
+    expect(needsUpdateWrites.length).toBe(settled);
   });
 });
