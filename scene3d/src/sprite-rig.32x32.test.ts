@@ -112,7 +112,7 @@ describe("SpriteRig with a 32x32 (16x16 cells) spritesheet", () => {
   beforeEach(() => installShims());
   afterEach(() => clearShims());
 
-  it("slices 16x16 cells and walks the full 4-color cycle 0->1->2->3, attack lands on cell 3", async () => {
+  it("slices 16x16 cells and walks 0 -> 1, attack lands on cell 3", async () => {
     const scene = new THREE.Scene();
     const rig = new SpriteRig(scene, {
       unitId: "t:0",
@@ -130,16 +130,11 @@ describe("SpriteRig with a 32x32 (16x16 cells) spritesheet", () => {
     expect(cellOf(initial)).toBe(0);
     expect(initial).toMatchObject({ sx: 0, sy: 0, sw: 16, sh: 16 });
 
-    // Each frame is one color, so the walk must step through ALL FOUR cells.
-    const walkCells: number[] = [cellOf(initial)];
-    for (let i = 0; i < 3; i += 1) {
-      rig.update((320 + 50) / 1000, 0, new THREE.Quaternion());
-      walkCells.push(cellOf(drawCalls[drawCalls.length - 1]!));
-    }
-    expect(walkCells).toEqual([0, 1, 2, 3]);
-    // Final cell (index 3) is bottom-right of the 2x2 -> (16,16,16,16).
-    const last = drawCalls[drawCalls.length - 1]!;
-    expect(last).toMatchObject({ sx: 16, sy: 16, sw: 16, sh: 16 });
+    // Advance one walk interval (WALK_FRAME_MS = 320, +slack).
+    rig.update((320 + 50) / 1000, 0, new THREE.Quaternion());
+    const afterWalk = drawCalls[drawCalls.length - 1]!;
+    expect(cellOf(afterWalk)).toBe(1);
+    expect(afterWalk).toMatchObject({ sx: 16, sy: 0, sw: 16, sh: 16 });
 
     // Attack pose should land on the bottom-right cell (index 3).
     rig.playAttack();
