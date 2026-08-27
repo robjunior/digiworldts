@@ -43,6 +43,18 @@ import {
   tilesetKey,
   tiledFlipBits,
 } from "./tilesets";
+import {
+  ANIMATION_HOLD_MS,
+  catalogIdFromSpriteName,
+  computeBridgeDownKeys,
+  computeDoorOpenIds,
+  getSpriteData,
+  MIN_TWEEN_MS,
+  POI_BADGE_LETTER,
+  FALLBACK_MARKER_COLOR,
+  PoiRenderContext,
+  digimonSpriteName,
+} from "./poi-state";
 
 export const DUNGEON_SCENE_KEY = "DungeonPhaserScene";
 export const DUNGEON_CAMERA_ZOOM = 2;
@@ -463,12 +475,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }[] = [];
     if (this.partyGroup !== null) {
       for (const child of this.partyGroup.getChildren()) {
-        const sprite = child as Phaser.GameObjects.Sprite;
+        if (!(child instanceof Phaser.GameObjects.Sprite)) continue;
         sprites.push({
-          catalogId: String(sprite.getData("catalogId") ?? ""),
-          flipX: sprite.flipX,
-          x: Math.round(sprite.x * 100) / 100,
-          y: Math.round(sprite.y * 100) / 100,
+          catalogId: String(getSpriteData(child, "catalogId") ?? ""),
+          flipX: child.flipX,
+          x: Math.round(child.x * 100) / 100,
+          y: Math.round(child.y * 100) / 100,
         });
       }
     }
@@ -669,7 +681,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
             targets: known.container,
             x: targetX,
             y: targetY,
-            duration: Math.max(1, props.moveDurationMs),
+            duration: Math.max(MIN_TWEEN_MS, props.moveDurationMs),
             ease: "Linear",
           });
           known.cell = cell;
@@ -739,12 +751,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const party = player.party ?? [];
     const trail = player.trail ?? [];
     const wanted = Math.max(0, Math.min(party.length - 1, trail.length - 1, 2));
-    while (render.followers.length > wanted) {
-      const removed = render.followers.pop();
-      if (removed === undefined) break;
-      this.tweens.killTweensOf(removed.sprite);
-      removed.sprite.destroy();
-    }
+    this.removeExcessFollowers(render, wanted);
     for (let i = 0; i < wanted; i++) {
       const memberIndex = i + 1;
       const trailCell = trail[memberIndex];
@@ -754,64 +761,101 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const targetY = slotY + trailCell.y * tileSize + tileSize / 2;
       const existing = render.followers[i];
       if (existing !== undefined) {
-        if (
-          existing.cell.x !== trailCell.x ||
-          existing.cell.y !== trailCell.y
-        ) {
-          this.tweens.killTweensOf(existing.sprite);
-          this.tweens.add({
-            targets: existing.sprite,
-            x: targetX,
-            y: targetY,
-            duration: Math.max(1, moveDurationMs),
-            ease: "Linear",
-          });
-          existing.cell = { x: trailCell.x, y: trailCell.y };
-        }
-        if (
-          existing.sprite instanceof Phaser.GameObjects.Arc &&
-          catalogId !== ""
-        ) {
-          const dot = this.spawnDigimonSprite(
+        this.syncExistingFollower(
+          render,
+          i,
+          existing,
+          trailCell,
+          catalogId,
+          targetX,
+          targetY,
+          moveDurationMs,
+        );
+        continue;
+      }
+      render.followers.push({
+        sprite: this.createFollowerSprite(catalogId, targetX, targetY, tileSize),
+        cell: { x: trailCell.x, y: trailCell.y },
+      });
+    }
+  }
+
+  /** Drop trailing follower sprites past the wanted count. */
+  private removeExcessFollowers(
+    render: RemotePlayerRender,
+    wanted: number,
+  ): void {
+    while (render.followers.length > wanted) {
+      const removed = render.followers.pop();
+      if (removed === undefined) break;
+      this.tweens.killTweensOf(removed.sprite);
+      removed.sprite.destroy();
+    }
+  }
+
+  /** Tween an existing follower to its new cell and swap a circle for a loaded dot. */
+  private syncExistingFollower(
+    render: RemotePlayerRender,
+    index: number,
+    existing: RemotePlayerRender["followers"][number],
+    trailCell: { readonly x: number; readonly y: number },
+    catalogId: string,
+    targetX: number,
+    targetY: number,
+    moveDurationMs: number,
+  ): void {
+    if (existing.cell.x !== trailCell.x || existing.cell.y !== trailCell.y) {
+      this.tweens.killTweensOf(existing.sprite);
+      this.tweens.add({
+        targets: existing.sprite,
+        x: targetX,
+        y: targetY,
+        duration: Math.max(MIN_TWEEN_MS, moveDurationMs),
+        ease: "Linear",
+      });
+      existing.cell = { x: trailCell.x, y: trailCell.y };
+    }
+    if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== "") {
+      const dot = this.spawnDigimonSprite(
+        catalogId,
+        targetX,
+        targetY,
+        PARTY_DEPTH - 1,
+        false,
+      );
+      existing.sprite.destroy();
+      if (dot !== null) {
+        render.followers[index] = {
+          sprite: dot,
+          cell: { x: trailCell.x, y: trailCell.y },
+        };
+      }
+    }
+  }
+
+  /** A remote follower is a digimon dot when the catalog id resolved, else a placeholder circle. */
+  private createFollowerSprite(
+    catalogId: string,
+    targetX: number,
+    targetY: number,
+    tileSize: number,
+  ): Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc {
+    const dot =
+      catalogId !== ""
+        ? this.spawnDigimonSprite(
             catalogId,
             targetX,
             targetY,
             PARTY_DEPTH - 1,
             false,
-          );
-          existing.sprite.destroy();
-          if (dot !== null) {
-            render.followers[i] = {
-              sprite: dot,
-              cell: { x: trailCell.x, y: trailCell.y },
-            };
-          }
-        }
-        continue;
-      }
-      let sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
-      const dot =
-        catalogId !== ""
-          ? this.spawnDigimonSprite(
-              catalogId,
-              targetX,
-              targetY,
-              PARTY_DEPTH - 1,
-              false,
-            )
-          : null;
-      if (dot === null) {
-        sprite = this.add
-          .circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5)
-          .setDepth(PARTY_DEPTH - 1);
-      } else {
-        sprite = dot;
-      }
-      render.followers.push({
-        sprite,
-        cell: { x: trailCell.x, y: trailCell.y },
-      });
+          )
+        : null;
+    if (dot === null) {
+      return this.add
+        .circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5)
+        .setDepth(PARTY_DEPTH - 1);
     }
+    return dot;
   }
 
   private clampFollowTargetPos(
@@ -862,7 +906,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       targets: target,
       x: clamped.x,
       y: clamped.y,
-      duration: Math.max(1, durationMs),
+      duration: Math.max(MIN_TWEEN_MS, durationMs),
       ease: "Linear",
     });
     this.lastFollowTarget = { x: clamped.x, y: clamped.y };
@@ -1055,9 +1099,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
     flipX: boolean,
   ): Phaser.GameObjects.Sprite | null {
     const existing = this.children.getByName(
-      `digimon:${catalogId}:${x}:${y}`,
-    ) as Phaser.GameObjects.Sprite | null;
-    if (existing !== null) return existing;
+      digimonSpriteName(catalogId, x, y),
+    );
+    if (existing instanceof Phaser.GameObjects.Sprite) return existing;
     let sprite: Phaser.GameObjects.Sprite | null = null;
     ensureDigimonSpriteLoaded(this, catalogId, (load) => {
       if (load.kind === "none") return;
@@ -1068,7 +1112,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           load.key,
           load.kind === "sheet" ? "0" : undefined,
         );
-        sprite.setName(`digimon:${catalogId}:${x}:${y}`);
+        sprite.setName(digimonSpriteName(catalogId, x, y));
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
         sprite.setFlipX(flipX);
@@ -1082,16 +1126,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   /** Play the attack pose (frame 3) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonAttack(sprite: Phaser.GameObjects.Sprite): void {
-    const catalogId = (sprite.name.split(":")[1] ?? "")
-      .replace(/^sheet-/, "")
-      .replace(/^dot-/, "");
+    const catalogId = catalogIdFromSpriteName(sprite.name);
     const attackAnim = sheetAttackAnimKey(catalogId);
     if (
       sprite.anims.currentAnim?.key !== attackAnim &&
       this.anims.exists(attackAnim)
     ) {
       sprite.play(attackAnim);
-      this.time.delayedCall(400, () => {
+      this.time.delayedCall(ANIMATION_HOLD_MS, () => {
         const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
@@ -1100,16 +1142,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   /** Play the take-hit pose (frame 2) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonTakeHit(sprite: Phaser.GameObjects.Sprite): void {
-    const catalogId = (sprite.name.split(":")[1] ?? "")
-      .replace(/^sheet-/, "")
-      .replace(/^dot-/, "");
+    const catalogId = catalogIdFromSpriteName(sprite.name);
     const takeHitAnim = sheetTakeHitAnimKey(catalogId);
     if (
       sprite.anims.currentAnim?.key !== takeHitAnim &&
       this.anims.exists(takeHitAnim)
     ) {
       sprite.play(takeHitAnim);
-      this.time.delayedCall(400, () => {
+      this.time.delayedCall(ANIMATION_HOLD_MS, () => {
         const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
@@ -1120,8 +1160,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
   triggerBossHit(catalogId: string): void {
     for (const sprite of this.renderedSprites) {
       if (
-        sprite.getData("poiKind") === "boss" &&
-        sprite.getData("bossCatalogId") === catalogId
+        getSpriteData<string>(sprite, "poiKind") === "boss" &&
+        getSpriteData<string>(sprite, "bossCatalogId") === catalogId
       ) {
         this.playDigimonAttack(sprite);
         return;
@@ -1451,242 +1491,179 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }
 
     const run = view.run;
-    const firedSet = new Set(view.firedTriggerIds);
-    const doorOpenIds = new Set<string>();
-    for (const trigger of view.triggers) {
-      if (!firedSet.has(trigger.id)) continue;
-      for (const target of trigger.targets) {
-        if (target.kind === "door" && target.doorId !== null)
-          doorOpenIds.add(target.doorId);
-      }
-    }
-    const bridgeDownKeys = new Set<string>();
-    for (const bridge of view.bridges) {
-      const lowered = view.triggers.some(
-        (trigger) =>
-          firedSet.has(trigger.id) &&
-          trigger.targets.some(
-            (target) =>
-              target.kind === "bridge" && target.bridgeId === bridge.id,
-          ),
-      );
-      if (lowered) bridgeDownKeys.add(`${bridge.x},${bridge.y}`);
-    }
-    const poiStateByKey = new Map(
-      view.poiStates.map((s) => [`${s.poiKind}:${s.poiId}`, s.state] as const),
+    const ctx: PoiRenderContext = {
+      view,
+      tileSize,
+      primary,
+      offsetX,
+      offsetY,
+      slotGridX,
+      slotGridY,
+      poiCell: (x, y) => offsetX + x * tileSize + tileSize / 2,
+      poiRow: (x, y) => offsetY + y * tileSize + tileSize / 2,
+      firedSet: new Set(view.firedTriggerIds),
+      doorOpenIds: computeDoorOpenIds(view),
+      bridgeDownKeys: computeBridgeDownKeys(view),
+      poiStateByKey: new Map(
+        view.poiStates.map((s) => [`${s.poiKind}:${s.poiId}`, s.state] as const),
+      ),
+    };
+
+    this.renderDoors(ctx);
+    this.renderChests(ctx);
+    this.renderTraps(ctx);
+    this.renderTriggers(ctx);
+    this.renderBridges(ctx);
+    this.renderEncounters(ctx);
+    this.renderItems(ctx);
+  }
+
+  // --- POI sub-renderers (split out of renderMap) -------------------------
+
+  private pushPoiInfo(
+    kind: DungeonPoiInfo["kind"],
+    x: number,
+    y: number,
+    gid: number | string | null,
+    slotGridX: number,
+    slotGridY: number,
+  ): void {
+    this.poiInfos.push({ kind, x, y, gid, slotGridX, slotGridY });
+  }
+
+  /**
+   * Shared sprite creation for tile-backed POIs (door/chest/trap/trigger/
+   * bridge). Pushes a POI-depth sprite when the tile frame exists; otherwise
+   * does nothing (the badge / fallback marker is added separately). The old
+   * renderMap duplicated this ~10-line block once per POI type.
+   */
+  private createPoiSprite(
+    ctx: PoiRenderContext,
+    kind: DungeonPoiInfo["kind"],
+    x: number,
+    y: number,
+    gid: number | null,
+    poiId: string,
+  ): void {
+    if (gid === null) return;
+    const frame = ctx.primary !== null ? tileFrame(ctx.primary, gid) : null;
+    if (frame === null || !this.textures.exists(frame.texture)) return;
+    const sprite = this.add.sprite(
+      ctx.poiCell(x, y),
+      ctx.poiRow(x, y),
+      frame.texture,
+      frame.frame,
     );
+    sprite.setOrigin(0.5, 0.5);
+    sprite.setDisplaySize(ctx.tileSize, ctx.tileSize);
+    sprite.setDepth(POI_DEPTH);
+    sprite.setData("poiKind", kind);
+    sprite.setData("poiId", poiId);
+    this.renderedSprites.push(sprite);
+  }
 
-    const poiCell = (x: number, y: number): number =>
-      offsetX + x * tileSize + tileSize / 2;
-    const poiRow = (x: number, y: number): number =>
-      offsetY + y * tileSize + tileSize / 2;
-
-    for (const door of view.doors) {
+  private renderDoors(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const door of ctx.view.doors) {
       const doorOpen =
-        run.unlockedDoors.includes(door.id) || doorOpenIds.has(door.id);
+        run.unlockedDoors.includes(door.id) || ctx.doorOpenIds.has(door.id);
       const gid = doorOpen ? door.usedTileGid : door.unusedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(
-          poiCell(door.x, door.y),
-          poiRow(door.x, door.y),
-          frame.texture,
-          frame.frame,
-        );
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData("poiKind", "door");
-        sprite.setData("poiId", door.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({
-        kind: "door",
-        x: door.x,
-        y: door.y,
-        gid,
-        slotGridX,
-        slotGridY,
-      });
-      this.addPoiBadge(poiCell(door.x, door.y), poiRow(door.x, door.y), "D");
-    }
-
-    for (const chest of view.chests) {
-      const chestState = poiStateByKey.get(`chest:${chest.id}`) ?? "unused";
-      const gid =
-        chestState === "used" ? chest.usedTileGid : chest.unusedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(
-          poiCell(chest.x, chest.y),
-          poiRow(chest.x, chest.y),
-          frame.texture,
-          frame.frame,
-        );
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData("poiKind", "chest");
-        sprite.setData("poiId", chest.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({
-        kind: "chest",
-        x: chest.x,
-        y: chest.y,
-        gid,
-        slotGridX,
-        slotGridY,
-      });
+      this.createPoiSprite(ctx, "door", door.x, door.y, gid, door.id);
+      this.pushPoiInfo("door", door.x, door.y, gid, ctx.slotGridX, ctx.slotGridY);
       this.addPoiBadge(
-        poiCell(chest.x, chest.y),
-        poiRow(chest.x, chest.y),
-        "C",
+        ctx.poiCell(door.x, door.y),
+        ctx.poiRow(door.x, door.y),
+        POI_BADGE_LETTER.door,
       );
     }
+  }
 
-    for (const trap of view.traps) {
-      const trapState = poiStateByKey.get(`trap:${trap.id}`) ?? "unused";
-      if (trapState !== "used") continue;
-      const gid = trap.usedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(
-          poiCell(trap.x, trap.y),
-          poiRow(trap.x, trap.y),
-          frame.texture,
-          frame.frame,
-        );
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData("poiKind", "trap");
-        sprite.setData("poiId", trap.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({
-        kind: "trap",
-        x: trap.x,
-        y: trap.y,
-        gid,
-        slotGridX,
-        slotGridY,
-      });
-      this.addPoiBadge(poiCell(trap.x, trap.y), poiRow(trap.x, trap.y), "T");
+  private renderChests(ctx: PoiRenderContext): void {
+    for (const chest of ctx.view.chests) {
+      const state = ctx.poiStateByKey.get(`chest:${chest.id}`) ?? "unused";
+      const gid = state === "used" ? chest.usedTileGid : chest.unusedTileGid;
+      this.createPoiSprite(ctx, "chest", chest.x, chest.y, gid, chest.id);
+      this.pushPoiInfo("chest", chest.x, chest.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(chest.x, chest.y),
+        ctx.poiRow(chest.x, chest.y),
+        POI_BADGE_LETTER.chest,
+      );
     }
+  }
 
-    for (const trigger of view.triggers) {
+  private renderTraps(ctx: PoiRenderContext): void {
+    for (const trap of ctx.view.traps) {
+      const state = ctx.poiStateByKey.get(`trap:${trap.id}`) ?? "unused";
+      if (state !== "used") continue;
+      const gid = trap.usedTileGid;
+      this.createPoiSprite(ctx, "trap", trap.x, trap.y, gid, trap.id);
+      this.pushPoiInfo("trap", trap.x, trap.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(trap.x, trap.y),
+        ctx.poiRow(trap.x, trap.y),
+        POI_BADGE_LETTER.trap,
+      );
+    }
+  }
+
+  private renderTriggers(ctx: PoiRenderContext): void {
+    for (const trigger of ctx.view.triggers) {
       if (!trigger.enabled) continue;
-      const triggerUsed = firedSet.has(trigger.id);
-      const gid = triggerUsed ? trigger.usedTileGid : trigger.unusedTileGid;
+      const used = ctx.firedSet.has(trigger.id);
+      const gid = used ? trigger.usedTileGid : trigger.unusedTileGid;
       if (gid === null) {
         // No tile picked for this lever — still surface it on top of the map.
         this.addPoiFallbackMarker(
-          poiCell(trigger.x, trigger.y),
-          poiRow(trigger.x, trigger.y),
-          "L",
-          0xffcf4d,
+          ctx.poiCell(trigger.x, trigger.y),
+          ctx.poiRow(trigger.x, trigger.y),
+          POI_BADGE_LETTER.trigger,
+          FALLBACK_MARKER_COLOR.trigger,
         );
-        this.poiInfos.push({
-          kind: "trigger",
-          x: trigger.x,
-          y: trigger.y,
-          gid: null,
-          slotGridX,
-          slotGridY,
-        });
+        this.pushPoiInfo("trigger", trigger.x, trigger.y, null, ctx.slotGridX, ctx.slotGridY);
         continue;
       }
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(
-          poiCell(trigger.x, trigger.y),
-          poiRow(trigger.x, trigger.y),
-          frame.texture,
-          frame.frame,
-        );
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData("poiKind", "trigger");
-        sprite.setData("poiId", trigger.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({
-        kind: "trigger",
-        x: trigger.x,
-        y: trigger.y,
-        gid,
-        slotGridX,
-        slotGridY,
-      });
+      this.createPoiSprite(ctx, "trigger", trigger.x, trigger.y, gid, trigger.id);
+      this.pushPoiInfo("trigger", trigger.x, trigger.y, gid, ctx.slotGridX, ctx.slotGridY);
       this.addPoiBadge(
-        poiCell(trigger.x, trigger.y),
-        poiRow(trigger.x, trigger.y),
-        "L",
+        ctx.poiCell(trigger.x, trigger.y),
+        ctx.poiRow(trigger.x, trigger.y),
+        POI_BADGE_LETTER.trigger,
       );
     }
+  }
 
-    for (const bridge of view.bridges) {
+  private renderBridges(ctx: PoiRenderContext): void {
+    for (const bridge of ctx.view.bridges) {
       if (!bridge.enabled) continue;
-      const bridgeDown = bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
-      const gid = bridgeDown ? bridge.downTileGid : bridge.upTileGid;
+      const down = ctx.bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
+      const gid = down ? bridge.downTileGid : bridge.upTileGid;
       if (gid === null) {
         this.addPoiFallbackMarker(
-          poiCell(bridge.x, bridge.y),
-          poiRow(bridge.x, bridge.y),
-          "B",
-          0x4aa3ff,
+          ctx.poiCell(bridge.x, bridge.y),
+          ctx.poiRow(bridge.x, bridge.y),
+          POI_BADGE_LETTER.bridge,
+          FALLBACK_MARKER_COLOR.bridge,
         );
-        this.poiInfos.push({
-          kind: "bridge",
-          x: bridge.x,
-          y: bridge.y,
-          gid: null,
-          slotGridX,
-          slotGridY,
-        });
+        this.pushPoiInfo("bridge", bridge.x, bridge.y, null, ctx.slotGridX, ctx.slotGridY);
         continue;
       }
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(
-          poiCell(bridge.x, bridge.y),
-          poiRow(bridge.x, bridge.y),
-          frame.texture,
-          frame.frame,
-        );
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData("poiKind", "bridge");
-        sprite.setData("poiId", bridge.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({
-        kind: "bridge",
-        x: bridge.x,
-        y: bridge.y,
-        gid,
-        slotGridX,
-        slotGridY,
-      });
+      this.createPoiSprite(ctx, "bridge", bridge.x, bridge.y, gid, bridge.id);
+      this.pushPoiInfo("bridge", bridge.x, bridge.y, gid, ctx.slotGridX, ctx.slotGridY);
     }
+  }
 
-    for (const encounter of view.encounters) {
+  private renderEncounters(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const encounter of ctx.view.encounters) {
       if (run.defeatedEncounters.includes(encounter.id)) continue;
       if (encounter.difficulty === "boss") {
         const leader = encounter.digimon[0];
         if (leader === undefined) continue;
-        const bossWorldX = poiCell(encounter.x, encounter.y);
-        const bossWorldY = poiRow(encounter.x, encounter.y);
         const boss = this.spawnDigimonSprite(
           leader.catalogId,
-          bossWorldX,
-          bossWorldY,
+          ctx.poiCell(encounter.x, encounter.y),
+          ctx.poiRow(encounter.x, encounter.y),
           BOSS_DEPTH,
           run.currentX < encounter.x,
         );
@@ -1694,42 +1671,28 @@ export class DungeonPhaserScene extends Phaser.Scene {
           boss.setData("poiKind", "boss");
           boss.setData("bossCatalogId", leader.catalogId);
         }
-        this.poiInfos.push({
-          kind: "boss",
-          x: encounter.x,
-          y: encounter.y,
-          gid: leader.catalogId,
-          slotGridX,
-          slotGridY,
-        });
+        this.pushPoiInfo("boss", encounter.x, encounter.y, leader.catalogId, ctx.slotGridX, ctx.slotGridY);
       } else {
-        this.poiInfos.push({
-          kind: "encounter",
-          x: encounter.x,
-          y: encounter.y,
-          gid: null,
-          slotGridX,
-          slotGridY,
-        });
+        this.pushPoiInfo("encounter", encounter.x, encounter.y, null, ctx.slotGridX, ctx.slotGridY);
         this.addPoiBadge(
-          poiCell(encounter.x, encounter.y),
-          poiRow(encounter.x, encounter.y),
-          "E",
+          ctx.poiCell(encounter.x, encounter.y),
+          ctx.poiRow(encounter.x, encounter.y),
+          POI_BADGE_LETTER.encounter,
         );
       }
     }
+  }
 
-    for (const item of view.items) {
+  private renderItems(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const item of ctx.view.items) {
       if (run.collectedItems.includes(item.id)) continue;
-      this.poiInfos.push({
-        kind: "item",
-        x: item.x,
-        y: item.y,
-        gid: null,
-        slotGridX,
-        slotGridY,
-      });
-      this.addPoiBadge(poiCell(item.x, item.y), poiRow(item.x, item.y), "I");
+      this.pushPoiInfo("item", item.x, item.y, null, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(item.x, item.y),
+        ctx.poiRow(item.x, item.y),
+        POI_BADGE_LETTER.item,
+      );
     }
   }
 
@@ -1806,6 +1769,21 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const run = view.run;
     if (run.currentX === x && run.currentY === y) return;
     if (Math.abs(x - run.currentX) + Math.abs(y - run.currentY) !== 1) return;
+    if (!this.isCellWalkable(view, x, y)) return;
+    props.onCellClick(x, y);
+  }
+
+  /**
+   * Whether the player may step onto a cell: it has at least one walkable
+   * terrain tile and no non-walkable (obstacle) tile, OR a bridge currently
+   * lowered by a fired lever sits there. Extracted from the inline pointer
+   * handler so the same rule can be reused / unit-tested.
+   */
+  private isCellWalkable(
+    view: DungeonRunView,
+    x: number,
+    y: number,
+  ): boolean {
     const cellTiles = view.tiles.filter((tile) => tile.x === x && tile.y === y);
     const hasWalkable = cellTiles.some((tile) =>
       (WALKABLE_LAYER_KINDS as readonly string[]).includes(tile.layerKind),
@@ -1830,7 +1808,6 @@ export class DungeonPhaserScene extends Phaser.Scene {
           ),
         ),
     );
-    if (!((hasWalkable && !hasObstacle) || bridgeDown)) return;
-    props.onCellClick(x, y);
+    return (hasWalkable && !hasObstacle) || bridgeDown;
   }
 }
