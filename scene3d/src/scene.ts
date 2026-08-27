@@ -1907,6 +1907,19 @@ export class SceneManager {
       for (const sprite of this.sprites.values()) {
         sprite.update(dt, elapsed, this.camera.quaternion);
       }
+      // While any sprite is mid attack/hit it actually translates (lunge) or
+      // shakes, so its shadow must track the motion across the whole anim
+      // window — not just on the first frame. Refresh on each such frame.
+      // This is bounded by the short anim durations, so idle frames (the 99%
+      // case) still skip the shadow pass entirely.
+      let anyAnimating = false;
+      for (const sprite of this.sprites.values()) {
+        if (sprite.animating) {
+          anyAnimating = true;
+          break;
+        }
+      }
+      if (anyAnimating) this.requestShadowRefresh();
       for (const prop of this.floatingProps) {
         prop.mesh.position.y =
           prop.baseY +
