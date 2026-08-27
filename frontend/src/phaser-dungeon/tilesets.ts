@@ -429,9 +429,13 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
   const key = digimonSheetKey(catalogId);
   if (scene.textures.exists(key)) {
     const texture = scene.textures.get(key);
-    const src = texture.getSourceImage() as { width?: number; height?: number };
-    const w = src?.width ?? 64;
-    const h = src?.height ?? 64;
+    const src = texture.getSourceImage() as Partial<HTMLImageElement> & { width?: number; height?: number };
+    // Read the ACTUAL pixel size of the source PNG. Prefer naturalWidth/Height
+    // (HTMLImageElement), fall back to width/height. Never silently default to
+    // 64: a 32×32 sheet must slice into 16×16 cells, not be misread as 64×64.
+    const w = src?.naturalWidth ?? src?.width ?? 0;
+    const h = src?.naturalHeight ?? src?.height ?? 0;
+    if (w <= 0 || h <= 0) return false;
     // Derive the 2×2 cell layout from the ACTUAL sheet dimensions (never a
     // hardcoded 32px cell) so both the 64×64 authored sheets (32×32 cells) and
     // user-supplied 32×32 sheets (16×16 cells) slice and animate. A hardcoded
