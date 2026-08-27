@@ -72,7 +72,7 @@ export function computeSheetFrames(sheetW: number, sheetH: number): SheetLayout 
     cellW,
     cellH,
     frames,
-    walkFrameIndices: [0, 1],
+    walkFrameIndices: [0, 1, 2, 3],
     takeHitFrameIndex: 2,
     attackFrameIndex: 3,
   };

@@ -444,11 +444,8 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
     if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
       scene.anims.create({
         key: sheetWalkAnimKey(catalogId),
-        frames: [
-          { key, frame: '0' },
-          { key, frame: '1' },
-        ],
-        frameRate: 3,
+        frames: layout.walkFrameIndices.map((i) => ({ key, frame: String(i) })),
+        frameRate: 4,
         repeat: -1,
       });
     }
