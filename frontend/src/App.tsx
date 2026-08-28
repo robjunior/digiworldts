@@ -17,6 +17,7 @@ import { Home } from './routes/Home';
 import { Intro } from './routes/Intro';
 import { Inventory } from './routes/Inventory';
 import { LoadingTransition } from './routes/LoadingTransition';
+import { InventorySpikeDemo } from './features/inventory/InventorySpikeDemo';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
@@ -104,6 +105,7 @@ export function App(): JSX.Element {
               <Route path="/training" element={<Training />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/items" element={<Inventory />} />
+              <Route path="/inv-spike" element={<InventorySpikeDemo />} />
               <Route path="/market" element={<Market />} />
               <Route path="/nursery" element={<Nursery />} />
               <Route path="/world" element={<World />} />
