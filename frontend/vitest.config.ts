@@ -7,7 +7,7 @@ export default defineConfig({
     // Only collect vitest-format tests. The repo also has tsx-driven regression
     // scripts (e.g. sheet-frames.test.ts, run via `npx tsx`) that throw at module
     // top-level and are not vitest suites.
-    include: ["src/**/*.vitest.test.ts"],
+    include: ["src/**/*.vitest.test.{ts,tsx}"],
     globals: false,
   },
 });

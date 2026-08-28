@@ -1,0 +1,109 @@
+/* =========================================================================
+   Inventory / Vault spike — self-contained styles.
+   Deliberately NOT tied to the game's Persona-5 tokens: the spike validates
+   ARCHITECTURE (one container system, two instances), so the visual layer is
+   intentionally minimal and neutral. Swap this file for the real theme later.
+   ========================================================================= */
+
+.ic-spike-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  color: #f4f1ea;
+  background: #0a0a0c;
+  min-height: 100vh;
+  font: 14px/1.4 system-ui, sans-serif;
+}
+
+.ic-spike-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid #2a2a30;
+  border-radius: 8px;
+  background: #141418;
+}
+.ic-spike-controls h1 { font-size: 16px; margin: 0 0 4px; width: 100%; }
+.ic-ctl-group { display: flex; flex-direction: column; gap: 6px; }
+.ic-ctl-btn {
+  background: #1d1d22; color: #f4f1ea; border: 1px solid #2a2a30;
+  border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 12px;
+}
+.ic-ctl-btn:hover { border-color: #e6001f; }
+.ic-ctl-check { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.ic-access-state { font-size: 12px; color: #9ca3af; }
+
+.ic-spike-containers { display: flex; flex-direction: column; gap: 8px; }
+
+/* --- Shared container shell --- */
+.ic-container {
+  border: 1px solid #2a2a30;
+  border-radius: 8px;
+  background: #141418;
+  padding: 12px;
+}
+.ic-container.is-disabled { opacity: 0.6; }
+
+.ic-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ic-title { font-size: 13px; letter-spacing: 0.18em; margin: 0; color: #e6001f; }
+.ic-cap { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.ic-cap-num { font-weight: 700; }
+.ic-cap-bar { width: 120px; height: 6px; background: #2a2a30; border-radius: 4px; overflow: hidden; }
+.ic-cap-fill { display: block; height: 100%; width: var(--fill, 0%); background: #e6001f; }
+
+.ic-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
+.ic-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #1d1d22; color: #f4f1ea; border: 1px solid #2a2a30;
+  border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+}
+.ic-chip.is-active { border-color: #e6001f; background: #241016; color: #fff; }
+.ic-chip-n { font-size: 10px; color: #9ca3af; background: #0a0a0c; border-radius: 999px; padding: 1px 6px; }
+.ic-search {
+  flex: 1 1 160px; min-width: 120px; background: #0a0a0c; color: #f4f1ea;
+  border: 1px solid #2a2a30; border-radius: 6px; padding: 6px 10px; font-size: 12px;
+}
+
+.ic-body { min-height: 80px; }
+.ic-empty-state, .ic-locked { padding: 24px; text-align: center; color: #8a877f; }
+.ic-locked { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.ic-lock-ico { font-size: 28px; }
+
+/* --- Grid --- */
+.ic-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 6), 1fr);
+  gap: 6px;
+}
+.ic-vgrid { border: 1px solid #2a2a30; border-radius: 6px; }
+.ic-vrow { display: grid; grid-template-columns: repeat(var(--cols, 10), 1fr); gap: 6px; padding: 0 6px; }
+
+.ic-slot {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex; align-items: center; justify-content: center;
+  background: #0f0f12; border: 1px solid #2a2a30; border-radius: 6px;
+  cursor: pointer; color: #f4f1ea; font-size: 20px; padding: 0;
+}
+.ic-slot.is-empty { background: #0c0c0e; border-style: dashed; }
+.ic-slot.is-empty .ic-empty-mark { width: 10px; height: 10px; border-radius: 50%; background: #1d1d22; }
+.ic-slot.is-selected { border-color: #e6001f; box-shadow: 0 0 0 2px rgba(230,0,31,0.4); }
+.ic-slot.is-hidden { display: none; }
+.ic-slot.is-dimmed { opacity: 0.25; }
+.ic-icon { line-height: 1; }
+.ic-qty {
+  position: absolute; right: 3px; bottom: 2px; font-size: 11px; font-weight: 700;
+  background: rgba(10,10,12,0.85); padding: 0 4px; border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ic-footer { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 11px; color: #8a877f; }
+.ic-foot-line b { color: #f4f1ea; }
+
+.ic-vault-gate {
+  text-align: center; color: #9ca3af; font-size: 12px; letter-spacing: 0.1em;
+  padding: 4px;
+}
