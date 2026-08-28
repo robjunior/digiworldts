@@ -49,10 +49,13 @@ import { DungeonInventoryPanel } from "../components/dungeon/DungeonInventoryPan
 import { DungeonQuestPanel } from "../components/dungeon/DungeonQuestPanel";
 import { FnPanel } from "../components/dungeon/FnPanel";
 import { RosterPanel } from "../components/dungeon/RosterPanel";
+import { CharacterPanel } from "../components/dungeon/CharacterPanel";
 import { DungeonDoorPrompt } from "../components/dungeon/DungeonDoorPrompt";
 import { DigidexPanel } from "../components/dungeon/DigidexPanel";
 import { DialogueOverlay } from "../components/dungeon/DialogueOverlay";
 import { DungeonStrip } from "../components/dungeon/DungeonStrip";
+import { FriendsPanel } from "../components/dungeon/FriendsPanel";
+import { GuildPanel } from "../components/dungeon/GuildPanel";
 import type { PendingUnlock } from "../components/dungeon/types";
 import "../styles/extensions-dungeon.css";
 
@@ -1290,6 +1293,12 @@ export function Dungeon(): JSX.Element {
             <RosterPanel roster={party} />
           ) : fnOpenId === 'digidex' ? (
             <DigidexPanel digimons={catalogQuery.data?.digimons ?? []} />
+          ) : fnOpenId === 'character' ? (
+            <CharacterPanel username={user?.username ?? 'Tamer'} />
+          ) : fnOpenId === 'friends' ? (
+            <FriendsPanel />
+          ) : fnOpenId === 'guild' ? (
+            <GuildPanel />
           ) : (
             <div className="fn-skeleton" />
           )}
