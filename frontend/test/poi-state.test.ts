@@ -136,11 +136,11 @@ describe("computeBridgeDownKeys", () => {
 
 describe("digimon sprite name round-trip", () => {
   it("recovers the catalog id from a generated sprite name", () => {
-    const name = digimonSpriteName("agumon", 3, 7);
-    assert.equal(name, "digimon:agumon:3:7");
+    const name = digimonSpriteName("party", "agumon");
+    assert.equal(name, "digimon:party:agumon");
     assert.equal(catalogIdFromSpriteName(name), "agumon");
-    assert.equal(catalogIdFromSpriteName("digimon:sheet-agumon:3:7"), "agumon");
-    assert.equal(catalogIdFromSpriteName("digimon:dot-agumon:3:7"), "agumon");
+    assert.equal(catalogIdFromSpriteName("digimon:party:sheet-agumon"), "agumon");
+    assert.equal(catalogIdFromSpriteName("digimon:remote-leader:dot-agumon"), "agumon");
   });
 });
 

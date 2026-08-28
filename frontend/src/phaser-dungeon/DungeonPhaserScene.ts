@@ -165,6 +165,7 @@ declare global {
       readonly scene: DungeonPhaserScene;
       getState(): DungeonPhaserDebugState;
       triggerBossHit(catalogId: string): void;
+      toggleHud(): void;
     };
   }
 }
@@ -191,7 +192,10 @@ type SceneProps = {
 };
 
 type RemotePlayerRender = {
-  readonly container: Phaser.GameObjects.Container;
+  /** Leader digimon sprite (or placeholder circle) at WORLD coordinates. */
+  leader: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
+  /** Name tag, at WORLD coordinates, follows the leader's cell. */
+  nameText: Phaser.GameObjects.Text;
   cell: { x: number; y: number; gridX: number; gridY: number };
   catalogId: string | null;
   followers: {
@@ -316,6 +320,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private latestProps: SceneProps | null = null;
   private followTarget: Phaser.GameObjects.Container | null = null;
   private booted = false;
+  /**
+   * Set the moment the scene is torn down (SHUTDOWN *or* DESTROY). While
+   * `booted` only guards against a pre-create scene, `dead` also guards against
+   * a scene whose systems have been nulled by `game.destroy(true)` — that path
+   * fires DESTROY, not SHUTDOWN, so `booted` would wrongly stay `true`.
+   */
+  private dead = false;
 
   private renderedLayers: Phaser.Tilemaps.TilemapLayer[] = [];
   private renderedSprites: Phaser.GameObjects.Sprite[] = [];
@@ -325,6 +336,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private mixedSizes = false;
   private mapCount = 0;
   private rendered = false;
+  // --- Opt-in perf HUD (zero-cost when off; see enableHud/toggleHud) ---
+  private hudEnabled = false;
+  private hudText: Phaser.GameObjects.Text | null = null;
+  private hudTimer: Phaser.Time.TimerEvent | null = null;
   private worldInfo: { readonly width: number; readonly height: number } = {
     width: 0,
     height: 0,
@@ -365,6 +380,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   create(): void {
     this.booted = true;
+    this.dead = false;
     this.cameras.main.setBackgroundColor(BACKGROUND_COLOR);
     this.cameras.main.setZoom(DUNGEON_CAMERA_ZOOM);
     this.followTarget = this.add.container(0, 0);
@@ -374,19 +390,32 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.clampCameraScroll,
       this,
     );
-    // Wire teardown to the scene SHUTDOWN event. Phaser does NOT auto-call a
-    // `shutdown` method — without this the scene is left in a zombie state:
-    // CameraManager nulls `cameras.main` on SHUTDOWN, but `booted` /
-    // `followTarget` / `latestProps` stay set (only reset inside shutdown()),
-    // so a later setProps → recompose dereferences a dead camera and throws
-    // "can't access property displayWidth, camera is undefined".
+    // Wire teardown to BOTH scene lifecycle events:
+    //  • SHUTDOWN — fired when the scene is stopped/put to sleep (e.g. the
+    //    scene manager stops it without destroying the game).
+    //  • DESTROY — fired by `game.destroy(true)` (the React view's unmount
+    //    cleanup). Phaser's Systems.destroy() emits DESTROY and nulls
+    //    `this.add` / `updateList` / `scene` / `events` but does NOT emit
+    //    SHUTDOWN. Without binding to DESTROY too, shutdown() never ran on the
+    //    unmount path, leaving a zombie scene whose `booted` stayed true and
+    //    whose async recompose callbacks (tileset loads, dot fallbacks) later
+    //    crashed with "can't access property 'add', this.updateList is null".
+    // Phaser does NOT auto-call a `shutdown` method, so both bindings are
+    // required for real teardown.
     this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.on(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     this.input.on("pointerdown", this.handleCellPointer, this);
     window.__dungeonPhaser = {
       scene: this,
       getState: () => this.getState(),
       triggerBossHit: (catalogId: string) => this.triggerBossHit(catalogId),
+      toggleHud: () => this.toggleHud(),
     };
+    // Opt-in perf HUD: ?hud=1 (or window.__dungeonPhaser.toggleHud()). Zero cost
+    // unless enabled — sampling only starts when the HUD is on.
+    if (typeof location !== "undefined" && new URLSearchParams(location.search).has("hud")) {
+      this.enableHud();
+    }
     // Props arrive after create() (wrapper READY event) — the texture pipeline
     // runs lazily from setProps → recompose, not from a preload() hook.
     if (this.latestProps !== null) this.recompose();
@@ -409,6 +438,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this,
     );
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.off(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
+    // Tear down the opt-in HUD so a destroyed scene leaks no timer/text.
+    this.disableHud();
+    this.hudText?.destroy();
+    this.hudText = null;
     this.partyGroup?.destroy(true);
     this.partyGroup = null;
     this.leaderSprite = null;
@@ -420,10 +454,25 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.remotePlayers.clear();
     this.clearRendered();
     this.booted = false;
+    // Mark the scene dead: its systems (`add`, `updateList`, `cameras`, etc.)
+    // have been nulled by the teardown that triggered this. Any async
+    // recompose callback that still fires afterwards must bail instead of
+    // touching a dead GameObjectFactory.
+    this.dead = true;
     this.latestProps = null;
     this.lastComposedNeighbors = null;
     this.lastComposedActiveView = null;
     this.followTarget = null;
+  }
+
+  /**
+   * True once the scene has been torn down (SHUTDOWN or DESTROY). After teardown
+   * Phaser has nulled `this.add` / `this.updateList` / `this.cameras`, so any
+   * deferred work (tileset `loader` complete, dot fallback, sheet preload) must
+   * treat the scene as inert and never call `recompose`/`renderParty`.
+   */
+  isAlive(): boolean {
+    return this.booted && !this.dead;
   }
 
   /**
@@ -464,7 +513,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       onPlayerClick,
       onTextureFallback,
     };
-    if (!this.booted) return;
+    if (!this.isAlive()) return;
     if (
       prev !== null &&
       prev.view === view &&
@@ -479,6 +528,71 @@ export class DungeonPhaserScene extends Phaser.Scene {
       return;
     }
     this.recompose();
+  }
+
+  // --- Opt-in perf HUD -------------------------------------------------------
+  // Measures the live frame rate, frame time, and object counts so a dungeon
+  // "feels laggy" report can be triaged with numbers instead of guesses. Zero
+  // cost when off: a 500ms sampler runs only while enabled, and `create()` only
+  // turns it on for `?hud=1`. Toggle at runtime via
+  // `window.__dungeonPhaser.toggleHud()`.
+  toggleHud(): void {
+    if (this.hudEnabled) this.disableHud();
+    else this.enableHud();
+  }
+
+  private enableHud(): void {
+    this.hudEnabled = true;
+    if (this.hudText === null) {
+      this.hudText = this.add
+        .text(8, 8, "", {
+          fontFamily: "monospace",
+          fontSize: "12px",
+          color: "#7CFC00",
+          backgroundColor: "rgba(0,0,0,0.5)",
+        })
+        .setScrollFactor(0)
+        .setDepth(99999);
+    }
+    this.hudText.setVisible(true);
+    this.hudTimer?.remove();
+    this.hudTimer = this.time.addEvent({
+      delay: 500,
+      loop: true,
+      callback: () => this.sampleHud(),
+    });
+    this.sampleHud();
+  }
+
+  private disableHud(): void {
+    this.hudEnabled = false;
+    this.hudTimer?.remove();
+    this.hudTimer = null;
+    this.hudText?.setVisible(false);
+  }
+
+  private sampleHud(): void {
+    if (this.hudText === null) return;
+    const loop = this.game.loop;
+    const fps = Math.round(loop.actualFps);
+    const ms = loop.delta.toFixed(1);
+    // Phaser WebGLRenderer exposes `renderer.drawCount`; fall back to "n/a".
+    const drawCount = (this.game.renderer as { drawCount?: number }).drawCount;
+    const draw = drawCount === undefined ? "n/a" : String(drawCount);
+    const textures = this.textures.getTextureKeys().length;
+    const party = this.partySprites.size;
+    const remote = this.remotePlayers.size;
+    const w = Math.round(this.cameras.main.width / this.cameras.main.zoom);
+    const h = Math.round(this.cameras.main.height / this.cameras.main.zoom);
+    this.hudText.setText(
+      [
+        `FPS ${fps}  ${ms}ms`,
+        `draws ${draw}`,
+        `maps ${this.mapCount}  tex ${textures}`,
+        `party ${party}  remote ${remote}`,
+        `viewport ${w}x${h}  zoom ${this.cameras.main.zoom}`,
+      ].join("\n"),
+    );
   }
 
   getState(): DungeonPhaserDebugState {
@@ -527,6 +641,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
   }
 
   private recompose(): void {
+    if (this.dead || !this.booted) return;
     const props = this.latestProps;
     if (props === null || this.followTarget === null) return;
     // Crossing continuity: when the run crosses into a neighbor, the route
@@ -634,21 +749,33 @@ export class DungeonPhaserScene extends Phaser.Scene {
   }
 
   private destroyRemotePlayer(render: RemotePlayerRender): void {
-    this.tweens.killTweensOf(render.container);
+    this.tweens.killTweensOf(render.leader);
+    this.tweens.killTweensOf(render.nameText);
+    render.leader.destroy();
+    render.nameText.destroy();
     for (const follower of render.followers) {
       this.tweens.killTweensOf(follower.sprite);
       follower.sprite.destroy();
     }
     render.followers = [];
-    render.container.removeAll(true);
-    render.container.destroy();
   }
 
   /**
    * Diff the remote-player list against the rendered sprites: create a
-   * dot (or placeholder circle) + name tag per newcomer, tween moves cell
-   * to cell with the same glide the local party uses, keep the follower
-   * fileira in sync with the trail, and destroy leavers.
+   * digimon sprite (or placeholder circle) + name tag per newcomer, tween
+   * moves cell to cell with the same glide the local party uses, keep the
+   * follower fileira in sync with the trail, and destroy leavers.
+   *
+   * Positioning contract: the leader sprite, name tag, and every follower are
+   * placed at WORLD coordinates (`slotX + x*tileSize + tileSize/2`) — the same
+   * absolute math the local party uses — and tweened in place. They are NOT
+   * parented to a Container. A Container would be fine for positioning (Phaser
+   * 3.90's `Container.add` keeps the child's local coords, so a sprite added at
+   * (0,0) still renders at the container's world position), but the previous
+   * code created the leader sprite at WORLD (0,0) and only added it on the
+   * placeholder path, leaving the async-loaded sprite orphaned at the world
+   * origin. World-space placement with no container removes that whole class of
+   * bug: the sprite is always created at its real cell.
    */
   private renderRemotePlayers(props: SceneProps): void {
     const layout = computeLayout(props.view, props.neighbors);
@@ -677,31 +804,49 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const targetY = slotY + player.y * tileSize + tileSize / 2;
       const known = this.remotePlayers.get(player.userId);
 
-      const dotArrived =
-        known !== undefined &&
-        known.catalogId === null &&
-        player.leaderCatalogId !== undefined &&
-        player.leaderCatalogId !== "" &&
-        this.ensureDigimonSheetPreloaded([player.leaderCatalogId]);
-      if (dotArrived) {
-        this.destroyRemotePlayer(known);
-        this.remotePlayers.delete(player.userId);
-      } else if (known !== undefined) {
+      // The leader's sprite is created at its real WORLD cell the moment the
+      // texture is ready (spawnDigimonSprite), so there is no longer a
+      // placeholder→sprite rebuild: spawnDigimonSprite returns null until the
+      // sheet lands, at which point it creates the sprite straight at targetX/Y.
+      // If an already-shown placeholder circle needs upgrading to the real
+      // digimon, swap it in place (no destroy/recreate churn).
+      if (known !== undefined) {
         const moved =
           known.cell.x !== cell.x ||
           known.cell.y !== cell.y ||
           known.cell.gridX !== cell.gridX ||
           known.cell.gridY !== cell.gridY;
         if (moved) {
-          this.tweens.killTweensOf(known.container);
+          this.tweens.killTweensOf(known.leader);
+          this.tweens.killTweensOf(known.nameText);
           this.tweens.add({
-            targets: known.container,
+            targets: [known.leader, known.nameText],
             x: targetX,
             y: targetY,
             duration: Math.max(MIN_TWEEN_MS, props.moveDurationMs),
             ease: "Linear",
           });
           known.cell = cell;
+        }
+        // Upgrade placeholder circle → real digimon sprite once the sheet lands.
+        if (
+          known.catalogId === null &&
+          player.leaderCatalogId !== undefined &&
+          player.leaderCatalogId !== ""
+        ) {
+          const sprite = this.spawnDigimonSprite(
+            player.leaderCatalogId,
+            known.leader.x,
+            known.leader.y,
+            PARTY_DEPTH - 1,
+            false,
+            "remote-leader",
+          );
+          if (sprite !== null) {
+            known.leader.destroy();
+            known.leader = sprite;
+            known.catalogId = player.leaderCatalogId;
+          }
         }
         this.syncRemoteFollowers(
           known,
@@ -714,35 +859,37 @@ export class DungeonPhaserScene extends Phaser.Scene {
         continue;
       }
 
-      const container = this.add.container(targetX, targetY);
       const catalogId = player.leaderCatalogId ?? player.party?.[0] ?? "";
-      const dot =
+      // spawnDigimonSprite returns null until the sheet texture has loaded; the
+      // loader's COMPLETE handler re-renders, so the next pass upgrades the
+      // placeholder to the real digimon in place (see known!==undefined branch).
+      const leader =
         catalogId !== ""
-          ? this.spawnDigimonSprite(catalogId, 0, 0, 0, false)
+          ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false, "remote-leader")
           : null;
-      if (dot === null) {
-        container.add(this.add.circle(0, 0, tileSize * 0.3, 0x9aa3b5));
-      } else {
-        container.add(dot);
-      }
-      const name = this.add.text(0, -tileSize / 2 - 4, player.displayName, {
-        fontFamily: "monospace",
-        fontSize: "10px",
-        color: "#ffffff",
-        stroke: "#000000",
-        strokeThickness: 3,
-      });
+      const leaderObj: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc =
+        leader !== null
+          ? leader
+          : this.add.circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5).setDepth(PARTY_DEPTH - 1);
+      const name = this.add.text(
+        targetX,
+        targetY - tileSize / 2 - 4,
+        player.displayName,
+        {
+          fontFamily: "monospace",
+          fontSize: "10px",
+          color: "#ffffff",
+          stroke: "#000000",
+          strokeThickness: 3,
+        },
+      );
       name.setOrigin(0.5, 1);
-      container.add(name);
-      container.setDepth(PARTY_DEPTH - 1);
+      name.setDepth(PARTY_DEPTH - 1);
       const render: RemotePlayerRender = {
-        container,
+        leader: leaderObj,
+        nameText: name,
         cell,
-        // When the dot texture wasn't ready yet, the container holds a
-        // placeholder circle — keep catalogId null so the dotArrived branch
-        // above can destroy it and rebuild with the real sprite on the next
-        // recompose once the texture lands.
-        catalogId: dot !== null ? catalogId : null,
+        catalogId: leader !== null ? catalogId : null,
         followers: [],
       };
       this.remotePlayers.set(player.userId, render);
@@ -839,6 +986,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         targetY,
         PARTY_DEPTH - 1,
         false,
+        "remote-follower",
       );
       existing.sprite.destroy();
       if (dot !== null) {
@@ -865,6 +1013,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
             targetY,
             PARTY_DEPTH - 1,
             false,
+            "remote-follower",
           )
         : null;
     if (dot === null) {
@@ -1050,6 +1199,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           member.y,
           PARTY_DEPTH,
           flipX,
+          "party",
         );
         if (sprite !== null) {
           sprite.setName(`digimon-party:${member.catalogId}`);
@@ -1137,9 +1287,22 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * `ensureDigimonDotsLoaded` but targets the generated sheet endpoint; missing
    * sheets simply 404 and fall back to the GIF dot when the sprite is spawned.
    */
+  /**
+   * Queue the 2×2 sprite sheets for the given catalog ids so they are ready
+   * before sprites are spawned. Returns `true` when every sheet is already
+   * loaded (callers can spawn immediately); `false` while a load is in flight
+   * or queued. The COMPLETE handler re-renders so callers that got `false`
+   * converge on the loaded sprites on the next pass. (Previously this always
+   * returned `false`, which made any caller relying on the boolean as an
+   * "arrived" signal dead code.)
+   */
   private ensureDigimonSheetPreloaded(catalogIds: readonly string[]): boolean {
     const loader = this.load;
     if (loader.isLoading()) return false;
+    const allReady = catalogIds.every((id) =>
+      this.textures.exists(digimonSheetKey(id)),
+    );
+    if (allReady) return true;
     const listSizeBefore = loader.list.size;
     for (const catalogId of catalogIds) preloadDigimonSheet(this, catalogId);
     if (loader.list.size === listSizeBefore) return false;
@@ -1160,9 +1323,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
     y: number,
     depth: number,
     flipX: boolean,
+    role: string,
   ): Phaser.GameObjects.Sprite | null {
     const existing = this.children.getByName(
-      digimonSpriteName(catalogId, x, y),
+      digimonSpriteName(role, catalogId),
     );
     if (existing instanceof Phaser.GameObjects.Sprite) return existing;
     let sprite: Phaser.GameObjects.Sprite | null = null;
@@ -1175,7 +1339,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           load.key,
           load.kind === "sheet" ? "cell0" : undefined,
         );
-        sprite.setName(digimonSpriteName(catalogId, x, y));
+        sprite.setName(digimonSpriteName(role, catalogId));
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
         // Force the sliced cell frame explicitly: the numeric "0" frame name used
@@ -1733,6 +1897,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           ctx.poiRow(encounter.x, encounter.y),
           BOSS_DEPTH,
           run.currentX < encounter.x,
+          "boss",
         );
         if (boss !== null) {
           boss.setData("poiKind", "boss");
