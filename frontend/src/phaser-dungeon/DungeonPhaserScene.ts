@@ -58,6 +58,16 @@ import {
 
 export const DUNGEON_SCENE_KEY = "DungeonPhaserScene";
 export const DUNGEON_CAMERA_ZOOM = 2;
+// Camera zoom range (mouse-wheel control). DUNGEON_CAMERA_ZOOM is the default;
+// the wheel can pull out to MIN (see more of the map) or push in to MAX.
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3.5;
+// Minimap camera (bottom-right corner). Mirrors the Phaser "multiple cameras"
+// pattern: a second viewport that renders the whole composed world at a tiny
+// zoom, with the world objects shown and the HUD/POI badges hidden.
+const MINIMAP_SIZE = 150;
+const MINIMAP_MARGIN = 8;
+const MINIMAP_ZOOM = 0.12;
 const TILE_SIZE_FALLBACK = 32;
 const BACKGROUND_COLOR = "#1c1f2a";
 const UNDERLAY_DEPTH = -1;
@@ -139,6 +149,17 @@ export type DungeonPhaserDebugState = {
   readonly rendered: boolean;
   /** POI entries across every rendered slot (active + neighbors), for QA. */
   readonly pois: readonly DungeonPoiInfo[];
+  /** Minimap camera state (null when disabled). */
+  readonly minimap:
+    | {
+        readonly enabled: boolean;
+        readonly x: number;
+        readonly y: number;
+        readonly width: number;
+        readonly height: number;
+        readonly zoom: number;
+      }
+    | null;
 };
 
 export type DungeonPoiInfo = {
@@ -166,6 +187,21 @@ declare global {
       getState(): DungeonPhaserDebugState;
       triggerBossHit(catalogId: string): void;
       toggleHud(): void;
+      setZoom(zoom: number, durationMs?: number): void;
+      getZoom(): number;
+      shake(durationMs?: number, intensity?: number): void;
+      flash(durationMs?: number, r?: number, g?: number, b?: number): void;
+      fadeOut(
+        durationMs?: number,
+        r?: number,
+        g?: number,
+        b?: number,
+        onComplete?: () => void,
+      ): void;
+      fadeIn(durationMs?: number, r?: number, g?: number, b?: number): void;
+      enableMinimap(): void;
+      disableMinimap(): void;
+      isMinimapEnabled(): boolean;
     };
   }
 }
@@ -367,6 +403,15 @@ export class DungeonPhaserScene extends Phaser.Scene {
   } | null = null;
   private lastComposedNeighbors: readonly DungeonGridNeighbor[] | null = null;
   private lastComposedActiveView: DungeonRunView | null = null;
+  // --- Camera system (follow + zoom + effects + minimap) ---
+  // Mouse-wheel zoom target (animated via zoomTo). Clamped to [MIN_ZOOM, MAX_ZOOM].
+  private targetZoom: number = DUNGEON_CAMERA_ZOOM;
+  // Second viewport camera for the minimap (bottom-right). Null until enabled.
+  private minimapCamera: Phaser.Cameras.Scene2D.Camera | null = null;
+  private minimapEnabled = false;
+  private minimapBorder: Phaser.GameObjects.Rectangle | null = null;
+  // Debounce handle so a burst of wheel ticks schedules a single re-cull.
+  private cullRefreshPending = false;
   private poiInfos: DungeonPoiInfo[] = [];
   private renderedTexts: Phaser.GameObjects.Text[] = [];
   private activeSlotOrigin: { readonly x: number; readonly y: number } | null =
@@ -390,6 +435,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.clampCameraScroll,
       this,
     );
+    // Mouse-wheel zoom (smooth, animated, clamped). Controlled entirely by the
+    // main camera so the minimap keeps its fixed tiny zoom. See applyWheelZoom.
+    this.input.on("wheel", this.applyWheelZoom, this);
     // Wire teardown to BOTH scene lifecycle events:
     //  • SHUTDOWN — fired when the scene is stopped/put to sleep (e.g. the
     //    scene manager stops it without destroying the game).
@@ -410,6 +458,22 @@ export class DungeonPhaserScene extends Phaser.Scene {
       getState: () => this.getState(),
       triggerBossHit: (catalogId: string) => this.triggerBossHit(catalogId),
       toggleHud: () => this.toggleHud(),
+      // Camera debug/control hooks (Phaser camera tutorial patterns).
+      setZoom: (zoom: number, durationMs?: number) => this.setZoom(zoom, durationMs),
+      getZoom: () => this.getZoom(),
+      shake: (durationMs?: number, intensity?: number) => this.shake(durationMs, intensity),
+      flash: (durationMs?: number, r?: number, g?: number, b?: number) => this.flash(durationMs, r, g, b),
+      fadeOut: (
+        durationMs?: number,
+        r?: number,
+        g?: number,
+        b?: number,
+        onComplete?: () => void,
+      ) => this.fadeOut(durationMs, r, g, b, onComplete),
+      fadeIn: (durationMs?: number, r?: number, g?: number, b?: number) => this.fadeIn(durationMs, r, g, b),
+      enableMinimap: () => this.enableMinimap(),
+      disableMinimap: () => this.disableMinimap(),
+      isMinimapEnabled: () => this.isMinimapEnabled(),
     };
     // Opt-in perf HUD: ?hud=1 (or window.__dungeonPhaser.toggleHud()). Zero cost
     // unless enabled — sampling only starts when the HUD is on.
@@ -437,6 +501,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
       this.clampCameraScroll,
       this,
     );
+    // Wheel zoom + minimap are scene-level; drop the wheel listener and the
+    // second camera on teardown so a remount starts clean (no double minimap).
+    this.input?.off("wheel", this.applyWheelZoom, this);
+    this.disableMinimap();
     this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
     this.events.off(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     // Tear down the opt-in HUD so a destroyed scene leaks no timer/text.
@@ -629,6 +697,17 @@ export class DungeonPhaserScene extends Phaser.Scene {
       mapCount: this.mapCount,
       rendered: this.rendered,
       pois: this.poiInfos,
+      minimap:
+        this.minimapCamera !== null
+          ? {
+              enabled: this.minimapEnabled,
+              x: this.minimapCamera.x,
+              y: this.minimapCamera.y,
+              width: this.minimapCamera.width,
+              height: this.minimapCamera.height,
+              zoom: this.minimapCamera.zoom,
+            }
+          : null,
     };
   }
 
@@ -746,6 +825,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // fallback dungeon with no tilesets must still show the party).
     this.renderParty(props, layout);
     this.renderRemotePlayers(props);
+    // Keep the minimap framed to the freshly composed world and hide the
+    // newly-created POI badges from it (re-render may have added more texts).
+    if (this.minimapEnabled) {
+      this.reframeMinimap();
+      this.updateMinimapIgnore();
+    }
   }
 
   private destroyRemotePlayer(render: RemotePlayerRender): void {
@@ -1094,6 +1179,221 @@ export class DungeonPhaserScene extends Phaser.Scene {
       target.setPosition(clamped.x, clamped.y);
   }
 
+  // ---------------------------------------------------------------------------
+  // Camera system: zoom, effects, minimap  (Phaser camera tutorial patterns)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Mouse-wheel zoom for the MAIN camera. Each wheel notch nudges `targetZoom`
+   * by a step and animates to it with `zoomTo` (200ms ease) — a smooth,
+   * strategy-game-style zoom rather than a jarring snap. The result is clamped
+   * to [MIN_ZOOM, MAX_ZOOM]. Because the follow target is in WORLD coordinates
+   * and independent of zoom, zooming never moves the player off-center; the
+   * clamp in clampFollowTargetPos reads `displayWidth/zoom` so a wider view
+   * (lower zoom) still centers the player on a narrow map. Zoom also changes the
+   * visible viewport, so the world is re-culled once the animation settles.
+   */
+  private applyWheelZoom(
+    pointer: Phaser.Input.Pointer,
+    gameObjects: Phaser.GameObjects.GameObject[],
+    deltaX: number,
+    deltaY: number,
+  ): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    const step = 0.2;
+    const dir = deltaY > 0 ? -step : step;
+    this.targetZoom = Phaser.Math.Clamp(
+      camera.zoom + dir,
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    camera.zoomTo(this.targetZoom, 200, "Sine.easeOut");
+    // Re-cull after the zoom animation settles (debounced — a wheel burst fires
+    // many events but the world only needs one refresh).
+    if (!this.cullRefreshPending) {
+      this.cullRefreshPending = true;
+      this.time.delayedCall(220, () => {
+        this.cullRefreshPending = false;
+        if (this.isAlive() && this.rendered) this.refreshCulling();
+      });
+    }
+    void pointer;
+    void gameObjects;
+    void deltaX;
+  }
+
+  /** Re-run the viewport culling for the current (possibly zoomed) view. */
+  private refreshCulling(): void {
+    const props = this.latestProps;
+    if (props === null || this.followTarget === null) return;
+    const neighbors = this.lastComposedNeighbors ?? props.neighbors;
+    const abandonedIds = new Set(
+      uniqueGrants([props.view, ...neighbors.map((n) => n.view)])
+        .filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant)))
+        .map((grant) => grant.id),
+    );
+    const layout = computeLayout(props.view, neighbors, abandonedIds);
+    this.clearRendered();
+    this.renderWorld(props, layout);
+  }
+
+  /**
+   * Smoothly zoom the main camera to `zoom` over `durationMs` (animated) or
+   * instantly when `durationMs` is 0. Clamped to [MIN_ZOOM, MAX_ZOOM]. Public
+   * for the wrapper / debug hooks (e.g. a zoom-slider in the HUD).
+   */
+  setZoom(zoom: number, durationMs = 250): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    this.targetZoom = Phaser.Math.Clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+    if (durationMs <= 0) camera.setZoom(this.targetZoom);
+    else camera.zoomTo(this.targetZoom, durationMs, "Sine.easeOut");
+    this.time.delayedCall(durationMs + 20, () => {
+      if (this.isAlive() && this.rendered) this.refreshCulling();
+    });
+  }
+
+  getZoom(): number {
+    return this.cameras?.main?.zoom ?? this.targetZoom;
+  }
+
+  /**
+   * Camera shake for impacts/explosions/damage. Thin wrapper over
+   * `cameras.main.shake(duration, intensity, force)` so callers don't need the
+   * Phaser camera reference. Intensity is the fraction of the viewport that
+   * jitters (0.005 = subtle, 0.02 = strong, 0.05 = boss death).
+   */
+  shake(durationMs = 200, intensity = 0.005): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.shake(durationMs, intensity);
+  }
+
+  /**
+   * Camera flash for power-ups/critical hits/lightning. Wraps
+   * `cameras.main.flash(duration, r, g, b, force)`. Red (255,0,0) is the damage
+   * flash; white (255,255,255) is the success/pickup flash.
+   */
+  flash(durationMs = 100, r = 255, g = 255, b = 255): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.flash(durationMs, r, g, b);
+  }
+
+  /**
+   * Fade the main camera to `color` over `durationMs`, then run `onComplete`
+   * (the wrapper uses this for scene/dungeon transitions). Wraps
+   * `cameras.main.fadeOut` + the `camerafadeoutcomplete` event.
+   */
+  fadeOut(durationMs = 500, r = 0, g = 0, b = 0, onComplete?: () => void): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    camera.fadeOut(durationMs, r, g, b);
+    if (onComplete !== undefined) {
+      const handler = (): void => {
+        camera.off(
+          Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+          handler,
+          this,
+        );
+        onComplete();
+      };
+      camera.once(
+        Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+        handler,
+        this,
+      );
+    }
+  }
+
+  /** Fade the main camera back IN from `color` (call at scene start). */
+  fadeIn(durationMs = 800, r = 0, g = 0, b = 0): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.fadeIn(durationMs, r, g, b);
+  }
+
+  /**
+   * Enable the minimap: a second viewport camera pinned to the bottom-right
+   * corner that renders the WHOLE composed world at a tiny fixed zoom, with the
+   * POI badges/HUD hidden (it ignores those objects). Toggle-able at runtime
+   * and across remounts. The minimap re-frames every recompose so a grid
+   * crossing keeps it correct.
+   */
+  enableMinimap(): void {
+    if (!this.isAlive()) return;
+    if (this.minimapEnabled) {
+      this.reframeMinimap();
+      return;
+    }
+    const cam = this.cameras.main;
+    const size = Math.round(
+      Math.min(MINIMAP_SIZE, cam.width - 2 * MINIMAP_MARGIN),
+    );
+    const x = cam.width - size - MINIMAP_MARGIN;
+    const y = cam.height - size - MINIMAP_MARGIN;
+    const mini = this.cameras.add(x, y, size, size);
+    // Render the entire world into the minimap regardless of where the main
+    // camera is; ignore the perf HUD + POI badge texts so they don't bleed in.
+    mini.setZoom(MINIMAP_ZOOM);
+    mini.setBackgroundColor("#10131c");
+    mini.setAlpha(0.9);
+    this.minimapCamera = mini;
+    this.minimapEnabled = true;
+    this.reframeMinimap();
+    // The border is a screen-fixed rectangle on the MAIN camera only.
+    this.minimapBorder?.destroy();
+    this.minimapBorder = this.add
+      .rectangle(x, y, size, size)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.6)
+      .setFillStyle(0, 0)
+      .setScrollFactor(0)
+      .setDepth(99998);
+    this.minimapBorder.setData("minimapBorder", true);
+  }
+
+  /** Re-anchor the minimap camera to the current composed world bounds. */
+  private reframeMinimap(): void {
+    const mini = this.minimapCamera;
+    if (mini === null || this.clampBounds === null) return;
+    const b = this.clampBounds;
+    mini.setBounds(b.x, b.y, b.width, b.height);
+    mini.centerOn(b.x + b.width / 2, b.y + b.height / 2);
+    mini.setZoom(
+      Phaser.Math.Clamp(
+        Math.min(mini.width / b.width, mini.height / b.height) * 0.98,
+        0.02,
+        MINIMAP_ZOOM,
+      ),
+    );
+  }
+
+  /** Hide POI badges + HUD from the minimap camera (call after each render). */
+  private updateMinimapIgnore(): void {
+    const mini = this.minimapCamera;
+    if (mini === null) return;
+    // Ignore UI-only objects: perf HUD text + every POI badge text. World
+    // objects (tilemaps, party, boss sprites) stay visible.
+    const ignore: Phaser.GameObjects.GameObject[] = [];
+    if (this.hudText !== null) ignore.push(this.hudText);
+    for (const text of this.renderedTexts) ignore.push(text);
+    if (this.minimapBorder !== null) ignore.push(this.minimapBorder);
+    if (ignore.length > 0) mini.ignore(ignore);
+  }
+
+  disableMinimap(): void {
+    if (this.minimapCamera !== null) {
+      this.cameras.remove(this.minimapCamera);
+      this.minimapCamera = null;
+    }
+    this.minimapEnabled = false;
+    this.minimapBorder?.destroy();
+    this.minimapBorder = null;
+  }
+
+  isMinimapEnabled(): boolean {
+    return this.minimapEnabled;
+  }
+
   /**
    * Idempotent party rebuild from the latest props. Every recompose clears the
    * party group and redraws it — setProps can never accumulate sprites. The
@@ -1394,6 +1694,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
         getSpriteData<string>(sprite, "bossCatalogId") === catalogId
       ) {
         this.playDigimonAttack(sprite);
+        // Camera game-feel: a brief shake + white flash on the boss impact.
+        this.shake(150, 0.008);
+        this.flash(80, 255, 255, 255);
         return;
       }
     }
