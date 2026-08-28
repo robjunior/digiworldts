@@ -50,6 +50,7 @@ import { DungeonQuestPanel } from "../components/dungeon/DungeonQuestPanel";
 import { FnPanel } from "../components/dungeon/FnPanel";
 import { RosterPanel } from "../components/dungeon/RosterPanel";
 import { DungeonDoorPrompt } from "../components/dungeon/DungeonDoorPrompt";
+import { DigidexPanel } from "../components/dungeon/DigidexPanel";
 import { DialogueOverlay } from "../components/dungeon/DialogueOverlay";
 import { DungeonStrip } from "../components/dungeon/DungeonStrip";
 import type { PendingUnlock } from "../components/dungeon/types";
@@ -1287,6 +1288,8 @@ export function Dungeon(): JSX.Element {
             <DungeonQuestPanel quest={quest} />
           ) : fnOpenId === 'roster' ? (
             <RosterPanel roster={party} />
+          ) : fnOpenId === 'digidex' ? (
+            <DigidexPanel digimons={catalogQuery.data?.digimons ?? []} />
           ) : (
             <div className="fn-skeleton" />
           )}
