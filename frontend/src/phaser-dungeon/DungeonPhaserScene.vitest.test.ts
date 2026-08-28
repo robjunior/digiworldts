@@ -158,6 +158,20 @@ function wiredScene(): {
       (scene as unknown as { followTarget: { x: number; y: number } }).followTarget.y = ny;
     },
   };
+  // The render machinery (renderWorld/renderParty/renderRemotePlayers/moveFollowTarget)
+  // needs a fully valid DungeonRunView and a real tilemap factory, which are out of
+  // scope here. Stub them as no-ops so recompose exercises the gate/guard logic
+  // (clearRendered + renderWorld call counts, follow-target move) without rendering.
+  vi.spyOn(scene as unknown as { renderWorld: () => void }, "renderWorld").mockImplementation(noop);
+  vi.spyOn(scene as unknown as { renderParty: () => void }, "renderParty").mockImplementation(noop);
+  vi.spyOn(
+    scene as unknown as { renderRemotePlayers: () => void },
+    "renderRemotePlayers",
+  ).mockImplementation(noop);
+  vi.spyOn(
+    scene as unknown as { moveFollowTarget: () => void },
+    "moveFollowTarget",
+  ).mockImplementation(noop);
 
   return { scene, groupSpy };
 }
@@ -233,16 +247,16 @@ test("without the isAlive guard a dead scene would crash on the nulled factory",
   ).not.toThrow();
   expect(groupSpy).not.toHaveBeenCalled();
 
-  // Sanity: calling renderParty directly on the nulled factory throws — proving
-  // the guard is the only thing protecting recompose from the original crash.
-  expect(() =>
-    (
-      scene as unknown as { renderParty(p: unknown, l: unknown): void }
-    ).renderParty(
-      (scene as unknown as { latestProps: unknown }).latestProps,
-      {},
-    ),
-  ).toThrow();
+  // Sanity: on a dead scene, recompose must NOT reach the render pipeline at all
+  // (renderParty/renderWorld are never invoked). The guard short-circuits before
+  // touching the nulled factory, which is exactly what prevents the original crash.
+  const partySpy = vi.spyOn(
+    scene as unknown as { renderParty: () => void },
+    "renderParty",
+  );
+  (scene as unknown as { recompose(): void }).recompose();
+  expect(groupSpy).not.toHaveBeenCalled();
+  expect(partySpy).not.toHaveBeenCalled();
 });
 
 test("rebinding: create() again after DESTROY resets isAlive to true", () => {
@@ -424,4 +438,38 @@ test("remote leader is positioned at its world cell, not orphaned at origin", ()
   // Exactly one leader object (circle) for the single remote player.
   expect(leaders.length).toBe(1);
 });
+
+test("world-signature gate: recomposing with the same world does NOT rebuild tilemaps", () => {
+  const { scene } = wiredScene();
+  const clearSpy = vi.spyOn(
+    scene as unknown as { clearRendered: () => void },
+    "clearRendered",
+  );
+  const worldSpy = vi.spyOn(
+    scene as unknown as { renderWorld: () => void },
+    "renderWorld",
+  );
+
+  // First recompose builds the world.
+  (scene as unknown as { recompose(): void }).recompose();
+  expect(worldSpy).toHaveBeenCalledTimes(1);
+  expect(clearSpy).toHaveBeenCalledTimes(1);
+
+  // A second recompose with the SAME props must skip the full teardown+rebuild —
+  // this is what stops a grid crossing (many recomposes during the camera glide)
+  // from rebuilding the whole world on every frame.
+  (scene as unknown as { recompose(): void }).recompose();
+  expect(worldSpy).toHaveBeenCalledTimes(1);
+  expect(clearSpy).toHaveBeenCalledTimes(1);
+
+  // Changing which maps are composed (a different active dungeon id) DOES rebuild.
+  const props = (
+    scene as unknown as { latestProps: { view: { dungeon: { id: string } } } }
+  ).latestProps;
+  props.view.dungeon.id = "d-different";
+  (scene as unknown as { recompose(): void }).recompose();
+  expect(worldSpy).toHaveBeenCalledTimes(2);
+  expect(clearSpy).toHaveBeenCalledTimes(2);
+});
+
 

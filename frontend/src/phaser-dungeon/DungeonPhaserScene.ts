@@ -372,6 +372,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private mixedSizes = false;
   private mapCount = 0;
   private rendered = false;
+  // Signature of the composed world (which maps at which slots + which tile
+  // textures are currently loaded). When recompose runs again with the same
+  // signature, only the camera follow-target needs to move — the tilemaps are
+  // NOT torn down and rebuilt. This is what stops a grid crossing (which fires a
+  // burst of recomposes while the camera glides) from rebuilding the whole world
+  // on every frame.
+  private lastWorldSig = "";
   // --- Opt-in perf HUD (zero-cost when off; see enableHud/toggleHud) ---
   private hudEnabled = false;
   private hudText: Phaser.GameObjects.Text | null = null;
@@ -811,15 +818,30 @@ export class DungeonPhaserScene extends Phaser.Scene {
       (grant) => !this.textures.exists(tilesetKey(grant)),
     );
     const retryable = missing.filter((grant) => !abandonedIds.has(grant.id));
+    // World signature: the set of maps and their slots, plus whether each tile
+    // texture is currently loaded. If this is unchanged since the last render,
+    // the tilemaps are already correct on screen — only the camera follow-target
+    // (handled above) needs to move. Skipping clearRendered()+renderWorld() here
+    // is what keeps a grid crossing (many recomposes during the glide) from
+    // tearing down and rebuilding the whole world every frame.
+    const worldSig = [
+      ...layout.positions
+        .map((p) => `${p.view.dungeon.id}@${p.gridX},${p.gridY}`)
+        .sort(),
+      ...grants
+        .map((g) => `${g.id}:${this.textures.exists(tilesetKey(g)) ? 1 : 0}`)
+        .sort(),
+    ].join("|");
     if (retryable.length > 0) {
       // Textures land async — queue the load, register frames on complete,
       // then recompose again (which renders once every grant has a texture).
       // Grants past their retry budget are excluded, so a permanently missing
       // image falls back to the flat path instead of deadlocking forever.
       this.ensureTilesetsLoaded(grants);
-    } else {
+    } else if (worldSig !== this.lastWorldSig) {
       this.clearRendered();
       this.renderWorld(props, layout);
+      this.lastWorldSig = worldSig;
     }
     // Party dots load independently of tilesets — render regardless (a
     // fallback dungeon with no tilesets must still show the party).
@@ -1768,6 +1790,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.mixedSizes = false;
     this.mapCount = 0;
     this.rendered = false;
+    this.lastWorldSig = "";
     this.worldInfo = { width: 0, height: 0 };
     this.slotInfo = { w: 0, h: 0 };
     this.tileSize = TILE_SIZE_FALLBACK;
