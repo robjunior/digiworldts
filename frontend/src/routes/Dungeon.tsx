@@ -28,14 +28,13 @@ import { AutoToast } from '../components/common/Toast';
 import { DungeonChatOverlay } from '../components/dungeon/DungeonChatOverlay';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
 import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
-import { DungeonRunLog } from '../components/dungeon/DungeonRunLog';
 import { DungeonQuestPanel } from '../components/dungeon/DungeonQuestPanel';
 import { DungeonActionBar } from '../components/dungeon/DungeonActionBar';
 import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
 import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
 import { DialogueOverlay } from '../components/dungeon/DialogueOverlay';
 import { DungeonStrip } from '../components/dungeon/DungeonStrip';
-import type { LogEntry, PendingUnlock } from '../components/dungeon/types';
+import type { PendingUnlock } from '../components/dungeon/types';
 import '../styles/extensions-dungeon.css';
 
 export function Dungeon(): JSX.Element {
@@ -155,7 +154,6 @@ export function Dungeon(): JSX.Element {
   }, [party]);
   const moveDurationMs = useMemo(() => Math.max(70, 260 - partySpd * 2), [partySpd]);
 
-  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   // Not moveMutation.isPending: React state commits a render too late, so
@@ -186,7 +184,7 @@ export function Dungeon(): JSX.Element {
   const [activeSheet, setActiveSheet] = useState<'log' | 'items' | 'quest' | null>(null);
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
   const [contextTarget, setContextTarget] = useState<{ readonly userId: string; readonly displayName: string } | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
 
   useEffect(() => {
     if (gridCrossingRef.current) {
@@ -275,12 +273,10 @@ export function Dungeon(): JSX.Element {
     [flashToast],
   );
 
+  const pushDungeonSystem = useWsStore((state) => state.pushDungeonSystem);
   const pushLog = useCallback((text: string, cls: '' | 'hit' | 'item'): void => {
-    setLogs((prev) => {
-      const step = prev.length + 1;
-      return [...prev, { text, cls, step }];
-    });
-  }, []);
+    if (id !== undefined) pushDungeonSystem(id, text, cls);
+  }, [id, pushDungeonSystem]);
 
   const transitionToDungeon = useCallback(async (targetDungeonId: string, targetRun: UserDungeonRun): Promise<void> => {
     const neighbor = neighborsQuery.data?.neighbors.find((entry) => entry.dungeonId === targetDungeonId);
@@ -762,6 +758,7 @@ export function Dungeon(): JSX.Element {
         <div className="controls">
           <div className="dhint">
             {isComplete ? <b>Modo exploração livre — todos os caminhos abertos. Encontre o portal para voltar à cidade.</b> : <b>Clique num tile adjacente ou use WASD/setas. O portal vermelho leva à cidade.</b>}
+            <span className="dhint-stats">Passos {stepCount} · Encontros {run.defeatedEncounters.length}/{encounters.length} · {dungeon.name}</span>
           </div>
         </div>
       </div>
@@ -785,13 +782,6 @@ export function Dungeon(): JSX.Element {
             />
           </div>
           <div className={`sheet${activeSheet === 'log' ? ' is-open' : ''}`} id="sheet-log">
-            <DungeonRunLog
-              dungeonName={dungeon.name}
-              stepCount={stepCount}
-              defeatedCount={run.defeatedEncounters.length}
-              totalEncounters={encounters.length}
-              logs={logs}
-            />
           </div>
           <div className={`sheet${activeSheet === 'quest' ? ' is-open' : ''}`} id="sheet-quest">
             <DungeonQuestPanel quest={quest} />
@@ -931,7 +921,7 @@ export function Dungeon(): JSX.Element {
         </div>
       ) : null}
 
-      {chatOpen && id !== undefined && <DungeonChatOverlay dungeonId={id} onClose={() => setChatOpen(false)} />}
+      {id !== undefined && <DungeonChatOverlay dungeonId={id} open={chatOpen} onClose={() => setChatOpen(false)} />}
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
       <AutoToast message={pvpNotice} onDismiss={clearPvpNotice} durationMs={3000} />
