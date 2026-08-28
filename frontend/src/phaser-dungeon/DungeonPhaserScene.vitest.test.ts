@@ -109,7 +109,7 @@ function wiredScene(): {
     sprite: () => ({}),
     on: noop,
   };
-  (scene as unknown as { input: unknown }).input = { on: noop };
+  (scene as unknown as { input: unknown }).input = { on: noop, off: noop };
   (scene as unknown as { tweens: unknown }).tweens = {
     killTweensOf: noop,
     add: () => ({ remove: noop }),
@@ -328,7 +328,7 @@ test("remote leader is positioned at its world cell, not orphaned at origin", ()
     text: (x: number, y: number) => makeObj("text", x, y),
     on: noop,
   };
-  (scene as unknown as { input: unknown }).input = { on: noop };
+  (scene as unknown as { input: unknown }).input = { on: noop, off: noop };
   (scene as unknown as { tweens: unknown }).tweens = {
     killTweensOf: noop,
     add: () => ({ remove: noop }),
