@@ -48,6 +48,7 @@ import { DungeonFunctionShortcuts } from "../components/dungeon/DungeonFunctionS
 import { DungeonInventoryPanel } from "../components/dungeon/DungeonInventoryPanel";
 import { DungeonQuestPanel } from "../components/dungeon/DungeonQuestPanel";
 import { FnPanel } from "../components/dungeon/FnPanel";
+import { RosterPanel } from "../components/dungeon/RosterPanel";
 import { DungeonDoorPrompt } from "../components/dungeon/DungeonDoorPrompt";
 import { DialogueOverlay } from "../components/dungeon/DialogueOverlay";
 import { DungeonStrip } from "../components/dungeon/DungeonStrip";
@@ -1284,6 +1285,8 @@ export function Dungeon(): JSX.Element {
             />
           ) : fnOpenId === 'quests' ? (
             <DungeonQuestPanel quest={quest} />
+          ) : fnOpenId === 'roster' ? (
+            <RosterPanel roster={party} />
           ) : (
             <div className="fn-skeleton" />
           )}
