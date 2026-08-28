@@ -21,12 +21,12 @@ const TAB_LABEL: Record<ChatTab, string> = {
 
 export type DungeonChatOverlayProps = {
   readonly dungeonId: string;
-  /** When false the chat collapses to a message-icon the user clicks to reopen. */
   readonly open: boolean;
   readonly onClose: () => void;
+  readonly onReopen: () => void;
 };
 
-export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOverlayProps): JSX.Element {
+export function DungeonChatOverlay({ dungeonId, open, onClose, onReopen }: DungeonChatOverlayProps): JSX.Element {
   const [tab, setTab] = useState<ChatTab>('local');
   const [text, setText] = useState('');
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -39,6 +39,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
   const dmChat = useWsStore((state) => state.dmChat);
   const { send } = useWebSocket();
   const logRef = useRef<HTMLDivElement | null>(null);
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
   const lastSeenLen = useRef(globalChat.length + localChat.length + systemChat.length + dmChat.length);
 
   const tabMessages = (t: ChatTab): readonly { readonly from?: string; readonly displayName?: string; readonly text: string; readonly at: number; readonly kind?: string }[] => {
@@ -56,15 +57,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
     setUnread((prev) => ({ ...prev, global: globalChat.length, local: localChat.length, system: systemChat.length, dm: dmChat.length }));
   }, [globalChat.length, localChat.length, systemChat.length, dmChat.length]);
 
-  // When a tab is closed, fall back to the first open tab.
-  useEffect(() => {
-    if (closed.has(tab)) {
-      const next: ChatTab | undefined = (['dm', 'local', 'global', 'system'] as ChatTab[]).find((t) => !closed.has(t));
-      if (next !== undefined) setTab(next);
-    }
-  }, [closed, tab]);
-
-  // When collapsed, accumulate a total unread badge from new messages.
+  // Collapsed unread badge from new messages.
   useEffect(() => {
     const len = globalChat.length + localChat.length + systemChat.length + dmChat.length;
     if (!open) {
@@ -79,8 +72,12 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
     if (open) {
       setUnreadTotal(0);
       lastSeenLen.current = globalChat.length + localChat.length + systemChat.length + dmChat.length;
+      const input = chatInputRef.current;
+      if (input) {
+        input.focus();
+      }
     }
-  }, [open]);
+  }, [open, globalChat.length, localChat.length, systemChat.length, dmChat.length]);
 
   useEffect(() => {
     const log = logRef.current;
@@ -116,7 +113,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
     let msg: WSClientMessage;
     if (tab === 'local') msg = { type: 'chat', text: trimmed, dungeonId };
     else if (tab === 'global') msg = { type: 'chat', text: trimmed };
-    else msg = { type: 'chat', text: trimmed }; // DM send target wired from context menu in-app
+    else msg = { type: 'chat', text: trimmed };
     send(msg);
     setText('');
     setCooldownUntil(Date.now() + RATE_LIMIT_MS);
@@ -125,15 +122,30 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
   const tabs: ChatTab[] = ['dm', 'local', 'global', 'system'];
   const showAdd = closed.size > 0;
 
-  // Collapsed: message-icon reopener with unread badge.
+  // Collapsed: horizontal chat bar in the bottom-left interior corner.
   if (!open) {
     return (
-      <button type="button" className="dungeon-chat-reopen" aria-label="Abrir chat" onClick={onClose}>
+      <div
+        className="dungeon-chat-reopen"
+        role="button"
+        tabIndex={0}
+        aria-label="Abrir chat"
+        onClick={onReopen}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onReopen();
+          }
+        }}
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
           <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.8A8 8 0 1 1 21 12z" />
         </svg>
-        {unreadTotal > 0 ? <span className="dungeon-chat-reopen-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span> : null}
-      </button>
+        <span className="dungeon-chat-reopen-ph">Pressione Enter para falar…</span>
+        {unreadTotal > 0 ? (
+          <span className="dungeon-chat-reopen-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>
+        ) : null}
+      </div>
     );
   }
 
@@ -204,6 +216,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose }: DungeonChatOver
       </div>
       <form className="dungeon-chat-form" onSubmit={handleSubmit}>
         <input
+          ref={chatInputRef}
           className="input dungeon-chat-input"
           type="text"
           maxLength={300}

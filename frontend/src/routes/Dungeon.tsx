@@ -921,7 +921,7 @@ export function Dungeon(): JSX.Element {
         </div>
       ) : null}
 
-      {id !== undefined && <DungeonChatOverlay dungeonId={id} open={chatOpen} onClose={() => setChatOpen(false)} />}
+      {id !== undefined && <DungeonChatOverlay dungeonId={id} open={chatOpen} onClose={() => setChatOpen(false)} onReopen={() => setChatOpen(true)} />}
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
       <AutoToast message={pvpNotice} onDismiss={clearPvpNotice} durationMs={3000} />
