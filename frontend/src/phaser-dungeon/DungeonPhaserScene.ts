@@ -214,6 +214,17 @@ type SceneProps = {
   readonly facing: Facing;
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
+  /**
+   * Client-side prediction hook: when the React route has already advanced the
+   * player to the next cell locally (before the server round-trip resolves), it
+   * passes the predicted cell here so the sprite starts tweening *immediately*
+   * instead of freezing for the whole RTT and then lurching into place. Null /
+   * undefined means "use the authoritative `view.run.currentX/Y`" (no
+   * prediction in flight). The server stays authoritative: if it rejects the
+   * move, the route clears these and the sprite snaps back to the real cell.
+   */
+  readonly overrideLeaderX: number | undefined;
+  readonly overrideLeaderY: number | undefined;
   readonly onCellClick: (x: number, y: number) => void;
   /** Phase 2 player interaction: fired when a remote player's cell is
    * clicked (any visible distance). Wins over movement when the cell is
@@ -273,6 +284,8 @@ function computeLayout(
   view: DungeonRunView,
   neighbors: readonly DungeonGridNeighbor[],
   abandonedIds?: ReadonlySet<string>,
+  overrideX?: number,
+  overrideY?: number,
 ): WorldLayout {
   const active: PositionedView = {
     view,
@@ -312,9 +325,13 @@ function computeLayout(
   // player one tile into an already-rendered neighbor and the follow target
   // never moves when real neighbors land.
   const playerX =
-    active.gridX * slotWidth + view.run.currentX * tileSize + tileSize / 2;
+    active.gridX * slotWidth +
+    (overrideX ?? view.run.currentX) * tileSize +
+    tileSize / 2;
   const playerY =
-    active.gridY * slotHeight + view.run.currentY * tileSize + tileSize / 2;
+    active.gridY * slotHeight +
+    (overrideY ?? view.run.currentY) * tileSize +
+    tileSize / 2;
   return {
     width,
     height,
@@ -567,9 +584,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       y: number,
     ) => void,
     onTextureFallback: (failed: readonly TilesetGrant[]) => void,
+    overrideLeaderX?: number,
+    overrideLeaderY?: number,
   ): void {
     const prev = this.latestProps;
-    this.latestProps = {
+    const baseProps = {
       view,
       neighbors,
       remotePlayers,
@@ -580,7 +599,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       onCellClick,
       onPlayerClick,
       onTextureFallback,
+      overrideLeaderX,
+      overrideLeaderY,
     };
+    const nextProps: SceneProps = baseProps;
+    this.latestProps = nextProps;
     if (!this.isAlive()) return;
     if (
       prev !== null &&
@@ -773,7 +796,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
         .filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant)))
         .map((grant) => grant.id),
     );
-    const layout = computeLayout(props.view, neighbors, abandonedIds);
+    const layout = computeLayout(
+      props.view,
+      neighbors,
+      abandonedIds,
+      props.overrideLeaderX,
+      props.overrideLeaderY,
+    );
     this.lastComposedNeighbors = neighbors;
     this.lastComposedActiveView = props.view;
     this.clampBounds = {

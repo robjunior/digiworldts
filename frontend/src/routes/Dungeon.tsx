@@ -1292,7 +1292,7 @@ export function Dungeon(): JSX.Element {
           ) : fnOpenId === 'roster' ? (
             <RosterPanel roster={party} />
           ) : fnOpenId === 'digidex' ? (
-            <DigidexPanel digimons={catalogQuery.data?.digimons ?? []} />
+            <DigidexPanel />
           ) : fnOpenId === 'character' ? (
             <CharacterPanel username={user?.username ?? 'Tamer'} />
           ) : fnOpenId === 'friends' ? (
