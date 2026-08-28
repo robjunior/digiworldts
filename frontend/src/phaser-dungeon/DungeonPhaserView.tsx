@@ -86,7 +86,7 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
 
     const applyProps = (): void => {
       const scene = sceneRef.current;
-      if (!scene) return;
+      if (!scene || !scene.isAlive()) return;
       const props = latestPropsRef.current;
       scene.setProps(
         props.active,
@@ -117,7 +117,7 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
 
   useEffect(() => {
     const scene = sceneRef.current;
-    if (!scene) return;
+    if (!scene || !scene.isAlive()) return;
     scene.setProps(
       active,
       neighbors,

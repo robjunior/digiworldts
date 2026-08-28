@@ -17,7 +17,8 @@
     "test": "pnpm --filter @digiworld/scene3d test",
     "rebuild:native": "pnpm --filter @digiworld/backend rebuild:native",
     "content:deploy": "pnpm --filter @digiworld/backend content:deploy",
-    "typecheck:xref": "pnpm --filter @digiworld/backend typecheck:xref"
+    "typecheck:xref": "pnpm --filter @digiworld/backend typecheck:xref",
+    "postinstall": "node scripts/ensure-phaser-spector-stub.mjs"
   },
   "engines": {
     "node": ">=22",

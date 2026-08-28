@@ -1,8 +1,8 @@
 {
-    "activeFile": "root-directory/rootdirectory.tmx",
+    "activeFile": "root-directory/rootgrove.tmx",
     "expandedProjectPaths": [
-        ".",
-        "root-directory"
+        "root-directory",
+        "."
     ],
     "fileStates": {
         "everything.tsx": {
@@ -13,20 +13,44 @@
             "scaleInDock": 3,
             "scaleInEditor": 1
         },
-        "root-directory/rootdirectory.tmx": {
-            "scale": 0.5,
-            "selectedLayer": 5,
+        "root-directory/lake.tmx": {
+            "scale": 1,
+            "selectedLayer": 1,
             "viewCenter": {
-                "x": 1760,
-                "y": 204
+                "x": 327.5,
+                "y": 478
+            }
+        },
+        "root-directory/rootdirectory.tmx": {
+            "scale": 1,
+            "selectedLayer": 1,
+            "viewCenter": {
+                "x": 520.5,
+                "y": -72
             }
         },
         "root-directory/rootgrove.tmx": {
             "scale": 0.5,
+            "selectedLayer": 6,
+            "viewCenter": {
+                "x": 457,
+                "y": 492
+            }
+        },
+        "root-directory/rootprod.tmx": {
+            "scale": 0.33,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 960,
-                "y": 204
+                "x": 153.03030303030312,
+                "y": -775.7575757575758
+            }
+        },
+        "root-directory/roottemple.tmx": {
+            "scale": 0.25,
+            "selectedLayer": 0,
+            "viewCenter": {
+                "x": 1150,
+                "y": -104
             }
         }
     },
@@ -43,14 +67,15 @@
     "map.width": 50,
     "openFiles": [
         "root-directory/rootdirectory.tmx",
-        "root-directory/rootgrove.tmx"
+        "root-directory/rootgrove.tmx",
+        "everything.tsx"
     ],
     "project": "digiworld.tiled-project",
     "recentFiles": [
-        "root-directory/rootgrove.tmx",
         "root-directory/rootdirectory.tmx",
-        "root-directory/colored.tsx",
-        "everything.tsx"
+        "everything.tsx",
+        "root-directory/rootgrove.tmx",
+        "root-directory/colored.tsx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {

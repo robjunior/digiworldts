@@ -275,22 +275,36 @@ export function serializeWalkableMask(mask: readonly (readonly [number, number])
   return JSON.stringify(mask.map(([x, y]) => [x, y]));
 }
 
+// Layer kinds that hard-block movement even when a walkable layer sits
+// underneath (e.g. a floor tile painted beneath a wall). `tree`/`decoration`
+// are NON-blocking overlays — the player walks under the canopy — so they must
+// not poison the mask; only these explicit blockers do.
+const BLOCKING_LAYER_KINDS: readonly string[] = ['wall', 'walls', 'water', 'pit', 'liquid'];
+
 export function computeWalkableMaskFromTiles(tiles: readonly Pick<DungeonTile, 'x' | 'y' | 'layerKind'>[]): readonly (readonly [number, number])[] {
   const walkable = new Set<string>();
-  const obstacles = new Set<string>();
+  const blocking = new Set<string>();
   for (const t of tiles) {
     const key = `${t.x},${t.y}`;
     if ((WALKABLE_LAYER_KINDS as readonly string[]).includes(t.layerKind)) {
       walkable.add(key);
-    } else {
-      obstacles.add(key);
+    } else if ((BLOCKING_LAYER_KINDS as readonly string[]).includes(t.layerKind)) {
+      // A hard obstacle on this cell. It only blocks if no walkable layer
+      // exists on the same cell — a wall painted over floor is rare and the
+      // floor wins (consistent with the renderer drawing floor beneath walls).
+      blocking.add(key);
     }
+    // `tree`/`decoration` (and any other non-walkable, non-blocking kind) are
+    // ignored here: they neither grant nor deny walkability.
   }
-  // A cell is walkable only if it has at least one walkable layer and no
-  // obstacle layers (tree/wall/walls/water/pit/decoration/liquid).
-  for (const key of obstacles) walkable.delete(key);
+  // A cell is walkable iff it carries at least one walkable layer and no
+  // explicit blocker. This keeps border cells (which the Forest maps paint
+  // with a `tree` overlay on top of `floor`) in the mask, so seam-doorway
+  // presses and off-map crossings are reachable instead of being reported
+  // "not-walkable".
   const out: (readonly [number, number])[] = [];
   for (const key of walkable) {
+    if (blocking.has(key)) continue;
     const [xStr, yStr] = key.split(',');
     out.push([Number(xStr), Number(yStr)] as const);
   }
@@ -559,6 +573,27 @@ export async function listDungeonTilesets(dungeonId: string): Promise<TilesetGra
     updatedAt: r.updated_at,
     firstgid: r.firstgid,
   }));
+}
+
+/**
+ * Recompute every dungeon's stored `walkable_mask_json` from its current
+ * tiles, using the (corrected) `computeWalkableMaskFromTiles`. This repairs
+ * masks that were generated before `tree`/`decoration` overlays stopped
+ * poisoning border cells — without it, seam-doorway presses and off-map grid
+ * crossings report "not-walkable" and the player gets stuck at the map edge.
+ * Idempotent: derived purely from existing tile data.
+ */
+export async function recomputeAllWalkableMasks(): Promise<{ readonly dungeons: number; readonly recomputed: number }> {
+  const rows = await q<{ readonly id: string }>(`SELECT id FROM dungeons`);
+  let recomputed = 0;
+  for (const { id } of rows) {
+    const tiles = await listTiles(id);
+    const mask = computeWalkableMaskFromTiles(tiles);
+    const json = serializeWalkableMask(mask);
+    await run(SQL_UPDATE_DUNGEON_WALKABLE_MASK, [json, Date.now(), id]);
+    recomputed += 1;
+  }
+  return { dungeons: rows.length, recomputed };
 }
 
 export async function replaceTiles(dungeonId: string, tiles: readonly TileInput[]): Promise<DungeonTile[] | null> {

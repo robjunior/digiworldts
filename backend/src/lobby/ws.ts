@@ -504,6 +504,20 @@ const handleChat: Handler = async (entry, msg) => {
     safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'room and dungeonId are mutually exclusive' });
     return;
   }
+  // Direct message: deliver only to sender + recipient (DM chat tab).
+  if (msg.toUserId !== undefined && msg.toUserId !== entry.userId) {
+    const blockedByTarget = await listBlockedUserIds(msg.toUserId);
+    if (blockedByTarget.includes(entry.userId)) {
+      safeSend(entry.socket, { type: 'error', code: 'blocked', message: 'that user has blocked you' });
+      return;
+    }
+    const dmPayload = JSON.stringify({ ...basePayload, toUserId: msg.toUserId });
+    await Promise.all([
+      cluster.publish(`${WSDELIVER_PREFIX}${entry.userId}`, dmPayload),
+      cluster.publish(`${WSDELIVER_PREFIX}${msg.toUserId}`, dmPayload),
+    ]);
+    return;
+  }
   if (msg.room !== undefined) {
     const member = await isChatRoomMember(msg.room, entry.userId);
     if (!member) {
