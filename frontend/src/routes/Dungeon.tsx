@@ -26,11 +26,9 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { DungeonPhaserView } from '../phaser-dungeon/DungeonPhaserView';
 import { AutoToast } from '../components/common/Toast';
 import { DungeonChatOverlay } from '../components/dungeon/DungeonChatOverlay';
+import { DungeonFunctionShortcuts } from '../components/dungeon/DungeonFunctionShortcuts';
 import { DungeonInventoryPanel } from '../components/dungeon/DungeonInventoryPanel';
-import { DungeonPartyBar } from '../components/dungeon/DungeonPartyBar';
 import { DungeonQuestPanel } from '../components/dungeon/DungeonQuestPanel';
-import { DungeonActionBar } from '../components/dungeon/DungeonActionBar';
-import { DungeonEncounterCard } from '../components/dungeon/DungeonEncounterCard';
 import { DungeonDoorPrompt } from '../components/dungeon/DungeonDoorPrompt';
 import { DialogueOverlay } from '../components/dungeon/DialogueOverlay';
 import { DungeonStrip } from '../components/dungeon/DungeonStrip';
@@ -185,6 +183,60 @@ export function Dungeon(): JSX.Element {
   const [exitConfirm, setExitConfirm] = useState<{ readonly x: number; readonly y: number; readonly to: string | null } | null>(null);
   const [contextTarget, setContextTarget] = useState<{ readonly userId: string; readonly displayName: string } | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
+  const [activeFnId, setActiveFnId] = useState<string | null>(null);
+  const [activeFnLabel, setActiveFnLabel] = useState('—');
+  const [activeFnSub, setActiveFnSub] = useState('—');
+  const [activeFnSoon, setActiveFnSoon] = useState(false);
+
+  const handleOpenFunction = useCallback((id: string) => {
+    switch (id) {
+      case 'roster':
+        setActiveFnLabel('Roster');
+        setActiveFnSub('Seus Digimon e a party ativa.');
+        setActiveFnSoon(false);
+        break;
+      case 'digidex':
+        setActiveFnLabel('DigiDex');
+        setActiveFnSub('Códice de espécies capturadas.');
+        setActiveFnSoon(false);
+        break;
+      case 'quests':
+        setActiveFnLabel('Quests');
+        setActiveFnSub('Missões ativas e recompensas.');
+        setActiveFnSoon(false);
+        break;
+      case 'inventory':
+        setActiveFnLabel('Inventário');
+        setActiveFnSub('Itens, consumíveis e equip.');
+        setActiveFnSoon(false);
+        break;
+      case 'character':
+        setActiveFnLabel('Personagem');
+        setActiveFnSub('Status do Tamer e atributos.');
+        setActiveFnSoon(false);
+        break;
+      case 'map':
+        setActiveFnLabel('Mapa Mundi');
+        setActiveFnSub('O mundo e regiões liberadas.');
+        setActiveFnSoon(false);
+        break;
+      case 'friends':
+        setActiveFnLabel('Amigos');
+        setActiveFnSub('Lista de amigos e presença.');
+        setActiveFnSoon(true);
+        break;
+      case 'guild':
+        setActiveFnLabel('Guilda');
+        setActiveFnSub('Sua guilda e membros.');
+        setActiveFnSoon(true);
+        break;
+      default:
+        setActiveFnLabel(id);
+        setActiveFnSub('');
+        setActiveFnSoon(false);
+    }
+    setActiveFnId(id);
+  }, []);
 
   useEffect(() => {
     if (gridCrossingRef.current) {
@@ -764,13 +816,6 @@ export function Dungeon(): JSX.Element {
       </div>
 
       <aside className="rail" data-od-id="run-rail">
-        <DungeonPartyBar
-          party={party}
-          targeting={selectedInvItemId !== null}
-          busy={applyItemMutation.isPending}
-          now={now}
-          onTarget={handleTargetMon}
-        />
         <div className="rail-log-inv">
           <div className={`sheet${activeSheet === 'items' ? ' is-open' : ''}`} id="sheet-items">
             <DungeonInventoryPanel
@@ -787,31 +832,9 @@ export function Dungeon(): JSX.Element {
             <DungeonQuestPanel quest={quest} />
           </div>
         </div>
-        <div className={`enc${activeEncounter || activeRandomEncounter ? '' : ' empty'}`}>
-          <div className="idle">Walk the grid. Encounters surface here.</div>
-          <DungeonEncounterCard
-            activeEncounter={activeEncounter}
-            activeRandomEncounter={activeRandomEncounter}
-            templateById={templateById}
-            isStartingRandom={startRandomEncounterMutation.isPending}
-            isStartingEncounter={startEncounterMutation.isPending}
-            onStartRandom={(mon) => {
-              if (wildStartPendingRef.current) return;
-              wildStartPendingRef.current = true;
-              startRandomEncounterMutation.mutate(mon);
-            }}
-            onCancelRandom={() => setActiveRandomEncounter(null)}
-            onStartEncounter={(encId) => startEncounterMutation.mutate(encId)}
-          />
-        </div>
       </aside>
 
-      <DungeonActionBar
-        canMove={!dialogueOpen && !activeEncounterId && !activeRandomEncounter && !moveMutation.isPending}
-        onMove={tryMove}
-        activeSheet={activeSheet}
-        onToggleSheet={handleToggleSheet}
-      />
+      <DungeonFunctionShortcuts onOpen={handleOpenFunction} />
 
       {activeSheet !== null && (
         <div className="sheet-backdrop" onClick={() => setActiveSheet(null)} />
@@ -922,6 +945,22 @@ export function Dungeon(): JSX.Element {
       ) : null}
 
       {id !== undefined && <DungeonChatOverlay dungeonId={id} open={chatOpen} onClose={() => setChatOpen(false)} onReopen={() => setChatOpen(true)} />}
+
+      <DungeonFunctionShortcuts onOpen={handleOpenFunction} />
+      {activeFnId !== null ? (
+        <div className="fn-backdrop" onClick={() => setActiveFnId(null)}>
+          <div className="fn-panel" role="dialog" aria-modal="true" aria-label={activeFnLabel}>
+            <div className="fn-head">
+              <b>{activeFnLabel}</b>
+              <button type="button" className="fn-x" onClick={() => setActiveFnId(null)} aria-label="Fechar">✕</button>
+            </div>
+            <div className="fn-sub">{activeFnSub}</div>
+            <div className="fn-skeleton" />
+            <div className="fn-skeleton" />
+            {activeFnSoon ? <span className="fn-soon">Em breve</span> : null}
+          </div>
+        </div>
+      ) : null}
 
       {toast !== null ? <div className="toast show" role="status" aria-live="polite">{toast}</div> : null}
       <AutoToast message={pvpNotice} onDismiss={clearPvpNotice} durationMs={3000} />
