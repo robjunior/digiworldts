@@ -30,16 +30,15 @@ export const FALLBACK_MARKER_COLOR = {
 
 /** Stable, parseable name for a digimon party/remote/boss sprite. */
 export function digimonSpriteName(
+  role: string,
   catalogId: string,
-  x: number,
-  y: number,
 ): string {
-  return `digimon:${catalogId}:${x}:${y}`;
+  return `digimon:${role}:${catalogId}`;
 }
 
 /** Reverse of `digimonSpriteName`: recover the catalog id (strip sheet-/dot- prefixes). */
 export function catalogIdFromSpriteName(name: string): string {
-  const raw = name.split(":")[1] ?? "";
+  const raw = name.split(":")[2] ?? "";
   return raw.replace(/^sheet-/, "").replace(/^dot-/, "");
 }
 
