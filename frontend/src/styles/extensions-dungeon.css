@@ -1182,3 +1182,48 @@
   clip-path: var(--notch-xs-clip);
   padding: 5px 8px;
 }
+
+/* roster panel inside fn modal */
+.roster-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.roster-panel .roster-empty {
+  color: var(--muted);
+  font: 600 12px/1.4 var(--font);
+}
+.roster-panel .roster-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  padding: 10px 12px;
+  color: var(--ink);
+  font: 700 11px/1.3 var(--font);
+}
+.roster-panel .roster-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.roster-panel .roster-name {
+  font: 800 12px/1.2 var(--font);
+  color: var(--ink);
+}
+.roster-panel .roster-meta {
+  color: var(--muted);
+  font: 600 10px/1.2 var(--font);
+}
+.roster-panel .roster-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  text-align: right;
+  font: 700 10px/1.2 var(--font);
+}
