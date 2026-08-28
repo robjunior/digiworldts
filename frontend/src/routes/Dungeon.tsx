@@ -190,6 +190,18 @@ export function Dungeon(): JSX.Element {
 
   const handleOpenFunction = useCallback((id: string) => {
     switch (id) {
+      case 'inventory':
+        setActiveSheet((prev) => (prev === 'items' ? null : 'items'));
+        setActiveFnId(null);
+        return;
+      case 'quests':
+        setActiveSheet((prev) => (prev === 'quest' ? null : 'quest'));
+        setActiveFnId(null);
+        return;
+      case 'map':
+        void navigate('/world');
+        setActiveFnId(null);
+        return;
       case 'roster':
         setActiveFnLabel('Roster');
         setActiveFnSub('Seus Digimon e a party ativa.');
@@ -200,24 +212,9 @@ export function Dungeon(): JSX.Element {
         setActiveFnSub('Códice de espécies capturadas.');
         setActiveFnSoon(false);
         break;
-      case 'quests':
-        setActiveFnLabel('Quests');
-        setActiveFnSub('Missões ativas e recompensas.');
-        setActiveFnSoon(false);
-        break;
-      case 'inventory':
-        setActiveFnLabel('Inventário');
-        setActiveFnSub('Itens, consumíveis e equip.');
-        setActiveFnSoon(false);
-        break;
       case 'character':
         setActiveFnLabel('Personagem');
         setActiveFnSub('Status do Tamer e atributos.');
-        setActiveFnSoon(false);
-        break;
-      case 'map':
-        setActiveFnLabel('Mapa Mundi');
-        setActiveFnSub('O mundo e regiões liberadas.');
         setActiveFnSoon(false);
         break;
       case 'friends':
@@ -236,7 +233,7 @@ export function Dungeon(): JSX.Element {
         setActiveFnSoon(false);
     }
     setActiveFnId(id);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     if (gridCrossingRef.current) {
