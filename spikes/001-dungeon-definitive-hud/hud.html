@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spike · Dungeon Modo Definitivo — HUD de RPG (portal + saída)</title>
+<style>
+  /* ===== Design tokens (copiados de frontend/src/styles/tokens.css) ===== */
+  :root{
+    --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f; --hair:#2a2a30;
+    --signal:#e6001f; --battle:#e6001f;
+    --el-fire:var(--signal); --el-water:color-mix(in oklab,var(--signal) 58%,var(--ink));
+    --el-plant:color-mix(in oklab,var(--signal) 44%,var(--muted)); --el-electricity:color-mix(in oklab,var(--signal) 74%,var(--ink));
+    --el-wind:color-mix(in oklab,var(--signal) 28%,var(--ink)); --el-ice:color-mix(in oklab,var(--signal) 20%,#fff);
+    --el-earth:color-mix(in oklab,var(--muted) 68%,var(--ink)); --el-steel:color-mix(in oklab,var(--muted) 82%,#fff);
+    --el-light:color-mix(in oklab,var(--signal) 30%,#fff); --el-dark:color-mix(in oklab,var(--signal) 40%,#000); --el-null:var(--muted);
+    --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --notch-clip:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+    --notch-sm-clip:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+    --notch-xs-clip:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);
+    --radius:0; --ease:cubic-bezier(.2,.7,.2,1);
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
+  button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;}
+  a{color:inherit;text-decoration:none;}
+
+  /* ===== shell ===== */
+  .shell{display:grid;grid-template-columns:1fr;grid-template-rows:auto 1fr;height:100vh;width:100vw;overflow:hidden;}
+
+  /* ===== topo direito: menus ===== */
+  .topbar{position:fixed;top:0;right:0;z-index:40;display:flex;align-items:center;gap:14px;padding:12px 16px;}
+  .topbar .stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.05;}
+  .topbar .stat span{font:800 8px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  .topbar .stat b{font:800 13px/1 var(--font);color:var(--ink);}
+  .topbar .menu-icon{width:42px;height:42px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--muted);transition:color .12s,border-color .12s;}
+  .topbar .menu-icon:hover{color:var(--el);border-color:var(--el);}
+  .topbar .menu-icon svg{width:20px;height:20px;}
+
+  /* ===== esquerda: roster ===== */
+  .roster{position:fixed;top:0;left:0;z-index:30;height:100vh;width:230px;display:flex;flex-direction:column;gap:8px;padding:14px;background:linear-gradient(180deg,color-mix(in oklab,var(--panel) 96%,transparent),color-mix(in oklab,var(--panel) 80%,transparent));border-right:1px solid var(--hair);backdrop-filter:blur(6px);}
+  .roster .rhead{font:800 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin:2px 4px 4px;}
+  .roster .ros-slot{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--hair);clip-path:var(--notch-xs-clip);background:var(--bg);}
+  .roster .ros-slot .pic{width:42px;height:42px;display:grid;place-items:center;background:color-mix(in oklab,var(--el-fire) 14%,var(--bg));border:1px solid var(--hair);clip-path:var(--notch-xs-clip);font:800 12px/1 var(--font);color:var(--el-fire);}
+  .roster .ros-slot .nm{font:800 12px/1.1 var(--font);}
+  .roster .ros-slot .lv{font:700 9px/1 var(--font);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px;}
+  .roster .ros-bar{width:100%;height:4px;background:var(--panel);border:1px solid var(--hair);margin-top:5px;overflow:hidden;}
+  .roster .ros-bar i{display:block;height:100%;}
+
+  /* ===== palco (grid) ===== */
+  .stage{position:relative;flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(120% 100% at 50% 30%,color-mix(in oklab,var(--el-fire) 8%,var(--bg)),var(--bg) 72%);overflow:hidden;}
+  .grid{position:relative;display:grid;gap:2px;padding:24px;background:color-mix(in oklab,var(--panel) 50%,transparent);border:1px solid var(--hair);clip-path:var(--notch-clip);}
+  .cell{width:30px;height:30px;background:color-mix(in oklab,var(--ink) 6%,var(--bg));border:1px solid color-mix(in oklab,var(--hair) 70%,var(--bg));display:grid;place-items:center;font:800 9px/1 var(--font);color:var(--muted);}
+  .cell.wall{background:color-mix(in oklab,var(--muted) 18%,var(--bg));}
+  .cell.door{border-color:var(--signal);color:var(--signal);}
+  .cell.enc{border-color:var(--el-electricity);color:var(--el-electricity);}
+  .cell.player{background:var(--signal);color:#fff;box-shadow:0 0 0 2px color-mix(in oklab,var(--signal) 50%,transparent);}
+  .cell.trail{background:color-mix(in oklab,var(--signal) 22%,var(--bg));}
+
+  /* ===== PORTAL DE SAÍDA (oval vermelho pulsante) ===== */
+  .cell.portal{background:radial-gradient(circle at 50% 50%,color-mix(in oklab,var(--signal) 55%,transparent),transparent 70%);border-color:var(--signal);position:relative;overflow:visible;}
+  .cell.portal .ovl{position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--signal);box-shadow:0 0 14px color-mix(in oklab,var(--signal) 70%,transparent);animation:pulse 1.4s var(--ease) infinite;pointer-events:none;}
+  @keyframes pulse{0%{transform:scale(.82);opacity:.9}50%{transform:scale(1.12);opacity:.4}100%{transform:scale(.82);opacity:.9}}
+  .cell.portal .glyph{position:relative;color:#fff;font:800 13px/1 var(--font);text-shadow:0 0 8px var(--signal);}
+  .cell.portal .badge-cidade{position:absolute;top:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;font:800 7px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--signal);background:var(--bg);border:1px solid var(--signal);clip-path:var(--notch-xs-clip);padding:3px 5px;pointer-events:none;}
+
+  /* ===== chat baixo-esquerdo (estilo MMO clássico) ===== */
+  .chat{position:fixed;left:246px;bottom:16px;z-index:35;width:min(360px,calc(100vw - 270px));display:flex;flex-direction:column;max-height:40vh;background:color-mix(in oklab,var(--panel) 94%,transparent);border:1px solid var(--hair);clip-path:var(--notch-clip);backdrop-filter:blur(6px);box-shadow:0 16px 44px color-mix(in oklab,black 30%,transparent);}
+  .chat.min{height:42px;max-height:42px;}
+  .chat .chead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-bottom:1px solid var(--hair);}
+  .chat .chead .ctabs{display:flex;gap:6px;}
+  .chat .chead .ctabs button{font:800 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:7px 11px;}
+  .chat .chead .ctabs button.is-active{color:var(--el-fire);border-color:var(--el-fire);}
+  .chat .chead .cmin{color:var(--muted);font:800 13px/1 var(--font);padding:5px 9px;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);}
+  .chat .log{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;font:600 11px/1.45 var(--font);color:var(--muted);}
+  .chat .log .sys{color:var(--muted);}
+  .chat .log .sys b{color:var(--el-fire);}
+  .chat .log .me .from{color:var(--el-electricity);font-weight:800;margin-right:6px;}
+  .chat .log .white .from{color:var(--el-light);font-weight:800;margin-right:6px;}
+  .chat .log .time{color:color-mix(in oklab,var(--muted) 60%,var(--bg));font-size:9px;margin-left:6px;}
+  .chat .cform{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--hair);}
+  .chat .cform input{flex:1 1 auto;min-width:0;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--ink);padding:9px 11px;font:600 11px/1 var(--font);}
+  .chat .cform button{background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm-clip);font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;padding:0 14px;}
+
+  /* ===== d-pad baixo centro ===== */
+  .dpad{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:35;display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:6px;}
+  .dpad button{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--ink);display:grid;place-items:center;font:800 16px/1 var(--font);transition:background .1s,color .1s;}
+  .dpad button:hover{border-color:var(--el-fire);color:var(--el-fire);}
+  .dpad button:active{background:var(--signal);color:#fff;}
+  .dpad .up{grid-column:2;grid-row:1;} .dpad .left{grid-column:1;grid-row:2;} .dpad .down{grid-column:2;grid-row:2;} .dpad .right{grid-column:3;grid-row:2;}
+
+  /* ===== encontro (card) baixo direito ===== */
+  .enc{position:fixed;right:16px;bottom:16px;z-index:35;width:min(300px,calc(100vw - 280px));background:color-mix(in oklab,var(--panel) 92%,transparent);border:1px solid color-mix(in oklab,var(--el-fire) 40%,var(--hair));clip-path:var(--notch-clip);padding:14px;box-shadow:0 16px 44px color-mix(in oklab,black 30%,transparent);}
+  .enc .ek{font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--el-fire);}
+  .enc h3{font:800 18px/1.05 var(--font);margin:7px 0 3px;}
+  .enc .emons{display:flex;flex-direction:column;gap:6px;margin:12px 0 12px;}
+  .enc .emon{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--hair);border-left:0;clip-path:var(--notch-sm-clip);padding:8px 11px 8px 0;position:relative;}
+  .enc .emon::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--el-fire);}
+  .enc .emon .es{width:32px;height:32px;margin-left:11px;display:grid;place-items:center;background:color-mix(in oklab,var(--el-fire) 14%,var(--bg));font:800 12px/1 var(--font);color:var(--el-fire);}
+  .enc .emon .enm{font:800 12px/1.1 var(--font);}
+  .enc .emon .elv{font:700 8px/1 var(--font);text-transform:uppercase;color:var(--muted);margin-top:4px;}
+  .enc .ebtn{width:100%;background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm-clip);padding:12px;font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;}
+
+  /* ===== drawer de funções (ícone ☰) ===== */
+  .drawer-backdrop{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .18s var(--ease);}
+  .drawer-backdrop.open{opacity:1;pointer-events:auto;}
+  .drawer{position:fixed;top:0;right:0;height:100vh;width:min(360px,90vw);z-index:51;background:var(--panel);border-left:1px solid var(--hair);transform:translateX(100%);transition:transform .2s var(--ease);display:flex;flex-direction:column;box-shadow:-16px 0 44px color-mix(in oklab,black 35%,transparent);}
+  .drawer.open{transform:translateX(0);}
+  .drawer .dhead{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--hair);}
+  .drawer .dhead b{font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--ink);}
+  .drawer .dhead .x{color:var(--muted);font:800 14px/1 var(--font);width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);}
+  .drawer .dgrid{flex:1 1 auto;overflow-y:auto;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start;}
+  .drawer .fn{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--ink);transition:border-color .12s,color .12s,background .12s;}
+  .drawer .fn:hover{border-color:var(--el-fire);color:var(--el-fire);background:color-mix(in oklab,var(--el-fire) 8%,var(--bg));}
+  .drawer .fn svg{width:26px;height:26px;}
+  .drawer .fn span{font:800 10px/1.1 var(--font);letter-spacing:.08em;text-transform:uppercase;text-align:center;}
+  .drawer .fn.soon{opacity:.55;}
+  .drawer .fn.soon::after{content:"EM BREVE";font:800 7px/1 var(--font);letter-spacing:.16em;color:var(--muted);margin-top:-2px;}
+
+  /* ===== painel de função (placeholder) ===== */
+  .fnpanel-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:24px;}
+  .fnpanel-backdrop.open{display:flex;}
+  .fnpanel{width:min(520px,100%);background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-clip);padding:22px;box-shadow:0 20px 60px color-mix(in oklab,black 40%,transparent);}
+  .fnpanel .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  .fnpanel .ph b{font:900 14px/1.1 var(--font);letter-spacing:.06em;color:var(--ink);}
+  .fnpanel .ph .x{color:var(--muted);font:800 14px/1 var(--font);width:36px;height:36px;display:grid;place-items:center;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);}
+  .fnpanel .psub{font:600 12px/1.5 var(--font);color:var(--muted);margin-bottom:16px;}
+  .fnpanel .skeleton{height:54px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);margin-bottom:8px;display:flex;align-items:center;padding:0 14px;font:700 11px/1 var(--font);color:var(--muted);letter-spacing:.04em;}
+  .fnpanel .soon-tag{display:inline-block;margin-top:4px;font:800 8px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--signal);border:1px solid var(--signal);clip-path:var(--notch-xs-clip);padding:5px 8px;}
+
+  /* ===== modal de saída pelo portal ===== */
+  .exit-backdrop{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:24px;}
+  .exit-backdrop.open{display:flex;}
+  .exit-modal{width:min(420px,100%);background:var(--panel);border:1px solid color-mix(in oklab,var(--signal) 50%,var(--hair));clip-path:var(--notch-clip);padding:22px;box-shadow:0 20px 60px color-mix(in oklab,black 45%,transparent);}
+  .exit-modal .et{font:900 16px/1.1 var(--font);color:var(--ink);margin-bottom:10px;}
+  .exit-modal .et::before{content:"◉ ";color:var(--signal);}
+  .exit-modal .es{font:600 12px/1.55 var(--font);color:var(--muted);margin-bottom:18px;}
+  .exit-modal .es b{color:var(--el-fire);}
+  .exit-modal .erow{display:flex;gap:10px;}
+  .exit-modal .erow button{flex:1 1 auto;padding:13px;font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;clip-path:var(--notch-sm-clip);}
+  .exit-modal .go{background:var(--signal);color:#fff;border:1px solid var(--signal);}
+  .exit-modal .stay{background:var(--bg);color:var(--ink);border:1px solid var(--hair);}
+
+  /* ===== tela de "saiu para a cidade" ===== */
+  .leftscreen{position:fixed;inset:0;z-index:80;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:radial-gradient(120% 100% at 50% 40%,color-mix(in oklab,var(--signal) 10%,var(--bg)),var(--bg));}
+  .leftscreen.open{display:flex;}
+  .leftscreen .big{font:900 22px/1.1 var(--font);letter-spacing:.04em;color:var(--ink);}
+  .leftscreen .sub{font:600 12px/1.5 var(--font);color:var(--muted);max-width:420px;text-align:center;}
+  .leftscreen .re{margin-top:8px;background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm-clip);padding:13px 22px;font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;}
+
+  .badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:var(--signal);color:#fff;font:800 9px/16px var(--font);text-align:center;border-radius:9px;}
+  .hint{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:36;font:600 10px/1 var(--font);letter-spacing:.08em;color:color-mix(in oklab,var(--muted) 74%,var(--bg));background:color-mix(in oklab,var(--panel) 70%,transparent);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:7px 13px;}
+  @media (max-width:900px){
+    .roster{width:130px;padding:10px;gap:6px;}
+    .chat{left:146px;width:calc(100vw - 170px);}
+    .enc{width:calc(100vw - 170px);}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <!-- menus topo direito -->
+  <div class="topbar">
+    <div class="stat"><span>Tamer LV</span><b>42</b></div>
+    <div class="stat"><span>Bits</span><b>12.480</b></div>
+    <div class="stat"><span>Créditos</span><b>3.200</b></div>
+    <button class="menu-icon" id="btn-menu" aria-label="Funções" title="Funções (Roster, DigiDex, Quests…)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>
+    </button>
+  </div>
+
+  <!-- roster esquerda -->
+  <aside class="roster">
+    <div class="rhead">Roster · Party</div>
+    <div class="ros-slot"><span class="pic">AG</span><span style="flex:1"><span class="nm">Agumon</span><span class="lv">Lv 42 · Rookie</span><span class="ros-bar"><i style="width:100%;background:var(--el-fire)"></i></span></span></div>
+    <div class="ros-slot"><span class="pic" style="color:var(--el-water);background:color-mix(in oklab,var(--el-water) 14%,var(--bg))">GB</span><span style="flex:1"><span class="nm">Gabumon</span><span class="lv">Lv 41 · Rookie</span><span class="ros-bar"><i style="width:72%;background:var(--el-water)"></i></span></span></div>
+    <div class="ros-slot"><span class="pic" style="color:var(--el-electricity);background:color-mix(in oklab,var(--el-electricity) 14%,var(--bg))">PT</span><span style="flex:1"><span class="nm">Patamon</span><span class="lv">Lv 39 · Rookie</span><span class="ros-bar"><i style="width:55%;background:var(--el-electricity)"></i></span></span></div>
+    <div class="rhead" style="margin-top:auto">Expedição</div>
+    <div class="ros-slot" style="opacity:.6"><span class="pic">??</span><span style="flex:1"><span class="nm">—</span><span class="lv">Slot vazio</span></span></div>
+  </aside>
+
+  <!-- palco -->
+  <main class="stage">
+    <div class="hint">Modo Definitivo · WASD/setas ou d-pad para mover · ☰ abre funções · ◉ é o portal para a cidade</div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <!-- chat baixo esquerdo -->
+  <section class="chat" id="chat">
+    <div class="chead">
+      <div class="ctabs">
+        <button class="is-active" data-ch="local">Local</button>
+        <button data-ch="global">Global</button>
+      </div>
+      <button class="cmin" id="chat-min" aria-label="Minimizar chat">—</button>
+    </div>
+    <div class="log" id="chat-log" aria-live="polite"></div>
+    <form class="cform" id="chat-form">
+      <input id="chat-input" type="text" maxlength="300" autocomplete="off" placeholder="Diga algo ao mundo…" />
+      <button type="submit">Enviar</button>
+    </form>
+  </section>
+
+  <!-- d-pad -->
+  <div class="dpad">
+    <button class="up" data-dx="0" data-dy="-1" aria-label="Cima">▲</button>
+    <button class="left" data-dx="-1" data-dy="0" aria-label="Esquerda">◀</button>
+    <button class="down" data-dx="0" data-dy="1" aria-label="Baixo">▼</button>
+    <button class="right" data-dx="1" data-dy="0" aria-label="Direita">▶</button>
+  </div>
+
+  <!-- encontro -->
+  <aside class="enc">
+    <div class="ek">Encontro · Boss</div>
+    <h3>Devimon</h3>
+    <div class="emons">
+      <div class="emon"><span class="es">DV</span><span><span class="enm">Devimon</span><span class="elv">Lv 48 · Champion</span></span><span style="color:var(--el-fire);font:800 11px/1 var(--font)">★</span></div>
+    </div>
+    <button class="ebtn">Lutar</button>
+  </aside>
+
+  <!-- drawer de funções -->
+  <div class="drawer-backdrop" id="drawer-bg"></div>
+  <nav class="drawer" id="drawer" aria-label="Funções">
+    <div class="dhead"><b>Funções</b><button class="x" id="drawer-x" aria-label="Fechar">✕</button></div>
+    <div class="dgrid" id="fn-grid"></div>
+  </nav>
+
+  <!-- painel de função placeholder -->
+  <div class="fnpanel-backdrop" id="fn-bg">
+    <div class="fnpanel">
+      <div class="ph"><b id="fn-title">—</b><button class="x" id="fn-x" aria-label="Fechar">✕</button></div>
+      <div class="psub" id="fn-sub">—</div>
+      <div class="skeleton">Carregando conteúdo…</div>
+      <div class="skeleton">Carregando conteúdo…</div>
+      <span class="soon-tag" id="fn-soon">Em breve</span>
+    </div>
+  </div>
+
+  <!-- modal de saída pelo portal -->
+  <div class="exit-backdrop" id="exit-bg">
+    <div class="exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title">
+      <div class="et" id="exit-title">Usar o portal para a cidade?</div>
+      <div class="es" id="exit-sub">Você tem <b id="exit-items">2</b> itens exclusivos da dungeon. Atravessar o portal descarta eles.</div>
+      <div class="erow">
+        <button class="go" id="exit-go">Atravessar</button>
+        <button class="stay" id="exit-stay">Ficar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- tela de saída -->
+  <div class="leftscreen" id="leftscreen">
+    <div class="big">◉ Retornando à Cidade</div>
+    <div class="sub">Você atravessou o portal e voltou ao mundo. A cidade 3D chega num futuro distante — por enquanto, o mundo aberto te espera.</div>
+    <button class="re" id="exit-re">Entrar no mundo</button>
+  </div>
+</div>
+
+<script>
+  // ---- grid fake do dungeon ----
+  const W=12,H=9;
+  let px=2,py=4;
+  const walls=new Set(['0,0','1,0','2,0','0,1','11,8','10,8','11,7','11,0','0,8']);
+  const doors=new Set(['5,0']);
+  const encs=new Set(['8,3','3,6']);
+  // portal de saída: canto oposto ao spawn (2,4) -> (9,4)
+  const portal={x:9,y:4};
+  const grid=document.getElementById('grid');
+  grid.style.gridTemplateColumns=`repeat(${W},30px)`;
+  function render(){
+    grid.innerHTML='';
+    for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+      const c=document.createElement('div');
+      const k=`${x},${y}`;
+      c.className='cell';
+      if(walls.has(k))c.classList.add('wall');
+      else if(doors.has(k))c.classList.add('door');
+      else if(encs.has(k))c.classList.add('enc');
+      if(x===portal.x&&y===portal.y){
+        c.classList.add('portal');
+        c.innerHTML='<span class="ovl"></span><span class="badge-cidade">Cidade</span><span class="glyph">◉</span>';
+        grid.appendChild(c); continue;
+      }
+      if(x===px&&y===py)c.classList.add('player');
+      else if(Math.abs(x-px)+Math.abs(y-py)===1&&!walls.has(k))c.classList.add('trail');
+      c.textContent=(x===px&&y===py)?'@':(doors.has(k)?'⚿':(encs.has(k)?'☠':''));
+      grid.appendChild(c);
+    }
+  }
+  render();
+
+  // ---- chat (histórico de andar como mensagens de sistema) ----
+  const log=document.getElementById('chat-log');
+  function pad(n){return String(n).padStart(2,'0');}
+  function now(){const d=new Date();return `${pad(d.getHours())}:${pad(d.getMinutes())}`;}
+  function sys(html){
+    const d=document.createElement('div');d.className='sys';
+    d.innerHTML=`<b>»</b> ${html} <span class="time">${now()}</span>`;
+    log.appendChild(d);log.scrollTop=log.scrollHeight;
+  }
+  function say(who,cls,text){
+    const d=document.createElement('div');d.className=cls;
+    d.innerHTML=`<span class="from">${who}</span>${text} <span class="time">${now()}</span>`;
+    log.appendChild(d);log.scrollTop=log.scrollHeight;
+  }
+  sys('Entrou em <b>Masmorra Sombria</b>.');
+  sys('Passos <b>0</b> · Encontros <b>0/3</b>.');
+  say('Kai','white','alguém explorando a ala norte?');
+  sys('Porta trancada em <b>5,0</b>.');
+  sys('Portal para a <b>cidade</b> detectado em <b>9,4</b>.');
+
+  let step=0, defeated=0;
+  function move(dx,dy){
+    if(exitBg.classList.contains('open'))return;
+    const nx=px+dx, ny=py+dy;
+    if(nx<0||ny<0||nx>=W||ny>=H)return;
+    const k=`${nx},${ny}`;
+    if(walls.has(k)){sys('Bloqueado por parede.');return;}
+    px=nx;py=ny;step++;
+    if(nx===portal.x&&ny===portal.y){render();openExit();return;}
+    if(doors.has(k)){sys(`Tentou abrir porta em <b>${nx},${ny}</b> — precisa de chave.`);render();return;}
+    if(encs.has(k)){sys(`<b>Amboscada!</b> Inimigo em ${nx},${ny}.`);defeated++;render();return;}
+    sys(`Moveu para <b>${nx},${ny}</b>. Passos <b>${step}</b> · Encontros <b>${defeated}/3</b>.`);
+    render();
+  }
+  document.querySelectorAll('.dpad button').forEach(b=>b.addEventListener('click',()=>move(+b.dataset.dx,+b.dataset.dy)));
+  window.addEventListener('keydown',e=>{
+    const t=e.target; if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'))return;
+    const map={w:[0,-1],W:[0,-1],ArrowUp:[0,-1],s:[0,1],S:[0,1],ArrowDown:[0,1],a:[-1,0],A:[-1,0],ArrowLeft:[-1,0],d:[1,0],D:[1,0],ArrowRight:[1,0]};
+    if(map[e.key]){e.preventDefault();move(...map[e.key]);}
+  });
+
+  // ---- minimizar chat ----
+  document.getElementById('chat-min').addEventListener('click',()=>document.getElementById('chat').classList.toggle('min'));
+  // ---- trocar aba ----
+  document.querySelectorAll('.ctabs button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.ctabs button').forEach(x=>x.classList.remove('is-active'));
+    b.classList.add('is-active');
+  }));
+  // ---- enviar mensagem ----
+  document.getElementById('chat-form').addEventListener('submit',e=>{
+    e.preventDefault();
+    const i=document.getElementById('chat-input');
+    const v=i.value.trim(); if(!v)return;
+    say('Você','me',v); i.value='';
+  });
+
+  // ---- drawer de funções ----
+  const FNS=[
+    {id:'roster',label:'Roster',soon:false,sub:'Seus Digimon e a party ativa.',icon:'<circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M16 5.5a3 3 0 0 1 0 5.4M18 19c0-2.4-1.4-4.3-3.4-5"/>'},
+    {id:'digidex',label:'DigiDex',soon:false,sub:'Códice de espécies capturadas.',icon:'<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/>'},
+    {id:'quests',label:'Quests',soon:false,sub:'Missões ativas e recompensas.',icon:'<path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z"/><path d="M9.5 12l1.8 1.8L15 10"/>'},
+    {id:'inventory',label:'Inventário',soon:false,sub:'Itens, consumíveis e equip.',icon:'<path d="M6 8h12l-1 12H7z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>'},
+    {id:'character',label:'Personagem',soon:false,sub:'Status do Tamer e atributos.',icon:'<circle cx="12" cy="8" r="3.5"/><path d="M5 21c0-3.5 3-6 7-6s7 2.5 7 6"/>'},
+    {id:'map',label:'Mapa Mundi',soon:false,sub:'O mundo e regiões liberadas.',icon:'<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.4 3.8 5.4 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 15.1 8.2 12S9.5 5.9 12 3.5z"/>'},
+    {id:'friends',label:'Amigos',soon:true,sub:'Lista de amigos e presença.',icon:'<path d="M12 21C7 17 4 13.5 4 10a4 4 0 0 1 8-1 4 4 0 0 1 8 1c0 3.5-3 7-8 11z"/>'},
+    {id:'guild',label:'Guilda',soon:true,sub:'Sua guilda e membros.',icon:'<path d="M3 20V10l5 3V10l5 3V6l6 4v10z"/><path d="M7 20v-4M12 20v-4M17 20v-4"/>'},
+  ];
+  const fnGrid=document.getElementById('fn-grid');
+  FNS.forEach(f=>{
+    const b=document.createElement('button');
+    b.className='fn'+(f.soon?' soon':'');
+    b.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">${f.icon}</svg><span>${f.label}</span>`;
+    b.addEventListener('click',()=>openFn(f));
+    fnGrid.appendChild(b);
+  });
+  const drawer=document.getElementById('drawer'),drawerBg=document.getElementById('drawer-bg');
+  function openDrawer(){drawer.classList.add('open');drawerBg.classList.add('open');}
+  function closeDrawer(){drawer.classList.remove('open');drawerBg.classList.remove('open');}
+  document.getElementById('btn-menu').addEventListener('click',openDrawer);
+  document.getElementById('drawer-x').addEventListener('click',closeDrawer);
+  drawerBg.addEventListener('click',closeDrawer);
+
+  // ---- painel placeholder ----
+  const fnBg=document.getElementById('fn-bg');
+  function openFn(f){
+    document.getElementById('fn-title').textContent=f.label;
+    document.getElementById('fn-sub').textContent=f.sub;
+    document.getElementById('fn-soon').style.display=f.soon?'inline-block':'none';
+    fnBg.classList.add('open');
+  }
+  document.getElementById('fn-x').addEventListener('click',()=>fnBg.classList.remove('open'));
+  fnBg.addEventListener('click',e=>{if(e.target===fnBg)fnBg.classList.remove('open');});
+
+  // ---- saída pelo portal ----
+  const exitBg=document.getElementById('exit-bg');
+  function openExit(){
+    exitBg.classList.add('open');
+    sys('<b>Portal para a cidade</b> à frente. Confirme para atravessar.');
+  }
+  function closeExit(){exitBg.classList.remove('open');}
+  document.getElementById('exit-go').addEventListener('click',()=>{
+    closeExit();
+    sys('Você atravessou o <b>portal</b>. Retornando à cidade…');
+    document.getElementById('leftscreen').classList.add('open');
+  });
+  document.getElementById('exit-stay').addEventListener('click',closeExit);
+  document.getElementById('exit-re').addEventListener('click',()=>{
+    document.getElementById('leftscreen').classList.remove('open');
+    px=2;py=4;step=0;defeated=0;render();
+    sys('Reentrou na <b>Masmorra Sombria</b>.');
+    sys('Passos <b>0</b> · Encontros <b>0/3</b>.');
+  });
+</script>
+</body>
+</html>
