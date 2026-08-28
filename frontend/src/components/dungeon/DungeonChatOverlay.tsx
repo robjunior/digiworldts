@@ -33,6 +33,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose, onReopen }: Dunge
   const [closed, setClosed] = useState<Set<ChatTab>>(new Set());
   const [unread, setUnread] = useState<Record<ChatTab, number>>({ dm: 0, local: 0, global: 0, system: 0 });
   const [unreadTotal, setUnreadTotal] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const globalChat = useWsStore((state) => state.chat);
   const localChat = useWsStore((state) => state.chatByDungeon[dungeonId]) ?? NO_MESSAGES;
   const systemChat = useWsStore((state) => state.dungeonSystem[dungeonId]) ?? NO_SYSTEM;
@@ -92,18 +93,20 @@ export function DungeonChatOverlay({ dungeonId, open, onClose, onReopen }: Dunge
 
   const closeTab = (t: ChatTab): void => {
     setClosed((prev) => new Set(prev).add(t));
+    setPickerOpen(false);
   };
 
-  const reopenLast = (): void => {
-    if (closed.size === 0) return;
-    const arr = [...closed];
-    const last = arr[arr.length - 1];
-    if (last === undefined) return;
+  const pickerClosed = (): ChatTab[] => tabs.filter((t) => closed.has(t));
+
+  const togglePicker = (): void => setPickerOpen((prev) => !prev);
+
+  const openClosedTab = (t: ChatTab): void => {
     const next = new Set(closed);
-    next.delete(last);
+    next.delete(t);
     setClosed(next);
-    setTab(last);
-    setUnread((u) => ({ ...u, [last]: 0 }));
+    setTab(t);
+    setUnread((u) => ({ ...u, [t]: 0 }));
+    setPickerOpen(false);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
@@ -176,9 +179,43 @@ export function DungeonChatOverlay({ dungeonId, open, onClose, onReopen }: Dunge
             </button>
           ))}
           {showAdd ? (
-            <button type="button" className="dungeon-chat-add" aria-label="Reabrir aba" title="Reabrir aba fechada" onClick={reopenLast}>
-              +
-            </button>
+            <div className="dungeon-chat-add-wrap">
+              <button
+                type="button"
+                className={`dungeon-chat-add${pickerOpen ? ' is-open' : ''}`}
+                aria-label="Reabrir aba fechada"
+                aria-expanded={pickerOpen}
+                title="Reabrir aba fechada"
+                onClick={togglePicker}
+              >
+                +
+              </button>
+              {pickerOpen ? (
+                <div className="dungeon-chat-add-picker" role="menu">
+                  <div className="dungeon-chat-add-picker-h">Reabrir aba</div>
+                  {pickerClosed().map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      role="menuitem"
+                      className="dungeon-chat-add-picker-item"
+                      onClick={() => openClosedTab(t)}
+                    >
+                      {TAB_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {pickerOpen ? (
+                <button
+                  type="button"
+                  className="dungeon-chat-add-backdrop"
+                  aria-label="Fechar menu de abas"
+                  tabIndex={-1}
+                  onClick={() => setPickerOpen(false)}
+                />
+              ) : null}
+            </div>
           ) : null}
         </div>
         <button type="button" className="dungeon-chat-min" onClick={onClose} aria-label="Minimizar chat" title="Minimizar">

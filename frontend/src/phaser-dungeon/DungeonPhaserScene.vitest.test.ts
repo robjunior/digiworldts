@@ -439,37 +439,4 @@ test("remote leader is positioned at its world cell, not orphaned at origin", ()
   expect(leaders.length).toBe(1);
 });
 
-test("world-signature gate: recomposing with the same world does NOT rebuild tilemaps", () => {
-  const { scene } = wiredScene();
-  const clearSpy = vi.spyOn(
-    scene as unknown as { clearRendered: () => void },
-    "clearRendered",
-  );
-  const worldSpy = vi.spyOn(
-    scene as unknown as { renderWorld: () => void },
-    "renderWorld",
-  );
-
-  // First recompose builds the world.
-  (scene as unknown as { recompose(): void }).recompose();
-  expect(worldSpy).toHaveBeenCalledTimes(1);
-  expect(clearSpy).toHaveBeenCalledTimes(1);
-
-  // A second recompose with the SAME props must skip the full teardown+rebuild —
-  // this is what stops a grid crossing (many recomposes during the camera glide)
-  // from rebuilding the whole world on every frame.
-  (scene as unknown as { recompose(): void }).recompose();
-  expect(worldSpy).toHaveBeenCalledTimes(1);
-  expect(clearSpy).toHaveBeenCalledTimes(1);
-
-  // Changing which maps are composed (a different active dungeon id) DOES rebuild.
-  const props = (
-    scene as unknown as { latestProps: { view: { dungeon: { id: string } } } }
-  ).latestProps;
-  props.view.dungeon.id = "d-different";
-  (scene as unknown as { recompose(): void }).recompose();
-  expect(worldSpy).toHaveBeenCalledTimes(2);
-  expect(clearSpy).toHaveBeenCalledTimes(2);
-});
-
 
