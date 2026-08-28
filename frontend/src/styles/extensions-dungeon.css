@@ -827,6 +827,11 @@
   color: var(--el);
   border-color: var(--el);
 }
+.dungeon-page .dungeon-chat-add-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
 .dungeon-page .dungeon-chat-add {
   background: var(--bg);
   border: 1px dashed var(--hair);
@@ -836,13 +841,81 @@
   font: 800 14px/1 var(--font);
   width: 26px;
   height: 26px;
-  align-self: center;
-  margin-left: 2px;
-  transition: color .12s, border-color .12s;
+  display: grid;
+  place-items: center;
+  transition: color .12s, border-color .12s, transform .15s ease;
 }
-.dungeon-page .dungeon-chat-add:hover {
+.dungeon-page .dungeon-chat-add:hover,
+.dungeon-page .dungeon-chat-add.is-open {
   color: var(--el);
   border-color: var(--el);
+}
+.dungeon-page .dungeon-chat-add.is-open {
+  transform: rotate(45deg);
+}
+/* Invisible full-screen tap target that closes the picker on outside click. */
+.dungeon-page .dungeon-chat-add-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 59;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+.dungeon-page .dungeon-chat-add-picker {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  z-index: 61;
+  min-width: 140px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: color-mix(in oklab, var(--panel) 96%, transparent);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-clip);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 16px 44px color-mix(in oklab, black 30%, transparent);
+  /* Single subtle entrance: fade + lift. */
+  animation: dungeon-chat-picker-in .14s ease-out;
+}
+@keyframes dungeon-chat-picker-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.dungeon-page .dungeon-chat-add-picker-h {
+  font: 800 8px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 2px 4px 4px;
+}
+.dungeon-page .dungeon-chat-add-picker-item {
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  color: var(--muted);
+  cursor: pointer;
+  font: 800 9px/1 var(--font);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  text-align: left;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.dungeon-page .dungeon-chat-add-picker-item:hover {
+  color: var(--el);
+  border-color: var(--el);
+  background: color-mix(in oklab, var(--el) 12%, var(--bg));
 }
 .dungeon-page .dungeon-chat-tab-x {
   display: grid;
