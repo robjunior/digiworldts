@@ -13,6 +13,13 @@ type ChatMessage = {
   readonly text: string;
   readonly at: number;
   readonly dungeonId?: string;
+  readonly toUserId?: string | undefined;
+};
+
+type SystemMessage = {
+  readonly text: string;
+  readonly at: number;
+  readonly kind: '' | 'hit' | 'item';
 };
 
 type PvpInvite = {
@@ -59,12 +66,16 @@ type WsState = {
   readonly pvpNotice: string | null;
   readonly socialNotifyVersion: number;
   readonly chatByDungeon: Record<string, ChatMessage[]>;
+  readonly dungeonSystem: Record<string, SystemMessage[]>;
+  readonly dmChat: ChatMessage[];
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
   readonly clearDungeonPlayers: () => void;
   readonly clearPvpInvite: () => void;
   readonly clearPvpNotice: () => void;
+  readonly pushDungeonSystem: (dungeonId: string, text: string, kind: '' | 'hit' | 'item') => void;
+  readonly clearDungeonSystem: (dungeonId: string) => void;
   readonly reset: () => void;
 };
 
@@ -103,6 +114,8 @@ const initialState = {
   pvpNotice: null,
   socialNotifyVersion: 0,
   chatByDungeon: {},
+  dungeonSystem: {},
+  dmChat: [],
 } satisfies Omit<
   WsState,
   | 'handleServerMessage'
@@ -112,6 +125,8 @@ const initialState = {
   | 'clearDungeonPlayers'
   | 'clearPvpInvite'
   | 'clearPvpNotice'
+  | 'pushDungeonSystem'
+  | 'clearDungeonSystem'
 >;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -130,6 +145,15 @@ export const useWsStore = create<WsState>((set) => ({
         set({ presence: msg.users, presenceCount: msg.count });
         return;
       case 'chat':
+        if (msg.toUserId !== undefined) {
+          set((state) => ({
+            dmChat: [
+              ...state.dmChat,
+              { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, toUserId: msg.toUserId },
+            ].slice(-MAX_LOG_MESSAGES),
+          }));
+          return;
+        }
         if (msg.dungeonId !== undefined) {
           const dungeonId = msg.dungeonId;
           set((state) => ({
@@ -303,5 +327,23 @@ export const useWsStore = create<WsState>((set) => ({
   },
   clearPvpNotice: () => {
     set({ pvpNotice: null });
+  },
+  pushDungeonSystem: (dungeonId, text, kind) => {
+    set((state) => ({
+      dungeonSystem: {
+        ...state.dungeonSystem,
+        [dungeonId]: [
+          ...(state.dungeonSystem[dungeonId] ?? []),
+          { text, at: Date.now(), kind },
+        ].slice(-MAX_LOG_MESSAGES),
+      },
+    }));
+  },
+  clearDungeonSystem: (dungeonId) => {
+    set((state) => {
+      const next = { ...state.dungeonSystem };
+      delete next[dungeonId];
+      return { dungeonSystem: next };
+    });
   },
 }));
