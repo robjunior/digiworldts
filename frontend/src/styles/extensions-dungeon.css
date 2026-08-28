@@ -762,12 +762,13 @@
    corner (just right of the 230px roster column). */
 .dungeon-page .dungeon-chat {
   position: fixed;
-  left: 246px;
+  left: 16px;
   bottom: 16px;
   z-index: 60;
-  width: min(340px, calc(100% - 262px));
+  width: min(380px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
+  max-height: 42vh;
   background: color-mix(in oklab, var(--panel) 94%, transparent);
   border: 1px solid var(--hair);
   clip-path: var(--notch-clip);
