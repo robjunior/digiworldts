@@ -10,15 +10,15 @@ type FnPanelProps = {
 
 export function FnPanel({ title, sub, soon = false, onClose, children }: FnPanelProps): ReactElement {
   return (
-    <div className="fn-modal-backdrop" onClick={onClose}>
+    <div className="fn-backdrop" onClick={onClose}>
       <div
-        className="fn-modal"
+        className="fn-panel"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="fn-modal-head">
+        <div className="fn-head">
           <div>
             <div className="fn-modal-title">{title}</div>
             {sub ? <div className="fn-modal-sub">{sub}</div> : null}
