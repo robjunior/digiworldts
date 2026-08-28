@@ -27,16 +27,20 @@ design tokens reais de `frontend/src/styles/tokens.css`. O grid é fake; o foco 
 
 ## Checagens estruturais (Playwright)
 ```
-{"errors":[],"modalOpen":true,"leftOpen":true}
+{"errors":[],"globalVisible":true,"addShown":true,"reopened":["dm","global","system"],
+ "minimized":{"chatHidden":true,"iconShown":true},"reopenedAll":true,"modalOpen":true,"leftOpen":true}
 ```
 - Roster fixo na esquerda ✅
-- Chat estilo MMO no baixo-esquerdo (abas Local/Global, minimizar, input) ✅
+- Chat estilo MMO no baixo-esquerdo (4 abas: DM/Local/Global/System) ✅
+- **Cada aba tem X para fechar (fecha só aquela aba)** ✅
+- **Botão "+" reabre a aba fechada específica (LIFO)** ✅
+- **Minimizar tudo vira ícone de mensagem no canto interior esquerdo** (ao lado do roster) ✅
+- **Badge de não-lidas no ícone de reabrir** (soma das abas) ✅
 - Ícone de funções no topo direito ✅
 - Drawer com 8 funções (6 reais + Amigos/Guilda "EM BREVE") ✅
-- Histórico de andar como mensagens de sistema no chat (não mais rail) ✅
-- **Portal de saída** (oval vermelho pulsante + badge CIDADE) no canto oposto ao spawn ✅
-- **Fluxo de saída**: ao pisar no portal abre "Usar o portal para a cidade?" (Atravessar/Ficar);
-  "Atravessar" -> "Retornando à Cidade" ✅
+- Histórico de andar como mensagens de sistema (na aba System/Local) ✅
+- Portal de saída (oval vermelho pulsante + badge CIDADE) ✅
+- Fluxo de saída: ao pisar no portal abre "Usar o portal para a cidade?"; "Atravessar" -> "Retornando à Cidade" ✅
 
 ## Verdict: VALIDATED
 

@@ -65,22 +65,40 @@
   .cell.portal .badge-cidade{position:absolute;top:-16px;left:50%;transform:translateX(-50%);white-space:nowrap;font:800 7px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--signal);background:var(--bg);border:1px solid var(--signal);clip-path:var(--notch-xs-clip);padding:3px 5px;pointer-events:none;}
 
   /* ===== chat baixo-esquerdo (estilo MMO clássico) ===== */
-  .chat{position:fixed;left:246px;bottom:16px;z-index:35;width:min(360px,calc(100vw - 270px));display:flex;flex-direction:column;max-height:40vh;background:color-mix(in oklab,var(--panel) 94%,transparent);border:1px solid var(--hair);clip-path:var(--notch-clip);backdrop-filter:blur(6px);box-shadow:0 16px 44px color-mix(in oklab,black 30%,transparent);}
-  .chat.min{height:42px;max-height:42px;}
-  .chat .chead{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-bottom:1px solid var(--hair);}
-  .chat .chead .ctabs{display:flex;gap:6px;}
-  .chat .chead .ctabs button{font:800 9px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:7px 11px;}
-  .chat .chead .ctabs button.is-active{color:var(--el-fire);border-color:var(--el-fire);}
-  .chat .chead .cmin{color:var(--muted);font:800 13px/1 var(--font);padding:5px 9px;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);}
-  .chat .log{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;font:600 11px/1.45 var(--font);color:var(--muted);}
+  .chat{position:fixed;left:246px;bottom:16px;z-index:35;width:min(360px,calc(100vw - 270px));display:flex;flex-direction:column;max-height:42vh;background:color-mix(in oklab,var(--panel) 94%,transparent);border:1px solid var(--hair);clip-path:var(--notch-clip);backdrop-filter:blur(6px);box-shadow:0 16px 44px color-mix(in oklab,black 30%,transparent);}
+  .chat.hidden{display:none;}
+  .chat .chead{display:flex;align-items:stretch;gap:6px;padding:8px 10px 0;border-bottom:1px solid var(--hair);}
+  .chat .ctabs{display:flex;gap:4px;flex:1 1 auto;overflow-x:auto;scrollbar-width:none;}
+  .chat .ctabs::-webkit-scrollbar{display:none;}
+  .chat .ctab{display:flex;align-items:center;gap:6px;font:800 9px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);background:var(--bg);border:1px solid var(--hair);border-bottom:0;clip-path:var(--notch-xs-clip);padding:8px 8px 8px 10px;white-space:nowrap;transition:color .1s,border-color .1s;}
+  .chat .ctab:hover{color:var(--ink);}
+  .chat .ctab.is-active{color:var(--el-fire);border-color:var(--el-fire);background:color-mix(in oklab,var(--el-fire) 8%,var(--bg));}
+  .chat .ctab .x{display:grid;place-items:center;width:16px;height:16px;font:800 10px/1 var(--font);color:var(--muted);border-radius:9px;}
+  .chat .ctab .x:hover{color:var(--signal);background:color-mix(in oklab,var(--signal) 18%,transparent);}
+  .chat .ctab-add{display:none;align-self:center;font:800 14px/1 var(--font);color:var(--muted);background:var(--bg);border:1px dashed var(--hair);clip-path:var(--notch-xs-clip);width:26px;height:26px;margin-left:2px;}
+  .chat .ctab-add.show{display:grid;place-items:center;}
+  .chat .ctab-add:hover{color:var(--el-fire);border-color:var(--el-fire);}
+  .chat .ctab .dot{width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 6px var(--signal);}
+  .chat .chead .cmin{color:var(--muted);font:800 14px/1 var(--font);width:34px;display:grid;place-items:center;align-self:flex-start;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);}
+  .chat .chead .cmin:hover{color:var(--el-fire);border-color:var(--el-fire);}
+  .chat .log{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px 12px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;font:600 11px/1.45 var(--font);color:var(--muted);max-height:30vh;}
   .chat .log .sys{color:var(--muted);}
   .chat .log .sys b{color:var(--el-fire);}
   .chat .log .me .from{color:var(--el-electricity);font-weight:800;margin-right:6px;}
   .chat .log .white .from{color:var(--el-light);font-weight:800;margin-right:6px;}
+  .chat .log .dm{color:var(--el-water);}
+  .chat .log .dm .from{color:var(--el-water);font-weight:800;margin-right:6px;}
   .chat .log .time{color:color-mix(in oklab,var(--muted) 60%,var(--bg));font-size:9px;margin-left:6px;}
   .chat .cform{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--hair);}
   .chat .cform input{flex:1 1 auto;min-width:0;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--ink);padding:9px 11px;font:600 11px/1 var(--font);}
   .chat .cform button{background:var(--signal);color:#fff;border:1px solid var(--signal);clip-path:var(--notch-sm-clip);font:800 10px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;padding:0 14px;}
+
+  /* ===== ícone de reabrir chat (minimizado) ===== */
+  .chat-reopen{position:fixed;left:246px;bottom:14px;z-index:36;width:48px;height:48px;display:none;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:var(--muted);box-shadow:0 12px 32px color-mix(in oklab,black 32%,transparent);}
+  .chat-reopen:hover{color:var(--el-fire);border-color:var(--el-fire);}
+  .chat-reopen.show{display:grid;}
+  .chat-reopen svg{width:22px;height:22px;}
+  .chat-reopen .badge{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;padding:0 4px;background:var(--signal);color:#fff;font:800 9px/16px var(--font);text-align:center;border-radius:9px;}
 
   /* ===== d-pad baixo centro ===== */
   .dpad{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:35;display:grid;grid-template-columns:repeat(3,42px);grid-template-rows:repeat(2,42px);gap:6px;}
@@ -153,6 +171,7 @@
   @media (max-width:900px){
     .roster{width:130px;padding:10px;gap:6px;}
     .chat{left:146px;width:calc(100vw - 170px);}
+    .chat-reopen{left:146px;}
     .enc{width:calc(100vw - 170px);}
   }
 </style>
@@ -188,11 +207,14 @@
   <!-- chat baixo esquerdo -->
   <section class="chat" id="chat">
     <div class="chead">
-      <div class="ctabs">
-        <button class="is-active" data-ch="local">Local</button>
-        <button data-ch="global">Global</button>
+      <div class="ctabs" id="ctabs">
+        <button class="ctab" data-ch="dm"><span class="dot" id="dot-dm" style="display:none"></span>DM<span class="x" data-x="dm" aria-label="Fechar DM">✕</span></button>
+        <button class="ctab is-active" data-ch="local">Local<span class="x" data-x="local" aria-label="Fechar Local">✕</span></button>
+        <button class="ctab" data-ch="global">Global<span class="x" data-x="global" aria-label="Fechar Global">✕</span></button>
+        <button class="ctab" data-ch="system">System<span class="x" data-x="system" aria-label="Fechar System">✕</span></button>
+        <button class="ctab-add" id="ctab-add" aria-label="Reabrir aba" title="Reabrir aba fechada">+</button>
       </div>
-      <button class="cmin" id="chat-min" aria-label="Minimizar chat">—</button>
+      <button class="cmin" id="chat-min" aria-label="Minimizar chat" title="Minimizar tudo">▾</button>
     </div>
     <div class="log" id="chat-log" aria-live="polite"></div>
     <form class="cform" id="chat-form">
@@ -200,6 +222,12 @@
       <button type="submit">Enviar</button>
     </form>
   </section>
+
+  <!-- ícone de reabrir chat (minimizado) -->
+  <button class="chat-reopen" id="chat-reopen" aria-label="Abrir chat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.8A8 8 0 1 1 21 12z"/></svg>
+    <span class="badge" id="reopen-badge" style="display:none">0</span>
+  </button>
 
   <!-- d-pad -->
   <div class="dpad">
@@ -290,25 +318,120 @@
   }
   render();
 
-  // ---- chat (histórico de andar como mensagens de sistema) ----
+  // ---- chat (4 abas: DM / Local / Global / System) ----
+  const TABS=['dm','local','global','system'];
+  const LABEL={dm:'DM',local:'Local',global:'Global',system:'System'};
+  const store={dm:[],local:[],global:[],system:[]};   // cada msg: {cls,who,html,sys}
+  const closable={dm:true,local:true,global:true,system:true};
+  let activeTab='local';
+  const closed=new Set();                 // abas fechadas pelo X
+  const closedOrder=[];                   // ordem LIFO p/ reabrir (+)
+  let minimized=false;
+  const unread={dm:0,local:0,global:0,system:0};
   const log=document.getElementById('chat-log');
+  const chatEl=document.getElementById('chat');
+  const reopenEl=document.getElementById('chat-reopen');
+  const reopenBadge=document.getElementById('reopen-badge');
+
   function pad(n){return String(n).padStart(2,'0');}
   function now(){const d=new Date();return `${pad(d.getHours())}:${pad(d.getMinutes())}`;}
-  function sys(html){
-    const d=document.createElement('div');d.className='sys';
-    d.innerHTML=`<b>»</b> ${html} <span class="time">${now()}</span>`;
-    log.appendChild(d);log.scrollTop=log.scrollHeight;
+  function rowHtml(m){
+    const t=`<span class="time">${m.t}</span>`;
+    if(m.sys) return `<b>»</b> ${m.html} ${t}`;
+    return `<span class="from">${m.who}</span>${m.html} ${t}`;
   }
-  function say(who,cls,text){
-    const d=document.createElement('div');d.className=cls;
-    d.innerHTML=`<span class="from">${who}</span>${text} <span class="time">${now()}</span>`;
-    log.appendChild(d);log.scrollTop=log.scrollHeight;
+  function push(ch,msg){
+    msg.t=now();
+    store[ch].push(msg);
+    if(minimized || ch!==activeTab || closed.has(ch)){
+      if(!closed.has(ch)){ unread[ch]++; }
+    }
+    if(ch===activeTab && !minimized) renderLog();
+    updateBadges();
   }
-  sys('Entrou em <b>Masmorra Sombria</b>.');
-  sys('Passos <b>0</b> · Encontros <b>0/3</b>.');
-  say('Kai','white','alguém explorando a ala norte?');
-  sys('Porta trancada em <b>5,0</b>.');
-  sys('Portal para a <b>cidade</b> detectado em <b>9,4</b>.');
+  function sys(ch,html){ push(ch,{sys:true,html}); }
+  function say(ch,who,cls,text){ push(ch,{cls,who,html:text}); }
+  function renderLog(){
+    log.innerHTML='';
+    for(const m of store[activeTab]){
+      const d=document.createElement('div');
+      d.className=(m.sys?'sys':(m.cls||''));
+      d.innerHTML=rowHtml(m);
+      log.appendChild(d);
+    }
+    log.scrollTop=log.scrollHeight;
+  }
+  function renderTabs(){
+    document.querySelectorAll('.ctab').forEach(b=>{
+      const ch=b.dataset.ch;
+      const hide=closed.has(ch);
+      b.style.display=hide?'none':'flex';
+      b.classList.toggle('is-active',ch===activeTab && !hide);
+    });
+    // se a aba ativa foi fechada, cai na primeira aba aberta
+    if(closed.has(activeTab)){
+      const next=TABS.find(c=>!closed.has(c));
+      if(next){activeTab=next;renderTabs();}
+    }
+    document.getElementById('ctab-add').classList.toggle('show',closed.size>0);
+    if(!closed.has(activeTab)) renderLog();
+  }
+  function updateBadges(){
+    // badge de não-lidas por aba (ponto)
+    for(const ch of TABS){
+      const dot=document.getElementById('dot-'+ch);
+      if(dot) dot.style.display=(unread[ch]>0 && ch!==activeTab)?'inline-block':'none';
+    }
+    const total=unread.dm+unread.local+unread.global+unread.system;
+    reopenBadge.style.display=(minimized && total>0)?'inline-block':'none';
+    reopenBadge.textContent=String(total);
+  }
+  function openTab(ch){ closed.delete(ch); unread[ch]=0; activeTab=ch; if(minimized)toggleMin(); renderTabs(); updateBadges(); }
+
+  // trocar de aba
+  document.querySelectorAll('.ctab').forEach(b=>b.addEventListener('click',e=>{
+    if(e.target.classList.contains('x'))return;       // clique no X não troca
+    const ch=b.dataset.ch;
+    if(closed.has(ch))return;
+    activeTab=ch; unread[ch]=0; renderTabs(); updateBadges();
+  }));
+  // fechar aba específica (X)
+  document.querySelectorAll('.ctab .x').forEach(x=>x.addEventListener('click',e=>{
+    e.stopPropagation();
+    const ch=x.dataset.x;
+    closed.add(ch);
+    closedOrder.push(ch);
+    renderTabs(); updateBadges();
+  }));
+  // reabrir aba específica fechada (LIFO) via botão +
+  const ctabAdd=document.getElementById('ctab-add');
+  ctabAdd.addEventListener('click',()=>{
+    while(closedOrder.length){
+      const ch=closedOrder.pop();
+      if(closed.has(ch)){ closed.delete(ch); break; }
+    }
+    renderTabs(); updateBadges();
+  });
+
+  // minimizar tudo -> ícone de mensagem no canto inferior esquerdo
+  function toggleMin(){
+    minimized=!minimized;
+    chatEl.classList.toggle('hidden',minimized);
+    reopenEl.classList.toggle('show',minimized);
+  }
+  document.getElementById('chat-min').addEventListener('click',()=>{ if(!minimized)toggleMin(); });
+  reopenEl.addEventListener('click',()=>{ if(minimized)toggleMin(); });
+
+  // mensagens iniciais (histórico de andar -> System + Local)
+  sys('system','Entrou em <b>Masmorra Sombria</b>.');
+  sys('system','Passos <b>0</b> · Encontros <b>0/3</b>.');
+  sys('local','Portal para a <b>cidade</b> detectado em <b>9,4</b>.');
+  sys('local','Porta trancada em <b>5,0</b>.');
+  say('local','Kai','white','alguém explorando a ala norte?');
+  say('global','Ryo','me','tô caçando um Devimon na planta 3, alguém topa?');
+  say('dm','Kai','dm','<b>(DM)</b> quer formar party pro boss?');
+  renderTabs(); updateBadges();
+
 
   let step=0, defeated=0;
   function move(dx,dy){
@@ -316,12 +439,12 @@
     const nx=px+dx, ny=py+dy;
     if(nx<0||ny<0||nx>=W||ny>=H)return;
     const k=`${nx},${ny}`;
-    if(walls.has(k)){sys('Bloqueado por parede.');return;}
+    if(walls.has(k)){sys('local','Bloqueado por parede.');return;}
     px=nx;py=ny;step++;
     if(nx===portal.x&&ny===portal.y){render();openExit();return;}
-    if(doors.has(k)){sys(`Tentou abrir porta em <b>${nx},${ny}</b> — precisa de chave.`);render();return;}
-    if(encs.has(k)){sys(`<b>Amboscada!</b> Inimigo em ${nx},${ny}.`);defeated++;render();return;}
-    sys(`Moveu para <b>${nx},${ny}</b>. Passos <b>${step}</b> · Encontros <b>${defeated}/3</b>.`);
+    if(doors.has(k)){sys('local',`Tentou abrir porta em <b>${nx},${ny}</b> — precisa de chave.`);render();return;}
+    if(encs.has(k)){sys('local',`<b>Amboscada!</b> Inimigo em ${nx},${ny}.`);defeated++;render();return;}
+    sys('local',`Moveu para <b>${nx},${ny}</b>. Passos <b>${step}</b> · Encontros <b>${defeated}/3</b>.`);
     render();
   }
   document.querySelectorAll('.dpad button').forEach(b=>b.addEventListener('click',()=>move(+b.dataset.dx,+b.dataset.dy)));
@@ -331,20 +454,24 @@
     if(map[e.key]){e.preventDefault();move(...map[e.key]);}
   });
 
-  // ---- minimizar chat ----
-  document.getElementById('chat-min').addEventListener('click',()=>document.getElementById('chat').classList.toggle('min'));
-  // ---- trocar aba ----
-  document.querySelectorAll('.ctabs button').forEach(b=>b.addEventListener('click',()=>{
-    document.querySelectorAll('.ctabs button').forEach(x=>x.classList.remove('is-active'));
-    b.classList.add('is-active');
-  }));
-  // ---- enviar mensagem ----
-  document.getElementById('chat-form').addEventListener('submit',e=>{
+  // ---- enviar mensagem (na aba ativa; System é read-only) ----
+  const chatForm=document.getElementById('chat-form');
+  const chatInput=document.getElementById('chat-input');
+  function refreshInputForTab(){
+    const sys=activeTab==='system';
+    chatInput.disabled=sys; chatInput.placeholder=sys?'System é somente-leitura':`Mensagem (${LABEL[activeTab]})…`;
+    chatForm.querySelector('button').disabled=sys;
+  }
+  document.querySelectorAll('.ctab').forEach(b=>b.addEventListener('click',()=>{ if(!closed.has(b.dataset.ch)) refreshInputForTab(); }));
+  chatForm.addEventListener('submit',e=>{
     e.preventDefault();
-    const i=document.getElementById('chat-input');
-    const v=i.value.trim(); if(!v)return;
-    say('Você','me',v); i.value='';
+    const v=chatInput.value.trim(); if(!v||activeTab==='system')return;
+    if(activeTab==='dm') say('dm','Você','dm',`<b>(DM)</b> ${v}`);
+    else if(activeTab==='global') say('global','Você','me',v);
+    else say('local','Você','me',v);
+    chatInput.value='';
   });
+  refreshInputForTab();
 
   // ---- drawer de funções ----
   const FNS=[
@@ -387,20 +514,20 @@
   const exitBg=document.getElementById('exit-bg');
   function openExit(){
     exitBg.classList.add('open');
-    sys('<b>Portal para a cidade</b> à frente. Confirme para atravessar.');
+    sys('local','<b>Portal para a cidade</b> à frente. Confirme para atravessar.');
   }
   function closeExit(){exitBg.classList.remove('open');}
   document.getElementById('exit-go').addEventListener('click',()=>{
     closeExit();
-    sys('Você atravessou o <b>portal</b>. Retornando à cidade…');
+    sys('local','Você atravessou o <b>portal</b>. Retornando à cidade…');
     document.getElementById('leftscreen').classList.add('open');
   });
   document.getElementById('exit-stay').addEventListener('click',closeExit);
   document.getElementById('exit-re').addEventListener('click',()=>{
     document.getElementById('leftscreen').classList.remove('open');
     px=2;py=4;step=0;defeated=0;render();
-    sys('Reentrou na <b>Masmorra Sombria</b>.');
-    sys('Passos <b>0</b> · Encontros <b>0/3</b>.');
+    sys('local','Reentrou na <b>Masmorra Sombria</b>.');
+    sys('local','Passos <b>0</b> · Encontros <b>0/3</b>.');
   });
 </script>
 </body>
