@@ -1,6 +1,6 @@
-// Headless validation of the definitive-mode dungeon HUD spike.
-// Captures: desktop, drawer open, function panel (placeholder), portal cell,
-// and the exit-by-portal flow (modal -> "saiu para a cidade" screen).
+// Headless validation of the definitive-mode dungeon HUD spike — chat tabs edition.
+// Covers: 4 tabs (DM/Local/Global/System), per-tab close (X), reopen (+),
+// minimize-all -> message icon with unread badge, and the exit-by-portal flow.
 import { chromium } from 'playwright';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -18,41 +18,64 @@ page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(url, { waitUntil: 'networkidle' });
 await page.waitForTimeout(300);
 
-// 1) Desktop default
+// 1) Desktop default (chat open, Local active)
 await page.screenshot({ path: out('desktop') });
 
-// 2) Drawer (funções) open
-await page.click('#btn-menu');
-await page.waitForTimeout(250);
-await page.screenshot({ path: out('drawer') });
+// 2) Switch to Global tab -> message from Ryo should be visible
+await page.click('.ctab[data-ch="global"]');
+await page.waitForTimeout(120);
+const globalVisible = await page.evaluate(() => {
+  const log = document.getElementById('chat-log').textContent;
+  return log.includes('planta 3');
+});
+await page.screenshot({ path: out('tab-global') });
 
-// 3) Function panel placeholder (Roster)
-await page.click('.drawer .fn:not(.soon)');
-await page.waitForTimeout(200);
-await page.screenshot({ path: out('fnpanel') });
-await page.click('#fn-x');
+// 3) Close Local and System tabs via their X
+await page.click('.ctab[data-ch="local"] .x');
+await page.click('.ctab[data-ch="system"] .x');
+await page.waitForTimeout(120);
+const addShown = await page.evaluate(() => document.getElementById('ctab-add').classList.contains('show'));
+await page.screenshot({ path: out('tabs-closed') });
+
+// 4) Reopen a closed tab via the + button
+await page.click('#ctab-add');
+await page.waitForTimeout(120);
+const reopened = await page.evaluate(() => {
+  const vis = [...document.querySelectorAll('.ctab')].filter(b => b.style.display !== 'none').map(b => b.dataset.ch);
+  return vis;
+});
+
+// 5) Minimize all -> message icon appears at bottom-left
+await page.click('#chat-min');
 await page.waitForTimeout(150);
-await page.click('#drawer-x');
-await page.waitForTimeout(200);
+const minimized = await page.evaluate(() => ({
+  chatHidden: document.getElementById('chat').classList.contains('hidden'),
+  iconShown: document.getElementById('chat-reopen').classList.contains('show'),
+}));
+await page.screenshot({ path: out('chat-min') });
 
-// 4) Walk the player to the portal (2,4) -> (9,4) via d-pad.
-//    Path: right x7 to (9,4) avoiding walls (none on row 4 except edges).
-for (let i = 0; i < 7; i++) {
-  await page.click('.dpad .right');
-  await page.waitForTimeout(60);
-}
-await page.waitForTimeout(200);
-await page.screenshot({ path: out('portal') });
+// 6) Reopen from the message icon
+await page.click('#chat-reopen');
+await page.waitForTimeout(120);
+const reopenedAll = await page.evaluate(() => !document.getElementById('chat').classList.contains('hidden'));
 
-// 5) Exit modal should be open after stepping onto the portal
-await page.screenshot({ path: out('exit-modal') });
+// 7) Walk to portal -> exit modal -> left screen
+for (let i = 0; i < 7; i++) { await page.click('.dpad .right'); await page.waitForTimeout(50); }
+await page.waitForTimeout(150);
 const modalOpen = await page.evaluate(() => document.getElementById('exit-bg').classList.contains('open'));
-
-// 6) Confirm "Atravessar" -> saiu para a cidade screen
 await page.click('#exit-go');
-await page.waitForTimeout(250);
-await page.screenshot({ path: out('leftscreen') });
+await page.waitForTimeout(200);
 const leftOpen = await page.evaluate(() => document.getElementById('leftscreen').classList.contains('open'));
+await page.screenshot({ path: out('leftscreen') });
 
-console.log(JSON.stringify({ errors, modalOpen, leftOpen }, null, 2));
+console.log(JSON.stringify({
+  errors,
+  globalVisible,
+  addShown,
+  reopened,
+  minimized,
+  reopenedAll,
+  modalOpen,
+  leftOpen,
+}, null, 2));
 await browser.close();
