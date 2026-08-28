@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
   activateDungeonTrigger,
-  completeDungeon,
   getDungeon,
   getDungeonNeighbors,
   moveInDungeon,
@@ -511,18 +510,6 @@ export function Dungeon(): JSX.Element {
     },
   });
 
-  const completeMutation = useMutation({
-    mutationFn: async () => {
-      if (!id) throw new Error('No dungeon id');
-      return completeDungeon(id);
-    },
-    onSuccess: () => {
-      pushLog(`Dungeon cleared!`, 'hit');
-      flashToast('Dungeon Complete!');
-      queryClient.invalidateQueries({ queryKey: ['dungeon', id] });
-    },
-  });
-
   const applyItemMutation = useMutation({
     mutationFn: ({ itemId, monId }: { readonly itemId: string; readonly monId?: string }) => applyShopItem(itemId, monId),
     onSuccess: (result, variables) => {
@@ -721,7 +708,6 @@ export function Dungeon(): JSX.Element {
 
   const { dungeon, run, encounters, doors, groupInventory } = data;
   const isComplete = !!run.completedAt;
-  const allEncountersDefeated = encounters.every((e) => run.defeatedEncounters.includes(e.id));
 
   // Determine active encounter object
   const activeEncounter = activeEncounterId ? (encounters.find((e) => e.id === activeEncounterId) ?? null) : null;
@@ -775,7 +761,7 @@ export function Dungeon(): JSX.Element {
 
         <div className="controls">
           <div className="dhint">
-            {isComplete ? <b>Cleared — free-explore mode. All paths open.</b> : <b>Click an adjacent tile to move (WASD/arrows).</b>}
+            {isComplete ? <b>Modo exploração livre — todos os caminhos abertos. Encontre o portal para voltar à cidade.</b> : <b>Clique num tile adjacente ou use WASD/setas. O portal vermelho leva à cidade.</b>}
           </div>
         </div>
       </div>
@@ -804,10 +790,6 @@ export function Dungeon(): JSX.Element {
               stepCount={stepCount}
               defeatedCount={run.defeatedEncounters.length}
               totalEncounters={encounters.length}
-              isComplete={isComplete}
-              allEncountersDefeated={allEncountersDefeated}
-              isCompleting={completeMutation.isPending}
-              onComplete={() => completeMutation.mutate()}
               logs={logs}
             />
           </div>
@@ -849,8 +831,8 @@ export function Dungeon(): JSX.Element {
         <div className="sheet-backdrop" role="presentation">
           <div className="door-unlock-prompt" role="dialog" aria-modal="true" aria-live="polite">
             <div>
-              <b>Leave dungeon?</b>
-              <span>You have {groupInventory.length} dungeon-only item{groupInventory.length === 1 ? '' : 's'}. Leaving discards them.</span>
+              <b>Usar o portal para a cidade?</b>
+              <span>Você tem {groupInventory.length} item{groupInventory.length === 1 ? '' : 's'} exclusivo{groupInventory.length === 1 ? '' : 's'} da dungeon. Atravessar o portal descarta {groupInventory.length === 1 ? 'ele' : 'eles'}.</span>
             </div>
             <button
               type="button"
@@ -862,10 +844,10 @@ export function Dungeon(): JSX.Element {
               }}
               disabled={moveMutation.isPending}
             >
-              Leave anyway
+              Atravessar
             </button>
             <button type="button" onClick={() => setExitConfirm(null)}>
-              Stay
+              Ficar
             </button>
           </div>
         </div>

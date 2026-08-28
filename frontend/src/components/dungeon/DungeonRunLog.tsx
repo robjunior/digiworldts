@@ -7,10 +7,6 @@ type DungeonRunLogProps = {
   readonly stepCount: number;
   readonly defeatedCount: number;
   readonly totalEncounters: number;
-  readonly isComplete: boolean;
-  readonly allEncountersDefeated: boolean;
-  readonly isCompleting: boolean;
-  readonly onComplete: () => void;
   readonly logs: readonly LogEntry[];
 };
 
@@ -19,10 +15,6 @@ export function DungeonRunLog({
   stepCount,
   defeatedCount,
   totalEncounters,
-  isComplete,
-  allEncountersDefeated,
-  isCompleting,
-  onComplete,
   logs,
 }: DungeonRunLogProps): ReactElement {
   const t = useT();
@@ -33,16 +25,6 @@ export function DungeonRunLog({
         <div className="rs">
           <b>{dungeonName}</b> · {t('dungeon.steps')} {stepCount} · {t('dungeon.encounters')} {defeatedCount}/{totalEncounters}
         </div>
-        {!isComplete && allEncountersDefeated && stepCount > 0 && totalEncounters > 0 && (
-          <button
-            className="ebtn"
-            style={{ marginTop: 10 }}
-            onClick={onComplete}
-            disabled={isCompleting}
-          >
-            {t('dungeon.complete_dungeon')}
-          </button>
-        )}
       </div>
       <div className="log" role="log" aria-live="polite">
         {logs.map((row, i) => (

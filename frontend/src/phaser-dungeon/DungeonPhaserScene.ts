@@ -150,7 +150,8 @@ export type DungeonPoiInfo = {
     | "bridge"
     | "boss"
     | "item"
-    | "encounter";
+    | "encounter"
+    | "warp";
   readonly x: number;
   readonly y: number;
   readonly gid: number | string | null;
@@ -1581,6 +1582,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.renderBridges(ctx);
     this.renderEncounters(ctx);
     this.renderItems(ctx);
+    this.renderWarps(ctx);
   }
 
   // --- POI sub-renderers (split out of renderMap) -------------------------
@@ -1758,6 +1760,58 @@ export class DungeonPhaserScene extends Phaser.Scene {
         ctx.poiRow(item.x, item.y),
         POI_BADGE_LETTER.item,
       );
+    }
+  }
+
+  /**
+   * Exit portals — the new (definitive-mode) way out of a dungeon. A warp with
+   * `targetDungeonId === null` is the "return to the city" portal; a warp with
+   * a target stays as a plain path marker. Drawn as a glowing swirl so players
+   * read it as a destination, not a trap/chest. Walk onto it to leave (the
+   * route handles the exit + dungeon-only item discard confirm).
+   */
+  private renderWarps(ctx: PoiRenderContext): void {
+    for (const warp of ctx.view.warps) {
+      const cx = ctx.poiCell(warp.x, warp.y);
+      const cy = ctx.poiRow(warp.x, warp.y);
+      const isExit = warp.targetDungeonId === null;
+      const color = isExit ? 0xe6001f : 0x8a877f;
+      const r = this.tileSize * 0.42;
+
+      const outer = this.add.ellipse(cx, cy, r * 2, r * 2.4, color, 0.16);
+      outer.setStrokeStyle(2, color, 0.9);
+      outer.setDepth(POI_DEPTH - 1);
+      this.renderedSprites.push(outer as unknown as Phaser.GameObjects.Sprite);
+
+      const inner = this.add.ellipse(cx, cy, r * 1.1, r * 1.3, color, 0.45);
+      inner.setDepth(POI_DEPTH - 1);
+      this.renderedSprites.push(inner as unknown as Phaser.GameObjects.Sprite);
+
+      // Gentle pulse so the portal reads as alive/interactive.
+      this.tweens.add({
+        targets: [outer, inner],
+        scaleX: { from: 0.92, to: 1.08 },
+        scaleY: { from: 0.92, to: 1.08 },
+        alpha: { from: 0.7, to: 1 },
+        duration: 1100,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.inOut",
+      });
+
+      this.pushPoiInfo("warp", warp.x, warp.y, warp.id, ctx.slotGridX, ctx.slotGridY);
+      if (isExit) {
+        const label = this.add.text(cx, cy - this.tileSize * 0.62, "CIDADE", {
+          fontFamily: "monospace",
+          fontSize: "9px",
+          color: "#f4f1ea",
+          backgroundColor: "rgba(230,0,31,0.85)",
+          padding: { x: 4, y: 2 },
+        });
+        label.setOrigin(0.5, 1);
+        label.setDepth(MARKER_DEPTH);
+        this.renderedTexts.push(label);
+      }
     }
   }
 

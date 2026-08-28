@@ -115,7 +115,7 @@ const SQL_DELETE_ITEM = `DELETE FROM dungeon_items WHERE dungeon_id = ? AND id =
 const SQL_LIST_WARPS = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_WARP = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_WARP_AT = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? AND x = ? AND y = ?`;
-const SQL_INSERT_WARP = `INSERT INTO dungeon_warps (id, dungeon_id, x, y, target_dungeon_id, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_INSERT_WARP = `INSERT INTO dungeon_warps (id, dungeon_id, x, y, target_dungeon_id, label, is_exit, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_WARP = `UPDATE dungeon_warps SET target_dungeon_id = ?, label = ?, updated_at = ? WHERE dungeon_id = ? AND id = ?`;
 const SQL_DELETE_WARP = `DELETE FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_RUN = `SELECT * FROM user_dungeon_runs WHERE user_id = ? AND dungeon_id = ?`;
@@ -444,6 +444,12 @@ export async function createDungeon(input: Omit<Dungeon, 'id' | 'createdAt' | 'u
   const { kind: challengeKind, configJson: challengeConfigJson } = serializeChallenge(dungeon.challenge);
   const walkableMaskJson = serializeWalkableMask(dungeon.walkableMask);
   await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion, dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate, dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage, dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements), JSON.stringify(dungeon.randomPool), challengeKind, challengeConfigJson, walkableMaskJson, dungeon.dungeonGroupId, dungeon.floorIndex, dungeon.gridX, dungeon.gridY, now, now);
+  // Every dungeon ships with a return-to-city portal (definitive-mode exit).
+  // Placed on the opposite corner from the spawn so players walk to it, and
+  // target_dungeon_id NULL makes moveRun resolve it as an exit to the world.
+  const exitX = dungeon.width - 1 - dungeon.spawnX;
+  const exitY = dungeon.height - 1 - dungeon.spawnY;
+  await run(SQL_INSERT_WARP, newId('wrp'), dungeon.id, Math.max(0, Math.min(dungeon.width - 1, exitX)), Math.max(0, Math.min(dungeon.height - 1, exitY)), null, 'Portal para a Cidade', 1, now, now);
   return dungeon;
 }
 
@@ -624,7 +630,7 @@ export async function createWarp(dungeonId: string, input: CreateWarpInput): Pro
   if (await one<WarpRow>(SQL_GET_WARP_AT, dungeonId, input.x, input.y)) return 'conflict';
   const now = Date.now();
   const id = newId('wrp');
-  await run(SQL_INSERT_WARP, id, dungeonId, input.x, input.y, input.targetDungeonId ?? null, input.label ?? null, now, now);
+  await run(SQL_INSERT_WARP, id, dungeonId, input.x, input.y, input.targetDungeonId ?? null, input.label ?? null, 0, now, now);
   const row = await one<WarpRow>(SQL_GET_WARP, dungeonId, id);
   return row ? warpFromRow(row) : 'not-found';
 }
@@ -1272,7 +1278,7 @@ export async function applyTiledImportReplace(dungeonId: string, payload: TiledI
       await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeonId, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
     }
     for (const wp of payload.warps) {
-      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeonId, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeonId, wp.x, wp.y, wp.targetDungeonId, wp.label, 0, now, now]);
     }
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeonId, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
@@ -1388,7 +1394,7 @@ export async function applyTiledImportNew(input: {
       await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeon.id, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
     }
     for (const wp of payload.warps) {
-      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeon.id, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeon.id, wp.x, wp.y, wp.targetDungeonId, wp.label, 0, now, now]);
     }
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeon.id, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);

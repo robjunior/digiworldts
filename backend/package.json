@@ -40,6 +40,7 @@
     "test:rarity-evolution-bonus": "DATABASE=sqlite DB_PATH=/tmp/dw-rarity-evolution-bonus-smoke.db tsx test/rarity-evolution-bonus-smoke.mts",
     "test:admin-item-filter": "DATABASE=sqlite DB_PATH=/tmp/dw-admin-item-filter-smoke.db tsx test/admin-item-filter-smoke.mts",
     "test:dungeon-multi-floor": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-multi-floor-smoke.db tsx test/dungeon-multi-floor-smoke.mts",
+    "test:dungeon-exit-portal": "DATABASE=sqlite DB_PATH=/tmp/dw-exit-portal.db tsx test/dungeon-exit-portal-smoke.mts",
     "test:quest-flags": "DB_PATH=/tmp/dw-quest-flags-smoke.db tsx test/quest-flags-smoke.mts",
     "test:quest-objectives": "DB_PATH=/tmp/dw-quest-objectives-smoke.db tsx test/quest-objectives-smoke.mts",
     "test:items": "DB_PATH=/tmp/dw-items-smoke.db tsx test/items-grant-smoke.mts",
