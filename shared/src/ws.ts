@@ -46,7 +46,7 @@ export type DungeonRemotePlayer = {
 export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
-  | { type: 'chat'; text: string; room?: string; dungeonId?: string }
+  | { type: 'chat'; text: string; room?: string; dungeonId?: string; toUserId?: string }
   | { type: 'queue'; join: boolean }
   | { type: 'pvp:invite'; targetUserId: string; dungeonId: string }
   | { type: 'pvp:response'; inviteId: string; accept: boolean }
@@ -138,6 +138,8 @@ export type WSServerMessage =
       room?: string;
       /** Present iff this is a dungeon-local message (fanout via dungeon scope). */
       dungeonId?: string;
+      /** Present iff this is a direct message — only sender + recipient receive it. */
+      toUserId?: string;
     }
   | {
       type: 'queue';
