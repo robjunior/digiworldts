@@ -870,23 +870,25 @@
   border-radius: 8px;
 }
 
-/* Collapsed chat -> message icon (bottom-left interior corner) */
+/* Collapsed chat -> horizontal bar (bottom-left interior corner) */
 .dungeon-page .dungeon-chat-reopen {
   position: fixed;
-  left: 246px;
-  bottom: 14px;
+  left: 16px;
+  bottom: 16px;
   z-index: 35;
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  background: var(--panel);
+  width: min(360px, calc(100vw - 32px));
+  height: 38px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: color-mix(in oklab, var(--panel) 94%, transparent);
   border: 1px solid var(--hair);
-  clip-path: var(--notch-sm-clip);
-  color: var(--muted);
-  cursor: pointer;
+  clip-path: var(--notch-clip);
+  backdrop-filter: blur(6px);
   box-shadow: 0 12px 32px color-mix(in oklab, black 32%, transparent);
-  transition: color .12s, border-color .12s;
+  cursor: text;
+  color: var(--muted);
 }
 .dungeon-page .dungeon-chat-reopen:hover {
   color: var(--el);
@@ -896,10 +898,17 @@
   width: 22px;
   height: 22px;
 }
+.dungeon-page .dungeon-chat-reopen-ph {
+  flex: 1 1 auto;
+  font: 600 11px/1 var(--font);
+  letter-spacing: .04em;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dungeon-page .dungeon-chat-reopen-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
+  display: none;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -908,6 +917,9 @@
   font: 800 9px/16px var(--font);
   text-align: center;
   border-radius: 9px;
+}
+.dungeon-page .dungeon-chat-reopen-badge.show {
+  display: block;
 }
 .dungeon-page .dungeon-chat-log {
   height: 200px;
