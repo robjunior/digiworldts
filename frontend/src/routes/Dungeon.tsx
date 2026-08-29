@@ -51,7 +51,7 @@ import { FnPanel } from "../components/dungeon/FnPanel";
 import { RosterPanel } from "../components/dungeon/RosterPanel";
 import { CharacterPanel } from "../components/dungeon/CharacterPanel";
 import { DungeonDoorPrompt } from "../components/dungeon/DungeonDoorPrompt";
-import { DigidexPanel } from "../components/dungeon/DigidexPanel";
+import { DungeonDigidexPanel } from "../components/dungeon/DungeonDigidexPanel";
 import { DialogueOverlay } from "../components/dungeon/DialogueOverlay";
 import { DungeonStrip } from "../components/dungeon/DungeonStrip";
 import { FriendsPanel } from "../components/dungeon/FriendsPanel";
@@ -1373,7 +1373,7 @@ export function Dungeon(): JSX.Element {
           ) : fnOpenId === 'roster' ? (
             <RosterPanel roster={party} />
           ) : fnOpenId === 'digidex' ? (
-            <DigidexPanel />
+            <DungeonDigidexPanel />
           ) : fnOpenId === 'character' ? (
             <CharacterPanel username={user?.username ?? 'Tamer'} />
           ) : fnOpenId === 'friends' ? (

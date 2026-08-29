@@ -1131,6 +1131,11 @@
   padding: 22px;
   box-shadow: 0 20px 60px color-mix(in oklab, black 40%, transparent);
 }
+.dungeon-page .fn-panel.is-digidex {
+  width: min(1100px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 14px;
+}
 .dungeon-page .fn-head {
   display: flex;
   align-items: center;
@@ -1212,8 +1217,66 @@
   min-width: 0;
 }
 .roster-panel .roster-name {
-  font: 800 12px/1.2 var(--font);
+  font-weight: 800;
   color: var(--ink);
+}
+
+/* dungeon digidex modal */
+.dungeon-digidex-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  max-height: 70vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.dungeon-digidex-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-xs-clip);
+  color: var(--ink);
+  font: 700 11px/1.2 var(--font);
+  text-align: center;
+  min-height: 84px;
+  justify-content: center;
+}
+.dungeon-digidex-slot.is-unmet {
+  color: var(--muted);
+}
+.dungeon-digidex-q {
+  font: 800 22px/1 var(--font);
+  color: var(--muted);
+  letter-spacing: .1em;
+}
+.dungeon-digidex-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--slot-color, var(--signal)) 12%, var(--panel));
+  border: 1px solid var(--slot-color, var(--hair));
+  clip-path: var(--notch-sm-clip);
+}
+.dungeon-digidex-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.dungeon-digidex-name {
+  font-weight: 800;
+  word-break: break-word;
+}
+.dungeon-digidex-id {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: .08em;
 }
 .roster-panel .roster-meta {
   color: var(--muted);
