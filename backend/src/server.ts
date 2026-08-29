@@ -56,6 +56,7 @@ import { seedDefaultGameSettings } from './settings/engine.js';
 import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
 import { worldPlugin } from './world/routes.js';
 import { questsPlugin } from './quests/routes.js';
+import { pvpQuestsPlugin } from './pvp-quests/routes.js';
 import { dungeonsPlugin } from './dungeons/routes.js';
 import { dialoguesPlugin } from './dialogues/routes.js';
 import { tilesetsPlugin } from './tilesets/routes.js';
@@ -256,6 +257,7 @@ async function main(): Promise<void> {
   await app.register(particlePresetsPlugin);
   await app.register(skillVfxPresetsPlugin);
   await app.register(questsPlugin);
+  await app.register(pvpQuestsPlugin);
   await app.register(dungeonsPlugin);
   await app.register(dialoguesPlugin);
   await app.register(tilesetsPlugin);

@@ -86,6 +86,7 @@ const ChatSchema = z.object({
   text: z.string().trim().min(1).max(300),
   room: z.string().min(3).max(64).optional(),
   dungeonId: z.string().min(1).max(64).optional(),
+  toUserId: z.string().min(3).max(64).optional(),
 });
 const PvpInviteSchema = z.object({
   type: z.literal('pvp:invite'),
