@@ -210,10 +210,32 @@ export function Dungeon(): JSX.Element {
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
-  // Not moveMutation.isPending: React state commits a render too late, so
-  // several keydowns in one tick all read false and fire duplicate moves off
-  // the same stale position. Refs flip synchronously.
+  // Client-side prediction + input buffering for fluid tile movement.
+  // The old model locked input until the server round-trip resolved, so holding
+  // a direction only advanced one tile per RTT (~50-200ms of network) and the
+  // sprite froze for that whole window before lurching — the "input delay" /
+  // "dragged" feel. Now we advance the player locally the instant a key is
+  // pressed (predicted position), start the walk tween immediately, and let the
+  // server confirm/reject. The lock is released after `moveDurationMs` (the
+  // tween length) rather than the RTT, and a held key is buffered so walking
+  // feels continuous. If the server rejects (wall/door/trap), the prediction is
+  // rolled back to the authoritative cell.
   const movePendingRef = useRef(false);
+  /** Timestamp (performance.now) before which no new move may start. Released
+   * based on animation duration, not network RTT, so motion stays smooth. */
+  const moveLockUntilRef = useRef(0);
+  /** Last direction pressed while locked — replayed once the lock lifts so a
+   * held key keeps walking instead of dropping steps. */
+  const bufferedDirRef = useRef<{ dx: number; dy: number } | null>(null);
+  const moveTimerRef = useRef<number | null>(null);
+  /** Predicted leader cell rendered immediately on keypress (null = trust the
+   * server's `data.run.currentX/Y`). The Phaser scene consumes this so the
+   * sprite starts tweening without waiting for the RTT. */
+  const [renderPos, setRenderPos] = useState<{ x: number; y: number } | null>(
+    null,
+  );
+  const renderPosRef = useRef<{ x: number; y: number } | null>(null);
+  renderPosRef.current = renderPos;
   // Authoritative player position, mirrored synchronously from the last move
   // response. Reads in tryMove/handleCellClick must go through this ref —
   // `data` lags by one render, and a keydown firing between onSettled and the
@@ -275,6 +297,19 @@ export function Dungeon(): JSX.Element {
     setPartyTrail([]);
     setFacing("right");
   }, [id]);
+
+  // Clear any pending movement-lock timer on unmount so a buffered replay can
+  // never fire into a torn-down dungeon.
+  useEffect(() => {
+    return () => {
+      if (moveTimerRef.current !== null) {
+        window.clearTimeout(moveTimerRef.current);
+        moveTimerRef.current = null;
+      }
+      movePendingRef.current = false;
+      bufferedDirRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const x = data?.run.currentX;
@@ -473,6 +508,9 @@ export function Dungeon(): JSX.Element {
       const dy = y - posRef.current.y;
       if (dx !== 0) setFacing(dx < 0 ? "left" : "right");
       posRef.current = { x: res.run.currentX, y: res.run.currentY };
+      // Prediction confirmed (or superseded by a warp/crossing): stop rendering
+      // the predicted cell and trust the authoritative server position.
+      setRenderPos(null);
       setStepCount((s) => s + 1);
       if (res.blockedByDoorId) {
         const door = data?.doors.find(
@@ -572,9 +610,22 @@ export function Dungeon(): JSX.Element {
         return;
       }
       flashToast(err.message || "Cannot move there.");
+      // Roll back the optimistic prediction: the authoritative cell is the last
+      // confirmed server position (posRef was only advanced on the happy path,
+      // so it already holds it) — just stop rendering the predicted cell and
+      // release the input lock immediately so the next key works.
+      setRenderPos(null);
+      if (moveTimerRef.current !== null) {
+        window.clearTimeout(moveTimerRef.current);
+        moveTimerRef.current = null;
+      }
+      movePendingRef.current = false;
+      bufferedDirRef.current = null;
     },
     onSettled: () => {
-      movePendingRef.current = false;
+      // The input lock is owned by the duration-based timer in tryMove (so motion
+      // stays smooth regardless of network RTT). onSettled does NOT release it —
+      // that would re-introduce RTT-dependent input delay. Nothing to do here.
     },
   });
 
@@ -783,7 +834,12 @@ export function Dungeon(): JSX.Element {
         flashToast("Resolve the encounter first.");
         return;
       }
-      if (movePendingRef.current) return;
+      if (movePendingRef.current) {
+        // Locked: buffer the latest direction so a held key keeps walking once
+        // the current step's animation completes (no dropped steps).
+        bufferedDirRef.current = { dx, dy };
+        return;
+      }
       const run = queryClient.getQueryData<DungeonRunView>(["dungeon", id]);
       if (!run) return;
       const cx = run.run.currentX;
@@ -851,7 +907,29 @@ export function Dungeon(): JSX.Element {
         setExitConfirm({ x: nx, y: ny, to: null });
         return;
       }
+      // --- Client-side prediction: advance locally NOW so the sprite starts
+      // tweening immediately (the scene renders `renderPos`), and release the
+      // lock after the tween length instead of the network RTT. ---
       movePendingRef.current = true;
+      posRef.current = { x: nx, y: ny };
+      setRenderPos({ x: nx, y: ny });
+      if (dx !== 0) setFacing(dx < 0 ? "left" : "right");
+      // Shift the party trail forward locally so followers lead correctly
+      // during the predicted step (server confirms/overrides on response).
+      const prevTrail = trailRef.current;
+      trailRef.current = [{ x: nx, y: ny }, ...prevTrail].slice(0, 3);
+      setPartyTrail(trailRef.current);
+      // Release the lock after the walk animation; a buffered direction is
+      // replayed so holding a key walks continuously.
+      moveLockUntilRef.current = performance.now() + moveDurationMs;
+      if (moveTimerRef.current !== null) window.clearTimeout(moveTimerRef.current);
+      moveTimerRef.current = window.setTimeout(() => {
+        moveTimerRef.current = null;
+        movePendingRef.current = false;
+        const buffered = bufferedDirRef.current;
+        bufferedDirRef.current = null;
+        if (buffered !== null) tryMove(buffered.dx, buffered.dy);
+      }, moveDurationMs);
       moveMutation.mutate({ x: nx, y: ny });
     },
     [
@@ -862,6 +940,7 @@ export function Dungeon(): JSX.Element {
       moveMutation,
       flashToast,
       neighborsQuery,
+      moveDurationMs,
     ],
   );
 
@@ -1055,6 +1134,8 @@ export function Dungeon(): JSX.Element {
             moveDurationMs={moveDurationMs}
             party={party}
             partyTrail={partyTrail}
+            overrideLeaderX={renderPos?.x}
+            overrideLeaderY={renderPos?.y}
             onCellClick={handleCellClick}
             onPlayerClick={handlePlayerClick}
             onTextureFallback={handleTextureFallback}
