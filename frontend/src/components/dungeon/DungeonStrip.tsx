@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { Link } from 'react-router';
 import type { DungeonRunView } from '@digiworld/shared';
+import { LeaveIcon } from './icons';
 
 type DungeonStripProps = {
   readonly dungeonName: string;
@@ -18,9 +19,7 @@ export function DungeonStrip({ dungeonName, currentX, currentY }: DungeonStripPr
         </span>
       </div>
       <Link to="/world" className="leave" aria-label="Leave dungeon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M14 5l-7 7 7 7M20 12H7" />
-        </svg>
+        <LeaveIcon />
         Leave
       </Link>
     </>

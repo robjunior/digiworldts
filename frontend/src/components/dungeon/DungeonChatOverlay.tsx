@@ -5,10 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { fmtTime } from '../../lib/format';
 import { useWsStore } from '../../state/wsStore';
+import { ChatIcon } from './icons';
 
 const RATE_LIMIT_MS = 1_500;
 const NO_MESSAGES: readonly { from: string; displayName: string; text: string; at: number; toUserId?: string }[] = [];
-const NO_SYSTEM: readonly { text: string; at: number; kind: '' | 'hit' | 'item' }[] = [];
+const NO_SYSTEM: readonly { readonly text: string; readonly at: number; readonly kind: '' | 'hit' | 'item' }[] = [];
 
 type ChatTab = 'dm' | 'local' | 'global' | 'system';
 
@@ -141,9 +142,7 @@ export function DungeonChatOverlay({ dungeonId, open, onClose, onReopen }: Dunge
           }
         }}
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-          <path d="M21 12a8 8 0 0 1-11.5 7.2L4 20l1-4.8A8 8 0 1 1 21 12z" />
-        </svg>
+        <ChatIcon />
         <span className="dungeon-chat-reopen-ph">Pressione Enter para falar…</span>
         {unreadTotal > 0 ? (
           <span className="dungeon-chat-reopen-badge">{unreadTotal > 99 ? '99+' : unreadTotal}</span>

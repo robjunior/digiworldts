@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 
 import { useT } from '../../hooks/useLocale';
 import type { InventoryItemView, ShopItemView } from '../../lib/api-shop';
+import { InventoryIcon, ReviveIcon, XpIcon } from './icons';
 
 type TipState = {
   readonly name: string;
@@ -36,12 +37,12 @@ function inferKind(product: ShopItemView | undefined, name: string): string {
 function kindGlyph(kind: string): ReactElement {
   switch (kind) {
     case 'revive':
-      return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M12 21s-8-5.5-8-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 5.5-8 11-8 11z" /><path d="M9 12h6M12 9v6" strokeLinecap="round" /></svg>);
+      return <ReviveIcon />;
     case 'xp_mult':
-      return (<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l2.4 6.6L21 11l-5 4.5L17.4 22 12 18.5 6.6 22 8 15.5 3 11l6.6-1.4z" /></svg>);
+      return <XpIcon />;
     case 'consumable':
     default:
-      return (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M8 4h8l2 4v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8z" /><path d="M6 8h12M10 12h4" strokeLinecap="round" /></svg>);
+      return <InventoryIcon />;
   }
 }
 
