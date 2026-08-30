@@ -1323,3 +1323,44 @@
   border-color: var(--muted);
   color: var(--ink);
 }
+
+.fn-panel-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fn-panel-placeholder-title {
+  font: 800 12px/1.2 var(--font);
+  color: var(--ink);
+}
+.fn-panel-placeholder-body {
+  font: 700 11px/1.3 var(--font);
+  color: var(--muted);
+}
+
+.character-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.character-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-xs-clip);
+  padding: 8px 10px;
+  color: var(--ink);
+  font: 700 11px/1.3 var(--font);
+}
+.character-label {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: 10px;
+}
+.character-value {
+  font-weight: 800;
+  text-align: right;
+}
