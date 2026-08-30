@@ -509,9 +509,12 @@ export function Dungeon(): JSX.Element {
       const dy = y - posRef.current.y;
       if (dx !== 0) setFacing(dx < 0 ? "left" : "right");
       posRef.current = { x: res.run.currentX, y: res.run.currentY };
-      // Prediction confirmed (or superseded by a warp/crossing): stop rendering
-      // the predicted cell and trust the authoritative server position.
       setRenderPos(null);
+      console.log('[dungeon][move]', {
+        from: { x, y },
+        to: { x: res.run.currentX, y: res.run.currentY },
+        party: partyCatalogIds,
+      });
       setStepCount((s) => s + 1);
       if (res.blockedByDoorId) {
         const door = data?.doors.find(
