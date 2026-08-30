@@ -56,6 +56,7 @@ import { DialogueOverlay } from "../components/dungeon/DialogueOverlay";
 import { DungeonStrip } from "../components/dungeon/DungeonStrip";
 import { FriendsPanel } from "../components/dungeon/FriendsPanel";
 import { GuildPanel } from "../components/dungeon/GuildPanel";
+import { WorldMapPanel } from "../components/dungeon/WorldMapPanel";
 import type { PendingUnlock } from "../components/dungeon/types";
 import "../styles/extensions-dungeon.css";
 
@@ -1380,6 +1381,8 @@ export function Dungeon(): JSX.Element {
             <FriendsPanel />
           ) : fnOpenId === 'guild' ? (
             <GuildPanel />
+          ) : fnOpenId === 'map' ? (
+            <WorldMapPanel />
           ) : (
             <div className="fn-skeleton" />
           )}
