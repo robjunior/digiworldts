@@ -11,8 +11,29 @@
             "fileName": "root-directory/rootgrove.tmx",
             "height": 800,
             "width": 800,
-            "x": 800,
+            "x": -800,
             "y": 0
+        },
+        {
+            "fileName": "root-directory/rootprod.tmx",
+            "height": 800,
+            "width": 800,
+            "x": 0,
+            "y": 800
+        },
+        {
+            "fileName": "root-directory/roottemple.tmx",
+            "height": 800,
+            "width": 800,
+            "x": -800,
+            "y": 800
+        },
+        {
+            "fileName": "root-directory/lake.tmx",
+            "height": 800,
+            "width": 800,
+            "x": 0,
+            "y": -800
         }
     ],
     "onlyShowAdjacentMaps": false,
