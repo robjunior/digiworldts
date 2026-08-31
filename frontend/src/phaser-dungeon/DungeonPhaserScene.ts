@@ -206,7 +206,7 @@ declare global {
   }
 }
 
-type SceneProps = {
+export type SceneProps = {
   readonly view: DungeonRunView;
   readonly neighbors: readonly DungeonGridNeighbor[];
   readonly remotePlayers: readonly DungeonRemotePlayer[];
@@ -280,7 +280,7 @@ type WorldLayout = {
  * tile size; the camera zooms ×2 so the screen cell matches the DOM's
  * PLAYER_ZOOM. The player's world position is the follow target.
  */
-function computeLayout(
+export function computeLayout(
   view: DungeonRunView,
   neighbors: readonly DungeonGridNeighbor[],
   abandonedIds?: ReadonlySet<string>,
@@ -435,6 +435,32 @@ export class DungeonPhaserScene extends Phaser.Scene {
     null;
   private textureFallbackReported = new Set<string>();
   private remotePlayers = new Map<string, RemotePlayerRender>();
+  /**
+   * Geometry-rebuild gate. A content signature over every composed view's
+   * tile/POI layout. Walking only changes the player's *cell* (a position,
+   * not geometry), so recomposing after each step must NOT tear down and
+   * rebuild the entire composed world — that teardown/rebuild of every map's
+   * tilemap layers + flat graphics + POI text is the per-step "jitter" /
+   * stutter (see references/crossing-stutter-postmortem.md). We recompute the
+   * world only when this signature actually changes (a POI interaction, a grid
+   * crossing, a texture fallback), and always keep the cheap position path
+   * (camera glide + party re-tween) live so movement stays fluid. The
+   * signature is *content*-based, never reference-based, so a server-confirm
+   * that swaps in a fresh `data` object with identical geometry is correctly
+   * treated as "no rebuild".
+   */
+  private lastGeometrySig: string | null = "\u0000uncomposed\u0000";
+  /**
+   * When true, the next `recompose()` must rebuild the world geometry even if
+   * the content signature is unchanged. Set by the async tileset-loader COMPLETE
+   * handler (a freshly-loaded texture must be painted) and by texture-fallback
+   * paths; consumed (reset to false) by `geometryChanged` on the next check.
+   */
+  private forceGeometryRebuild = false;
+  /** Per-view content sub-signatures, keyed by view reference so the (possibly
+   * large) tile fingerprint is only recomputed when a view object actually
+   * changes identity. Pruned each call to the currently-composed set. */
+  private geoCache = new Map<DungeonRunView, string>();
 
   constructor() {
     super({ key: DUNGEON_SCENE_KEY });
@@ -612,7 +638,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
       prev.party === party &&
       prev.facing === facing &&
       prev.moveDurationMs === moveDurationMs &&
-      prev.partyTrail === partyTrail
+      prev.partyTrail === partyTrail &&
+      prev.overrideLeaderX === overrideLeaderX &&
+      prev.overrideLeaderY === overrideLeaderY
     ) {
       if (prev.remotePlayers !== remotePlayers)
         this.renderRemotePlayers(this.latestProps);
@@ -742,6 +770,104 @@ export class DungeonPhaserScene extends Phaser.Scene {
     return layerDepth(kind as LayerKind);
   }
 
+  /**
+   * Content signature of a single view's world geometry. Walks are NOT
+   * represented: only the data that changes what tiles / POIs are *rendered*
+   * (tile grid, POI state, doors/bridges/triggers fired, encounters defeated,
+   * collected items, map dimensions, grid slot) is fingerprinted. Two views
+   * with identical geometry but a different currentX/Y produce the same
+   * signature, so a plain step recomposes position-only (no world rebuild).
+   *
+   * The tile array is hashed cheaply (length + a rolling XOR/index mix) rather
+   * than JSON-stringified every step; the per-view result is memoised in
+   * `geoCache` keyed by view reference, so a walk whose `data` object is
+   * replaced with an equal-geometry one still hits the cache and the whole
+   * signature join stays O(views).
+   */
+  private viewGeoSig(view: DungeonRunView): string {
+    const cached = this.geoCache.get(view);
+    if (cached !== undefined) return cached;
+    const tiles = view.tiles ?? [];
+    let tilesHash = 0;
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i]!;
+      // Fold x/y/gid/layerKind into a single 32-bit mix. layerKind is a short
+      // string; its char codes seed the accumulator so a layer swap differs.
+      tilesHash = (tilesHash ^ ((t.x * 73856093) ^ (t.y * 19349663) ^ (t.gid * 83492791))) >>> 0;
+      const lk = t.layerKind;
+      for (let c = 0; c < lk.length; c++) tilesHash = (tilesHash ^ (lk.charCodeAt(c) << (c & 7))) >>> 0;
+    }
+    const tilesets = (view.tilesets ?? []).map((g) => `${g.id}:${g.tileWidth}x${g.tileHeight}`).join(",");
+    const d = view.dungeon;
+    const arr = <T>(v: readonly T[] | undefined): readonly T[] => (v === undefined ? [] : v);
+    const sig =
+      `tiles:${tiles.length}:${tilesHash}|` +
+      `ts:${tilesets}|` +
+      `dim:${d.width}x${d.height}@${d.gridX},${d.gridY}|` +
+      `poi:${arr(view.doors).map((x) => `${x.id}:${x.x},${x.y}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.chests).map((x) => `${x.id}:${x.x},${x.y}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.traps).map((x) => `${x.id}:${x.x},${x.y}:${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.triggers).map((x) => `${x.id}:${x.enabled ? 1 : 0}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.bridges).map((x) => `${x.id}:${x.enabled ? 1 : 0}:${x.upTileGid}/${x.downTileGid}`).join(",")}` +
+      `/${arr(view.encounters).map((x) => `${x.id}:${x.difficulty}:${x.digimon.map((m) => m.catalogId).join("-")}`).join(",")}` +
+      `|run:${arr(view.run.unlockedDoors).join(",")}` +
+      `/${arr(view.firedTriggerIds).join(",")}` +
+      `/${arr(view.run.defeatedEncounters).join(",")}` +
+      `/${arr(view.run.collectedItems).join(",")}` +
+      `/${arr(view.poiStates).map((s) => `${s.poiKind}:${s.poiId}:${s.state}`).join(",")}`;
+    this.geoCache.set(view, sig);
+    return sig;
+  }
+
+  /**
+   * True when the composed world GEOMETRY has actually changed since the last
+   * full render — i.e. something that alters which tiles / POIs are drawn, not
+   * just the player's position. `active` (or its prediction override) is treated
+   * like any other map slot: crossing into a neighbor changes the active view's
+   * signature, so the world WILL rebuild on a crossing — exactly what we want.
+   */
+  private geometryChanged(
+    view: DungeonRunView,
+    neighbors: readonly DungeonGridNeighbor[],
+    abandonedIds: ReadonlySet<string>,
+  ): boolean {
+    // An async texture load (or fallback) just landed — paint it now regardless
+    // of the signature, then re-arm the gate for subsequent position-only steps.
+    if (this.forceGeometryRebuild) {
+      this.forceGeometryRebuild = false;
+      // Refresh the signature so the rebuild that follows records the current
+      // geometry (otherwise the next equal-geometry recompose would also rebuild).
+      const ab = [...abandonedIds].sort().join(",");
+      this.lastGeometrySig =
+        this.viewGeoSig(view) +
+        "::" +
+        neighbors.map((n) => this.viewGeoSig(n.view)).join("|") +
+        "::ab:" +
+        ab;
+      return true;
+    }
+    // The abandoned-tileset set is folded into the signature too: a texture
+    // fallback (a grant exhausts its retries and switches to the flat path)
+    // changes which tiles render, so it must trigger a rebuild even when the
+    // view data is unchanged.
+    const ab = [...abandonedIds].sort().join(",");
+    const sig =
+      this.viewGeoSig(view) +
+      "::" +
+      neighbors.map((n) => this.viewGeoSig(n.view)).join("|") +
+      "::ab:" +
+      ab;
+    if (sig === this.lastGeometrySig) {
+      // Prune cache entries for views no longer in the composition so the map
+      // can't grow unbounded across a long session / many crossings.
+      const live = new Set<DungeonRunView>([view, ...neighbors.map((n) => n.view)]);
+      for (const k of this.geoCache.keys()) if (!live.has(k)) this.geoCache.delete(k);
+      return false;
+    }
+    this.lastGeometrySig = sig;
+    return true;
+  }
+
   private recompose(): void {
     if (this.dead || !this.booted) return;
     const props = this.latestProps;
@@ -836,6 +962,17 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // viewport stays free (the follow target keeps the player screen-centered,
     // the small-map centering branch); an overflowing axis clamps so no void
     // shows past the composed world's edge.
+    // --- Geometry rebuild gate (the jitter fix) ---------------------------------
+    // A plain walk/crossing advances only the player's *cell* — the rendered
+    // world (every tile layer + flat graphics + POI text of the active map AND
+    // all neighbor maps) is byte-for-byte identical. Rebuilding it on every step
+    // is the per-step stutter. So we only clear+render the world when its
+    // GEOMETRY signature actually changed (a POI interaction, a grid crossing,
+    // a texture fallback, or the first ever render). The position path below
+    // (camera glide + party re-tween) ALWAYS runs, so movement stays fluid and
+    // a crossing still rebuilds correctly. See
+    // references/crossing-stutter-postmortem.md (the refuted blanket-skip froze
+    // walking; here only the geometry path is gated, never the position path).
     const missing = grants.filter(
       (grant) => !this.textures.exists(tilesetKey(grant)),
     );
@@ -846,7 +983,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       // Grants past their retry budget are excluded, so a permanently missing
       // image falls back to the flat path instead of deadlocking forever.
       this.ensureTilesetsLoaded(grants);
-    } else {
+    } else if (this.geometryChanged(props.view, neighbors, abandonedIds)) {
       this.clearRendered();
       this.renderWorld(props, layout);
     }
@@ -938,7 +1075,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
             x: targetX,
             y: targetY,
             duration: Math.max(MIN_TWEEN_MS, props.moveDurationMs),
-            ease: "Linear",
+            ease: "Sine.easeInOut",
           });
           known.cell = cell;
         }
@@ -1089,7 +1226,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         x: targetX,
         y: targetY,
         duration: Math.max(MIN_TWEEN_MS, moveDurationMs),
-        ease: "Linear",
+        ease: "Sine.easeInOut",
       });
       existing.cell = { x: trailCell.x, y: trailCell.y };
     }
@@ -1191,7 +1328,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       x: clamped.x,
       y: clamped.y,
       duration: Math.max(MIN_TWEEN_MS, durationMs),
-      ease: "Linear",
+      ease: "Sine.easeInOut",
     });
     this.lastFollowTarget = { x: clamped.x, y: clamped.y };
   }
@@ -1263,6 +1400,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
         .map((grant) => grant.id),
     );
     const layout = computeLayout(props.view, neighbors, abandonedIds);
+    // Zoom changed the visible viewport, so a different set of map slots may now
+    // be culled in/out — force the world rebuild (don't gate on the signature,
+    // which is unchanged by a zoom). Consume the flag here so the rebuild that
+    // follows does not also fire on the next ordinary recompose.
+    this.forceGeometryRebuild = false;
     this.clearRendered();
     this.renderWorld(props, layout);
   }
@@ -1451,11 +1593,18 @@ export class DungeonPhaserScene extends Phaser.Scene {
       readonly y: number;
     }[] = [];
     if (leader !== undefined) {
+      // Client-side prediction: when the route has already advanced the player
+      // locally (overrideLeaderX/Y), the leader renders at the predicted cell so
+      // the walk tween starts immediately instead of waiting for the server RTT.
+      const leaderCellX =
+        props.overrideLeaderX ?? props.view.run.currentX;
+      const leaderCellY =
+        props.overrideLeaderY ?? props.view.run.currentY;
       members.push({
         catalogId: leader.catalogId,
         isLeader: true,
-        x: slotOffsetX + props.view.run.currentX * tileSize + tileSize / 2,
-        y: slotOffsetY + props.view.run.currentY * tileSize + tileSize / 2,
+        x: slotOffsetX + leaderCellX * tileSize + tileSize / 2,
+        y: slotOffsetY + leaderCellY * tileSize + tileSize / 2,
       });
     }
     for (let i = 1; i < props.party.length; i += 1) {
@@ -1548,7 +1697,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
             x: member.x,
             y: member.y,
             duration: props.moveDurationMs,
-            ease: "Linear",
+            ease: "Sine.easeInOut",
           });
         } else {
           sprite.setPosition(member.x, member.y);
@@ -1776,6 +1925,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
         this.latestProps?.onTextureFallback(newlyAbandoned);
       }
       registerTilesets(this, missing);
+      // A texture that was missing is now registered. Geometry content is
+      // unchanged (so the signature gate would otherwise skip the rebuild), but
+      // the just-loaded pixels must now be painted — force the next composition
+      // to rebuild the world.
+      this.forceGeometryRebuild = true;
       this.recompose();
     });
     this.load.start();
