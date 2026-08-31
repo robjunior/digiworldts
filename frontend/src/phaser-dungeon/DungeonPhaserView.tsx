@@ -24,6 +24,10 @@ type DungeonPhaserViewProps = {
   readonly facing: Facing;
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
+  /** Client-side prediction: predicted leader cell to render immediately (see
+   * DungeonPhaserScene.SceneProps.overrideLeaderX/Y). Undefined = use server. */
+  readonly overrideLeaderX?: number | undefined;
+  readonly overrideLeaderY?: number | undefined;
   readonly onCellClick: (x: number, y: number) => void;
   readonly onPlayerClick: (
     userId: string,
@@ -47,12 +51,33 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
     onCellClick,
     onPlayerClick,
     onTextureFallback,
+    overrideLeaderX,
+    overrideLeaderY,
   } = props;
 
   const gameRef = useRef<Phaser.Game | null>(null);
   const sceneRef = useRef<DungeonPhaserScene | null>(null);
 
-  const latestPropsRef = useRef({
+  type ViewProps = {
+    active: DungeonRunView;
+    neighbors: readonly DungeonGridNeighbor[];
+    remotePlayers: readonly DungeonRemotePlayer[];
+    party: readonly RosterView[];
+    facing: Facing;
+    moveDurationMs: number;
+    partyTrail: readonly { readonly x: number; readonly y: number }[];
+    onCellClick: (x: number, y: number) => void;
+    onPlayerClick: (
+      userId: string,
+      displayName: string,
+      x: number,
+      y: number,
+    ) => void;
+    onTextureFallback: (failed: readonly TilesetGrant[]) => void;
+    overrideLeaderX?: number;
+    overrideLeaderY?: number;
+  };
+  const latestPropsRef = useRef<ViewProps>({
     active,
     neighbors,
     remotePlayers,
@@ -64,7 +89,7 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
     onPlayerClick,
     onTextureFallback,
   });
-  latestPropsRef.current = {
+  const nextViewProps: ViewProps = {
     active,
     neighbors,
     remotePlayers,
@@ -76,6 +101,9 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
     onPlayerClick,
     onTextureFallback,
   };
+  if (overrideLeaderX !== undefined) nextViewProps.overrideLeaderX = overrideLeaderX;
+  if (overrideLeaderY !== undefined) nextViewProps.overrideLeaderY = overrideLeaderY;
+  latestPropsRef.current = nextViewProps;
 
   useEffect(() => {
     const container = viewportRef.current;
@@ -99,6 +127,8 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
         props.onCellClick,
         props.onPlayerClick,
         props.onTextureFallback,
+        props.overrideLeaderX,
+        props.overrideLeaderY,
       );
     };
 
@@ -129,6 +159,8 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
       onCellClick,
       onPlayerClick,
       onTextureFallback,
+      overrideLeaderX,
+      overrideLeaderY,
     );
   }, [
     active,
@@ -141,6 +173,8 @@ export function DungeonPhaserView(props: DungeonPhaserViewProps): ReactElement {
     onCellClick,
     onPlayerClick,
     onTextureFallback,
+    overrideLeaderX,
+    overrideLeaderY,
   ]);
 
   useEffect(() => {

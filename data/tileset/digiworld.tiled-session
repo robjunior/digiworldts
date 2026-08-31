@@ -1,5 +1,5 @@
 {
-    "activeFile": "root-directory/rootgrove.tmx",
+    "activeFile": "root-directory/roottemple.tmx",
     "expandedProjectPaths": [
         "root-directory",
         "."
@@ -14,19 +14,19 @@
             "scaleInEditor": 1
         },
         "root-directory/lake.tmx": {
-            "scale": 1,
-            "selectedLayer": 1,
+            "scale": 0.33,
+            "selectedLayer": 0,
             "viewCenter": {
-                "x": 327.5,
-                "y": 478
+                "x": -225.75757575757575,
+                "y": 1278.7878787878788
             }
         },
         "root-directory/rootdirectory.tmx": {
-            "scale": 1,
-            "selectedLayer": 1,
+            "scale": 3,
+            "selectedLayer": 3,
             "viewCenter": {
-                "x": 520.5,
-                "y": -72
+                "x": 435.33333333333337,
+                "y": 568.6666666666666
             }
         },
         "root-directory/rootgrove.tmx": {
@@ -46,11 +46,11 @@
             }
         },
         "root-directory/roottemple.tmx": {
-            "scale": 0.25,
+            "scale": 0.75,
             "selectedLayer": 0,
             "viewCenter": {
-                "x": 1150,
-                "y": -104
+                "x": 667.9999999999999,
+                "y": 191.99999999999994
             }
         }
     },
@@ -68,14 +68,21 @@
     "openFiles": [
         "root-directory/rootdirectory.tmx",
         "root-directory/rootgrove.tmx",
-        "everything.tsx"
+        "everything.tsx",
+        "root-directory/rootprod.tmx",
+        "root-directory/colored.tsx",
+        "root-directory/roottemple.tmx",
+        "root-directory/lake.tmx"
     ],
     "project": "digiworld.tiled-project",
     "recentFiles": [
         "root-directory/rootdirectory.tmx",
-        "everything.tsx",
         "root-directory/rootgrove.tmx",
-        "root-directory/colored.tsx"
+        "everything.tsx",
+        "root-directory/rootprod.tmx",
+        "root-directory/colored.tsx",
+        "root-directory/lake.tmx",
+        "root-directory/roottemple.tmx"
     ],
     "tileset.lastUsedFormat": "tsx",
     "tileset.tileSize": {
