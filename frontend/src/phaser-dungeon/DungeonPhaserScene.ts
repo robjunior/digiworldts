@@ -1,9 +1,22 @@
-import Phaser from 'phaser';
+import Phaser from "phaser";
 
-import type { DungeonGridNeighbor, DungeonRemotePlayer, DungeonRunView, DungeonTile, LayerKind, TilesetGrant } from '@digiworld/shared';
-import { findTilesetForGid, LAYER_DEPTH, layerDepth, WALKABLE_LAYER_KINDS, WATER_ALPHA } from '@digiworld/shared';
-import type { RosterView } from '../lib/api';
-import { primaryTileset } from '../lib/tileset-sprite';
+import type {
+  DungeonGridNeighbor,
+  DungeonRemotePlayer,
+  DungeonRunView,
+  DungeonTile,
+  LayerKind,
+  TilesetGrant,
+} from "@digiworld/shared";
+import {
+  findTilesetForGid,
+  LAYER_DEPTH,
+  layerDepth,
+  WALKABLE_LAYER_KINDS,
+  WATER_ALPHA,
+} from "@digiworld/shared";
+import type { RosterView } from "../lib/api";
+import { primaryTileset } from "../lib/tileset-sprite";
 import {
   applyTiledFlips,
   bareGidForTile,
@@ -29,20 +42,42 @@ import {
   tileFrame,
   tilesetKey,
   tiledFlipBits,
-} from './tilesets';
+} from "./tilesets";
+import {
+  ANIMATION_HOLD_MS,
+  catalogIdFromSpriteName,
+  computeBridgeDownKeys,
+  computeDoorOpenIds,
+  getSpriteData,
+  MIN_TWEEN_MS,
+  POI_BADGE_LETTER,
+  FALLBACK_MARKER_COLOR,
+  PoiRenderContext,
+  digimonSpriteName,
+} from "./poi-state";
 
-export const DUNGEON_SCENE_KEY = 'DungeonPhaserScene';
+export const DUNGEON_SCENE_KEY = "DungeonPhaserScene";
 export const DUNGEON_CAMERA_ZOOM = 2;
+// Camera zoom range (mouse-wheel control). DUNGEON_CAMERA_ZOOM is the default;
+// the wheel can pull out to MIN (see more of the map) or push in to MAX.
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 3.5;
+// Minimap camera (bottom-right corner). Mirrors the Phaser "multiple cameras"
+// pattern: a second viewport that renders the whole composed world at a tiny
+// zoom, with the world objects shown and the HUD/POI badges hidden.
+const MINIMAP_SIZE = 150;
+const MINIMAP_MARGIN = 8;
+const MINIMAP_ZOOM = 0.12;
 const TILE_SIZE_FALLBACK = 32;
-const BACKGROUND_COLOR = '#1c1f2a';
+const BACKGROUND_COLOR = "#1c1f2a";
 const UNDERLAY_DEPTH = -1;
 const FLAT_CELL_DEPTH = -2;
 // Flat (tileset-less) cells paint a dark-neutral distinct from the camera
 // background (#1c1f2a) with a 1px gridline so adjacent cells stay
 // distinguishable — a tileset-less dungeon is visible and playable, not a
 // void-colored maze. Same muted PSX palette family as BACKGROUND_COLOR.
-const FLAT_CELL_FILL = '#232733';
-const FLAT_CELL_GRIDLINE = '#1a1e28';
+const FLAT_CELL_FILL = "#232733";
+const FLAT_CELL_GRIDLINE = "#1a1e28";
 // Party sprites sit above every tile layer (BG_KIND_ORDER maps to depths
 // -1..9 plus 99 for unknown kinds) — 1000 keeps the party on top.
 const PARTY_DEPTH = 1000;
@@ -68,7 +103,7 @@ const MARKER_DEPTH = 130;
  */
 const BG_KIND_ORDER = LAYER_DEPTH;
 
-export type Facing = 'left' | 'right';
+export type Facing = "left" | "right";
 
 /** One rendered tilemap layer, exposed for QA via `getState().layers`. */
 export type DungeonLayerInfo = {
@@ -83,8 +118,17 @@ export type DungeonLayerInfo = {
 };
 
 export type DungeonPhaserDebugState = {
-  readonly sprites: readonly { readonly catalogId: string; readonly flipX: boolean; readonly x: number; readonly y: number }[];
-  readonly camera: { readonly x: number; readonly y: number; readonly zoom: number };
+  readonly sprites: readonly {
+    readonly catalogId: string;
+    readonly flipX: boolean;
+    readonly x: number;
+    readonly y: number;
+  }[];
+  readonly camera: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
+  };
   readonly follow: { readonly x: number; readonly y: number };
   /** One entry per tilemap layer created across every rendered map slot. */
   readonly layers: readonly DungeonLayerInfo[];
@@ -105,10 +149,30 @@ export type DungeonPhaserDebugState = {
   readonly rendered: boolean;
   /** POI entries across every rendered slot (active + neighbors), for QA. */
   readonly pois: readonly DungeonPoiInfo[];
+  /** Minimap camera state (null when disabled). */
+  readonly minimap:
+    | {
+        readonly enabled: boolean;
+        readonly x: number;
+        readonly y: number;
+        readonly width: number;
+        readonly height: number;
+        readonly zoom: number;
+      }
+    | null;
 };
 
 export type DungeonPoiInfo = {
-  readonly kind: 'door' | 'chest' | 'trap' | 'trigger' | 'bridge' | 'boss' | 'item' | 'encounter';
+  readonly kind:
+    | "door"
+    | "chest"
+    | "trap"
+    | "trigger"
+    | "bridge"
+    | "boss"
+    | "item"
+    | "encounter"
+    | "warp";
   readonly x: number;
   readonly y: number;
   readonly gid: number | string | null;
@@ -122,11 +186,27 @@ declare global {
       readonly scene: DungeonPhaserScene;
       getState(): DungeonPhaserDebugState;
       triggerBossHit(catalogId: string): void;
+      toggleHud(): void;
+      setZoom(zoom: number, durationMs?: number): void;
+      getZoom(): number;
+      shake(durationMs?: number, intensity?: number): void;
+      flash(durationMs?: number, r?: number, g?: number, b?: number): void;
+      fadeOut(
+        durationMs?: number,
+        r?: number,
+        g?: number,
+        b?: number,
+        onComplete?: () => void,
+      ): void;
+      fadeIn(durationMs?: number, r?: number, g?: number, b?: number): void;
+      enableMinimap(): void;
+      disableMinimap(): void;
+      isMinimapEnabled(): boolean;
     };
   }
 }
 
-type SceneProps = {
+export type SceneProps = {
   readonly view: DungeonRunView;
   readonly neighbors: readonly DungeonGridNeighbor[];
   readonly remotePlayers: readonly DungeonRemotePlayer[];
@@ -134,19 +214,41 @@ type SceneProps = {
   readonly facing: Facing;
   readonly moveDurationMs: number;
   readonly partyTrail: readonly { readonly x: number; readonly y: number }[];
+  /**
+   * Client-side prediction hook: when the React route has already advanced the
+   * player to the next cell locally (before the server round-trip resolves), it
+   * passes the predicted cell here so the sprite starts tweening *immediately*
+   * instead of freezing for the whole RTT and then lurching into place. Null /
+   * undefined means "use the authoritative `view.run.currentX/Y`" (no
+   * prediction in flight). The server stays authoritative: if it rejects the
+   * move, the route clears these and the sprite snaps back to the real cell.
+   */
+  readonly overrideLeaderX: number | undefined;
+  readonly overrideLeaderY: number | undefined;
   readonly onCellClick: (x: number, y: number) => void;
   /** Phase 2 player interaction: fired when a remote player's cell is
    * clicked (any visible distance). Wins over movement when the cell is
    * also adjacent — the route opens the context menu instead of stepping. */
-  readonly onPlayerClick?: (userId: string, displayName: string, x: number, y: number) => void;
+  readonly onPlayerClick?: (
+    userId: string,
+    displayName: string,
+    x: number,
+    y: number,
+  ) => void;
   readonly onTextureFallback: (failed: readonly TilesetGrant[]) => void;
 };
 
 type RemotePlayerRender = {
-  readonly container: Phaser.GameObjects.Container;
+  /** Leader digimon sprite (or placeholder circle) at WORLD coordinates. */
+  leader: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
+  /** Name tag, at WORLD coordinates, follows the leader's cell. */
+  nameText: Phaser.GameObjects.Text;
   cell: { x: number; y: number; gridX: number; gridY: number };
   catalogId: string | null;
-  followers: { sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc; cell: { x: number; y: number } }[];
+  followers: {
+    sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
+    cell: { x: number; y: number };
+  }[];
 };
 
 type PositionedView = {
@@ -178,10 +280,12 @@ type WorldLayout = {
  * tile size; the camera zooms ×2 so the screen cell matches the DOM's
  * PLAYER_ZOOM. The player's world position is the follow target.
  */
-function computeLayout(
+export function computeLayout(
   view: DungeonRunView,
   neighbors: readonly DungeonGridNeighbor[],
   abandonedIds?: ReadonlySet<string>,
+  overrideX?: number,
+  overrideY?: number,
 ): WorldLayout {
   const active: PositionedView = {
     view,
@@ -190,15 +294,22 @@ function computeLayout(
   };
   const positions: readonly PositionedView[] = [
     active,
-    ...neighbors.map((neighbor) => ({ view: neighbor.view, gridX: neighbor.gridX, gridY: neighbor.gridY })),
+    ...neighbors.map((neighbor) => ({
+      view: neighbor.view,
+      gridX: neighbor.gridX,
+      gridY: neighbor.gridY,
+    })),
   ];
   const usableGrants =
     abandonedIds === undefined || abandonedIds.size === 0
       ? view.tilesets
       : view.tilesets.filter((grant) => !abandonedIds.has(grant.id));
-  const tileSize = primaryTileset(usableGrants)?.tileWidth ?? TILE_SIZE_FALLBACK;
-  const slotWidth = Math.max(...positions.map((entry) => entry.view.dungeon.width)) * tileSize;
-  const slotHeight = Math.max(...positions.map((entry) => entry.view.dungeon.height)) * tileSize;
+  const tileSize =
+    primaryTileset(usableGrants)?.tileWidth ?? TILE_SIZE_FALLBACK;
+  const slotWidth =
+    Math.max(...positions.map((entry) => entry.view.dungeon.width)) * tileSize;
+  const slotHeight =
+    Math.max(...positions.map((entry) => entry.view.dungeon.height)) * tileSize;
   const minGridX = Math.min(...positions.map((entry) => entry.gridX));
   const minGridY = Math.min(...positions.map((entry) => entry.gridY));
   const maxGridX = Math.max(...positions.map((entry) => entry.gridX));
@@ -213,8 +324,14 @@ function computeLayout(
   // keeps each map at its grid position forever; a crossing merely glides the
   // player one tile into an already-rendered neighbor and the follow target
   // never moves when real neighbors land.
-  const playerX = active.gridX * slotWidth + view.run.currentX * tileSize + tileSize / 2;
-  const playerY = active.gridY * slotHeight + view.run.currentY * tileSize + tileSize / 2;
+  const playerX =
+    active.gridX * slotWidth +
+    (overrideX ?? view.run.currentX) * tileSize +
+    tileSize / 2;
+  const playerY =
+    active.gridY * slotHeight +
+    (overrideY ?? view.run.currentY) * tileSize +
+    tileSize / 2;
   return {
     width,
     height,
@@ -231,7 +348,9 @@ function computeLayout(
   };
 }
 
-function uniqueGrants(views: readonly DungeonRunView[]): readonly TilesetGrant[] {
+function uniqueGrants(
+  views: readonly DungeonRunView[],
+): readonly TilesetGrant[] {
   const byId = new Map<string, TilesetGrant>();
   for (const view of views) {
     for (const grant of view.tilesets) {
@@ -254,6 +373,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private latestProps: SceneProps | null = null;
   private followTarget: Phaser.GameObjects.Container | null = null;
   private booted = false;
+  /**
+   * Set the moment the scene is torn down (SHUTDOWN *or* DESTROY). While
+   * `booted` only guards against a pre-create scene, `dead` also guards against
+   * a scene whose systems have been nulled by `game.destroy(true)` — that path
+   * fires DESTROY, not SHUTDOWN, so `booted` would wrongly stay `true`.
+   */
+  private dead = false;
 
   private renderedLayers: Phaser.Tilemaps.TilemapLayer[] = [];
   private renderedSprites: Phaser.GameObjects.Sprite[] = [];
@@ -263,23 +389,78 @@ export class DungeonPhaserScene extends Phaser.Scene {
   private mixedSizes = false;
   private mapCount = 0;
   private rendered = false;
-  private worldInfo: { readonly width: number; readonly height: number } = { width: 0, height: 0 };
+  // --- Opt-in perf HUD (zero-cost when off; see enableHud/toggleHud) ---
+  private hudEnabled = false;
+  private hudText: Phaser.GameObjects.Text | null = null;
+  private hudTimer: Phaser.Time.TimerEvent | null = null;
+  private worldInfo: { readonly width: number; readonly height: number } = {
+    width: 0,
+    height: 0,
+  };
   private slotInfo: { readonly w: number; readonly h: number } = { w: 0, h: 0 };
   private tileSize = TILE_SIZE_FALLBACK;
   private partyGroup: Phaser.GameObjects.Group | null = null;
   private leaderSprite: Phaser.GameObjects.Sprite | null = null;
   private lastLeaderCatalogId: string | null = null;
+  /** Set of party catalog ids from the last renderParty; used to avoid rebuilding
+   * sprites (and restarting the walk animation) on every move. */
+  private lastPartyKey: string | null = null;
+  /** Live party sprites keyed by catalogId; preserved across recomposes so the
+   * walk animation keeps running. Rebuilt only when the party set changes. */
+  private partySprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private dotsLoading = false;
   private followTween: Phaser.Tweens.Tween | null = null;
-  private lastFollowTarget: { readonly x: number; readonly y: number } | null = null;
-  private clampBounds: { readonly x: number; readonly y: number; readonly width: number; readonly height: number } | null = null;
+  private lastFollowTarget: { readonly x: number; readonly y: number } | null =
+    null;
+  private clampBounds: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  } | null = null;
   private lastComposedNeighbors: readonly DungeonGridNeighbor[] | null = null;
   private lastComposedActiveView: DungeonRunView | null = null;
+  // --- Camera system (follow + zoom + effects + minimap) ---
+  // Mouse-wheel zoom target (animated via zoomTo). Clamped to [MIN_ZOOM, MAX_ZOOM].
+  private targetZoom: number = DUNGEON_CAMERA_ZOOM;
+  // Second viewport camera for the minimap (bottom-right). Null until enabled.
+  private minimapCamera: Phaser.Cameras.Scene2D.Camera | null = null;
+  private minimapEnabled = false;
+  private minimapBorder: Phaser.GameObjects.Rectangle | null = null;
+  // Debounce handle so a burst of wheel ticks schedules a single re-cull.
+  private cullRefreshPending = false;
   private poiInfos: DungeonPoiInfo[] = [];
   private renderedTexts: Phaser.GameObjects.Text[] = [];
-  private activeSlotOrigin: { readonly x: number; readonly y: number } | null = null;
+  private activeSlotOrigin: { readonly x: number; readonly y: number } | null =
+    null;
   private textureFallbackReported = new Set<string>();
   private remotePlayers = new Map<string, RemotePlayerRender>();
+  /**
+   * Geometry-rebuild gate. A content signature over every composed view's
+   * tile/POI layout. Walking only changes the player's *cell* (a position,
+   * not geometry), so recomposing after each step must NOT tear down and
+   * rebuild the entire composed world — that teardown/rebuild of every map's
+   * tilemap layers + flat graphics + POI text is the per-step "jitter" /
+   * stutter (see references/crossing-stutter-postmortem.md). We recompute the
+   * world only when this signature actually changes (a POI interaction, a grid
+   * crossing, a texture fallback), and always keep the cheap position path
+   * (camera glide + party re-tween) live so movement stays fluid. The
+   * signature is *content*-based, never reference-based, so a server-confirm
+   * that swaps in a fresh `data` object with identical geometry is correctly
+   * treated as "no rebuild".
+   */
+  private lastGeometrySig: string | null = "\u0000uncomposed\u0000";
+  /**
+   * When true, the next `recompose()` must rebuild the world geometry even if
+   * the content signature is unchanged. Set by the async tileset-loader COMPLETE
+   * handler (a freshly-loaded texture must be painted) and by texture-fallback
+   * paths; consumed (reset to false) by `geometryChanged` on the next check.
+   */
+  private forceGeometryRebuild = false;
+  /** Per-view content sub-signatures, keyed by view reference so the (possibly
+   * large) tile fingerprint is only recomputed when a view object actually
+   * changes identity. Pruned each call to the currently-composed set. */
+  private geoCache = new Map<DungeonRunView, string>();
 
   constructor() {
     super({ key: DUNGEON_SCENE_KEY });
@@ -287,17 +468,61 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   create(): void {
     this.booted = true;
+    this.dead = false;
     this.cameras.main.setBackgroundColor(BACKGROUND_COLOR);
     this.cameras.main.setZoom(DUNGEON_CAMERA_ZOOM);
     this.followTarget = this.add.container(0, 0);
     this.cameras.main.startFollow(this.followTarget, true, 1, 1);
-    this.cameras.main.on(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.clampCameraScroll, this);
-    this.input.on('pointerdown', this.handleCellPointer, this);
+    this.cameras.main.on(
+      Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE,
+      this.clampCameraScroll,
+      this,
+    );
+    // Mouse-wheel zoom (smooth, animated, clamped). Controlled entirely by the
+    // main camera so the minimap keeps its fixed tiny zoom. See applyWheelZoom.
+    this.input.on("wheel", this.applyWheelZoom, this);
+    // Wire teardown to BOTH scene lifecycle events:
+    //  • SHUTDOWN — fired when the scene is stopped/put to sleep (e.g. the
+    //    scene manager stops it without destroying the game).
+    //  • DESTROY — fired by `game.destroy(true)` (the React view's unmount
+    //    cleanup). Phaser's Systems.destroy() emits DESTROY and nulls
+    //    `this.add` / `updateList` / `scene` / `events` but does NOT emit
+    //    SHUTDOWN. Without binding to DESTROY too, shutdown() never ran on the
+    //    unmount path, leaving a zombie scene whose `booted` stayed true and
+    //    whose async recompose callbacks (tileset loads, dot fallbacks) later
+    //    crashed with "can't access property 'add', this.updateList is null".
+    // Phaser does NOT auto-call a `shutdown` method, so both bindings are
+    // required for real teardown.
+    this.events.on(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.on(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
+    this.input.on("pointerdown", this.handleCellPointer, this);
     window.__dungeonPhaser = {
       scene: this,
       getState: () => this.getState(),
       triggerBossHit: (catalogId: string) => this.triggerBossHit(catalogId),
+      toggleHud: () => this.toggleHud(),
+      // Camera debug/control hooks (Phaser camera tutorial patterns).
+      setZoom: (zoom: number, durationMs?: number) => this.setZoom(zoom, durationMs),
+      getZoom: () => this.getZoom(),
+      shake: (durationMs?: number, intensity?: number) => this.shake(durationMs, intensity),
+      flash: (durationMs?: number, r?: number, g?: number, b?: number) => this.flash(durationMs, r, g, b),
+      fadeOut: (
+        durationMs?: number,
+        r?: number,
+        g?: number,
+        b?: number,
+        onComplete?: () => void,
+      ) => this.fadeOut(durationMs, r, g, b, onComplete),
+      fadeIn: (durationMs?: number, r?: number, g?: number, b?: number) => this.fadeIn(durationMs, r, g, b),
+      enableMinimap: () => this.enableMinimap(),
+      disableMinimap: () => this.disableMinimap(),
+      isMinimapEnabled: () => this.isMinimapEnabled(),
     };
+    // Opt-in perf HUD: ?hud=1 (or window.__dungeonPhaser.toggleHud()). Zero cost
+    // unless enabled — sampling only starts when the HUD is on.
+    if (typeof location !== "undefined" && new URLSearchParams(location.search).has("hud")) {
+      this.enableHud();
+    }
     // Props arrive after create() (wrapper READY event) — the texture pipeline
     // runs lazily from setProps → recompose, not from a preload() hook.
     if (this.latestProps !== null) this.recompose();
@@ -312,21 +537,53 @@ export class DungeonPhaserScene extends Phaser.Scene {
     this.followTween = null;
     this.lastFollowTarget = null;
     this.clampBounds = null;
-    this.cameras.main.off(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.clampCameraScroll, this);
+    // CameraManager nulls `cameras.main` (and destroys the camera GameObject,
+    // dropping its FOLLOW_UPDATE listener) before this runs, so guard the off.
+    this.cameras?.main?.off(
+      Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE,
+      this.clampCameraScroll,
+      this,
+    );
+    // Wheel zoom + minimap are scene-level; drop the wheel listener and the
+    // second camera on teardown so a remount starts clean (no double minimap).
+    this.input?.off("wheel", this.applyWheelZoom, this);
+    this.disableMinimap();
+    this.events.off(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.off(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
+    // Tear down the opt-in HUD so a destroyed scene leaks no timer/text.
+    this.disableHud();
+    this.hudText?.destroy();
+    this.hudText = null;
     this.partyGroup?.destroy(true);
     this.partyGroup = null;
     this.leaderSprite = null;
     this.lastLeaderCatalogId = null;
     this.dotsLoading = false;
     this.textureFallbackReported.clear();
-    for (const render of this.remotePlayers.values()) this.destroyRemotePlayer(render);
+    for (const render of this.remotePlayers.values())
+      this.destroyRemotePlayer(render);
     this.remotePlayers.clear();
     this.clearRendered();
     this.booted = false;
+    // Mark the scene dead: its systems (`add`, `updateList`, `cameras`, etc.)
+    // have been nulled by the teardown that triggered this. Any async
+    // recompose callback that still fires afterwards must bail instead of
+    // touching a dead GameObjectFactory.
+    this.dead = true;
     this.latestProps = null;
     this.lastComposedNeighbors = null;
     this.lastComposedActiveView = null;
     this.followTarget = null;
+  }
+
+  /**
+   * True once the scene has been torn down (SHUTDOWN or DESTROY). After teardown
+   * Phaser has nulled `this.add` / `this.updateList` / `this.cameras`, so any
+   * deferred work (tileset `loader` complete, dot fallback, sheet preload) must
+   * treat the scene as inert and never call `recompose`/`renderParty`.
+   */
+  isAlive(): boolean {
+    return this.booted && !this.dead;
   }
 
   /**
@@ -346,12 +603,34 @@ export class DungeonPhaserScene extends Phaser.Scene {
     moveDurationMs: number,
     partyTrail: readonly { readonly x: number; readonly y: number }[],
     onCellClick: (x: number, y: number) => void,
-    onPlayerClick: (userId: string, displayName: string, x: number, y: number) => void,
+    onPlayerClick: (
+      userId: string,
+      displayName: string,
+      x: number,
+      y: number,
+    ) => void,
     onTextureFallback: (failed: readonly TilesetGrant[]) => void,
+    overrideLeaderX?: number,
+    overrideLeaderY?: number,
   ): void {
     const prev = this.latestProps;
-    this.latestProps = { view, neighbors, remotePlayers, party, facing, moveDurationMs, partyTrail, onCellClick, onPlayerClick, onTextureFallback };
-    if (!this.booted) return;
+    const baseProps = {
+      view,
+      neighbors,
+      remotePlayers,
+      party,
+      facing,
+      moveDurationMs,
+      partyTrail,
+      onCellClick,
+      onPlayerClick,
+      onTextureFallback,
+      overrideLeaderX,
+      overrideLeaderY,
+    };
+    const nextProps: SceneProps = baseProps;
+    this.latestProps = nextProps;
+    if (!this.isAlive()) return;
     if (
       prev !== null &&
       prev.view === view &&
@@ -359,26 +638,99 @@ export class DungeonPhaserScene extends Phaser.Scene {
       prev.party === party &&
       prev.facing === facing &&
       prev.moveDurationMs === moveDurationMs &&
-      prev.partyTrail === partyTrail
+      prev.partyTrail === partyTrail &&
+      prev.overrideLeaderX === overrideLeaderX &&
+      prev.overrideLeaderY === overrideLeaderY
     ) {
-      if (prev.remotePlayers !== remotePlayers) this.renderRemotePlayers(this.latestProps);
+      if (prev.remotePlayers !== remotePlayers)
+        this.renderRemotePlayers(this.latestProps);
       return;
     }
     this.recompose();
   }
 
+  // --- Opt-in perf HUD -------------------------------------------------------
+  // Measures the live frame rate, frame time, and object counts so a dungeon
+  // "feels laggy" report can be triaged with numbers instead of guesses. Zero
+  // cost when off: a 500ms sampler runs only while enabled, and `create()` only
+  // turns it on for `?hud=1`. Toggle at runtime via
+  // `window.__dungeonPhaser.toggleHud()`.
+  toggleHud(): void {
+    if (this.hudEnabled) this.disableHud();
+    else this.enableHud();
+  }
+
+  private enableHud(): void {
+    this.hudEnabled = true;
+    if (this.hudText === null) {
+      this.hudText = this.add
+        .text(8, 8, "", {
+          fontFamily: "monospace",
+          fontSize: "12px",
+          color: "#7CFC00",
+          backgroundColor: "rgba(0,0,0,0.5)",
+        })
+        .setScrollFactor(0)
+        .setDepth(99999);
+    }
+    this.hudText.setVisible(true);
+    this.hudTimer?.remove();
+    this.hudTimer = this.time.addEvent({
+      delay: 500,
+      loop: true,
+      callback: () => this.sampleHud(),
+    });
+    this.sampleHud();
+  }
+
+  private disableHud(): void {
+    this.hudEnabled = false;
+    this.hudTimer?.remove();
+    this.hudTimer = null;
+    this.hudText?.setVisible(false);
+  }
+
+  private sampleHud(): void {
+    if (this.hudText === null) return;
+    const loop = this.game.loop;
+    const fps = Math.round(loop.actualFps);
+    const ms = loop.delta.toFixed(1);
+    // Phaser WebGLRenderer exposes `renderer.drawCount`; fall back to "n/a".
+    const drawCount = (this.game.renderer as { drawCount?: number }).drawCount;
+    const draw = drawCount === undefined ? "n/a" : String(drawCount);
+    const textures = this.textures.getTextureKeys().length;
+    const party = this.partySprites.size;
+    const remote = this.remotePlayers.size;
+    const w = Math.round(this.cameras.main.width / this.cameras.main.zoom);
+    const h = Math.round(this.cameras.main.height / this.cameras.main.zoom);
+    this.hudText.setText(
+      [
+        `FPS ${fps}  ${ms}ms`,
+        `draws ${draw}`,
+        `maps ${this.mapCount}  tex ${textures}`,
+        `party ${party}  remote ${remote}`,
+        `viewport ${w}x${h}  zoom ${this.cameras.main.zoom}`,
+      ].join("\n"),
+    );
+  }
+
   getState(): DungeonPhaserDebugState {
     const camera = this.cameras.main;
     const follow = this.followTarget;
-    const sprites: { readonly catalogId: string; readonly flipX: boolean; readonly x: number; readonly y: number }[] = [];
+    const sprites: {
+      readonly catalogId: string;
+      readonly flipX: boolean;
+      readonly x: number;
+      readonly y: number;
+    }[] = [];
     if (this.partyGroup !== null) {
       for (const child of this.partyGroup.getChildren()) {
-        const sprite = child as Phaser.GameObjects.Sprite;
+        if (!(child instanceof Phaser.GameObjects.Sprite)) continue;
         sprites.push({
-          catalogId: String(sprite.getData('catalogId') ?? ''),
-          flipX: sprite.flipX,
-          x: Math.round(sprite.x * 100) / 100,
-          y: Math.round(sprite.y * 100) / 100,
+          catalogId: String(getSpriteData(child, "catalogId") ?? ""),
+          flipX: child.flipX,
+          x: Math.round(child.x * 100) / 100,
+          y: Math.round(child.y * 100) / 100,
         });
       }
     }
@@ -396,6 +748,17 @@ export class DungeonPhaserScene extends Phaser.Scene {
       mapCount: this.mapCount,
       rendered: this.rendered,
       pois: this.poiInfos,
+      minimap:
+        this.minimapCamera !== null
+          ? {
+              enabled: this.minimapEnabled,
+              x: this.minimapCamera.x,
+              y: this.minimapCamera.y,
+              width: this.minimapCamera.width,
+              height: this.minimapCamera.height,
+              zoom: this.minimapCamera.zoom,
+            }
+          : null,
     };
   }
 
@@ -407,7 +770,106 @@ export class DungeonPhaserScene extends Phaser.Scene {
     return layerDepth(kind as LayerKind);
   }
 
+  /**
+   * Content signature of a single view's world geometry. Walks are NOT
+   * represented: only the data that changes what tiles / POIs are *rendered*
+   * (tile grid, POI state, doors/bridges/triggers fired, encounters defeated,
+   * collected items, map dimensions, grid slot) is fingerprinted. Two views
+   * with identical geometry but a different currentX/Y produce the same
+   * signature, so a plain step recomposes position-only (no world rebuild).
+   *
+   * The tile array is hashed cheaply (length + a rolling XOR/index mix) rather
+   * than JSON-stringified every step; the per-view result is memoised in
+   * `geoCache` keyed by view reference, so a walk whose `data` object is
+   * replaced with an equal-geometry one still hits the cache and the whole
+   * signature join stays O(views).
+   */
+  private viewGeoSig(view: DungeonRunView): string {
+    const cached = this.geoCache.get(view);
+    if (cached !== undefined) return cached;
+    const tiles = view.tiles ?? [];
+    let tilesHash = 0;
+    for (let i = 0; i < tiles.length; i++) {
+      const t = tiles[i]!;
+      // Fold x/y/gid/layerKind into a single 32-bit mix. layerKind is a short
+      // string; its char codes seed the accumulator so a layer swap differs.
+      tilesHash = (tilesHash ^ ((t.x * 73856093) ^ (t.y * 19349663) ^ (t.gid * 83492791))) >>> 0;
+      const lk = t.layerKind;
+      for (let c = 0; c < lk.length; c++) tilesHash = (tilesHash ^ (lk.charCodeAt(c) << (c & 7))) >>> 0;
+    }
+    const tilesets = (view.tilesets ?? []).map((g) => `${g.id}:${g.tileWidth}x${g.tileHeight}`).join(",");
+    const d = view.dungeon;
+    const arr = <T>(v: readonly T[] | undefined): readonly T[] => (v === undefined ? [] : v);
+    const sig =
+      `tiles:${tiles.length}:${tilesHash}|` +
+      `ts:${tilesets}|` +
+      `dim:${d.width}x${d.height}@${d.gridX},${d.gridY}|` +
+      `poi:${arr(view.doors).map((x) => `${x.id}:${x.x},${x.y}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.chests).map((x) => `${x.id}:${x.x},${x.y}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.traps).map((x) => `${x.id}:${x.x},${x.y}:${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.triggers).map((x) => `${x.id}:${x.enabled ? 1 : 0}:${x.unusedTileGid}/${x.usedTileGid}`).join(",")}` +
+      `/${arr(view.bridges).map((x) => `${x.id}:${x.enabled ? 1 : 0}:${x.upTileGid}/${x.downTileGid}`).join(",")}` +
+      `/${arr(view.encounters).map((x) => `${x.id}:${x.difficulty}:${x.digimon.map((m) => m.catalogId).join("-")}`).join(",")}` +
+      `|run:${arr(view.run.unlockedDoors).join(",")}` +
+      `/${arr(view.firedTriggerIds).join(",")}` +
+      `/${arr(view.run.defeatedEncounters).join(",")}` +
+      `/${arr(view.run.collectedItems).join(",")}` +
+      `/${arr(view.poiStates).map((s) => `${s.poiKind}:${s.poiId}:${s.state}`).join(",")}`;
+    this.geoCache.set(view, sig);
+    return sig;
+  }
+
+  /**
+   * True when the composed world GEOMETRY has actually changed since the last
+   * full render — i.e. something that alters which tiles / POIs are drawn, not
+   * just the player's position. `active` (or its prediction override) is treated
+   * like any other map slot: crossing into a neighbor changes the active view's
+   * signature, so the world WILL rebuild on a crossing — exactly what we want.
+   */
+  private geometryChanged(
+    view: DungeonRunView,
+    neighbors: readonly DungeonGridNeighbor[],
+    abandonedIds: ReadonlySet<string>,
+  ): boolean {
+    // An async texture load (or fallback) just landed — paint it now regardless
+    // of the signature, then re-arm the gate for subsequent position-only steps.
+    if (this.forceGeometryRebuild) {
+      this.forceGeometryRebuild = false;
+      // Refresh the signature so the rebuild that follows records the current
+      // geometry (otherwise the next equal-geometry recompose would also rebuild).
+      const ab = [...abandonedIds].sort().join(",");
+      this.lastGeometrySig =
+        this.viewGeoSig(view) +
+        "::" +
+        neighbors.map((n) => this.viewGeoSig(n.view)).join("|") +
+        "::ab:" +
+        ab;
+      return true;
+    }
+    // The abandoned-tileset set is folded into the signature too: a texture
+    // fallback (a grant exhausts its retries and switches to the flat path)
+    // changes which tiles render, so it must trigger a rebuild even when the
+    // view data is unchanged.
+    const ab = [...abandonedIds].sort().join(",");
+    const sig =
+      this.viewGeoSig(view) +
+      "::" +
+      neighbors.map((n) => this.viewGeoSig(n.view)).join("|") +
+      "::ab:" +
+      ab;
+    if (sig === this.lastGeometrySig) {
+      // Prune cache entries for views no longer in the composition so the map
+      // can't grow unbounded across a long session / many crossings.
+      const live = new Set<DungeonRunView>([view, ...neighbors.map((n) => n.view)]);
+      for (const k of this.geoCache.keys()) if (!live.has(k)) this.geoCache.delete(k);
+      return false;
+    }
+    this.lastGeometrySig = sig;
+    return true;
+  }
+
   private recompose(): void {
+    if (this.dead || !this.booted) return;
     const props = this.latestProps;
     if (props === null || this.followTarget === null) return;
     // Crossing continuity: when the run crosses into a neighbor, the route
@@ -422,13 +884,20 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // never snaps; when the real neighbor list lands (same slot set), the
     // recomposition is a no-op render.
     let neighbors = props.neighbors;
-    if (neighbors.length === 0 && this.lastComposedActiveView !== null && this.lastComposedNeighbors !== null && this.lastComposedNeighbors.length > 0) {
+    if (
+      neighbors.length === 0 &&
+      this.lastComposedActiveView !== null &&
+      this.lastComposedNeighbors !== null &&
+      this.lastComposedNeighbors.length > 0
+    ) {
       const activeId = props.view.dungeon.id;
       const previousActive = this.lastComposedActiveView;
       if (previousActive.dungeon.id === activeId) {
         neighbors = this.lastComposedNeighbors;
       } else {
-        const crossedInto = this.lastComposedNeighbors.find((neighbor) => neighbor.dungeonId === activeId);
+        const crossedInto = this.lastComposedNeighbors.find(
+          (neighbor) => neighbor.dungeonId === activeId,
+        );
         if (crossedInto !== undefined) {
           neighbors = [
             {
@@ -437,19 +906,37 @@ export class DungeonPhaserScene extends Phaser.Scene {
               gridY: previousActive.dungeon.gridY ?? 0,
               view: previousActive,
             },
-            ...this.lastComposedNeighbors.filter((neighbor) => neighbor.dungeonId !== activeId),
+            ...this.lastComposedNeighbors.filter(
+              (neighbor) => neighbor.dungeonId !== activeId,
+            ),
           ];
         }
       }
     }
-    const grants = uniqueGrants([props.view, ...neighbors.map((neighbor) => neighbor.view)]);
+    const grants = uniqueGrants([
+      props.view,
+      ...neighbors.map((neighbor) => neighbor.view),
+    ]);
     const abandonedIds = new Set(
-      grants.filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant))).map((grant) => grant.id),
+      grants
+        .filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant)))
+        .map((grant) => grant.id),
     );
-    const layout = computeLayout(props.view, neighbors, abandonedIds);
+    const layout = computeLayout(
+      props.view,
+      neighbors,
+      abandonedIds,
+      props.overrideLeaderX,
+      props.overrideLeaderY,
+    );
     this.lastComposedNeighbors = neighbors;
     this.lastComposedActiveView = props.view;
-    this.clampBounds = { x: layout.originX, y: layout.originY, width: layout.width, height: layout.height };
+    this.clampBounds = {
+      x: layout.originX,
+      y: layout.originY,
+      width: layout.width,
+      height: layout.height,
+    };
     // startFollow (lerp 1) tracks this target every frame, so moving it in
     // place keeps camera continuity across grid-crossing re-compositions.
     // A position change (a walk or a grid cross) glides the target to the new
@@ -457,8 +944,16 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // the glide, so crossing the seam stays continuous (the DOM animates the
     // canvas transform the same way via its 180ms CSS transition).
     const lastFollow = this.lastFollowTarget;
-    if (lastFollow === null || lastFollow.x !== layout.playerX || lastFollow.y !== layout.playerY) {
-      this.moveFollowTarget(layout.playerX, layout.playerY, props.moveDurationMs);
+    if (
+      lastFollow === null ||
+      lastFollow.x !== layout.playerX ||
+      lastFollow.y !== layout.playerY
+    ) {
+      this.moveFollowTarget(
+        layout.playerX,
+        layout.playerY,
+        props.moveDurationMs,
+      );
     }
     // The camera is NOT bounded via Phaser's setBounds: clampX/clampY mix the
     // camera's pixel width with displayWidth (width/zoom) and pin a world
@@ -467,7 +962,20 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // viewport stays free (the follow target keeps the player screen-centered,
     // the small-map centering branch); an overflowing axis clamps so no void
     // shows past the composed world's edge.
-    const missing = grants.filter((grant) => !this.textures.exists(tilesetKey(grant)));
+    // --- Geometry rebuild gate (the jitter fix) ---------------------------------
+    // A plain walk/crossing advances only the player's *cell* — the rendered
+    // world (every tile layer + flat graphics + POI text of the active map AND
+    // all neighbor maps) is byte-for-byte identical. Rebuilding it on every step
+    // is the per-step stutter. So we only clear+render the world when its
+    // GEOMETRY signature actually changed (a POI interaction, a grid crossing,
+    // a texture fallback, or the first ever render). The position path below
+    // (camera glide + party re-tween) ALWAYS runs, so movement stays fluid and
+    // a crossing still rebuilds correctly. See
+    // references/crossing-stutter-postmortem.md (the refuted blanket-skip froze
+    // walking; here only the geometry path is gated, never the position path).
+    const missing = grants.filter(
+      (grant) => !this.textures.exists(tilesetKey(grant)),
+    );
     const retryable = missing.filter((grant) => !abandonedIds.has(grant.id));
     if (retryable.length > 0) {
       // Textures land async — queue the load, register frames on complete,
@@ -475,7 +983,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
       // Grants past their retry budget are excluded, so a permanently missing
       // image falls back to the flat path instead of deadlocking forever.
       this.ensureTilesetsLoaded(grants);
-    } else {
+    } else if (this.geometryChanged(props.view, neighbors, abandonedIds)) {
       this.clearRendered();
       this.renderWorld(props, layout);
     }
@@ -483,29 +991,49 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // fallback dungeon with no tilesets must still show the party).
     this.renderParty(props, layout);
     this.renderRemotePlayers(props);
+    // Keep the minimap framed to the freshly composed world and hide the
+    // newly-created POI badges from it (re-render may have added more texts).
+    if (this.minimapEnabled) {
+      this.reframeMinimap();
+      this.updateMinimapIgnore();
+    }
   }
 
   private destroyRemotePlayer(render: RemotePlayerRender): void {
-    this.tweens.killTweensOf(render.container);
+    this.tweens.killTweensOf(render.leader);
+    this.tweens.killTweensOf(render.nameText);
+    render.leader.destroy();
+    render.nameText.destroy();
     for (const follower of render.followers) {
       this.tweens.killTweensOf(follower.sprite);
       follower.sprite.destroy();
     }
     render.followers = [];
-    render.container.removeAll(true);
-    render.container.destroy();
   }
 
   /**
    * Diff the remote-player list against the rendered sprites: create a
-   * dot (or placeholder circle) + name tag per newcomer, tween moves cell
-   * to cell with the same glide the local party uses, keep the follower
-   * fileira in sync with the trail, and destroy leavers.
+   * digimon sprite (or placeholder circle) + name tag per newcomer, tween
+   * moves cell to cell with the same glide the local party uses, keep the
+   * follower fileira in sync with the trail, and destroy leavers.
+   *
+   * Positioning contract: the leader sprite, name tag, and every follower are
+   * placed at WORLD coordinates (`slotX + x*tileSize + tileSize/2`) — the same
+   * absolute math the local party uses — and tweened in place. They are NOT
+   * parented to a Container. A Container would be fine for positioning (Phaser
+   * 3.90's `Container.add` keeps the child's local coords, so a sprite added at
+   * (0,0) still renders at the container's world position), but the previous
+   * code created the leader sprite at WORLD (0,0) and only added it on the
+   * placeholder path, leaving the async-loaded sprite orphaned at the world
+   * origin. World-space placement with no container removes that whole class of
+   * bug: the sprite is always created at its real cell.
    */
   private renderRemotePlayers(props: SceneProps): void {
     const layout = computeLayout(props.view, props.neighbors);
     const tileSize = layout.tileSize;
-    const byId = new Map(props.remotePlayers.map((player) => [player.userId, player] as const));
+    const byId = new Map(
+      props.remotePlayers.map((player) => [player.userId, player] as const),
+    );
 
     for (const [userId, render] of this.remotePlayers) {
       if (!byId.has(userId)) {
@@ -515,70 +1043,115 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }
 
     for (const player of props.remotePlayers) {
-      const cell = { x: player.x, y: player.y, gridX: player.gridX, gridY: player.gridY };
+      const cell = {
+        x: player.x,
+        y: player.y,
+        gridX: player.gridX,
+        gridY: player.gridY,
+      };
       const slotX = player.gridX * layout.slotW;
       const slotY = player.gridY * layout.slotH;
       const targetX = slotX + player.x * tileSize + tileSize / 2;
       const targetY = slotY + player.y * tileSize + tileSize / 2;
       const known = this.remotePlayers.get(player.userId);
 
-      const dotArrived =
-        known !== undefined &&
-        known.catalogId === null &&
-        player.leaderCatalogId !== undefined &&
-        player.leaderCatalogId !== '' &&
-        this.ensureDigimonSheetPreloaded([player.leaderCatalogId]);
-      if (dotArrived) {
-        this.destroyRemotePlayer(known);
-        this.remotePlayers.delete(player.userId);
-      } else if (known !== undefined) {
+      // The leader's sprite is created at its real WORLD cell the moment the
+      // texture is ready (spawnDigimonSprite), so there is no longer a
+      // placeholder→sprite rebuild: spawnDigimonSprite returns null until the
+      // sheet lands, at which point it creates the sprite straight at targetX/Y.
+      // If an already-shown placeholder circle needs upgrading to the real
+      // digimon, swap it in place (no destroy/recreate churn).
+      if (known !== undefined) {
         const moved =
-          known.cell.x !== cell.x || known.cell.y !== cell.y || known.cell.gridX !== cell.gridX || known.cell.gridY !== cell.gridY;
+          known.cell.x !== cell.x ||
+          known.cell.y !== cell.y ||
+          known.cell.gridX !== cell.gridX ||
+          known.cell.gridY !== cell.gridY;
         if (moved) {
-          this.tweens.killTweensOf(known.container);
+          this.tweens.killTweensOf(known.leader);
+          this.tweens.killTweensOf(known.nameText);
           this.tweens.add({
-            targets: known.container,
+            targets: [known.leader, known.nameText],
             x: targetX,
             y: targetY,
-            duration: Math.max(1, props.moveDurationMs),
-            ease: 'Linear',
+            duration: Math.max(MIN_TWEEN_MS, props.moveDurationMs),
+            ease: "Sine.easeInOut",
           });
           known.cell = cell;
         }
-        this.syncRemoteFollowers(known, player, slotX, slotY, tileSize, props.moveDurationMs);
+        // Upgrade placeholder circle → real digimon sprite once the sheet lands.
+        if (
+          known.catalogId === null &&
+          player.leaderCatalogId !== undefined &&
+          player.leaderCatalogId !== ""
+        ) {
+          const sprite = this.spawnDigimonSprite(
+            player.leaderCatalogId,
+            known.leader.x,
+            known.leader.y,
+            PARTY_DEPTH - 1,
+            false,
+            "remote-leader",
+          );
+          if (sprite !== null) {
+            known.leader.destroy();
+            known.leader = sprite;
+            known.catalogId = player.leaderCatalogId;
+          }
+        }
+        this.syncRemoteFollowers(
+          known,
+          player,
+          slotX,
+          slotY,
+          tileSize,
+          props.moveDurationMs,
+        );
         continue;
       }
 
-      const container = this.add.container(targetX, targetY);
-      const catalogId = player.leaderCatalogId ?? player.party?.[0] ?? '';
-      const dot = catalogId !== '' ? this.spawnDigimonSprite(catalogId, 0, 0, 0, false) : null;
-      if (dot === null) {
-        container.add(this.add.circle(0, 0, tileSize * 0.3, 0x9aa3b5));
-      } else {
-        container.add(dot);
-      }
-      const name = this.add.text(0, -tileSize / 2 - 4, player.displayName, {
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        color: '#ffffff',
-        stroke: '#000000',
-        strokeThickness: 3,
-      });
+      const catalogId = player.leaderCatalogId ?? player.party?.[0] ?? "";
+      // spawnDigimonSprite returns null until the sheet texture has loaded; the
+      // loader's COMPLETE handler re-renders, so the next pass upgrades the
+      // placeholder to the real digimon in place (see known!==undefined branch).
+      const leader =
+        catalogId !== ""
+          ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false, "remote-leader")
+          : null;
+      const leaderObj: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc =
+        leader !== null
+          ? leader
+          : this.add.circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5).setDepth(PARTY_DEPTH - 1);
+      const name = this.add.text(
+        targetX,
+        targetY - tileSize / 2 - 4,
+        player.displayName,
+        {
+          fontFamily: "monospace",
+          fontSize: "10px",
+          color: "#ffffff",
+          stroke: "#000000",
+          strokeThickness: 3,
+        },
+      );
       name.setOrigin(0.5, 1);
-      container.add(name);
-      container.setDepth(PARTY_DEPTH - 1);
+      name.setDepth(PARTY_DEPTH - 1);
       const render: RemotePlayerRender = {
-        container,
+        leader: leaderObj,
+        nameText: name,
         cell,
-        // When the dot texture wasn't ready yet, the container holds a
-        // placeholder circle — keep catalogId null so the dotArrived branch
-        // above can destroy it and rebuild with the real sprite on the next
-        // recompose once the texture lands.
-        catalogId: dot !== null ? catalogId : null,
+        catalogId: leader !== null ? catalogId : null,
         followers: [],
       };
       this.remotePlayers.set(player.userId, render);
-      this.syncRemoteFollowers(render, player, slotX, slotY, tileSize, props.moveDurationMs);
+      this.syncRemoteFollowers(
+        render,
+        player,
+        slotX,
+        slotY,
+        tileSize,
+        props.moveDurationMs,
+      );
     }
   }
 
@@ -593,58 +1166,144 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const party = player.party ?? [];
     const trail = player.trail ?? [];
     const wanted = Math.max(0, Math.min(party.length - 1, trail.length - 1, 2));
+    this.removeExcessFollowers(render, wanted);
+    for (let i = 0; i < wanted; i++) {
+      const memberIndex = i + 1;
+      const trailCell = trail[memberIndex];
+      if (trailCell === undefined) continue;
+      const catalogId = party[memberIndex] ?? "";
+      const targetX = slotX + trailCell.x * tileSize + tileSize / 2;
+      const targetY = slotY + trailCell.y * tileSize + tileSize / 2;
+      const existing = render.followers[i];
+      if (existing !== undefined) {
+        this.syncExistingFollower(
+          render,
+          i,
+          existing,
+          trailCell,
+          catalogId,
+          targetX,
+          targetY,
+          moveDurationMs,
+        );
+        continue;
+      }
+      render.followers.push({
+        sprite: this.createFollowerSprite(catalogId, targetX, targetY, tileSize),
+        cell: { x: trailCell.x, y: trailCell.y },
+      });
+    }
+  }
+
+  /** Drop trailing follower sprites past the wanted count. */
+  private removeExcessFollowers(
+    render: RemotePlayerRender,
+    wanted: number,
+  ): void {
     while (render.followers.length > wanted) {
       const removed = render.followers.pop();
       if (removed === undefined) break;
       this.tweens.killTweensOf(removed.sprite);
       removed.sprite.destroy();
     }
-    for (let i = 0; i < wanted; i++) {
-      const memberIndex = i + 1;
-      const trailCell = trail[memberIndex];
-      if (trailCell === undefined) continue;
-      const catalogId = party[memberIndex] ?? '';
-      const targetX = slotX + trailCell.x * tileSize + tileSize / 2;
-      const targetY = slotY + trailCell.y * tileSize + tileSize / 2;
-      const existing = render.followers[i];
-      if (existing !== undefined) {
-        if (existing.cell.x !== trailCell.x || existing.cell.y !== trailCell.y) {
-          this.tweens.killTweensOf(existing.sprite);
-          this.tweens.add({ targets: existing.sprite, x: targetX, y: targetY, duration: Math.max(1, moveDurationMs), ease: 'Linear' });
-          existing.cell = { x: trailCell.x, y: trailCell.y };
-        }
-        if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== '') {
-          const dot = this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false);
-          existing.sprite.destroy();
-          if (dot !== null) {
-            render.followers[i] = { sprite: dot, cell: { x: trailCell.x, y: trailCell.y } };
-          }
-        }
-        continue;
+  }
+
+  /** Tween an existing follower to its new cell and swap a circle for a loaded dot. */
+  private syncExistingFollower(
+    render: RemotePlayerRender,
+    index: number,
+    existing: RemotePlayerRender["followers"][number],
+    trailCell: { readonly x: number; readonly y: number },
+    catalogId: string,
+    targetX: number,
+    targetY: number,
+    moveDurationMs: number,
+  ): void {
+    if (existing.cell.x !== trailCell.x || existing.cell.y !== trailCell.y) {
+      this.tweens.killTweensOf(existing.sprite);
+      this.tweens.add({
+        targets: existing.sprite,
+        x: targetX,
+        y: targetY,
+        duration: Math.max(MIN_TWEEN_MS, moveDurationMs),
+        ease: "Sine.easeInOut",
+      });
+      existing.cell = { x: trailCell.x, y: trailCell.y };
+    }
+    if (existing.sprite instanceof Phaser.GameObjects.Arc && catalogId !== "") {
+      const dot = this.spawnDigimonSprite(
+        catalogId,
+        targetX,
+        targetY,
+        PARTY_DEPTH - 1,
+        false,
+        "remote-follower",
+      );
+      existing.sprite.destroy();
+      if (dot !== null) {
+        render.followers[index] = {
+          sprite: dot,
+          cell: { x: trailCell.x, y: trailCell.y },
+        };
       }
-      let sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
-      const dot = catalogId !== '' ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false) : null;
-      if (dot === null) {
-        sprite = this.add.circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5).setDepth(PARTY_DEPTH - 1);
-      } else {
-        sprite = dot;
-      }
-      render.followers.push({ sprite, cell: { x: trailCell.x, y: trailCell.y } });
     }
   }
 
-  private clampFollowTargetPos(x: number, y: number): { readonly x: number; readonly y: number } {
+  /** A remote follower is a digimon dot when the catalog id resolved, else a placeholder circle. */
+  private createFollowerSprite(
+    catalogId: string,
+    targetX: number,
+    targetY: number,
+    tileSize: number,
+  ): Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc {
+    const dot =
+      catalogId !== ""
+        ? this.spawnDigimonSprite(
+            catalogId,
+            targetX,
+            targetY,
+            PARTY_DEPTH - 1,
+            false,
+            "remote-follower",
+          )
+        : null;
+    if (dot === null) {
+      return this.add
+        .circle(targetX, targetY, tileSize * 0.3, 0x9aa3b5)
+        .setDepth(PARTY_DEPTH - 1);
+    }
+    return dot;
+  }
+
+  private clampFollowTargetPos(
+    x: number,
+    y: number,
+  ): { readonly x: number; readonly y: number } {
     const bounds = this.clampBounds;
     if (bounds === null) return { x, y };
     const camera = this.cameras.main;
-    const displayW = camera.width / camera.zoom;
-    const displayH = camera.height / camera.zoom;
-    const cx = bounds.width > displayW
-      ? Phaser.Math.Clamp(x, bounds.x + displayW / 2, bounds.x + bounds.width - displayW / 2)
-      : bounds.x + bounds.width / 2;
-    const cy = bounds.height > displayH
-      ? Phaser.Math.Clamp(y, bounds.y + displayH / 2, bounds.y + bounds.height - displayH / 2)
-      : bounds.y + bounds.height / 2;
+    // Defensive: a scene whose camera has been torn down (SHUTDOWN) must never
+    // throw here. If this still fires on a dead scene, booted/followTarget
+    // should have already short-circuited recompose — this is the backstop.
+    if (!camera) return { x, y };
+    const displayW = camera.displayWidth / camera.zoom;
+    const displayH = camera.displayHeight / camera.zoom;
+    const cx =
+      bounds.width > displayW
+        ? Phaser.Math.Clamp(
+            x,
+            bounds.x + displayW / 2,
+            bounds.x + bounds.width - displayW / 2,
+          )
+        : bounds.x + bounds.width / 2;
+    const cy =
+      bounds.height > displayH
+        ? Phaser.Math.Clamp(
+            y,
+            bounds.y + displayH / 2,
+            bounds.y + bounds.height - displayH / 2,
+          )
+        : bounds.y + bounds.height / 2;
     return { x: cx, y: cy };
   }
 
@@ -668,8 +1327,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
       targets: target,
       x: clamped.x,
       y: clamped.y,
-      duration: Math.max(1, durationMs),
-      ease: 'Linear',
+      duration: Math.max(MIN_TWEEN_MS, durationMs),
+      ease: "Sine.easeInOut",
     });
     this.lastFollowTarget = { x: clamped.x, y: clamped.y };
   }
@@ -682,7 +1341,228 @@ export class DungeonPhaserScene extends Phaser.Scene {
     // Safety net for mid-game viewport resizes (the walk path pre-clamps its
     // destination, so this only ever corrects a stale target after a resize).
     const clamped = this.clampFollowTargetPos(target.x, target.y);
-    if (clamped.x !== target.x || clamped.y !== target.y) target.setPosition(clamped.x, clamped.y);
+    if (clamped.x !== target.x || clamped.y !== target.y)
+      target.setPosition(clamped.x, clamped.y);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Camera system: zoom, effects, minimap  (Phaser camera tutorial patterns)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Mouse-wheel zoom for the MAIN camera. Each wheel notch nudges `targetZoom`
+   * by a step and animates to it with `zoomTo` (200ms ease) — a smooth,
+   * strategy-game-style zoom rather than a jarring snap. The result is clamped
+   * to [MIN_ZOOM, MAX_ZOOM]. Because the follow target is in WORLD coordinates
+   * and independent of zoom, zooming never moves the player off-center; the
+   * clamp in clampFollowTargetPos reads `displayWidth/zoom` so a wider view
+   * (lower zoom) still centers the player on a narrow map. Zoom also changes the
+   * visible viewport, so the world is re-culled once the animation settles.
+   */
+  private applyWheelZoom(
+    pointer: Phaser.Input.Pointer,
+    gameObjects: Phaser.GameObjects.GameObject[],
+    deltaX: number,
+    deltaY: number,
+  ): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    const step = 0.2;
+    const dir = deltaY > 0 ? -step : step;
+    this.targetZoom = Phaser.Math.Clamp(
+      camera.zoom + dir,
+      MIN_ZOOM,
+      MAX_ZOOM,
+    );
+    camera.zoomTo(this.targetZoom, 200, "Sine.easeOut");
+    // Re-cull after the zoom animation settles (debounced — a wheel burst fires
+    // many events but the world only needs one refresh).
+    if (!this.cullRefreshPending) {
+      this.cullRefreshPending = true;
+      this.time.delayedCall(220, () => {
+        this.cullRefreshPending = false;
+        if (this.isAlive() && this.rendered) this.refreshCulling();
+      });
+    }
+    void pointer;
+    void gameObjects;
+    void deltaX;
+  }
+
+  /** Re-run the viewport culling for the current (possibly zoomed) view. */
+  private refreshCulling(): void {
+    const props = this.latestProps;
+    if (props === null || this.followTarget === null) return;
+    const neighbors = this.lastComposedNeighbors ?? props.neighbors;
+    const abandonedIds = new Set(
+      uniqueGrants([props.view, ...neighbors.map((n) => n.view)])
+        .filter((grant) => isTextureAbandoned(this.textures, tilesetKey(grant)))
+        .map((grant) => grant.id),
+    );
+    const layout = computeLayout(props.view, neighbors, abandonedIds);
+    // Zoom changed the visible viewport, so a different set of map slots may now
+    // be culled in/out — force the world rebuild (don't gate on the signature,
+    // which is unchanged by a zoom). Consume the flag here so the rebuild that
+    // follows does not also fire on the next ordinary recompose.
+    this.forceGeometryRebuild = false;
+    this.clearRendered();
+    this.renderWorld(props, layout);
+  }
+
+  /**
+   * Smoothly zoom the main camera to `zoom` over `durationMs` (animated) or
+   * instantly when `durationMs` is 0. Clamped to [MIN_ZOOM, MAX_ZOOM]. Public
+   * for the wrapper / debug hooks (e.g. a zoom-slider in the HUD).
+   */
+  setZoom(zoom: number, durationMs = 250): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    this.targetZoom = Phaser.Math.Clamp(zoom, MIN_ZOOM, MAX_ZOOM);
+    if (durationMs <= 0) camera.setZoom(this.targetZoom);
+    else camera.zoomTo(this.targetZoom, durationMs, "Sine.easeOut");
+    this.time.delayedCall(durationMs + 20, () => {
+      if (this.isAlive() && this.rendered) this.refreshCulling();
+    });
+  }
+
+  getZoom(): number {
+    return this.cameras?.main?.zoom ?? this.targetZoom;
+  }
+
+  /**
+   * Camera shake for impacts/explosions/damage. Thin wrapper over
+   * `cameras.main.shake(duration, intensity, force)` so callers don't need the
+   * Phaser camera reference. Intensity is the fraction of the viewport that
+   * jitters (0.005 = subtle, 0.02 = strong, 0.05 = boss death).
+   */
+  shake(durationMs = 200, intensity = 0.005): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.shake(durationMs, intensity);
+  }
+
+  /**
+   * Camera flash for power-ups/critical hits/lightning. Wraps
+   * `cameras.main.flash(duration, r, g, b, force)`. Red (255,0,0) is the damage
+   * flash; white (255,255,255) is the success/pickup flash.
+   */
+  flash(durationMs = 100, r = 255, g = 255, b = 255): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.flash(durationMs, r, g, b);
+  }
+
+  /**
+   * Fade the main camera to `color` over `durationMs`, then run `onComplete`
+   * (the wrapper uses this for scene/dungeon transitions). Wraps
+   * `cameras.main.fadeOut` + the `camerafadeoutcomplete` event.
+   */
+  fadeOut(durationMs = 500, r = 0, g = 0, b = 0, onComplete?: () => void): void {
+    if (!this.isAlive()) return;
+    const camera = this.cameras.main;
+    camera.fadeOut(durationMs, r, g, b);
+    if (onComplete !== undefined) {
+      const handler = (): void => {
+        camera.off(
+          Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+          handler,
+          this,
+        );
+        onComplete();
+      };
+      camera.once(
+        Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE,
+        handler,
+        this,
+      );
+    }
+  }
+
+  /** Fade the main camera back IN from `color` (call at scene start). */
+  fadeIn(durationMs = 800, r = 0, g = 0, b = 0): void {
+    if (!this.isAlive()) return;
+    this.cameras.main.fadeIn(durationMs, r, g, b);
+  }
+
+  /**
+   * Enable the minimap: a second viewport camera pinned to the bottom-right
+   * corner that renders the WHOLE composed world at a tiny fixed zoom, with the
+   * POI badges/HUD hidden (it ignores those objects). Toggle-able at runtime
+   * and across remounts. The minimap re-frames every recompose so a grid
+   * crossing keeps it correct.
+   */
+  enableMinimap(): void {
+    if (!this.isAlive()) return;
+    if (this.minimapEnabled) {
+      this.reframeMinimap();
+      return;
+    }
+    const cam = this.cameras.main;
+    const size = Math.round(
+      Math.min(MINIMAP_SIZE, cam.width - 2 * MINIMAP_MARGIN),
+    );
+    const x = cam.width - size - MINIMAP_MARGIN;
+    const y = cam.height - size - MINIMAP_MARGIN;
+    const mini = this.cameras.add(x, y, size, size);
+    // Render the entire world into the minimap regardless of where the main
+    // camera is; ignore the perf HUD + POI badge texts so they don't bleed in.
+    mini.setZoom(MINIMAP_ZOOM);
+    mini.setBackgroundColor("#10131c");
+    mini.setAlpha(0.9);
+    this.minimapCamera = mini;
+    this.minimapEnabled = true;
+    this.reframeMinimap();
+    // The border is a screen-fixed rectangle on the MAIN camera only.
+    this.minimapBorder?.destroy();
+    this.minimapBorder = this.add
+      .rectangle(x, y, size, size)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.6)
+      .setFillStyle(0, 0)
+      .setScrollFactor(0)
+      .setDepth(99998);
+    this.minimapBorder.setData("minimapBorder", true);
+  }
+
+  /** Re-anchor the minimap camera to the current composed world bounds. */
+  private reframeMinimap(): void {
+    const mini = this.minimapCamera;
+    if (mini === null || this.clampBounds === null) return;
+    const b = this.clampBounds;
+    mini.setBounds(b.x, b.y, b.width, b.height);
+    mini.centerOn(b.x + b.width / 2, b.y + b.height / 2);
+    mini.setZoom(
+      Phaser.Math.Clamp(
+        Math.min(mini.width / b.width, mini.height / b.height) * 0.98,
+        0.02,
+        MINIMAP_ZOOM,
+      ),
+    );
+  }
+
+  /** Hide POI badges + HUD from the minimap camera (call after each render). */
+  private updateMinimapIgnore(): void {
+    const mini = this.minimapCamera;
+    if (mini === null) return;
+    // Ignore UI-only objects: perf HUD text + every POI badge text. World
+    // objects (tilemaps, party, boss sprites) stay visible.
+    const ignore: Phaser.GameObjects.GameObject[] = [];
+    if (this.hudText !== null) ignore.push(this.hudText);
+    for (const text of this.renderedTexts) ignore.push(text);
+    if (this.minimapBorder !== null) ignore.push(this.minimapBorder);
+    if (ignore.length > 0) mini.ignore(ignore);
+  }
+
+  disableMinimap(): void {
+    if (this.minimapCamera !== null) {
+      this.cameras.remove(this.minimapCamera);
+      this.minimapCamera = null;
+    }
+    this.minimapEnabled = false;
+    this.minimapBorder?.destroy();
+    this.minimapBorder = null;
+  }
+
+  isMinimapEnabled(): boolean {
+    return this.minimapEnabled;
   }
 
   /**
@@ -706,13 +1586,25 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const slotOffsetX = gridX * layout.slotW;
     const slotOffsetY = gridY * layout.slotH;
     const leader = props.party[0];
-    const members: { readonly catalogId: string; readonly isLeader: boolean; readonly x: number; readonly y: number }[] = [];
+    const members: {
+      readonly catalogId: string;
+      readonly isLeader: boolean;
+      readonly x: number;
+      readonly y: number;
+    }[] = [];
     if (leader !== undefined) {
+      // Client-side prediction: when the route has already advanced the player
+      // locally (overrideLeaderX/Y), the leader renders at the predicted cell so
+      // the walk tween starts immediately instead of waiting for the server RTT.
+      const leaderCellX =
+        props.overrideLeaderX ?? props.view.run.currentX;
+      const leaderCellY =
+        props.overrideLeaderY ?? props.view.run.currentY;
       members.push({
         catalogId: leader.catalogId,
         isLeader: true,
-        x: slotOffsetX + props.view.run.currentX * tileSize + tileSize / 2,
-        y: slotOffsetY + props.view.run.currentY * tileSize + tileSize / 2,
+        x: slotOffsetX + leaderCellX * tileSize + tileSize / 2,
+        y: slotOffsetY + leaderCellY * tileSize + tileSize / 2,
       });
     }
     for (let i = 1; i < props.party.length; i += 1) {
@@ -728,33 +1620,74 @@ export class DungeonPhaserScene extends Phaser.Scene {
     }
 
     const neededDots = [...new Set(members.map((member) => member.catalogId))];
+    // Stability key: only the SET of digimon catalog ids forces a sprite rebuild.
+    // A plain move (position change, facing flip) must NOT destroy + recreate the
+    // sprites — recreate() restarts the walk animation on frame 0 every
+    // recompose, which made the whole party look frozen/static even though the
+    // sheets animated fine. When only positions change we reposition in place.
+    const partyKey = members.map((m) => m.catalogId).join("|");
+    const partyChanged = partyKey !== this.lastPartyKey;
+    this.lastPartyKey = partyKey;
 
     const previousLeader = this.leaderSprite;
     const previousLeaderPos =
-      previousLeader !== null ? { x: previousLeader.x, y: previousLeader.y } : null;
+      previousLeader !== null
+        ? { x: previousLeader.x, y: previousLeader.y }
+        : null;
     if (previousLeader !== null) this.tweens.killTweensOf(previousLeader);
-    this.partyGroup?.destroy(true);
-    this.partyGroup = null;
-    this.leaderSprite = null;
+    if (partyChanged) {
+      this.partyGroup?.destroy(true);
+      this.partyGroup = null;
+      this.leaderSprite = null;
+    }
 
     if (members.length === 0) return;
 
-    const flipX = props.facing === 'left';
-    const group = this.add.group();
-    this.partyGroup = group;
+    // The digimon art in these sheets faces LEFT by default, so we mirror
+    // (flipX) when the party is moving RIGHT — not left. (Previously
+    // flipX = facing === "left", which made walk-left face right: backwards.)
+    const flipX = props.facing === "right";
+    // Keep a persistent group across recomposes (only (re)built when the party
+    // set changes) so the walk animation is never restarted by a plain move.
+    if (this.partyGroup === null) {
+      this.partyGroup = this.add.group();
+    }
+    const group = this.partyGroup;
+    if (partyChanged) {
+      this.partySprites.clear();
+    }
 
     const leaderMember = members.find((member) => member.isLeader);
     const leaderMoved =
       previousLeaderPos !== null &&
       leaderMember !== undefined &&
       leaderMember.catalogId === this.lastLeaderCatalogId &&
-      (previousLeaderPos.x !== leaderMember.x || previousLeaderPos.y !== leaderMember.y);
+      (previousLeaderPos.x !== leaderMember.x ||
+        previousLeaderPos.y !== leaderMember.y);
 
     for (const member of members) {
-      const sprite = this.spawnDigimonSprite(member.catalogId, member.x, member.y, PARTY_DEPTH, flipX);
+      // Reuse the existing sprite for this digimon instead of destroying it;
+      // only create once per catalog id, then reposition (preserves the walk
+      // animation that was running).
+      let sprite = this.partySprites.get(member.catalogId) ?? null;
+      if (sprite === null || !sprite.active) {
+        sprite = this.spawnDigimonSprite(
+          member.catalogId,
+          member.x,
+          member.y,
+          PARTY_DEPTH,
+          flipX,
+          "party",
+        );
+        if (sprite !== null) {
+          sprite.setName(`digimon-party:${member.catalogId}`);
+          this.partySprites.set(member.catalogId, sprite);
+        }
+      }
       if (sprite === null) continue;
-      sprite.setData('catalogId', member.catalogId);
-      group.add(sprite);
+      sprite.setData("catalogId", member.catalogId);
+      if (!group.contains(sprite)) group.add(sprite);
+      sprite.setFlipX(flipX);
       if (member.isLeader) {
         this.leaderSprite = sprite;
         if (leaderMoved) {
@@ -764,9 +1697,20 @@ export class DungeonPhaserScene extends Phaser.Scene {
             x: member.x,
             y: member.y,
             duration: props.moveDurationMs,
-            ease: 'Linear',
+            ease: "Sine.easeInOut",
           });
+        } else {
+          sprite.setPosition(member.x, member.y);
         }
+      } else {
+        sprite.setPosition(member.x, member.y);
+      }
+    }
+    // Drop sprites whose digimon is no longer in the party.
+    for (const [catalogId, sprite] of this.partySprites) {
+      if (!members.some((m) => m.catalogId === catalogId)) {
+        sprite.destroy();
+        this.partySprites.delete(catalogId);
       }
     }
     this.lastLeaderCatalogId = leader?.catalogId ?? null;
@@ -783,7 +1727,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * being stuck "requested" forever.
    */
   private ensureDigimonDotsLoaded(catalogIds: readonly string[]): boolean {
-    const missing = catalogIds.filter((catalogId) => !this.textures.exists(digimonDotKey(catalogId)));
+    const missing = catalogIds.filter(
+      (catalogId) => !this.textures.exists(digimonDotKey(catalogId)),
+    );
     if (missing.length === 0) return true;
     if (this.dotsLoading) return false;
     const loader = this.load;
@@ -819,9 +1765,22 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * `ensureDigimonDotsLoaded` but targets the generated sheet endpoint; missing
    * sheets simply 404 and fall back to the GIF dot when the sprite is spawned.
    */
+  /**
+   * Queue the 2×2 sprite sheets for the given catalog ids so they are ready
+   * before sprites are spawned. Returns `true` when every sheet is already
+   * loaded (callers can spawn immediately); `false` while a load is in flight
+   * or queued. The COMPLETE handler re-renders so callers that got `false`
+   * converge on the loaded sprites on the next pass. (Previously this always
+   * returned `false`, which made any caller relying on the boolean as an
+   * "arrived" signal dead code.)
+   */
   private ensureDigimonSheetPreloaded(catalogIds: readonly string[]): boolean {
     const loader = this.load;
     if (loader.isLoading()) return false;
+    const allReady = catalogIds.every((id) =>
+      this.textures.exists(digimonSheetKey(id)),
+    );
+    if (allReady) return true;
     const listSizeBefore = loader.list.size;
     for (const catalogId of catalogIds) preloadDigimonSheet(this, catalogId);
     if (loader.list.size === listSizeBefore) return false;
@@ -842,17 +1801,28 @@ export class DungeonPhaserScene extends Phaser.Scene {
     y: number,
     depth: number,
     flipX: boolean,
+    role: string,
   ): Phaser.GameObjects.Sprite | null {
-    const existing = this.children.getByName(`digimon:${catalogId}:${x}:${y}`) as Phaser.GameObjects.Sprite | null;
-    if (existing !== null) return existing;
+    const existing = this.children.getByName(
+      digimonSpriteName(role, catalogId),
+    );
+    if (existing instanceof Phaser.GameObjects.Sprite) return existing;
     let sprite: Phaser.GameObjects.Sprite | null = null;
     ensureDigimonSpriteLoaded(this, catalogId, (load) => {
-      if (load.kind === 'none') return;
+      if (load.kind === "none") return;
       if (this.textures.exists(load.key)) {
-        sprite = this.add.sprite(x, y, load.key, load.kind === 'sheet' ? '0' : undefined);
-        sprite.setName(`digimon:${catalogId}:${x}:${y}`);
+        sprite = this.add.sprite(
+          x,
+          y,
+          load.key,
+          load.kind === "sheet" ? "cell0" : undefined,
+        );
+        sprite.setName(digimonSpriteName(role, catalogId));
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
+        // Force the sliced cell frame explicitly: the numeric "0" frame name used
+        // to collide with Phaser's __BASE whole-sheet frame, so set it directly.
+        if (load.kind === "sheet") sprite.setFrame("cell0");
         sprite.setFlipX(flipX);
         sprite.setDepth(depth);
         if (this.anims.exists(load.walkAnim)) sprite.play(load.walkAnim);
@@ -864,11 +1834,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   /** Play the attack pose (frame 3) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonAttack(sprite: Phaser.GameObjects.Sprite): void {
-    const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
+    const catalogId = catalogIdFromSpriteName(sprite.name);
     const attackAnim = sheetAttackAnimKey(catalogId);
-    if (sprite.anims.currentAnim?.key !== attackAnim && this.anims.exists(attackAnim)) {
+    if (
+      sprite.anims.currentAnim?.key !== attackAnim &&
+      this.anims.exists(attackAnim)
+    ) {
       sprite.play(attackAnim);
-      this.time.delayedCall(400, () => {
+      this.time.delayedCall(ANIMATION_HOLD_MS, () => {
         const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
@@ -877,11 +1850,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
   /** Play the take-hit pose (frame 2) on a digimon sprite; after a brief hold return to walk. */
   private playDigimonTakeHit(sprite: Phaser.GameObjects.Sprite): void {
-    const catalogId = (sprite.name.split(':')[1] ?? '').replace(/^sheet-/, '').replace(/^dot-/, '');
+    const catalogId = catalogIdFromSpriteName(sprite.name);
     const takeHitAnim = sheetTakeHitAnimKey(catalogId);
-    if (sprite.anims.currentAnim?.key !== takeHitAnim && this.anims.exists(takeHitAnim)) {
+    if (
+      sprite.anims.currentAnim?.key !== takeHitAnim &&
+      this.anims.exists(takeHitAnim)
+    ) {
       sprite.play(takeHitAnim);
-      this.time.delayedCall(400, () => {
+      this.time.delayedCall(ANIMATION_HOLD_MS, () => {
         const walkAnim = sheetWalkAnimKey(catalogId);
         if (this.anims.exists(walkAnim)) sprite.play(walkAnim);
       });
@@ -891,8 +1867,14 @@ export class DungeonPhaserScene extends Phaser.Scene {
   /** Trigger the boss's attack pose when an encounter starts. */
   triggerBossHit(catalogId: string): void {
     for (const sprite of this.renderedSprites) {
-      if (sprite.getData('poiKind') === 'boss' && sprite.getData('bossCatalogId') === catalogId) {
+      if (
+        getSpriteData<string>(sprite, "poiKind") === "boss" &&
+        getSpriteData<string>(sprite, "bossCatalogId") === catalogId
+      ) {
         this.playDigimonAttack(sprite);
+        // Camera game-feel: a brief shake + white flash on the boss impact.
+        this.shake(150, 0.008);
+        this.flash(80, 255, 255, 255);
         return;
       }
     }
@@ -911,7 +1893,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
    */
   private ensureTilesetsLoaded(grants: readonly TilesetGrant[]): void {
     if (this.texturesLoading) return;
-    const missing = grants.filter((grant) => !this.textures.exists(tilesetKey(grant)));
+    const missing = grants.filter(
+      (grant) => !this.textures.exists(tilesetKey(grant)),
+    );
     if (missing.length === 0) return;
     const queued = preloadTilesets(this, missing);
     if (queued.length === 0) return;
@@ -923,7 +1907,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
         const key = tilesetKey(grant);
         if (this.textures.exists(key)) continue;
         markTextureLoadFailed(this, key);
-        if (isTextureAbandoned(this.textures, key) && !this.textureFallbackReported.has(key)) {
+        if (
+          isTextureAbandoned(this.textures, key) &&
+          !this.textureFallbackReported.has(key)
+        ) {
           this.textureFallbackReported.add(key);
           newlyAbandoned.push(grant);
         }
@@ -931,11 +1918,18 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (newlyAbandoned.length > 0) {
         console.error(
           `[dungeon] tileset textures failed after ${MAX_TEXTURE_RETRIES} retries — falling back to flat rendering: ` +
-            newlyAbandoned.map((grant) => `${grant.id} (${grant.imageUrl})`).join(', '),
+            newlyAbandoned
+              .map((grant) => `${grant.id} (${grant.imageUrl})`)
+              .join(", "),
         );
         this.latestProps?.onTextureFallback(newlyAbandoned);
       }
       registerTilesets(this, missing);
+      // A texture that was missing is now registered. Geometry content is
+      // unchanged (so the signature gate would otherwise skip the rebuild), but
+      // the just-loaded pixels must now be painted — force the next composition
+      // to rebuild the world.
+      this.forceGeometryRebuild = true;
       this.recompose();
     });
     this.load.start();
@@ -975,10 +1969,19 @@ export class DungeonPhaserScene extends Phaser.Scene {
     };
     const bossDots = [
       ...new Set(
-        [props.view, ...props.neighbors.map((neighbor) => neighbor.view)].flatMap((view) =>
+        [
+          props.view,
+          ...props.neighbors.map((neighbor) => neighbor.view),
+        ].flatMap((view) =>
           view.encounters
-            .filter((encounter) => encounter.difficulty === 'boss' && !view.run.defeatedEncounters.includes(encounter.id))
-            .flatMap((encounter) => encounter.digimon.map((digimon) => digimon.catalogId)),
+            .filter(
+              (encounter) =>
+                encounter.difficulty === "boss" &&
+                !view.run.defeatedEncounters.includes(encounter.id),
+            )
+            .flatMap((encounter) =>
+              encounter.digimon.map((digimon) => digimon.catalogId),
+            ),
         ),
       ),
     ];
@@ -999,8 +2002,20 @@ export class DungeonPhaserScene extends Phaser.Scene {
     for (const position of layout.positions) {
       const offsetX = position.gridX * layout.slotW;
       const offsetY = position.gridY * layout.slotH;
-      if (offsetX + layout.slotW < cullLeft || offsetX > cullRight || offsetY + layout.slotH < cullTop || offsetY > cullBottom) continue;
-      this.renderMap(position.view, offsetX, offsetY, position.gridX, position.gridY);
+      if (
+        offsetX + layout.slotW < cullLeft ||
+        offsetX > cullRight ||
+        offsetY + layout.slotH < cullTop ||
+        offsetY > cullBottom
+      )
+        continue;
+      this.renderMap(
+        position.view,
+        offsetX,
+        offsetY,
+        position.gridX,
+        position.gridY,
+      );
       this.mapCount++;
     }
     this.rendered = true;
@@ -1028,11 +2043,25 @@ export class DungeonPhaserScene extends Phaser.Scene {
    *
    * No collision/physics — `setCollision` is never called.
    */
-  renderMap(view: DungeonRunView, offsetX = 0, offsetY = 0, slotGridX = 0, slotGridY = 0): void {
-    const grants = view.tilesets.filter((grant) => !isTextureAbandoned(this.textures, tilesetKey(grant)));
+  renderMap(
+    view: DungeonRunView,
+    offsetX = 0,
+    offsetY = 0,
+    slotGridX = 0,
+    slotGridY = 0,
+  ): void {
+    const grants = view.tilesets.filter(
+      (grant) => !isTextureAbandoned(this.textures, tilesetKey(grant)),
+    );
     const primary = primaryTileset(grants);
     const tileSize = primary?.tileWidth ?? TILE_SIZE_FALLBACK;
-    const mixed = primary !== null && grants.some((grant) => grant.tileWidth !== primary.tileWidth || grant.tileHeight !== primary.tileHeight);
+    const mixed =
+      primary !== null &&
+      grants.some(
+        (grant) =>
+          grant.tileWidth !== primary.tileWidth ||
+          grant.tileHeight !== primary.tileHeight,
+      );
     this.mixedSizes = this.mixedSizes || mixed;
     const width = view.dungeon.width;
     const height = view.dungeon.height;
@@ -1043,15 +2072,22 @@ export class DungeonPhaserScene extends Phaser.Scene {
       if (list) list.push(tile);
       else buckets.set(tile.layerKind, [tile]);
     }
-    const bucketEntries = [...buckets.entries()].sort((a, b) => this.kindDepth(a[0]) - this.kindDepth(b[0]));
+    const bucketEntries = [...buckets.entries()].sort(
+      (a, b) => this.kindDepth(a[0]) - this.kindDepth(b[0]),
+    );
     const flatCells = new Set<string>();
 
     for (const [kind, tiles] of bucketEntries) {
       const depth = this.kindDepth(kind);
       const data: number[][] = [];
-      for (let y = 0; y < height; y++) data.push(new Array<number>(width).fill(-1));
+      for (let y = 0; y < height; y++)
+        data.push(new Array<number>(width).fill(-1));
       const rawByCell = new Map<string, number>();
-      const spriteCells: { readonly x: number; readonly y: number; readonly rawGid: number }[] = [];
+      const spriteCells: {
+        readonly x: number;
+        readonly y: number;
+        readonly rawGid: number;
+      }[] = [];
       let placed = 0;
 
       for (const tile of tiles) {
@@ -1065,15 +2101,29 @@ export class DungeonPhaserScene extends Phaser.Scene {
           continue;
         }
         const row = data[tile.y];
-        if (!row || tile.x < 0 || tile.x >= width || tile.y < 0 || tile.y >= height) continue;
+        if (
+          !row ||
+          tile.x < 0 ||
+          tile.x >= width ||
+          tile.y < 0 ||
+          tile.y >= height
+        )
+          continue;
         row[tile.x] = bareGidForTile(tile.gid);
         rawByCell.set(`${tile.x},${tile.y}`, tile.gid);
         placed++;
       }
 
       if (placed > 0) {
-        const map = this.make.tilemap({ data, tileWidth: tileSize, tileHeight: tileSize });
-        registerTilesetsOnTilemap(map, mixed && primary !== null ? [primary] : grants);
+        const map = this.make.tilemap({
+          data,
+          tileWidth: tileSize,
+          tileHeight: tileSize,
+        });
+        registerTilesetsOnTilemap(
+          map,
+          mixed && primary !== null ? [primary] : grants,
+        );
         const layer = map.createLayer(0, map.tilesets, offsetX, offsetY);
         if (layer !== null) {
           layer.setDepth(depth);
@@ -1081,17 +2131,26 @@ export class DungeonPhaserScene extends Phaser.Scene {
           // alpha so the floor/grass bed beneath shows through (the spike
           // proved this "water on top of an opaque bed" model). Other terrain
           // kinds stay fully opaque.
-          if (kind === 'water' || kind === 'liquid') layer.setAlpha(WATER_ALPHA);
+          if (kind === "water" || kind === "liquid")
+            layer.setAlpha(WATER_ALPHA);
           // Re-apply the Tiled flip flags from the raw GIDs (never put flagged
           // gids in the data array — Phaser resolves bare gids through the
           // tileset firstgid spaces).
           for (const [key, rawGid] of rawByCell) {
-            const coords = key.split(',').map(Number);
+            const coords = key.split(",").map(Number);
             const tile = layer.getTileAt(coords[0]!, coords[1]!);
             if (tile !== null) applyTiledFlips(tile, rawGid);
           }
           this.renderedLayers.push(layer);
-          this.layerInfos.push({ kind, depth, x: offsetX, y: offsetY, width, height, count: placed });
+          this.layerInfos.push({
+            kind,
+            depth,
+            x: offsetX,
+            y: offsetY,
+            width,
+            height,
+            count: placed,
+          });
         }
       }
 
@@ -1110,7 +2169,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         const flip = tiledFlipBits(cell.rawGid);
         sprite.setFlipX(flip.flipped);
         sprite.setFlipY(false);
-        sprite.setAngle(flip.rotation * 180 / Math.PI);
+        sprite.setAngle((flip.rotation * 180) / Math.PI);
         sprite.setDepth(depth);
         this.renderedSprites.push(sprite);
       }
@@ -1118,10 +2177,12 @@ export class DungeonPhaserScene extends Phaser.Scene {
 
     if (flatCells.size > 0) {
       const gfx = this.add.graphics();
-      const flatFill = Phaser.Display.Color.HexStringToColor(FLAT_CELL_FILL).color;
-      const gridFill = Phaser.Display.Color.HexStringToColor(FLAT_CELL_GRIDLINE).color;
+      const flatFill =
+        Phaser.Display.Color.HexStringToColor(FLAT_CELL_FILL).color;
+      const gridFill =
+        Phaser.Display.Color.HexStringToColor(FLAT_CELL_GRIDLINE).color;
       for (const key of flatCells) {
-        const coords = key.split(',').map(Number);
+        const coords = key.split(",").map(Number);
         const px = offsetX + coords[0]! * tileSize;
         const py = offsetY + coords[1]! * tileSize;
         gfx.fillStyle(flatFill, 1);
@@ -1135,157 +2196,273 @@ export class DungeonPhaserScene extends Phaser.Scene {
       gfx.setDepth(FLAT_CELL_DEPTH);
       this.flatGraphics.push(gfx);
       this.flatCells += flatCells.size;
-      const totalCells = new Set(view.tiles.map((tile) => `${tile.x},${tile.y}`)).size;
+      const totalCells = new Set(
+        view.tiles.map((tile) => `${tile.x},${tile.y}`),
+      ).size;
       if (totalCells > 0 && flatCells.size === totalCells) {
-        console.warn(`[dungeon] map ${view.dungeon.id} rendered with zero owned tiles (${flatCells.size}/${totalCells} cells flat) — tileset-less dungeon`);
+        console.warn(
+          `[dungeon] map ${view.dungeon.id} rendered with zero owned tiles (${flatCells.size}/${totalCells} cells flat) — tileset-less dungeon`,
+        );
       }
     }
 
     const run = view.run;
-    const firedSet = new Set(view.firedTriggerIds);
-    const doorOpenIds = new Set<string>();
-    for (const trigger of view.triggers) {
-      if (!firedSet.has(trigger.id)) continue;
-      for (const target of trigger.targets) {
-        if (target.kind === 'door' && target.doorId !== null) doorOpenIds.add(target.doorId);
-      }
-    }
-    const bridgeDownKeys = new Set<string>();
-    for (const bridge of view.bridges) {
-      const lowered = view.triggers.some((trigger) =>
-        firedSet.has(trigger.id) && trigger.targets.some((target) => target.kind === 'bridge' && target.bridgeId === bridge.id),
-      );
-      if (lowered) bridgeDownKeys.add(`${bridge.x},${bridge.y}`);
-    }
-    const poiStateByKey = new Map(view.poiStates.map((s) => [`${s.poiKind}:${s.poiId}`, s.state] as const));
+    const ctx: PoiRenderContext = {
+      view,
+      tileSize,
+      primary,
+      offsetX,
+      offsetY,
+      slotGridX,
+      slotGridY,
+      poiCell: (x, y) => offsetX + x * tileSize + tileSize / 2,
+      poiRow: (x, y) => offsetY + y * tileSize + tileSize / 2,
+      firedSet: new Set(view.firedTriggerIds),
+      doorOpenIds: computeDoorOpenIds(view),
+      bridgeDownKeys: computeBridgeDownKeys(view),
+      poiStateByKey: new Map(
+        view.poiStates.map((s) => [`${s.poiKind}:${s.poiId}`, s.state] as const),
+      ),
+    };
 
-    const poiCell = (x: number, y: number): number => offsetX + x * tileSize + tileSize / 2;
-    const poiRow = (x: number, y: number): number => offsetY + y * tileSize + tileSize / 2;
+    this.renderDoors(ctx);
+    this.renderChests(ctx);
+    this.renderTraps(ctx);
+    this.renderTriggers(ctx);
+    this.renderBridges(ctx);
+    this.renderEncounters(ctx);
+    this.renderItems(ctx);
+    this.renderWarps(ctx);
+  }
 
-    for (const door of view.doors) {
-      const doorOpen = run.unlockedDoors.includes(door.id) || doorOpenIds.has(door.id);
+  // --- POI sub-renderers (split out of renderMap) -------------------------
+
+  private pushPoiInfo(
+    kind: DungeonPoiInfo["kind"],
+    x: number,
+    y: number,
+    gid: number | string | null,
+    slotGridX: number,
+    slotGridY: number,
+  ): void {
+    this.poiInfos.push({ kind, x, y, gid, slotGridX, slotGridY });
+  }
+
+  /**
+   * Shared sprite creation for tile-backed POIs (door/chest/trap/trigger/
+   * bridge). Pushes a POI-depth sprite when the tile frame exists; otherwise
+   * does nothing (the badge / fallback marker is added separately). The old
+   * renderMap duplicated this ~10-line block once per POI type.
+   */
+  private createPoiSprite(
+    ctx: PoiRenderContext,
+    kind: DungeonPoiInfo["kind"],
+    x: number,
+    y: number,
+    gid: number | null,
+    poiId: string,
+  ): void {
+    if (gid === null) return;
+    const frame = ctx.primary !== null ? tileFrame(ctx.primary, gid) : null;
+    if (frame === null || !this.textures.exists(frame.texture)) return;
+    const sprite = this.add.sprite(
+      ctx.poiCell(x, y),
+      ctx.poiRow(x, y),
+      frame.texture,
+      frame.frame,
+    );
+    sprite.setOrigin(0.5, 0.5);
+    sprite.setDisplaySize(ctx.tileSize, ctx.tileSize);
+    sprite.setDepth(POI_DEPTH);
+    sprite.setData("poiKind", kind);
+    sprite.setData("poiId", poiId);
+    this.renderedSprites.push(sprite);
+  }
+
+  private renderDoors(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const door of ctx.view.doors) {
+      const doorOpen =
+        run.unlockedDoors.includes(door.id) || ctx.doorOpenIds.has(door.id);
       const gid = doorOpen ? door.usedTileGid : door.unusedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(poiCell(door.x, door.y), poiRow(door.x, door.y), frame.texture, frame.frame);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData('poiKind', 'door');
-        sprite.setData('poiId', door.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({ kind: 'door', x: door.x, y: door.y, gid, slotGridX, slotGridY });
-      this.addPoiBadge(poiCell(door.x, door.y), poiRow(door.x, door.y), 'D');
+      this.createPoiSprite(ctx, "door", door.x, door.y, gid, door.id);
+      this.pushPoiInfo("door", door.x, door.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(door.x, door.y),
+        ctx.poiRow(door.x, door.y),
+        POI_BADGE_LETTER.door,
+      );
     }
+  }
 
-    for (const chest of view.chests) {
-      const chestState = poiStateByKey.get(`chest:${chest.id}`) ?? 'unused';
-      const gid = chestState === 'used' ? chest.usedTileGid : chest.unusedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(poiCell(chest.x, chest.y), poiRow(chest.x, chest.y), frame.texture, frame.frame);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData('poiKind', 'chest');
-        sprite.setData('poiId', chest.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({ kind: 'chest', x: chest.x, y: chest.y, gid, slotGridX, slotGridY });
-      this.addPoiBadge(poiCell(chest.x, chest.y), poiRow(chest.x, chest.y), 'C');
+  private renderChests(ctx: PoiRenderContext): void {
+    for (const chest of ctx.view.chests) {
+      const state = ctx.poiStateByKey.get(`chest:${chest.id}`) ?? "unused";
+      const gid = state === "used" ? chest.usedTileGid : chest.unusedTileGid;
+      this.createPoiSprite(ctx, "chest", chest.x, chest.y, gid, chest.id);
+      this.pushPoiInfo("chest", chest.x, chest.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(chest.x, chest.y),
+        ctx.poiRow(chest.x, chest.y),
+        POI_BADGE_LETTER.chest,
+      );
     }
+  }
 
-    for (const trap of view.traps) {
-      const trapState = poiStateByKey.get(`trap:${trap.id}`) ?? 'unused';
-      if (trapState !== 'used') continue;
+  private renderTraps(ctx: PoiRenderContext): void {
+    for (const trap of ctx.view.traps) {
+      const state = ctx.poiStateByKey.get(`trap:${trap.id}`) ?? "unused";
+      if (state !== "used") continue;
       const gid = trap.usedTileGid;
-      if (gid === null) continue;
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(poiCell(trap.x, trap.y), poiRow(trap.x, trap.y), frame.texture, frame.frame);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData('poiKind', 'trap');
-        sprite.setData('poiId', trap.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({ kind: 'trap', x: trap.x, y: trap.y, gid, slotGridX, slotGridY });
-      this.addPoiBadge(poiCell(trap.x, trap.y), poiRow(trap.x, trap.y), 'T');
+      this.createPoiSprite(ctx, "trap", trap.x, trap.y, gid, trap.id);
+      this.pushPoiInfo("trap", trap.x, trap.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(trap.x, trap.y),
+        ctx.poiRow(trap.x, trap.y),
+        POI_BADGE_LETTER.trap,
+      );
     }
+  }
 
-    for (const trigger of view.triggers) {
+  private renderTriggers(ctx: PoiRenderContext): void {
+    for (const trigger of ctx.view.triggers) {
       if (!trigger.enabled) continue;
-      const triggerUsed = firedSet.has(trigger.id);
-      const gid = triggerUsed ? trigger.usedTileGid : trigger.unusedTileGid;
+      const used = ctx.firedSet.has(trigger.id);
+      const gid = used ? trigger.usedTileGid : trigger.unusedTileGid;
       if (gid === null) {
         // No tile picked for this lever — still surface it on top of the map.
-        this.addPoiFallbackMarker(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), 'L', 0xffcf4d);
-        this.poiInfos.push({ kind: 'trigger', x: trigger.x, y: trigger.y, gid: null, slotGridX, slotGridY });
+        this.addPoiFallbackMarker(
+          ctx.poiCell(trigger.x, trigger.y),
+          ctx.poiRow(trigger.x, trigger.y),
+          POI_BADGE_LETTER.trigger,
+          FALLBACK_MARKER_COLOR.trigger,
+        );
+        this.pushPoiInfo("trigger", trigger.x, trigger.y, null, ctx.slotGridX, ctx.slotGridY);
         continue;
       }
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), frame.texture, frame.frame);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData('poiKind', 'trigger');
-        sprite.setData('poiId', trigger.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({ kind: 'trigger', x: trigger.x, y: trigger.y, gid, slotGridX, slotGridY });
-      this.addPoiBadge(poiCell(trigger.x, trigger.y), poiRow(trigger.x, trigger.y), 'L');
+      this.createPoiSprite(ctx, "trigger", trigger.x, trigger.y, gid, trigger.id);
+      this.pushPoiInfo("trigger", trigger.x, trigger.y, gid, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(trigger.x, trigger.y),
+        ctx.poiRow(trigger.x, trigger.y),
+        POI_BADGE_LETTER.trigger,
+      );
     }
+  }
 
-    for (const bridge of view.bridges) {
+  private renderBridges(ctx: PoiRenderContext): void {
+    for (const bridge of ctx.view.bridges) {
       if (!bridge.enabled) continue;
-      const bridgeDown = bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
-      const gid = bridgeDown ? bridge.downTileGid : bridge.upTileGid;
+      const down = ctx.bridgeDownKeys.has(`${bridge.x},${bridge.y}`);
+      const gid = down ? bridge.downTileGid : bridge.upTileGid;
       if (gid === null) {
-        this.addPoiFallbackMarker(poiCell(bridge.x, bridge.y), poiRow(bridge.x, bridge.y), 'B', 0x4aa3ff);
-        this.poiInfos.push({ kind: 'bridge', x: bridge.x, y: bridge.y, gid: null, slotGridX, slotGridY });
+        this.addPoiFallbackMarker(
+          ctx.poiCell(bridge.x, bridge.y),
+          ctx.poiRow(bridge.x, bridge.y),
+          POI_BADGE_LETTER.bridge,
+          FALLBACK_MARKER_COLOR.bridge,
+        );
+        this.pushPoiInfo("bridge", bridge.x, bridge.y, null, ctx.slotGridX, ctx.slotGridY);
         continue;
       }
-      const frame = primary !== null ? tileFrame(primary, gid) : null;
-      if (frame !== null && this.textures.exists(frame.texture)) {
-        const sprite = this.add.sprite(poiCell(bridge.x, bridge.y), poiRow(bridge.x, bridge.y), frame.texture, frame.frame);
-        sprite.setOrigin(0.5, 0.5);
-        sprite.setDisplaySize(tileSize, tileSize);
-        sprite.setDepth(POI_DEPTH);
-        sprite.setData('poiKind', 'bridge');
-        sprite.setData('poiId', bridge.id);
-        this.renderedSprites.push(sprite);
-      }
-      this.poiInfos.push({ kind: 'bridge', x: bridge.x, y: bridge.y, gid, slotGridX, slotGridY });
+      this.createPoiSprite(ctx, "bridge", bridge.x, bridge.y, gid, bridge.id);
+      this.pushPoiInfo("bridge", bridge.x, bridge.y, gid, ctx.slotGridX, ctx.slotGridY);
     }
+  }
 
-    for (const encounter of view.encounters) {
+  private renderEncounters(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const encounter of ctx.view.encounters) {
       if (run.defeatedEncounters.includes(encounter.id)) continue;
-      if (encounter.difficulty === 'boss') {
+      if (encounter.difficulty === "boss") {
         const leader = encounter.digimon[0];
         if (leader === undefined) continue;
-        const bossWorldX = poiCell(encounter.x, encounter.y);
-        const bossWorldY = poiRow(encounter.x, encounter.y);
-        const boss = this.spawnDigimonSprite(leader.catalogId, bossWorldX, bossWorldY, BOSS_DEPTH, run.currentX < encounter.x);
+        const boss = this.spawnDigimonSprite(
+          leader.catalogId,
+          ctx.poiCell(encounter.x, encounter.y),
+          ctx.poiRow(encounter.x, encounter.y),
+          BOSS_DEPTH,
+          run.currentX < encounter.x,
+          "boss",
+        );
         if (boss !== null) {
-          boss.setData('poiKind', 'boss');
-          boss.setData('bossCatalogId', leader.catalogId);
+          boss.setData("poiKind", "boss");
+          boss.setData("bossCatalogId", leader.catalogId);
         }
-        this.poiInfos.push({ kind: 'boss', x: encounter.x, y: encounter.y, gid: leader.catalogId, slotGridX, slotGridY });
+        this.pushPoiInfo("boss", encounter.x, encounter.y, leader.catalogId, ctx.slotGridX, ctx.slotGridY);
       } else {
-        this.poiInfos.push({ kind: 'encounter', x: encounter.x, y: encounter.y, gid: null, slotGridX, slotGridY });
-        this.addPoiBadge(poiCell(encounter.x, encounter.y), poiRow(encounter.x, encounter.y), 'E');
+        this.pushPoiInfo("encounter", encounter.x, encounter.y, null, ctx.slotGridX, ctx.slotGridY);
+        this.addPoiBadge(
+          ctx.poiCell(encounter.x, encounter.y),
+          ctx.poiRow(encounter.x, encounter.y),
+          POI_BADGE_LETTER.encounter,
+        );
       }
     }
+  }
 
-    for (const item of view.items) {
+  private renderItems(ctx: PoiRenderContext): void {
+    const run = ctx.view.run;
+    for (const item of ctx.view.items) {
       if (run.collectedItems.includes(item.id)) continue;
-      this.poiInfos.push({ kind: 'item', x: item.x, y: item.y, gid: null, slotGridX, slotGridY });
-      this.addPoiBadge(poiCell(item.x, item.y), poiRow(item.x, item.y), 'I');
+      this.pushPoiInfo("item", item.x, item.y, null, ctx.slotGridX, ctx.slotGridY);
+      this.addPoiBadge(
+        ctx.poiCell(item.x, item.y),
+        ctx.poiRow(item.x, item.y),
+        POI_BADGE_LETTER.item,
+      );
+    }
+  }
+
+  /**
+   * Exit portals — the new (definitive-mode) way out of a dungeon. A warp with
+   * `targetDungeonId === null` is the "return to the city" portal; a warp with
+   * a target stays as a plain path marker. Drawn as a glowing swirl so players
+   * read it as a destination, not a trap/chest. Walk onto it to leave (the
+   * route handles the exit + dungeon-only item discard confirm).
+   */
+  private renderWarps(ctx: PoiRenderContext): void {
+    for (const warp of ctx.view.warps) {
+      const cx = ctx.poiCell(warp.x, warp.y);
+      const cy = ctx.poiRow(warp.x, warp.y);
+      const isExit = warp.targetDungeonId === null;
+      const color = isExit ? 0xe6001f : 0x8a877f;
+      const r = this.tileSize * 0.42;
+
+      const outer = this.add.ellipse(cx, cy, r * 2, r * 2.4, color, 0.16);
+      outer.setStrokeStyle(2, color, 0.9);
+      outer.setDepth(POI_DEPTH - 1);
+      this.renderedSprites.push(outer as unknown as Phaser.GameObjects.Sprite);
+
+      const inner = this.add.ellipse(cx, cy, r * 1.1, r * 1.3, color, 0.45);
+      inner.setDepth(POI_DEPTH - 1);
+      this.renderedSprites.push(inner as unknown as Phaser.GameObjects.Sprite);
+
+      // Gentle pulse so the portal reads as alive/interactive.
+      this.tweens.add({
+        targets: [outer, inner],
+        scaleX: { from: 0.92, to: 1.08 },
+        scaleY: { from: 0.92, to: 1.08 },
+        alpha: { from: 0.7, to: 1 },
+        duration: 1100,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.inOut",
+      });
+
+      this.pushPoiInfo("warp", warp.x, warp.y, warp.id, ctx.slotGridX, ctx.slotGridY);
+      if (isExit) {
+        const label = this.add.text(cx, cy - this.tileSize * 0.62, "CIDADE", {
+          fontFamily: "monospace",
+          fontSize: "9px",
+          color: "#f4f1ea",
+          backgroundColor: "rgba(230,0,31,0.85)",
+          padding: { x: 4, y: 2 },
+        });
+        label.setOrigin(0.5, 1);
+        label.setDepth(MARKER_DEPTH);
+        this.renderedTexts.push(label);
+      }
     }
   }
 
@@ -1295,26 +2472,38 @@ export class DungeonPhaserScene extends Phaser.Scene {
    * Draws a translucent colored tile + letter at POI_DEPTH so the POI is
    * unmistakably on the map surface, above grass/floor/liquid/water.
    */
-  private addPoiFallbackMarker(x: number, y: number, letter: string, color: number): void {
-    const rect = this.add.rectangle(x, y, this.tileSize * 0.9, this.tileSize * 0.9, color, 0.55);
+  private addPoiFallbackMarker(
+    x: number,
+    y: number,
+    letter: string,
+    color: number,
+  ): void {
+    const rect = this.add.rectangle(
+      x,
+      y,
+      this.tileSize * 0.9,
+      this.tileSize * 0.9,
+      color,
+      0.55,
+    );
     rect.setStrokeStyle(2, color, 1);
     rect.setDepth(POI_DEPTH);
-    rect.setData('poiBadge', letter);
+    rect.setData("poiBadge", letter);
     this.renderedSprites.push(rect as unknown as Phaser.GameObjects.Sprite);
     this.addPoiBadge(x, y, letter);
   }
 
   private addPoiBadge(x: number, y: number, letter: string): void {
     const text = this.add.text(x, y, letter, {
-      fontFamily: 'monospace',
-      fontSize: '10px',
-      color: '#ffffff',
-      backgroundColor: 'rgba(28,31,42,0.8)',
+      fontFamily: "monospace",
+      fontSize: "10px",
+      color: "#ffffff",
+      backgroundColor: "rgba(28,31,42,0.8)",
       padding: { x: 2, y: 1 },
     });
     text.setOrigin(0.5, 0.5);
     text.setDepth(MARKER_DEPTH);
-    text.setData('poiBadge', letter);
+    text.setData("poiBadge", letter);
     this.renderedTexts.push(text);
   }
 
@@ -1326,7 +2515,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const tileSize = this.tileSize;
     const x = Math.floor((pointer.worldX - origin.x) / tileSize);
     const y = Math.floor((pointer.worldY - origin.y) / tileSize);
-    if (x < 0 || y < 0 || x >= view.dungeon.width || y >= view.dungeon.height) return;
+    if (x < 0 || y < 0 || x >= view.dungeon.width || y >= view.dungeon.height)
+      return;
     // Remote-player hit test: only players standing on the CURRENT map slot
     // match — neighbor slots share the same x/y cell space, so the grid
     // coords disambiguate (mirrors renderWorld's activeSlotOrigin math).
@@ -1335,7 +2525,11 @@ export class DungeonPhaserScene extends Phaser.Scene {
       const activeGridX = view.dungeon.gridX ?? 0;
       const activeGridY = view.dungeon.gridY ?? 0;
       const remote = props.remotePlayers.find(
-        (player) => player.x === x && player.y === y && player.gridX === activeGridX && player.gridY === activeGridY,
+        (player) =>
+          player.x === x &&
+          player.y === y &&
+          player.gridX === activeGridX &&
+          player.gridY === activeGridY,
       );
       if (remote !== undefined) {
         onPlayerClick(remote.userId, remote.displayName, x, y);
@@ -1345,19 +2539,45 @@ export class DungeonPhaserScene extends Phaser.Scene {
     const run = view.run;
     if (run.currentX === x && run.currentY === y) return;
     if (Math.abs(x - run.currentX) + Math.abs(y - run.currentY) !== 1) return;
+    if (!this.isCellWalkable(view, x, y)) return;
+    props.onCellClick(x, y);
+  }
+
+  /**
+   * Whether the player may step onto a cell: it has at least one walkable
+   * terrain tile and no non-walkable (obstacle) tile, OR a bridge currently
+   * lowered by a fired lever sits there. Extracted from the inline pointer
+   * handler so the same rule can be reused / unit-tested.
+   */
+  private isCellWalkable(
+    view: DungeonRunView,
+    x: number,
+    y: number,
+  ): boolean {
     const cellTiles = view.tiles.filter((tile) => tile.x === x && tile.y === y);
-    const hasWalkable = cellTiles.some((tile) => (WALKABLE_LAYER_KINDS as readonly string[]).includes(tile.layerKind));
-    const hasObstacle = cellTiles.some((tile) => !(WALKABLE_LAYER_KINDS as readonly string[]).includes(tile.layerKind));
+    const hasWalkable = cellTiles.some((tile) =>
+      (WALKABLE_LAYER_KINDS as readonly string[]).includes(tile.layerKind),
+    );
+    const hasObstacle = cellTiles.some(
+      (tile) =>
+        !(WALKABLE_LAYER_KINDS as readonly string[]).includes(tile.layerKind),
+    );
     const bridgeDown = view.bridges.some(
       (bridge) =>
         bridge.enabled &&
         bridge.x === x &&
         bridge.y === y &&
         view.firedTriggerIds.some((tid) =>
-          view.triggers.some((trigger) => trigger.id === tid && trigger.targets.some((target) => target.kind === 'bridge' && target.bridgeId === bridge.id)),
+          view.triggers.some(
+            (trigger) =>
+              trigger.id === tid &&
+              trigger.targets.some(
+                (target) =>
+                  target.kind === "bridge" && target.bridgeId === bridge.id,
+              ),
+          ),
         ),
     );
-    if (!((hasWalkable && !hasObstacle) || bridgeDown)) return;
-    props.onCellClick(x, y);
+    return (hasWalkable && !hasObstacle) || bridgeDown;
   }
 }

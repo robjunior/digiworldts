@@ -18,6 +18,9 @@ export type SpriteRigConfig = {
    * Combat passes `isSpritesheet: true`; everything else keeps the old path.
    */
   readonly isSpritesheet?: boolean;
+  /** When true (default), the walk frames loop automatically (idle bob).
+   *  Combat units pass false so they stand still until an action plays. */
+  readonly idleAnimated?: boolean;
   readonly initiallyDowned?: boolean;
   readonly onClick?: (() => void | undefined) | undefined;
 };
@@ -63,11 +66,18 @@ const ALPHA_THRESHOLD = 24;
 const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
-// Spritesheet layout: 2 columns × 2 rows, each cell is one 32×32 frame.
-const SHEET_COLS = 4;
-const SHEET_ROWS = 4;
+// Subtle "alive" breathing for combat units (idleAnimated: false). No frame
+// swap and no horizontal hop — just a gentle vertical scale + lift so a unit
+// standing still between actions doesn't read as frozen / broken.
+const BREATHE_HZ = 0.5;          // breaths per second
+const BREATHE_SCALE_AMP = 0.03;   // ±3% height
+const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
+
+// Spritesheet layout: 2 columns × 2 rows of 32×32 frames (a 64×64 image).
+// Frame 1=top-left, 2=top-right, 3=bottom-left, 4=bottom-right.
+const SHEET_COLS = 2;
+const SHEET_ROWS = 2;
 // Indices into the flattened cell array (row * cols + col).
-const WALK_FRAME_INDICES = [0, 1] as const; // top row: idle/walk cycle (bob A / bob B)
 const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
 const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
@@ -214,6 +224,9 @@ type SheetState = {
   walkElapsed: number;
   hitActive: boolean;
   hitElapsed: number;
+  /** Walk cycle frames for THIS sheet: top row [0,1] for 64×64 real digimon,
+   *  all four [0,1,2,3] for 32×32 "4 colors per frame" user sheets. */
+  readonly walkIndices: readonly number[];
 };
 
 export class SpriteRig implements SpriteRigApi {
@@ -224,6 +237,13 @@ export class SpriteRig implements SpriteRigApi {
 
   get downed(): boolean {
     return this._downed;
+  }
+
+  /** True while an attack/hit animation is mid-flight. The billboard actually
+   *  translates (lunge) or shakes during these, so the scene must refresh the
+   *  shadow map across the whole window rather than just on the first frame. */
+  get animating(): boolean {
+    return this.anim !== null;
   }
 
   private readonly scene: THREE.Scene;
@@ -246,6 +266,9 @@ export class SpriteRig implements SpriteRigApi {
   private onClick: ((unitId: string) => void | undefined) | undefined;
   private facingSign: 1 | -1 = 1;
   private readonly isSpritesheet: boolean;
+  private idleAnimated: boolean;
+  /** Per-rig phase so units don't breathe in lockstep. */
+  private readonly breathePhase = Math.random() * Math.PI * 2;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -257,6 +280,7 @@ export class SpriteRig implements SpriteRigApi {
     this._downed = config.initiallyDowned === true;
     this.onClick = config.onClick ?? undefined;
     this.isSpritesheet = config.isSpritesheet === true;
+    this.idleAnimated = config.idleAnimated !== false;
 
     const placeholder = makePlaceholderTexture();
     this.baseColor = new THREE.Color(0xffffff);
@@ -379,9 +403,15 @@ export class SpriteRig implements SpriteRigApi {
       }
       const w = img.naturalWidth || 64;
       const h = img.naturalHeight || 64;
+      // Cell size is derived from the SOURCE sheet, independent of the canvas.
+      const cellW = Math.max(1, Math.floor(w / SHEET_COLS));
+      const cellH = Math.max(1, Math.floor(h / SHEET_ROWS));
+      // The texture holds exactly ONE cell (1:1, no upscale). Stretching a 16px
+      // cell into a 64px canvas and using that as the texture is what made
+      // frames look chunky/cropped through alphaTest.
       const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
+      canvas.width = cellW;
+      canvas.height = cellH;
       const ctx = canvas.getContext('2d', { willReadFrequently: true });
       if (ctx === null) {
         img.remove();
@@ -399,7 +429,8 @@ export class SpriteRig implements SpriteRigApi {
       this.mat.needsUpdate = true;
       this.syncDepthMap();
       previous?.dispose();
-      this.applyAspect(w, h);
+      this.applyAspect(cellW, cellH);
+      const walkIndices = cellW <= 16 ? [0, 1, 2, 3] : [0, 1];
       const sheet: SheetState = {
         canvas,
         ctx,
@@ -409,11 +440,12 @@ export class SpriteRig implements SpriteRigApi {
         walkElapsed: 0,
         hitActive: false,
         hitElapsed: 0,
+        walkIndices,
       };
       this.sheet = sheet;
-      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+      this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
       try {
-        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, w, h));
+        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
       } catch {
         /* bbox analysis is best-effort */
       }
@@ -425,16 +457,18 @@ export class SpriteRig implements SpriteRigApi {
     img.src = url;
   }
 
-/** Draw one cell of the sheet (cell = row * cols + col) into the canvas. */
+  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas at 1:1. */
   private drawSheetFrame(sheet: SheetState, cell: number): void {
-    const cellW = sheet.canvas.width / SHEET_COLS;
-    const cellH = sheet.canvas.height / SHEET_ROWS;
+    const imgW = sheet.image.naturalWidth || 64;
+    const imgH = sheet.image.naturalHeight || 64;
+    const cellW = Math.max(1, Math.floor(imgW / SHEET_COLS));
+    const cellH = Math.max(1, Math.floor(imgH / SHEET_ROWS));
     const col = cell % SHEET_COLS;
     const row = Math.floor(cell / SHEET_COLS);
     const sx = col * cellW;
     const sy = row * cellH;
     sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
-    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, sheet.canvas.width, sheet.canvas.height);
+    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, cellW, cellH);
     sheet.texture.needsUpdate = true;
   }
 
@@ -630,10 +664,16 @@ export class SpriteRig implements SpriteRigApi {
       }
     }
 
+    // Gentle breathing so a still unit (combat passes idleAnimated:false) looks
+    // alive instead of frozen/broken. No frame swap, no horizontal "jump".
+    const breathe = Math.sin((elapsedS * BREATHE_HZ + this.breathePhase) * Math.PI * 2);
+    const breatheScaleY = 1 + breathe * BREATHE_SCALE_AMP;
+    const breatheLift = breathe * BREATHE_LIFT * this.baseScale.y;
+
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
-    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY + breatheLift;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y * breatheScaleY, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
@@ -663,15 +703,16 @@ export class SpriteRig implements SpriteRigApi {
         sheet.hitActive = false;
         sheet.walkIndex = 0;
         sheet.walkElapsed = 0;
-        this.drawSheetFrame(sheet, WALK_FRAME_INDICES[0]!);
+        this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
       }
       return;
     }
+    if (!this.idleAnimated) return; // combat units stand still on frame 0
     sheet.walkElapsed += dt * 1000;
     if (sheet.walkElapsed >= WALK_FRAME_MS) {
       sheet.walkElapsed -= WALK_FRAME_MS;
-      sheet.walkIndex = (sheet.walkIndex + 1) % WALK_FRAME_INDICES.length;
-      this.drawSheetFrame(sheet, WALK_FRAME_INDICES[sheet.walkIndex]!);
+      sheet.walkIndex = (sheet.walkIndex + 1) % sheet.walkIndices.length;
+      this.drawSheetFrame(sheet, sheet.walkIndices[sheet.walkIndex]!);
     }
   }
 

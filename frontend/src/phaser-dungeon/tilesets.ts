@@ -9,6 +9,7 @@ import {
 } from '@digiworld/shared';
 import type { TilesetGrant } from '@digiworld/shared';
 import { decodeGifFrames } from './gif';
+import { computeSheetFrames } from './sheet-frames';
 
 /**
  * Phaser texture pipeline for Tiled tilesets (Todo 2 of the dungeon-to-phaser
@@ -428,50 +429,59 @@ export function buildDigimonSheet(scene: Phaser.Scene, catalogId: string): boole
   const key = digimonSheetKey(catalogId);
   if (scene.textures.exists(key)) {
     const texture = scene.textures.get(key);
-    const src = texture.getSourceImage() as { width?: number; height?: number };
-    const w = src?.width ?? 64;
-    const h = src?.height ?? 64;
-    const FRAME = 16;
-    const cols = Math.max(1, Math.floor(w / FRAME));
-    const rows = Math.max(1, Math.floor(h / FRAME));
-    const cellW = Math.floor(w / cols);
-    const cellH = Math.floor(h / rows);
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const idx = String(row * cols + col);
-        const frameY = row * cellH;
-        if (!texture.has(idx)) texture.add(idx, 0, col * cellW, frameY, cellW, cellH);
-      }
+    const src = texture.getSourceImage() as Partial<HTMLImageElement> & { width?: number; height?: number };
+    // Read the ACTUAL pixel size of the source PNG. Prefer naturalWidth/Height
+    // (HTMLImageElement), fall back to width/height. Never silently default to
+    // 64: a 32×32 sheet must slice into 16×16 cells, not be misread as 64×64.
+    const w = src?.naturalWidth ?? src?.width ?? 0;
+    const h = src?.naturalHeight ?? src?.height ?? 0;
+    if (w <= 0 || h <= 0) return false;
+    // Derive the 2×2 cell layout from the ACTUAL sheet dimensions (never a
+    // hardcoded 32px cell) so both the 64×64 authored sheets (32×32 cells) and
+    // user-supplied 32×32 sheets (16×16 cells) slice and animate. A hardcoded
+    // 32px cell would collapse a 32×32 sheet to a single column and freeze it.
+    const layout = computeSheetFrames(w, h);
+    // Frame names are NON-numeric on purpose (see above). Always (re)create the
+    // frames; texture.add is a no-op when the name already exists.
+    for (const frame of layout.frames) {
+      const name = `cell${frame.index}`;
+      if (!texture.has(name)) texture.add(name, 0, frame.x, frame.y, frame.w, frame.h);
     }
-    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetWalkAnimKey(catalogId),
-        frames: [
-          { key, frame: '0' },
-          { key, frame: '1' },
-        ],
-        frameRate: 3,
-        repeat: -1,
-      });
+    const frameName = (i: number) => `cell${i}`;
+    // CRITICAL: the anims MUST be recreated every time, not guarded by
+    // `if (!anims.exists(...))`. On hot-reload / a long-lived Phaser game the
+    // scene, texture and (stale, pre-fix) anims persist. A guarded create would
+    // skip recreation, leaving an anim that still references the old "0".."3"
+    // frame names -> play() resolves frame "0" to __BASE (whole sheet) and the
+    // digimon renders all 4 frames. Removing first guarantees the anim binds to
+    // the current cell0..cell3 frames.
+    for (const ak of [
+      sheetWalkAnimKey(catalogId),
+      sheetTakeHitAnimKey(catalogId),
+      sheetAttackAnimKey(catalogId),
+    ]) {
+      if (scene.anims.exists(ak)) scene.anims.remove(ak);
     }
+    scene.anims.create({
+      key: sheetWalkAnimKey(catalogId),
+      frames: layout.walkFrameIndices.map((i) => ({ key, frame: frameName(i) })),
+      frameRate: 4,
+      repeat: -1,
+    });
     // Frame 2 (row 1, col 0) = taking hit (defender recoil). Single frame, no loop.
-    if (!scene.anims.exists(sheetTakeHitAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetTakeHitAnimKey(catalogId),
-        frames: [{ key, frame: '2' }],
-        frameRate: 1,
-        repeat: 0,
-      });
-    }
+    scene.anims.create({
+      key: sheetTakeHitAnimKey(catalogId),
+      frames: [{ key, frame: frameName(2) }],
+      frameRate: 1,
+      repeat: 0,
+    });
     // Frame 3 (row 1, col 1) = giving hit / attacking (attacker strike). Single frame, no loop.
-    if (!scene.anims.exists(sheetAttackAnimKey(catalogId))) {
-      scene.anims.create({
-        key: sheetAttackAnimKey(catalogId),
-        frames: [{ key, frame: '3' }],
-        frameRate: 1,
-        repeat: 0,
-      });
-    }
+    scene.anims.create({
+      key: sheetAttackAnimKey(catalogId),
+      frames: [{ key, frame: frameName(3) }],
+      frameRate: 1,
+      repeat: 0,
+    });
     return true;
   }
   return false;
@@ -494,7 +504,11 @@ export function ensureDigimonSpriteLoaded(
 ): void {
   const sheetKey = digimonSheetKey(catalogId);
   if (scene.textures.exists(sheetKey)) {
-    if (!scene.anims.exists(sheetWalkAnimKey(catalogId))) buildDigimonSheet(scene, catalogId);
+    // Always (re)build the sliced frames. Guarded as a no-op when they already
+    // exist, so this is safe on hot-reload — where the texture AND the old
+    // (pre-fix) anims persist, which would otherwise skip the rebuild and leave
+    // the stale "0".."3" frames that resolve to __BASE (whole sheet).
+    buildDigimonSheet(scene, catalogId);
     onSettled({
       kind: 'sheet',
       key: sheetKey,

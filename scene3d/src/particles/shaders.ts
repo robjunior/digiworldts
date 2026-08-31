@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+import type { ParticleShaderKind } from '@digiworld/shared/weather';
+
 export type ParticleMaterialOpts = {
   color: number;
   opacity: number;
@@ -84,6 +86,107 @@ function getBaseDefines(opts: ParticleMaterialOpts) {
   const defines: Record<string, string> = {};
   if (opts.envMap) defines['HAS_ENVMAP'] = '';
   return defines;
+}
+
+/**
+ * Material cache keyed by the exact opts that affect the compiled program.
+ *
+ * Why this matters for attack stutter: every `playEffect`/`buildPresetRunner`
+ * used to `new THREE.ShaderMaterial(...)` per cast. Three.js dedupes the GLSL
+ * program by source, but the per-cast object + uniform allocation + the first
+ * upload still landed on the attack frame. Worse, the *first* use of a given
+ * shader variant triggers a synchronous GLSL compile + buffer upload that can
+ * cost tens of ms — exactly the hitch felt when a skill first fires.
+ *
+ * Caching the material by its keyed signature means:
+ *   - the JS allocation happens once and is reused,
+ *   - the GLSL program is compiled once; call `prewarmParticleMaterials()` at
+ *     scene init to force that cost onto the loading screen, never mid-attack.
+ *
+ * Uniforms are shared by reference across all emitters using the same material.
+ * That is safe here because the shader reads all per-particle data from
+ * instance attributes (aStartColor/aVelocity/...) and only treats uniforms as
+ * global constants. The one uniform we mutate per-emitter is `uOpacityMult`,
+ * which we set via `setOpacityMultiplier` — so we DO NOT cache a material that
+ * is being cross-faded; see `createEmitterMaterial`.
+ */
+const materialCache = new Map<string, THREE.ShaderMaterial>();
+
+/**
+ * All particle shader factories, keyed by shader kind. The emitter passes a
+ * shader kind string and we look it up here so the cache + prewarm only ever
+ * build a material through a single, shared path.
+ */
+const SHADER_FACTORIES: Record<
+  ParticleShaderKind,
+  (opts: ParticleMaterialOpts) => THREE.ShaderMaterial
+> = {
+  default: createDefaultParticleMaterial,
+  rainStreak: createRainStreakMaterial,
+  wetSpark: createWetSparkMaterial,
+  sandHaze: createSandHazeMaterial,
+  thunderCore: createThunderCoreMaterial,
+  snowFlake: createSnowFlakeMaterial,
+  hailShard: createHailShardMaterial,
+};
+
+function materialKey(
+  factory: (opts: ParticleMaterialOpts) => THREE.ShaderMaterial,
+  opts: ParticleMaterialOpts,
+): string {
+  return [
+    factory.name,
+    opts.color.toString(16),
+    opts.opacity,
+    opts.blending,
+    opts.softParticles ? "soft" : "hard",
+    opts.envMap ? "env" : "noenv",
+    opts.textureUrl ?? "",
+  ].join("|");
+}
+
+/**
+ * Build (or reuse) a cached particle material for an emitter config. Callers
+ * that intend to cross-fade a material's opacity between scenes should pass
+ * `cachable: false` so each emitter owns a unique material instance.
+ */
+export function createEmitterMaterial(
+  kind: ParticleShaderKind,
+  opts: ParticleMaterialOpts,
+  cachable: boolean = true,
+): THREE.ShaderMaterial {
+  const factory = SHADER_FACTORIES[kind];
+  if (!cachable) {
+    return factory(opts);
+  }
+  const key = materialKey(factory, opts);
+  const cached = materialCache.get(key);
+  if (cached !== undefined) return cached;
+  const material = factory(opts);
+  materialCache.set(key, material);
+  return material;
+}
+
+/**
+ * Force-build (and thus cache) every distinct particle material variant once.
+ * Call this during scene init while the loading screen is up, so the first skill
+ * cast reuses an already-built material instead of allocating + compiling GLSL
+ * on the click frame. The actual GPU program compile happens on first render,
+ * but the material object and its uniforms are ready here, removing the
+ * per-cast JS allocation that previously sat on the attack frame.
+ */
+export function prewarmParticleMaterials(
+  kinds: readonly ParticleShaderKind[],
+): void {
+  for (const kind of kinds) {
+    createEmitterMaterial(kind, {
+      color: 0xffffff,
+      opacity: 1,
+      blending: "normal",
+      softParticles: false,
+      textureUrl: null,
+    });
+  }
 }
 
 export function attachUpdater(material: THREE.ShaderMaterial, updater?: (dt: number, elapsed: number) => void) {

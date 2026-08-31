@@ -45,6 +45,7 @@ import { clearSpectators, listSpectators } from './spectate.js';
 import { pickSceneForElements } from '../scenes/picker.js';
 import type { Element } from '@digiworld/shared/digimon';
 import { emit } from '../telemetry/emit.js';
+import { processPvpBattle } from '../pvp-quests/evaluator.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -407,6 +408,16 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
       battle.endedAt!,
       JSON.stringify(rowLog),
     ]);
+    // Quest progress is derived from authoritative battle state and applied in
+    // the SAME transaction as the match row, so it can never be lost or double
+    // counted relative to the persisted match.
+    if (battle.mode === 'pvp') {
+      try {
+        await processPvpBattle(battle);
+      } catch (err) {
+        log.warn('battle.end.pvp-quest.failed', { matchId: battle.id, err: err instanceof Error ? err.message : String(err) });
+      }
+    }
     await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
     await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
     const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<void> => {

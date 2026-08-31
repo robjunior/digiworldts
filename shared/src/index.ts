@@ -6,6 +6,7 @@ export * from './skill-vfx.js';
 export * from './auth.js';
 export * from './ws.js';
 export * from './quest.js';
+export * from './pvp-quest.js';
 export * from './nursery.js';
 export * from './world.js';
 export * from './dungeon.js';

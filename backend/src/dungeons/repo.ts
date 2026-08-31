@@ -115,7 +115,7 @@ const SQL_DELETE_ITEM = `DELETE FROM dungeon_items WHERE dungeon_id = ? AND id =
 const SQL_LIST_WARPS = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? ORDER BY y, x`;
 const SQL_GET_WARP = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_WARP_AT = `SELECT * FROM dungeon_warps WHERE dungeon_id = ? AND x = ? AND y = ?`;
-const SQL_INSERT_WARP = `INSERT INTO dungeon_warps (id, dungeon_id, x, y, target_dungeon_id, label, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_INSERT_WARP = `INSERT INTO dungeon_warps (id, dungeon_id, x, y, target_dungeon_id, label, is_exit, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 const SQL_UPDATE_WARP = `UPDATE dungeon_warps SET target_dungeon_id = ?, label = ?, updated_at = ? WHERE dungeon_id = ? AND id = ?`;
 const SQL_DELETE_WARP = `DELETE FROM dungeon_warps WHERE dungeon_id = ? AND id = ?`;
 const SQL_GET_RUN = `SELECT * FROM user_dungeon_runs WHERE user_id = ? AND dungeon_id = ?`;
@@ -275,22 +275,36 @@ export function serializeWalkableMask(mask: readonly (readonly [number, number])
   return JSON.stringify(mask.map(([x, y]) => [x, y]));
 }
 
+// Layer kinds that hard-block movement even when a walkable layer sits
+// underneath (e.g. a floor tile painted beneath a wall). `tree`/`decoration`
+// are NON-blocking overlays — the player walks under the canopy — so they must
+// not poison the mask; only these explicit blockers do.
+const BLOCKING_LAYER_KINDS: readonly string[] = ['wall', 'walls', 'water', 'pit', 'liquid'];
+
 export function computeWalkableMaskFromTiles(tiles: readonly Pick<DungeonTile, 'x' | 'y' | 'layerKind'>[]): readonly (readonly [number, number])[] {
   const walkable = new Set<string>();
-  const obstacles = new Set<string>();
+  const blocking = new Set<string>();
   for (const t of tiles) {
     const key = `${t.x},${t.y}`;
     if ((WALKABLE_LAYER_KINDS as readonly string[]).includes(t.layerKind)) {
       walkable.add(key);
-    } else {
-      obstacles.add(key);
+    } else if ((BLOCKING_LAYER_KINDS as readonly string[]).includes(t.layerKind)) {
+      // A hard obstacle on this cell. It only blocks if no walkable layer
+      // exists on the same cell — a wall painted over floor is rare and the
+      // floor wins (consistent with the renderer drawing floor beneath walls).
+      blocking.add(key);
     }
+    // `tree`/`decoration` (and any other non-walkable, non-blocking kind) are
+    // ignored here: they neither grant nor deny walkability.
   }
-  // A cell is walkable only if it has at least one walkable layer and no
-  // obstacle layers (tree/wall/walls/water/pit/decoration/liquid).
-  for (const key of obstacles) walkable.delete(key);
+  // A cell is walkable iff it carries at least one walkable layer and no
+  // explicit blocker. This keeps border cells (which the Forest maps paint
+  // with a `tree` overlay on top of `floor`) in the mask, so seam-doorway
+  // presses and off-map crossings are reachable instead of being reported
+  // "not-walkable".
   const out: (readonly [number, number])[] = [];
   for (const key of walkable) {
+    if (blocking.has(key)) continue;
     const [xStr, yStr] = key.split(',');
     out.push([Number(xStr), Number(yStr)] as const);
   }
@@ -444,6 +458,12 @@ export async function createDungeon(input: Omit<Dungeon, 'id' | 'createdAt' | 'u
   const { kind: challengeKind, configJson: challengeConfigJson } = serializeChallenge(dungeon.challenge);
   const walkableMaskJson = serializeWalkableMask(dungeon.walkableMask);
   await run(SQL_INSERT_DUNGEON, dungeon.id, dungeon.worldObjectId, dungeon.questId, dungeon.parentId, dungeon.name, dungeon.description, dungeon.biome, dungeon.width, dungeon.height, dungeon.spawnX, dungeon.spawnY, dungeon.biomeRegion, dungeon.randomEncountersEnabled ? 1 : 0, dungeon.randomEncounterRate, dungeon.randomMinLevel, dungeon.randomMaxLevel, dungeon.randomMaxStage, dungeon.randomMinPartySize, dungeon.randomMaxPartySize, JSON.stringify(dungeon.randomAllowedElements), JSON.stringify(dungeon.randomPool), challengeKind, challengeConfigJson, walkableMaskJson, dungeon.dungeonGroupId, dungeon.floorIndex, dungeon.gridX, dungeon.gridY, now, now);
+  // Every dungeon ships with a return-to-city portal (definitive-mode exit).
+  // Placed on the opposite corner from the spawn so players walk to it, and
+  // target_dungeon_id NULL makes moveRun resolve it as an exit to the world.
+  const exitX = dungeon.width - 1 - dungeon.spawnX;
+  const exitY = dungeon.height - 1 - dungeon.spawnY;
+  await run(SQL_INSERT_WARP, newId('wrp'), dungeon.id, Math.max(0, Math.min(dungeon.width - 1, exitX)), Math.max(0, Math.min(dungeon.height - 1, exitY)), null, 'Portal para a Cidade', 1, now, now);
   return dungeon;
 }
 
@@ -555,6 +575,27 @@ export async function listDungeonTilesets(dungeonId: string): Promise<TilesetGra
   }));
 }
 
+/**
+ * Recompute every dungeon's stored `walkable_mask_json` from its current
+ * tiles, using the (corrected) `computeWalkableMaskFromTiles`. This repairs
+ * masks that were generated before `tree`/`decoration` overlays stopped
+ * poisoning border cells — without it, seam-doorway presses and off-map grid
+ * crossings report "not-walkable" and the player gets stuck at the map edge.
+ * Idempotent: derived purely from existing tile data.
+ */
+export async function recomputeAllWalkableMasks(): Promise<{ readonly dungeons: number; readonly recomputed: number }> {
+  const rows = await q<{ readonly id: string }>(`SELECT id FROM dungeons`);
+  let recomputed = 0;
+  for (const { id } of rows) {
+    const tiles = await listTiles(id);
+    const mask = computeWalkableMaskFromTiles(tiles);
+    const json = serializeWalkableMask(mask);
+    await run(SQL_UPDATE_DUNGEON_WALKABLE_MASK, [json, Date.now(), id]);
+    recomputed += 1;
+  }
+  return { dungeons: rows.length, recomputed };
+}
+
 export async function replaceTiles(dungeonId: string, tiles: readonly TileInput[]): Promise<DungeonTile[] | null> {
   const dungeon = await getDungeon(dungeonId);
   if (!dungeon) return null;
@@ -624,7 +665,7 @@ export async function createWarp(dungeonId: string, input: CreateWarpInput): Pro
   if (await one<WarpRow>(SQL_GET_WARP_AT, dungeonId, input.x, input.y)) return 'conflict';
   const now = Date.now();
   const id = newId('wrp');
-  await run(SQL_INSERT_WARP, id, dungeonId, input.x, input.y, input.targetDungeonId ?? null, input.label ?? null, now, now);
+  await run(SQL_INSERT_WARP, id, dungeonId, input.x, input.y, input.targetDungeonId ?? null, input.label ?? null, 0, now, now);
   const row = await one<WarpRow>(SQL_GET_WARP, dungeonId, id);
   return row ? warpFromRow(row) : 'not-found';
 }
@@ -850,27 +891,78 @@ async function getAutomaticGridTransition(source: Dungeon, currentX: number, cur
 }
 
 export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[] } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'blocked-by-chest'; readonly run: UserDungeonRun; readonly chestId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
-  const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  // Resolve the active run for this move. A grid crossing migrates the run row
+  // from the source dungeon to the target dungeon (maybeMigrateStashBetweenFloors
+  // rewrites dungeon_id). The client keeps POSTing moves to the dungeon URL it is
+  // currently rendered under, which can still be the OLD id during the React
+  // Router navigation window (or on a buffered-direction replay). If a direct
+  // SQL_GET_RUN(user, oldId) misses, fall back to the group's single active run
+  // — that is the same logical run, now living on a neighbour map. This prevents
+  // the per-switch 404 (moveRun -> not-found -> HTTP 404) and lets the step
+  // resolve on whichever map the run actually occupies.
+  const direct = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  let existing = direct;
+  let effectiveDungeonId = dungeonId;
+  if (!existing) {
+    const requested = await getDungeon(dungeonId);
+    if (requested?.dungeonGroupId !== null && requested?.dungeonGroupId !== undefined) {
+      const groupRow = await one<RunRow>(SQL_GET_RUN_BY_GROUP, userId, requested.dungeonGroupId);
+      if (groupRow) {
+        existing = groupRow;
+        effectiveDungeonId = groupRow.dungeon_id;
+      }
+    }
+  }
   if (!existing) return { kind: 'not-found' };
   const current = runFromRow(existing);
-  const dungeonForWalkCheck = await getDungeon(dungeonId);
+  const dungeonForWalkCheck = await getDungeon(effectiveDungeonId);
   if (!dungeonForWalkCheck) return { kind: 'blocked' };
-  const warp = await one<WarpRow>(SQL_GET_WARP_AT, dungeonId, x, y);
-  const automaticTransition = warp === null ? await getAutomaticGridTransition(dungeonForWalkCheck, current.currentX, current.currentY, x, y) : null;
+  // When the run was resolved via the group fallback (it migrated off the URL
+  // dungeon), the requested (x, y) was computed by the client relative to the
+  // OLD map. Rebase it onto the map the run now occupies by keeping only the
+  // intended direction (sign of the delta) and stepping one tile from the real
+  // current cell. A correct post-navigation client sends new-map coords, where
+  // the sign already equals the real delta, so this is a no-op for it; a stale
+  // pre-navigation POST still yields the right direction.
+  let targetX = x;
+  let targetY = y;
+  if (effectiveDungeonId !== dungeonId) {
+    const dx = x - current.currentX;
+    const dy = y - current.currentY;
+    // A genuine single-step move changes exactly one axis. A stale pre-navigation
+    // POST can carry old-map coordinates that differ on both axes; collapse it to
+    // the dominant axis so it still resolves as a single adjacent step.
+    if (dx !== 0 && dy !== 0) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        targetX = current.currentX + Math.sign(dx);
+        targetY = current.currentY;
+      } else {
+        targetX = current.currentX;
+        targetY = current.currentY + Math.sign(dy);
+      }
+    } else {
+      targetX = current.currentX + (dx === 0 ? 0 : Math.sign(dx));
+      targetY = current.currentY + (dy === 0 ? 0 : Math.sign(dy));
+    }
+  }
+  const x2 = targetX;
+  const y2 = targetY;
+  const warp = await one<WarpRow>(SQL_GET_WARP_AT, effectiveDungeonId, x2, y2);
+  const automaticTransition = warp === null ? await getAutomaticGridTransition(dungeonForWalkCheck, current.currentX, current.currentY, x2, y2) : null;
   const isGridCrossing = automaticTransition !== null;
-  if (!(await isWalkable(dungeonForWalkCheck, x, y))) {
-    const bridgeTriggerIds = await getBridgeTriggerIdsAt(dungeonId, x, y);
+  if (!(await isWalkable(dungeonForWalkCheck, x2, y2))) {
+    const bridgeTriggerIds = await getBridgeTriggerIdsAt(effectiveDungeonId, x2, y2);
     const bridgeOpen = bridgeTriggerIds.length > 0 && await anyTriggerFired(userId, bridgeTriggerIds);
     // A grid crossing may step onto a border wall (or off the map) — the
     // boundary itself acts as the doorway.
     if (!bridgeOpen && !isGridCrossing) return { kind: 'blocked' };
   }
-  if (Math.abs(current.currentX - x) + Math.abs(current.currentY - y) !== 1) return { kind: 'not-adjacent' };
-  const encounter = await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, dungeonId, x, y);
-  const item = await one<ItemRow>(SQL_GET_ITEM_AT, dungeonId, x, y);
+  if (Math.abs(current.currentX - x2) + Math.abs(current.currentY - y2) !== 1) return { kind: 'not-adjacent' };
+  const encounter = await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, effectiveDungeonId, x2, y2);
+  const item = await one<ItemRow>(SQL_GET_ITEM_AT, effectiveDungeonId, x2, y2);
   const transitionTargetDungeonId = warp !== null ? warp.target_dungeon_id : automaticTransition?.dungeon.id;
   const hasTransition = warp !== null || automaticTransition !== null;
-  const door = await getDoorAt(dungeonId, x, y);
+  const door = await getDoorAt(effectiveDungeonId, x2, y2);
   if (door && !current.unlockedDoors.includes(door.id)) {
     const doorTriggerIds = await getDoorTargetingTriggerIds(door.id);
     const doorOpenByTrigger = doorTriggerIds.length > 0 && await anyTriggerFired(userId, doorTriggerIds);
@@ -923,21 +1015,21 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     let applied = false;
     await tx(async (t) => {
       const now = Date.now();
-      const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY]);
+      const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, effectiveDungeonId, current.currentX, current.currentY]);
       if (moveResult.changes === 0) return;
       applied = true;
       if (isNewPickup && item !== null && cataloged) {
         if (redirectToStash) {
-          await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, item.item_id, item.qty, now]);
+          await t.run(SQL_GRANT_STASH_ITEM, [userId, effectiveDungeonId, item.item_id, item.qty, now]);
         } else {
           await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
         }
       }
       if (opensChest !== null) {
-        await t.run(SQL_UPSERT_POI_STATE, [userId, dungeonId, 'chest', opensChest.id, 'used', now]);
+        await t.run(SQL_UPSERT_POI_STATE, [userId, effectiveDungeonId, 'chest', opensChest.id, 'used', now]);
         for (const reward of opensChest.contents) {
           if (redirectToStash) {
-            await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, reward.itemId, reward.qty, now]);
+            await t.run(SQL_GRANT_STASH_ITEM, [userId, effectiveDungeonId, reward.itemId, reward.qty, now]);
           } else {
             await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, reward.itemId, reward.qty, now]);
           }
@@ -950,23 +1042,23 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     });
     if (!applied) return { kind: 'not-adjacent' };
   } else {
-    const moveResult = await run(SQL_UPDATE_RUN_POSITION_CAS, writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY);
+    const moveResult = await run(SQL_UPDATE_RUN_POSITION_CAS, writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, effectiveDungeonId, current.currentX, current.currentY);
     if (moveResult.changes === 0) return { kind: 'not-adjacent' };
   }
-  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  const row = await one<RunRow>(SQL_GET_RUN, userId, effectiveDungeonId);
   if (!row) return { kind: 'not-found' };
   const hasUndefeatedEncounter = encounter !== null && !current.defeatedEncounters.includes(encounter.id);
   const triggeredEncounterId = hasUndefeatedEncounter && encounter.difficulty !== 'boss' ? encounter.id : null;
-  const randomEncounter = !hasUndefeatedEncounter && !hasTransition && !door && !trapTriggered ? rollDungeonEncounter(dungeonForWalkCheck, await listZones(dungeonId), { x: landX, y: landY }, loadCatalog()) : null;
-  let effectiveDungeonId = dungeonId;
+  const randomEncounter = !hasUndefeatedEncounter && !hasTransition && !door && !trapTriggered ? rollDungeonEncounter(dungeonForWalkCheck, await listZones(effectiveDungeonId), { x: landX, y: landY }, loadCatalog()) : null;
+  let postMigrationDungeonId = effectiveDungeonId;
   if (transitionTargetDungeonId !== null && transitionTargetDungeonId !== undefined) {
     const entry = automaticTransition ? { x: automaticTransition.entryX, y: automaticTransition.entryY } : undefined;
-    const migrated = await maybeMigrateStashBetweenFloors(userId, dungeonId, transitionTargetDungeonId, entry);
-    if (migrated) effectiveDungeonId = transitionTargetDungeonId;
+    const migrated = await maybeMigrateStashBetweenFloors(userId, effectiveDungeonId, transitionTargetDungeonId, entry);
+    if (migrated) postMigrationDungeonId = transitionTargetDungeonId;
   }
-  const finalRow = effectiveDungeonId === dungeonId ? row : await one<RunRow>(SQL_GET_RUN, userId, effectiveDungeonId);
+  const finalRow = postMigrationDungeonId === effectiveDungeonId ? row : await one<RunRow>(SQL_GET_RUN, userId, postMigrationDungeonId);
   if (!finalRow) return { kind: 'not-found' };
-  const runAfterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, effectiveDungeonId, runFromRow(finalRow));
+  const runAfterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, postMigrationDungeonId, runFromRow(finalRow));
   return {
     kind: 'ok',
     run: runAfterAutoExtract,
@@ -1272,7 +1364,7 @@ export async function applyTiledImportReplace(dungeonId: string, payload: TiledI
       await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeonId, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
     }
     for (const wp of payload.warps) {
-      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeonId, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeonId, wp.x, wp.y, wp.targetDungeonId, wp.label, 0, now, now]);
     }
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeonId, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
@@ -1388,7 +1480,7 @@ export async function applyTiledImportNew(input: {
       await t.run(SQL_INSERT_DOOR_IMPORT, [newId('dor'), dungeon.id, dr.x, dr.y, dr.keyItemId, dr.label, now, now]);
     }
     for (const wp of payload.warps) {
-      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeon.id, wp.x, wp.y, wp.targetDungeonId, wp.label, now, now]);
+      await t.run(SQL_INSERT_WARP, [newId('wrp'), dungeon.id, wp.x, wp.y, wp.targetDungeonId, wp.label, 0, now, now]);
     }
     for (const tr of payload.traps) {
       await t.run(SQL_INSERT_TRAP_IMPORT, [newId('trap'), dungeon.id, tr.x, tr.y, tr.kind, tr.severity, tr.label, now]);
