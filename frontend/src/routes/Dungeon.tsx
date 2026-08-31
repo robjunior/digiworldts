@@ -442,6 +442,7 @@ export function Dungeon(): JSX.Element {
           });
         }
         gridCrossingRef.current = true;
+        console.log('[dungeon][transition]', { from: id, to: targetDungeonId, run: targetRun });
         navigate(`/dungeon/${targetDungeonId}`, { replace: true });
       } catch (err) {
         flashToast(
@@ -545,6 +546,7 @@ export function Dungeon(): JSX.Element {
           ? `Trap avoided! (party avg SPD ${t.partyAvgSpd}, ${Math.round(t.avoidChance * 100)}% dodge)`
           : `Trap! ${t.effectSummary}.`;
         pushLog(detail, t.dodged ? "" : "hit");
+        console.log('[dungeon][trap]', { dodged: t.dodged, effectSummary: t.effectSummary, partyAvgSpd: t.partyAvgSpd, avoidChance: t.avoidChance });
       }
       if (res.pickedUpItemId) {
         const item = data?.items.find((i) => i.id === res.pickedUpItemId);
@@ -571,6 +573,7 @@ export function Dungeon(): JSX.Element {
           )
           .join(", ");
         pushLog(`Wild encounter: ${mons}.`, "hit");
+        console.log('[dungeon][encounter][random]', { mons, party: partyCatalogIds });
         if (!wildStartPendingRef.current) {
           wildStartPendingRef.current = true;
           startRandomEncounterMutation.mutate(res.randomEncounter);
@@ -578,8 +581,9 @@ export function Dungeon(): JSX.Element {
       }
       if (Object.hasOwn(res, "warpToDungeonId")) {
         const targetDungeonId = res.warpToDungeonId;
-        if (targetDungeonId === null) navigate("/world");
-        else if (targetDungeonId !== undefined) {
+        if (targetDungeonId === null) {
+          navigate("/world");
+        } else if (targetDungeonId !== undefined) {
           // Re-anchor the party trail into the target map's coordinate space:
           // the old cells were in the source map, so followers would render
           // off-position (or vanish) for one frame. Place them trailing behind
@@ -604,6 +608,7 @@ export function Dungeon(): JSX.Element {
             clampCell(entryX - dirX, entryY - dirY),
             clampCell(entryX - dirX * 2, entryY - dirY * 2),
           ]);
+          console.log('[dungeon][warp]', { from: { x, y }, to: targetDungeonId, party: partyCatalogIds });
           void transitionToDungeon(targetDungeonId, res.run);
         }
       }
