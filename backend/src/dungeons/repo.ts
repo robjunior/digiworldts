@@ -891,27 +891,78 @@ async function getAutomaticGridTransition(source: Dungeon, currentX: number, cur
 }
 
 export async function moveRun(userId: string, dungeonId: string, x: number, y: number): Promise<{ readonly kind: 'ok'; readonly run: UserDungeonRun; readonly triggeredEncounterId: string | null; readonly pickedUpItemId: string | null; readonly randomEncounter?: readonly EncounterDigimon[]; readonly warpToDungeonId?: string | null; readonly trapTriggered?: TrapTriggered; readonly openedChestId?: string; readonly chestContents?: readonly ChestReward[] } | { readonly kind: 'blocked-by-door'; readonly run: UserDungeonRun; readonly doorId: string } | { readonly kind: 'blocked-by-chest'; readonly run: UserDungeonRun; readonly chestId: string } | { readonly kind: 'not-found' | 'blocked' | 'not-adjacent' }> {
-  const existing = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  // Resolve the active run for this move. A grid crossing migrates the run row
+  // from the source dungeon to the target dungeon (maybeMigrateStashBetweenFloors
+  // rewrites dungeon_id). The client keeps POSTing moves to the dungeon URL it is
+  // currently rendered under, which can still be the OLD id during the React
+  // Router navigation window (or on a buffered-direction replay). If a direct
+  // SQL_GET_RUN(user, oldId) misses, fall back to the group's single active run
+  // — that is the same logical run, now living on a neighbour map. This prevents
+  // the per-switch 404 (moveRun -> not-found -> HTTP 404) and lets the step
+  // resolve on whichever map the run actually occupies.
+  const direct = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  let existing = direct;
+  let effectiveDungeonId = dungeonId;
+  if (!existing) {
+    const requested = await getDungeon(dungeonId);
+    if (requested?.dungeonGroupId !== null && requested?.dungeonGroupId !== undefined) {
+      const groupRow = await one<RunRow>(SQL_GET_RUN_BY_GROUP, userId, requested.dungeonGroupId);
+      if (groupRow) {
+        existing = groupRow;
+        effectiveDungeonId = groupRow.dungeon_id;
+      }
+    }
+  }
   if (!existing) return { kind: 'not-found' };
   const current = runFromRow(existing);
-  const dungeonForWalkCheck = await getDungeon(dungeonId);
+  const dungeonForWalkCheck = await getDungeon(effectiveDungeonId);
   if (!dungeonForWalkCheck) return { kind: 'blocked' };
-  const warp = await one<WarpRow>(SQL_GET_WARP_AT, dungeonId, x, y);
-  const automaticTransition = warp === null ? await getAutomaticGridTransition(dungeonForWalkCheck, current.currentX, current.currentY, x, y) : null;
+  // When the run was resolved via the group fallback (it migrated off the URL
+  // dungeon), the requested (x, y) was computed by the client relative to the
+  // OLD map. Rebase it onto the map the run now occupies by keeping only the
+  // intended direction (sign of the delta) and stepping one tile from the real
+  // current cell. A correct post-navigation client sends new-map coords, where
+  // the sign already equals the real delta, so this is a no-op for it; a stale
+  // pre-navigation POST still yields the right direction.
+  let targetX = x;
+  let targetY = y;
+  if (effectiveDungeonId !== dungeonId) {
+    const dx = x - current.currentX;
+    const dy = y - current.currentY;
+    // A genuine single-step move changes exactly one axis. A stale pre-navigation
+    // POST can carry old-map coordinates that differ on both axes; collapse it to
+    // the dominant axis so it still resolves as a single adjacent step.
+    if (dx !== 0 && dy !== 0) {
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        targetX = current.currentX + Math.sign(dx);
+        targetY = current.currentY;
+      } else {
+        targetX = current.currentX;
+        targetY = current.currentY + Math.sign(dy);
+      }
+    } else {
+      targetX = current.currentX + (dx === 0 ? 0 : Math.sign(dx));
+      targetY = current.currentY + (dy === 0 ? 0 : Math.sign(dy));
+    }
+  }
+  const x2 = targetX;
+  const y2 = targetY;
+  const warp = await one<WarpRow>(SQL_GET_WARP_AT, effectiveDungeonId, x2, y2);
+  const automaticTransition = warp === null ? await getAutomaticGridTransition(dungeonForWalkCheck, current.currentX, current.currentY, x2, y2) : null;
   const isGridCrossing = automaticTransition !== null;
-  if (!(await isWalkable(dungeonForWalkCheck, x, y))) {
-    const bridgeTriggerIds = await getBridgeTriggerIdsAt(dungeonId, x, y);
+  if (!(await isWalkable(dungeonForWalkCheck, x2, y2))) {
+    const bridgeTriggerIds = await getBridgeTriggerIdsAt(effectiveDungeonId, x2, y2);
     const bridgeOpen = bridgeTriggerIds.length > 0 && await anyTriggerFired(userId, bridgeTriggerIds);
     // A grid crossing may step onto a border wall (or off the map) — the
     // boundary itself acts as the doorway.
     if (!bridgeOpen && !isGridCrossing) return { kind: 'blocked' };
   }
-  if (Math.abs(current.currentX - x) + Math.abs(current.currentY - y) !== 1) return { kind: 'not-adjacent' };
-  const encounter = await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, dungeonId, x, y);
-  const item = await one<ItemRow>(SQL_GET_ITEM_AT, dungeonId, x, y);
+  if (Math.abs(current.currentX - x2) + Math.abs(current.currentY - y2) !== 1) return { kind: 'not-adjacent' };
+  const encounter = await one<EncounterRow>(SQL_GET_ENCOUNTER_AT, effectiveDungeonId, x2, y2);
+  const item = await one<ItemRow>(SQL_GET_ITEM_AT, effectiveDungeonId, x2, y2);
   const transitionTargetDungeonId = warp !== null ? warp.target_dungeon_id : automaticTransition?.dungeon.id;
   const hasTransition = warp !== null || automaticTransition !== null;
-  const door = await getDoorAt(dungeonId, x, y);
+  const door = await getDoorAt(effectiveDungeonId, x2, y2);
   if (door && !current.unlockedDoors.includes(door.id)) {
     const doorTriggerIds = await getDoorTargetingTriggerIds(door.id);
     const doorOpenByTrigger = doorTriggerIds.length > 0 && await anyTriggerFired(userId, doorTriggerIds);
@@ -964,21 +1015,21 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     let applied = false;
     await tx(async (t) => {
       const now = Date.now();
-      const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY]);
+      const moveResult = await t.run(SQL_UPDATE_RUN_POSITION_CAS, [writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, effectiveDungeonId, current.currentX, current.currentY]);
       if (moveResult.changes === 0) return;
       applied = true;
       if (isNewPickup && item !== null && cataloged) {
         if (redirectToStash) {
-          await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, item.item_id, item.qty, now]);
+          await t.run(SQL_GRANT_STASH_ITEM, [userId, effectiveDungeonId, item.item_id, item.qty, now]);
         } else {
           await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, item.item_id, item.qty, now]);
         }
       }
       if (opensChest !== null) {
-        await t.run(SQL_UPSERT_POI_STATE, [userId, dungeonId, 'chest', opensChest.id, 'used', now]);
+        await t.run(SQL_UPSERT_POI_STATE, [userId, effectiveDungeonId, 'chest', opensChest.id, 'used', now]);
         for (const reward of opensChest.contents) {
           if (redirectToStash) {
-            await t.run(SQL_GRANT_STASH_ITEM, [userId, dungeonId, reward.itemId, reward.qty, now]);
+            await t.run(SQL_GRANT_STASH_ITEM, [userId, effectiveDungeonId, reward.itemId, reward.qty, now]);
           } else {
             await t.run(SQL_UPSERT_INVENTORY_PICKUP, [userId, reward.itemId, reward.qty, now]);
           }
@@ -991,23 +1042,23 @@ export async function moveRun(userId: string, dungeonId: string, x: number, y: n
     });
     if (!applied) return { kind: 'not-adjacent' };
   } else {
-    const moveResult = await run(SQL_UPDATE_RUN_POSITION_CAS, writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, dungeonId, current.currentX, current.currentY);
+    const moveResult = await run(SQL_UPDATE_RUN_POSITION_CAS, writeX, writeY, JSON.stringify(collectedItems), JSON.stringify(nextOneshot), userId, effectiveDungeonId, current.currentX, current.currentY);
     if (moveResult.changes === 0) return { kind: 'not-adjacent' };
   }
-  const row = await one<RunRow>(SQL_GET_RUN, userId, dungeonId);
+  const row = await one<RunRow>(SQL_GET_RUN, userId, effectiveDungeonId);
   if (!row) return { kind: 'not-found' };
   const hasUndefeatedEncounter = encounter !== null && !current.defeatedEncounters.includes(encounter.id);
   const triggeredEncounterId = hasUndefeatedEncounter && encounter.difficulty !== 'boss' ? encounter.id : null;
-  const randomEncounter = !hasUndefeatedEncounter && !hasTransition && !door && !trapTriggered ? rollDungeonEncounter(dungeonForWalkCheck, await listZones(dungeonId), { x: landX, y: landY }, loadCatalog()) : null;
-  let effectiveDungeonId = dungeonId;
+  const randomEncounter = !hasUndefeatedEncounter && !hasTransition && !door && !trapTriggered ? rollDungeonEncounter(dungeonForWalkCheck, await listZones(effectiveDungeonId), { x: landX, y: landY }, loadCatalog()) : null;
+  let postMigrationDungeonId = effectiveDungeonId;
   if (transitionTargetDungeonId !== null && transitionTargetDungeonId !== undefined) {
     const entry = automaticTransition ? { x: automaticTransition.entryX, y: automaticTransition.entryY } : undefined;
-    const migrated = await maybeMigrateStashBetweenFloors(userId, dungeonId, transitionTargetDungeonId, entry);
-    if (migrated) effectiveDungeonId = transitionTargetDungeonId;
+    const migrated = await maybeMigrateStashBetweenFloors(userId, effectiveDungeonId, transitionTargetDungeonId, entry);
+    if (migrated) postMigrationDungeonId = transitionTargetDungeonId;
   }
-  const finalRow = effectiveDungeonId === dungeonId ? row : await one<RunRow>(SQL_GET_RUN, userId, effectiveDungeonId);
+  const finalRow = postMigrationDungeonId === effectiveDungeonId ? row : await one<RunRow>(SQL_GET_RUN, userId, postMigrationDungeonId);
   if (!finalRow) return { kind: 'not-found' };
-  const runAfterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, effectiveDungeonId, runFromRow(finalRow));
+  const runAfterAutoExtract = await maybeAutoExtractOnChallengeWin(userId, postMigrationDungeonId, runFromRow(finalRow));
   return {
     kind: 'ok',
     run: runAfterAutoExtract,
