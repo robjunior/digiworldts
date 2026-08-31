@@ -24,7 +24,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import Phaser from "phaser";
 
-import { DungeonPhaserScene, DUNGEON_SCENE_KEY } from "./DungeonPhaserScene";
+import { DungeonPhaserScene, DUNGEON_SCENE_KEY, computeLayout } from "./DungeonPhaserScene";
 import type { DungeonRunView } from "@digiworld/shared";
 import type { RosterView } from "../lib/api";
 
@@ -437,6 +437,181 @@ test("remote leader is positioned at its world cell, not orphaned at origin", ()
   expect(orphanAtOrigin, "no sprite/circle should be orphaned at the world origin (0,0)").toBeUndefined();
   // Exactly one leader object (circle) for the single remote player.
   expect(leaders.length).toBe(1);
+});
+
+/**
+ * Regression test for client-side prediction: `computeLayout` must honor the
+ * `overrideX/overrideY` (predicted leader cell) so the follow target — and thus
+ * the camera + leader sprite — glide to the predicted cell immediately, without
+ * waiting for the server round-trip. Before prediction, the leader only moved
+ * once `data.run.currentX/Y` updated (after the RTT), which read as "input
+ * delay" / "dragged" movement.
+ */
+test("computeLayout honors the predicted (override) leader cell", () => {
+  const view = {
+    dungeon: {
+      id: "d1",
+      name: "D",
+      width: 10,
+      height: 10,
+      gridX: 0,
+      gridY: 0,
+      tilesetId: "t",
+      seed: 1,
+    },
+    run: { currentX: 4, currentY: 4, facing: "right" as const },
+    tilesets: [],
+  } as unknown as DungeonRunView;
+
+  const tileSize = 32;
+  const authoritative = computeLayout(view, [], undefined);
+  // 4 * 32 + 16 = 144
+  expect(authoritative.playerX).toBe(4 * tileSize + tileSize / 2);
+  expect(authoritative.playerY).toBe(4 * tileSize + tileSize / 2);
+
+  // Predict the player one tile to the right (5, 4) before the server confirms.
+  const predicted = computeLayout(view, [], undefined, 5, 4);
+  expect(predicted.playerX).toBe(5 * tileSize + tileSize / 2);
+  expect(predicted.playerY).toBe(4 * tileSize + tileSize / 2);
+  // The rest of the world geometry is untouched by the prediction.
+  expect(predicted.width).toBe(authoritative.width);
+  expect(predicted.height).toBe(authoritative.height);
+  expect(predicted.originX).toBe(authoritative.originX);
+});
+
+/**
+ * Regression test for the walk-time "jitter" / stutter fix.
+ *
+ * Root cause: `recompose()` ran `clearRendered()` + `renderWorld()` — a full
+ * teardown + rebuild of EVERY composed map (active + neighbors) — on EVERY
+ * `setProps`, including every plain walk. Because the route swaps in a fresh
+ * `data` object (and updates a prediction override / partyTrail) on each step,
+ * each step "looks new" and the whole world was rebuilt, which read as jitter.
+ *
+ * The fix gates only the GEOMETRY rebuild behind a content signature (walks are
+ * position-only, so the signature is unchanged and the world is NOT rebuilt),
+ * while keeping the position path (camera glide + party re-tween) always live.
+ *
+ * This test drives the REAL `recompose()` and asserts:
+ *   1. the world is built on first compose,
+ *   2. a position-only walk (currentX changes, geometry identical) does NOT
+ *      rebuild the world,
+ *   3. a geometry change (a POI interaction flips firedTriggerIds) DOES rebuild.
+ */
+test("walk recomposes position-only (no world rebuild); geometry change rebuilds", () => {
+  const scene = new DungeonPhaserScene();
+  const noop = (): void => {};
+  (scene as unknown as { cameras: unknown }).cameras = {
+    main: {
+      setBackgroundColor: noop,
+      setZoom: noop,
+      startFollow: noop,
+      on: noop,
+      off: noop,
+      getBackgroundColor: () => 0,
+    },
+  };
+  (scene as unknown as { add: unknown }).add = {
+    container: () => ({ x: 0, y: 0, setPosition: noop }),
+    group: () => ({ add: noop }),
+    sprite: () => ({}),
+    on: noop,
+  };
+  (scene as unknown as { input: unknown }).input = { on: noop, off: noop };
+  (scene as unknown as { tweens: unknown }).tweens = {
+    killTweensOf: noop,
+    add: () => ({ remove: noop }),
+  };
+  (scene as unknown as { time: unknown }).time = { delayedCall: () => ({ remove: noop }) };
+  (scene as unknown as { load: unknown }).load = {
+    once: noop,
+    start: noop,
+    isLoading: () => false,
+    list: { size: 0 },
+  };
+  (scene as unknown as { textures: unknown }).textures = { exists: () => true };
+  (scene as unknown as { anims: unknown }).anims = { exists: () => false };
+  (scene as unknown as { make: unknown }).make = {
+    tilemap: () => ({ addLayer: () => ({}), createLayer: () => ({}), destroy: noop } as never),
+  };
+  (scene as unknown as { events: Phaser.Events.EventEmitter }).events =
+    new Phaser.Events.EventEmitter();
+
+  scene.create();
+  (scene as unknown as { followTarget: object }).followTarget = {
+    x: 0,
+    y: 0,
+    setPosition: (nx: number, ny: number) => {
+      (scene as unknown as { followTarget: { x: number; y: number } }).followTarget.x = nx;
+      (scene as unknown as { followTarget: { x: number; y: number } }).followTarget.y = ny;
+    },
+  };
+
+  // Counts how many times the world is actually torn down + rebuilt.
+  const renderWorld = vi.fn(noop);
+  const moveFollowTarget = vi.fn(noop);
+  const renderParty = vi.fn(noop);
+  const renderRemotePlayers = vi.fn(noop);
+  vi.spyOn(scene as unknown as { renderWorld: () => void }, "renderWorld").mockImplementation(renderWorld);
+  vi.spyOn(
+    scene as unknown as { moveFollowTarget: () => void },
+    "moveFollowTarget",
+  ).mockImplementation(moveFollowTarget);
+  vi.spyOn(scene as unknown as { renderParty: () => void }, "renderParty").mockImplementation(renderParty);
+  vi.spyOn(
+    scene as unknown as { renderRemotePlayers: () => void },
+    "renderRemotePlayers",
+  ).mockImplementation(renderRemotePlayers);
+
+  const baseView = () =>
+    ({
+      dungeon: { id: "d1", name: "D", width: 8, height: 8, gridX: 0, gridY: 0, tilesetId: "t", seed: 1 },
+      run: {
+        currentX: 4,
+        currentY: 4,
+        facing: "right" as const,
+        defeatedEncounters: [],
+        collectedItems: [],
+        unlockedDoors: [],
+      },
+      tilesets: [],
+      tiles: [{ x: 4, y: 4, gid: 1, layerKind: "floor" }],
+      encounters: [],
+      doors: [],
+      triggers: [{ id: "tg1", x: 2, y: 2, enabled: true, unusedTileGid: 5, usedTileGid: 6 }],
+      bridges: [],
+      firedTriggerIds: [] as string[],
+      poiStates: [] as { poiKind: string; poiId: string; state: string }[],
+    }) as unknown as DungeonRunView;
+
+  const noopCb = (): void => {};
+  const party = [{ catalogId: "agumon", slot: 0, status: "party" }] as unknown as RosterView[];
+
+  // 1) First compose must build the world (rendered == false).
+  const v0 = baseView();
+  scene.setProps(v0, [], [], party, "right", 200, [{ x: 4, y: 4 }], noopCb, noopCb, noopCb);
+  expect(renderWorld, "first compose builds the world").toHaveBeenCalledTimes(1);
+  const afterFirst = renderWorld.mock.calls.length;
+
+  // 2) A position-only walk (currentX 4 -> 5, geometry identical) must NOT
+  //    rebuild the world, but MUST still glide the camera + re-tween the party.
+  //    The route swaps in a fresh `data` object per step, so a plain step here
+  //    uses a new view reference with the same geometry — exactly the prior
+  //    jitter trigger.
+  const v1 = baseView();
+  (v1.run as unknown as { currentX: number }).currentX = 5;
+  scene.setProps(v1, [], [], party, "right", 200, [{ x: 5, y: 4 }], noopCb, noopCb, noopCb);
+  expect(renderWorld, "walk (position-only) must NOT rebuild the world").toHaveBeenCalledTimes(afterFirst);
+  expect(moveFollowTarget, "walk must still glide the camera (position path stays live)").toHaveBeenCalled();
+  expect(renderParty, "walk must still re-tween the party").toHaveBeenCalled();
+
+  // 3) A geometry change (the trigger fires -> firedTriggerIds changes) MUST
+  //    rebuild the world.
+  const v2 = baseView();
+  (v2.run as unknown as { currentX: number }).currentX = 5;
+  (v2.firedTriggerIds as string[]).push("tg1");
+  scene.setProps(v2, [], [], party, "right", 200, [{ x: 5, y: 4 }], noopCb, noopCb, noopCb);
+  expect(renderWorld, "POI/geometry change must rebuild the world").toHaveBeenCalledTimes(afterFirst + 1);
 });
 
 
