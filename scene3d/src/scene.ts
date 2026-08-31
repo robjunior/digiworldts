@@ -18,6 +18,12 @@ import {
   DEFAULT_EFFECT_DURATION_S,
   ELEMENT_LIGHT_COLOR,
 } from "./attack-runners/types";
+import {
+  buildImpactController,
+  shakeForElement,
+  nextShakeOffset,
+  IMPACT_SHAKE_DURATION_S,
+} from "./attack-runners/impact";
 
 /**
  * Where a skill effect leaves the attacker and where it lands on the receiver,
@@ -543,6 +549,9 @@ export class SceneManager {
   private camElevDeg = CAM_ELEV_DEG;
   private camYawDeg = CAM_YAW_DEG;
   private camDist = CAM_DIST;
+  // Camera base position (no shake). Shake offsets are added on top each frame
+  // and recomputed from this, so they never accumulate across frames.
+  private readonly cameraBasePos = new THREE.Vector3(0, 0, 0);
   private camLookAtY = CAM_LOOK_AT_Y;
   private cameraLookOffset = new THREE.Vector3(0, 0, 0);
   private camFrustum = FRUSTUM;
@@ -559,6 +568,13 @@ export class SceneManager {
   private currentArenaOffsetZ = 0;
   private currentCameraType: "ortho" | "perspective" = "ortho";
   private currentCamFov = 45;
+
+  // Screen-shake state: a transient positional offset applied to the camera
+  // right before each render, decaying to zero over IMPACT_SHAKE_DURATION_S.
+  // Triggered on skill impact so a landed hit jolts the stage.
+  private shakeAmplitude = 0;
+  private shakeElapsed = 0;
+  private shakeActive = false;
 
   private readonly activeEmitters: Map<string, ParticleEmitter> = new Map();
   private readonly fadingEmitters: Array<{
@@ -813,11 +829,12 @@ export class SceneManager {
   private placeCameraIso(): void {
     const elev = (this.camElevDeg * Math.PI) / 180;
     const yaw = (this.camYawDeg * Math.PI) / 180;
-    this.camera.position.set(
+    this.cameraBasePos.set(
       Math.sin(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.x,
       Math.sin(elev) * this.camDist + this.cameraLookOffset.y,
       Math.cos(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.z,
     );
+    this.camera.position.copy(this.cameraBasePos);
     this.camera.lookAt(
       this.cameraLookOffset.x,
       this.camLookAtY + this.cameraLookOffset.y,
@@ -1817,6 +1834,12 @@ export class SceneManager {
         target.illuminate(ELEMENT_LIGHT_COLOR[element], 0.9, 3.5);
         // Receiver shakes on hit: refresh the shadow map once for the hit pose.
         this.requestShadowRefresh();
+        // Centralized ability-impact polish: a shared element-colored ring +
+        // spark burst plays on every landed hit (all 11 element runners and the
+        // SkillVfxPreset runner funnel through this callback), and the camera
+        // jolts once so the hit reads physically.
+        this.spawnImpact(element, targetPos);
+        this.triggerShake(shakeForElement(element));
         originalOnImpact?.();
       },
     };
@@ -1847,6 +1870,56 @@ export class SceneManager {
     );
     this.effects.set(id, { runner, elapsed: 0, duration: durationS });
     return id;
+  }
+
+  /**
+   * Spawn the shared element-colored impact flourish (ring + spark burst +
+   * light pulse) at a landed hit. Registered as an ordinary effect so the
+   * render loop ticks + disposes it exactly like a runner. No-op when the
+   * element is unknown (buildImpactController returns null defensively).
+   */
+  private spawnImpact(element: AnimatedElement, position: THREE.Vector3): void {
+    const controller = buildImpactController(this.scene, { element, position });
+    if (controller === null) return;
+    this.effects.set(controller.id, {
+      runner: controller.runner,
+      elapsed: 0,
+      duration: controller.duration,
+    });
+  }
+
+  /**
+   * Kick off a one-shot camera screen-shake. Repeated hits refresh the timer so
+   * a flurry of blows keeps the stage jolting rather than cutting the shake
+   * short. Amplitude comes from the element's tuning (0 = no shake requested).
+   */
+  private triggerShake(amplitude: number): void {
+    if (amplitude <= 0) return;
+    this.shakeAmplitude = amplitude;
+    this.shakeElapsed = 0;
+    this.shakeActive = true;
+  }
+
+  /** Advance + apply the screen-shake camera offset for this frame. */
+  private applyShake(dtS: number): void {
+    if (!this.shakeActive) return;
+    this.shakeElapsed += dtS;
+    const { x, y } = nextShakeOffset(
+      this.shakeAmplitude,
+      this.shakeElapsed,
+      IMPACT_SHAKE_DURATION_S,
+    );
+    if (x === 0 && y === 0) {
+      this.shakeActive = false;
+      // Re-place the camera cleanly so the offset doesn't stick at a residue.
+      this.placeCameraIso();
+      return;
+    }
+    // Reset to the jitter-free base, then offset: keeps the shake from
+    // accumulating across frames (which would drift the camera off-stage).
+    this.camera.position.copy(this.cameraBasePos);
+    this.camera.position.x += x;
+    this.camera.position.y += y;
   }
 
   /**
@@ -1962,6 +2035,10 @@ export class SceneManager {
         ctx?.runner.dispose();
         this.effects.delete(id);
       }
+      // Apply the one-shot impact screen-shake (if active) just before draw, so
+      // the jolt is visible this frame and recomputed from the camera base next
+      // frame (no accumulation).
+      this.applyShake(dt);
       this.renderer.render(this.scene, this.camera);
       this.sampleHud(dt);
       this.rafId = requestAnimationFrame(tick);
