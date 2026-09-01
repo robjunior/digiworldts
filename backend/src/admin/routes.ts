@@ -324,7 +324,7 @@ function buildTemplateFromScraped(
     attribute,
     element,
     baseStats: defaultStatsForStage(stage),
-    skillPool: skillsFromWikimon(attacks, element),
+    skillPool: [],  // skills sourced from skills_catalog (seeds), not from XML/scraper
     assets: {
       portrait: `/assets/digimon/${catalogId}/portrait.webp`,
       dot: `/assets/digimon/${catalogId}/dot.gif`,

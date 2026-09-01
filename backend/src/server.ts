@@ -34,7 +34,6 @@ import { authPlugin } from './auth/routes.js';
 import { oauthPlugin } from './auth/oauth/routes.js';
 import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
-import { seedSkillsCatalogFromXml } from './skills/seed.js';
 import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
 import { adminPlugin } from './admin/routes.js';
@@ -132,7 +131,6 @@ async function main(): Promise<void> {
   await seedDefaultWorldObjects();
   await seedDefaultQuests();
   await seedInitialNpcs();
-  await seedSkillsCatalogFromXml();
   if (config.SKILLS_V2_ENABLED) {
     const v2Result = await seedSkillsCatalogV2();
     log.info('skills.v2.boot.seed', {

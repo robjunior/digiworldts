@@ -26,6 +26,7 @@ import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResi
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import type { Action as DSLAction } from '../skills/dsl.js';
 import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
+import { buildSkillPoolFromCatalog } from '../skills/pool.js';
 import { applyDamageWithBuffs, effectiveDef, executeDSL, flushScheduledActions, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -80,13 +81,18 @@ export type Loadout = {
   members: LoadoutMember[];
 };
 
-function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, resolver: SkillsCatalogResolver, wildInfo?: WildInfo): BattleUnit {
+async function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMember, resolver: SkillsCatalogResolver, wildInfo?: WildInfo): Promise<BattleUnit> {
   const scaled = scaleStatsForLevel(m.template.baseStats, m.level, m.statBonus);
   const equipCap = EQUIPPED_SLOTS_PER_STAGE[m.template.stage] ?? SKILLS_PER_DIGIMON;
   const rawPool = m.equippedSkills && m.equippedSkills.length > 0
     ? m.equippedSkills.slice(0, equipCap)
     : m.template.skillPool.slice(0, equipCap);
-  const skills = rawPool.map((s) => resolveSkillFromCatalog(s, resolver));
+  // SOURCE OF TRUTH: skills come from skills_catalog (seeds), never from XML/scraper.
+  // When rawPool is empty (no equipped skills selected), fall back to catalog-sourced pool.
+  const pool = rawPool.length > 0
+    ? rawPool
+    : await buildSkillPoolFromCatalog(m.template.id, m.template.element, m.template.stage);
+  const skills = pool.map((s) => resolveSkillFromCatalog(s, resolver));
   for (const s of skills) {
     if (s.energyCost > scaled.en) {
       log.warn('battle.skill.unaffordable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });
@@ -191,10 +197,10 @@ export async function initBattle(input: {
   const mode = input.mode ?? 'pvp';
   const now = Date.now();
   const resolver = await getSkillsCatalogResolver();
-  const unitsA = input.loadoutA.members.map((m, i) => unitFromLoadout('a', i as SlotIndex, m, resolver));
-  const unitsB = input.loadoutB.members.map((m, i) =>
+  const unitsA = await Promise.all(input.loadoutA.members.map((m, i) => unitFromLoadout('a', i as SlotIndex, m, resolver)));
+  const unitsB = await Promise.all(input.loadoutB.members.map((m, i) =>
     unitFromLoadout('b', i as SlotIndex, m, resolver, input.wildFlags?.[i]),
-  );
+  ));
   const units = [...unitsA, ...unitsB];
   const queue = buildTurnQueue(units);
   const firstEntry = queue[0];
