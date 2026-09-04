@@ -382,6 +382,11 @@ function classifyLayer(layer: TiledTileLayer, warnings: string[]): LayerKind {
   }
   const name = layer.name.trim().toLowerCase();
   if (name === 'walkable' || name === 'floor') return 'floor';
+  // New layer types accepted from rootdirectory.tmx tile map
+  if (name === 'sand') return 'floor';
+  if (name === 'roads') return 'floor';
+  if (name === 'circuitry') return 'floor';
+  if (name === 'cable') return 'floor';
   if ((LAYER_KINDS as readonly string[]).includes(name)) return name as LayerKind;
   warnings.push(`tile layer "${layer.name}": name does not match any known layer kind and no dw_kind property is set; defaulting to "decoration"`);
   return 'decoration';
