@@ -12,8 +12,7 @@ import type {
   PvpQuestReward,
 } from '@digiworld/shared/pvp-quest';
 
-/**
- * Zod schemas for the PvP quest surface. These validate *server-generated* data
+/** Zod schemas for the PvP quest surface. These validate *server-generated* data
  * before it is persisted and *admin* input before a preview is built. Player
  * clients never submit quest definitions — they only submit battle actions.
  */
@@ -50,6 +49,8 @@ const paramsSchemaFor = (category: PvpQuestCategory): z.ZodType<PvpQuestParamsMa
           requiredSameElementPair: z.boolean().optional(),
         })
         .refine((v) => v.requiredUniqueElements !== undefined || v.requiredSameElementPair === true, { message: 'needs at least one constraint' }) as unknown as z.ZodType<PvpQuestParamsMap[PvpQuestCategory]>;
+    case 'BATTLE_ITEM':
+      return z.object({}) as unknown as z.ZodType<PvpQuestParamsMap[PvpQuestCategory]>;
     default:
       return z.object({}).strict() as unknown as z.ZodType<PvpQuestParamsMap[PvpQuestCategory]>;
   }
@@ -62,7 +63,8 @@ export const PvpQuestRewardSchema: z.ZodType<PvpQuestReward> = z.discriminatedUn
   z.object({ kind: z.literal('pvp_points'), amount: z.number().int().min(1).max(10_000_000) }),
   z.object({ kind: z.literal('xp'), amount: z.number().int().min(1).max(10_000_000) }),
   z.object({ kind: z.literal('cosmetic'), cosmeticId: z.string().min(1).max(80) }),
-] as const);
+  z.object({ kind: z.literal('battle_item'), itemId: z.string().min(1).max(80), qty: z.number().int().min(1).max(999_999) }),
+] as const;
 
 export const PvpQuestTemplateSchema = z.object({
   instanceId: z.string().min(1).max(40),
@@ -73,10 +75,7 @@ export const PvpQuestTemplateSchema = z.object({
   reward: PvpQuestRewardSchema,
 });
 
-/**
- * Validate a full template, narrowing `params` to the registered shape for the
- * category. Returns a typed template or a list of issues.
- */
+/** Validate a full template, narrowing `params` to the registered shape for the category. Returns a typed template or a list of issues. */
 export function validateTemplate(input: unknown): { ok: true; value: import('@digiworld/shared/pvp-quest').PvpQuestTemplate } | { ok: false; issues: string[] } {
   const parsed = PvpQuestTemplateSchema.safeParse(input);
   if (!parsed.success) {

@@ -12,8 +12,8 @@ import { DEBUFF_AILMENTS } from '@digiworld/shared/pvp-quest';
 import { newId } from '../util/ids.js';
 import { ELEMENT_POOL } from './registry.js';
 
-/**
- * Procedural generator.
+
+/** Procedural generator.
  *
  * Quests are not hand-authored. A small set of *templates* (category + parameter
  * space) is combined with per-period *scaling ranges* (how big the target gets)
@@ -21,6 +21,7 @@ import { ELEMENT_POOL } from './registry.js';
  * period. Everything is config-driven — no values are hard-coded in logic.
  */
 
+/** How each category's numeric `target` scales with the period. */
 export interface Range {
   min: number;
   max: number;
@@ -29,8 +30,7 @@ export interface Range {
 /** How each category's numeric `target` scales with the period. */
 export type ScalingMap = Partial<Record<PvpQuestCategory, Range>>;
 
-/**
- * Per-period difficulty bands. Tunable in one place. `null` range on a category
+/** Per-period difficulty bands. Tunable in one place. `null` range on a category
  * means "do not generate this category for that period".
  */
 export interface PeriodScaling {
@@ -39,6 +39,7 @@ export interface PeriodScaling {
   MONTHLY: ScalingMap;
 }
 
+/** Default scaling ranges per category and period. */
 export const DEFAULT_SCALING: PeriodScaling = {
   DAILY: {
     VICTORY: { min: 1, max: 5 },
@@ -59,6 +60,7 @@ export const DEFAULT_SCALING: PeriodScaling = {
     TURNS: { min: 1, max: 3 },
     DIVERSE_TEAM: { min: 1, max: 3 },
     OPPONENT_COMPOSITION: { min: 1, max: 3 },
+    BATTLE_ITEM: { min: 1, max: 3 },
   },
   WEEKLY: {
     VICTORY: { min: 5, max: 25 },
@@ -79,6 +81,7 @@ export const DEFAULT_SCALING: PeriodScaling = {
     TURNS: { min: 3, max: 10 },
     DIVERSE_TEAM: { min: 3, max: 10 },
     OPPONENT_COMPOSITION: { min: 3, max: 10 },
+    BATTLE_ITEM: { min: 2, max: 5 },
   },
   MONTHLY: {
     VICTORY: { min: 25, max: 150 },
@@ -99,11 +102,11 @@ export const DEFAULT_SCALING: PeriodScaling = {
     TURNS: { min: 5, max: 25 },
     DIVERSE_TEAM: { min: 10, max: 40 },
     OPPONENT_COMPOSITION: { min: 10, max: 40 },
+    BATTLE_ITEM: { min: 10, max: 30 },
   },
 };
 
-/**
- * Rewards scale with the period too, so a monthly grant dwarfs a daily one
+/** Rewards scale with the period too, so a monthly grant dwarfs a daily one
  * without any per-quest hard-coding. Reward kind is intentionally generic.
  */
 export interface RewardTier {
@@ -113,11 +116,13 @@ export interface RewardTier {
   max: number;
 }
 
+/** Reward tiers per period. */
 export const REWARD_TIERS: Record<PvpQuestPeriod, RewardTier> = {
   DAILY: { kind: 'netcore', perTarget: 2, min: 20, max: 200 },
   WEEKLY: { kind: 'netcore', perTarget: 3, min: 200, max: 1500 },
   MONTHLY: { kind: 'pvp_points', perTarget: 1, min: 1000, max: 10000 },
 };
+
 
 /** Mulberry32 — tiny, fast, seedable PRNG so a period board is reproducible. */
 function makeRng(seed: number): () => number {
@@ -131,20 +136,17 @@ function makeRng(seed: number): () => number {
   };
 }
 
+/** Return a uniform integer in [min, max]. */
 function randInt(rng: () => number, min: number, max: number): number {
   if (max <= min) return min;
   return min + Math.floor(rng() * (max - min + 1));
 }
 
+/** Return a random element from arr. */
 function pick<T>(rng: () => number, arr: readonly T[]): T {
-  return arr[Math.floor(rng() * arr.length)]!;
+  return arr[Math.floor(rng() * arr.length)!];
 }
 
-function quantizeDamage(rng: () => number, r: Range): number {
-  // Damage targets land on friendly steps (e.g. x1000) for readability.
-  const base = randInt(rng, r.min, r.max);
-  return Math.max(r.min, Math.round(base / 1000) * 1000);
-}
 
 function buildParams(rng: () => number, category: PvpQuestCategory): PvpQuestParams {
   switch (category) {
@@ -176,21 +178,29 @@ function buildParams(rng: () => number, category: PvpQuestCategory): PvpQuestPar
       if (rng() < 0.5) return { requiredUniqueElements: randInt(rng, 2, 3) } as PvpQuestParams;
       return { requiredSameElementPair: true } as PvpQuestParams;
     }
+    case 'BATTLE_ITEM':
+      return {} as PvpQuestParams;
     default:
       return {} as PvpQuestParams;
   }
 }
 
+
 function targetFor(category: PvpQuestCategory, period: PvpQuestPeriod, scaling: PeriodScaling, rng: () => number): number {
   const range = scaling[period][category];
   if (!range) return 1;
-  if (category === 'DAMAGE') return quantizeDamage(rng, range);
+  if (category === 'DAMAGE') {
+    // quantizeDamage removed - using direct randInt instead
+    return randInt(rng, range.min, range.max);
+  }
   return randInt(rng, range.min, range.max);
 }
 
+
+/** Build a PvpQuestReward from a tier and target. */
 function rewardFor(period: PvpQuestPeriod, target: number, rng: () => number, tier: RewardTier): PvpQuestReward {
-  const raw = tier.perTarget * target + randInt(rng, 0, Math.max(0, Math.floor(target / 4)));
-  const amount = Math.min(tier.max, Math.max(tier.min, raw));
+  const raw = tier.perTarget * target + Math.floor(rng() * Math.max(0, Math.floor(target / 4)));
+  const amount = Math.min(tier.max, Math.max(tier.min, Math.floor(raw)));
   switch (tier.kind) {
     case 'netcore':
       return { kind: 'netcore', amount };
@@ -204,8 +214,11 @@ function rewardFor(period: PvpQuestPeriod, target: number, rng: () => number, ti
       return { kind: 'item', itemId: 'itm_generic', qty: amount };
     case 'cosmetic':
       return { kind: 'cosmetic', cosmeticId: 'cos_generic' };
+    case 'battle_item':
+      return { kind: 'battle_item', itemId: `itm_battle_${Math.floor(rng() * 100)}`, qty: 1 };
   }
 }
+
 
 export interface GenerateOptions {
   /** How many quests per period. */
@@ -215,14 +228,17 @@ export interface GenerateOptions {
   seed?: number;
 }
 
+
+/** All categories the generator can pick from. */
 const ALL_CATEGORIES = [
   'VICTORY', 'WIN_STREAK', 'BATTLE_COUNT', 'KILLS', 'ELEMENT_KILLS', 'UNIQUE_ELEMENTS',
   'SUPER_EFFECTIVE', 'DISADVANTAGE', 'TEAM_SURVIVAL', 'PERFECT_WIN', 'COMEBACK',
   'DAMAGE', 'CRITICAL', 'STATUS', 'DEBUFF', 'TURNS', 'DIVERSE_TEAM', 'OPPONENT_COMPOSITION',
+  'BATTLE_ITEM',
 ] as const;
 
-/**
- * Generate one period's board. `seed` should be derived from the period window
+
+/** Generate one period's board. `seed` should be derived from the period window
  * (see periods.ts) so the same window always yields the same quests, but a new
  * window yields a fresh set. The caller (repo) dedupes by (period, window,
  * instanceId) so re-generation never double-counts.
