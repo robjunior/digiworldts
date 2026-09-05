@@ -12,6 +12,96 @@ const path = require('path');
 
 const DATA_DIR = path.resolve(process.cwd(), 'data', 'tileset');
 
+
+
+/**
+ * Convert TMX XML format to Tiled JSON map format.
+ * TMX is XML-based; Tiled JSON is the format parseTiledJson expects.
+ * 
+ * This function parses the TMX XML structure and converts it to a JSON object
+ * that conforms to the Tiled JSON map format expected by parseTiledJson.
+ * 
+ * @param {string} tmxXml - The TMX XML string from a .tmx file
+ * @returns {object} Tiled JSON map object
+ */
+function tmxToTiledJson(tmxXml) {
+  const getAttr = (name, defaultVal) => {
+    const match = tmxXml.match(new RegExp(name + "=\"([^\"]+)\""));
+    return match ? match[1] : defaultVal;
+  };
+  
+  const tiledMap = {
+    type: "map",
+    version: getAttr("version", "1.10") || "1.10",
+    tiledversion: getAttr("tiledversion", "1.12.2") || "1.12.2",
+    orientation: getAttr("orientation", "orthogonal") || "orthogonal",
+    renderorder: getAttr("renderorder", "right-down") || "right-down",
+    width: parseInt(getAttr("width", "0")) || 0,
+    height: parseInt(getAttr("height", "0")) || 0,
+    tilewidth: parseInt(getAttr("tilewidth", "32")) || 32,
+    tileheight: parseInt(getAttr("tileheight", "32")) || 32,
+    infinite: getAttr("infinite", "0") || "0",
+    nextlayerid: parseInt(getAttr("nextlayerid", "1")) || 1,
+    nextobjectid: parseInt(getAttr("nextobjectid", "1")) || 1,
+    tilesets: [],
+    layers: [],
+    properties: []
+  };
+  
+  // Extract tilesets
+  const tsPattern = /<tileset[^>]*>/g;
+  let match;
+  let tileIndex = 0;
+  while ((match = tsPattern.exec(tmxXml)) !== null) {
+    const tsContent = match[0];
+    tiledMap.tilesets.push({
+      firstgid: parseInt(getAttr("firstgid", "1")) || 1,
+      name: getAttr("name", "tileset-" + tileIndex),
+      source: getAttr("source", undefined),
+      tilewidth: parseInt(getAttr("tilewidth", "32")) || 32,
+      tileheight: parseInt(getAttr("tileheight", "32")) || 32,
+      spacing: parseInt(getAttr("spacing", "0")) || 0,
+      margin: parseInt(getAttr("margin", "0")) || 0,
+      columns: parseInt(getAttr("columns", "0")) || 1,
+      tilecount: parseInt(getAttr("tilecount", "1")) || 1
+    });
+    tileIndex++;
+  }
+  
+  // Extract layers - CSV data
+  const layerMatches = tmxXml.match(/<layer[^>]*>["\x27\`][\s\S]*?["\x27\`][^>]*>[\s\S]*?<\/layer>/g) || [];
+  
+  layerMatches.forEach(layer => {
+    const name = layer.match(/name=["\x27\`]([^"'\`]+)["\x27\`]/)?.[1] || "unnamed";
+    const width = parseInt(layer.match(/width="(\d+)"/)?.[1]) || 0;
+    const height = parseInt(layer.match(/height="(\d+)"/)?.[1]) || 0;
+    const encoding = layer.match(/encoding="([^"]+)"/)?.[1] || "csv";
+    
+    let data = [];
+    const dataMatch = layer.match(/<data[^>]*>(["\x27\`][\s\S]*?["\x27\`])?<\/data>/);
+    if (dataMatch) {
+      const content = dataMatch[1] || "";
+      if (encoding === "csv") {
+        const rows = content.split("\n").filter(row => row.trim());
+        for (const row of rows) {
+          const cells = row.split(",").map(cell => parseInt(cell.trim()) || 0);
+          data = data.concat(cells);
+        }
+      }
+    }
+    
+    tiledMap.layers.push({
+      type: "tilelayer",
+      name: name,
+      width: width,
+      height: height,
+      data: data,
+      properties: []
+    });
+  });
+  
+  return tiledMap;
+}
 async function main() {
   console.log('🚀 Complete Auto-Import Spike');
   console.log('='.repeat(60));
@@ -229,7 +319,9 @@ async function runMapImportPhase() {
       }
       
       const tmxXml = content.slice(tmxStart, tmxEnd);
-      const parseResult = parseTiledJson(JSON.parse(tmxXml));
+      // Convert TMX XML to Tiled JSON format before parsing
+      const jsonMap = tmxToTiledJson(tmxXml);
+      const parseResult = parseTiledJson(jsonMap);
       
       if (!parseResult.ok) {
         console.log('❌ Parse error for', tmxRef + ':', parseResult.error);
@@ -266,7 +358,7 @@ async function runMapImportPhase() {
         randomMaxPartySize: payloadResult.payload.randomSettings.randomMaxPartySize ?? 1,
         randomAllowedElements: payloadResult.payload.randomSettings.randomAllowedElements ?? null,
         randomPool: [],
-        challenge: { kind: 'none' as const },
+        challenge: { kind: 'none' },
         walkableMask: payloadResult.payload.walkableMask,
         dungeonGroupId: null,
         floorIndex: null,

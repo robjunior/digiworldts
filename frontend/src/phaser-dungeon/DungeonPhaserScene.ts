@@ -1092,6 +1092,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
             PARTY_DEPTH - 1,
             false,
             "remote-leader",
+            player.userId,
           );
           if (sprite !== null) {
             known.leader.destroy();
@@ -1115,9 +1116,9 @@ export class DungeonPhaserScene extends Phaser.Scene {
       // loader's COMPLETE handler re-renders, so the next pass upgrades the
       // placeholder to the real digimon in place (see known!==undefined branch).
       const leader =
-        catalogId !== ""
-          ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false, "remote-leader")
-          : null;
+              catalogId !== ""
+                  ? this.spawnDigimonSprite(catalogId, targetX, targetY, PARTY_DEPTH - 1, false, "remote-leader", player.userId)
+                  : null;
       const leaderObj: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc =
         leader !== null
           ? leader
@@ -1238,6 +1239,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         PARTY_DEPTH - 1,
         false,
         "remote-follower",
+        `${render.userId}:${index}`,
       );
       existing.sprite.destroy();
       if (dot !== null) {
@@ -1802,10 +1804,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
     depth: number,
     flipX: boolean,
     role: string,
+    uniqueId?: string,
   ): Phaser.GameObjects.Sprite | null {
-    const existing = this.children.getByName(
-      digimonSpriteName(role, catalogId),
-    );
+    const name = digimonSpriteName(role, catalogId, uniqueId);
+    const existing = this.children.getByName(name);
     if (existing instanceof Phaser.GameObjects.Sprite) return existing;
     let sprite: Phaser.GameObjects.Sprite | null = null;
     ensureDigimonSpriteLoaded(this, catalogId, (load) => {
@@ -1817,7 +1819,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
           load.key,
           load.kind === "sheet" ? "cell0" : undefined,
         );
-        sprite.setName(digimonSpriteName(role, catalogId));
+        sprite.setName(name);
         sprite.setOrigin(0.5, 0.5);
         sprite.setDisplaySize(this.tileSize, this.tileSize);
         // Force the sliced cell frame explicitly: the numeric "0" frame name used

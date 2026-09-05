@@ -32,8 +32,9 @@ export const FALLBACK_MARKER_COLOR = {
 export function digimonSpriteName(
   role: string,
   catalogId: string,
+  uniqueId?: string,
 ): string {
-  return `digimon:${role}:${catalogId}`;
+  return uniqueId ? `digimon:${role}:${catalogId}:${uniqueId}` : `digimon:${role}:${catalogId}`;
 }
 
 /** Reverse of `digimonSpriteName`: recover the catalog id (strip sheet-/dot- prefixes). */
