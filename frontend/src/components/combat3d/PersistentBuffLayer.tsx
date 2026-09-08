@@ -20,6 +20,9 @@ const PARTICLE_EMITTERS = {
 export const PersistentBuffLayer = memo(function PersistentBuffLayer({
   battle,
   sceneRef,
+}: {
+  battle: BattleView;
+  sceneRef: React.MutableRefObject<Combat3DSceneHandle>;
 }): JSX.Element {
   const [effects, setEffects] = useState<Map<UnitId, ParticleEffect[]>>(new Map());
 

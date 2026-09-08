@@ -245,6 +245,7 @@ type RemotePlayerRender = {
   nameText: Phaser.GameObjects.Text;
   cell: { x: number; y: number; gridX: number; gridY: number };
   catalogId: string | null;
+  userId: string;
   followers: {
     sprite: Phaser.GameObjects.Sprite | Phaser.GameObjects.Arc;
     cell: { x: number; y: number };
@@ -1143,6 +1144,7 @@ export class DungeonPhaserScene extends Phaser.Scene {
         cell,
         catalogId: leader !== null ? catalogId : null,
         followers: [],
+        userId: player.userId,
       };
       this.remotePlayers.set(player.userId, render);
       this.syncRemoteFollowers(
@@ -1236,10 +1238,8 @@ export class DungeonPhaserScene extends Phaser.Scene {
         catalogId,
         targetX,
         targetY,
-        PARTY_DEPTH - 1,
-        false,
         "remote-follower",
-        `${render.userId}:${index}`,
+        `${render.userId}:${index}`
       );
       existing.sprite.destroy();
       if (dot !== null) {
