@@ -1238,8 +1238,10 @@ export class DungeonPhaserScene extends Phaser.Scene {
         catalogId,
         targetX,
         targetY,
+        PARTY_DEPTH - 1,
+        false,
         "remote-follower",
-        `${render.userId}:${index}`
+        `${render.userId}:${index}`,
       );
       existing.sprite.destroy();
       if (dot !== null) {
