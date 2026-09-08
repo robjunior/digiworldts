@@ -64,6 +64,7 @@ type WsState = {
   readonly dungeonPlayers: DungeonRemotePlayer[];
   readonly pvpInvite: PvpInvite | null;
   readonly pvpNotice: string | null;
+  readonly pvpQuestsRefresh: number;
   readonly socialNotifyVersion: number;
   readonly chatByDungeon: Record<string, ChatMessage[]>;
   readonly dungeonSystem: Record<string, SystemMessage[]>;
@@ -74,6 +75,7 @@ type WsState = {
   readonly clearDungeonPlayers: () => void;
   readonly clearPvpInvite: () => void;
   readonly clearPvpNotice: () => void;
+  readonly invalidatePvpQuests: () => void;
   readonly pushDungeonSystem: (dungeonId: string, text: string, kind: '' | 'hit' | 'item') => void;
   readonly clearDungeonSystem: (dungeonId: string) => void;
   readonly reset: () => void;
@@ -112,6 +114,7 @@ const initialState = {
   dungeonPlayers: [],
   pvpInvite: null,
   pvpNotice: null,
+  pvpQuestsRefresh: 0,
   socialNotifyVersion: 0,
   chatByDungeon: {},
   dungeonSystem: {},
@@ -127,6 +130,7 @@ const initialState = {
   | 'clearPvpNotice'
   | 'pushDungeonSystem'
   | 'clearDungeonSystem'
+  | 'invalidatePvpQuests'
 >;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -327,6 +331,9 @@ export const useWsStore = create<WsState>((set) => ({
   },
   clearPvpNotice: () => {
     set({ pvpNotice: null });
+  },
+  invalidatePvpQuests: () => {
+    set((state) => ({ pvpQuestsRefresh: state.pvpQuestsRefresh + 1 }));
   },
   pushDungeonSystem: (dungeonId, text, kind) => {
     set((state) => ({

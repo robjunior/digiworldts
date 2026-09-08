@@ -12,7 +12,8 @@ import type {
   PvpQuestReward,
 } from '@digiworld/shared/pvp-quest';
 
-/** Zod schemas for the PvP quest surface. These validate *server-generated* data
+/**
+ * Zod schemas for the PvP quest surface. These validate *server-generated* data
  * before it is persisted and *admin* input before a preview is built. Player
  * clients never submit quest definitions — they only submit battle actions.
  */
@@ -64,7 +65,7 @@ export const PvpQuestRewardSchema: z.ZodType<PvpQuestReward> = z.discriminatedUn
   z.object({ kind: z.literal('xp'), amount: z.number().int().min(1).max(10_000_000) }),
   z.object({ kind: z.literal('cosmetic'), cosmeticId: z.string().min(1).max(80) }),
   z.object({ kind: z.literal('battle_item'), itemId: z.string().min(1).max(80), qty: z.number().int().min(1).max(999_999) }),
-] as const;
+]);
 
 export const PvpQuestTemplateSchema = z.object({
   instanceId: z.string().min(1).max(40),

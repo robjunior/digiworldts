@@ -144,7 +144,10 @@ function randInt(rng: () => number, min: number, max: number): number {
 
 /** Return a random element from arr. */
 function pick<T>(rng: () => number, arr: readonly T[]): T {
-  return arr[Math.floor(rng() * arr.length)!];
+  const idx = Math.floor(rng() * arr.length);
+  const item = arr[idx];
+  if (item === undefined) throw new Error(`pick: index ${idx} out of range for length ${arr.length}`);
+  return item;
 }
 
 

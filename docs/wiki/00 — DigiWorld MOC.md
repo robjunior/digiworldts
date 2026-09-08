@@ -5,11 +5,11 @@ aliases:
   - DigiWorld Home
   - Home
 created: 2026-08-01
-updated: 2026-08-03
+updated: 2026-08-06
 grounded-in:
   - README.md
   - ROADMAP.md
-verified-at-commit: 97f72ba
+verified-at-commit: HEAD
 ---
 
 # DigiWorld MOC
@@ -49,7 +49,9 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 - [[Quests]] — 4 step types + 5 objective kinds (travel/defeat/talk/
   collect/capture), flag-gated unlocks, world objects
 - [[Dungeons]] — tile grid, random encounters, doors + warps + traps,
-  Tiled TMJ import
+  Tiled TMJ import (V1 — refactor planned)
+- [[Dungeon Extraction]] — kit + stash + extraction target-state
+  (PLANNED — not yet shipped)
 - [[Adventure]] — idle 3-mon expeditions, provisions in / rewards out,
   deterministic seeded reports
 - [[Scenes]] — per-arena `SceneSettings` + weather + time-of-day, picker
@@ -93,6 +95,13 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 
 ## ADRs (Architecture Decisions)
 
+- [[2026-08-07 — Dungeon crawler + extraction refactor]] — kit +
+  stash, wipe forfeiture, Cypher family × tier × rarity, per-layer
+  Tiled collision, multi-floor via warps (PROPOSED — see
+  `.omo/plans/dungeon-crawler-extraction.md` for rollout)
+- [[2026-08-06 — Cross-node PvP battle resume]] — cluster-KV snapshots,
+  15-s reconnect grace, single-socket exponential-backoff client — how a
+  ranked fight survives a node restart or a wifi flap
 - [[2026-08-05 — Login security hardening]] — register throttle,
   OAuth-decide throttle, weak-password blocklist, absolute session cap,
   security headers

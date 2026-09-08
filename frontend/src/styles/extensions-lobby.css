@@ -106,6 +106,81 @@
 .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
+/* ── PVP Quest FAB + modal ─────────────────────── */
+.quest-fab{
+  position:fixed;bottom:20px;right:20px;z-index:70;
+  width:52px;height:52px;border-radius:50%;
+  background:var(--signal);color:#fff;border:none;
+  clip-path:var(--notch);cursor:pointer;
+  display:grid;place-items:center;
+  box-shadow:0 4px 16px rgba(230,0,31,.35);
+  transition:transform .12s;
+}
+.quest-fab:hover{transform:scale(1.08)}
+.quest-fab:active{transform:scale(.95)}
+.quest-badge{
+  position:absolute;top:-4px;right:-4px;
+  min-width:20px;height:20px;border-radius:10px;
+  background:var(--bg);color:var(--signal);
+  font:800 11px/1 var(--font);
+  display:grid;place-items:center;
+  padding:0 5px;border:2px solid var(--signal);
+}
+
+.quest-overlay{
+  position:fixed;inset:0;z-index:80;
+  background:rgba(0,0,0,.6);
+  display:grid;place-items:center;
+}
+.quest-modal{
+  background:var(--panel);border:1px solid var(--hair);
+  clip-path:var(--notch);width:min(520px,92vw);max-height:80vh;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+}
+.quest-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--hair);
+}
+.quest-head h2{margin:0;font:800 16px/1 var(--font);letter-spacing:.04em}
+.quest-close{
+  width:28px;height:28px;border:1px solid var(--hair);background:none;
+  color:var(--ink);clip-path:var(--notch-sm);cursor:pointer;
+  display:grid;place-items:center;font:700 12px/1 var(--font);
+}
+.quest-tabs{
+  display:flex;gap:0;padding:0 20px;border-bottom:1px solid var(--hair);
+}
+.quest-tab{
+  padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;
+  color:var(--muted);font:700 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;
+  cursor:pointer;transition:color .15s,border-color .15s;
+}
+.quest-tab:hover{color:var(--ink)}
+.quest-tab.active{color:var(--signal);border-bottom-color:var(--signal)}
+.quest-body{padding:14px 20px;overflow-y:auto;flex:1}
+.quest-row{
+  display:flex;align-items:center;gap:12px;padding:10px 0;
+  border-bottom:1px solid var(--hair);
+}
+.quest-row:last-child{border-bottom:none}
+.quest-row.claimed{opacity:.5}
+.quest-info{flex:1;min-width:0}
+.quest-title{font:700 13px/1.3 var(--font);margin-bottom:6px}
+.quest-bar{height:6px;background:var(--bg);border:1px solid var(--hair);clip-path:polygon(2px 0,100% 0,100% 100%,0 100%);overflow:hidden;margin-bottom:4px}
+.quest-fill{height:100%;background:var(--signal);width:0;transition:width .4s var(--ease)}
+.quest-meta{display:flex;justify-content:space-between;font:700 10px/1 var(--font);color:var(--muted)}
+.quest-reward{color:var(--signal)}
+.quest-action{flex-shrink:0}
+.quest-claim-btn{
+  padding:6px 14px;background:var(--signal);color:#fff;border:none;
+  clip-path:var(--notch-sm);font:700 11px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;
+  cursor:pointer;transition:opacity .12s;
+}
+.quest-claim-btn:hover{opacity:.85}
+.quest-claim-btn:disabled{opacity:.4;cursor:not-allowed}
+.quest-claimed{font:700 11px/1 var(--font);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 /* mobile: detach chat into a bottom sheet so .colL owns the full width */

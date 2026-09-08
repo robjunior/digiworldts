@@ -21,7 +21,7 @@
  */
 import { q, run } from '../index.js';
 import { loadCatalog } from '../../digimon/xml.js';
-import { getDefaultEquippedForStage } from '../../skills/catalog-pool.js';
+import { getDefaultEquippedForStage } from '../../skills/pool.js';
 import { log } from '../../util/log.js';
 
 const SQL_SELECT_NULL_EQUIPPED = `SELECT id, catalog_id FROM player_roster WHERE equipped_skill_ids IS NULL`;

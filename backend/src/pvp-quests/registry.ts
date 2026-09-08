@@ -215,6 +215,11 @@ const REGISTRY = {
       return { delta: 0, state: {} };
     },
   } as HandlerFn<'OPPONENT_COMPOSITION'>,
+  BATTLE_ITEM: {
+    describe: (_p: Record<string, never>, target: number, period: PvpQuestPeriod) =>
+      `${cap(period.toLowerCase())}: Use ${plural(target, 'battle item')} em PvP.`,
+    evaluate: (r: PvpBattleResult) => ({ delta: r.valid ? 1 : 0, state: {} }),
+  } as HandlerFn<'BATTLE_ITEM'>,
 };
 
 function cap(s: string): string {
