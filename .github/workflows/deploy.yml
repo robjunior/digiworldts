@@ -97,7 +97,7 @@ jobs:
         # deploy on any broken ref (quest→missing dialogue/item/digimon, etc.)
         # before a single row is written to the target DB.
         run: |
-          cd /app && pnpm --filter @digiworld/backend content:xref
+          pnpm --filter @digiworld/backend content:xref
 
       - name: Deploy containers
         env:
