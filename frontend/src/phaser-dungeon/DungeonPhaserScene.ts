@@ -1243,8 +1243,13 @@ export class DungeonPhaserScene extends Phaser.Scene {
         "remote-follower",
         `${render.userId}:${index}`,
       );
-      existing.sprite.destroy();
+      // Destroy the old placeholder BEFORE updating the array, so the
+      // Arc is always removed from the scene even if the new sprite
+      // fails to load (kind === "none" / missing texture).
+      const oldSprite = existing.sprite;
+      existing.sprite = dot ?? oldSprite;
       if (dot !== null) {
+        oldSprite.destroy();
         render.followers[index] = {
           sprite: dot,
           cell: { x: trailCell.x, y: trailCell.y },
