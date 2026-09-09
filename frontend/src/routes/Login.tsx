@@ -174,7 +174,7 @@ export function Login(): JSX.Element {
           <form id="form-register" className={activeTab === 'register' ? 'stack' : 'stack hidden'} noValidate onSubmit={submitRegister}>
             <label className="field">
               Username
-              <input className="input" type="text" name="username" autoComplete="username" required minLength={3} maxLength={24} pattern="[A-Za-z0-9_.-]+" value={registerUsername} onChange={(event) => setRegisterUsername(event.currentTarget.value)} />
+              <input className="input" type="text" name="username" autoComplete="username" required minLength={3} maxLength={24} pattern="[-A-Za-z0-9_.]+" value={registerUsername} onChange={(event) => setRegisterUsername(event.currentTarget.value)} />
             </label>
             <label className="field">
               First name
