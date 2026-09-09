@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Quest, QuestObjective, QuestStep, WorldObject } from '@digiworld/shared/quest';
 import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
-import { BIOMES } from '@digiworld/shared/world';
+import { BIOMES } from '@digiworld/shared/quest';
 
 const DialogueIdSchema = z.string().trim().min(1).max(120);
 

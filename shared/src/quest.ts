@@ -1,5 +1,20 @@
 import type { Element, Stage } from './digimon.js';
-import type { Biome } from './world.js';
+
+export type Biome = 'forest' | 'lake' | 'desert' | 'storm' | 'foundry' | 'prairie' | 'void' | 'tundra' | 'plateau' | 'swamp' | 'mountain';
+
+export const BIOMES: readonly Biome[] = [
+  'forest',
+  'lake',
+  'desert',
+  'storm',
+  'foundry',
+  'prairie',
+  'void',
+  'tundra',
+  'plateau',
+  'swamp',
+  'mountain',
+] as const;
 
 export type EnemyConfig = {
   readonly templateId: string;

@@ -2,7 +2,6 @@ import type { BattleView } from '@digiworld/shared/battle';
 import type { SceneEntity } from '@digiworld/shared/scene';
 import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 
-import { getDungeon } from './api-dungeon';
 import { getScenes } from './api-scenes';
 import { getSceneDefaults, type PerArenaSceneDefaults } from './scene-defaults';
 
@@ -155,15 +154,4 @@ export async function preloadCombatAssets(battle: BattleView): Promise<void> {
   for (const unit of battle.friendly) urls.push(unitSpriteSheetUrl(unit.templateId));
   for (const enemy of battle.enemy) urls.push(unitSpriteSheetUrl(enemy.templateId));
   await Promise.all(urls.map((url) => (url.endsWith('.glb') ? preloadFetch(url) : preloadImage(url))));
-}
-
-/**
- * Preload every tileset spritesheet a dungeon needs, so the grid renders
- * without network stalls. Best-effort: dungeon fetch failure and per-image
- * failures are warned and swallowed.
- */
-export async function preloadDungeonAssets(dungeonId: string): Promise<void> {
-  const view = await getDungeon(dungeonId).catch((err) => { console.warn('preload.dungeon.fetch.fail', dungeonId, err); return null; });
-  if (view === null) return;
-  await Promise.all(view.tilesets.map((tileset) => preloadImage(tileset.imageUrl)));
 }

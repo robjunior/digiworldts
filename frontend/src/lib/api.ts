@@ -202,70 +202,12 @@ export function chatOpenDm(username: string): Promise<{
   return apiFetch('/api/chat/dm/open', { method: 'POST', body: { username } });
 }
 
-type WorldBattleResponse = {
-  readonly battle: BattleView;
-};
-
-type WorldMoveResponse = {
-  readonly battle?: BattleView | null;
-  readonly battleStartError?: string | null;
-};
-
-export { actInWorldBattle } from './api-world';
-
-export async function getBattleView(): Promise<BattleView> {
-  const response = await apiFetch<WorldBattleResponse>('/api/world/battle');
-  return response.battle;
-}
-
-export async function startWildEncounter(): Promise<BattleView> {
-  const directions = ['up', 'right', 'down', 'left'] as const;
-  for (const dir of directions) {
-    const response = await apiFetch<WorldMoveResponse>('/api/world/move', { method: 'POST', body: { dir } });
-    if (response.battle) {
-      return response.battle;
-    }
-  }
-  return getBattleView();
-}
-
 export function getRoster(): Promise<RosterResponse> {
   return apiFetch<RosterResponse>('/api/roster');
 }
 
 export function getDaily(): Promise<DailyResponse> {
   return apiFetch<DailyResponse>('/api/daily');
-}
-
-// PHASE 6 CANDIDATE: promote friends HTTP response types to shared.
-export type FriendView = {
-  readonly userId: string;
-  readonly displayName: string;
-  readonly online: boolean;
-  readonly since: number;
-};
-
-export type FriendRequestView = {
-  readonly userId: string;
-  readonly displayName: string;
-  readonly at: number;
-};
-
-export type FriendsResponse = {
-  readonly friends: readonly FriendView[];
-  readonly incoming: readonly FriendRequestView[];
-  readonly outgoing: readonly FriendRequestView[];
-};
-
-export function getFriends(): Promise<FriendsResponse> {
-  return apiFetch<FriendsResponse>('/api/friends');
-}
-
-export function requestFriend(username: string): Promise<{ readonly status: string }> {
-  return apiFetch<{ readonly status: string }>('/api/friends/request', {
-    method: 'POST',
-    body: { username },
-  });
 }
 
 export function claimDaily(): Promise<DailyClaimResponse> {

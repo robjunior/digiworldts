@@ -3,8 +3,28 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
-import type { ItemDrop, StatSnapshot, XpAward } from '../../lib/api-world';
 import { DigimonSprite } from '../common/DigimonSprite';
+
+type ItemDrop = { readonly itemId: string; readonly name: string; readonly qty: number };
+type StatSnapshot = { readonly key: string; readonly before: number; readonly after: number };
+type XpAward = {
+  readonly monId: string;
+  readonly catalogId?: string;
+  readonly nickname?: string;
+  readonly xpBefore: number;
+  readonly xpAfter: number;
+  readonly xpFloorBefore: number;
+  readonly xpFloor: number;
+  readonly xpNextBefore: number;
+  readonly xpNext: number;
+  readonly gainedLevels: number;
+  readonly previousLevel?: number;
+  readonly newLevel?: number;
+  readonly delta: number;
+  readonly defeated: boolean;
+  readonly statsBefore?: Readonly<Record<string, number>>;
+  readonly statsAfter?: Readonly<Record<string, number>>;
+};
 
 type PveResults = {
   readonly xpAwards: readonly XpAward[];
@@ -222,39 +242,41 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
   }, [active]);
 
   const showLevelUp = done && leveledUp;
-  const displayLevel = showLevelUp ? award.newLevel : award.previousLevel;
+  const displayLevel = showLevelUp ? (award.newLevel ?? award.xpAfter) : (award.previousLevel ?? Math.floor(award.xpBefore / 10));
   const rowClass = ['pve-xp-row', award.defeated ? 'is-defeated' : '', leveledUp ? 'is-levelup' : '', showLevelUp ? 'is-lvlup-open' : ''].filter(Boolean).join(' ');
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>
       <div className="pve-xp-actor">
-        <DigimonSprite catalogId={award.catalogId} className="pve-xp-portrait" />
+        <DigimonSprite catalogId={award.catalogId ?? award.monId} className="pve-xp-portrait" />
         <div className="pve-xp-info">
-          <b className="pve-xp-nick">{award.nickname}</b>
+          <b className="pve-xp-nick">{award.nickname ?? award.monId}</b>
           <span className="pve-xp-lvl">Lv <b>{displayLevel}</b></span>
         </div>
       </div>
       {showLevelUp ? (
         <div className="pve-xp-lvlup" role="status">
           <span className="pve-lvlup-badge">LVLUP+</span>
-          <div className="pve-lvlup-stats">
-            {STAT_KEYS.map((k) => {
-              const before = award.statsBefore[k as StatKey];
-              const after = award.statsAfter[k as StatKey];
-              const gain = after - before;
-              const changed = gain !== 0;
-              return (
-                <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : gain < 0 ? 'is-down' : ''}`}>
-                  <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
-                  <b className="pve-lvlup-stat-new">{after}</b>
-                  {changed ? (
-                    <span className="pve-lvlup-stat-old" title="previous value">{before}</span>
-                  ) : (
-                    <span className="pve-lvlup-stat-old pve-lvlup-stat-old--same" aria-hidden="true">—</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {(award.statsBefore !== undefined || award.statsAfter !== undefined) ? (
+            <div className="pve-lvlup-stats">
+              {STAT_KEYS.map((k) => {
+                const before = (award.statsBefore ?? {})[k as StatKey] ?? 0;
+                const after = (award.statsAfter ?? {})[k as StatKey] ?? 0;
+                const gain = after - before;
+                const changed = gain !== 0;
+                return (
+                  <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : gain < 0 ? 'is-down' : ''}`}>
+                    <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
+                    <b className="pve-lvlup-stat-new">{after}</b>
+                    {changed ? (
+                      <span className="pve-lvlup-stat-old" title="previous value">{before}</span>
+                    ) : (
+                      <span className="pve-lvlup-stat-old pve-lvlup-stat-old--same" aria-hidden="true">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="pve-xp-progress" ref={wrapperRef} style={{ ['--tremble' as string]: 0 }}>

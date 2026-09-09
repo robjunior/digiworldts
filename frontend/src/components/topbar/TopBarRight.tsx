@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 
 import { useAuth } from '../../hooks/useAuth';
 import { useLocale, useT } from '../../hooks/useLocale';
-import { getFriends } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
 import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
 import { useWsStore } from '../../state/wsStore';
@@ -17,6 +17,15 @@ type NotificationItem = {
   readonly detail: string;
   readonly actionLabel: string;
   readonly onAction: () => void;
+};
+
+type FriendRequest = {
+  readonly userId: string;
+  readonly displayName: string;
+};
+
+type FriendsResponse = {
+  readonly incoming: readonly FriendRequest[];
 };
 
 export function TopBarRight(): JSX.Element | null {
@@ -39,7 +48,7 @@ export function TopBarRight(): JSX.Element | null {
   });
   const friendsQuery = useQuery({
     queryKey: ['friends'] as const,
-    queryFn: getFriends,
+    queryFn: async (): Promise<FriendsResponse> => apiFetch<FriendsResponse>('/api/friends'),
     enabled: authed,
     staleTime: 30_000,
   });

@@ -11,7 +11,6 @@
  */
 
 import type { Action, BattleEvent, BattleOutcome, BattleView } from './battle.js';
-import type { DungeonMoveResponse } from './dungeon.js';
 import type { WeatherConfig } from './weather.js';
 
 // ============================================================================
@@ -23,22 +22,6 @@ export type PresenceUser = {
   displayName: string;
 };
 
-/** Another player visible in a dungeon (presence-only payload). */
-export type DungeonRemotePlayer = {
-  userId: string;
-  displayName: string;
-  x: number;
-  y: number;
-  gridX: number;
-  gridY: number;
-  /** Leader digimon dot. Absent on move deltas — receivers keep the known value. */
-  leaderCatalogId?: string;
-  /** Ordered party catalogIds (leader first). */
-  party?: string[];
-  /** Previous leader cells, trail[i] maps to party[i]; trail[0] is the leader's own cell. */
-  trail?: { x: number; y: number }[];
-};
-
 // ============================================================================
 // Client → Server
 // ============================================================================
@@ -46,33 +29,12 @@ export type DungeonRemotePlayer = {
 export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
-  | { type: 'chat'; text: string; room?: string; dungeonId?: string; toUserId?: string }
+  | { type: 'chat'; text: string; room?: string; toUserId?: string }
   | { type: 'queue'; join: boolean }
-  | { type: 'pvp:invite'; targetUserId: string; dungeonId: string }
+  | { type: 'pvp:invite'; targetUserId: string }
   | { type: 'pvp:response'; inviteId: string; accept: boolean }
   | { type: 'act'; matchId: string; action: Action }
-  | { type: 'spectate'; matchId: string; join: boolean }
-  | {
-      type: 'dungeon:join';
-      dungeonId: string;
-      x: number;
-      y: number;
-      gridX: number;
-      gridY: number;
-      leaderCatalogId: string;
-      party: string[];
-      trail: { x: number; y: number }[];
-    }
-  | { type: 'dungeon:leave' }
-  | {
-      type: 'dungeon:move';
-      correlationId: string;
-      dungeonId: string;
-      x: number;
-      y: number;
-      party?: string[];
-      trail?: { x: number; y: number }[];
-    };
+  | { type: 'spectate'; matchId: string; join: boolean };
 
 // ============================================================================
 // Server → Client
@@ -136,8 +98,6 @@ export type WSServerMessage =
       nodeId: string;
       /** Present iff this is a per-room message. Absent = global chat. */
       room?: string;
-      /** Present iff this is a dungeon-local message (fanout via dungeon scope). */
-      dungeonId?: string;
       /** Present iff this is a direct message — only sender + recipient receive it. */
       toUserId?: string;
     }
@@ -159,7 +119,6 @@ export type WSServerMessage =
     }
   | {
       type: 'spectate';
-      matchId: string;
       status: SpectateStatus;
       /** Present only when `status === 'joined'` (initial view). */
       view?: BattleView;
@@ -173,7 +132,7 @@ export type WSServerMessage =
     }
   | {
       type: 'scene-updated';
-      /** ms epoch when the scene CRUD write completed on the server. */
+      /** ms epoch when the admin's write completed on the server. */
       at: number;
     }
   | {
@@ -185,15 +144,10 @@ export type WSServerMessage =
       durationMs: number;
       startedAt: number;
     }
-  | { type: 'error'; code: WSErrorCode; message: string }
-  | { type: 'dungeon:players'; dungeonId: string; players: DungeonRemotePlayer[] }
-  | { type: 'dungeon:player-update'; dungeonId: string; player: DungeonRemotePlayer }
-  | { type: 'dungeon:player-left'; userId: string; dungeonId?: string }
-  | { type: 'dungeon:move-result'; correlationId: string; result: DungeonMoveResponse }
-  | { type: 'dungeon:move-error'; correlationId: string; code: WSErrorCode; message: string }
-  | { type: 'pvp:invite'; inviteId: string; fromUserId: string; fromName: string; dungeonId: string }
+  | { type: 'pvp:invite'; inviteId: string; fromUserId: string; fromName: string }
   | { type: 'pvp:invite-declined'; inviteId: string; fromName: string }
   | { type: 'pvp:invite-expired'; inviteId: string }
+  | { type: 'error'; code: WSErrorCode; message: string }
   | { type: 'social:notify'; kind: 'friend-request'; fromName: string; fromUserId: string };
 
 // ============================================================================

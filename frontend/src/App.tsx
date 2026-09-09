@@ -10,7 +10,6 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { Account } from './routes/Account';
 import { Adventure } from './routes/Adventure';
 import { Digdex } from './routes/Digdex';
-import { Dungeon } from './routes/Dungeon';
 import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
 import { Home } from './routes/Home';
@@ -33,7 +32,6 @@ import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
 import './styles/extensions-transition.css';
 
-const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
 const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
 
 function SuspenseFallback(): JSX.Element {
@@ -108,10 +106,8 @@ export function App(): JSX.Element {
               <Route path="/inv-spike" element={<InventorySpikeDemo />} />
               <Route path="/market" element={<Market />} />
               <Route path="/nursery" element={<Nursery />} />
-              <Route path="/world" element={<World />} />
               <Route path="/digdex" element={<Digdex />} />
-              <Route path="/dungeon" element={<Navigate to="/world" replace />} />
-              <Route path="/dungeon/:id" element={<Dungeon />} />
+              <Route path="/world" element={<Navigate to="/" replace />} />
               <Route path="/spectate" element={<Spectate />} />
             </Route>
           </Route>

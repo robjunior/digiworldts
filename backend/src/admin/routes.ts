@@ -66,14 +66,6 @@ import {
   type AdminFarmRecipeInput,
 } from './farm-recipes.js';
 import {
-  createRarityTable,
-  deleteRarityTable,
-  getRarityTable,
-  listRarityTables,
-  updateRarityTable,
-  type RarityTable,
-} from '../dungeons/rarity-tables.js';
-import {
   deleteUser,
   getUser,
   listUsers,
@@ -816,71 +808,6 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!result.ok) return reply.code(statusForFarmRecipeError(result.error)).send({ error: result.error });
     log.info('admin.farm-recipe.route.delete', { adminId: admin.id, id: req.params.id });
     return reply.send(result);
-  });
-
-  // ==========================================================================
-  // RARITY TABLES — admin CRUD (F8)
-  // ==========================================================================
-
-  function isValidRarityTable(input: unknown): input is RarityTable {
-    if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
-    const rec = input as Record<string, unknown>;
-    if (typeof rec['id'] !== 'string' || rec['id'].length === 0) return false;
-    if (typeof rec['poolTag'] !== 'string' || rec['poolTag'].length === 0) return false;
-    if (typeof rec['minRolls'] !== 'number' || !Number.isInteger(rec['minRolls']) || rec['minRolls'] < 0) return false;
-    if (typeof rec['maxRolls'] !== 'number' || !Number.isInteger(rec['maxRolls']) || rec['maxRolls'] < rec['minRolls']) return false;
-    if (!rec['weights'] || typeof rec['weights'] !== 'object' || Array.isArray(rec['weights'])) return false;
-    return true;
-  }
-
-  app.get('/api/admin/rarity-tables', async (req, reply) => {
-    await requireAdmin(req, reply);
-    return reply.send({ tables: await listRarityTables() });
-  });
-
-  app.get<{ Params: { id: string } }>('/api/admin/rarity-tables/:id', async (req, reply) => {
-    await requireAdmin(req, reply);
-    const table = await getRarityTable(req.params.id);
-    if (!table) return reply.code(404).send({ error: 'not-found' });
-    return reply.send({ table });
-  });
-
-  app.post('/api/admin/rarity-tables', async (req, reply) => {
-    const admin = await requireAdmin(req, reply);
-    if (!isValidRarityTable(req.body)) return reply.code(400).send({ error: 'invalid-input' });
-    const existing = await getRarityTable(req.body.id);
-    if (existing !== null) return reply.code(409).send({ error: 'duplicate-id' });
-    await createRarityTable(req.body);
-    log.info('admin.rarity-table.create', { adminId: admin.id, id: req.body.id });
-    return reply.code(201).send({ ok: true, table: req.body });
-  });
-
-  app.put<{ Params: { id: string } }>('/api/admin/rarity-tables/:id', async (req, reply) => {
-    const admin = await requireAdmin(req, reply);
-    const body = req.body as { poolTag?: unknown; minRolls?: unknown; maxRolls?: unknown; weights?: unknown };
-    if (typeof body.poolTag !== 'string' || typeof body.minRolls !== 'number' || typeof body.maxRolls !== 'number' || !body.weights || typeof body.weights !== 'object' || Array.isArray(body.weights)) {
-      return reply.code(400).send({ error: 'invalid-input' });
-    }
-    if (!Number.isInteger(body.minRolls) || !Number.isInteger(body.maxRolls) || body.minRolls < 0 || body.maxRolls < body.minRolls) {
-      return reply.code(400).send({ error: 'invalid-rolls' });
-    }
-    const ok = await updateRarityTable(req.params.id, {
-      poolTag: body.poolTag,
-      minRolls: body.minRolls,
-      maxRolls: body.maxRolls,
-      weights: body.weights as Record<number, number>,
-    });
-    if (!ok) return reply.code(404).send({ error: 'not-found' });
-    log.info('admin.rarity-table.update', { adminId: admin.id, id: req.params.id });
-    return reply.send({ ok: true, table: await getRarityTable(req.params.id) });
-  });
-
-  app.delete<{ Params: { id: string } }>('/api/admin/rarity-tables/:id', async (req, reply) => {
-    const admin = await requireAdmin(req, reply);
-    const ok = await deleteRarityTable(req.params.id);
-    if (!ok) return reply.code(404).send({ error: 'not-found' });
-    log.info('admin.rarity-table.delete', { adminId: admin.id, id: req.params.id });
-    return reply.send({ ok: true });
   });
 
   // ==========================================================================

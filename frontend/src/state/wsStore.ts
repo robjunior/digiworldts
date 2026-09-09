@@ -1,6 +1,5 @@
 import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
-import type { DungeonMoveResponse } from '@digiworld/shared';
-import type { DungeonRemotePlayer, PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
+import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
 
@@ -12,7 +11,6 @@ type ChatMessage = {
   readonly displayName: string;
   readonly text: string;
   readonly at: number;
-  readonly dungeonId?: string;
   readonly toUserId?: string | undefined;
 };
 
@@ -26,7 +24,6 @@ type PvpInvite = {
   readonly inviteId: string;
   readonly fromUserId: string;
   readonly fromName: string;
-  readonly dungeonId: string;
 };
 
 type QueueState = {
@@ -61,43 +58,20 @@ type WsState = {
   readonly battleOutcome: BattleOutcome | null;
   readonly welcome: WelcomeState | null;
   readonly weatherOverride: WeatherOverrideState | null;
-  readonly dungeonPlayers: DungeonRemotePlayer[];
   readonly pvpInvite: PvpInvite | null;
   readonly pvpNotice: string | null;
   readonly pvpQuestsRefresh: number;
   readonly socialNotifyVersion: number;
-  readonly chatByDungeon: Record<string, ChatMessage[]>;
-  readonly dungeonSystem: Record<string, SystemMessage[]>;
-  readonly dmChat: ChatMessage[];
   readonly handleServerMessage: (msg: WSServerMessage) => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
-  readonly clearDungeonPlayers: () => void;
   readonly clearPvpInvite: () => void;
   readonly clearPvpNotice: () => void;
   readonly invalidatePvpQuests: () => void;
-  readonly pushDungeonSystem: (dungeonId: string, text: string, kind: '' | 'hit' | 'item') => void;
-  readonly clearDungeonSystem: (dungeonId: string) => void;
   readonly reset: () => void;
 };
 
 const MAX_LOG_MESSAGES = 200;
-
-// Correlated dungeon-move replies (server → client) keyed by the client-issued
-// correlationId. The Dungeon route awaits these instead of round-tripping HTTP.
-type DungeonMoveResolver = {
-  readonly resolve: (result: DungeonMoveResponse) => void;
-  readonly reject: (error: Error) => void;
-};
-const pendingDungeonMoves = new Map<string, DungeonMoveResolver>();
-
-export function registerDungeonMoveResolver(
-  correlationId: string,
-  resolve: (result: DungeonMoveResponse) => void,
-  reject: (error: Error) => void,
-): void {
-  pendingDungeonMoves.set(correlationId, { resolve, reject });
-}
 
 const initialState = {
   presence: [],
@@ -111,25 +85,18 @@ const initialState = {
   battleOutcome: null,
   welcome: null,
   weatherOverride: null,
-  dungeonPlayers: [],
   pvpInvite: null,
   pvpNotice: null,
   pvpQuestsRefresh: 0,
   socialNotifyVersion: 0,
-  chatByDungeon: {},
-  dungeonSystem: {},
-  dmChat: [],
 } satisfies Omit<
   WsState,
   | 'handleServerMessage'
   | 'reset'
   | 'clearActiveBattle'
   | 'clearRoomChat'
-  | 'clearDungeonPlayers'
   | 'clearPvpInvite'
   | 'clearPvpNotice'
-  | 'pushDungeonSystem'
-  | 'clearDungeonSystem'
   | 'invalidatePvpQuests'
 >;
 
@@ -151,23 +118,10 @@ export const useWsStore = create<WsState>((set) => ({
       case 'chat':
         if (msg.toUserId !== undefined) {
           set((state) => ({
-            dmChat: [
-              ...state.dmChat,
+            chat: [
+              ...state.chat,
               { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, toUserId: msg.toUserId },
             ].slice(-MAX_LOG_MESSAGES),
-          }));
-          return;
-        }
-        if (msg.dungeonId !== undefined) {
-          const dungeonId = msg.dungeonId;
-          set((state) => ({
-            chatByDungeon: {
-              ...state.chatByDungeon,
-              [dungeonId]: [
-                ...(state.chatByDungeon[dungeonId] ?? []),
-                { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, dungeonId },
-              ].slice(-MAX_LOG_MESSAGES),
-            },
           }));
           return;
         }
@@ -214,18 +168,16 @@ export const useWsStore = create<WsState>((set) => ({
         );
         return;
       case 'spectate':
-        // Spectator join: hydrate battle state so subsequent battle/event/end
-        // messages (which gate on activeMatchId matching) actually apply.
         if (msg.status === 'joined' && msg.view) {
           set({
-            activeMatchId: msg.matchId,
+            activeMatchId: msg.view.id,
             activeBattle: msg.view,
             battleEvents: msg.view.log ?? [],
             battleOutcome: msg.view.outcome ?? null,
           });
         } else if (msg.status === 'left') {
           set((state) =>
-            state.activeMatchId === msg.matchId
+            state.activeMatchId === msg.view?.id
               ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null }
               : state,
           );
@@ -255,41 +207,8 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'pong':
         return;
-      case 'dungeon:players':
-        set({ dungeonPlayers: msg.players });
-        return;
-      case 'dungeon:player-update':
-        set((state) => {
-          const known = state.dungeonPlayers.find((p) => p.userId === msg.player.userId);
-          const player = known === undefined ? msg.player : { ...known, ...msg.player };
-          return {
-            dungeonPlayers: known === undefined
-              ? [...state.dungeonPlayers, player]
-              : state.dungeonPlayers.map((p) => (p.userId === player.userId ? player : p)),
-          };
-        });
-        return;
-      case 'dungeon:player-left':
-        set((state) => ({ dungeonPlayers: state.dungeonPlayers.filter((p) => p.userId !== msg.userId) }));
-        return;
-      case 'dungeon:move-result': {
-        const resolver = pendingDungeonMoves.get(msg.correlationId);
-        if (resolver !== undefined) {
-          pendingDungeonMoves.delete(msg.correlationId);
-          resolver.resolve(msg.result);
-        }
-        return;
-      }
-      case 'dungeon:move-error': {
-        const resolver = pendingDungeonMoves.get(msg.correlationId);
-        if (resolver !== undefined) {
-          pendingDungeonMoves.delete(msg.correlationId);
-          resolver.reject(new Error(msg.message));
-        }
-        return;
-      }
       case 'pvp:invite':
-        set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName, dungeonId: msg.dungeonId } });
+        set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName } });
         return;
       case 'pvp:invite-declined':
         set((state) => ({
@@ -323,9 +242,6 @@ export const useWsStore = create<WsState>((set) => ({
       return { chatsByRoom: next };
     });
   },
-  clearDungeonPlayers: () => {
-    set({ dungeonPlayers: [] });
-  },
   clearPvpInvite: () => {
     set({ pvpInvite: null });
   },
@@ -334,23 +250,5 @@ export const useWsStore = create<WsState>((set) => ({
   },
   invalidatePvpQuests: () => {
     set((state) => ({ pvpQuestsRefresh: state.pvpQuestsRefresh + 1 }));
-  },
-  pushDungeonSystem: (dungeonId, text, kind) => {
-    set((state) => ({
-      dungeonSystem: {
-        ...state.dungeonSystem,
-        [dungeonId]: [
-          ...(state.dungeonSystem[dungeonId] ?? []),
-          { text, at: Date.now(), kind },
-        ].slice(-MAX_LOG_MESSAGES),
-      },
-    }));
-  },
-  clearDungeonSystem: (dungeonId) => {
-    set((state) => {
-      const next = { ...state.dungeonSystem };
-      delete next[dungeonId];
-      return { dungeonSystem: next };
-    });
   },
 }));

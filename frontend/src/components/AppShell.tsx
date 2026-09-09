@@ -3,21 +3,9 @@ import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } 
 import { Link, Outlet, useLocation } from 'react-router';
 
 import {
-  AdminCogIcon,
-  AdminDotIcon,
-  AdventureIcon,
   ArenaIcon,
   BackIcon,
-  DigidexIcon,
-  DungeonIcon,
-  FactoryIcon,
-  FarmIcon,
-  MarketIcon,
-  NurseryIcon,
-  RosterIcon,
   ShopIcon,
-  TrainingIcon,
-  WorldIcon,
 } from './common/icons';
 import { TopBarRight } from './topbar/TopBarRight';
 import { useAuth } from '../hooks/useAuth';
@@ -47,23 +35,13 @@ const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
   '/farm': 'farm.title',
   '/adventure': 'adventure.title',
   '/nursery': 'nursery.title',
-  '/training': 'training.title',
-  '/market': 'market.title',
-  '/digdex': 'digidex.title',
-  '/dungeon': 'nav.dungeon',
-  '/world': 'world.title',
+  '/training': 'nav.training',
+  '/market': 'nav.market',
+  '/digdex': 'nav.digidex',
   '/admin': 'hud.admin',
   '/intro': 'auth.enter_arena',
 };
 
-/**
- * Per-route class applied to <main class="main"> so page CSS (extensions-*.css)
- * can scope selectors without needing an invented wrapper <div> inside each route.
- * These class names MIRROR the pre-existing scope prefixes in the extension CSS files
- * (e.g. extensions-adventure.css uses `.adv-page .foo`, so /adventure gets `adv-page`).
- * The mockup HTML files use only `<main class="main">` — adding one page-scope class here
- * is the minimum deviation needed to keep 8 extension CSS files' selectors valid.
- */
 const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/lobby': '',
   '/combat': '',
@@ -78,8 +56,6 @@ const PAGE_SCOPE: Readonly<Record<string, string>> = {
   '/shop': 'shop-page',
   '/items': 'inventory-page',
   '/digdex': 'digdex-container',
-  '/dungeon': 'dungeon-page',
-  '/world': 'world-page-layout',
   '/admin': 'admin-layout',
 };
 
@@ -91,48 +67,32 @@ function pageLabelKeyFor(pathname: string): string | null {
 function pageScopeFor(pathname: string): string {
   const exact = PAGE_SCOPE[pathname];
   if (exact !== undefined) return exact;
-  if (pathname.startsWith('/dungeon/')) return 'dungeon-page';
-  if (pathname.startsWith('/admin/dungeons/')) return 'admin-dungeon-layout';
-  if (pathname === '/admin/world') return 'admin-world-layout';
-  if (pathname === '/admin/particles') return 'admin-layout';
+  if (pathname.startsWith('/admin/particles')) return 'admin-layout';
   return '';
 }
 
-const ICON_FACTORY: ReactNode = <FactoryIcon />;
-const ICON_FARM: ReactNode = <FarmIcon />;
-const ICON_ADVENTURE: ReactNode = <AdventureIcon />;
-const ICON_NURSERY: ReactNode = <NurseryIcon />;
-const ICON_TRAINING: ReactNode = <TrainingIcon />;
-const ICON_MARKET: ReactNode = <MarketIcon />;
-const ICON_DIGIDEX: ReactNode = <DigidexIcon />;
-const ICON_ROSTER: ReactNode = <RosterIcon />;
-const ICON_WORLD: ReactNode = <WorldIcon />;
 const ICON_ARENA: ReactNode = <ArenaIcon />;
-const ICON_DUNGEON: ReactNode = <DungeonIcon />;
-const ICON_ADMIN_DOT: ReactNode = <AdminDotIcon />;
-const ICON_ADMIN_COG: ReactNode = <AdminCogIcon />;
 const ICON_BACK: ReactNode = <BackIcon />;
 const ICON_SHOP: ReactNode = <ShopIcon />;
 
 const TOWN: readonly NavEntry[] = [
-  { to: '/factory',   label: 'Factory',    labelKey: 'nav.factory',   svg: ICON_FACTORY },
-  { to: '/farm',      label: 'Farm',       labelKey: 'nav.farm',      svg: ICON_FARM },
-  { to: '/adventure', label: 'Adventure',  labelKey: 'nav.adventure', svg: ICON_ADVENTURE },
-  { to: '/nursery',   label: 'Nursery',    labelKey: 'nav.nursery',   svg: ICON_NURSERY },
-  { to: '/training',  label: 'Training',   labelKey: 'nav.training',  svg: ICON_TRAINING },
+  { to: '/factory',   label: 'Factory',    labelKey: 'nav.factory',   svg: ICON_SHOP },
+  { to: '/farm',      label: 'Farm',       labelKey: 'nav.farm',      svg: ICON_SHOP },
+  { to: '/adventure', label: 'Adventure',  labelKey: 'nav.adventure', svg: ICON_BACK },
+  { to: '/nursery',   label: 'Nursery',    labelKey: 'nav.nursery',   svg: ICON_BACK },
+  { to: '/training',  label: 'Training',   labelKey: 'nav.training',  svg: ICON_BACK },
   { to: '/shop',      label: 'Shop',       labelKey: 'nav.shop',      svg: ICON_SHOP },
 ];
 
 const BEYOND: readonly NavEntry[] = [
-  { to: '/market',    label: 'The Market', labelKey: 'nav.market',    svg: ICON_MARKET },
-  { to: '/items',     label: 'Inventory',  labelKey: 'nav.inventory', svg: ICON_MARKET },
-  { to: '/digdex',    label: 'DigiDex',    labelKey: 'nav.digidex',   svg: ICON_DIGIDEX },
-  { to: '/roster',    label: 'Roster',     labelKey: 'nav.roster',    svg: ICON_ROSTER },
-  { to: '/world',     label: 'The World',  labelKey: 'nav.world',     svg: ICON_WORLD },
+  { to: '/market',    label: 'The Market', labelKey: 'nav.market',    svg: ICON_SHOP },
+  { to: '/items',     label: 'Inventory',  labelKey: 'nav.inventory', svg: ICON_SHOP },
+  { to: '/digdex',    label: 'DigiDex',    labelKey: 'nav.digidex',   svg: ICON_ARENA },
+  { to: '/roster',    label: 'Roster',     labelKey: 'nav.roster',    svg: ICON_ARENA },
   { to: '/lobby',     label: 'The Arena',  labelKey: 'nav.arena',     svg: ICON_ARENA },
 ];
 
-const ADMIN_NAV_OVERVIEW: AdminNavEntry = { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ADMIN_DOT, tab: 'overview' };
+const ADMIN_NAV_OVERVIEW: AdminNavEntry = { to: '/admin?tab=overview', label: 'Overview', svg: ICON_ARENA, tab: 'overview' };
 
 type AdminNavGroup = {
   readonly id: string;
@@ -145,7 +105,7 @@ const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
     id: 'community',
     label: 'Community',
     entries: [
-      { to: '/admin?tab=users', label: 'Users', svg: ICON_ROSTER, tab: 'users' },
+      { to: '/admin?tab=users', label: 'Users', svg: ICON_ARENA, tab: 'users' },
       { to: '/admin?tab=seasons', label: 'Seasons', svg: ICON_ARENA, tab: 'seasons' },
     ],
   },
@@ -153,29 +113,18 @@ const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
     id: 'content',
     label: 'Content',
     entries: [
-      { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_DIGIDEX, tab: 'catalog' },
-      { to: '/admin?tab=skills', label: 'Skills', svg: ICON_TRAINING, tab: 'skills' },
-      { to: '/admin?tab=shop', label: 'Shop Admin', svg: ICON_MARKET, tab: 'shop' },
-      { to: '/admin?tab=quests', label: 'Quests', svg: ICON_ADVENTURE, tab: 'quests' },
-      { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ADMIN_DOT, tab: 'scraped' },
-    ],
-  },
-  {
-    id: 'world',
-    label: 'World',
-    entries: [
-      { to: '/admin/world', label: 'World Map Editor', svg: ICON_WORLD, route: '/admin/world' },
-      { to: '/admin?tab=dungeons', label: 'Dungeons', svg: ICON_DUNGEON, tab: 'dungeons' },
-      { to: '/admin?tab=tilesets', label: 'Tilesets', svg: ICON_FARM, tab: 'tilesets' },
-      { to: '/admin?tab=scene', label: 'Scene', svg: ICON_NURSERY, tab: 'scene' },
-      { to: '/admin/particles', label: 'Particles', svg: ICON_FACTORY, route: '/admin/particles' },
+      { to: '/admin?tab=catalog', label: 'Catalog', svg: ICON_ARENA, tab: 'catalog' },
+      { to: '/admin?tab=skills', label: 'Skills', svg: ICON_BACK, tab: 'skills' },
+      { to: '/admin?tab=shop', label: 'Shop Admin', svg: ICON_SHOP, tab: 'shop' },
+      { to: '/admin?tab=quests', label: 'Quests', svg: ICON_BACK, tab: 'quests' },
+      { to: '/admin?tab=scraped', label: 'Scraped', svg: ICON_ARENA, tab: 'scraped' },
     ],
   },
   {
     id: 'system',
     label: 'System',
     entries: [
-      { to: '/admin?tab=settings', label: 'Settings', svg: ICON_ADMIN_COG, tab: 'settings' },
+      { to: '/admin?tab=settings', label: 'Settings', svg: ICON_BACK, tab: 'settings' },
     ],
   },
 ];
@@ -190,7 +139,6 @@ function isActive(pathname: string, target: string): boolean {
 
 function isAdminEntryActive(entry: AdminNavEntry, pathname: string, activeTab: string): boolean {
   if (entry.route !== undefined && pathname === entry.route) return true;
-  if (entry.tab === 'dungeons' && pathname.startsWith('/admin/dungeons/')) return true;
   if (pathname === '/admin' && entry.tab === activeTab) return true;
   return false;
 }
@@ -211,7 +159,6 @@ export function AppShell(): JSX.Element {
   const pageScope = pageScopeFor(pathname);
   const authed = !!user;
   const isAdminMode = pathname.startsWith('/admin');
-  const isDungeonMode = pathname.startsWith('/dungeon/');
   const activeAdminTab = new URLSearchParams(search).get('tab') ?? 'overview';
 
   const farmQuery = useQuery({ queryKey: ['farm'] as const, queryFn: getFarm, enabled: authed, staleTime: 15_000 });
@@ -262,7 +209,7 @@ export function AppShell(): JSX.Element {
   const mainClassName = pageScope ? `main ${pageScope}` : 'main';
 
   return (
-    <div className={`win win--fill${isDungeonMode ? ' is-dungeon' : ''}${sidebarOpen ? ' has-sidebar-open' : ''}`}>
+    <div className={`win win--fill${sidebarOpen ? ' has-sidebar-open' : ''}`}>
       <header className="titlebar">
         <button
           type="button"

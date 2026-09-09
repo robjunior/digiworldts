@@ -40,7 +40,6 @@ import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
 import { friendsPlugin, setFriendNotifier, setOnlineChecker } from './social/friends.js';
 import { seedShopItems, shopPlugin } from './social/shop.js';
-import { seedDefaultRarityTables } from './dungeons/rarity-tables.js';
 import { dailyPlugin } from './social/daily.js';
 import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot, deliverToUser } from './lobby/ws.js';
@@ -52,11 +51,9 @@ import { scenesPlugin } from './scenes/routes.js';
 import { particlePresetsPlugin } from './particle-presets/routes.js';
 import { skillVfxPresetsPlugin } from './skill-vfx/routes.js';
 import { seedDefaultGameSettings } from './settings/engine.js';
-import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
-import { worldPlugin } from './world/routes.js';
+import { seedDefaultQuests } from './quests/seed.js';
 import { questsPlugin } from './quests/routes.js';
 import { pvpQuestsPlugin } from './pvp-quests/routes.js';
-import { dungeonsPlugin } from './dungeons/routes.js';
 import { dialoguesPlugin } from './dialogues/routes.js';
 import { tilesetsPlugin } from './tilesets/routes.js';
 import { nurseryPlugin } from './nursery/routes.js';
@@ -123,12 +120,10 @@ async function main(): Promise<void> {
 
   await seedShopItems();
   await seedFarmRecipes();
-  await seedDefaultRarityTables();
   await backfillStarterFactoriesForExistingUsers();
   await seedInitialBlueprints();
   await seedDefaultOnboarding();
   await seedDefaultGameSettings();
-  await seedDefaultWorldObjects();
   await seedDefaultQuests();
   await seedInitialNpcs();
   if (config.SKILLS_V2_ENABLED) {
@@ -256,10 +251,8 @@ async function main(): Promise<void> {
   await app.register(skillVfxPresetsPlugin);
   await app.register(questsPlugin);
   await app.register(pvpQuestsPlugin);
-  await app.register(dungeonsPlugin);
   await app.register(dialoguesPlugin);
   await app.register(tilesetsPlugin);
-  await app.register(worldPlugin);
   await app.register(nurseryPlugin);
   await app.register(marketPlugin);
   await app.register(coinMarketPlugin);
@@ -267,12 +260,11 @@ async function main(): Promise<void> {
   await app.register(adventurePlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
-  await app.register(seasonsPlugin);
-  await app.register(playerPlugin);
-  await app.register(linkPlugin);
-  await app.register(npcsPlugin);
-  await app.register(servicePlugin);
-  await app.register(lobbyPlugin);
+  await app.register(questsPlugin);
+  await app.register(pvpQuestsPlugin);
+  await app.register(dialoguesPlugin);
+  await app.register(tilesetsPlugin);
+  await app.register(nurseryPlugin);
 
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
 

@@ -58,7 +58,7 @@ import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
 import { moveRun } from '../dungeons/repo.js';
 import { hasActivePveBattle } from '../world/pve-battle.js';
-import type { DungeonMoveResponse } from '@digiworld/shared';
+import type { DungeonMoveResponse } from '@digiworld/shared/world';
 
 const PRESENCE_INTERVAL_MS = 3_000;
 const PRESENCE_TTL_SEC = 30;

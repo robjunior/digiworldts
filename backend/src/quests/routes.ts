@@ -3,8 +3,6 @@ import type { WorldObject } from '@digiworld/shared/quest';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { log } from '../util/log.js';
 import { emit } from '../telemetry/emit.js';
-import { partyRating } from '../world/engine.js';
-import { updateDungeon } from '../dungeons/repo.js';
 import {
   acceptQuest,
   claimQuest,
@@ -24,21 +22,18 @@ import {
   updateWorldObject,
 } from './repo.js';
 import { asImportPayload, asQuestPayload, asWorldObjectPayload, QuestImportSchema, QuestInputSchema, WorldObjectInputSchema } from './validation.js';
+import { partyAverageLevel } from '../roster/routes.js';
+
+type PartyRating = { meanLevel: number };
+
+async function partyRating(userId: string): Promise<PartyRating> {
+  const level = await partyAverageLevel(userId);
+  return { meanLevel: level };
+}
 
 async function propagateEncounterSpecToDungeon(object: WorldObject): Promise<void> {
-  if (!object.dungeonId) return;
-  const hasSpec = (object.elements && object.elements.length > 0) || object.minLevel !== undefined || object.maxLevel !== undefined;
-  if (!hasSpec) return;
-  const patch: Parameters<typeof updateDungeon>[1] = {};
-  if (object.elements && object.elements.length > 0) patch.randomAllowedElements = [...object.elements];
-  if (object.minLevel !== undefined) patch.randomMinLevel = object.minLevel;
-  if (object.maxLevel !== undefined) patch.randomMaxLevel = object.maxLevel;
-  if (object.elements && object.elements.length > 0) patch.randomEncountersEnabled = true;
-  try {
-    await updateDungeon(object.dungeonId, patch);
-  } catch (err) {
-    log.warn('admin.worldObject.dungeonPropagate.failed', { objectId: object.id, dungeonId: object.dungeonId, err: err instanceof Error ? err.message : String(err) });
-  }
+  // Removed: dungeon feature deleted
+  return;
 }
 
 export const questsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
