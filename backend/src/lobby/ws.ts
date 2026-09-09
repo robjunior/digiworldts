@@ -381,53 +381,19 @@ const handleHello: Handler = async (entry) => {
 
 const handlePing: Handler = async (entry) => {
   safeSend(entry.socket, { type: 'pong' });
-  if (entry.dungeonScope !== null) {
-    await refreshDungeonPresence(entry.dungeonScope, entry.userId);
-  }
 };
 
 async function leaveDungeon(entry: PresenceEntry): Promise<void> {
-  const scope = entry.dungeonScope;
-  if (scope === null) return;
   entry.dungeonScope = null;
   entry.blockedIds = new Set();
-  await removeDungeonPresence(scope, entry.userId);
-  await publishDungeonPayload(scope, { type: 'dungeon:player-left', userId: entry.userId });
 }
 
 const handleDungeonJoin: Handler = async (entry, msg) => {
   if (msg.type !== 'dungeon:join') return;
   await leaveDungeon(entry);
-  const scope = await dungeonPresenceScope(msg.dungeonId);
-  if (scope === null) {
-    safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'unknown dungeon' });
-    return;
-  }
-  entry.dungeonScope = scope;
+  entry.dungeonScope = msg.dungeonId;
   entry.blockedIds = new Set(await listBlockedUserIds(entry.userId));
-  const me = {
-    userId: entry.userId,
-    displayName: entry.displayName,
-    x: msg.x,
-    y: msg.y,
-    gridX: msg.gridX,
-    gridY: msg.gridY,
-    dungeonId: msg.dungeonId,
-    leaderCatalogId: msg.leaderCatalogId,
-    party: msg.party,
-    trail: msg.trail ?? [],
-  };
-  await setDungeonPresence(scope, me);
-  const snapshot = (await dungeonPresenceSnapshot(scope)).filter(
-    (player) => player.userId !== entry.userId && !entry.blockedIds.has(player.userId),
-  );
-  safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: snapshot });
-  await publishDungeonPayload(scope, {
-    type: 'dungeon:player-update',
-    dungeonId: msg.dungeonId,
-    player: me,
-    blockedBy: [...entry.blockedIds],
-  });
+  safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: [] });
 };
 
 const handleDungeonLeave: Handler = async (entry) => {
@@ -440,47 +406,17 @@ const handleDungeonMove: Handler = async (entry, msg) => {
     safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'bad-message', message: 'Not in a dungeon.' });
     return;
   }
-  const scope = await dungeonPresenceScope(msg.dungeonId);
-  if (scope === null || scope !== entry.dungeonScope) {
-    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'bad-message', message: 'Dungeon mismatch.' });
-    return;
-  }
-  if (hasActivePveBattle(entry.userId)) {
-    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'battle-in-progress', message: 'Resolve your active battle first.' });
-    return;
-  }
   const moved = await moveRun(entry.userId, msg.dungeonId, msg.x, msg.y);
-  switch (moved.kind) {
-    case 'not-found':
-      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-found', message: 'Dungeon not found.' });
-      return;
-    case 'blocked':
-      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-walkable', message: 'Not walkable.' });
-      return;
-    case 'not-adjacent':
-      safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'not-adjacent', message: 'Not adjacent.' });
-      return;
-    case 'blocked-by-door':
-      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result: { run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByDoorId: moved.doorId } });
-      return;
-    case 'blocked-by-chest':
-      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result: { run: moved.run, triggeredEncounterId: null, pickedUpItemId: null, blockedByChestId: moved.chestId } });
-      return;
-    case 'ok': {
-      await announceDungeonMove(entry.userId, entry.displayName, msg.dungeonId, msg.x, msg.y, moved.warpToDungeonId ?? null, msg.party ?? [], msg.trail ?? []);
-      const result: DungeonMoveResponse = {
-        run: moved.run,
-        triggeredEncounterId: moved.triggeredEncounterId,
-        pickedUpItemId: moved.pickedUpItemId,
-        ...(moved.randomEncounter ? { randomEncounter: moved.randomEncounter } : {}),
-        ...(moved.warpToDungeonId !== undefined ? { warpToDungeonId: moved.warpToDungeonId } : {}),
-        ...(moved.trapTriggered ? { trapTriggered: moved.trapTriggered } : {}),
-        ...(moved.openedChestId !== undefined ? { openedChestId: moved.openedChestId, chestContents: moved.chestContents ?? [] } : {}),
-      };
-      safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result });
-      return;
-    }
+  if (!moved.ok) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'unknown', message: 'Move failed.' });
+    return;
   }
+  const result: DungeonMoveResponse = {
+    run: moved.run,
+    triggeredEncounterId: null,
+    pickedUpItemId: null,
+  };
+  safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result });
 };
 
 const handleChat: Handler = async (entry, msg) => {

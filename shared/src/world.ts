@@ -83,4 +83,6 @@ export type DungeonMoveResponse = {
   trapTriggered?: boolean;
   openedChestId?: string;
   chestContents?: string[];
+  kind?: DungeonMoveKind;
 };
+export type DungeonMoveKind = 'not-found' | 'blocked' | 'not-adjacent' | 'blocked-by-door' | 'blocked-by-chest' | 'ok';
