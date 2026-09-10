@@ -211,6 +211,15 @@ export function Lobby(): JSX.Element {
     enabled: true,
     staleTime: 30_000,
   });
+
+  const activeBattle = useWsStore((state) => state.activeBattle);
+  useEffect(() => {
+    if (activeBattle?.status === 'ended') {
+      invalidatePvpQuests();
+      pvpQuery.refetch();
+    }
+  }, [activeBattle?.status, invalidatePvpQuests, pvpQuery]);
+
   const roster = rosterQuery.data?.roster ?? [];
 
   const partySlots = [0, 1, 2].map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot) ?? null);
@@ -230,14 +239,6 @@ export function Lobby(): JSX.Element {
       chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
     }
   }, [chat]);
-
-  // invalidate pvp quests after a battle ends
-  useEffect(() => {
-    const activeBattle = useWsStore.getState().activeBattle;
-    if (activeBattle?.status === 'ended') {
-      invalidatePvpQuests();
-    }
-  }, [pvpQuery.data, invalidatePvpQuests]);
 
   const onChatSubmit = (e: FormEvent) => {
     e.preventDefault();
