@@ -260,6 +260,7 @@ async function main(): Promise<void> {
   await app.register(adventurePlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
+  await app.register(lobbyPlugin);
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
 
   setOnlineChecker(isUserOnlineFromLobby);
