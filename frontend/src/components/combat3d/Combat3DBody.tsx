@@ -1,6 +1,7 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useNavigate } from 'react-router';
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
 import { CommandPanel, type CommandMode } from '../combat/CommandPanel';
 import { EndCard } from '../combat/EndCard';
