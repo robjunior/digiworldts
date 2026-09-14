@@ -785,14 +785,14 @@ export function Lobby(): JSX.Element {
           className={`social${socialOpen ? "" : " collapsed"}`}
           data-od-id="social-rail"
         >
-          {/* Toggle button — always visible */}
+          {/* Toggle button — always visible, tab shape sticking out */}
           <button
             className="social-toggle"
             onClick={() => setSocialOpen((v) => !v)}
             aria-label={socialOpen ? "Collapse social panel" : "Expand social panel"}
             title={socialOpen ? "Collapse" : "Expand"}
           >
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               {socialOpen ? (
                 <path d="M15 18l-6-6 6-6" />
               ) : (
