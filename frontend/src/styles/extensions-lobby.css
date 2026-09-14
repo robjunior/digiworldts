@@ -155,16 +155,41 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 .daily-mini .dm-claim:disabled{filter:saturation(0);opacity:.4;cursor:default}
 
 /* ── RIGHT SOCIAL RAIL ──────────────────────────────────────────────── */
-.social{border-left:1px solid var(--hair);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
-.stabs{flex:0 0 auto;display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--hair)}
-.stab{position:relative;padding:14px 10px;background:none;border:0;font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:color .12s}
-.stab:hover{color:var(--ink)}
-.stab[aria-selected="true"]{color:var(--gold)}
-.stab[aria-selected="true"]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--gold)}
-.stab .rt-badge{min-width:16px;height:16px;padding:0 4px;display:inline-grid;place-items:center;background:var(--hair);color:var(--ink);font:800 9px/1 var(--font);clip-path:var(--notch-sm)}
-.stab[aria-selected="true"] .rt-badge{background:var(--gold);color:#0a0a0a}
+.social{border-left:1px solid var(--hair);display:flex;flex-direction:column;min-height:0;background:var(--panel);transition:flex-basis .35s cubic-bezier(.4,0,.2,1),width .35s cubic-bezier(.4,0,.2,1),min-width .35s cubic-bezier(.4,0,.2,1),max-width .35s cubic-bezier(.4,0,.2,1);overflow:hidden;position:relative}
+.body{transition:grid-template-columns .35s cubic-bezier(.4,0,.2,1)}
+.body.social-collapsed{grid-template-columns:1fr 52px!important}
+.social.collapsed{flex:0 0 52px;min-width:52px;max-width:52px;border-left-color:var(--hair)}
+.social.collapsed .social-toggle svg{transform:rotate(0deg)}
 
-.spanel{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.social-toggle{position:absolute;top:8px;right:8px;z-index:30;width:28px;height:28px;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.social-toggle:hover{color:var(--gold);border-color:var(--gold);background:var(--panel)}
+.social-toggle svg{transition:transform .35s cubic-bezier(.4,0,.2,1);transform:rotate(180deg)}
+.social.collapsed .social-toggle svg{transform:rotate(0deg)}
+.social.collapsed .social-toggle{right:8px}
+
+.social-icons{display:flex;flex-direction:column;gap:6px;padding:44px 8px 8px;border-bottom:1px solid var(--hair);flex:0 0 auto}
+.social-icon-btn{position:relative;width:36px;height:36px;display:grid;place-items:center;background:var(--panel2);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--muted);cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.social-icon-btn:hover{color:var(--ink);border-color:var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--panel2))}
+.social-icon-btn.active{color:var(--gold);border-color:var(--gold);background:color-mix(in oklab,var(--gold) 10%,var(--panel2));box-shadow:inset 0 0 0 1px var(--gold)}
+.social-icon-btn svg{flex:none}
+
+.social-counter{position:absolute;top:-5px;right:-5px;min-width:16px;height:16px;padding:0 4px;display:inline-grid;place-items:center;background:var(--signal);color:#fff;font:800 9px/1 var(--font);clip-path:var(--notch-sm);border:1px solid var(--panel);pointer-events:none}
+.social-counter:empty{display:none}
+.social-icon-btn.active .social-counter{background:var(--gold);color:#0a0a0a}
+
+/* when open: horizontal icon row */
+.social:not(.collapsed) .social-icons{flex-direction:row;padding:6px 10px;border-bottom:1px solid var(--hair);gap:4px}
+.social:not(.collapsed) .social-icon-btn{flex:1;max-width:80px}
+
+/* panels slide animation */
+.social .spanel{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;animation:socialSlideIn .25s cubic-bezier(.4,0,.2,1)}
+@keyframes socialSlideIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
+
+.social.collapsed .spanel{display:none}
+.social.collapsed .stabs{display:none}
+
+/* keep stabs hidden — icons replace them */
+.stabs{display:none}
 .spanel[hidden]{display:none}
 
 /* ── CHAT (LoL-style) ──────────────────────────────────────────────── */
@@ -317,11 +342,14 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 /* ── responsive ─────────────────────────────────────────────────────── */
 @media (max-width:1100px){
   .body{grid-template-columns:1fr 300px}
+  .body.social-collapsed{grid-template-columns:1fr 52px!important}
   .qgrid{grid-template-columns:repeat(3,1fr)}
 }
 @media (max-width:900px){
   .body{grid-template-columns:1fr}
+  .body.social-collapsed{grid-template-columns:1fr}
   .social{border-left:0;border-top:1px solid var(--hair);max-height:50vh}
+  .social.collapsed{flex:0 0 52px;max-height:52px;border-top:1px solid var(--hair);border-left:0}
   .qgrid{grid-template-columns:repeat(3,1fr)}
   .hero-row{grid-template-columns:1fr;text-align:center}
   .hero .h-party .party-slots{justify-content:center}

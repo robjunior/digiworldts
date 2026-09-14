@@ -7,40 +7,40 @@
 .topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
 .topbar-logo{font:900 14px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px;padding:0 18px 0 6px;color:var(--ink);text-decoration:none}
 .topbar-logo .bit{color:var(--gold)}
-.topbar-nav{display:flex;align-items:center;height:100%;gap:2px}
-.topbar-nav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
-.topbar-nav-btn:hover{color:var(--ink)}
-.topbar-nav-btn[aria-current="page"]{color:var(--gold)}
-.topbar-nav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
-.topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
-.topbar-wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm)}
-.topbar-wallet-item{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
-.topbar-wallet-dot{width:14px;height:14px;flex:none;border-radius:50%}
-.topbar-wallet-dot.cred{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 0 6px rgba(245,158,11,.4)}
-.topbar-wallet-dot.bits{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
-.topbar-wallet-dot.gem{background:linear-gradient(135deg,var(--gold-bright),var(--gold));box-shadow:0 0 6px rgba(245,158,11,.4)}
-.topbar-wallet-am{color:var(--gold-bright)}
-.topbar-wallet-am.bits{color:var(--signal2)}
-.topbar-streak-pill{display:flex;align-items:center;gap:5px;padding:0 12px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 11px/1 var(--font)}
-.topbar-streak-pill .sv{color:var(--gold);font-size:13px}
-.topbar-streak-pill .sn{color:var(--gold-bright)}
-.topbar-avatar{width:34px;height:34px;flex:none;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:900 14px/1 var(--font);color:var(--signal2);cursor:pointer;background:none;padding:0}
-.topbar-avatar:hover{border-color:var(--signal)}
+.tnav{display:flex;align-items:center;height:100%;gap:2px}
+.tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
+.tnav-btn:hover{color:var(--ink)}
+.tnav-btn[aria-current="page"]{color:var(--gold)}
+.tnav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
+.topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
+.wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
+.wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
+.wc .dot{width:14px;height:14px;flex:none;border-radius:50%}
+.wc .dot.cred{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 0 6px rgba(245,158,11,.4)}
+.wc .dot.bits{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
+.wc .dot.gem{background:linear-gradient(135deg,var(--gold-bright),var(--gold));box-shadow:0 0 6px rgba(245,158,11,.4)}
+.wc .am{color:var(--gold-bright)}
+.wc .am.b{color:var(--signal2)}
+.streak-pill{display:flex;align-items:center;gap:5px;padding:0 12px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:800 11px/1 var(--font)}
+.streak-pill .sv{color:var(--gold);font-size:13px}
+.streak-pill .sn{color:var(--gold-bright)}
+.tb-av{width:34px;height:34px;flex:none;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:900 14px/1 var(--font);color:var(--signal2);cursor:pointer;background:none;padding:0}
+.tb-av:hover{border-color:var(--signal)}
 
 /* ── dropdown menus (notifications + tamer menu) ──────────────────── */
 .tbwrap{position:relative}
-.tbtn{position:relative;display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;background:var(--panel);border:1px solid var(--hair);color:var(--ink);cursor:pointer;clip-path:var(--notch-sm);transition:border-color .12s,background .12s}
+.tbtn{position:relative;display:flex;align-items:center;gap:8px;height:30px;padding:0 8px;background:var(--panel);border:1px solid var(--hair);color:var(--ink);cursor:pointer;clip-path:var(--notch-sm-clip);transition:border-color .12s,background .12s}
 .tbtn:hover{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--panel))}
 .tbtn[aria-expanded="true"]{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
 .tbtn svg{width:16px;height:16px;display:block}
 .tbtn.icon{width:30px;padding:0;justify-content:center}
-.tbtn .uav{width:20px;height:20px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);font:900 10px/1 var(--font);color:var(--signal);clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px)}
+.tbtn .uav{width:20px;height:20px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);font:900 10px/1 var(--font);color:var(--signal);clip-path:var(--notch-xs-clip)}
 .tbtn .unm{font:800 11px/1 var(--font);letter-spacing:.04em;color:var(--ink)}
 .tbtn .dot-badge{position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--signal);border-radius:50%;box-shadow:0 0 0 2px var(--panel)}
-.tmenu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);padding:6px;z-index:60;display:none}
+.tmenu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:6px;z-index:60;display:none}
 .tmenu.open{display:block}
 .tmenu .mhd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.tmenu a,.tmenu button.mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:none;border:0;text-align:left;text-decoration:none;color:var(--ink);font:600 12px/1.1 var(--font);cursor:pointer;clip-path:polygon(5px 0,100% 0,100% calc(100% - 5px),calc(100% - 5px) 100%,0 100%,0 5px)}
+.tmenu a,.tmenu button.mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:none;border:0;text-align:left;text-decoration:none;color:var(--ink);font:600 12px/1.1 var(--font);cursor:pointer;clip-path:var(--notch-xs-clip)}
 .tmenu a:hover,.tmenu button.mi:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel));color:var(--ink)}
 .tmenu a svg,.tmenu button.mi svg{width:15px;height:15px;flex:none;color:var(--muted)}
 .tmenu a:hover svg,.tmenu button.mi:hover svg{color:var(--signal)}

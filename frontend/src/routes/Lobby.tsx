@@ -193,6 +193,7 @@ export function Lobby(): JSX.Element {
   const [socialTab, setSocialTab] = useState<"chat" | "quests" | "friends">(
     "chat",
   );
+  const [socialOpen, setSocialOpen] = useState(true);
 
   // friends state (from API)
   const friendsQuery = useQuery({ queryKey: FRIENDS_QUERY_KEY, queryFn: getFriends, staleTime: 15_000 });
@@ -422,7 +423,7 @@ export function Lobby(): JSX.Element {
       <TopBar />
 
       {/* ── BODY ─────────────────────────────────────────────────── */}
-      <div className="body">
+      <div className={`body${socialOpen ? "" : " social-collapsed"}`}>
         {/* LEFT MAIN CONTENT */}
         <main className="main">
           {/* hero banner */}
@@ -780,41 +781,87 @@ export function Lobby(): JSX.Element {
         </main>
 
         {/* RIGHT SOCIAL RAIL */}
-        <aside className="social" data-od-id="social-rail">
-          <div className="stabs" role="tablist">
+        <aside
+          className={`social${socialOpen ? "" : " collapsed"}`}
+          data-od-id="social-rail"
+        >
+          {/* Toggle button — always visible */}
+          <button
+            className="social-toggle"
+            onClick={() => setSocialOpen((v) => !v)}
+            aria-label={socialOpen ? "Collapse social panel" : "Expand social panel"}
+            title={socialOpen ? "Collapse" : "Expand"}
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {socialOpen ? (
+                <path d="M15 18l-6-6 6-6" />
+              ) : (
+                <path d="M9 18l6-6-6-6" />
+              )}
+            </svg>
+          </button>
+
+          {/* Icon strip — always visible when collapsed or as tab headers when open */}
+          <div className="social-icons" role="tablist">
             <button
-              className="stab"
+              className={`social-icon-btn${socialOpen && socialTab === "chat" ? " active" : ""}`}
               role="tab"
-              aria-selected={socialTab === "chat"}
-              onClick={() => setSocialTab("chat")}
+              aria-selected={socialOpen && socialTab === "chat"}
+              onClick={() => {
+                if (!socialOpen) setSocialOpen(true);
+                setSocialTab("chat");
+              }}
+              title="Chat"
             >
-              Chat
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
               {unreadDmCount > 0 && (
-                <span className="rt-badge">{unreadDmCount}</span>
+                <span className="social-counter">{unreadDmCount}</span>
               )}
             </button>
             <button
-              className="stab"
+              className={`social-icon-btn${socialOpen && socialTab === "quests" ? " active" : ""}`}
               role="tab"
-              aria-selected={socialTab === "quests"}
-              onClick={() => setSocialTab("quests")}
+              aria-selected={socialOpen && socialTab === "quests"}
+              onClick={() => {
+                if (!socialOpen) setSocialOpen(true);
+                setSocialTab("quests");
+              }}
+              title="Quests"
             >
-              Quests
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
+              </svg>
               {availableCount > 0 && (
-                <span className="rt-badge">{availableCount}</span>
+                <span className="social-counter">{availableCount}</span>
               )}
             </button>
             <button
-              className="stab"
+              className={`social-icon-btn${socialOpen && socialTab === "friends" ? " active" : ""}`}
               role="tab"
-              aria-selected={socialTab === "friends"}
-              onClick={() => setSocialTab("friends")}
+              aria-selected={socialOpen && socialTab === "friends"}
+              onClick={() => {
+                if (!socialOpen) setSocialOpen(true);
+                setSocialTab("friends");
+              }}
+              title="Friends"
             >
-              Friends
-              <span className="rt-badge">{allFriends.length}</span>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              {allFriends.length > 0 && (
+                <span className="social-counter">{allFriends.length}</span>
+              )}
             </button>
           </div>
 
+          {/* Panel content — only rendered when open */}
+          {socialOpen && (
+          <>
           {/* CHAT PANEL */}
           <div className="spanel" hidden={socialTab !== "chat"}>
             <div className="chat">
@@ -1236,6 +1283,8 @@ export function Lobby(): JSX.Element {
               </div>
             </div>
           </div>
+          </>
+          )}
         </aside>
       </div>
 
