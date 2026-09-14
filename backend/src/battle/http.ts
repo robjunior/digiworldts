@@ -26,8 +26,10 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { requireAuth } from '../auth/routes.js';
 import { one, q } from '../db/index.js';
+import { getCluster } from '../cluster/index.js';
 import { getSpectatorView } from './routes.js';
 import { spectatorCount } from './spectate.js';
+import { activeMatchCount } from './routes.js';
 
 type MatchWithOpponent = {
   id: string;
@@ -81,6 +83,42 @@ function rowToSummary(row: MatchWithOpponent, userId: string): LastMatchSummary 
 }
 
 export const battlePlugin: FastifyPluginAsync = async (app): Promise<void> => {
+  // List all live matches for the lobby "Live Matches" panel.
+  app.get('/api/battle/live', async (_req, reply) => {
+    const cluster = await getCluster();
+    const keys = await cluster.keys('battle:snap:*');
+    const matches: Array<{
+      matchId: string;
+      playerA: { userId: string; displayName: string };
+      playerB: { userId: string; displayName: string };
+      spectactorCount: number;
+    }> = [];
+
+    for (const key of keys) {
+      const matchId = key.replace('battle:snap:', '');
+      const snap = await cluster.get(key);
+      if (!snap) continue;
+      try {
+        const data = JSON.parse(snap) as {
+          playerA: string;
+          playerB: string;
+          displayNames?: { a?: string; b?: string };
+        };
+        const count = await spectatorCount(matchId);
+        matches.push({
+          matchId,
+          playerA: { userId: data.playerA, displayName: data.displayNames?.a ?? 'Player A' },
+          playerB: { userId: data.playerB, displayName: data.displayNames?.b ?? 'Player B' },
+          spectactorCount: count,
+        });
+      } catch {
+        // skip malformed snapshots
+      }
+    }
+
+    return reply.send(matches.slice(0, 10));
+  });
+
   app.get<{ Params: { matchId: string } }>('/api/battle/spectate/:matchId', async (req, reply) => {
     await requireAuth(req, reply);
     const view = await getSpectatorView(req.params.matchId);

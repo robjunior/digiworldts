@@ -293,3 +293,58 @@ function toApiError(status: number, payload: unknown): ApiError {
 function isErrorPayload(payload: unknown): payload is ErrorPayload {
   return typeof payload === 'object' && payload !== null && 'error' in payload;
 }
+
+// ── Friends ─────────────────────────────────────────────────────────
+export type FriendView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly online: boolean;
+  readonly since: number;
+};
+
+export type FriendRequestView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly at: number;
+};
+
+export type FriendsResponse = {
+  readonly friends: readonly FriendView[];
+  readonly incoming: readonly FriendRequestView[];
+  readonly outgoing: readonly FriendRequestView[];
+};
+
+export async function getFriends(): Promise<FriendsResponse> {
+  return apiFetch<FriendsResponse>('/api/friends');
+}
+
+export async function requestFriend(username: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/request', { method: 'POST', body: JSON.stringify({ username }) });
+}
+
+export async function acceptFriend(userId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/accept', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
+export async function removeFriend(userId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>('/api/friends/remove', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
+// ── Live matches ────────────────────────────────────────────────────
+export type LiveMatchSummary = {
+  readonly matchId: string;
+  readonly playerA: { readonly userId: string; readonly displayName: string };
+  readonly playerB: { readonly userId: string; readonly displayName: string };
+  readonly spectactorCount: number;
+};
+
+export async function getLiveMatches(): Promise<readonly LiveMatchSummary[]> {
+  try {
+    return await apiFetch<readonly LiveMatchSummary[]>('/api/battle/live');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
+}
