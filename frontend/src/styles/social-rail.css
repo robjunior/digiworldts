@@ -1,0 +1,920 @@
+/* ── SOCIAL RAIL (shared component) ──────────────────────────────── */
+.social {
+  border-left: 1px solid var(--hair);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.body.social-collapsed {
+  grid-template-columns: 1fr 0px;
+}
+.body.social-collapsed .main {
+  margin-right: 0;
+}
+
+.social.collapsed {
+  transform: translateX(calc(100% - 34px));
+}
+
+.social-toggle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  z-index: 40;
+  width: 22px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  border-right: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 6px 100%, 0 50%);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s,
+    left 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.social-toggle:hover {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: var(--panel);
+}
+.social.collapsed .social-toggle {
+  left: 34px;
+  transform: translateY(-50%) translateX(-50%);
+}
+.social-toggle svg {
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: scaleX(1);
+}
+.social.collapsed .social-toggle svg {
+  transform: scaleX(-1);
+}
+
+.social-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 8px 8px 8px;
+  border-bottom: 1px solid var(--hair);
+  flex: 0 0 auto;
+}
+.social-icon-btn {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+.social-icon-btn:hover {
+  color: var(--ink);
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 8%, var(--panel2));
+}
+.social-icon-btn.active {
+  color: var(--gold);
+  border-color: var(--gold);
+  background: color-mix(in oklab, var(--gold) 10%, var(--panel2));
+  box-shadow: inset 0 0 0 1px var(--gold);
+}
+.social-icon-btn svg {
+  flex: none;
+}
+
+.social-counter {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--signal);
+  color: #fff;
+  font: 800 9px/1 var(--font);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  border: 1px solid var(--panel);
+  pointer-events: none;
+}
+.social-counter:empty {
+  display: none;
+}
+.social-icon-btn.active .social-counter {
+  background: var(--gold);
+  color: #0a0a0a;
+}
+
+/* when open: horizontal icon row */
+.social:not(.collapsed) .social-icons {
+  flex-direction: row;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--hair);
+  gap: 4px;
+}
+.social:not(.collapsed) .social-icon-btn {
+  flex: 1;
+  max-width: 80px;
+}
+
+/* panels slide animation */
+.social .spanel {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: socialSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes socialSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.social.collapsed .spanel {
+  display: none;
+}
+
+/* ── CHAT (LoL-style) ─────────────────────────────────────────── */
+.chat {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.chat-channels {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 4px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--hair);
+  overflow-x: auto;
+}
+.chat-channels::-webkit-scrollbar {
+  height: 4px;
+}
+.chat-channels::-webkit-scrollbar-thumb {
+  background: var(--hair);
+}
+.ch-btn {
+  padding: 5px 12px;
+  font: 700 10px/1 var(--font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: 0.12s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ch-btn:hover {
+  color: var(--ink);
+  border-color: var(--signal);
+}
+.ch-btn[aria-current="true"] {
+  background: var(--signal);
+  color: #fff;
+  border-color: var(--signal);
+}
+.ch-btn .ch-unread {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--gold);
+  color: #0a0a0a;
+  font: 800 8px/1 var(--font);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.ch-btn[aria-current="true"] .ch-unread {
+  background: #fff;
+  color: var(--signal);
+}
+
+.ch-tab {
+  position: relative;
+  display: flex;
+  flex: none;
+}
+.ch-tab .ch-btn {
+  padding-right: 20px;
+}
+.ch-close {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--muted);
+  cursor: pointer;
+  z-index: 2;
+  transition: color 0.12s;
+}
+.ch-close svg {
+  width: 8px;
+  height: 8px;
+}
+.ch-close:hover {
+  color: var(--gold);
+}
+.ch-tab .ch-btn[aria-current="true"] + .ch-close {
+  color: rgba(255, 255, 255, 0.8);
+}
+.ch-tab .ch-btn[aria-current="true"] + .ch-close:hover {
+  color: #fff;
+}
+
+.chatlog {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chatlog::-webkit-scrollbar {
+  width: 6px;
+}
+.chatlog::-webkit-scrollbar-thumb {
+  background: var(--hair);
+  border-radius: 3px;
+}
+
+.msg {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1.45;
+  transition: background 0.12s;
+}
+.msg:hover {
+  background: var(--panel2);
+}
+.msg .ts {
+  font: 500 10px/1 var(--font);
+  color: var(--muted);
+  flex: none;
+  min-width: 36px;
+}
+.msg .who {
+  font: 700 12px/1 var(--font);
+  flex: none;
+}
+.msg .who.me {
+  color: var(--gold);
+}
+.msg .who.sys {
+  color: var(--signal2);
+}
+.msg .tx {
+  color: var(--ink);
+  flex: 1;
+  word-break: break-word;
+}
+.msg.join .tx,
+.msg.leave .tx {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 12px;
+}
+.msg.system {
+  background: rgba(59, 130, 246, 0.08);
+  border-left: 2px solid var(--signal);
+}
+
+.chatform {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 0;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--hair);
+  background: var(--panel2);
+}
+.chatform input {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  border-right: 0;
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
+  font: 500 13px/1 var(--font);
+  outline: none;
+}
+.chatform input::placeholder {
+  color: var(--muted);
+}
+.chatform input:focus {
+  border-color: var(--signal);
+}
+.chatform button {
+  padding: 0 16px;
+  height: 36px;
+  background: var(--signal);
+  color: #fff;
+  border: 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+  font: 800 11px/1 var(--font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.chatform button:hover {
+  background: var(--signal2);
+}
+
+/* ── QUESTS PANEL ─────────────────────────────────────────────── */
+.quests {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+.quests::-webkit-scrollbar {
+  width: 6px;
+}
+.quests::-webkit-scrollbar-thumb {
+  background: var(--hair);
+  border-radius: 3px;
+}
+
+.qp-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--hair);
+}
+.qp-tab {
+  flex: 1;
+  padding: 10px 8px;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    border-color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.qp-tab:hover {
+  color: var(--ink);
+}
+.qp-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+.qp-tab-count {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--hair);
+  color: var(--ink);
+  font: 800 8px/1 var(--font);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.qp-tab.active .qp-tab-count {
+  background: var(--gold);
+  color: #0a0a0a;
+}
+
+.q-section {
+  margin-bottom: 18px;
+}
+.q-section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.q-section-hd .k {
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.q-section-hd .n {
+  font: 700 10px/1 var(--font);
+  color: var(--signal2);
+}
+
+.quest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  margin-bottom: 6px;
+  transition: border-color 0.12s;
+}
+.quest:hover {
+  border-color: var(--signal);
+}
+.quest .q-ico {
+  width: 36px;
+  height: 36px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.quest .q-ic {
+  width: 18px;
+  height: 18px;
+}
+.quest .q-ic.gold {
+  color: var(--gold);
+}
+.quest .q-ic.blue {
+  color: var(--signal2);
+}
+.quest .q-tx {
+  flex: 1;
+  min-width: 0;
+}
+.quest .q-nm {
+  font: 700 12px/1.1 var(--font);
+  color: var(--ink);
+}
+.quest .q-desc {
+  font: 500 10px/1.3 var(--font);
+  color: var(--muted);
+  margin-top: 2px;
+}
+.quest .q-prog {
+  margin-top: 5px;
+  height: 4px;
+  background: var(--bg);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.quest .q-prog .fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal), var(--gold));
+  transition: width 0.4s cubic-bezier(0.2, 0, 1, 1);
+}
+.quest .q-count {
+  font: 800 11px/1 var(--font);
+  color: var(--signal2);
+  white-space: nowrap;
+}
+.quest .q-count.done {
+  color: var(--gold);
+}
+.quest .q-claim {
+  padding: 6px 12px;
+  background: linear-gradient(135deg, var(--gold), #d97706);
+  color: #0a0a0a;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+}
+.quest .q-claim.done {
+  background: var(--panel);
+  color: var(--muted);
+  border: 1px solid var(--hair);
+  cursor: default;
+}
+
+/* ── FRIENDS PANEL ────────────────────────────────────────────── */
+.friends {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px;
+}
+.friends::-webkit-scrollbar {
+  width: 6px;
+}
+.friends::-webkit-scrollbar-thumb {
+  background: var(--hair);
+  border-radius: 3px;
+}
+
+.friends-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.friends-toolbar input {
+  flex: 1;
+  height: 34px;
+  padding: 0 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
+  font: 500 12px/1 var(--font);
+  outline: none;
+}
+.friends-toolbar input::placeholder {
+  color: var(--muted);
+}
+.friends-toolbar input:focus {
+  border-color: var(--signal);
+}
+.add-friend-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px;
+  height: 34px;
+  background: var(--signal);
+  color: #fff;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 0;
+  cursor: pointer;
+  transition: filter 0.12s;
+}
+.add-friend-btn:hover {
+  filter: brightness(1.15);
+}
+.add-friend-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.friends-section {
+  margin-bottom: 18px;
+}
+.friends-section-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--hair);
+}
+.friends-section-hd .k .chevron {
+  color: var(--muted);
+  font-size: 8px;
+  margin-left: 4px;
+}
+.friends-section-hd .k {
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.friends-section-hd .n {
+  font: 700 10px/1 var(--font);
+  color: var(--signal2);
+}
+
+.friend-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px 10px 14px;
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--signal);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  margin-bottom: 6px;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.friend-row:hover {
+  border-color: var(--signal);
+  background: color-mix(in oklab, var(--signal) 5%, var(--panel2));
+}
+.friend-row.offline {
+  border-left-color: var(--muted);
+  opacity: 0.72;
+}
+.friend-row.offline:hover {
+  opacity: 1;
+  border-left-color: var(--muted);
+}
+.friend-av {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 900 13px/1 var(--font);
+  color: var(--signal2);
+  position: relative;
+}
+.friend-av .online-dot {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--panel2);
+  background: var(--signal);
+}
+.friend-av .online-dot.off {
+  background: var(--muted);
+}
+.friend-av .online-dot.ingame {
+  background: var(--gold);
+}
+.friend-info {
+  min-width: 0;
+}
+.friend-nm {
+  font: 700 12px/1.1 var(--font);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.friend-sub {
+  font: 500 10px/1.3 var(--font);
+  color: var(--muted);
+  margin-top: 2px;
+}
+.friend-actions {
+  display: flex;
+  gap: 6px;
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+.friend-row:hover .friend-actions {
+  opacity: 1;
+}
+.friend-action {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  cursor: pointer;
+  transition: 0.12s;
+}
+.friend-action:hover {
+  border-color: var(--signal);
+  color: var(--signal2);
+}
+.friend-action.dm {
+  color: var(--signal2);
+}
+.friend-action.dm:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.friend-action.remove {
+  color: var(--muted);
+}
+.friend-action.remove:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.friend-request-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px 10px 14px;
+  background: color-mix(in oklab, var(--signal) 6%, var(--panel2));
+  border: 1px solid color-mix(in oklab, var(--signal) 30%, var(--hair));
+  border-left: 3px solid var(--signal);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  margin-bottom: 6px;
+  transition: border-color 0.15s;
+}
+.friend-request-row:hover {
+  border-color: var(--signal);
+}
+.friend-request-row .friend-av {
+  border-color: var(--signal);
+}
+.request-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.request-accept,
+.request-decline {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 800 14px/1 var(--font);
+  border: 0;
+  cursor: pointer;
+  transition: 0.12s;
+}
+.request-accept {
+  background: var(--signal);
+  color: #fff;
+}
+.request-accept:hover {
+  filter: brightness(1.15);
+  transform: scale(1.08);
+}
+.request-decline {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--hair);
+}
+.request-decline:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  transform: scale(1.08);
+}
+
+.add-friend-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 14, 26, 0.85);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.add-friend-modal.open {
+  display: flex;
+}
+.afm-box {
+  width: min(360px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  padding: 20px;
+}
+.afm-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.afm-hd h3 {
+  font: 800 14px/1 var(--font);
+  margin: 0;
+}
+.afm-close {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  cursor: pointer;
+  font: 700 12px/1 var(--font);
+}
+.afm-close:hover {
+  border-color: var(--signal);
+}
+.afm-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 500 13px/1 var(--font);
+  outline: none;
+  margin-bottom: 12px;
+}
+.afm-input:focus {
+  border-color: var(--signal);
+}
+.afm-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.afm-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--panel2);
+  border: 1px solid var(--hair);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.afm-result .nm {
+  font: 700 12px/1 var(--font);
+}
+.afm-send {
+  padding: 5px 14px;
+  background: var(--signal);
+  color: #fff;
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  font: 800 10px/1 var(--font);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 0;
+  cursor: pointer;
+}
+.afm-send:hover {
+  filter: brightness(1.15);
+}
+.afm-send.sent {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--hair);
+  cursor: default;
+}
+.afm-empty {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 12px;
+  text-align: center;
+}
+
+/* ── responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .social {
+    border-left: 0;
+    border-top: 1px solid var(--hair);
+    max-height: 50vh;
+  }
+  .social.collapsed {
+    transform: translateY(calc(100% - 36px));
+    max-height: 36px;
+    border-top: 1px solid var(--hair);
+    border-left: 0;
+  }
+  .social.collapsed .social-toggle {
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%) translateY(-50%);
+    width: 52px;
+    height: 22px;
+    clip-path: polygon(0 6px, 50% 0, 100% 6px, 100% 100%, 0 100%);
+  }
+}
