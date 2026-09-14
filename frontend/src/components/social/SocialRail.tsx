@@ -10,7 +10,6 @@ import {
 import {
   getFriends,
   requestFriend,
-  requestFriendById,
   acceptFriend,
   removeFriend,
   ApiError,

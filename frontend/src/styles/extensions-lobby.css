@@ -31,7 +31,10 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 @keyframes battlepulse{0%,100%{opacity:.5}50%{opacity:1}}
 
 /* ── body ───────────────────────────────────────────────────────────── */
+/* Note: grid-template-columns for the social rail is handled by app-shell.css .body:has(.social)
+   and scoped here only for the lobby page which doesn't use AppShell */
 .body{flex:1 1 auto;display:grid;grid-template-columns:1fr 340px;min-height:0;transition:grid-template-columns .4s cubic-bezier(.4,0,.2,1)}
+.lobby-shell .body.social-collapsed{grid-template-columns:1fr 0px}
 .main{display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:20px 24px 24px;gap:16px}
 .main::-webkit-scrollbar{width:8px}
 .main::-webkit-scrollbar-thumb{background:var(--hair);border-radius:4px}
