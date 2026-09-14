@@ -140,6 +140,9 @@
 }
 
 /* panels slide animation */
+.social .spanel[hidden] {
+  display: none !important;
+}
 .social .spanel {
   flex: 1 1 auto;
   display: flex;
@@ -159,7 +162,7 @@
 }
 
 .social.collapsed .spanel {
-  display: none;
+  display: none !important;
 }
 
 /* ── CHAT ─────────────────────────────────────────────────────── */
