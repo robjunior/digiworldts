@@ -214,11 +214,11 @@ function rewardFor(period: PvpQuestPeriod, target: number, rng: () => number, ti
     case 'xp':
       return { kind: 'xp', amount };
     case 'item':
-      return { kind: 'item', itemId: 'itm_generic', qty: amount };
+      return { kind: 'item', itemId: 'itm-quest-reward', qty: amount };
     case 'cosmetic':
       return { kind: 'cosmetic', cosmeticId: 'cos_generic' };
     case 'battle_item':
-      return { kind: 'battle_item', itemId: `itm_battle_${Math.floor(rng() * 100)}`, qty: 1 };
+      return { kind: 'battle_item', itemId: 'itm-quest-reward', qty: 1 };
   }
 }
 

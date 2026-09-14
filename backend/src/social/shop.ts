@@ -355,6 +355,17 @@ const SEED_ITEMS: Array<SeedItem> = [
     class: 'item',
     payload: JSON.stringify({ def_bonus: 15 }),
   },
+  {
+    id: 'itm-quest-reward',
+    name: 'Quest Reward',
+    description: 'A token of achievement awarded for completing quests. Redeemable for goods at the shop.',
+    price_credits: 10,
+    price: 10,
+    currency: 'credits',
+    kind: 'consumable',
+    class: 'item',
+    payload: JSON.stringify({ quest_reward: true }),
+  },
 ];
 
 const ELEMENT_FAMILIES = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
