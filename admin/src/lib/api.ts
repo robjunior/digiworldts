@@ -55,7 +55,7 @@ export type DayReward = {
   readonly meat?: number;
   readonly bits?: number;
   readonly data?: number;
-  readonly credits?: number;
+  readonly netcore?: number;
 };
 
 export type DailyResponse = {

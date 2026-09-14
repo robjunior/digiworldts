@@ -12,10 +12,14 @@ import {
   acceptFriend,
   removeFriend,
   getLiveMatches,
+  getDaily,
+  claimDaily,
+  ApiError,
   type LastMatchSummary,
   type FriendView,
   type FriendRequestView,
   type LiveMatchSummary,
+  type DayReward,
 } from "../lib/api";
 import { getPvpQuests, claimPvpQuest } from "../lib/api-pvp-quests";
 import { useWsStore } from "../state/wsStore";
@@ -26,6 +30,7 @@ const ROSTER_QUERY_KEY = ["roster"] as const;
 const LAST_MATCH_QUERY_KEY = ["last-match"] as const;
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 const LIVE_MATCHES_QUERY_KEY = ["live-matches"] as const;
+const DAILY_QUERY_KEY = ["daily"] as const;
 
 function normalizeOutcome(
   outcome: LastMatchSummary["outcome"],
@@ -48,6 +53,23 @@ function normalizeOutcome(
     default:
       return "draw";
   }
+}
+
+function fmtReward(r?: DayReward): string {
+  if (!r) return "—";
+  const parts: string[] = [];
+  if (r.meat) parts.push(`${r.meat} Meat`);
+  if (r.bits) parts.push(`${r.bits} Bits`);
+  if (r.data) parts.push(`${r.data} Data`);
+  if (r.netcore) parts.push(`${r.netcore} NetCore`);
+  return parts.join(" + ") || "—";
+}
+
+function fmtCountdown(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
 }
 
 /* ── game modes ─────────────────────────────────────────────────────── */
@@ -185,6 +207,32 @@ export function Lobby(): JSX.Element {
   });
   const liveMatches: readonly LiveMatchSummary[] = liveMatchesQuery.data ?? [];
 
+  // daily reward (real /api/daily endpoint)
+  const dailyQuery = useQuery({
+    queryKey: DAILY_QUERY_KEY,
+    queryFn: getDaily,
+    staleTime: 30_000,
+  });
+  const daily = dailyQuery.data;
+  const streakDay = daily?.streakDay ?? 0;
+  const nextDay = daily?.wouldGrantDay ?? 0;
+  const canClaim = daily?.canClaim ?? false;
+  const previewDay = canClaim ? nextDay : Math.max(1, streakDay);
+  const previewReward = daily?.cycle[previewDay - 1];
+  const [claimingDaily, setClaimingDaily] = useState(false);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (canClaim || !daily?.secondsUntilNext) {
+      setTick(0);
+      return undefined;
+    }
+    const t = window.setInterval(() => setTick((n) => n + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [canClaim, daily?.secondsUntilNext]);
+  const secondsLeft = daily?.secondsUntilNext
+    ? Math.max(0, daily.secondsUntilNext - tick)
+    : 0;
+
   // presence (online now) from WS
   const presence = useWsStore((state) => state.presence);
 
@@ -247,6 +295,37 @@ export function Lobby(): JSX.Element {
       // keep existing state
     } finally {
       setClaiming(null);
+    }
+  };
+
+  // daily reward claim + toast
+  const toastTimer = useRef<number | null>(null);
+  const showToast = (msg: string): void => {
+    const el = document.getElementById("lobby-toast");
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add("show");
+    if (toastTimer.current !== null) {
+      window.clearTimeout(toastTimer.current);
+    }
+    toastTimer.current = window.setTimeout(
+      () => el.classList.remove("show"),
+      2600,
+    );
+  };
+
+  const handleDailyClaim = async (): Promise<void> => {
+    setClaimingDaily(true);
+    try {
+      const res = await claimDaily();
+      await dailyQuery.refetch();
+      showToast(`Day ${res.streakDay} claimed: ${fmtReward(res.granted)}`);
+    } catch (err) {
+      showToast(
+        err instanceof ApiError ? err.message : "Couldn't claim today's reward",
+      );
+    } finally {
+      setClaimingDaily(false);
     }
   };
 
@@ -327,7 +406,7 @@ export function Lobby(): JSX.Element {
 
           <span className="streak-pill">
             <span className="sv">▲</span>
-            <span className="sn">4d</span>
+            <span className="sn">{streakDay}d</span>
           </span>
 
           <button className="tb-av" aria-label="Tamer profile">
@@ -433,23 +512,43 @@ export function Lobby(): JSX.Element {
                 </span>
               </div>
               <div className="dm-tx">
-                <div className="dm-day">Daily Reward · Day 4 of 7</div>
-                <div className="dm-rew">50 Meat + 200 Bits</div>
+                <div className="dm-day">
+                  Daily Reward · Day {previewDay} of 7
+                </div>
+                <div className="dm-rew">{fmtReward(previewReward)}</div>
                 <div className="dm-sub">
-                  Claim before midnight to keep your streak
+                  {!daily
+                    ? "Fetching your streak…"
+                    : canClaim
+                      ? "Claim to keep your streak alive"
+                      : streakDay === 0
+                        ? "Claim your first daily reward"
+                        : `Next reward in ${fmtCountdown(secondsLeft)}`}
                 </div>
               </div>
               <div className="dm-pips">
                 {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                   <span
                     key={d}
-                    className={`dm-pip${d < 4 ? " claimed" : d === 4 ? " today" : ""}`}
+                    className={`dm-pip${d <= streakDay ? " claimed" : ""}${canClaim && d === nextDay ? " today" : ""}`}
                   >
                     {d}
                   </span>
                 ))}
               </div>
-              <button className="dm-claim">Claim</button>
+              <button
+                className="dm-claim"
+                disabled={!canClaim || claimingDaily}
+                onClick={handleDailyClaim}
+              >
+                {claimingDaily
+                  ? "Claiming…"
+                  : !daily
+                    ? "…"
+                    : canClaim
+                      ? "Claim"
+                      : "Claimed"}
+              </button>
             </div>
 
             {/* quick actions */}
