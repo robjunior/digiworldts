@@ -51,6 +51,8 @@ type WsState = {
   readonly presenceCount: number;
   readonly chat: ChatMessage[];
   readonly chatsByRoom: Record<string, ChatMessage[]>;
+  /** Direct messages, keyed by the OTHER participant's userId. */
+  readonly dmsByPeer: Record<string, ChatMessage[]>;
   readonly queue: QueueState;
   readonly activeMatchId: string | null;
   readonly activeBattle: BattleView | null;
@@ -78,6 +80,7 @@ const initialState = {
   presenceCount: 0,
   chat: [],
   chatsByRoom: {},
+  dmsByPeer: {},
   queue: { status: 'idle', size: 0, since: null },
   activeMatchId: null,
   activeBattle: null,
@@ -117,12 +120,23 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'chat':
         if (msg.toUserId !== undefined) {
-          set((state) => ({
-            chat: [
-              ...state.chat,
-              { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, toUserId: msg.toUserId },
-            ].slice(-MAX_LOG_MESSAGES),
-          }));
+          const toUserId = msg.toUserId;
+          // Direct message: keep it in its own per-peer log so it never leaks
+          // into the General tab. The peer is the other participant — our own
+          // id lives in the welcome payload.
+          set((state) => {
+            const myId = state.welcome?.user.id;
+            const peer = myId !== undefined && msg.from === myId ? toUserId : msg.from;
+            return {
+              dmsByPeer: {
+                ...state.dmsByPeer,
+                [peer]: [
+                  ...(state.dmsByPeer[peer] ?? []),
+                  { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, toUserId },
+                ].slice(-MAX_LOG_MESSAGES),
+              },
+            };
+          });
           return;
         }
         if (msg.room !== undefined) {

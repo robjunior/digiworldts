@@ -21,6 +21,7 @@
     "test:dungeon-triggers": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-triggers-smoke.db tsx test/dungeon-triggers-smoke.mts",
     "test:skill-vfx": "DATABASE=sqlite DATABASE_URL= DB_PATH=/tmp/dw-skill-vfx-smoke.db DATA_DIR=/tmp/dw-skill-vfx-smoke tsx test/skill-vfx-smoke.mts",
     "test:currency": "DB_PATH=/tmp/dw-currency-smoke.db tsx test/currency-smoke.mts",
+    "test:dm-chat": "DATABASE=sqlite CLUSTER=memory DB_PATH=/tmp/dw-dm-chat-smoke.db tsx test/dm-chat-smoke.mts",
     "test:discord-link": "DB_PATH=/tmp/dw-discord-link-test.db tsx test/discord-link.mts",
     "test:battle-sim": "tsx test/battle-sim.mts",
     "test:damage-progression": "tsx test/damage-progression.mts",

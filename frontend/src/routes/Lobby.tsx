@@ -9,6 +9,7 @@ import {
   getRoster,
   getFriends,
   requestFriend,
+  requestFriendById,
   acceptFriend,
   removeFriend,
   getLiveMatches,
@@ -31,6 +32,8 @@ const LAST_MATCH_QUERY_KEY = ["last-match"] as const;
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 const LIVE_MATCHES_QUERY_KEY = ["live-matches"] as const;
 const DAILY_QUERY_KEY = ["daily"] as const;
+
+type DmSession = { readonly userId: string; readonly name: string };
 
 function normalizeOutcome(
   outcome: LastMatchSummary["outcome"],
@@ -175,10 +178,12 @@ export function Lobby(): JSX.Element {
   // mode selection
   const [activeMode, setActiveMode] = useState<GameMode>("ranked");
 
-  // chat state
+  // chat state — General + per-user DM tabs
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
-  const [activeChannel, setActiveChannel] = useState("General");
+  // 'general' | `dm:${userId}`
+  const [activeChannel, setActiveChannel] = useState("general");
+  const [openDms, setOpenDms] = useState<readonly DmSession[]>([]);
   const chatLogRef = useRef<HTMLDivElement>(null);
 
   // social rail tabs
@@ -197,6 +202,7 @@ export function Lobby(): JSX.Element {
   const [addFriendOpen, setAddFriendOpen] = useState(false);
   const [addFriendSearch, setAddFriendSearch] = useState("");
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
+  const [presenceSent, setPresenceSent] = useState<Set<string>>(new Set());
 
   // live matches (from API)
   const liveMatchesQuery = useQuery({
@@ -235,21 +241,55 @@ export function Lobby(): JSX.Element {
 
   // presence (online now) from WS
   const presence = useWsStore((state) => state.presence);
+  const dmsByPeer = useWsStore((state) => state.dmsByPeer);
+
+  // DM tabs derived state
+  const activeDmUserId = activeChannel.startsWith("dm:")
+    ? activeChannel.slice(3)
+    : null;
+  const activeDmName = openDms.find((d) => d.userId === activeDmUserId)?.name;
+  const visibleLog = activeDmUserId
+    ? (dmsByPeer[activeDmUserId] ?? [])
+    : chat;
+  const unreadDmCount = openDms.filter((d) => {
+    const msgs = dmsByPeer[d.userId] ?? [];
+    const last = msgs[msgs.length - 1];
+    return (
+      last !== undefined &&
+      last.from !== user?.id &&
+      activeChannel !== `dm:${d.userId}`
+    );
+  }).length;
 
   useEffect(() => {
     if (chatLogRef.current) {
       chatLogRef.current.scrollTop = chatLogRef.current.scrollHeight;
     }
-  }, [chat]);
+  }, [visibleLog]);
+
+  const handleOpenDm = (userId: string, name: string): void => {
+    setOpenDms((prev) =>
+      prev.some((d) => d.userId === userId)
+        ? prev
+        : [...prev, { userId, name }],
+    );
+    setActiveChannel(`dm:${userId}`);
+    setSocialTab("chat");
+  };
+
+  const closeDm = (userId: string): void => {
+    setOpenDms((prev) => prev.filter((d) => d.userId !== userId));
+    setActiveChannel((cur) => (cur === `dm:${userId}` ? "general" : cur));
+  };
 
   const onChatSubmit = (e: FormEvent) => {
     e.preventDefault();
     const txt = chatInput.trim();
     if (!txt) return;
-    if (activeChannel === "General") {
-      send({ type: "chat", text: txt });
+    if (activeDmUserId) {
+      send({ type: "chat", text: txt, toUserId: activeDmUserId });
     } else {
-      send({ type: "chat", text: txt, room: activeChannel });
+      send({ type: "chat", text: txt });
     }
     setChatInput("");
   };
@@ -270,9 +310,6 @@ export function Lobby(): JSX.Element {
           .length
       );
     }, 0) ?? 0;
-
-  // chat is single global log for now; channel tabs are UI-only until rooms are wired
-  const filteredChat = chat;
 
   // quest modal
   const pvpWindow = pvpQuery.data?.periods.find((w) => w.period === "DAILY");
@@ -338,9 +375,17 @@ export function Lobby(): JSX.Element {
   const onlineFriends = filteredFriends.filter((f) => f.online);
   const offlineFriends = filteredFriends.filter((f) => !f.online);
 
-  const handleOpenDm = (displayName: string) => {
-    setActiveChannel(`DM: ${displayName}`);
-    setSocialTab("chat");
+  const handleAddFromPresence = async (userId: string, name: string): Promise<void> => {
+    try {
+      await requestFriendById(userId);
+      setPresenceSent((prev) => new Set(prev).add(userId));
+      showToast(`Friend request sent to ${name}`);
+      friendsQuery.refetch();
+    } catch (err) {
+      showToast(
+        err instanceof ApiError ? err.message : "Couldn't send friend request",
+      );
+    }
   };
 
   const handleRemoveFriend = async (userId: string) => {
@@ -668,13 +713,48 @@ export function Lobby(): JSX.Element {
                     match.
                   </div>
                 ) : (
-                  presence.map((p) => (
-                    <div key={p.userId} className="row">
-                      <span className="dot" aria-hidden="true" />
-                      <span className="nm">{p.displayName}</span>
-                      <span className="tag">Online</span>
-                    </div>
-                  ))
+                  presence.map((p) => {
+                    const isFriend = allFriends.some(
+                      (f) => f.userId === p.userId,
+                    );
+                    const isSelf = p.userId === user?.id;
+                    const alreadySent =
+                      presenceSent.has(p.userId) ||
+                      (friendsQuery.data?.outgoing ?? []).some(
+                        (r) => r.userId === p.userId,
+                      );
+                    return (
+                      <div key={p.userId} className="row">
+                        <span className="dot" aria-hidden="true" />
+                        <span className="nm">{p.displayName}</span>
+                        <span className="tag">Online</span>
+                        {!isSelf && !isFriend && (
+                          <button
+                            className="row-add"
+                            disabled={alreadySent}
+                            title={alreadySent ? "Request sent" : "Add friend"}
+                            aria-label={`Add ${p.displayName} as friend`}
+                            onClick={() =>
+                              handleAddFromPresence(p.userId, p.displayName)
+                            }
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                              <circle cx="9" cy="7" r="4" />
+                              <path d="M19 8v6M22 11h-6" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -748,8 +828,8 @@ export function Lobby(): JSX.Element {
               onClick={() => setSocialTab("chat")}
             >
               Chat
-              {activeChannel !== "General" && (
-                <span className="rt-badge">1</span>
+              {unreadDmCount > 0 && (
+                <span className="rt-badge">{unreadDmCount}</span>
               )}
             </button>
             <button
@@ -782,30 +862,41 @@ export function Lobby(): JSX.Element {
                 role="tablist"
                 aria-label="Chat channels"
               >
-                {["General", "Team", "Trade"].map((ch) => (
-                  <button
-                    key={ch}
-                    className="ch-btn"
-                    role="tab"
-                    aria-current={
-                      activeChannel === ch ||
-                      (ch === "General" && activeChannel.startsWith("DM:"))
-                    }
-                    onClick={() => setActiveChannel(ch)}
-                  >
-                    {ch}
-                  </button>
+                <button
+                  className="ch-btn"
+                  role="tab"
+                  aria-current={activeChannel === "general"}
+                  onClick={() => setActiveChannel("general")}
+                >
+                  General
+                </button>
+                {openDms.map((dm) => (
+                  <span key={dm.userId} className="ch-tab">
+                    <button
+                      className="ch-btn"
+                      role="tab"
+                      aria-current={activeChannel === `dm:${dm.userId}`}
+                      onClick={() => setActiveChannel(`dm:${dm.userId}`)}
+                    >
+                      {dm.name}
+                    </button>
+                    <button
+                      className="ch-close"
+                      aria-label={`Close DM with ${dm.name}`}
+                      onClick={() => closeDm(dm.userId)}
+                    >
+                      <svg
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                      >
+                        <path d="M3 3l6 6M9 3l-6 6" />
+                      </svg>
+                    </button>
+                  </span>
                 ))}
-                {activeChannel.startsWith("DM:") && (
-                  <button
-                    className="ch-btn"
-                    role="tab"
-                    aria-current="true"
-                    onClick={() => setActiveChannel(activeChannel)}
-                  >
-                    {activeChannel}
-                  </button>
-                )}
               </div>
 
               <div
@@ -815,12 +906,14 @@ export function Lobby(): JSX.Element {
                 aria-label="Chat"
                 ref={chatLogRef}
               >
-                {filteredChat.length === 0 ? (
+                {visibleLog.length === 0 ? (
                   <div className="empty-line">
-                    No messages yet — say hi to start.
+                    {activeDmUserId
+                      ? `No messages yet — say hi to ${activeDmName ?? "them"}.`
+                      : "No messages yet — say hi to start."}
                   </div>
                 ) : (
-                  filteredChat.map((m) => {
+                  visibleLog.map((m) => {
                     const isMe = m.from === user?.id;
                     return (
                       <div
@@ -847,7 +940,7 @@ export function Lobby(): JSX.Element {
               <form className="chatform" onSubmit={onChatSubmit}>
                 <input
                   type="text"
-                  placeholder={`Message ${activeChannel.startsWith("DM:") ? activeChannel.slice(4) : activeChannel}…`}
+                  placeholder={`Message ${activeDmName ?? "General"}…`}
                   autoComplete="off"
                   maxLength={240}
                   aria-label="Chat message"
@@ -1020,7 +1113,7 @@ export function Lobby(): JSX.Element {
                     <div className="friend-actions">
                       <button
                         className="friend-action dm"
-                        onClick={() => handleOpenDm(f.displayName)}
+                        onClick={() => handleOpenDm(f.userId, f.displayName)}
                         aria-label={`Message ${f.displayName}`}
                       >
                         <svg

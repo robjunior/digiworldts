@@ -322,6 +322,11 @@ export async function requestFriend(username: string): Promise<{ status: string 
   return apiFetch<{ status: string }>('/api/friends/request', { method: 'POST', body: JSON.stringify({ username }) });
 }
 
+/** Request by user id — used where only a presence/friend row id is available. */
+export async function requestFriendById(userId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/request', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
 export async function acceptFriend(userId: string): Promise<{ status: string }> {
   return apiFetch<{ status: string }>('/api/friends/accept', { method: 'POST', body: JSON.stringify({ userId }) });
 }

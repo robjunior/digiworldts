@@ -57,7 +57,10 @@ export type RequestView = {
   at: number;
 };
 
-const RequestSchema = z.object({ username: z.string().trim().min(3).max(24) });
+const RequestSchema = z.union([
+  z.object({ username: z.string().trim().min(3).max(24) }),
+  z.object({ userId: z.string().trim().min(3).max(64) }),
+]);
 const IdSchema = z.object({ userId: z.string().min(3) });
 
 function otherOf(row: FriendshipRow, me: string): string {
@@ -106,7 +109,9 @@ export const friendsPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     const parsed = RequestSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input' });
     const now = Date.now();
-    const target = await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, parsed.data.username);
+    const target = 'username' in parsed.data
+      ? await one<UserRow>(SQL_SELECT_USER_BY_USERNAME, parsed.data.username)
+      : await one<UserRow>(SQL_SELECT_USER_BY_ID, parsed.data.userId);
     // Return the SAME `{status:'pending'}` shape for nonexistent-user and
     // blocked-relationship cases so this endpoint isn't a username-existence
     // oracle. Self-request keeps its 400 for legit UX.
