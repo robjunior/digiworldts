@@ -42,6 +42,11 @@ function metaFor(battle: Battle, perspectiveUserId: string): DerivedMeta {
     return { selfSide, oppSide, result: 'draw', valid: false, cause: 'friendly' };
   }
   switch (battle.outcome) {
+    case 'captured_a':
+      // Capture victory — side A won. Same semantics as win_a for quest progress.
+      return selfSide === 'a'
+        ? { selfSide, oppSide, result: 'win', valid: true, cause: 'valid' }
+        : { selfSide, oppSide, result: 'loss', valid: true, cause: 'valid' };
     case 'win_a':
       return selfSide === 'a'
         ? { selfSide, oppSide, result: 'win', valid: true, cause: 'valid' }

@@ -16,7 +16,7 @@ import {
   type FriendView,
   type FriendRequestView,
 } from "../../lib/api";
-import { getPvpQuests, claimPvpQuest } from "../../lib/api-pvp-quests";
+import { getPvpQuests, claimPvpQuest, formatPvpQuestReward } from "../../lib/api-pvp-quests";
 import type { PvpQuestPeriod } from "@digiworld/shared/pvp-quest";
 import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
@@ -490,7 +490,7 @@ export function SocialRail(): JSX.Element {
                       </span>
                       <div className="q-tx">
                         <div className="q-nm">{q.title}</div>
-                        <div className="q-desc">{q.title}</div>
+                        <div className="q-desc">{formatPvpQuestReward(q.reward)}</div>
                         <div className="q-prog">
                           <span className="fill" style={{ width: `${pct}%` }} />
                         </div>

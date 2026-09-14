@@ -255,7 +255,7 @@ export async function claimQuest(userId: string, period: PvpQuestPeriod, windowI
          ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`,
         [userId, reward.amount, now],
       );
-    } else if (reward.kind === 'item') {
+    } else if (reward.kind === 'item' || reward.kind === 'battle_item') {
       await t.run(
         `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
          ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`,

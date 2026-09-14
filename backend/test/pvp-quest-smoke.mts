@@ -487,6 +487,42 @@ await test('extensibility: adding a category requires only a registry entry (san
   assert(ELEMENT_POOL.length > 0, 'element pool available for procedural param selection');
 });
 
+// ---------------------------------------------------------------------------
+// Regression: captured_a battle outcome must grant quest progress.
+// Prior to the fix, captured_a fell through to the `default` branch in
+// metaFor() and returned valid:false, silently zeroing all quest progress
+// for capture victories.
+// ---------------------------------------------------------------------------
+await test('captured_a outcome grants quest progress (regression for metaFor default-case)', async () => {
+  await mkUser('usr_cap_a');
+  await mkUser('usr_cap_b');
+  const period = 'DAILY' as PvpQuestPeriod;
+  const window = windowFor(period);
+  await run('DELETE FROM pvp_quest_boards WHERE period = ? AND window_id = ?', [period, window.windowId]);
+  await run(
+    `INSERT INTO pvp_quest_boards (period, window_id, instance_id, category, params, target, reward, created_at)
+     VALUES (?, ?, ?, 'BATTLE_COUNT', '{}', 1, ?, ?)`,
+    [period, window.windowId, 'pvq_cap_1', JSON.stringify({ kind: 'credits', amount: 50 }), Date.now()],
+  );
+  const units = [
+    unit('a', 0, 'fire', 100), unit('a', 1, 'water', 100), unit('a', 2, 'plant', 100),
+    unit('b', 0, 'plant', 100), unit('b', 1, 'wind', 100), unit('b', 2, 'ice', 100),
+  ];
+  const battle = buildBattle({
+    playerA: 'usr_cap_a', playerB: 'usr_cap_b', outcome: 'captured_a', winner: 'a', units,
+    kills: [],
+  });
+  const res = deriveBattleResult(battle, 'usr_cap_a');
+  assert(res.valid, 'captured_a must be valid for quest progress');
+  assert(res.result === 'win', 'captured_a side A must be a win');
+  await getAllUserQuests('usr_cap_a');
+  const changed = await applyBattleResult(res);
+  assert(changed > 0, 'captured_a must advance BATTLE_COUNT progress');
+  const { quests } = await getUserPeriodQuests('usr_cap_a', period);
+  const bc = quests.find((q) => q.instanceId === 'pvq_cap_1')!;
+  assert(bc.progress >= 1, `BATTLE_COUNT should advance on captured_a, got ${bc.progress}`);
+});
+
 await closeDbAdapter();
 
 process.stdout.write(`\n${passed} passed, ${failed} failed\n`);

@@ -75,3 +75,25 @@ export async function regeneratePvpQuests(
     { method: 'POST' },
   );
 }
+
+/** Human-readable reward description for a PvP quest reward declaration. */
+export function formatPvpQuestReward(reward: PvpQuestWithProgress['reward']): string {
+  switch (reward.kind) {
+    case 'netcore':
+      return `${reward.amount} NetCore`;
+    case 'credits':
+      return `${reward.amount} Bits`;
+    case 'item':
+      return `${reward.qty}× Item`;
+    case 'battle_item':
+      return `${reward.qty}× Battle Item`;
+    case 'pvp_points':
+      return `${reward.amount} PvP Points`;
+    case 'xp':
+      return `${reward.amount} XP`;
+    case 'cosmetic':
+      return reward.cosmeticId;
+    default:
+      return 'Reward';
+  }
+}
