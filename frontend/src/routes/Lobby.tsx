@@ -23,8 +23,11 @@ import {
   type DayReward,
 } from "../lib/api";
 import { getPvpQuests, claimPvpQuest } from "../lib/api-pvp-quests";
+import type { PvpQuestPeriod } from "@digiworld/shared/pvp-quest";
 import { useWsStore } from "../state/wsStore";
 import { DigimonSprite } from "../components/common/DigimonSprite";
+import { TopBar } from "../components/topbar/TopBar";
+import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
 
 const ROSTER_QUERY_KEY = ["roster"] as const;
@@ -191,9 +194,6 @@ export function Lobby(): JSX.Element {
     "chat",
   );
 
-  // quest modal state
-  const [questModalOpen, setQuestModalOpen] = useState(false);
-
   // friends state (from API)
   const friendsQuery = useQuery({ queryKey: FRIENDS_QUERY_KEY, queryFn: getFriends, staleTime: 15_000 });
   const allFriends: readonly FriendView[] = friendsQuery.data?.friends ?? [];
@@ -311,20 +311,17 @@ export function Lobby(): JSX.Element {
       );
     }, 0) ?? 0;
 
-  // quest modal
-  const pvpWindow = pvpQuery.data?.periods.find((w) => w.period === "DAILY");
-  const quests = pvpWindow?.quests ?? [];
+  // quest period tabs
+  const [selectedPeriod, setSelectedPeriod] = useState<PvpQuestPeriod>("DAILY");
+  const periods = pvpQuery.data?.periods ?? [];
+  const selectedWindow = periods.find((w) => w.period === selectedPeriod);
+  const quests = selectedWindow?.quests ?? [];
   const [claiming, setClaiming] = useState<string | null>(null);
 
-  const handleClaim = async (instanceId: string) => {
-    if (!pvpWindow) return;
+  const handleClaim = async (period: PvpQuestPeriod, windowId: string, instanceId: string) => {
     setClaiming(instanceId);
     try {
-      const result = await claimPvpQuest(
-        "DAILY",
-        pvpWindow.windowId,
-        instanceId,
-      );
+      const result = await claimPvpQuest(period, windowId, instanceId);
       if (result.ok) {
         await pvpQuery.refetch();
       }
@@ -422,43 +419,7 @@ export function Lobby(): JSX.Element {
   return (
     <div className="lobby-shell">
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
-      <header className="topbar" role="banner">
-        <span className="app-mark">
-          <span className="bit">Digi</span>World
-        </span>
-
-        <nav className="tnav" aria-label="Main">
-          <button className="tnav-btn" aria-current="page">
-            Home
-          </button>
-          <button className="tnav-btn">Play</button>
-          <button className="tnav-btn">Collection</button>
-          <button className="tnav-btn">Explore</button>
-          <button className="tnav-btn">Shop</button>
-        </nav>
-
-        <div className="topright">
-          <div className="wallet">
-            <span className="wc">
-              <span className="dot cred" aria-hidden="true" />{" "}
-              <span className="am">4,820</span>
-            </span>
-            <span className="wc">
-              <span className="dot bits" aria-hidden="true" />{" "}
-              <span className="am b">12.4k</span>
-            </span>
-          </div>
-
-          <span className="streak-pill">
-            <span className="sv">▲</span>
-            <span className="sn">{streakDay}d</span>
-          </span>
-
-          <button className="tb-av" aria-label="Tamer profile">
-            {user?.displayName?.[0] ?? "T"}
-          </button>
-        </div>
-      </header>
+      <TopBar />
 
       {/* ── BODY ─────────────────────────────────────────────────── */}
       <div className="body">
@@ -957,74 +918,91 @@ export function Lobby(): JSX.Element {
           {/* QUESTS PANEL */}
           <div className="spanel" hidden={socialTab !== "quests"}>
             <div className="quests">
-              <div className="q-section">
-                <div className="q-section-hd">
-                  <span className="k">
-                    Daily{" "}
-                    <span className="n">
-                      ({quests.filter((q) => q.state === "completed").length}/
-                      {quests.length})
-                    </span>
-                  </span>
-                </div>
-                {quests.length === 0 ? (
-                  <div className="empty-line">
-                    No daily quests right now — check back soon.
-                  </div>
-                ) : (
-                  quests.map((q) => {
-                    const pct =
-                      q.target > 0
-                        ? Math.min(
-                            100,
-                            Math.round((q.progress / q.target) * 100),
-                          )
-                        : 0;
-                    const done = q.state === "completed";
-                    const claimed = q.state === "claimed";
-                    return (
-                      <div key={q.instanceId} className="quest">
-                        <span className="q-ico">
-                          <svg
-                            className={`q-ic ${done ? "gold" : "blue"}`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
-                          </svg>
+              {/* period tabs */}
+              <div className="qp-tabs" role="tablist" aria-label="Quest period">
+                {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((period) => {
+                  const window = periods.find((w) => w.period === period);
+                  const completedCount = window?.quests.filter(
+                    (q) => q.state === "completed",
+                  ).length ?? 0;
+                  const totalCount = window?.quests.length ?? 0;
+                  return (
+                    <button
+                      key={period}
+                      className={`qp-tab${selectedPeriod === period ? " active" : ""}`}
+                      role="tab"
+                      aria-selected={selectedPeriod === period}
+                      onClick={() => setSelectedPeriod(period)}
+                    >
+                      {period.charAt(0) + period.slice(1).toLowerCase()}
+                      {totalCount > 0 && (
+                        <span className="qp-tab-count">
+                          {completedCount}/{totalCount}
                         </span>
-                        <div className="q-tx">
-                          <div className="q-nm">{q.title}</div>
-                          <div className="q-desc">{q.title}</div>
-                          <div className="q-prog">
-                            <span
-                              className="fill"
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                        <span className={`q-count${done ? " done" : ""}`}>
-                          {q.progress}/{q.target}
-                        </span>
-                        {done && !claimed && (
-                          <button
-                            className="q-claim"
-                            disabled={claiming === q.instanceId}
-                            onClick={() => handleClaim(q.instanceId)}
-                          >
-                            {claiming === q.instanceId ? "Claiming…" : "Claim"}
-                          </button>
-                        )}
-                        {claimed && (
-                          <span className="q-claim done">Claimed</span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* quest list for selected period */}
+              {quests.length === 0 ? (
+                <div className="empty-line">
+                  No {selectedPeriod.toLowerCase()} quests right now — check back soon.
+                </div>
+              ) : (
+                quests.map((q) => {
+                  const pct =
+                    q.target > 0
+                      ? Math.min(
+                          100,
+                          Math.round((q.progress / q.target) * 100),
+                        )
+                      : 0;
+                  const done = q.state === "completed";
+                  const claimed = q.state === "claimed";
+                  return (
+                    <div key={q.instanceId} className="quest">
+                      <span className="q-ico">
+                        <svg
+                          className={`q-ic ${done ? "gold" : "blue"}`}
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
+                        </svg>
+                      </span>
+                      <div className="q-tx">
+                        <div className="q-nm">{q.title}</div>
+                        <div className="q-desc">{q.title}</div>
+                        <div className="q-prog">
+                          <span
+                            className="fill"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className={`q-count${done ? " done" : ""}`}>
+                        {q.progress}/{q.target}
+                      </span>
+                      {done && !claimed && (
+                        <button
+                          className="q-claim"
+                          disabled={claiming === q.instanceId}
+                          onClick={() => handleClaim(selectedPeriod, selectedWindow!.windowId, q.instanceId)}
+                        >
+                          {claiming === q.instanceId ? "Claiming…" : "Claim"}
+                        </button>
+                      )}
+                      {claimed && (
+                        <span className="q-claim done">Claimed</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
 

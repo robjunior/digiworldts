@@ -14,15 +14,8 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 /* ── shell ──────────────────────────────────────────────────────────── */
 .lobby-shell{height:100vh;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 
-/* ── top bar (LoL-style) ────────────────────────────────────────────── */
-.topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
-.app-mark{font:900 14px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px;padding:0 18px 0 6px;color:var(--ink)}
-.app-mark .bit{color:var(--gold)}
-.tnav{display:flex;align-items:center;height:100%;gap:2px}
-.tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
-.tnav-btn:hover{color:var(--ink)}
-.tnav-btn[aria-current="page"]{color:var(--gold)}
-.tnav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
+/* ── top bar (shared) ────────────────────────────────────────────── */
+/* moved to styles/topbar.css */
 
 /* centered BATTLE button */
 .battle-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20}
@@ -36,22 +29,6 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 .battle-btn .b-ico svg{width:100%;height:100%;fill:var(--gold-bright)}
 .battle-btn .b-glow{position:absolute;inset:-4px;background:radial-gradient(ellipse,rgba(59,130,246,.3),transparent 70%);filter:blur(6px);z-index:-1;animation:battlepulse 2s ease-in-out infinite}
 @keyframes battlepulse{0%,100%{opacity:.5}50%{opacity:1}}
-
-.topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
-.wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm)}
-.wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
-.wc .dot{width:14px;height:14px;flex:none;border-radius:50%}
-.wc .dot.cred{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 0 6px rgba(245,158,11,.4)}
-.wc .dot.bits{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
-.wc .dot.gem{background:linear-gradient(135deg,var(--gold-bright),var(--gold));box-shadow:0 0 6px rgba(245,158,11,.4)}
-.wc .am{color:var(--gold-bright)}
-.wc .am.b{color:var(--signal2)}
-
-.streak-pill{display:flex;align-items:center;gap:5px;padding:0 12px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 11px/1 var(--font)}
-.streak-pill .sv{color:var(--gold);font-size:13px}
-.streak-pill .sn{color:var(--gold-bright)}
-
-.tb-av{width:34px;height:34px;flex:none;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm);font:900 14px/1 var(--font);color:var(--signal2);cursor:pointer}
 
 /* ── body ───────────────────────────────────────────────────────────── */
 .body{flex:1 1 auto;display:grid;grid-template-columns:1fr 340px;min-height:0}
@@ -235,6 +212,14 @@ html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
 .quests{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:14px}
 .quests::-webkit-scrollbar{width:6px}
 .quests::-webkit-scrollbar-thumb{background:var(--hair);border-radius:3px}
+
+/* quest period tabs */
+.qp-tabs{display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid var(--hair)}
+.qp-tab{flex:1;padding:10px 8px;background:none;border:0;border-bottom:2px solid transparent;font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);cursor:pointer;transition:color .12s,border-color .12s;display:flex;align-items:center;justify-content:center;gap:6px}
+.qp-tab:hover{color:var(--ink)}
+.qp-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.qp-tab-count{min-width:14px;height:14px;padding:0 4px;display:inline-grid;place-items:center;background:var(--hair);color:var(--ink);font:800 8px/1 var(--font);clip-path:var(--notch-sm)}
+.qp-tab.active .qp-tab-count{background:var(--gold);color:#0a0a0a}
 
 .q-section{margin-bottom:18px}
 .q-section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
