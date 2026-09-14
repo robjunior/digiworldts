@@ -6,23 +6,9 @@
    ========================================================================= */
 
 /* ── lobby-specific token overrides (dark theme) ─────────────────────── */
-body:has(.lobby-shell){
-  --bg:#0a0e1a;
-  --panel:#141c2e;
-  --panel2:#1a2440;
-  --ink:#e8f0ff;
-  --muted:#6b7a99;
-  --hair:#1e2a44;
-  --hairline:var(--hair);
-  --signal:#3b82f6;
-  --signal2:#60a5fa;
-  --gold:#f59e0b;
-  --gold-bright:#fbbf24;
-  --accent:var(--signal);
-  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
-  --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
-  --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
-  --notch-xs:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px);
+html.is-lobby{--bg:#0a0e1a;--panel:#141c2e;--panel2:#1a2440;--ink:#e8f0ff;--muted:#6b7a99;--hair:#1e2a44;--hairline:var(--hair);--signal:#3b82f6;--signal2:#60a5fa;--gold:#f59e0b;--gold-bright:#fbbf24;--accent:var(--signal);--font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;--notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);--notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);--notch-xs:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
+html.is-lobby body{margin:0;background:var(--bg);color:var(--ink)}
+.lobby-shell{
 }
 
 /* ── shell ──────────────────────────────────────────────────────────── */

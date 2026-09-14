@@ -229,6 +229,16 @@ export function Lobby(): JSX.Element {
       !friendRequests.some((r) => r.displayName === name),
   );
 
+  // dark theme: add class to body for bg override
+  useEffect(() => {
+    document.documentElement.classList.add('is-lobby');
+    document.body.classList.add('is-lobby');
+    return () => {
+      document.documentElement.classList.remove('is-lobby');
+      document.body.classList.remove('is-lobby');
+    };
+  }, []);
+
   return (
     <div className="lobby-shell">
       {/* ── TOP BAR ──────────────────────────────────────────────── */}
@@ -380,16 +390,16 @@ export function Lobby(): JSX.Element {
               </div>
               <div className="qgrid">
                 {[
-                  { name: 'Adventure', icon: '🗺', href: '/adventure', status: 'Explore the overworld' },
-                  { name: 'Farm', icon: '🌾', href: '/farm', status: 'Collect resources' },
-                  { name: 'Training', icon: '💪', href: '/training', status: 'Boost stats' },
-                  { name: 'Nursery', icon: '🥚', href: '/nursery', status: 'Hatch eggs' },
-                  { name: 'Roster', icon: '📋', href: '/roster', status: 'Manage party' },
+                  { name: 'Adventure', href: '/adventure', status: 'Explore the overworld', icon: 'M12 2C8 6 4 10 4 14c0 4 3.6 8 8 8s8-4 8-8c0-4-4-8-8-12z M12 18c-2 0-4-2-4-4s2-4 4-4 4 2 4 4-2 4-4 4z' },
+                  { name: 'Farm', href: '/farm', status: 'Collect resources', icon: 'M12 22V8 M12 8c0-3 2-6 5-6s5 3 5 6-2 5-5 5 M12 8c0-3-2-6-5-6S2 5 2 8s2 5 5 5' },
+                  { name: 'Training', href: '/training', status: 'Boost stats', icon: 'M2 12l5-5 3 3 4-4 5 5 M2 19l5-5 3 3 4-4 5 5' },
+                  { name: 'Nursery', href: '/nursery', status: 'Hatch eggs', icon: 'M12 22c4-4 8-8 8-13a8 8 0 1 0-16 0c0 5 4 9 8 13z M12 9a3 3 0 1 1 0-6 3 3 0 0 1 0 6z' },
+                  { name: 'Roster', href: '/roster', status: 'Manage party', icon: 'M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4z M4 21a8 8 0 0 1 16 0' },
                 ].map((qa) => (
                   <a key={qa.name} className="qa" href={qa.href}>
                     <div className="qa-top">
                       <div className="qa-tile">
-                        <span className="qa-ic" aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>{qa.icon}</span>
+                        <svg className="qa-ic" viewBox="0 0 24 24"><path d={qa.icon} fill="none" stroke="currentColor" strokeWidth="1.6" /></svg>
                       </div>
                       <span className="qa-badge idle">→</span>
                     </div>
