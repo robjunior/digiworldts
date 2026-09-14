@@ -3,9 +3,7 @@ import { useState, useRef, useEffect, type FormEvent } from 'react';
 
 import { useAuth } from '../hooks/useAuth';
 import { useWebSocket } from '../hooks/useWebSocket';
-import { useT } from '../hooks/useLocale';
-import { getLastMatch, getRoster } from '../lib/api';
-import type { LastMatchSummary } from '../lib/api';
+import { getLastMatch, getRoster, type LastMatchSummary } from '../lib/api';
 import { getPvpQuests, claimPvpQuest } from '../lib/api-pvp-quests';
 import { useWsStore } from '../state/wsStore';
 import { DigimonSprite } from '../components/common/DigimonSprite';
@@ -35,170 +33,50 @@ function normalizeOutcome(outcome: LastMatchSummary['outcome']): 'win' | 'loss' 
   }
 }
 
-/* ── bottom-right quest icon + badge ─────────────────────────── */
-function QuestIcon({ count, onClick }: { count: number; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="quest-fab"
-      aria-label={count > 0 ? `${count} PVP quests to claim` : 'PVP Quests'}
-      onClick={onClick}
-    >
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-        <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
-      </svg>
-      {count > 0 ? <span className="quest-badge">{count}</span> : null}
-    </button>
-  );
-}
+/* ── game modes ─────────────────────────────────────────────────────── */
+type GameMode = 'ranked' | 'casual' | 'tournament' | 'training';
 
-/* ── period tab bar ──────────────────────────────────────────── */
-function PeriodTabs({
-  period,
-  onChange,
-}: {
-  period: 'DAILY' | 'WEEKLY' | 'MONTHLY';
-  onChange: (p: 'DAILY' | 'WEEKLY' | 'MONTHLY') => void;
-}) {
-  const t = useT();
-  const tabs: { period: 'DAILY' | 'WEEKLY' | 'MONTHLY'; label: string }[] = [
-    { period: 'DAILY', label: t('quest.pvp.daily') },
-    { period: 'WEEKLY', label: t('quest.pvp.weekly') },
-    { period: 'MONTHLY', label: t('quest.pvp.monthly') },
-  ];
-  return (
-    <div className="qp-tabs">
-      {tabs.map(({ period: p, label }) => (
-        <button
-          key={p}
-          type="button"
-          className={`qp-tab${period === p ? ' active' : ''}`}
-          onClick={() => onChange(p)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
+const GAME_MODES: { id: GameMode; label: string; meta: string; live?: boolean }[] = [
+  { id: 'ranked', label: 'Ranked', meta: '3v3 · ELO', live: true },
+  { id: 'casual', label: 'Casual', meta: '3v3 · Unranked' },
+  { id: 'tournament', label: 'Tournament', meta: 'Single Elim', live: true },
+  { id: 'training', label: 'Training', meta: 'vs CPU' },
+];
 
-/* ── single quest row ────────────────────────────────────────── */
-function QuestRow({
-  quest,
-  onClaim,
-  claiming,
-}: {
-  quest: import('@digiworld/shared/pvp-quest').PvpQuestWithProgress;
-  onClaim: (instanceId: string) => void;
-  claiming: string | null;
-}) {
-  const t = useT();
-  const done = quest.state === 'completed';
-  const claimed = quest.state === 'claimed';
-  const pct = quest.target > 0 ? Math.min(100, Math.round((quest.progress / quest.target) * 100)) : 0;
+const MODE_LABELS: Record<GameMode, string> = {
+  ranked: 'Ranked 3v3',
+  casual: 'Casual 3v3',
+  tournament: 'Tournament',
+  training: 'Training Mode',
+};
 
-  let rewardLabel = '';
-  if (quest.reward.kind === 'netcore') rewardLabel = `${quest.reward.amount} NetCore`;
-  else if (quest.reward.kind === 'credits') rewardLabel = `${quest.reward.amount} Credits`;
-  else if (quest.reward.kind === 'item') rewardLabel = `${quest.reward.qty}x ${quest.reward.itemId}`;
-  else if (quest.reward.kind === 'pvp_points') rewardLabel = `${quest.reward.amount} PVP pts`;
-  else if (quest.reward.kind === 'xp') rewardLabel = `${quest.reward.amount} XP`;
-  else if (quest.reward.kind === 'battle_item') rewardLabel = `${quest.reward.qty}x ${quest.reward.itemId}`;
-  else if (quest.reward.kind === 'cosmetic') rewardLabel = `cosmetic ${quest.reward.cosmeticId}`;
+const MODE_DESCS: Record<GameMode, string> = {
+  ranked: 'Competitive matches with ELO-based ranking. Climb the ladder to earn seasonal rewards.',
+  casual: 'Unranked matches for practice. No ELO impact, same 3v3 combat.',
+  tournament: 'Single-elimination bracket. Win to advance, lose and you\'re out.',
+  training: 'Battle against AI opponents to test strategies and practice rotations.',
+};
 
-  return (
-    <div className={`qp-row${done ? ' done' : ''}${claimed ? ' claimed' : ''}`}>
-      <div className="qp-info">
-        <div className="qp-title">{quest.title}</div>
-        <div className="qp-bar">
-          <div className="qp-fill" style={{ width: `${pct}%` }} />
-        </div>
-        <div className="qp-meta">
-          <span>{quest.progress}/{quest.target}</span>
-          <span className="qp-reward">{rewardLabel}</span>
-        </div>
-      </div>
-      <div className="qp-action">
-        {claimed ? (
-          <span className="qp-claimed">{t('quest.pvp.claimed')}</span>
-        ) : done ? (
-          <button
-            type="button"
-            className="qp-claim-btn"
-            disabled={claiming === quest.instanceId}
-            onClick={() => onClaim(quest.instanceId)}
-          >
-            {claiming === quest.instanceId ? t('quest.pvp.completing') : t('quest.pvp.claim')}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/* ── modal ───────────────────────────────────────────────────── */
-function QuestModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const t = useT();
-  const pvpQuery = useQuery({ queryKey: ['pvp-quests'] as const, queryFn: getPvpQuests, staleTime: 30_000 });
-  const [period, setPeriod] = useState<'DAILY' | 'WEEKLY' | 'MONTHLY'>('DAILY');
-  const [claiming, setClaiming] = useState<string | null>(null);
-
-  if (!open) return null;
-
-  const window = pvpQuery.data?.periods.find((w) => w.period === period);
-  const quests = window?.quests ?? [];
-
-  const handleClaim = async (instanceId: string) => {
-    if (!window) return;
-    setClaiming(instanceId);
-    try {
-      const result = await claimPvpQuest(period, window.windowId, instanceId);
-      if (result.ok) {
-        await pvpQuery.refetch();
-      }
-    } catch {
-      // keep existing state
-    } finally {
-      setClaiming(null);
-    }
+/* ── mode icons ─────────────────────────────────────────────────────── */
+function ModeIcon({ mode }: { mode: GameMode }) {
+  const cn = mode === 'ranked' ? 'gold' : mode === 'casual' ? 'blue' : mode === 'tournament' ? 'red' : 'green';
+  const paths: Record<GameMode, string> = {
+    ranked: 'M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z',
+    casual: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+    tournament: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z',
+    training: 'M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83',
   };
-
   return (
-    <div className="qp-overlay" onClick={onClose}>
-      <div className="qp-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="qp-head">
-          <h2>{t('quest.pvp')}</h2>
-          <button type="button" className="qp-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-        </div>
-        <PeriodTabs period={period} onChange={setPeriod} />
-        <div className="qp-body">
-          {pvpQuery.isLoading ? (
-            <div className="empty-line">Loading…</div>
-          ) : quests.length === 0 ? (
-            <div className="empty-line">{t('quest.pvp.no_quests')}</div>
-          ) : (
-            quests.map((q) => (
-              <QuestRow key={q.instanceId} quest={q} onClaim={handleClaim} claiming={claiming} />
-            ))
-          )}
-        </div>
-      </div>
-    </div>
+    <span className={`mc-ico ${cn}`}>
+      <svg viewBox="0 0 24 24"><path d={paths[mode]} strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </span>
   );
 }
 
+/* ── main component ─────────────────────────────────────────────────── */
 export function Lobby(): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
-  const t = useT();
   const presenceCount = useWsStore((state) => state.presenceCount);
   const chat = useWsStore((state) => state.chat);
   const queue = useWsStore((state) => state.queue);
@@ -221,18 +99,45 @@ export function Lobby(): JSX.Element {
   }, [activeBattle?.status, invalidatePvpQuests, pvpQuery]);
 
   const roster = rosterQuery.data?.roster ?? [];
-
   const partySlots = [0, 1, 2].map((slot) => roster.find((mon) => mon.status === 'party' && mon.slot === slot) ?? null);
   const filledParty = partySlots.filter(Boolean).length;
   const partyReady = filledParty >= 3;
 
-  // chat form state
+  // mode selection
+  const [activeMode, setActiveMode] = useState<GameMode>('ranked');
+
+  // chat state
   const [chatInput, setChatInput] = useState('');
-  const [chatOpen, setChatOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [activeChannel, setActiveChannel] = useState('General');
   const chatLogRef = useRef<HTMLDivElement>(null);
+
+  // social rail tabs
+  const [socialTab, setSocialTab] = useState<'chat' | 'quests' | 'friends'>('chat');
 
   // quest modal state
   const [questModalOpen, setQuestModalOpen] = useState(false);
+
+  // friends state
+  const [friendSearch, setFriendSearch] = useState('');
+  const [addFriendOpen, setAddFriendOpen] = useState(false);
+  const [addFriendSearch, setAddFriendSearch] = useState('');
+  const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
+
+  // friends data (mock for now - would come from API)
+  const [friends, setFriends] = useState([
+    { id: '1', displayName: 'Yusuke', avatar: 'Y', online: true, status: 'online' },
+    { id: '2', displayName: 'Ryu', avatar: 'R', online: true, status: 'in_game_ranked' },
+    { id: '3', displayName: 'Ken', avatar: 'K', online: true, status: 'online' },
+    { id: '4', displayName: 'Akira', avatar: 'A', online: false, status: 'offline' },
+    { id: '5', displayName: 'Mika', avatar: 'M', online: false, status: 'offline' },
+  ]);
+  const [friendRequests, setFriendRequests] = useState([
+    { displayName: 'Morgana', avatar: 'M' },
+  ]);
+
+  // searchable tamers for add friend
+  const searchableTamers = ['Morgana', 'Igor', 'Caroline', 'Justine', 'Sojiro', 'Takemi', 'Kawakami', 'Iwai', 'Munehisa', 'Chihaya', 'Shinya', 'Hifumi'];
 
   useEffect(() => {
     if (chatLogRef.current) {
@@ -244,157 +149,624 @@ export function Lobby(): JSX.Element {
     e.preventDefault();
     const txt = chatInput.trim();
     if (!txt) return;
-    send({ type: 'chat', text: txt });
+    if (activeChannel === 'General') {
+      send({ type: 'chat', text: txt });
+    } else {
+      send({ type: 'chat', text: txt, room: activeChannel });
+    }
     setChatInput('');
   };
 
   const isQueued = queue.status === 'waiting' || queue.status === 'matched';
 
   const lm = lastMatchQuery.data;
-  let lastMatchOutcome = 'draw';
+  let lastMatchOutcome: 'win' | 'loss' | 'draw' | 'fled' = 'draw';
   if (lm) {
     lastMatchOutcome = normalizeOutcome(lm.outcome);
   }
 
-  // derive total available (completed but unclaimed) quest count
   const availableCount =
     pvpQuery.data?.periods.reduce((acc, w) => {
       return acc + w.quests.filter((q) => q.state === 'completed' && q.claimedAt === null).length;
     }, 0) ?? 0;
 
+  // chat is single global log for now; channel tabs are UI-only until rooms are wired
+  const filteredChat = chat;
+
+  // quest modal
+  const pvpWindow = pvpQuery.data?.periods.find((w) => w.period === 'DAILY');
+  const quests = pvpWindow?.quests ?? [];
+  const [claiming, setClaiming] = useState<string | null>(null);
+
+  const handleClaim = async (instanceId: string) => {
+    if (!pvpWindow) return;
+    setClaiming(instanceId);
+    try {
+      const result = await claimPvpQuest('DAILY', pvpWindow.windowId, instanceId);
+      if (result.ok) {
+        await pvpQuery.refetch();
+      }
+    } catch {
+      // keep existing state
+    } finally {
+      setClaiming(null);
+    }
+  };
+
+  // friends filtering
+  const filteredFriends = friends.filter(
+    (f) => !friendSearch || f.displayName.toLowerCase().includes(friendSearch.toLowerCase()),
+  );
+  const onlineFriends = filteredFriends.filter((f) => f.online);
+  const offlineFriends = filteredFriends.filter((f) => !f.online);
+
+  const handleOpenDm = (displayName: string) => {
+    setActiveChannel(`DM: ${displayName}`);
+    setSocialTab('chat');
+  };
+
+  const handleRemoveFriend = (id: string) => {
+    setFriends((prev) => prev.filter((f) => f.id !== id));
+  };
+
+  const handleAcceptRequest = (displayName: string) => {
+    setFriendRequests((prev) => prev.filter((r) => r.displayName !== displayName));
+    setFriends((prev) => [...prev, { id: String(Date.now()), displayName, avatar: displayName[0] ?? 'U', online: true, status: 'online' }]);
+  };
+
+  const handleDeclineRequest = (displayName: string) => {
+    setFriendRequests((prev) => prev.filter((r) => r.displayName !== displayName));
+  };
+
+  const handleSendRequest = (displayName: string) => {
+    setSentRequests((prev) => new Set(prev).add(displayName));
+  };
+
+  const filteredTamers = searchableTamers.filter(
+    (name) =>
+      name.toLowerCase().includes(addFriendSearch.toLowerCase()) &&
+      !friends.some((f) => f.displayName === name) &&
+      !friendRequests.some((r) => r.displayName === name),
+  );
+
   return (
-    <>
-      {/* matchmaking strip */}
-      <section className="mmstrip" data-od-id="matchmaking-strip">
-        <div className="mm-left">
-          <div className="kick">Arena Queue</div>
-          <h1>Find a Match</h1>
-          <div className="bracket" id="bracket">Bracket · <b>±5 Lv</b> · <b>±100 trained</b> — widens the longer you wait</div>
-          <div className="mm-hint" id="mm-hint">
-            {!partyReady && !isQueued ? `Assign ${3 - filledParty} more Digimon to your party to queue.` : ''}
-          </div>
-        </div>
-        <div className="mm-right">
+    <div className="lobby-shell">
+      {/* ── TOP BAR ──────────────────────────────────────────────── */}
+      <header className="topbar" role="banner">
+        <span className="app-mark">
+          <span className="bit">Digi</span>World
+        </span>
+
+        <nav className="tnav" aria-label="Main">
+          <button className="tnav-btn" aria-current="page">Home</button>
+          <button className="tnav-btn">Play</button>
+          <button className="tnav-btn">Collection</button>
+          <button className="tnav-btn">Explore</button>
+          <button className="tnav-btn">Shop</button>
+        </nav>
+
+        <div className="battle-center">
           <button
-            className={`findbtn ${isQueued ? 'searching' : ''}`}
-            id="findbtn"
-            disabled={!partyReady && !isQueued}
+            className="battle-btn"
             onClick={() => {
-              if (partyReady) send({ type: 'queue', join: !isQueued });
+              if (isQueued) {
+                send({ type: 'queue', join: false });
+              } else if (partyReady) {
+                send({ type: 'queue', join: true });
+              }
             }}
+            disabled={!partyReady && !isQueued}
+            aria-label={isQueued ? 'Leave queue' : `Find ${MODE_LABELS[activeMode]} match`}
           >
-            {isQueued ? 'Leave queue' : 'Find match'}
+            <span className="b-glow" aria-hidden="true" />
+            <span className="b-ico">
+              <svg viewBox="0 0 24 24"><path d="M6.92 5L5 6.92l2.5 2.5L5 11.92 7.5 14.42l2.5-2.5 2.5 2.5 2.5-2.5-2.5-2.5 2.5-2.5L13 5l-2.5 2.5L8 5z" /></svg>
+            </span>
+            {isQueued ? 'Stop' : 'Battle'}
           </button>
-          <span className="q" id="qstate">
-            {isQueued && <><span className="dot"></span>Searching — matching by bracket</>}
-          </span>
         </div>
-      </section>
 
-      <div className="grid">
-        <div className="colL">
-          {/* party */}
-          <div>
-            <h3 className="stitle">Your Party <span className="n" id="party-sum">{filledParty}/3 ready</span></h3>
-            <div className="party" id="party" data-od-id="party-row">
-              {partySlots.map((p, i) => {
-                if (!p) {
-                  return (
-                    <div key={i} className="pcard empty">
-                      <div className="emptyslot">
-                        <div className="plus">+</div>Slot {i + 1} empty
-                      </div>
+        <div className="topright">
+          <div className="wallet">
+            <span className="wc"><span className="dot cred" aria-hidden="true" /> <span className="am">4,820</span></span>
+            <span className="wc"><span className="dot bits" aria-hidden="true" /> <span className="am b">12.4k</span></span>
+          </div>
+
+          <span className="streak-pill">
+            <span className="sv">▲</span>
+            <span className="sn">4d</span>
+          </span>
+
+          <button className="tb-av" aria-label="Tamer profile">{user?.displayName?.[0] ?? 'T'}</button>
+        </div>
+      </header>
+
+      {/* ── BODY ─────────────────────────────────────────────────── */}
+      <div className="body">
+        {/* LEFT MAIN CONTENT */}
+        <main className="main">
+          {/* hero banner */}
+          <section className="hero" data-od-id="hero-banner">
+            {/* mode strip */}
+            <div className="mode-strip" role="tablist" aria-label="Game mode">
+              {GAME_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  className={`mode-card${activeMode === mode.id ? ' active' : ''}`}
+                  onClick={() => setActiveMode(mode.id)}
+                  role="tab"
+                  aria-selected={activeMode === mode.id}
+                >
+                  {mode.live && <span className="mc-tag live">LIVE</span>}
+                  <ModeIcon mode={mode.id} />
+                  <span className="mc-nm">{mode.label}</span>
+                  <span className="mc-meta">{mode.meta}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* hero content */}
+            <div className="hero-row">
+              <div className="h-tx">
+                <div className="h-kick">Arena Queue · {MODE_LABELS[activeMode]}</div>
+                <h1 className="h-title">Find a Match</h1>
+                <p className="h-sub">{MODE_DESCS[activeMode]}</p>
+                <div className="h-meta">
+                  <span className="h-chip">Bracket <b>±5 Lv</b></span>
+                  <span className="h-chip">±100 trained</span>
+                  <span className="h-chip gold">Widens over time</span>
+                </div>
+                <div className="h-cta">
+                  <button
+                    className={`findbtn ${isQueued ? 'searching' : ''}`}
+                    disabled={!partyReady && !isQueued}
+                    onClick={() => {
+                      if (partyReady) send({ type: 'queue', join: !isQueued });
+                    }}
+                  >
+                    {isQueued ? 'Searching…' : 'Find Match'}
+                  </button>
+                  {isQueued && <span style={{ fontSize: 11, color: 'var(--muted)' }}>Matching by bracket…</span>}
+                </div>
+              </div>
+
+              {/* party display */}
+              <div className="h-party">
+                <span className="party-label">Your Party</span>
+                <div className="party-slots">
+                  {partySlots.map((mon, i) => (
+                    <div key={i} className="pslot">
+                      {mon ? (
+                        <>
+                          <DigimonSprite catalogId={mon.catalogId} />
+                          <span className="lv">Lv{mon.level}</span>
+                        </>
+                      ) : (
+                        <span className="mono">?</span>
+                      )}
                     </div>
-                  );
-                }
-                const stats = p.template?.baseStats ?? { hp: 100, en: 100, atk: 10, def: 10, spd: 10 };
-                const hpMax = stats.hp + (p.statBonus?.hp ?? 0);
-                const hp = hpMax;
-                const pct = Math.round((hp / hpMax) * 100);
-                const nickname = p.nickname || p.template?.name || 'Unknown';
-                const species = p.template?.name || 'Unknown';
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
 
-                return (
-                  <div key={p.id} className="pcard" aria-label={`${nickname}, Level ${p.level}, HP ${hp} of ${hpMax}`}>
-                    <span className="sp"><DigimonSprite catalogId={p.catalogId} /></span>
-                    <div>
-                      <div className="pn">{nickname}</div>
-                      <div className="pl">Lv {p.level} · {species}</div>
-                      <div className="hp">
-                        <div className="bar"><span className="fill" style={{ width: `${pct}%` }}></span></div>
-                        <div className="num">{hp.toLocaleString('en-US')} / {hpMax.toLocaleString('en-US')}</div>
+          {/* content grid */}
+          <div className="content-grid">
+            {/* daily reward */}
+            <div className="daily-mini">
+              <div className="dm-ico">
+                <span className="rico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold)" strokeWidth="2" width="22" height="22"><path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" /></svg>
+                </span>
+              </div>
+              <div className="dm-tx">
+                <div className="dm-day">Daily Reward · Day 4 of 7</div>
+                <div className="dm-rew">50 Meat + 200 Bits</div>
+                <div className="dm-sub">Claim before midnight to keep your streak</div>
+              </div>
+              <div className="dm-pips">
+                {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+                  <span key={d} className={`dm-pip${d < 4 ? ' claimed' : d === 4 ? ' today' : ''}`}>{d}</span>
+                ))}
+              </div>
+              <button className="dm-claim">Claim</button>
+            </div>
+
+            {/* quick actions */}
+            <div>
+              <div className="card-hd">
+                <span className="k">Quick Actions</span>
+              </div>
+              <div className="qgrid">
+                {[
+                  { name: 'Adventure', icon: '🗺', href: '/adventure', status: 'Explore the overworld' },
+                  { name: 'Farm', icon: '🌾', href: '/farm', status: 'Collect resources' },
+                  { name: 'Training', icon: '💪', href: '/training', status: 'Boost stats' },
+                  { name: 'Nursery', icon: '🥚', href: '/nursery', status: 'Hatch eggs' },
+                  { name: 'Roster', icon: '📋', href: '/roster', status: 'Manage party' },
+                ].map((qa) => (
+                  <a key={qa.name} className="qa" href={qa.href}>
+                    <div className="qa-top">
+                      <div className="qa-tile">
+                        <span className="qa-ic" aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>{qa.icon}</span>
                       </div>
+                      <span className="qa-badge idle">→</span>
+                    </div>
+                    <span className="qa-nm">{qa.name}</span>
+                    <span className="qa-st">{qa.status}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* live matches */}
+            <div className="card">
+              <div className="card-hd">
+                <span className="k">Live Matches</span>
+                <span className="v">2 playing</span>
+              </div>
+              <div className="list">
+                <div className="match">
+                  <div className="side">
+                    <span className="who">Yusuke</span>
+                    <div className="pips">
+                      {['Greymon', 'Garurumon', 'WereGarurumon'].map((s) => (
+                        <span key={s} className="mp"><DigimonSprite catalogId={s.toLowerCase()} /></span>
+                      ))}
                     </div>
                   </div>
-                );
-              })}
+                  <span className="vsdot">vs</span>
+                  <div className="side r">
+                    <span className="who">Ryu</span>
+                    <div className="pips r">
+                      {['MetalGreymon', 'SkullGreymon', 'Garurumon'].map((s) => (
+                        <span key={s} className="mp"><DigimonSprite catalogId={s.toLowerCase()} /></span>
+                      ))}
+                    </div>
+                  </div>
+                  <button className="watch" aria-label="Watch Yusuke vs Ryu">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    Watch
+                  </button>
+                </div>
+                <div className="match">
+                  <div className="side">
+                    <span className="who">Ken</span>
+                    <div className="pips">
+                      {['Patamon', 'Angemon', 'MagnaAngemon'].map((s) => (
+                        <span key={s} className="mp"><DigimonSprite catalogId={s.toLowerCase()} /></span>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="vsdot">vs</span>
+                  <div className="side r">
+                    <span className="who">Akira</span>
+                    <div className="pips r">
+                      {['Gabumon', 'Garurumon', 'MetalGarurumon'].map((s) => (
+                        <span key={s} className="mp"><DigimonSprite catalogId={s.toLowerCase()} /></span>
+                      ))}
+                    </div>
+                  </div>
+                  <button className="watch" aria-label="Watch Ken vs Akira">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    Watch
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* last match */}
-          <div>
-            <h3 className="stitle">Last Match</h3>
-            <div id="lastmatch-wrap">
+            {/* online now */}
+            <div className="card">
+              <div className="card-hd">
+                <span className="k">Online Now</span>
+                <span className="v">{presenceCount} in plaza</span>
+              </div>
+              <div className="list">
+                {presenceCount === 0 ? (
+                  <div className="empty-line">You're alone here for now — invite a friend or start a match.</div>
+                ) : (
+                  friends.filter((f) => f.online).map((f) => (
+                    <div key={f.id} className="row">
+                      <span className="dot" aria-hidden="true" />
+                      <span className="nm">{f.displayName}</span>
+                      <span className="tag">{f.status === 'in_game_ranked' ? 'In Game · Ranked' : 'Online'}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* last match */}
+            <div>
+              <div className="card-hd">
+                <span className="k">Last Match</span>
+              </div>
               {!lm ? (
                 <div className="empty-line">Play your first match to see rewards here.</div>
               ) : (
-                <div className={`lastmatch ${lastMatchOutcome === 'win' ? 'win' : ''}`}>
-                  <div className="res">{lastMatchOutcome === 'win' ? 'Victory' : lastMatchOutcome === 'loss' ? 'Defeat' : lastMatchOutcome === 'fled' ? 'Fled' : 'Draw'}</div>
-                  <div className="vs">vs <b>{lm.opponent ?? 'Unknown'}</b></div>
-                  <div className="rw">+{lm.rewards?.credits ?? 0} Bits · +{lm.rewards?.xp ?? 0} XP</div>
+                <div className={`lastmatch ${lastMatchOutcome === 'win' ? 'win' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 10, alignItems: 'center', padding: '10px 14px', background: 'var(--panel2)', border: '1px solid var(--hair)', clipPath: 'var(--notch-sm)' }}>
+                  <span style={{ fontWeight: 800, fontSize: 12, textTransform: 'uppercase' }}>{lastMatchOutcome === 'win' ? 'Victory' : lastMatchOutcome === 'loss' ? 'Defeat' : lastMatchOutcome === 'fled' ? 'Fled' : 'Draw'}</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>vs <b style={{ color: 'var(--ink)' }}>{lm.opponent ?? 'Unknown'}</b></span>
+                  <span style={{ textAlign: 'right', fontSize: 10, color: 'var(--muted)' }}>+{lm.rewards?.credits ?? 0} Bits · +{lm.rewards?.xp ?? 0} XP</span>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </main>
 
-        {/* chat */}
-        <aside className={`colR${chatOpen ? ' is-open' : ''}`} data-od-id="chat-drawer">
-          <button
-            type="button"
-            className="chathead"
-            aria-expanded={chatOpen}
-            aria-controls="chatlog"
-            onClick={() => setChatOpen((prev) => !prev)}
-          >
-            <div className="k">Global Chat</div>
-            <div className="s" id="chat-sub">{presenceCount} in the plaza</div>
-            <span className="chat-caret" aria-hidden="true">{chatOpen ? '▾' : '▴'}</span>
-          </button>
-          <div className="chatlog" id="chatlog" role="log" aria-live="polite" aria-label="Global chat" ref={chatLogRef}>
-            {chat.length === 0 ? (
-              <div className="empty-line">No messages yet — say hi to start.</div>
-            ) : (
-              chat.map((m) => {
-                const isMe = m.from === user?.id;
-                return (
-                  <div key={m.from + m.at} className="msg">
-                    <span className={`who ${isMe ? 'me' : ''}`}>{m.displayName}{isMe ? ' (you)' : ''}</span>
-                    <span className="tx">{m.text}</span>
-                  </div>
-                );
-              })
-            )}
+        {/* RIGHT SOCIAL RAIL */}
+        <aside className="social" data-od-id="social-rail">
+          <div className="stabs" role="tablist">
+            <button
+              className="stab"
+              role="tab"
+              aria-selected={socialTab === 'chat'}
+              onClick={() => setSocialTab('chat')}
+            >
+              Chat
+              {activeChannel !== 'General' && <span className="rt-badge">1</span>}
+            </button>
+            <button
+              className="stab"
+              role="tab"
+              aria-selected={socialTab === 'quests'}
+              onClick={() => setSocialTab('quests')}
+            >
+              Quests
+              {availableCount > 0 && <span className="rt-badge">{availableCount}</span>}
+            </button>
+            <button
+              className="stab"
+              role="tab"
+              aria-selected={socialTab === 'friends'}
+              onClick={() => setSocialTab('friends')}
+            >
+              Friends
+              <span className="rt-badge">{friends.length}</span>
+            </button>
           </div>
-          <form className="chatform" id="chatform" onSubmit={onChatSubmit}>
-            <input
-              id="chatinput"
-              type="text"
-              placeholder="Say something to the plaza…"
-              autoComplete="off"
-              maxLength={240}
-              aria-label="Chat message"
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-            />
-            <button type="submit">Send</button>
-          </form>
+
+          {/* CHAT PANEL */}
+          <div className="spanel" hidden={socialTab !== 'chat'}>
+            <div className="chat">
+              <div className="chat-channels" role="tablist" aria-label="Chat channels">
+                {['General', 'Team', 'Trade'].map((ch) => (
+                  <button
+                    key={ch}
+                    className="ch-btn"
+                    role="tab"
+                    aria-current={activeChannel === ch || (ch === 'General' && activeChannel.startsWith('DM:'))}
+                    onClick={() => setActiveChannel(ch)}
+                  >
+                    {ch}
+                  </button>
+                ))}
+                {activeChannel.startsWith('DM:') && (
+                  <button className="ch-btn" role="tab" aria-current="true" onClick={() => setActiveChannel(activeChannel)}>
+                    {activeChannel}
+                  </button>
+                )}
+              </div>
+
+              <div className="chatlog" role="log" aria-live="polite" aria-label="Chat" ref={chatLogRef}>
+                {filteredChat.length === 0 ? (
+                  <div className="empty-line">No messages yet — say hi to start.</div>
+                ) : (
+                  filteredChat.map((m) => {
+                    const isMe = m.from === user?.id;
+                    return (
+                      <div
+                        key={m.from + m.at + m.text.slice(0, 10)}
+                        className="msg"
+                      >
+                        <span className="ts">{new Date(m.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className={`who${isMe ? ' me' : ''}`}>
+                          {m.displayName}{isMe ? ' (you)' : ''}
+                        </span>
+                        <span className="tx">{m.text}</span>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              <form className="chatform" onSubmit={onChatSubmit}>
+                <input
+                  type="text"
+                  placeholder={`Message ${activeChannel.startsWith('DM:') ? activeChannel.slice(4) : activeChannel}…`}
+                  autoComplete="off"
+                  maxLength={240}
+                  aria-label="Chat message"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                />
+                <button type="submit" disabled={!chatInput.trim()}>Send</button>
+              </form>
+            </div>
+          </div>
+
+          {/* QUESTS PANEL */}
+          <div className="spanel" hidden={socialTab !== 'quests'}>
+            <div className="quests">
+              <div className="q-section">
+                <div className="q-section-hd">
+                  <span className="k">Daily <span className="n">({quests.filter((q) => q.state === 'completed').length}/{quests.length})</span></span>
+                </div>
+                {quests.length === 0 ? (
+                  <div className="empty-line">No daily quests right now — check back soon.</div>
+                ) : (
+                  quests.map((q) => {
+                    const pct = q.target > 0 ? Math.min(100, Math.round((q.progress / q.target) * 100)) : 0;
+                    const done = q.state === 'completed';
+                    const claimed = q.state === 'claimed';
+                    return (
+                      <div key={q.instanceId} className="quest">
+                        <span className="q-ico">
+                          <svg className={`q-ic ${done ? 'gold' : 'blue'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" /></svg>
+                        </span>
+                        <div className="q-tx">
+                          <div className="q-nm">{q.title}</div>
+                          <div className="q-desc">{q.title}</div>
+                          <div className="q-prog"><span className="fill" style={{ width: `${pct}%` }} /></div>
+                        </div>
+                        <span className={`q-count${done ? ' done' : ''}`}>{q.progress}/{q.target}</span>
+                        {done && !claimed && (
+                          <button className="q-claim" disabled={claiming === q.instanceId} onClick={() => handleClaim(q.instanceId)}>
+                            {claiming === q.instanceId ? 'Claiming…' : 'Claim'}
+                          </button>
+                        )}
+                        {claimed && <span className="q-claim done">Claimed</span>}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* FRIENDS PANEL */}
+          <div className="spanel" hidden={socialTab !== 'friends'} style={{ position: 'relative' }}>
+            <div className="friends">
+              <div className="friends-toolbar">
+                <input
+                  type="text"
+                  placeholder="Search friends…"
+                  value={friendSearch}
+                  onChange={(e) => setFriendSearch(e.target.value)}
+                  aria-label="Search friends"
+                />
+                <button className="add-friend-btn" onClick={() => setAddFriendOpen(true)}>
+                  <svg viewBox="0 0 24 24"><path d="M12 5v14m-7-7h14" strokeLinecap="round" /></svg>
+                  Add
+                </button>
+              </div>
+
+              {/* friend requests */}
+              {friendRequests.length > 0 && (
+                <div className="friends-section">
+                  <div className="friends-section-hd">
+                    <span className="k">Friend Requests <span className="n">({friendRequests.length})</span></span>
+                  </div>
+                  {friendRequests.map((r) => (
+                    <div key={r.displayName} className="friend-request-row">
+                      <span className="friend-av">{r.avatar}</span>
+                      <div className="friend-info">
+                        <div className="friend-nm">{r.displayName}</div>
+                        <div className="friend-sub">Wants to be your friend</div>
+                      </div>
+                      <div className="request-actions">
+                        <button className="request-accept" onClick={() => handleAcceptRequest(r.displayName)} aria-label={`Accept ${r.displayName}`}>✓</button>
+                        <button className="request-decline" onClick={() => handleDeclineRequest(r.displayName)} aria-label={`Decline ${r.displayName}`}>×</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* online friends */}
+              <div className="friends-section">
+                <div className="friends-section-hd">
+                  <span className="k">Online <span className="n">({onlineFriends.length})</span></span>
+                </div>
+                {onlineFriends.map((f) => (
+                  <div key={f.id} className="friend-row">
+                    <span className="friend-av">
+                      {f.avatar}
+                      <span className={`online-dot${f.status === 'in_game_ranked' ? ' ingame' : ''}`} aria-hidden="true" />
+                    </span>
+                    <div className="friend-info">
+                      <div className="friend-nm">{f.displayName}</div>
+                      <div className="friend-sub">{f.status === 'in_game_ranked' ? 'In game · Ranked' : 'Online'}</div>
+                    </div>
+                    <div className="friend-actions">
+                      <button className="friend-action dm" onClick={() => handleOpenDm(f.displayName)} aria-label={`Message ${f.displayName}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                      </button>
+                      <button className="friend-action remove" onClick={() => handleRemoveFriend(f.id)} aria-label={`Remove ${f.displayName}`}>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* offline friends */}
+              {offlineFriends.length > 0 && (
+                <div className="friends-section">
+                  <div className="friends-section-hd">
+                    <span className="k">Offline <span className="n">({offlineFriends.length})</span></span>
+                  </div>
+                  {offlineFriends.map((f) => (
+                    <div key={f.id} className="friend-row offline">
+                      <span className="friend-av">
+                        {f.avatar}
+                        <span className="online-dot off" aria-hidden="true" />
+                      </span>
+                      <div className="friend-info">
+                        <div className="friend-nm">{f.displayName}</div>
+                        <div className="friend-sub">Offline</div>
+                      </div>
+                      <div className="friend-actions">
+                        <button className="friend-action dm" disabled aria-label={`Message ${f.displayName} (offline)`}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+                        </button>
+                        <button className="friend-action remove" onClick={() => handleRemoveFriend(f.id)} aria-label={`Remove ${f.displayName}`}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* empty state */}
+              {filteredFriends.length === 0 && friendSearch && (
+                <div className="empty-line">No friends match "{friendSearch}"</div>
+              )}
+            </div>
+
+            {/* add friend modal */}
+            <div className={`add-friend-modal${addFriendOpen ? ' open' : ''}`} onClick={() => setAddFriendOpen(false)}>
+              <div className="afm-box" onClick={(e) => e.stopPropagation()}>
+                <div className="afm-hd">
+                  <h3>Add Friend</h3>
+                  <button className="afm-close" onClick={() => setAddFriendOpen(false)} aria-label="Close">×</button>
+                </div>
+                <input
+                  className="afm-input"
+                  type="text"
+                  placeholder="Search tamers by name…"
+                  value={addFriendSearch}
+                  onChange={(e) => setAddFriendSearch(e.target.value)}
+                  autoFocus
+                />
+                <div className="afm-results">
+                  {filteredTamers.length === 0 ? (
+                    <div className="afm-empty">No tamers found</div>
+                  ) : (
+                    filteredTamers.map((name) => (
+                      <div key={name} className="afm-result">
+                        <span className="nm">{name}</span>
+                        <button
+                          className={`afm-send${sentRequests.has(name) ? ' sent' : ''}`}
+                          onClick={() => handleSendRequest(name)}
+                          disabled={sentRequests.has(name)}
+                        >
+                          {sentRequests.has(name) ? 'Sent' : 'Add'}
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </aside>
       </div>
 
-      {/* ── PVP Quest FAB + modal ── */}
-      <QuestIcon count={availableCount} onClick={() => setQuestModalOpen(true)} />
-      <QuestModal open={questModalOpen} onClose={() => setQuestModalOpen(false)} />
-    </>
+      {/* toast */}
+      <div className="toast" id="lobby-toast" role="status" aria-live="polite" />
+    </div>
   );
 }
