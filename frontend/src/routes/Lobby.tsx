@@ -283,6 +283,20 @@ export function Lobby(): JSX.Element {
     setActiveChannel((cur) => (cur === `dm:${userId}` ? "general" : cur));
   };
 
+  // Auto-open an incoming DM tab when a friend messages us and the tab isn't
+  // already open. We key off dmsByPeer so each new message re-evaluates which
+  // peers we have history with but haven't opened a chat window for.
+  useEffect(() => {
+    if (!user?.id) return;
+    const myId = user.id;
+    for (const [peer, msgs] of Object.entries(dmsByPeer)) {
+      if (openDms.some((d) => d.userId === peer)) continue; // already open
+      const last = msgs[msgs.length - 1];
+      if (!last || last.from === myId) continue; // our own outbound, skip
+      handleOpenDm(peer, last.displayName);
+    }
+  }, [dmsByPeer, openDms, user?.id]);
+
   const onChatSubmit = (e: FormEvent) => {
     e.preventDefault();
     const txt = chatInput.trim();
