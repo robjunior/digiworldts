@@ -38,33 +38,10 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 [data-el="electricity"]{--el:color-mix(in oklab,var(--signal) 65%,var(--ink))}
 [data-el="wind"]{--el:color-mix(in oklab,var(--signal) 30%,var(--ink))}
 
-.win{height:auto;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
-.titlebar{
-  height:44px;flex:0 0 auto;display:flex;align-items:center;gap:14px;
-  padding:0 16px;background:var(--bg);border-bottom:1px solid var(--hair);user-select:none;
-}
-.lights{display:flex;gap:8px}
-.lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
-.win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+/* .win is defined in app-shell.css — don't redefine here */
+.roster-layout{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;width:100%;overflow:hidden;background:var(--bg)}
 
-.roster-layout{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden;}
-
-/* ---- sidebar nav ------------------------------------------------------- */
-.side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px 0;gap:4px;min-height:0}
-.side .grp{font:700 9px/1 var(--font);letter-spacing:.2em;text-transform:uppercase;color:var(--muted);padding:8px 10px 10px}
-.navbtn{
-  display:grid;grid-template-columns:20px 1fr;gap:12px;align-items:center;
-  padding:12px 12px;color:var(--muted);clip-path:var(--notch-sm);
-  font:700 12px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;
-  border:1px solid transparent;transition:background .12s,color .12s,border-color .12s;
-}
-.navbtn svg{width:18px;height:18px}
-.navbtn:hover{color:var(--ink);background:var(--bg)}
-.navbtn[aria-current="page"]{background:var(--signal);color:#fff;border-color:var(--signal)}
-.side .spring{margin-top:auto;padding-top:14px;border-top:1px solid var(--hair)}
-.hud{display:flex;flex-direction:column;gap:8px;padding:4px 10px}
-.hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
-.hud .pill b{color:var(--ink);font-weight:800}
+/* ---- sidebar nav (removed - sidebar eliminated) ------------------------ */
 
 /* ---- master list (removed - now in roster-layout) ------------------------ */
 /* .master - removed, roster now uses flex column layout */
