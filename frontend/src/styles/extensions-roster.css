@@ -47,7 +47,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 .lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
 .win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
-.roster-layout{flex:1 1 auto;display:grid;grid-template-columns:360px 1fr;min-height:0;height:100%;}
+.roster-layout{flex:1 1 auto;display:flex;flex-direction:column;min-height:0;height:100%;overflow:hidden;}
 
 /* ---- sidebar nav ------------------------------------------------------- */
 .side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px 0;gap:4px;min-height:0}
@@ -66,8 +66,10 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 .hud .pill{display:flex;justify-content:space-between;font:600 11px/1 var(--font);letter-spacing:.04em;color:var(--muted)}
 .hud .pill b{color:var(--ink);font-weight:800}
 
-/* ---- master list ------------------------------------------------------- */
-.master{background:var(--bg);border-right:1px solid var(--hair);display:flex;flex-direction:column;min-height:0}
+/* ---- master list (removed - now in roster-layout) ------------------------ */
+/* .master - removed, roster now uses flex column layout */
+
+/* ---- sidebar nav (removed - sidebar eliminated) -------------------------- */
 .mhead{padding:18px 18px 12px;border-bottom:1px solid var(--hair)}
 .mhead .kick{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal);margin-bottom:7px}
 .mhead h1{font:800 24px/1 var(--font);letter-spacing:-.01em}
@@ -114,8 +116,29 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 .empty p{font-size:13px;margin-bottom:14px;line-height:1.6}
 .empty button{padding:9px 16px;background:var(--signal);color:#fff;clip-path:var(--notch);font:800 11px/1 var(--font);letter-spacing:.1em;text-transform:uppercase}
 
+/* ---- roster toolbar (party + search + filters) ----------------------------- */
+.roster-toolbar{flex:0 0 auto;display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--hair);background:var(--panel)}
+.roster-toolbar .party-picker{flex:0 0 auto}
+.roster-toolbar .party-picker-header{display:none}
+.roster-toolbar .party-picker-slots{display:flex;gap:8px}
+.roster-toolbar .party-slot{width:100px;min-height:46px}
+.roster-toolbar .tools{flex:1;flex-direction:row;align-items:center;gap:12px;padding:0;border-bottom:0}
+.roster-toolbar .search{flex:1;max-width:400px}
+.roster-toolbar .filters{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+
+/* ---- compact roster list ------------------------------------------------ */
+.roster-list-compact{flex:0 0 auto;display:flex;gap:6px;padding:10px 24px;border-bottom:1px solid var(--hair);overflow-x:auto;background:var(--bg);min-height:0}
+.roster-list-compact .row{flex:0 0 auto;width:220px;text-align:left;display:grid;grid-template-columns:40px 1fr auto;gap:8px;padding:8px}
+.roster-list-compact .row .mug{width:40px;height:40px}
+.roster-list-compact .row .mug img{width:32px;height:32px}
+.roster-list-compact .row .nm{font-size:12px}
+.roster-list-compact .row .rn{font-size:10px}
+.roster-list-compact .row .tpl{font-size:9px}
+.roster-list-compact .row .lv{font-size:10px}
+.roster-list-compact .row .lv b{font-size:14px}
+
 /* ---- detail — locked to viewport, no scroll; Stats/Skills tabs swap in place */
-.detail{position:relative;min-height:0;overflow:hidden;background:var(--bg);display:flex;flex-direction:column}
+.detail{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;width:100%}
 .dwrap{padding:0 0 20px;max-width:none;flex:1 1 auto;min-height:0;display:flex;flex-direction:column}
 
 /* hero: full-bleed cinematic splash — art fills the panel, info overlaid bottom.

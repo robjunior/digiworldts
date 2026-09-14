@@ -61,54 +61,40 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
 
   return (
     <>
-      <aside className="master" data-od-id="master-list"
-        onDragOver={(event) => { if (event.dataTransfer.types.includes('application/x-roster-slot')) event.preventDefault(); }}
-        onDrop={(event) => {
-          const slotStr = event.dataTransfer.getData('application/x-roster-slot');
-          if (!slotStr) return;
-          event.preventDefault();
-          const slot = Number(slotStr);
-          if (Number.isFinite(slot) && slot >= 0 && slot < 3) actions.onRemoveSlot(slot);
-        }}
-      >
-        <PartyPicker roster={roster} now={now} actions={actions} />
-        <div className="mhead">
-          <div className="kick">{t('roster.registry')}</div>
-          <h1>{t('roster.title')}</h1>
-          <p className="sub" id="sub">
-            {elFilter === 'all' && !q ? t('roster.registered', { n: roster.length }) : `${filtered.length} of ${roster.length} shown`}
-          </p>
-        </div>
-        <div className="tools">
-          <label className="search" aria-label={t('common.search')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-            <input 
-              id="search" 
-              type="search" 
-              placeholder={t('roster.search_placeholder')}
-              autoComplete="off" 
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </label>
-          <div className="filters" id="filters" role="group" aria-label={t('roster.filter_by_element')}>
-            {chips.map(({ v, l, n }) => (
-              <button 
-                key={v}
-                className="chip" 
-                data-el={v} 
-                aria-pressed={elFilter === v}
-                onClick={() => setElFilter(v)}
-              >
-                {l}<span className="n">{n}</span>
-              </button>
-            ))}
-            {elFilter === 'all' && !q ? null : (
-              <button className="clearf" id="clearf" onClick={() => { setQ(''); setElFilter('all'); }}>Clear</button>
-            )}
+      <section className="detail" id="detail" data-od-id="detail-panel" tabIndex={-1}>
+        <div className="roster-toolbar">
+          <PartyPicker roster={roster} now={now} actions={actions} />
+          <div className="tools">
+            <label className="search" aria-label={t('common.search')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+              <input 
+                id="search" 
+                type="search" 
+                placeholder={t('roster.search_placeholder')}
+                autoComplete="off" 
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </label>
+            <div className="filters" id="filters" role="group" aria-label={t('roster.filter_by_element')}>
+              {chips.map(({ v, l, n }) => (
+                <button 
+                  key={v}
+                  className="chip" 
+                  data-el={v} 
+                  aria-pressed={elFilter === v}
+                  onClick={() => setElFilter(v)}
+                >
+                  {l}<span className="n">{n}</span>
+                </button>
+              ))}
+              {elFilter === 'all' && !q ? null : (
+                <button className="clearf" id="clearf" onClick={() => { setQ(''); setElFilter('all'); }}>Clear</button>
+              )}
+            </div>
           </div>
         </div>
-        <div className="list" id="list" role="listbox" aria-label="Digimon roster">
+        <div className="roster-list-compact">
           {filtered.length === 0 ? (
             <div className="empty">
               <p>No Digimon match these filters.<br/>The Digivice registry found nothing.</p>
@@ -152,9 +138,6 @@ export function RosterList({ roster, now, activityByMon, actions, templateById, 
             })
           )}
         </div>
-      </aside>
-
-      <section className="detail" id="detail" data-od-id="detail-panel" tabIndex={-1}>
         {message && <div style={{ padding: '10px', background: 'var(--signal)', color: '#fff', textAlign: 'center' }}>{message}</div>}
         {selectedMon ? (
           <DetailPane 
