@@ -1,26 +1,26 @@
 /* DigDex — honeycomb bestiary layout. REWRITTEN to match base/new layout/digidex.html */
 
 .digdex-container {
-  --digdex-bg: #0a0a0c;
-  --digdex-panel: #141418;
-  --digdex-ink: #f4f1ea;
-  --digdex-muted: #8a877f;
-  --digdex-hair: #2a2a30;
-  --digdex-signal: #e6001f;
+  --digdex-bg: #0a0e1a;
+  --digdex-panel: #141c2e;
+  --digdex-ink: #e8f0ff;
+  --digdex-muted: #6b7a99;
+  --digdex-hair: #1e2a44;
+  --digdex-signal: #3b82f6;
   --digdex-font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --digdex-notch: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
   --digdex-notch-sm: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
   
-  --el-fire: var(--digdex-signal);
-  --el-water: color-mix(in oklab, var(--digdex-signal) 40%, #fff);
-  --el-plant: color-mix(in oklab, var(--digdex-signal) 44%, var(--digdex-muted));
-  --el-electricity: color-mix(in oklab, var(--digdex-signal) 72%, #fff);
-  --el-wind: color-mix(in oklab, var(--digdex-signal) 28%, var(--digdex-ink));
-  --el-ice: color-mix(in oklab, var(--digdex-signal) 20%, #fff);
-  --el-steel: color-mix(in oklab, var(--digdex-muted) 70%, var(--digdex-ink));
-  --el-dark: color-mix(in oklab, var(--digdex-signal) 55%, var(--digdex-bg));
-  --el-light: color-mix(in oklab, var(--digdex-ink) 78%, var(--digdex-signal));
-  --el-earth: color-mix(in oklab, var(--digdex-signal) 34%, var(--digdex-muted));
+  --el-fire: #e6001f;
+  --el-water: #3b82f6;
+  --el-plant: #34d399;
+  --el-electricity: #fbbf24;
+  --el-wind: #94a3b8;
+  --el-ice: #c7eafb;
+  --el-earth: #a38566;
+  --el-steel: #9ca3af;
+  --el-light: #fef3c7;
+  --el-dark: #7c3aed;
   --el-null: var(--digdex-muted);
 
   display: flex;
@@ -87,7 +87,7 @@
 .digdex-container .seg { display: flex; flex-wrap: wrap; gap: 6px; }
 .digdex-container .seg button { padding: 6px 9px; background: var(--digdex-bg); border: 1px solid var(--digdex-hair); clip-path: var(--digdex-notch-sm); font: 700 9px/1 var(--digdex-font); letter-spacing: .06em; text-transform: uppercase; color: var(--digdex-muted); transition: .12s; }
 .digdex-container .seg button:hover { color: var(--digdex-ink); border-color: var(--digdex-muted); }
-.digdex-container .seg button.on { background: var(--digdex-signal); border-color: var(--digdex-signal); color: #fff; }
+.digdex-container .seg button.on { background: var(--digdex-signal); border-color: var(--digdex-signal); color: var(--digdex-ink); }
 .digdex-container .elist { display: flex; flex-direction: column; gap: 3px; }
 .digdex-container .elrow { display: grid; grid-template-columns: 12px 1fr auto; gap: 9px; align-items: center; padding: 7px 8px; clip-path: var(--digdex-notch-sm); font: 700 10px/1 var(--digdex-font); letter-spacing: .06em; text-transform: capitalize; color: var(--digdex-muted); border: 1px solid transparent; transition: .12s; text-align: left; width: 100%; }
 .digdex-container .elrow .sw { width: 12px; height: 12px; background: var(--ec); clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px); }
@@ -146,14 +146,14 @@
 .digdex-container .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--digdex-bg); border: 1px solid var(--digdex-hair); clip-path: var(--digdex-notch-sm); font: 800 10px/1 var(--digdex-font); letter-spacing: .04em; text-transform: capitalize; }
 .digdex-container .chip .cd { width: 8px; height: 8px; background: var(--ec, var(--digdex-muted)); }
 .digdex-container .metpill { font: 800 9px/1 var(--digdex-font); letter-spacing: .08em; text-transform: uppercase; padding: 4px 7px; clip-path: var(--digdex-notch-sm); }
-.digdex-container .metpill.met { background: var(--digdex-signal); color: #fff; }
+.digdex-container .metpill.met { background: var(--digdex-signal); color: var(--digdex-ink); }
 .digdex-container .metpill.unmet { background: var(--digdex-bg); border: 1px solid var(--digdex-hair); color: var(--digdex-muted); }
 .digdex-container .daff { padding: 16px 20px; }
 .digdex-container .daff .dlk { font: 700 9px/1 var(--digdex-font); letter-spacing: .16em; text-transform: uppercase; color: var(--digdex-muted); margin-bottom: 12px; }
 .digdex-container .affrow { display: flex; align-items: center; gap: 9px; margin-bottom: 9px; font: 700 11px/1 var(--digdex-font); }
 .digdex-container .affrow .tag { font: 800 8px/1 var(--digdex-font); letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px; clip-path: var(--digdex-notch-sm); flex: 0 0 auto; }
-.digdex-container .affrow .tag.weak { background: var(--digdex-signal); color: #fff; }
-.digdex-container .affrow .tag.resist { background: var(--digdex-bg); border: 1px solid var(--digdex-hair); color: var(--digdex-muted); }
+.digdex-container .affrow .tag.weak { background: #e6001f; color: var(--digdex-ink); }
+.digdex-container .affrow .tag.resist { background: #34d399; border: 1px solid #34d399; color: var(--digdex-bg); }
 .digdex-container .affrow .av { color: var(--digdex-ink); text-transform: capitalize; }
 .digdex-container .affrow .none { color: var(--digdex-muted); font-weight: 700; }
 .digdex-container .dempty { padding: 44px 24px; text-align: center; color: var(--digdex-muted); font-size: 12.5px; line-height: 1.6; }
