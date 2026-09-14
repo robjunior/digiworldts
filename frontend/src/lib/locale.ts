@@ -103,6 +103,12 @@ const EN: Translations = {
   'nav.arena': 'The Arena',
   'nav.shop': 'Shop',
 
+  'topbar.nav.home': 'Home',
+  'topbar.nav.play': 'Play',
+  'topbar.nav.collection': 'Collection',
+  'topbar.nav.explore': 'Explore',
+  'topbar.nav.shop': 'Shop',
+
   'hud.tamer_lv': 'Tamer Lv',
   'hud.credits': 'Credits',
   'hud.bits': 'Bits',
@@ -560,6 +566,12 @@ const PT: Translations = {
   'nav.dungeon': 'Masmorra',
   'nav.arena': 'A Arena',
   'nav.shop': 'Loja',
+
+  'topbar.nav.home': 'Início',
+  'topbar.nav.play': 'Jogar',
+  'topbar.nav.collection': 'Coleção',
+  'topbar.nav.explore': 'Explorar',
+  'topbar.nav.shop': 'Loja',
 
   'hud.tamer_lv': 'Nv Tamer',
   'hud.credits': 'Créditos',

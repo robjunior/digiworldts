@@ -7,10 +7,9 @@ import {
   BackIcon,
   ShopIcon,
 } from './common/icons';
-import { TopBarRight } from './topbar/TopBarRight';
+import { TopBar } from './topbar/TopBar';
 import { useAuth } from '../hooks/useAuth';
 import { useT } from '../hooks/useLocale';
-import { getFarm } from '../lib/api-farm';
 import { getRoster } from '../lib/api';
 
 type NavEntry = {
@@ -161,12 +160,8 @@ export function AppShell(): JSX.Element {
   const isAdminMode = pathname.startsWith('/admin');
   const activeAdminTab = new URLSearchParams(search).get('tab') ?? 'overview';
 
-  const farmQuery = useQuery({ queryKey: ['farm'] as const, queryFn: getFarm, enabled: authed, staleTime: 15_000 });
   const rosterQuery = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster, enabled: authed, staleTime: 15_000 });
 
-  const credits = farmQuery.data?.credits ?? null;
-  const netcore = farmQuery.data?.netcore ?? null;
-  const bits = farmQuery.data?.balances?.Bits ?? null;
   const roster = rosterQuery.data?.roster ?? [];
   const party = roster.filter((mon) => mon.status === 'party');
   const partyMax = 3;
@@ -210,23 +205,7 @@ export function AppShell(): JSX.Element {
 
   return (
     <div className={`win win--fill${sidebarOpen ? ' has-sidebar-open' : ''}`}>
-      <header className="titlebar">
-        <button
-          type="button"
-          className="sidebar-toggle"
-          aria-label={t('hud.menu')}
-          aria-controls="primary-sidebar"
-          aria-expanded={sidebarOpen}
-          onClick={toggleSidebar}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-        </button>
-        <div className="lights"><i /><i /><i /></div>
-        <div className="win-meta">{t('header.tamer_terminal')} · {pageLabel}</div>
-        <TopBarRight />
-      </header>
+      <TopBar />
       <div className="body">
         <div className="sidebar-backdrop" aria-hidden={!sidebarOpen} onClick={closeSidebar} />
         <nav
@@ -269,9 +248,6 @@ export function AppShell(): JSX.Element {
             ) : (
               <div className="hud">
                 <Link to="/account" className="pill" aria-label={t('account.title')}><span>{t('hud.tamer_lv')}</span><b>{tamerLv ?? '—'}</b></Link>
-                <div className="pill"><span>{t('hud.credits')}</span><b>{credits !== null ? credits.toLocaleString('en-US') : '—'}</b></div>
-                <div className="pill"><span>{t('hud.netcore')}</span><b>{netcore !== null ? netcore.toLocaleString('en-US') : '—'}</b></div>
-                <div className="pill"><span>{t('hud.bits')}</span><b>{bits !== null ? bits.toLocaleString('en-US') : '—'}</b></div>
                 <div className="pill"><span>{t('hud.party')}</span><b>{party.length}/{partyMax}</b></div>
               </div>
             )}
