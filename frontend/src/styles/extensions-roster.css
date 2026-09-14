@@ -1,10 +1,10 @@
 
 /* =========================================================================
    DIGIWORLD ROSTER — desktop app. Brand system (registered palette only):
-     Canvas #ffffff · Panel #f7f8fa · Ink #111111 · Muted #6b7280
-     Hairline #d9dee7 · Signal Blue #1677ff (accent) · Battle Red #e0384a
+     Canvas #0a0e1a · Panel #141c2e · Ink #e8f0ff · Muted #8a98b8
+     Hairline #1f2b45 · Signal Blue #3b82f6 (accent) · Gold #f59e0b (--battle)
    Radius 0 everywhere — angular cyberpunk notch (clip-path) on all surfaces.
-   Inter stack, tabular-nums on all numerics. Light-only.
+   Inter stack, tabular-nums on all numerics. Dark-only (navy canvas).
    Data shape mirrors src/roster/routes.ts: hp/en/atk/def/int/spd + statBonus,
    attribute->element (Data=water, Vaccine=plant, Virus=fire, Free=electricity,
    Variable=wind), stage, mood, nickname, level, xp/xpFloor/xpNext, party slot.
@@ -12,9 +12,11 @@
    (right = normal, left = mirrored) per user brief.
    ========================================================================= */
 :root{
-  /* Persona 5 theme — acid red on ink. */
-  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
-  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  /* DigiWorld — dark navy + signal blue + gold (lobby design system).
+     --battle is a semantic alias to --gold (warning/danger signal). */
+  --bg:#0a0e1a; --panel:#141c2e; --panel2:#1a2440; --ink:#e8f0ff; --muted:#8a98b8;
+  --hair:#1f2b45; --signal:#3b82f6; --signal2:#60a5fa; --gold:#f59e0b; --gold-bright:#fbbf24;
+  --battle:var(--gold);
   --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
   --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
   --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
@@ -28,10 +30,9 @@ body{
 }
 button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 
-/* element accent map — Persona theme. fire/water use the acid-red signal;
-   the other three are tints mixed toward the light --ink foreground so they
-   stay visible as thin rails/dots on the ink canvas. */
-[data-el="fire"]{--el:var(--battle)}
+/* element accent map — DigiWorld blue/gold tints. fire=gold, water=blue,
+   the others are color-mix tints toward the ink foreground. */
+[data-el="fire"]{--el:var(--gold)}
 [data-el="water"]{--el:var(--signal)}
 [data-el="plant"]{--el:color-mix(in oklab,var(--signal) 45%,var(--ink))}
 [data-el="electricity"]{--el:color-mix(in oklab,var(--signal) 65%,var(--ink))}
@@ -809,7 +810,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 }
 
 .training-row[data-pool="hpen"] .training-fill {
-  background: color-mix(in oklab, var(--signal) 70%, #ffb84a 30%);
+  background: color-mix(in oklab, var(--signal) 60%, var(--gold) 40%);
 }
 
 .training-count {
@@ -839,7 +840,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   font-variant-numeric: tabular-nums;
 }
 .stitle .stt-pct.is-max {
-  color: var(--gold, #f5c542);
+  color: var(--gold);
 }
 .stitle .stt-detail {
   color: var(--muted);
@@ -850,7 +851,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   font-variant-numeric: tabular-nums;
 }
 .stats .stat .fill.is-max {
-  background: var(--gold, #f5c542);
+  background: var(--gold);
 }
 
 .skill-editor-simple { display: flex; flex-direction: column; gap: 12px; padding: 8px 4px 4px; }
@@ -1251,8 +1252,8 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
 .srow .sv .dl { font: 700 8px/1 var(--font); color: var(--muted); font-variant-numeric: tabular-nums; }
 .srow .ar { width: 13px; height: 13px; display: grid; place-items: center; }
 .srow .ar svg { width: 13px; height: 13px; }
-.srow.up .ar { color: color-mix(in oklab, var(--signal) 35%, #3fbf6f); }
-.srow.up .sv { color: color-mix(in oklab, var(--signal) 30%, #3fbf6f); }
+.srow.up .ar { color: color-mix(in oklab, var(--gold) 45%, var(--signal)); }
+.srow.up .sv { color: color-mix(in oklab, var(--gold) 55%, var(--ink)); }
 .srow.down .ar { color: var(--battle); }
 .srow.down .sv { color: color-mix(in oklab, var(--battle) 80%, var(--ink)); }
 
@@ -1297,7 +1298,7 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   border: 1px solid var(--hair); background: var(--bg); white-space: nowrap;
 }
 .req-line .rq2.ok {
-  color: color-mix(in oklab, var(--signal) 35%, #3fbf6f);
+  color: color-mix(in oklab, var(--gold) 45%, var(--signal));
   border-color: color-mix(in oklab, var(--signal) 30%, var(--hair));
 }
 .req-line .rq2.bad { color: #fff; background: var(--battle); border-color: var(--battle); }
@@ -1521,15 +1522,15 @@ button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
   letter-spacing: 0.5px;
   text-transform: uppercase;
   border-radius: 3px;
-  background: rgba(230, 0, 31, 0.18);
-  color: #ff5a4a;
-  border: 1px solid rgba(230, 0, 31, 0.35);
+  background: color-mix(in oklab, var(--battle) 18%, transparent);
+  color: var(--battle);
+  border: 1px solid color-mix(in oklab, var(--battle) 35%, transparent);
   white-space: nowrap;
 }
 .row-badge--nursery {
-  background: rgba(76, 154, 255, 0.16);
-  color: #7db6ff;
-  border-color: rgba(76, 154, 255, 0.35);
+  background: color-mix(in oklab, var(--signal) 16%, transparent);
+  color: var(--signal2);
+  border-color: color-mix(in oklab, var(--signal) 35%, transparent);
 }
 
 /* Actions stay reachable without hover: coarse pointers and keyboard focus. */
