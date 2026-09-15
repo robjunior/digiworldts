@@ -102,9 +102,15 @@ jobs:
       - name: Deploy containers
         env:
           ENV_NAME: ${{ inputs.target_env || (github.ref_name == 'staging' && 'staging' || 'production') }}
+          # Limit parallel builds so we don't OOM the runner. Docker Compose
+          # builds all services in parallel by default; with 4 services each
+          # running apt-get + pnpm install + native builds (argon2, better-sqlite3),
+          # that exhausts RAM and the runner process gets killed mid-deploy.
+          COMPOSE_PARALLEL_LIMIT: "1"
+          BUILDKIT_PROGRESS: "plain"
         run: |
           PROJECT="digiworld-${ENV_NAME}"
-          docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait
+          docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait --parallel-builds 1
           docker compose -p "$PROJECT" ps
 
       - name: Deploy content (committed bundle)
