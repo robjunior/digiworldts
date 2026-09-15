@@ -2,9 +2,23 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 
 import { getCatalog } from '../../lib/api-admin';
-import { WORLD_BIOMES } from '../../lib/api-world';
 import { SceneSettingsAdmin } from './SceneSettingsAdmin';
 import { unitSpriteStaticUrl } from '@digiworld/scene3d';
+
+const WORLD_BIOMES = [
+  'desert',
+  'forest',
+  'lake',
+  'storm',
+  'tundra',
+  'mountain',
+  'foundry',
+  'plateau',
+  'prairie',
+  'swamp',
+  'void',
+] as const;
+type WorldBiome = (typeof WORLD_BIOMES)[number];
 
 const STORAGE_KEY = 'digiworld.biome-config';
 

@@ -6,8 +6,6 @@ import { AdminGuard } from './components/admin/AdminGuard';
 import { Login } from './routes/Login';
 
 const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
-const AdminWorld = lazy(() => import('./routes/AdminWorld').then((m) => ({ default: m.AdminWorld })));
-const AdminDungeon = lazy(() => import('./routes/AdminDungeon').then((m) => ({ default: m.AdminDungeon })));
 const AdminParticleEditor = lazy(() => import('./routes/AdminParticleEditor').then((m) => ({ default: m.AdminParticleEditor })));
 const AdminSkillVfxEditor = lazy(() => import('./routes/AdminSkillVfxEditor').then((m) => ({ default: m.AdminSkillVfxEditor })));
 const AdminSimulator = lazy(() => import('./routes/AdminSimulator').then((m) => ({ default: m.AdminSimulator })));
@@ -33,22 +31,6 @@ export function App(): JSX.Element {
             element={
               <AdminGuard>
                 <Admin />
-              </AdminGuard>
-            }
-          />
-          <Route
-            path="/world"
-            element={
-              <AdminGuard>
-                <AdminWorld />
-              </AdminGuard>
-            }
-          />
-          <Route
-            path="/dungeons/:id"
-            element={
-              <AdminGuard>
-                <AdminDungeon />
               </AdminGuard>
             }
           />

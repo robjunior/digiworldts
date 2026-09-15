@@ -211,8 +211,6 @@ type WorldMoveResponse = {
   readonly battleStartError?: string | null;
 };
 
-export { actInWorldBattle } from './api-world';
-
 export async function getBattleView(): Promise<BattleView> {
   const response = await apiFetch<WorldBattleResponse>('/api/world/battle');
   return response.battle;
