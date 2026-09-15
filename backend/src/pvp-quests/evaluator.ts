@@ -7,7 +7,7 @@ import {
 import { resolveResistance } from '@digiworld/shared/digimon';
 import { tx } from '../db/index.js';
 import { evaluateCategory } from './registry.js';
-import { applyProgress } from './repo.js';
+import { applyProgress, ensureBoard, spawnAssignments } from './repo.js';
 import { allWindows } from './periods.js';
 
 /**
@@ -243,6 +243,14 @@ export async function applyBattleResult(result: PvpBattleResult): Promise<number
     ).catch(() => { already = true; });
   });
   if (already) return 0;
+  // Lazy-spawn: assignments only exist if the user has opened the quests
+  // panel before. Battle-end events don't go through the UI, so we must
+  // materialize the board + assignments HERE or progress is silently lost.
+  // Done in its own tx because ensureBoard/spawnAssignments use their own tx.
+  for (const window of allWindows(now)) {
+    const board = await ensureBoard(window.period, window);
+    await spawnAssignments(result.userId, window, board);
+  }
   let changed = 0;
   await tx(async (t) => {
     for (const window of allWindows(now)) {

@@ -107,12 +107,12 @@
 .digdex-container .seg button { padding: 6px 9px; background: var(--digdex-bg); border: 1px solid var(--digdex-hair); clip-path: var(--digdex-notch-sm); font: 700 9px/1 var(--digdex-font); letter-spacing: .06em; text-transform: uppercase; color: var(--digdex-muted); transition: .12s; }
 .digdex-container .seg button:hover { color: var(--digdex-ink); border-color: var(--digdex-muted); }
 .digdex-container .seg button.on { background: var(--digdex-signal); border-color: var(--digdex-signal); color: var(--digdex-ink); }
-.digdex-container .elist { display: flex; flex-direction: column; gap: 3px; }
-.digdex-container .elrow { display: grid; grid-template-columns: 12px 1fr auto; gap: 9px; align-items: center; padding: 7px 8px; clip-path: var(--digdex-notch-sm); font: 700 10px/1 var(--digdex-font); letter-spacing: .06em; text-transform: capitalize; color: var(--digdex-muted); border: 1px solid transparent; transition: .12s; text-align: left; width: 100%; }
-.digdex-container .elrow .sw { width: 12px; height: 12px; background: var(--ec); clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px); }
-.digdex-container .elrow .ct { font: 700 9px/1 var(--digdex-font); color: var(--digdex-muted); font-variant-numeric: tabular-nums; }
-.digdex-container .elrow:hover { color: var(--digdex-ink); background: var(--digdex-bg); }
-.digdex-container .elrow.on { color: var(--digdex-ink); border-color: var(--ec); background: color-mix(in oklab, var(--ec) 12%, var(--digdex-bg)); }
+.digdex-container .elist { display: flex; flex-direction: column; gap: 2px; }
+.digdex-container .elrow { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; padding: 5px 6px; font: 600 10px/1.2 var(--digdex-font); letter-spacing: .02em; text-transform: capitalize; color: var(--digdex-muted); border: 1px solid transparent; border-radius: 2px; transition: .12s; text-align: left; width: 100%; }
+.digdex-container .elrow .sw { width: 10px; height: 10px; background: var(--ec); border-radius: 2px; }
+.digdex-container .elrow .ct { font: 600 9px/1 var(--digdex-font); color: var(--digdex-muted); font-variant-numeric: tabular-nums; }
+.digdex-container .elrow:hover { color: var(--digdex-ink); background: color-mix(in oklab, var(--digdex-panel) 50%, transparent); }
+.digdex-container .elrow.on { color: var(--digdex-ink); border-color: color-mix(in oklab, var(--ec) 40%, transparent); background: color-mix(in oklab, var(--ec) 8%, var(--digdex-bg)); }
 .digdex-container .elrow.on .ct { color: var(--digdex-ink); }
 .digdex-container .clearchip { padding: 8px 10px; background: var(--digdex-bg); border: 1px solid var(--digdex-hair); clip-path: var(--digdex-notch-sm); font: 800 9px/1 var(--digdex-font); letter-spacing: .08em; text-transform: uppercase; color: var(--digdex-muted); display: flex; align-items: center; justify-content: center; gap: 7px; transition: .12s; }
 .digdex-container .clearchip:hover { color: var(--digdex-ink); border-color: var(--digdex-muted); }

@@ -144,7 +144,7 @@ function rowToAssignment(row: AssignmentRow): PvpQuestWithProgress {
 }
 
 /** Materialize assignments for a user for the given window (idempotent). */
-async function spawnAssignments(userId: string, window: PeriodWindow, board: PvpQuestTemplate[]): Promise<void> {
+export async function spawnAssignments(userId: string, window: PeriodWindow, board: PvpQuestTemplate[]): Promise<void> {
   if (board.length === 0) return;
   await tx(async (t) => {
     for (const q of board) {
