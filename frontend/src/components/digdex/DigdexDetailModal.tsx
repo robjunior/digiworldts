@@ -1,4 +1,3 @@
-import { useEffect, useMemo } from 'react';
 import { WEAK_MAP, RESIST_MAP, type Element } from '@digiworld/shared/digimon';
 
 import type { DigdexEntry } from '../../lib/api-digdex';
@@ -14,7 +13,7 @@ function affName(el: Element | undefined): string {
   return el || '—';
 }
 
-export function DigdexDetail({ entry }: DigdexDetailModalProps): JSX.Element | null {
+export function DigdexDetail({ entry, onClose }: DigdexDetailModalProps): JSX.Element | null {
   const d = entry;
   const el = d.template?.element || 'null';
   const weak = WEAK_MAP[el as Element];
@@ -22,6 +21,9 @@ export function DigdexDetail({ entry }: DigdexDetailModalProps): JSX.Element | n
 
   return (
     <aside className="detail" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}>
+      <button className="detail-close" onClick={onClose} aria-label="Close detail">
+        ×
+      </button>
       {d.met && d.template ? (
         <>
           <div className="dhead" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}>
