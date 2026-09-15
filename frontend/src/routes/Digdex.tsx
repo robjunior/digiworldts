@@ -28,7 +28,7 @@ const STAGE_FILTERS: readonly { readonly id: StageFilter; readonly label: string
 ];
 
 const ELEMENT_FILTERS: readonly { readonly id: ElementFilter; readonly label: string }[] = [
-  { id: 'all', label: 'All Elements' },
+  { id: 'all', label: 'All' },
   ...ELEMENTS.map((el) => ({ id: el, label: el.charAt(0).toUpperCase() + el.slice(1) })),
 ];
 
