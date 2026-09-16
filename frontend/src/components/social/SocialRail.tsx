@@ -38,7 +38,7 @@ export function SocialRail(): JSX.Element {
   const queryClient = useQueryClient();
 
   // ── local UI state ────────────────────────────────────────────
-  const [socialOpen, setSocialOpen] = useState(true);
+  const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<"chat" | "quests" | "friends">(
     "chat",
   );
@@ -217,40 +217,19 @@ export function SocialRail(): JSX.Element {
       className={`social${socialOpen ? "" : " collapsed"}`}
       data-od-id="social-rail"
     >
-      {/* Toggle button — always visible, tab shape sticking out */}
-      <button
-        className="social-toggle"
-        onClick={() => setSocialOpen((v) => !v)}
-        aria-label={socialOpen ? "Collapse social panel" : "Expand social panel"}
-        title={socialOpen ? "Collapse" : "Expand"}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          width="12"
-          height="12"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          {socialOpen ? (
-            <path d="M15 18l-6-6 6-6" />
-          ) : (
-            <path d="M9 18l6-6-6-6" />
-          )}
-        </svg>
-      </button>
 
-      {/* Icon strip */}
       <div className="social-icons" role="tablist">
         <button
           className={`social-icon-btn${socialOpen && socialTab === "chat" ? " active" : ""}`}
           role="tab"
           aria-selected={socialOpen && socialTab === "chat"}
           onClick={() => {
-            if (!socialOpen) setSocialOpen(true);
-            setSocialTab("chat");
+            if (socialOpen && socialTab === "chat") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("chat");
+            }
           }}
           title="Chat"
         >
@@ -275,8 +254,12 @@ export function SocialRail(): JSX.Element {
           role="tab"
           aria-selected={socialOpen && socialTab === "quests"}
           onClick={() => {
-            if (!socialOpen) setSocialOpen(true);
-            setSocialTab("quests");
+            if (socialOpen && socialTab === "quests") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("quests");
+            }
           }}
           title="Quests"
         >
@@ -301,8 +284,12 @@ export function SocialRail(): JSX.Element {
           role="tab"
           aria-selected={socialOpen && socialTab === "friends"}
           onClick={() => {
-            if (!socialOpen) setSocialOpen(true);
-            setSocialTab("friends");
+            if (socialOpen && socialTab === "friends") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("friends");
+            }
           }}
           title="Friends"
         >
