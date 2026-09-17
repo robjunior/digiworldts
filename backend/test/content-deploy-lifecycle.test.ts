@@ -25,7 +25,6 @@ import { seedDefaultQuests, seedDefaultWorldObjects } from '../src/quests/seed.t
 import { seedInitialNpcs } from '../src/npcs/seed.ts';
 import { syncDialogueFolder } from '../src/dialogues/sync.ts';
 import { seedDefaultOnboarding } from '../src/onboarding/engine.ts';
-import { seedDefaultRarityTables } from '../src/dungeons/rarity-tables.ts';
 import { seedShopItems } from '../src/social/shop.ts';
 
 const DB_PATH = process.env.DB_PATH!;
@@ -139,9 +138,8 @@ async function seedBaselineContent(): Promise<void> {
   await syncDialogueFolder(); // Dialogues are synced from .twee files
   await seedShopItems();
   await seedDefaultOnboarding(adapter);
-  await seedDefaultRarityTables(adapter);
   
-  // Seed skills catalog from XML
+  // Skills catalog seeded from XML
   const catalog = loadCatalog();
   await seedSkillsCatalogFromXml(adapter, catalog);
   

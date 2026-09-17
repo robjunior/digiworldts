@@ -469,7 +469,12 @@ CREATE TABLE IF NOT EXISTS world_objects (
   passable    INTEGER NOT NULL DEFAULT 0,
   label       TEXT,
   created_at  INTEGER NOT NULL,
-  updated_at  INTEGER NOT NULL
+  updated_at  INTEGER NOT NULL,
+  dungeon_id      TEXT REFERENCES dungeons(id) ON DELETE SET NULL,
+  elements        TEXT,
+  min_level       INTEGER,
+  max_level       INTEGER,
+  hidden_until_flag TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_world_objects_pos ON world_objects (x, y);
 
@@ -482,6 +487,7 @@ CREATE TABLE IF NOT EXISTS dungeon_warps (
   label             TEXT,
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
+  is_exit           INTEGER NOT NULL DEFAULT 0 CHECK (is_exit IN (0, 1)),
   UNIQUE (dungeon_id, x, y)
 );
 CREATE INDEX IF NOT EXISTS idx_dungeon_warps_dungeon ON dungeon_warps(dungeon_id);
@@ -495,6 +501,9 @@ CREATE TABLE IF NOT EXISTS dungeon_doors (
   label         TEXT,
   created_at    INTEGER NOT NULL,
   updated_at    INTEGER NOT NULL,
+  unused_tile_gid INTEGER,
+  used_tile_gid  INTEGER,
+  dungeon_key_id TEXT,
   UNIQUE (dungeon_id, x, y)
 );
 CREATE INDEX IF NOT EXISTS idx_dungeon_doors_dungeon ON dungeon_doors(dungeon_id);

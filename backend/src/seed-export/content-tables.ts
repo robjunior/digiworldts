@@ -15,13 +15,23 @@
  * unique natural-key constraint the first time a bundle reaches a DB that
  * already has the row under another id. The natural key (`slug` / `name`)
  * is the only identity stable across environments, so it is the deploy key.
+ *
+ * The array order is the deploy (apply) order and MUST be topological w.r.t.
+ * foreign keys: a row referencing another table is applied only after its
+ * reference target. shop_items therefore precedes every dungeon table that
+ * FKs it (dungeon_doors.key_item_id, dungeon_encounters.reward_item_id),
+ * world_objects precedes dungeons (dungeons.world_object_id), and tilesets
+ * precedes dungeon_tilesets. On long-lived DBs this used to pass anyway
+ * (reference targets pre-existed from earlier applies); on a fresh DB with
+ * FK enforcement it fails hard — keep dependencies before dependents.
  */
 export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly string[] }> = [
   { name: 'quests', orderBy: ['id'] },
-  { name: 'dungeons', orderBy: ['id'] },
   { name: 'world_objects', orderBy: ['id'] },
   { name: 'dialogue_definitions', orderBy: ['dialogue_id'] },
   { name: 'npcs', orderBy: ['id'] },
+  { name: 'shop_items', orderBy: ['id'] },
+  { name: 'dungeons', orderBy: ['id'] },
   { name: 'dungeon_tiles', orderBy: ['dungeon_id', 'x', 'y', 'layer_kind'] },
   { name: 'dungeon_encounters', orderBy: ['id'] },
   { name: 'dungeon_doors', orderBy: ['id'] },
@@ -32,13 +42,12 @@ export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly str
   { name: 'dungeon_keys', orderBy: ['id'] },
   { name: 'dungeon_kits', orderBy: ['id'] },
   { name: 'dungeon_kit_items', orderBy: ['kit_id', 'item_id'] },
-  { name: 'dungeon_rarity_tables', orderBy: ['id'] },
+  { name: 'tilesets', orderBy: ['id'] },
   { name: 'dungeon_tilesets', orderBy: ['dungeon_id', 'tileset_id'] },
   { name: 'dungeon_items', orderBy: ['id'] },
   { name: 'dungeon_triggers', orderBy: ['id'] },
   { name: 'dungeon_trigger_targets', orderBy: ['id'] },
-  { name: 'tilesets', orderBy: ['id'] },
-  { name: 'shop_items', orderBy: ['id'] },
+  { name: 'dungeon_rarity_tables', orderBy: ['id'] },
   { name: 'shop_bundles', orderBy: ['id'] },
   { name: 'shop_bundle_items', orderBy: ['bundle_id', 'item_id'] },
   { name: 'onboarding_config', orderBy: ['id'] },
