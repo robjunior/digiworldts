@@ -20,11 +20,12 @@ verified-at-commit: 4e70621
 
 > [!info] TL;DR
 > Idle 3-mon expeditions. Pick 3 mons + 1–8 hours, pay `ceil(hours * 10)`
-> provisions upfront. Server runs `hours × 3` encounters on a **seeded
-> PRNG** so the report is fully reproducible from `(seed, distance_ms,
-> party snapshot)`. Rewards: Meat / Bits / Data / NetCore / XP. 30 %
-> chance a defeated mon gets KO'd (30-min revive timer). One active
-> adventure per user — partial UNIQUE constraint enforces it.
+> **Meat** upfront (the `Meat` resource — same pool the Farm produces
+> and the Nursery feeds). Server runs `hours × 3` encounters on a
+> **seeded PRNG** so the report is fully reproducible from `(seed,
+> distance_ms, party snapshot)`. Rewards: Meat / Bits / Data / NetCore /
+> XP. 30 % chance a defeated mon gets KO'd (30-min revive timer). One
+> active adventure per user — partial UNIQUE constraint enforces it.
 
 ## Constants — [`adventure/engine.ts`](backend/src/adventure/engine.ts)
 
@@ -34,8 +35,8 @@ Verbatim from [`engine.ts:29-36`](backend/src/adventure/engine.ts:29):
 const MS_PER_HOUR = 3_600_000;
 export const ADVENTURE_MIN_HOURS = 1;
 export const ADVENTURE_MAX_HOURS = 8;
-export const PROVISIONS_PER_HOUR = 10;
-export const PROVISION_ITEM_ID = 'itm-provision';
+export const MEAT_PER_HOUR = 10;
+export const MEAT_RESOURCE = 'Meat';
 const ENCOUNTERS_PER_HOUR = 3;
 const KO_CHANCE_ON_LOSS = 0.3;
 const KO_REVIVE_MS = 30 * 60 * 1000;
@@ -45,9 +46,9 @@ const PARTY_SIZE = 3;
 Semantics:
 
 - **1–8 hours** — the tunable dial. Longer = more encounters + more
-  reward, more provisions.
-- **10 provisions per hour** — hard cost, deducted upfront in one atomic
-  transaction. `hours=8` costs 80 provisions.
+  reward, more meat.
+- **10 meat per hour** — hard cost, deducted upfront from the `Meat`
+  resource in one atomic transaction. `hours=8` costs 80 meat.
 - **3 encounters per hour** — so `hours=8` produces 24 encounters.
 - **30 % KO chance on loss** — matches [[Combat]] pve-battle semantics.
 - **30-minute revive** — a KO'd mon has `revive_at = now + 30min`
@@ -56,7 +57,7 @@ Semantics:
 
 ## The one-active constraint
 
-Table: `adventures(id, user_id, mon_ids, distance_ms, provisions_spent,
+Table: `adventures(id, user_id, mon_ids, distance_ms, meat_spent,
 started_at, collected_at, seed, report, created_at)`.
 
 The critical index:
@@ -82,7 +83,7 @@ adventures                  = one row per expedition. Partial UNIQUE on
                               enforces one active expedition per user.
 player_roster.status        = 'adventure' while a mon is on a run;
                               flipped back to 'resting' on collect.
-player_inventory[itm-provision] is decremented at start
+resources[Meat]             is decremented at start
                               (ceil(hours * 10) upfront).
 ```
 
@@ -105,7 +106,7 @@ Three endpoints, all auth-gated.
 
 | Method | Path                            | Body / Response                                                                    |
 | ------ | ------------------------------- | ---------------------------------------------------------------------------------- |
-| GET    | `/api/adventure`                | Active + last-collected + provisions + config                                       |
+| GET    | `/api/adventure`                | Active + last-collected + meat + config                                       |
 | POST   | `/api/adventure/start`          | `{ monIds: string[3], hours: 1..8 }` → active adventure + estimated collect time    |
 | POST   | `/api/adventure/collect`        | Empty body → full `AdventureReport` with encounters + rewards + XP + KOs            |
 
@@ -130,7 +131,7 @@ export type StartAdventureError =
   | 'mon-downed'                       // 409  (KO'd, waiting on revive_at)
   | 'mon-listed'                       // 409  (listed on the digimon market)
   | 'active-adventure-exists'          // 409  (user already has one active)
-  | 'insufficient-provisions';         // 402
+  | 'insufficient-meat';               // 402
 ```
 
 ### Collect errors
@@ -151,9 +152,9 @@ sequenceDiagram
   participant DB as DB
   U->>N: POST /api/adventure/start {monIds, hours=4}
   N->>DB: SELECT rosters (busy? downed? listed?)
-  N->>DB: SELECT provisions (>= 40?)
+  N->>DB: SELECT resources Meat (>= 40?)
   N->>DB: BEGIN tx
-  N->>DB: UPDATE inventory: qty -= 40
+  N->>DB: UPDATE resources: Meat -= 40
   N->>DB: INSERT adventures (partial UNIQUE (user_id) WHERE collected_at IS NULL)
   N->>DB: UPDATE roster SET status='adventure' × 3
   N->>DB: COMMIT
@@ -214,24 +215,25 @@ Adventure encounters DON'T grant MMR (they're not PvP). They DO grant
 XP scaled by opponent level differential + honor the global `xpRate`
 setting ([`awardXp`](backend/src/progression/xp.ts)).
 
-## Provisions — the choke point
+## Meat — the choke point
 
-`itm-provision` is a shop item. Players buy them for NetCore (verify
-current price in `shop_items`) and consume them here. This is the
-economic loop that ties [[Currency|NetCore grinding]] to idle content —
-adventures produce NetCore, but you spend NetCore to keep adventuring.
-Net positive over time or you go broke.
+Expeditions burn the **`Meat` resource** — the same pool the Farm
+produces (per-building generation + daily check-ins) and the Nursery
+feeds from. Meat is also hunted IN the field: every winning encounter
+banks `1 + hours + rng*4` meat back, so a run partially feeds its own
+return trip. Net positive over time, but you can't chain expeditions
+endlessly without producing meat.
 
-Deduction is atomic-guarded ([`engine.ts` — verify the SQL]):
+Deduction is atomic-guarded ([`engine.ts`](backend/src/adventure/engine.ts)):
 
 ```sql
-UPDATE player_inventory
-   SET qty = qty - ?, updated_at = ?
- WHERE user_id = ? AND item_id = 'itm-provision' AND qty >= ?
+UPDATE resources
+   SET amount = amount - ?, updated_at = ?
+ WHERE user_id = ? AND resource = 'Meat' AND amount >= ?
 ```
 
 Same guarded-UPDATE pattern as [[Farm#Upgrade math]] — if
-`qty < needed`, `changes = 0` → 402 `insufficient-provisions`.
+`amount < needed`, `changes = 0` → 402 `insufficient-meat`.
 
 ## Global multipliers
 
@@ -243,9 +245,9 @@ Same guarded-UPDATE pattern as [[Farm#Upgrade math]] — if
 
 ## What can go wrong
 
-> [!warning] Provisions deducted, adventure INSERT fails
+> [!warning] Meat deducted, adventure INSERT fails
 > The atomic transaction covers both the deduction AND the insert. If
-> either step throws, the tx ROLLBACKs. Provisions are only spent when
+> either step throws, the tx ROLLBACKs. Meat is only spent when
 > the row lands.
 
 > [!warning] Party changes mid-adventure
@@ -276,13 +278,13 @@ Same guarded-UPDATE pattern as [[Farm#Upgrade math]] — if
   would gate by biome / player-picked zone.
 - **Group adventures** — one user's 3 mons, always. No co-op.
 - **Cancel mid-adventure** — the mons are locked in until collect.
-  Cancellation would need a refund policy on provisions.
+  Cancellation would need a refund policy on meat.
 
 ## Related
 
-- [[Currency]] — NetCore in / provisions out
+- [[Currency]] — Meat in / NetCore out
 - [[Combat]] — the pve-battle substrate this rides on
-- [[Farm]] — where provisions get INTO the economy (via shop items)
+- [[Farm]] — where Meat gets INTO the economy
 - [[HTTP Surface]] — grep for `/api/adventure`
 - [[Farm#Player wallet vs resources]] — the wallet split
   (Meat/Bits/Data vs NetCore) that adventures pay into

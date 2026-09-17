@@ -7,7 +7,7 @@
  *                                 enforces one active expedition per user.
  *   player_roster.status        = 'adventure' while a mon is on a run;
  *                                 flipped back to 'resting' on collect.
- *   player_inventory[itm-provision] is decremented at start
+ *   resources[Meat]            is decremented at start
  *                                 (ceil(hours * 10) upfront).
  *
  * Rewards:
@@ -37,8 +37,8 @@ import { log } from '../util/log.js';
 const MS_PER_HOUR = 3_600_000;
 export const ADVENTURE_MIN_HOURS = 1;
 export const ADVENTURE_MAX_HOURS = 8;
-export const PROVISIONS_PER_HOUR = 10;
-export const PROVISION_ITEM_ID = 'itm-provision';
+export const MEAT_PER_HOUR = 10;
+export const MEAT_RESOURCE = 'Meat';
 const ENCOUNTERS_PER_HOUR = 3;
 const KO_CHANCE_ON_LOSS = 0.3;
 const KO_REVIVE_MS = 30 * 60 * 1000;
@@ -46,7 +46,7 @@ const PARTY_SIZE = 3;
 
 const SQL_SELECT_ACTIVE_ADVENTURE = `SELECT * FROM adventures WHERE user_id = ? AND collected_at IS NULL`;
 const SQL_SELECT_LAST_COLLECTED = `SELECT * FROM adventures WHERE user_id = ? AND collected_at IS NOT NULL ORDER BY collected_at DESC LIMIT 1`;
-const SQL_INSERT_ADVENTURE = `INSERT INTO adventures (id, user_id, mon_ids, distance_ms, provisions_spent, started_at, collected_at, seed, report, created_at)
+const SQL_INSERT_ADVENTURE = `INSERT INTO adventures (id, user_id, mon_ids, distance_ms, meat_spent, started_at, collected_at, seed, report, created_at)
      VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, ?)`;
 const SQL_MARK_ADVENTURE_COLLECTED = `UPDATE adventures SET collected_at = ?, report = ? WHERE id = ? AND collected_at IS NULL`;
 const SQL_SELECT_MON_FOR_USER = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
@@ -61,9 +61,8 @@ const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, u
      ON CONFLICT (user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 const SQL_ADD_NETCORE = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
      ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
-const SQL_SELECT_INV_QTY = `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ?`;
-const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - ?, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= ?`;
-const SQL_DELETE_EMPTY_INV = `DELETE FROM player_inventory WHERE user_id = ? AND item_id = ? AND qty <= 0`;
+const SQL_SELECT_RESOURCE = `SELECT amount FROM resources WHERE user_id = ? AND resource = ?`;
+const SQL_DECREMENT_RESOURCE = `UPDATE resources SET amount = amount - ?, updated_at = ? WHERE user_id = ? AND resource = ? AND amount >= ?`;
 
 export type AdventureMemberView = {
   readonly monId: string;
@@ -110,7 +109,7 @@ export type AdventureView = {
   readonly finishesAt: number;
   readonly remainingMs: number;
   readonly ready: boolean;
-  readonly provisionsSpent: number;
+  readonly meatSpent: number;
   readonly party: readonly AdventureMemberView[];
   readonly collectedAt: number | null;
   readonly report: AdventureReport | null;
@@ -119,8 +118,7 @@ export type AdventureView = {
 export type AdventureConfigView = {
   readonly minHours: number;
   readonly maxHours: number;
-  readonly provisionsPerHour: number;
-  readonly provisionItemId: string;
+  readonly meatPerHour: number;
   readonly encountersPerHour: number;
   readonly partySize: number;
 };
@@ -128,7 +126,7 @@ export type AdventureConfigView = {
 export type AdventurePageView = {
   readonly active: AdventureView | null;
   readonly lastCollected: AdventureView | null;
-  readonly provisionsOwned: number;
+  readonly meatOwned: number;
   readonly config: AdventureConfigView;
 };
 
@@ -141,7 +139,7 @@ export type StartAdventureError =
   | 'mon-listed'
   | 'active-adventure-exists'
   | 'invalid-hours'
-  | 'insufficient-provisions';
+  | 'insufficient-meat';
 
 export type CollectAdventureError = 'no-adventure' | 'not-ready';
 
@@ -222,7 +220,7 @@ function rowToView(row: AdventureRow, monRows: readonly RosterRow[], now: number
     finishesAt,
     remainingMs,
     ready,
-    provisionsSpent: row.provisions_spent,
+    meatSpent: row.meat_spent,
     party,
     collectedAt: row.collected_at,
     report: parseReport(row.report),
@@ -242,26 +240,25 @@ function makeConfig(): AdventureConfigView {
   return {
     minHours: ADVENTURE_MIN_HOURS,
     maxHours: ADVENTURE_MAX_HOURS,
-    provisionsPerHour: PROVISIONS_PER_HOUR,
-    provisionItemId: PROVISION_ITEM_ID,
+    meatPerHour: MEAT_PER_HOUR,
     encountersPerHour: ENCOUNTERS_PER_HOUR,
     partySize: PARTY_SIZE,
   };
 }
 
-async function loadProvisionsOwned(userId: string): Promise<number> {
-  const inv = await one<{ qty: number }>(SQL_SELECT_INV_QTY, userId, PROVISION_ITEM_ID);
-  return inv?.qty ?? 0;
+async function loadMeatOwned(userId: string): Promise<number> {
+  const row = await one<{ amount: number }>(SQL_SELECT_RESOURCE, userId, MEAT_RESOURCE);
+  return row?.amount ?? 0;
 }
 
 export async function readAdventurePage(userId: string): Promise<AdventurePageView> {
   const now = Date.now();
   const active = await one<AdventureRow>(SQL_SELECT_ACTIVE_ADVENTURE, userId);
   const last = await one<AdventureRow>(SQL_SELECT_LAST_COLLECTED, userId);
-  const provisionsOwned = await loadProvisionsOwned(userId);
+  const meatOwned = await loadMeatOwned(userId);
   const activeView = active ? await hydrateView(active, userId, now) : null;
   const lastView = last ? await hydrateView(last, userId, now) : null;
-  return { active: activeView, lastCollected: lastView, provisionsOwned, config: makeConfig() };
+  return { active: activeView, lastCollected: lastView, meatOwned, config: makeConfig() };
 }
 
 async function hydrateView(row: AdventureRow, userId: string, now: number): Promise<AdventureView> {
@@ -275,7 +272,7 @@ export async function startAdventure(
   monIds: readonly string[],
   hours: number,
 ): Promise<
-  | { ok: true; adventure: AdventureView; provisionsOwned: number }
+  | { ok: true; adventure: AdventureView; meatOwned: number }
   | { ok: false; error: StartAdventureError; details?: Record<string, unknown> }
 > {
   if (!Number.isInteger(hours) || hours < ADVENTURE_MIN_HOURS || hours > ADVENTURE_MAX_HOURS) {
@@ -302,10 +299,10 @@ export async function startAdventure(
     if (row.listed_at !== null) return { ok: false, error: 'mon-listed', details: { monId: row.id } };
     if (row.revive_at !== null && row.revive_at > now) return { ok: false, error: 'mon-downed', details: { monId: row.id, reviveAt: row.revive_at } };
   }
-  const provisionsNeeded = hours * PROVISIONS_PER_HOUR;
-  const provisionsOwned = await loadProvisionsOwned(userId);
-  if (provisionsOwned < provisionsNeeded) {
-    return { ok: false, error: 'insufficient-provisions', details: { need: provisionsNeeded, have: provisionsOwned } };
+  const meatNeeded = hours * MEAT_PER_HOUR;
+  const meatOwned = await loadMeatOwned(userId);
+  if (meatOwned < meatNeeded) {
+    return { ok: false, error: 'insufficient-meat', details: { need: meatNeeded, have: meatOwned } };
   }
 
   const distanceMs = hours * MS_PER_HOUR;
@@ -314,28 +311,27 @@ export async function startAdventure(
   const monIdsJson = JSON.stringify(monIds);
 
   await tx(async (t) => {
-    const info = await t.run(SQL_DECREMENT_INVENTORY, [provisionsNeeded, now, userId, PROVISION_ITEM_ID, provisionsNeeded]);
-    if (info.changes === 0) throw new Error('provision-race');
-    await t.run(SQL_DELETE_EMPTY_INV, [userId, PROVISION_ITEM_ID]);
+    const info = await t.run(SQL_DECREMENT_RESOURCE, [meatNeeded, now, userId, MEAT_RESOURCE, meatNeeded]);
+    if (info.changes === 0) throw new Error('meat-race');
     for (const monId of monIds) {
       await t.run(SQL_UPDATE_MON_STATUS, ['adventure', now, monId, userId]);
     }
-    await t.run(SQL_INSERT_ADVENTURE, [adventureId, userId, monIdsJson, distanceMs, provisionsNeeded, now, seed, now]);
+    await t.run(SQL_INSERT_ADVENTURE, [adventureId, userId, monIdsJson, distanceMs, meatNeeded, now, seed, now]);
   });
 
   const inserted = await one<AdventureRow>('SELECT * FROM adventures WHERE id = ?', adventureId);
   if (!inserted) throw new Error('startAdventure: row disappeared after insert');
   const view = await hydrateView(inserted, userId, now);
-  const provisionsAfter = await loadProvisionsOwned(userId);
+  const meatAfter = await loadMeatOwned(userId);
   log.info('adventure.start', {
     userId,
     adventureId,
     hours,
     distanceMs,
-    provisions: provisionsNeeded,
+    meat: meatNeeded,
     party: monIds,
   });
-  return { ok: true, adventure: view, provisionsOwned: provisionsAfter };
+  return { ok: true, adventure: view, meatOwned: meatAfter };
 }
 
 function encounterCount(hours: number): number {

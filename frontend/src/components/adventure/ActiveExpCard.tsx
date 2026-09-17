@@ -39,7 +39,7 @@ export function ActiveExpCard({
         <span className="enames">
           {active.party.map((p) => p.nickname).join(' · ')}
           <span className="esub">
-            {h}h run · {active.provisionsSpent} prov · ~{Math.round(h * config.encountersPerHour)} enc
+            {h}h run · {active.meatSpent} meat · ~{Math.round(h * config.encountersPerHour)} enc
           </span>
         </span>
         <span className={`eclock ${ready ? 'ready' : ''}`}>{ready ? 'READY' : formatClock(remainingMs)}</span>

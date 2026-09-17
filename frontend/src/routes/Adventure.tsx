@@ -54,19 +54,18 @@ export function Adventure(): JSX.Element {
   const page = adventureQuery.data ?? null;
   const active = page?.active ?? null;
   const lastCollected = page?.lastCollected ?? null;
-  const provisionsOwned = page?.provisionsOwned ?? 0;
+  const meatOwned = page?.meatOwned ?? 0;
   const config = page?.config ?? {
     minHours: 1,
     maxHours: 8,
-    provisionsPerHour: 10,
-    provisionItemId: 'itm-provision',
+    meatPerHour: 10,
     encountersPerHour: 3,
     partySize: 3,
   };
   const roster = rosterQuery.data?.roster ?? [];
   const farm: FarmView = farmQuery.data ?? emptyFarm;
 
-  const provisionsNeeded = hours * config.provisionsPerHour;
+  const meatNeeded = hours * config.meatPerHour;
 
   const startMutation = useMutation({
     mutationFn: (params: { readonly monIds: readonly string[]; readonly hours: number }) =>
@@ -75,7 +74,7 @@ export function Adventure(): JSX.Element {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
         active: result.adventure,
         lastCollected: prev?.lastCollected ?? null,
-        provisionsOwned: result.provisionsOwned,
+        meatOwned: result.meatOwned,
         config: prev?.config ?? config,
       }));
       queryClient.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
@@ -92,7 +91,7 @@ export function Adventure(): JSX.Element {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
         active: null,
         lastCollected: result.adventure,
-        provisionsOwned: prev?.provisionsOwned ?? 0,
+        meatOwned: prev?.meatOwned ?? 0,
         config: prev?.config ?? config,
       }));
       queryClient.invalidateQueries({ queryKey: ADVENTURE_QUERY_KEY });
@@ -125,8 +124,8 @@ export function Adventure(): JSX.Element {
   }
 
   const filled = selectedIds.filter((id) => id !== null).length;
-  const enoughProv = provisionsOwned >= provisionsNeeded;
-  const canStart = filled === config.partySize && enoughProv;
+  const enoughMeat = meatOwned >= meatNeeded;
+  const canStart = filled === config.partySize && enoughMeat;
 
   const hint: { readonly node: ReactNode; readonly warn: boolean } = useMemo(() => {
     if (filled < config.partySize) {
@@ -139,11 +138,11 @@ export function Adventure(): JSX.Element {
         warn: false,
       };
     }
-    if (!enoughProv) {
+    if (!enoughMeat) {
       return {
         node: (
           <>
-            Need <b>{provisionsNeeded}</b> provisions — you have <b>{provisionsOwned}</b>. Craft more in the Pantry.
+            Need <b>{meatNeeded}</b> Meat — you have <b>{meatOwned}</b>. Produce more in the Farm or hunt it down.
           </>
         ),
         warn: true,
@@ -152,12 +151,12 @@ export function Adventure(): JSX.Element {
     return {
       node: (
         <>
-          Ready — <b>{provisionsNeeded}</b> provisions for a <b>{hours}h</b> run.
+          Ready — <b>{meatNeeded}</b> Meat for a <b>{hours}h</b> run.
         </>
       ),
       warn: false,
     };
-  }, [filled, config.partySize, enoughProv, provisionsNeeded, provisionsOwned, hours]);
+  }, [filled, config.partySize, enoughMeat, meatNeeded, meatOwned, hours]);
 
   const displayRoster = useMemo<readonly RosterView[]>(
     () =>
@@ -174,7 +173,7 @@ export function Adventure(): JSX.Element {
         <ResourceBal resource="bits" label="Bits" value={farm.balances.Bits ?? 0} />
         <ResourceBal resource="data" label="Data" value={farm.balances.Data ?? 0} />
         <ResourceBal resource="credits" label="Credits" value={farm.credits ?? 0} />
-        <ResourceBal resource="provisions" label="Provisions" value={provisionsOwned} />
+        <ResourceBal resource="meat" label="Meat" value={meatOwned} />
       </BalBar>
 
       <div className="scroll">
@@ -187,8 +186,8 @@ export function Adventure(): JSX.Element {
               now={now}
               hours={hours}
               config={config}
-              provisionsOwned={provisionsOwned}
-              provisionsNeeded={provisionsNeeded}
+              meatOwned={meatOwned}
+              meatNeeded={meatNeeded}
               canStart={canStart}
               isPending={startMutation.isPending}
               hint={hint}

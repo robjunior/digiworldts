@@ -287,11 +287,11 @@ const ADVENTURE_TUTORIAL: Tutorial = {
       ),
     },
     {
-      title: 'Provisions',
+      title: 'Meat',
       body: (
         <>
-          Every expedition burns {kw('Provisions')} — craft them in the Factory Pantry. Longer
-          runs need more provisions but return more loot per hour.
+          Every expedition burns {kw('Meat')} — produced in the Farm and hunted in the field.
+          Longer runs need more meat but return more loot per hour.
         </>
       ),
     },

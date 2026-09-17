@@ -47,7 +47,7 @@ export type AdventureView = {
   readonly finishesAt: number;
   readonly remainingMs: number;
   readonly ready: boolean;
-  readonly provisionsSpent: number;
+  readonly meatSpent: number;
   readonly party: readonly AdventureMemberView[];
   readonly collectedAt: number | null;
   readonly report: AdventureReport | null;
@@ -56,8 +56,7 @@ export type AdventureView = {
 export type AdventureConfigView = {
   readonly minHours: number;
   readonly maxHours: number;
-  readonly provisionsPerHour: number;
-  readonly provisionItemId: string;
+  readonly meatPerHour: number;
   readonly encountersPerHour: number;
   readonly partySize: number;
 };
@@ -65,14 +64,14 @@ export type AdventureConfigView = {
 export type AdventurePageView = {
   readonly active: AdventureView | null;
   readonly lastCollected: AdventureView | null;
-  readonly provisionsOwned: number;
+  readonly meatOwned: number;
   readonly config: AdventureConfigView;
 };
 
 export type StartAdventureResult = {
   readonly ok: true;
   readonly adventure: AdventureView;
-  readonly provisionsOwned: number;
+  readonly meatOwned: number;
 };
 
 export type CollectAdventureResult = {

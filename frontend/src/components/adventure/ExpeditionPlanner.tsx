@@ -7,7 +7,7 @@ import { DigimonSprite } from '../common/DigimonSprite';
 
 /**
  * "Send an expedition" planner — the panel that lets the player pick 3 resting mons,
- * choose the expedition length, review provisions/encounter counts, and embark.
+ * choose the expedition length, review meat/encounter counts, and embark.
  * Previously inline in Adventure.tsx (~90 lines within the JSX tree).
  */
 export function ExpeditionPlanner({
@@ -16,8 +16,8 @@ export function ExpeditionPlanner({
   now,
   hours,
   config,
-  provisionsOwned,
-  provisionsNeeded,
+  meatOwned,
+  meatNeeded,
   canStart,
   isPending,
   hint,
@@ -30,8 +30,8 @@ export function ExpeditionPlanner({
   readonly now: number;
   readonly hours: number;
   readonly config: AdventureConfigView;
-  readonly provisionsOwned: number;
-  readonly provisionsNeeded: number;
+  readonly meatOwned: number;
+  readonly meatNeeded: number;
   readonly canStart: boolean;
   readonly isPending: boolean;
   readonly hint: { readonly node: ReactNode; readonly warn: boolean };
@@ -88,9 +88,9 @@ export function ExpeditionPlanner({
         </div>
 
         <div className="previewgrid">
-          <div className={`pv ${provisionsNeeded > provisionsOwned ? 'short' : ''}`} title="Provisions come from Farm crafting (Bio Lab) or Shop.">
-            <div className="k">Provisions</div>
-            <div className="v">{provisionsNeeded}</div>
+          <div className={`pv ${meatNeeded > meatOwned ? 'short' : ''}`} title="Meat is the fuel for expeditions — produced in the Farm and hunted in the field.">
+            <div className="k">Meat</div>
+            <div className="v">{meatNeeded}</div>
           </div>
           <div className="pv">
             <div className="k">Encounters</div>

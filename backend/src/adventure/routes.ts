@@ -2,7 +2,7 @@
  * Adventure HTTP surface. Async by construction — thin wrappers over the
  * adventure/engine.ts module.
  *
- *   GET  /api/adventure               → active + last-collected + provisions + config
+ *   GET  /api/adventure               → active + last-collected + meat + config
  *   POST /api/adventure/start         → { monIds: string[3], hours: 1..8 }
  *   POST /api/adventure/collect       → dice-roll on server, award XP + resources + credits
  */
@@ -37,7 +37,7 @@ function statusForStart(err: StartAdventureError): number {
     case 'mon-listed':
     case 'active-adventure-exists':
       return 409;
-    case 'insufficient-provisions':
+    case 'insufficient-meat':
       return 402;
     default:
       return 400;
