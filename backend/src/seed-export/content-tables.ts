@@ -7,13 +7,14 @@
  * Used for deterministic ORDER BY on export, as the diff/merge key, the
  * ON CONFLICT target on deploy, and the version-ledger ref_id.
  *
- * NOTE on natural keys: `onboarding_teams` keys on `slug`, NOT `id`.
- * Team ids come from `newId('onb')` at seeding time, so every environment
- * that seeds independently (dev DB, staging DB, fresh CI sqlite) ends up
- * with DIFFERENT random ids for the same team — an id-keyed upsert then
- * trips the unique `slug` constraint the first time a bundle reaches a DB
- * that already has the slug under another id. `slug` is the only stable
- * identity across environments, so it is the deploy key.
+ * NOTE on natural keys: `onboarding_teams` keys on `slug` and
+ * `building_blueprints` keys on `name`, NOT their `id`. Both tables mint
+ * ids with `newId(...)` at seeding time, so every environment that seeds
+ * independently (dev DB, staging DB, fresh CI sqlite) ends up with DIFFERENT
+ * random ids for the same logical row — an id-keyed upsert then trips the
+ * unique natural-key constraint the first time a bundle reaches a DB that
+ * already has the row under another id. The natural key (`slug` / `name`)
+ * is the only identity stable across environments, so it is the deploy key.
  */
 export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly string[] }> = [
   { name: 'quests', orderBy: ['id'] },
@@ -44,7 +45,7 @@ export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly str
   { name: 'onboarding_teams', orderBy: ['slug'] },
   { name: 'game_settings', orderBy: ['id'] },
   { name: 'skills_catalog', orderBy: ['id'] },
-  { name: 'building_blueprints', orderBy: ['id'] },
+  { name: 'building_blueprints', orderBy: ['name'] },
   { name: 'farm_recipes', orderBy: ['id'] },
   { name: 'adventures', orderBy: ['id'] },
   { name: 'catalog_loot_entries', orderBy: ['id'] },
