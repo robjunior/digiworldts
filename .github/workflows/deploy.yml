@@ -110,7 +110,7 @@ jobs:
           BUILDKIT_PROGRESS: "plain"
         run: |
           PROJECT="digiworld-${ENV_NAME}"
-          docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait --parallel-builds 1
+          docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait
           docker compose -p "$PROJECT" ps
 
       - name: Deploy content (committed bundle)
