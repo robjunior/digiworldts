@@ -26,8 +26,9 @@
  *     in the DB are left untouched (deletes are reported by --diff, never
  *     executed by --apply).
  *
- * Domain model: `domain` = content table name, `ref_id` = the row's primary
- * key value (from CONTENT_TABLES orderBy, composite keys JSON-joined). This
+ * Domain model: `domain` = content table name, `ref_id` = the row's
+ * identity key value (from CONTENT_TABLES orderBy — PK columns, or a stable
+ * unique natural key like onboarding_teams.slug; composite keys JSON-joined). This
  * maps 1:1 onto the seed artifact's `tables` object and keeps the version
  * ledger per content row.
  */
@@ -114,8 +115,9 @@ function qid(ident: string): string {
   return `"${ident}"`;
 }
 
-/** Build `INSERT ... ON CONFLICT(pk) DO UPDATE SET ...` for one content table.
- *  Columns come from the artifact row keys; PKs from CONTENT_TABLES. */
+/** Build `INSERT ... ON CONFLICT(identity) DO UPDATE SET ...` for one content
+ *  table. Columns come from the artifact row keys; the conflict/identity
+ *  columns from CONTENT_TABLES orderBy (PK or stable unique natural key). */
 function buildUpsertSql(table: string, cols: readonly string[], pk: readonly string[]): string {
   const colList = cols.map(qid).join(', ');
   const placeholders = cols.map(() => '?').join(', ');
