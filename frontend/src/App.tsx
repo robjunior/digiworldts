@@ -24,6 +24,7 @@ import { Nursery } from './routes/Nursery';
 import { OAuthDecide } from './routes/OAuthDecide';
 import { Reset } from './routes/Reset';
 import { Roster } from './routes/Roster';
+import { Creature } from './routes/Creature';
 import { Shop } from './routes/Shop';
 import { Spectate } from './routes/Spectate';
 import { Training } from './routes/Training';
@@ -97,6 +98,7 @@ export function App(): JSX.Element {
               <Route path="/" element={<Home />} />
               <Route path="/account" element={<Account />} />
               <Route path="/roster" element={<Roster />} />
+              <Route path="/creature/:monId" element={<Creature />} />
               <Route path="/farm" element={<Farm />} />
               <Route path="/factory" element={<Factory />} />
               <Route path="/adventure" element={<Adventure />} />

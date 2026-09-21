@@ -1,0 +1,168 @@
+/* =========================================================================
+   DIGIWORLD CREATURE PROFILE — dedicated page opened from the roster
+   (/creature/:monId). Reuses extensions-roster.css for the detail/hero/tabs/
+   evo component classes; this file only adds the back row + fits the
+   two-column evolution cinematic inline inside the Evolution tab.
+   Palette-only (lobby tokens), zero new hex.
+   ========================================================================= */
+.creature-detail {
+    position: relative;
+}
+
+/* back row above the hero */
+.cr-back {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 40px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--bg);
+}
+.cr-back a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font: 800 9px/1 var(--font);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 7px 11px;
+    border: 1px solid var(--hair);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    transition: 0.12s;
+}
+.cr-back a:hover {
+    color: var(--signal);
+    border-color: var(--signal);
+}
+.cr-back a svg {
+    width: 13px;
+    height: 13px;
+}
+.cr-back .crumb {
+    font: 700 10px/1 var(--font);
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+.cr-back .crumb b {
+    color: var(--app-fg, var(--ink));
+}
+.cr-bar-spacer {
+    flex: 1;
+}
+.cr-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 11px;
+    border: 1px solid var(--hair);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    font: 800 9px/1 var(--font);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.cr-chip .dot {
+    width: 7px;
+    height: 7px;
+    background: var(--signal);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.cr-chip.gold {
+    color: var(--gold);
+    border-color: color-mix(in oklab, var(--gold) 45%, var(--hair));
+}
+.cr-chip.gold .dot {
+    background: var(--gold);
+}
+
+/* evolution tab: two-column sbapema hangs in a fixed-height cinema so the
+   digiv cinematic (absolute inset:0) can cover it */
+.evo-cinema {
+    position: relative;
+    height: min(62vh, 600px);
+    min-height: 400px;
+}
+.evo-cinema .evo-stage {
+    position: absolute;
+    inset: 0;
+}
+.evo-cinema .digiv {
+    position: absolute;
+}
+
+/* slim XP bar inside the hero */
+.cr-xp {
+    height: 8px;
+    max-width: 420px;
+    margin: 12px 0 0;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
+    overflow: hidden;
+}
+.cr-xp .xp-fill {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--signal), var(--signal-2, var(--signal)));
+    transition: width 0.4s ease;
+}
+
+/* info tab — two stacked stat blocks */
+.cr-infoblocks {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.cr-info {
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 10px);
+    padding: 12px 14px;
+}
+.cr-info .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hair);
+}
+.cr-info .row:last-child {
+    border-bottom: 0;
+}
+.cr-info .ll {
+    font: 800 9px/1 var(--font);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.cr-info .lv {
+    font: 800 13px/1 var(--font);
+    font-variant-numeric: tabular-nums;
+}
+
+/* not-found / redirect state */
+.cr-missing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    height: 100%;
+    color: var(--muted);
+    text-align: center;
+    padding: 40px;
+}
+.cr-missing h2 {
+    font: 900 26px/1 var(--font);
+    letter-spacing: -0.01em;
+    color: var(--ink);
+}
+.cr-missing a {
+    color: var(--signal);
+    text-decoration: none;
+    border-bottom: 1px solid var(--signal);
+    padding-bottom: 2px;
+}

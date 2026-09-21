@@ -29,9 +29,6 @@ export type RosterActions = {
   readonly onPickForSlot: (slot: number) => void;
   readonly onAssign: (monId: string, slot: number) => void;
   readonly onRemoveSlot: (slot: number) => void;
-  readonly onAddToParty: (mon: RosterMon) => void;
-  readonly onEvolve: (monId: string) => void;
-  readonly onRename: (mon: RosterMon) => void;
   readonly onRevive: (monId: string) => void;
 };
 
