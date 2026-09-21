@@ -59,4 +59,7 @@ export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly str
   { name: 'adventures', orderBy: ['id'] },
   { name: 'catalog_loot_entries', orderBy: ['id'] },
   { name: 'seasons', orderBy: ['id'] },
+  { name: 'boosters', orderBy: ['id'] },
+  { name: 'booster_digimon_nodes', orderBy: ['id'] },
+  { name: 'booster_item_entries', orderBy: ['id'] },
 ] as const;

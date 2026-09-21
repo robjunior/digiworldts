@@ -9,6 +9,7 @@ import { NpcsAdmin } from '../components/admin/NpcsAdmin';
 import { OnboardingAdmin } from '../components/admin/OnboardingAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
 import { QuestsAdmin } from '../components/admin/QuestsAdmin';
+import { BoostersAdmin } from '../components/admin/BoostersAdmin';
 import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
 import { ScrapedTable } from '../components/admin/ScrapedTable';
 import { SeasonsAdmin } from '../components/admin/SeasonsAdmin';
@@ -32,6 +33,7 @@ const ADMIN_TABS = [
   { id: 'dialogues', label: 'Dialogues' },
   { id: 'shop', label: 'Shop Admin' },
   { id: 'quests', label: 'Quests' },
+  { id: 'boosters', label: 'Boosters' },
   { id: 'tilesets', label: 'Tilesets' },
   { id: 'onboarding', label: 'Onboarding' },
   { id: 'scene', label: 'Scene' },
@@ -122,6 +124,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <ShopAdmin />;
     case 'quests':
       return <QuestsAdmin />;
+    case 'boosters':
+      return <BoostersAdmin />;
     case 'tilesets':
       return <TilesetsAdmin />;
     case 'onboarding':

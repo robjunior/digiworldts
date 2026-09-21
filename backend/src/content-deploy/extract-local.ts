@@ -89,6 +89,43 @@ try {
 }
 tables['dialogue_definitions'] = dialogueRows;
 
+// --- Enrich booster tables from seed files (file-authoritative curation) ---
+// Boosters are NOT authored in the DB: they are curated in seeds/boosters/*.booster.json
+// (see boosters/pipeline.ts). Inject their compiled rows directly into the bundle
+// so `content:xref` and `content:deploy --apply` treat them like any other content
+// table. The global catalog (digimons.xml) supplies cross-file validation of the
+// digimonId refs; shop_items ids come from the recently-dumped bundle table.
+import { buildBoosterTables, DEFAULT_SEEDS_DIR } from '../boosters/pipeline.js';
+import { parseCatalogXml } from '../digimon/xml.js';
+{
+  // Load the global catalog directly (NOT via config, which triggers the DB
+  // migrator — see digimon-content-deploy skill). Fall back to empty if missing.
+  const catalogXmlPath = resolve(process.cwd(), 'data', 'catalog', 'digimons.xml');
+  let catalog;
+  try {
+    catalog = parseCatalogXml(await readFile(catalogXmlPath, 'utf8'));
+  } catch {
+    catalog = undefined;
+  }
+  const boosterOpts = { seedsDir: DEFAULT_SEEDS_DIR, itemIds: (tables['shop_items'] ?? []).map((r) => String(r['id'])) };
+  if (catalog) Object.assign(boosterOpts, { catalog });
+  const boosterOut = await buildBoosterTables(boosterOpts);
+  if (boosterOut.boosters.length > 0) {
+    tables['boosters'] = boosterOut.boosters as unknown as Record<string, unknown>[];
+    tables['booster_digimon_nodes'] = boosterOut.booster_digimon_nodes as unknown as Record<string, unknown>[];
+    tables['booster_item_entries'] = boosterOut.booster_item_entries as unknown as Record<string, unknown>[];
+  } else {
+    delete tables['boosters'];
+    delete tables['booster_digimon_nodes'];
+    delete tables['booster_item_entries'];
+  }
+  if (boosterOut.issues.length > 0) {
+    // eslint-disable-next-line no-console
+    console.warn(`extract-local: booster seed issues (${boosterOut.issues.length}):\n` +
+      boosterOut.issues.map((i) => `  - [${i.file}] ${i.rule}: ${i.message}`).join('\n'));
+  }
+}
+
 const seed = {
   schemaVersion: 1,
   exportedAt: Date.now(),

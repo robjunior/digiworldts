@@ -584,6 +584,27 @@ export function validateXref(
     }
   }
 
+  // --- Booster tables (manual curation; §2.4/§6.3) ---
+  // boosters → no cross-table refs of its own; nodes/items live under a booster.
+  const boosterNodes = env.tables['booster_digimon_nodes'] ?? [];
+  const boosterItems = env.tables['booster_item_entries'] ?? [];
+  const boosterNodeIds = new Set(boosterNodes.map((r) => String(r['id'])));
+  for (const n of boosterNodes) {
+    const refId = String(n['id']);
+    if (digimon && typeof n['digimon_id'] === 'string' && n['digimon_id'] && !digimon.ids.has(n['digimon_id'])) {
+      push('booster_digimon_nodes', refId, `booster node ${refId}: digimon_id references unknown digimon "${n['digimon_id']}"`);
+    }
+    if (n['parent_node_id'] !== null && n['parent_node_id'] !== undefined && !boosterNodeIds.has(String(n['parent_node_id']))) {
+      push('booster_digimon_nodes', refId, `booster node ${refId}: parent_node_id references unknown node "${n['parent_node_id']}"`);
+    }
+  }
+  for (const it of boosterItems) {
+    const refId = String(it['id']);
+    if (typeof it['item_id'] === 'string' && it['item_id'] && !itemIds.has(it['item_id'])) {
+      push('booster_item_entries', refId, `booster item ${refId}: item_id references unknown item "${it['item_id']}"`);
+    }
+  }
+
   return errors;
 }
 

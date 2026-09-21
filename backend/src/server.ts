@@ -36,6 +36,7 @@ import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
+import { boosterPlugin } from './boosters/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
 import { friendsPlugin, setFriendNotifier, setOnlineChecker } from './social/friends.js';
@@ -237,6 +238,7 @@ async function main(): Promise<void> {
   await app.register(authPlugin);
   await app.register(oauthPlugin);
   await app.register(rosterPlugin);
+  await app.register(boosterPlugin);
   await app.register(farmPlugin);
   await app.register(adminPlugin);
   await app.register(friendsPlugin);

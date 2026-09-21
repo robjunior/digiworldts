@@ -35592,7 +35592,142 @@
     ],
     "adventures": [],
     "catalog_loot_entries": [],
-    "seasons": []
+    "seasons": [],
+    "boosters": [
+      {
+        "id": "bt-05",
+        "code": "BT-05",
+        "name": "Flame Rebirth",
+        "set": "Digital Hazard",
+        "release_date": "2026-03-14",
+        "description": "Caminhos de fogo e renascimento",
+        "status": "published",
+        "tags": "[\"fire\",\"rebirth\",\"season-2\"]",
+        "seed_hash": "be15e6e60c99f84dbba7972a86f980f765fc2f3b862e3aea045413776d27775d",
+        "loaded_at": 1790016263212
+      }
+    ],
+    "booster_digimon_nodes": [
+      {
+        "id": "bt-05:agumon",
+        "booster_id": "bt-05",
+        "ref": "agumon",
+        "digimon_id": "skb-50",
+        "parent_node_id": null,
+        "rarity": "common",
+        "weight": 10,
+        "order": 0
+      },
+      {
+        "id": "bt-05:greymon",
+        "booster_id": "bt-05",
+        "ref": "greymon",
+        "digimon_id": "skb-326",
+        "parent_node_id": "bt-05:agumon",
+        "rarity": "uncommon",
+        "weight": 5,
+        "order": 0
+      },
+      {
+        "id": "bt-05:metal-greymon",
+        "booster_id": "bt-05",
+        "ref": "metal-greymon",
+        "digimon_id": "skb-302",
+        "parent_node_id": "bt-05:greymon",
+        "rarity": "rare",
+        "weight": 1,
+        "order": 0
+      },
+      {
+        "id": "bt-05:tyrannomon",
+        "booster_id": "bt-05",
+        "ref": "tyrannomon",
+        "digimon_id": "skb-363",
+        "parent_node_id": "bt-05:agumon",
+        "rarity": "uncommon",
+        "weight": 4,
+        "order": 1
+      },
+      {
+        "id": "bt-05:gabumon",
+        "booster_id": "bt-05",
+        "ref": "gabumon",
+        "digimon_id": "skb-151",
+        "parent_node_id": null,
+        "rarity": "common",
+        "weight": 8,
+        "order": 1
+      },
+      {
+        "id": "bt-05:garurumon",
+        "booster_id": "bt-05",
+        "ref": "garurumon",
+        "digimon_id": "skb-12",
+        "parent_node_id": "bt-05:gabumon",
+        "rarity": "uncommon",
+        "weight": 4,
+        "order": 0
+      },
+      {
+        "id": "bt-05:patamon",
+        "booster_id": "bt-05",
+        "ref": "patamon",
+        "digimon_id": "skb-96",
+        "parent_node_id": null,
+        "rarity": "common",
+        "weight": 7,
+        "order": 2
+      },
+      {
+        "id": "bt-05:angemon",
+        "booster_id": "bt-05",
+        "ref": "angemon",
+        "digimon_id": "skb-87",
+        "parent_node_id": "bt-05:patamon",
+        "rarity": "uncommon",
+        "weight": 3,
+        "order": 0
+      },
+      {
+        "id": "bt-05:devimon",
+        "booster_id": "bt-05",
+        "ref": "devimon",
+        "digimon_id": "skb-93",
+        "parent_node_id": "bt-05:patamon",
+        "rarity": "rare",
+        "weight": 1,
+        "order": 1
+      }
+    ],
+    "booster_item_entries": [
+      {
+        "id": "bt-05:item:fire-spirit",
+        "booster_id": "bt-05",
+        "ref": "fire-spirit",
+        "item_id": "itm-atk-buff",
+        "rarity": "common",
+        "weight": 10,
+        "order": 0
+      },
+      {
+        "id": "bt-05:item:ancient-flame",
+        "booster_id": "bt-05",
+        "ref": "ancient-flame",
+        "item_id": "itm-chip-a",
+        "rarity": "rare",
+        "weight": 2,
+        "order": 1
+      },
+      {
+        "id": "bt-05:item:digital-core",
+        "booster_id": "bt-05",
+        "ref": "digital-core",
+        "item_id": "itm-chip-b",
+        "rarity": "uncommon",
+        "weight": 5,
+        "order": 2
+      }
+    ]
   },
   "assetManifest": []
 }
