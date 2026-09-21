@@ -24,8 +24,10 @@ import {
   evolveRosterMon,
   getEvolutionGate,
   getTrainingStatus,
+  removeFromParty,
   renameRosterMon,
   reviveRosterMon,
+  setPartySlot,
   type EvolutionGate,
 } from '../lib/api-roster';
 import '../styles/extensions-roster.css';
@@ -126,6 +128,33 @@ export function Creature(): JSX.Element {
     onSuccess: () => { setMessage('Revived.'); invalidate(); },
     onError: (error) => setMessage(error instanceof Error ? error.message : 'revive failed'),
   });
+  const partyMutation = useMutation({
+    mutationFn: ({ monId: id, slot }: { readonly monId: string; readonly slot: number }) => setPartySlot(id, slot),
+    onSuccess: () => { setMessage('Party updated.'); invalidate(); },
+    onError: (error) => setMessage(error instanceof Error ? error.message : 'party update failed'),
+  });
+  const rmPartyMutation = useMutation({
+    mutationFn: removeFromParty,
+    onSuccess: () => { setMessage('Removed from party.'); invalidate(); },
+    onError: (error) => setMessage(error instanceof Error ? error.message : 'party remove failed'),
+  });
+
+  const partyBySlot = useMemo<readonly (RosterMon | null)[]>(() => {
+    const slots: (RosterMon | null)[] = [null, null, null];
+    for (const r of roster) {
+      if (typeof r.slot === 'number' && r.slot >= 0 && r.slot < 3) slots[r.slot] = r;
+    }
+    return slots;
+  }, [roster]);
+
+  const addToParty = (): void => {
+    if (!mon) return;
+    if (down) { setMessage('This Digimon is recovering. Revive it first.'); return; }
+    if (mon.status === 'nursery') { setMessage('Still in the nursery — graduate it to Rookie first.'); return; }
+    const emptySlot = partyBySlot.findIndex((slot) => slot === null);
+    if (emptySlot < 0) { setMessage('Party is full — remove a member first.'); return; }
+    partyMutation.mutate({ monId: mon.id, slot: emptySlot });
+  };
 
   const loadGate = (): void => {
     if (!mon || evolutionGate) return;
@@ -264,6 +293,11 @@ export function Creature(): JSX.Element {
                 {down ? (
                   <button className="rl-action-btn rl-action-btn--revive" type="button" onClick={() => reviveMutation.mutate(mon.id)}>Revive</button>
                 ) : null}
+                {typeof mon.slot === 'number' ? (
+                  <button className="rl-action-btn rl-action-btn--party" type="button" disabled={rmPartyMutation.isPending} onClick={() => rmPartyMutation.mutate(mon.slot as number)}>In party · {mon.slot + 1} · remove</button>
+                ) : (
+                  <button className="rl-action-btn rl-action-btn--party" type="button" disabled={partyMutation.isPending || down || mon.status === 'nursery'} onClick={addToParty}>Add to Party</button>
+                )}
               </div>
             </div>
             <div className="cr-xp">
