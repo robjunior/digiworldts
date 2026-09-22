@@ -168,66 +168,45 @@ export type SceneSettings = {
 };
 
 /**
- * Knobs for the lobby's CSS-3D backdrop, edited in the admin scene editor under
- * a scene named {@link LOBBY_SCENE_NAME}. The Lobby screen merges these over
- * {@link DEFAULT_LOBBY_SCENE} (admin scene wins; built-in defaults fill gaps).
+ * Knobs for the lobby's 3D backdrop, edited in the admin scene editor under a
+ * scene of `kind: 'lobby'`. The lobby's ENVIRONMENT always comes from the scene's
+ * `modelFile` GLB (there is intentionally no procedural fallback stage — if a
+ * lobby scene has no modelFile, the frontend falls back to the default arena
+ * GLB, never to a generated set). These settings only shape the party stage
+ * (fan formation + camera drift) on top of the GLB.
+ *
+ * Editor-split note: the scene editor is planned to be broken apart per
+ * consumer (nursery / city / lobby / combat) reusing the same CRUD + zod
+ * surface. Each `SceneKind` will bind its own `settings` subset; this type is
+ * the `lobby` subset. Formatting knobs that the renderer does not yet consume
+ * (e.g. `sideTiltDeg`) stay in the schema so the editor is stable and the
+ * renderer can adopt them without a migration.
  */
-export type LobbyParticleMode = "data" | "pixels" | "off";
-
 export type LobbySceneSettings = {
-  /** deep navy canvas base (default 0x0a0e1a) */
-  floorColor: number;
-  /** perspective-grid line tint (default 0x60a5fa) */
-  gridColor: number;
-  /** grid line opacity 0..1 (0.05) */
-  gridOpacity: number;
-  /** central gold seam (default 0xf59e0b) */
-  seamColor: number;
-  /** seam opacity 0..1 (0.5) */
-  seamOpacity: number;
-  /** ambient radial glow tint (default 0x3b82f6) */
-  glowColor: number;
-  /** glow opacity 0..1 (0.16) */
-  glowOpacity: number;
-  /** soft spotlight from the top of the scene over the party */
-  spotlight: boolean;
-  /** fan-formation spread in px between pedestals (256) */
+  /** fan spread in px (256) — renderer divides by 108 for world units */
   pedestalSpacing: number;
   /** global pedestal scale 0.5..1.5 (1) */
   pedestalScale: number;
-  /** side pedestal yaw in degrees (17) */
+  /** side pedestal yaw in degrees (17) — reserved for the fan tilt pass */
   sideTiltDeg: number;
   /** center pedestal scale vs sides (1.1) */
   centerScale: number;
-  /** how much the center pedestal lifts toward the camera, px (36) */
+  /** center pedestal forward lift, px (36) — rendered as a "+z" offset */
   centerLift: number;
-  /** ambient motes: "data" (blue/gold squares), "pixels" (squares), "off" */
-  particleMode: LobbyParticleMode;
-  /** number of ambient motes 0..80 (26) */
-  particleCount: number;
-  /** camera drift strength 0..2 (1); 0 disables the slow idle orbit */
+  /** camera drift strength 0..2 (1); 0 disables the slow idle orbit.
+   *  No effect while the GLB's embedded camera is adopted (useGlbSettings). */
   driftIntensity: number;
 };
 
-/** SceneEntity.name the Lobby screen looks up (case-insensitive). */
+/** SceneEntity.name the Lobby screen looks up when no scene has kind 'lobby'. */
 export const LOBBY_SCENE_NAME = "Lobby";
 
 export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
-  floorColor: 0x0a0e1a,
-  gridColor: 0x60a5fa,
-  gridOpacity: 0.05,
-  seamColor: 0xf59e0b,
-  seamOpacity: 0.5,
-  glowColor: 0x3b82f6,
-  glowOpacity: 0.16,
-  spotlight: true,
   pedestalSpacing: 256,
   pedestalScale: 1,
   sideTiltDeg: 17,
   centerScale: 1.1,
   centerLift: 36,
-  particleMode: "data",
-  particleCount: 26,
   driftIntensity: 1,
 };
 

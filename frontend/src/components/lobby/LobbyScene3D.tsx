@@ -7,10 +7,12 @@
  * sprite sheets (unitSpriteSheetUrl), updating in real time whenever the party
  * changes (diff by roster id, add/remove/reposition — no full remount).
  *
- * Scene knobs come from `settings.lobby` (admin scene editor): floor/grid/seam
- * colors, pedestal spacing/scale/tilt, ambient motes and camera drift. An
- * optional arena GLB (`modelFile`) is loaded as the backdrop environment when
- * the admin picks one, with a silent fallback to the procedural floor.
+ * Scene knobs come from `settings.lobby` (admin scene editor): pedestal
+ * formation (spacing/scale/tilt/lift) and camera drift. The ENVIRONMENT is
+ * always the scene's `modelFile` GLB — which the Lobby screen guarantees by
+ * falling back to the default arena GLB when the lobby scene has none — so
+ * the party always stands on a real scene, never on a generated backdrop.
+ * With `useGlbSettings` the GLB also drives camera and lights.
  *
  * UI (dock, panels, plaque) floats above in `.lobby-shell` — this layer is
  * pointer-transparent except the figure labels, which open the creature page.
@@ -66,56 +68,6 @@ function fanPosition(index: number, spacing: number): { x: number; z: number } {
   return { x: 0, z: 1.7 };
 }
 
-function hex(n: number): string {
-  return `#${n.toString(16).padStart(6, '0')}`;
-}
-
-/** Procedural floor texture: base + perspective grid + radial glow + gold seam. */
-function makeFloorTexture(s: LobbySceneSettings): THREE.CanvasTexture {
-  const c = document.createElement('canvas');
-  c.width = 1024;
-  c.height = 1024;
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = hex(s.floorColor);
-  ctx.fillRect(0, 0, 1024, 1024);
-
-  const glow = ctx.createRadialGradient(512, 512, 40, 512, 512, 700);
-  glow.addColorStop(0, hex(s.glowColor));
-  glow.addColorStop(1, hex(s.floorColor));
-  ctx.globalAlpha = Math.min(1, s.glowOpacity * 2.2);
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, 1024, 1024);
-  ctx.globalAlpha = 1;
-
-  ctx.strokeStyle = hex(s.gridColor);
-  ctx.globalAlpha = Math.min(1, s.gridOpacity * 6);
-  ctx.lineWidth = 3;
-  const step = 64;
-  for (let i = 0; i <= 1024; i += step) {
-    ctx.beginPath();
-    ctx.moveTo(i, 0);
-    ctx.lineTo(i, 1024);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(0, i);
-    ctx.lineTo(1024, i);
-    ctx.stroke();
-  }
-  ctx.globalAlpha = 1;
-
-  // gold seam down the middle
-  ctx.strokeStyle = hex(s.seamColor);
-  ctx.globalAlpha = Math.min(1, s.seamOpacity);
-  ctx.lineWidth = 8;
-  ctx.beginPath();
-  ctx.moveTo(512, 0);
-  ctx.lineTo(512, 1024);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-
-  return new THREE.CanvasTexture(c);
-}
-
 export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -156,30 +108,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
     rim.position.set(8, 6, -8);
     ownLights.push(rim);
     scene.add(rim);
-    let spot: THREE.SpotLight | null = null;
-    if (settings.spotlight) {
-      spot = new THREE.SpotLight(hex(settings.glowColor), 2.2, 60, 0.5, 0.45, 1.6);
-      spot.position.set(0, 16, 6);
-      spot.target.position.set(0, 0, 0);
-      ownLights.push(spot);
-      scene.add(spot, spot.target);
-    }
 
-    // ── floor ───────────────────────────────────────────────────────────
-    const floorTex = makeFloorTexture(settings);
-    const floorMat = new THREE.MeshBasicMaterial({ map: floorTex, transparent: true, opacity: 0.92 });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = GROUND_Y - 0.02;
-    scene.add(floor);
-
-    // optional GLB environment — a configured GLB IS the scene: the procedural
-    // floor/spotlight/motes surrender to it (they only render when no GLB is
-    // set or the GLB fails to load). useGlbSettings additionally adopts the
-    // GLB's embedded camera and, when it ships lights, ours are removed.
+    // optional GLB environment — o cenário É o GLB (nunca um conjunto procedural)
     let glbRoot: THREE.Group | null = null;
     let glbCamera: THREE.Camera | null = null;
-    let glbActive = false;
     const glbDrives = useGlbSettings === true;
     if (modelUrl) {
       try {
@@ -197,15 +129,9 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
             const center = box.getCenter(new THREE.Vector3());
             glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
             scene.add(glbRoot);
-            glbActive = true;
-
-            // ambiente montado cede ao GLB — só o GLB renderiza o cenário
-            floor.visible = false;
-            motes.visible = false;
-            if (spot !== null) spot.visible = false;
 
             if (glbDrives) {
-              // GLB drives the look: adopt its camera, surrender our lights
+              // GLB drives the look: adopt its camera; surrender our lights
               // only when the GLB ships its own.
               if (gltf.cameras.length > 0) glbCamera = gltf.cameras[0] as unknown as THREE.Camera;
               let glbLightCount = 0;
@@ -219,15 +145,15 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
           },
           undefined,
           () => {
-            /* GLB indisponível — mantém piso, luzes e motes próprios */
+            /* GLB indisponível — fundo da página + party seguem renderizando */
           },
         );
       } catch {
-        /* loader sync failure — fall back to procedural */
+        /* loader sync failure — fundo da página + party seguem renderizando */
       }
     }
 
-    // ── pedestals + motes ───────────────────────────────────────────────
+    // ── pedestals ─────────────────────────────────────────────────────
     const pedestalMatPool = new Map<string, THREE.MeshBasicMaterial>();
     const pedestals: { ring: THREE.Mesh; glow: THREE.Mesh }[] = [];
     const pedestalGroup = new THREE.Group();
@@ -274,41 +200,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
       scene.add(holo);
       holos.push(holo);
     }
-
-    // liquid crystal motes — deterministic, blue/gold
-    const motesCount = settings.particleMode === 'off' ? 0 : settings.particleCount;
-    const motePositions = new Float32Array(motesCount * 3);
-    const moteSpeeds = new Float32Array(motesCount);
-    const motePhases = new Float32Array(motesCount);
-    for (let i = 0; i < motesCount; i++) {
-      motePositions[i * 3] = ((i * 37) % 100) / 100 * 44 - 22;
-      motePositions[i * 3 + 1] = 1 + ((i * 53) % 100) / 100 * 16;
-      motePositions[i * 3 + 2] = ((i * 29) % 100) / 100 * 20 - 10;
-      moteSpeeds[i] = 0.6 + ((i * 13) % 100) / 100 * 1.2;
-      motePhases[i] = (i * 0.7) % (Math.PI * 2);
-    }
-    const moteGeo = new THREE.BufferGeometry();
-    moteGeo.setAttribute('position', new THREE.BufferAttribute(motePositions, 3));
-    const gold = new THREE.Color(0xf59e0b);
-    const blue = new THREE.Color(0x60a5fa);
-    const moteCols = new Float32Array(motesCount * 3);
-    for (let i = 0; i < motesCount; i++) {
-      const col = i % 7 === 0 ? gold : blue;
-      moteCols[i * 3] = col.r;
-      moteCols[i * 3 + 1] = col.g;
-      moteCols[i * 3 + 2] = col.b;
-    }
-    moteGeo.setAttribute('color', new THREE.BufferAttribute(moteCols, 3));
-    const moteMat = new THREE.PointsMaterial({
-      size: settings.particleMode === 'pixels' ? 0.3 : 0.18,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.85,
-      sizeAttenuation: true,
-      depthWrite: false,
-    });
-    const motes = new THREE.Points(moteGeo, moteMat);
-    scene.add(motes);
 
     // ── party sprites (the real combat SpriteRig) ───────────────────────
     const rigs = new Map<string, SpriteRig>();
@@ -425,23 +316,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
 
-      // motes rise (suspended while the GLB is the environment)
-      if (!glbActive && motesCount > 0) {
-        const pos = moteGeo.getAttribute('position') as THREE.BufferAttribute;
-        const arr = pos.array as Float32Array;
-        for (let i = 0; i < motesCount; i++) {
-          const speed = moteSpeeds[i] ?? 0.6;
-          const phase = motePhases[i] ?? 0;
-          const y = arr[i * 3 + 1] ?? 0;
-          const x = arr[i * 3] ?? 0;
-          const nextY = y + speed * dt;
-          arr[i * 3 + 1] = nextY;
-          if (nextY > 17) arr[i * 3 + 1] = 0.5;
-          arr[i * 3] = x + Math.sin(elapsed * 0.5 + phase) * dt * 0.15;
-        }
-        pos.needsUpdate = true;
-      }
-
       // project figure labels onto the screen
       const w = host.clientWidth;
       const h = host.clientHeight;
@@ -491,12 +365,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
       for (const rig of rigs.values()) rig.dispose();
       rigs.clear();
       if (glbRoot !== null) scene.remove(glbRoot);
-      scene.remove(floor, motes, pedestalGroup);
-      floor.geometry.dispose();
-      floorMat.map?.dispose();
-      floorMat.dispose();
-      moteGeo.dispose();
-      moteMat.dispose();
+      scene.remove(pedestalGroup);
       for (const mat of pedestalMatPool.values()) mat.dispose();
       for (const holo of holos) {
         scene.remove(holo);

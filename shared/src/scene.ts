@@ -28,14 +28,16 @@ export type SceneEntity = {
     */
    readonly kind?: SceneKind;
   /**
-   * When true, combat renders this scene using whatever the GLB itself
-   * defines — its embedded cameras, lights, materials, environment — and
-   * ignores `settings` (except `modelFile` which stays as the mesh URL).
-   * When false / undefined, `settings` drives lighting/camera/fog like today.
-   *
-   * The frontend `SceneManager` still applies its default lights when the
-   * GLB provides none, so a bare-geometry GLB won't render pitch-black.
-   */
+     * When true, this scene's GLB defines the look: combat renders using whatever
+     * the GLB itself defines — its embedded lights, materials, environment — and
+     * ignores `settings` lighting (except `modelFile` which stays as the mesh
+     * URL). The lobby renderer additionally adopts the GLB's embedded camera and
+     * hides any of its own stage environment; combat composes its own camera from
+     * `settings` (camera is not yet adopted there).
+     *
+     * The frontend `SceneManager` still applies its default lights when the
+     * GLB provides none, so a bare-geometry GLB won't render pitch-black.
+     */
   readonly useGlbSettings?: boolean;
   readonly weather?: WeatherConfig | null;
   readonly timeOfDay?: TimeOfDayConfig | null;

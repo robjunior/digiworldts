@@ -13,6 +13,20 @@ import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
 import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
+/**
+ * EDITOR-SPLIT PLAN (anotação de esquema):
+ * O editor de cenas será separado por consumidor — nursery / city / lobby /
+ * combat — com UMA única base CRUD + validação reutilizada (SceneEntity,
+ * `kind`, envelope de `settings`). Cada kind liga o seu subset de settings:
+ *   - kind 'arena'  -> ArenaSettingsZ (sun/fog/camera/arena/GLB)
+ *   - kind 'lobby'  -> LobbySceneSettingsZ (palco da party: formação + drift)
+ *   - (futuro) 'nursery' / 'city' -> seus próprios subsets (mesma surface)
+ * A seção "Lobby (palco da party)" abaixo e os knobs de arena são os dois
+ * subsets atuais; quando o split acontecer, cada um vira uma tab/ab do editor
+ * reutilizando createScene/updateScene/getScenes (api-scenes.ts) sem duplicar
+ * o CRUD nem o preview. Novos knobs entram no subset — nunca no schema global.
+ */
+
 const DEFAULT_SETTINGS: SceneSettings = {
   sunColor: 0xfff2d0,
   sunIntensity: 1.0,
@@ -671,31 +685,20 @@ export function SceneSettingsAdmin(): JSX.Element {
                 )}
               </Section>
 
-              <Section title="Lobby (fundo da tela inicial)">
+              <Section title="Lobby (palco da party)">
                 <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
-                  Define o cenário 3D CSS do lobby: chão em perspectiva, grade, seam dourado,
-                  pedestais da party e partículas. Nomeie a cena de "{LOBBY_SCENE_NAME}"
-                  para o lobby usá-la (botão Lobby na lista cria com os padrões).
+                  O cenário do lobby vem SEMPRE do GLB em "GLB model file" (o
+                  modelo default da lista é usado se nenhum for escolhido — não
+                  existe cena procedural). Estes knobs configuram apenas o palco
+                  da party sobre o GLB. Cena com kind "lobby" (botão Lobby na
+                  lista) + "<code>useGlbSettings</code>" ligado = o GLB define
+                  câmera e luzes; desligado = o editor define luz/câmera.
                 </p>
-                <ColorRow label="Chão (base)" value={effectiveLobby.floorColor} onChange={(v) => patchLobby({ floorColor: v })} />
-                <ColorRow label="Grade" value={effectiveLobby.gridColor} onChange={(v) => patchLobby({ gridColor: v })} />
-                <SliderRow label="Opacidade da grade" value={effectiveLobby.gridOpacity} min={0} max={0.3} step={0.01} onChange={(v) => patchLobby({ gridOpacity: v })} />
-                <ColorRow label="Seam dourado" value={effectiveLobby.seamColor} onChange={(v) => patchLobby({ seamColor: v })} />
-                <SliderRow label="Opacidade do seam" value={effectiveLobby.seamOpacity} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ seamOpacity: v })} />
-                <ColorRow label="Glow ambiente" value={effectiveLobby.glowColor} onChange={(v) => patchLobby({ glowColor: v })} />
-                <SliderRow label="Intensidade do glow" value={effectiveLobby.glowOpacity} min={0} max={0.6} step={0.01} onChange={(v) => patchLobby({ glowOpacity: v })} />
-                <ToggleRow label="Spotlight central" value={effectiveLobby.spotlight} onChange={(v) => patchLobby({ spotlight: v })} />
                 <SliderRow label="Espaçamento dos pedestais (px)" value={effectiveLobby.pedestalSpacing} min={80} max={500} step={4} decimals={0} onChange={(v) => patchLobby({ pedestalSpacing: v })} />
                 <SliderRow label="Escala dos pedestais" value={effectiveLobby.pedestalScale} min={0.5} max={1.5} step={0.02} onChange={(v) => patchLobby({ pedestalScale: v })} />
                 <SliderRow label="Inclinação lateral (°)" value={effectiveLobby.sideTiltDeg} min={0} max={45} step={1} decimals={0} onChange={(v) => patchLobby({ sideTiltDeg: v })} />
                 <SliderRow label="Escala do pedestal central" value={effectiveLobby.centerScale} min={0.5} max={1.8} step={0.02} onChange={(v) => patchLobby({ centerScale: v })} />
                 <SliderRow label="Elevação do centro (px)" value={effectiveLobby.centerLift} min={0} max={160} step={2} decimals={0} onChange={(v) => patchLobby({ centerLift: v })} />
-                <RadioRow label="Partículas" value={effectiveLobby.particleMode} options={[
-                  { label: 'Dados', value: 'data' },
-                  { label: 'Pixels', value: 'pixels' },
-                  { label: 'Off', value: 'off' },
-                ]} onChange={(v) => patchLobby({ particleMode: v as LobbySceneSettings['particleMode'] })} />
-                <SliderRow label="Quantidade de partículas" value={effectiveLobby.particleCount} min={0} max={80} step={1} decimals={0} onChange={(v) => patchLobby({ particleCount: v })} />
                 <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
               </Section>
             </fieldset>

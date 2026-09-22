@@ -44,22 +44,20 @@ const WeatherOverrideZ = z.object({
   durationMs: z.number().int().min(1000).max(300_000),
 }).strict();
 
+/**
+ * Editor-split note: the scene editor is planned to be broken apart per
+ * consumer (nursery / city / lobby / combat), reusing this same CRUD + zod
+ * surface (SceneEntity, kind, settings envelope). Each `kind` binds its own
+ * settings subset — `lobby` here, `arena` in ArenaSettingsZ — and new kinds
+ * add their subset without touching the others. `.strict()` per subset keeps
+ * a scene's keys honest across every consumer.
+ */
 export const LobbySceneSettingsZ = z.object({
-  floorColor: z.number().int().min(0).max(0xffffff),
-  gridColor: z.number().int().min(0).max(0xffffff),
-  gridOpacity: z.number().min(0).max(1),
-  seamColor: z.number().int().min(0).max(0xffffff),
-  seamOpacity: z.number().min(0).max(1),
-  glowColor: z.number().int().min(0).max(0xffffff),
-  glowOpacity: z.number().min(0).max(1),
-  spotlight: z.boolean(),
   pedestalSpacing: z.number().min(0).max(1200),
   pedestalScale: z.number().min(0.3).max(2),
   sideTiltDeg: z.number().min(-60).max(60),
   centerScale: z.number().min(0.3).max(2),
   centerLift: z.number().min(-400).max(400),
-  particleMode: z.enum(['data', 'pixels', 'off']),
-  particleCount: z.number().int().min(0).max(200),
   driftIntensity: z.number().min(0).max(2),
 }).strict();
 

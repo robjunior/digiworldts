@@ -16,21 +16,11 @@ import { ArenaSettingsZ, LobbySceneSettingsZ } from '../src/scenes/routes.js';
 
 /** Canonical defaults — mirrors DEFAULT_LOBBY_SCENE in scene3d/src/scene.ts. */
 const DEFAULT_LOBBY_SCENE = {
-  floorColor: 0x0a0e1a,
-  gridColor: 0x60a5fa,
-  gridOpacity: 0.05,
-  seamColor: 0xf59e0b,
-  seamOpacity: 0.5,
-  glowColor: 0x3b82f6,
-  glowOpacity: 0.16,
-  spotlight: true,
   pedestalSpacing: 256,
   pedestalScale: 1,
   sideTiltDeg: 17,
   centerScale: 1.1,
   centerLift: 36,
-  particleMode: 'data',
-  particleCount: 26,
   driftIntensity: 1,
 } as const;
 
@@ -63,10 +53,14 @@ check(
   'floorColor out of range rejected',
   LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, floorColor: 0x1000000 }).success === false,
 );
-// 3d. invalid particle mode rejected
+// 3d. campos do ambiente procedural (removidos do schema) são rejeitados
 check(
-  'particleMode enum enforced',
-  LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, particleMode: 'sparks' }).success === false,
+  'campos do ambiente antigo (floorColor/particles) rejeitados (strict)',
+  LobbySceneSettingsZ.safeParse({
+    ...DEFAULT_LOBBY_SCENE,
+    floorColor: 0x0a0e1a,
+    particleCount: 26,
+  } as never).success === false,
 );
 
 // 4. `lobby` composes inside ArenaSettingsZ with arena keys

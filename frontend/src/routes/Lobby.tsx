@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 
 import type { LobbySceneSettings } from "@digiworld/scene3d/scene";
 import { DEFAULT_LOBBY_SCENE } from "@digiworld/scene3d/scene";
-import { getArenaUrl } from "@digiworld/scene3d/arena-urls";
+import { getArenaUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/arena-urls";
 
 import { useWebSocket } from "../hooks/useWebSocket";
 import {
@@ -212,8 +212,11 @@ export function Lobby(): JSX.Element {
   );
   const lobbyEntity = sceneEntityQuery.data;
   const modelFile = (lobbyEntity?.settings as Readonly<Record<string, unknown>> | undefined)?.modelFile;
-  const modelUrl =
-    typeof modelFile === "string" && modelFile.length > 0 ? getArenaUrl(modelFile) : null;
+  // O ambiente do lobby é SEMPRE um GLB — sem fallback procedural. Se a cena
+  // não escolher modelFile, usa o modelo default da lista de arenas.
+  const resolvedUrl =
+    typeof modelFile === "string" && modelFile.length > 0 ? getArenaUrl(modelFile) : undefined;
+  const modelUrl = resolvedUrl ?? getArenaUrl(DEFAULT_ARENA_MODEL ?? "") ?? null;
 
   const [activeMode, setActiveMode] = useState<GameMode>("ranked");
   const [panel, setPanel] = useState<PanelState>(null);
