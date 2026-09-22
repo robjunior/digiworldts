@@ -62,6 +62,10 @@ type LobbyRefs = {
 /** Recompute pedestals + party rig positions/scale/lights from lobby settings. */
 function applyLobbyStage(f: LobbyRefs, settings: SceneSettings, lobby: LobbySceneSettings): void {
   const partyY = lobby.partyHeight ?? 0;
+  // centraliza verticalmente a party — câmera acompanha o knob de altura
+  f.camera.position.y = partyY + 4.8;
+  f.camera.lookAt(0, partyY + 2.4, 0);
+  f.camera.updateProjectionMatrix();
   for (const l of f.lights) f.scene.remove(l);
   f.lights = [];
   const key = new THREE.DirectionalLight(settings.sunColor ?? 0xfff2d0, settings.sunIntensity ?? 1.4);

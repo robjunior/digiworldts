@@ -98,11 +98,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
     const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
-    // vertical world-offset of the party — admin knob to seat digimons on the
-    // scene's ground/ring (each GLB floors at a different height).
+    // vertical world-offset of the party — admin knob. Centraliza verticalmente:
+    // a câmera sobe junto e olha o centro vertical dos digimons (partyY+2.4).
     const partyY = settings.partyHeight ?? 0;
+    const camCenterY = partyY + 2.4;
+    cameraBase.y = partyY + 4.8;
     camera.position.copy(cameraBase);
-    camera.lookAt(0, 2.4, 0);
+    camera.lookAt(0, camCenterY, 0);
 
     // ── lights (editadas no editor de cenas; cedidas ao GLB quando
     //    useGlbSettings e o GLB traz as dele — política do loadArenaModelBare) ─
@@ -341,8 +343,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
           cameraBase.y + pitch * 6,
           -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
         );
-        // smooth camera look target
-        camera.lookAt(yaw * 1.5, 2.6 + pitch * 2, 0);
+        // smooth camera look target (always the party's vertical center)
+        camera.lookAt(yaw * 1.5, camCenterY + pitch * 2, 0);
       }
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
