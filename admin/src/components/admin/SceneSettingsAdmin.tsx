@@ -341,10 +341,20 @@ export function SceneSettingsAdmin(): JSX.Element {
     if (selectedId === null || draft === null) return;
     setSaveStatus('saving');
     try {
+      // aplaina o subset `lobby` com default no envio: o draft.settings pode
+      // carregar o lobby CRU de uma cena legada (ex.: sem partyHeight), e o
+      // zod rejeitaria. merge só quando o lobby já existe (arena não ganha).
+      const settings = { ...draft.settings };
+      if (settings.lobby !== undefined) {
+        settings.lobby = {
+          ...DEFAULT_LOBBY_SCENE,
+          ...(settings.lobby as Partial<LobbySceneSettings> | undefined),
+        };
+      }
       const res = await updateScene(selectedId, {
         name: draft.name,
         elements: draft.elements,
-        settings: draft.settings,
+        settings,
         useGlbSettings: draft.useGlbSettings,
         weather: draft.weather,
         timeOfDay: draft.timeOfDay,

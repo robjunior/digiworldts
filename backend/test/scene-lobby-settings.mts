@@ -96,4 +96,19 @@ check(
   sanitizeLobbySettings({ floorColor: 1, particleCount: 26 }) === undefined,
 );
 
+// 6. cena legada sem partyHeight (salva antes do knob) ainda salva — o campo
+// é opcional no zod; o frontend aplica o default (DEFAULT_LOBBY_SCENE).
+const legacyNoHeight = {
+  pedestalSpacing: 256,
+  pedestalScale: 1,
+  sideTiltDeg: 17,
+  centerScale: 1.1,
+  centerLift: 36,
+  driftIntensity: 1,
+};
+check(
+  'legacy lobby sem partyHeight aceito (optional)',
+  LobbySceneSettingsZ.safeParse(legacyNoHeight).success === true,
+);
+
 process.exit(failures > 0 ? 1 : 0);
