@@ -122,12 +122,17 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
             const box = new THREE.Box3().setFromObject(glbRoot);
             const size = box.getSize(new THREE.Vector3());
             const span = Math.max(size.x, size.y, size.z);
-            if (span > 0 && (span < 20 || span > 90)) {
-              const k = 48 / span;
-              glbRoot.scale.setScalar(k);
-            }
             const center = box.getCenter(new THREE.Vector3());
-            glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
+            if (glbDrives && gltf.cameras.length > 0) {
+              // Câmera embutida adotada — posição original (o autor enquadrou)
+              glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
+            } else {
+              // Nossa câmera enquadra a party: o GLB vira cenário de FUNDO,
+              // atrás dos pedestais, com o chão alinhado à linha da party.
+              const k = 34 / span;
+              if (span > 0) glbRoot.scale.setScalar(k);
+              glbRoot.position.set(-center.x, -box.min.y, -center.z - 26);
+            }
             scene.add(glbRoot);
 
             if (glbDrives) {

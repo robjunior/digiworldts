@@ -72,4 +72,27 @@ const arena = ArenaSettingsZ.safeParse({
 });
 check('lobby key accepted inside ArenaSettingsZ', arena.success === true);
 
+// 5. sanitizer rescata cenas antigas: só chaves conhecidas sobrevivem
+import { sanitizeLobbySettings } from '../src/scenes/lobby-schema.js';
+const dirty = {
+  floorColor: 0x0a0e1a,
+  gridColor: 0x60a5fa,
+  particleCount: 26,
+  pedestalSpacing: 256,
+  driftIntensity: 1,
+};
+const clean = sanitizeLobbySettings(dirty);
+check(
+  'sanitizeLobbySettings descarta campos do ambiente antigo',
+  clean !== undefined
+    && Object.keys(clean ?? {}).length === 2
+    && clean!.pedestalSpacing === 256
+    && clean!.driftIntensity === 1
+    && !('floorColor' in (clean ?? {})),
+);
+check(
+  'sanitizeLobbySettings retorna undefined sem chaves conhecidas',
+  sanitizeLobbySettings({ floorColor: 1, particleCount: 26 }) === undefined,
+);
+
 process.exit(failures > 0 ? 1 : 0);

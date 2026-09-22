@@ -11,6 +11,10 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
+import { LobbySceneSettingsZ } from './lobby-schema.js';
+
+export { LobbySceneSettingsZ } from './lobby-schema.js';
+
 import {
   copySceneEntry,
   createSceneEntry,
@@ -44,22 +48,6 @@ const WeatherOverrideZ = z.object({
   durationMs: z.number().int().min(1000).max(300_000),
 }).strict();
 
-/**
- * Editor-split note: the scene editor is planned to be broken apart per
- * consumer (nursery / city / lobby / combat), reusing this same CRUD + zod
- * surface (SceneEntity, kind, settings envelope). Each `kind` binds its own
- * settings subset — `lobby` here, `arena` in ArenaSettingsZ — and new kinds
- * add their subset without touching the others. `.strict()` per subset keeps
- * a scene's keys honest across every consumer.
- */
-export const LobbySceneSettingsZ = z.object({
-  pedestalSpacing: z.number().min(0).max(1200),
-  pedestalScale: z.number().min(0.3).max(2),
-  sideTiltDeg: z.number().min(-60).max(60),
-  centerScale: z.number().min(0.3).max(2),
-  centerLift: z.number().min(-400).max(400),
-  driftIntensity: z.number().min(0).max(2),
-}).strict();
 
 export const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),

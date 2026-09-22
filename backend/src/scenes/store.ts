@@ -8,6 +8,7 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { sanitizeLobbySettings } from './lobby-schema.js';
 import { newId } from '../util/ids.js';
 
 const SCENES_PATH = resolve(config.paths.dataDir, 'scenes', 'scenes.json');
@@ -44,6 +45,12 @@ function coerceScene(raw: unknown): SceneEntity | null {
   const settings: Record<string, unknown> = typeof settingsRaw === 'object' && settingsRaw !== null && !Array.isArray(settingsRaw)
     ? { ...(settingsRaw as Record<string, unknown>) }
     : {};
+  // Sanitize the lobby subset on read: scenes saved before the schema shrank
+  // carry leftover keys (floorColor, particles…) that .strict() would reject on
+  // the next write. Salvage = only known keys survive; empty stays undefined.
+  const lobby = sanitizeLobbySettings(settings['lobby']);
+  if (lobby !== undefined) settings['lobby'] = lobby;
+  else delete settings['lobby'];
   const useGlb = rec['useGlbSettings'] === true;
   const kind = rec['kind'] === 'lobby' || rec['kind'] === 'arena' ? rec['kind'] : undefined;
   const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
