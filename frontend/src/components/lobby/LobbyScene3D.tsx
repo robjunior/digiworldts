@@ -156,8 +156,9 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
     rim.position.set(8, 6, -8);
     ownLights.push(rim);
     scene.add(rim);
+    let spot: THREE.SpotLight | null = null;
     if (settings.spotlight) {
-      const spot = new THREE.SpotLight(hex(settings.glowColor), 2.2, 60, 0.5, 0.45, 1.6);
+      spot = new THREE.SpotLight(hex(settings.glowColor), 2.2, 60, 0.5, 0.45, 1.6);
       spot.position.set(0, 16, 6);
       spot.target.position.set(0, 0, 0);
       ownLights.push(spot);
@@ -172,9 +173,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
     floor.position.y = GROUND_Y - 0.02;
     scene.add(floor);
 
-    // optional GLB environment
+    // optional GLB environment — a configured GLB IS the scene: the procedural
+    // floor/spotlight/motes surrender to it (they only render when no GLB is
+    // set or the GLB fails to load). useGlbSettings additionally adopts the
+    // GLB's embedded camera and, when it ships lights, ours are removed.
     let glbRoot: THREE.Group | null = null;
     let glbCamera: THREE.Camera | null = null;
+    let glbActive = false;
     const glbDrives = useGlbSettings === true;
     if (modelUrl) {
       try {
@@ -192,12 +197,17 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
             const center = box.getCenter(new THREE.Vector3());
             glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
             scene.add(glbRoot);
+            glbActive = true;
+
+            // ambiente montado cede ao GLB — só o GLB renderiza o cenário
+            floor.visible = false;
+            motes.visible = false;
+            if (spot !== null) spot.visible = false;
 
             if (glbDrives) {
-              // GLB drives the look: adopt its camera, hide our procedural
-              // floor, and surrender our lights only when the GLB ships its own.
+              // GLB drives the look: adopt its camera, surrender our lights
+              // only when the GLB ships its own.
               if (gltf.cameras.length > 0) glbCamera = gltf.cameras[0] as unknown as THREE.Camera;
-              floor.visible = false;
               let glbLightCount = 0;
               glbRoot.traverse((obj) => {
                 if ((obj as THREE.Light).isLight) glbLightCount += 1;
@@ -209,7 +219,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
           },
           undefined,
           () => {
-            /* GLB indisponível — mantém piso e luzes próprias */
+            /* GLB indisponível — mantém piso, luzes e motes próprios */
           },
         );
       } catch {
@@ -415,8 +425,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
 
-      // motes rise
-      if (motesCount > 0) {
+      // motes rise (suspended while the GLB is the environment)
+      if (!glbActive && motesCount > 0) {
         const pos = moteGeo.getAttribute('position') as THREE.BufferAttribute;
         const arr = pos.array as Float32Array;
         for (let i = 0; i < motesCount; i++) {
