@@ -37,6 +37,8 @@ type Props = {
   readonly party: readonly (LobbyFigure | null)[];
   /** Optional arena GLB URL to use as the lobby environment. */
   readonly modelUrl?: string | null;
+  /** GLB-driven mode: use the GLB's own camera/lights/floor and surrender ours. */
+  readonly useGlbSettings?: boolean;
   readonly onOpenCreature?: (monId: string) => void;
 };
 
@@ -114,7 +116,7 @@ function makeFloorTexture(s: LobbySceneSettings): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c);
 }
 
-export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Props): JSX.Element {
+export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
@@ -141,18 +143,24 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
     camera.position.copy(cameraBase);
     camera.lookAt(0, 2.4, 0);
 
-    // ── lights ──────────────────────────────────────────────────────────
-    scene.add(new THREE.HemisphereLight(0x88a8d0, 0x1b2130, 0.9));
+    // ── lights (surrendered to the GLB when useGlbSettings ships its own) ─
+    const ownLights: THREE.Light[] = [];
+    const hemi = new THREE.HemisphereLight(0x88a8d0, 0x1b2130, 0.9);
+    ownLights.push(hemi);
+    scene.add(hemi);
     const key = new THREE.DirectionalLight(0xfff2d0, 1.4);
     key.position.set(-6, 12, 8);
+    ownLights.push(key);
     scene.add(key);
     const rim = new THREE.DirectionalLight(0x2c74ff, 0.5);
     rim.position.set(8, 6, -8);
+    ownLights.push(rim);
     scene.add(rim);
     if (settings.spotlight) {
       const spot = new THREE.SpotLight(hex(settings.glowColor), 2.2, 60, 0.5, 0.45, 1.6);
       spot.position.set(0, 16, 6);
       spot.target.position.set(0, 0, 0);
+      ownLights.push(spot);
       scene.add(spot, spot.target);
     }
 
@@ -166,27 +174,47 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
 
     // optional GLB environment
     let glbRoot: THREE.Group | null = null;
+    let glbCamera: THREE.Camera | null = null;
+    const glbDrives = useGlbSettings === true;
     if (modelUrl) {
-      new GLTFLoader().load(
-        modelUrl,
-        (gltf) => {
-          glbRoot = gltf.scene;
-          const box = new THREE.Box3().setFromObject(glbRoot);
-          const size = box.getSize(new THREE.Vector3());
-          const span = Math.max(size.x, size.y, size.z);
-          if (span > 0 && (span < 20 || span > 90)) {
-            const k = 48 / span;
-            glbRoot.scale.setScalar(k);
-          }
-          const center = box.getCenter(new THREE.Vector3());
-          glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
-          scene.add(glbRoot);
-        },
-        undefined,
-        () => {
-          /* GLB indisponível — mantém o piso procedural */
-        },
-      );
+      try {
+        new GLTFLoader().load(
+          modelUrl,
+          (gltf) => {
+            glbRoot = gltf.scene;
+            const box = new THREE.Box3().setFromObject(glbRoot);
+            const size = box.getSize(new THREE.Vector3());
+            const span = Math.max(size.x, size.y, size.z);
+            if (span > 0 && (span < 20 || span > 90)) {
+              const k = 48 / span;
+              glbRoot.scale.setScalar(k);
+            }
+            const center = box.getCenter(new THREE.Vector3());
+            glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
+            scene.add(glbRoot);
+
+            if (glbDrives) {
+              // GLB drives the look: adopt its camera, hide our procedural
+              // floor, and surrender our lights only when the GLB ships its own.
+              if (gltf.cameras.length > 0) glbCamera = gltf.cameras[0] as unknown as THREE.Camera;
+              floor.visible = false;
+              let glbLightCount = 0;
+              glbRoot.traverse((obj) => {
+                if ((obj as THREE.Light).isLight) glbLightCount += 1;
+              });
+              if (glbLightCount > 0) {
+                for (const l of ownLights) scene.remove(l);
+              }
+            }
+          },
+          undefined,
+          () => {
+            /* GLB indisponível — mantém piso e luzes próprias */
+          },
+        );
+      } catch {
+        /* loader sync failure — fall back to procedural */
+      }
     }
 
     // ── pedestals + motes ───────────────────────────────────────────────
@@ -310,18 +338,24 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
         wanted.add(fig.id);
         let rig = rigs.get(fig.id);
         if (rig === undefined) {
-          rig = new SpriteRig(scene, {
-            unitId: fig.id,
-            side: 'you',
-            slotIndex: 0,
-            textureUrl: unitSpriteSheetUrl(fig.catalogId),
-            isSpritesheet: true,
-            idleAnimated: true,
-            initiallyDowned: false,
-            onClick: undefined,
-          });
-          rig.setArenaBaselineY(0);
-          rigs.set(fig.id, rig);
+          try {
+            rig = new SpriteRig(scene, {
+              unitId: fig.id,
+              side: 'you',
+              slotIndex: 0,
+              textureUrl: unitSpriteSheetUrl(fig.catalogId),
+              isSpritesheet: true,
+              idleAnimated: true,
+              initiallyDowned: false,
+              onClick: undefined,
+            });
+            rig.setArenaBaselineY(0);
+            rigs.set(fig.id, rig);
+          } catch (err) {
+            // one failing sprite must never blank the whole scene
+            console.warn('[LobbyScene3D] sprite create failed', fig.id, err);
+            continue;
+          }
         }
         bySlot.set(slot, rig);
         rig.setTextureUrl(unitSpriteSheetUrl(fig.catalogId));
@@ -361,19 +395,25 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
       const dt = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
 
-      // camera drift: slow idle orbit + subtle pointer parallax
-      const k = reduced ? 0 : settings.driftIntensity;
-      const yaw = k * (Math.sin(elapsed * 0.14) * 0.06 + mouseX * 0.09);
-      const pitch = k * (Math.cos(elapsed * 0.11) * 0.04 + mouseY * 0.06);
-      camera.position.set(
-        cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
-        cameraBase.y + pitch * 6,
-        -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
-      );
-      // smooth camera look target
-      camera.lookAt(yaw * 1.5, 2.6 + pitch * 2, 0);
+      // GLB-driven scenes keep the author's camera (no drift/lookAt tampering)
+      const useGlbCam = glbCamera !== null;
+      const activeCam = useGlbCam ? glbCamera! : camera;
 
-      for (const rig of rigs.values()) rig.update(dt, elapsed, camera.quaternion);
+      if (!useGlbCam) {
+        // camera drift: slow idle orbit + subtle pointer parallax
+        const k = reduced ? 0 : settings.driftIntensity;
+        const yaw = k * (Math.sin(elapsed * 0.14) * 0.06 + mouseX * 0.09);
+        const pitch = k * (Math.cos(elapsed * 0.11) * 0.04 + mouseY * 0.06);
+        camera.position.set(
+          cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
+          cameraBase.y + pitch * 6,
+          -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
+        );
+        // smooth camera look target
+        camera.lookAt(yaw * 1.5, 2.6 + pitch * 2, 0);
+      }
+
+      for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
 
       // motes rise
       if (motesCount > 0) {
@@ -399,7 +439,7 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
         const label = labelRefs.current[slot];
         const rig = bySlot.get(slot);
         if (!label || !rig) continue;
-        labelV.copy(rig.worldPosition).project(camera);
+        labelV.copy(rig.worldPosition).project(activeCam);
         if (labelV.z > 1) {
           label.hidden = true;
         } else {
@@ -412,9 +452,11 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
       const holoPulse = 0.2 + (Math.sin(elapsed * 2.2) + 1) * 0.07;
       for (const holo of holos) (holo.material as THREE.MeshBasicMaterial).opacity = holoPulse;
 
-      renderer.render(scene, camera);
+      renderer.render(scene, activeCam);
       raf = requestAnimationFrame(loop);
     };
+    // first paint immediately — never a black frame while the rAF warms up
+    renderer.render(scene, camera);
     raf = requestAnimationFrame(loop);
 
     const resizeObserver = new ResizeObserver((entries) => {

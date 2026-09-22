@@ -339,6 +339,7 @@ export function Lobby(): JSX.Element {
         settings={sceneSettings}
         party={figures}
         modelUrl={modelUrl ?? null}
+        useGlbSettings={lobbyEntity?.useGlbSettings === true}
         onOpenCreature={(id) => navigate(`/creature/${id}`)}
       />
 
