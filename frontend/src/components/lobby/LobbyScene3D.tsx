@@ -76,6 +76,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
   const partySyncRef = useRef<() => void>(() => undefined);
+  const partyRef = useRef<Props['party']>(party);
+  partyRef.current = party;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -200,11 +202,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       pedestals.push({ ring, glow });
     };
 
-    for (const fig of party) buildPedestal(fig?.element ?? 'water');
+    for (const fig of partyRef.current) buildPedestal(fig?.element ?? 'water');
 
     // holo placeholder for empty slots
     const holos: THREE.Mesh[] = [];
-    for (const fig of party) {
+    for (const fig of partyRef.current) {
       if (fig !== null && fig !== undefined) continue;
       const mat = new THREE.MeshBasicMaterial({
         color: 0x60a5fa,
@@ -245,8 +247,18 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     const syncParty = (): void => {
       const wanted = new Set<string>();
       for (let slot = 0; slot < 3; slot++) {
-        const fig = party[slot];
+        const fig = partyRef.current[slot];
         const label = labelRefs.current[slot];
+        // recalibra o pedestal do slot com a cor de elemento da figura atual
+        const p = pedestals[slot];
+        if (p) {
+          const col = elementColor(fig?.element ?? 'water');
+          (p.ring.material as THREE.MeshBasicMaterial).color.copy(col);
+          (p.glow.material as THREE.MeshBasicMaterial).color.copy(col);
+        }
+        // holo do slot vazio aparece; com figura, some
+        const holo = holos[slot];
+        if (holo) holo.visible = fig === null || fig === undefined;
         if (!fig) {
           if (label !== null && label !== undefined) {
             label.hidden = false;
