@@ -62,9 +62,10 @@ type LobbyRefs = {
 /** Recompute pedestals + party rig positions/scale/lights from lobby settings. */
 function applyLobbyStage(f: LobbyRefs, settings: SceneSettings, lobby: LobbySceneSettings): void {
   const partyY = lobby.partyHeight ?? 0;
-  // centraliza verticalmente a party — câmera acompanha o knob de altura
-  f.camera.position.y = partyY + 4.8;
-  f.camera.lookAt(0, partyY + 2.4, 0);
+  // centraliza verticalmente a party no centro exato da geometria
+  const partyH = 0.7 * 5.2 * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1);
+  f.camera.lookAt(0, partyY + partyH / 2, 0);
+  f.camera.position.y = partyY + partyH / 2 + 3.2;
   f.camera.updateProjectionMatrix();
   for (const l of f.lights) f.scene.remove(l);
   f.lights = [];

@@ -98,11 +98,12 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
     const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
-    // vertical world-offset of the party — admin knob. Centraliza verticalmente:
-    // a câmera sobe junto e olha o centro vertical dos digimons (partyY+2.4).
+    // vertical world-offset of the party — admin knob. Centraliza verticalmente no
+    // centro EXATO da geometria: altura do sprite central (0.7·5.2·center·ped).
     const partyY = settings.partyHeight ?? 0;
-    const camCenterY = partyY + 2.4;
-    cameraBase.y = partyY + 4.8;
+    const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
+    const camCenterY = partyY + partyH / 2;
+    cameraBase.y = camCenterY + 3.2;
     camera.position.copy(cameraBase);
     camera.lookAt(0, camCenterY, 0);
 
