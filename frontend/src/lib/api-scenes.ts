@@ -26,24 +26,33 @@ export function invalidateScenesCache(): void {
 }
 
 /**
- * Resolve the Lobby backdrop settings: the SceneEntity named "Lobby"
- * (case-insensitive), defined in the admin scene editor, merged over
- * {@link DEFAULT_LOBBY_SCENE}. Returns the built-in defaults when no scene
- * has been created yet, so the lobby always renders.
+ * Resolve the Lobby backdrop settings: the SceneEntity configured for the
+ * lobby — `kind === 'lobby'` first, falling back to the scene named "Lobby"
+ * (case-insensitive) — merged over {@link DEFAULT_LOBBY_SCENE}. Returns the
+ * built-in defaults when no scene has been created yet, so the lobby always
+ * renders.
  */
 export async function getLobbyScene(): Promise<LobbySceneSettings> {
   const scenes = await getScenes();
-  const lobby = scenes.find(
-    (s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase(),
-  );
+  const lobby = scenes.find((s) => s.kind === 'lobby')
+    ?? scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
   const stored = (lobby?.settings as Readonly<Record<string, unknown>> | undefined)?.lobby;
   if (!stored || typeof stored !== 'object') return DEFAULT_LOBBY_SCENE;
   return { ...DEFAULT_LOBBY_SCENE, ...(stored as Partial<LobbySceneSettings>) };
 }
 
+/** The SceneEntity currently configured as the lobby backdrop (kind or name). */
+export async function getLobbySceneEntity(): Promise<SceneEntity | null> {
+  const scenes = await getScenes();
+  return scenes.find((s) => s.kind === 'lobby')
+    ?? scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase())
+    ?? null;
+}
+
 export type SceneCreateBody = {
   readonly name: string;
   readonly elements: readonly Element[];
+  readonly kind?: 'arena' | 'lobby';
   readonly settings: Readonly<Record<string, unknown>>;
   readonly useGlbSettings?: boolean;
 };

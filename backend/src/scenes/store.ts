@@ -45,6 +45,7 @@ function coerceScene(raw: unknown): SceneEntity | null {
     ? { ...(settingsRaw as Record<string, unknown>) }
     : {};
   const useGlb = rec['useGlbSettings'] === true;
+  const kind = rec['kind'] === 'lobby' || rec['kind'] === 'arena' ? rec['kind'] : undefined;
   const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
   const timeOfDay = coerceNullableObject<TimeOfDayConfig>(rec['timeOfDay']);
   const created = typeof rec['createdAt'] === 'number' ? rec['createdAt'] : Date.now();
@@ -54,6 +55,7 @@ function coerceScene(raw: unknown): SceneEntity | null {
     name: rec['name'],
     elements,
     settings,
+    ...(kind !== undefined ? { kind } : {}),
     useGlbSettings: useGlb,
     weather,
     timeOfDay,
@@ -155,6 +157,7 @@ export type SceneWriteInput = {
   readonly name: string;
   readonly elements: readonly Element[];
   readonly settings: Readonly<Record<string, unknown>>;
+  readonly kind?: 'arena' | 'lobby';
   readonly useGlbSettings?: boolean;
   readonly weather?: WeatherConfig | null;
   readonly timeOfDay?: TimeOfDayConfig | null;
@@ -168,6 +171,7 @@ export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEnt
     name: input.name.trim(),
     elements: [...input.elements],
     settings: { ...input.settings },
+    ...(input.kind !== undefined ? { kind: input.kind } : {}),
     useGlbSettings: input.useGlbSettings === true,
     weather: input.weather ?? null,
     timeOfDay: input.timeOfDay ?? null,
@@ -188,6 +192,9 @@ export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInpu
     name: patch.name !== undefined ? patch.name.trim() : existing.name,
     elements: patch.elements !== undefined ? [...patch.elements] : existing.elements,
     settings: patch.settings !== undefined ? { ...patch.settings } : existing.settings,
+    ...(patch.kind !== undefined || existing.kind !== undefined
+      ? { kind: (patch.kind ?? existing.kind) as 'arena' | 'lobby' }
+      : {}),
     useGlbSettings: patch.useGlbSettings !== undefined ? patch.useGlbSettings === true : (existing.useGlbSettings ?? false),
     weather: patch.weather !== undefined ? patch.weather : (existing.weather ?? null),
     timeOfDay: patch.timeOfDay !== undefined ? patch.timeOfDay : (existing.timeOfDay ?? null),

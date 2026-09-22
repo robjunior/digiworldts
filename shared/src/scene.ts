@@ -9,15 +9,24 @@ import type { TimeOfDayConfig, WeatherConfig } from './weather.js';
  * `modelFile`).
  *
  * The `settings` field intentionally stays untyped at the shared boundary —
- * `SceneSettings` lives in the frontend `scene3d` module and the backend zod
- * validator is the source of truth for allowed keys. Rendering code casts
- * this to `Partial<SceneSettings>` on the frontend after fetch.
- */
+    * `SceneSettings` lives in the frontend `scene3d` module and the backend zod
+    * validator is the source of truth for allowed keys. Rendering code casts
+    * this to `Partial<SceneSettings>` on the frontend after fetch.
+    */
+export type SceneKind = 'arena' | 'lobby';
+
 export type SceneEntity = {
-  readonly id: string;
-  readonly name: string;
-  readonly elements: readonly Element[];
-  readonly settings: Readonly<Record<string, unknown>>;
+   readonly id: string;
+   readonly name: string;
+   readonly elements: readonly Element[];
+   readonly settings: Readonly<Record<string, unknown>>;
+   /**
+    * What consumes this scene: `arena` (default) drives combat lighting/camera/
+    * fog; `lobby` renders the home-screen 3D backdrop (party pedestals, floor,
+    * motes) from `settings.lobby` + optional `modelFile`. Lobby lookup prefers
+    * `kind === 'lobby'` and falls back to the scene named "Lobby".
+    */
+   readonly kind?: SceneKind;
   /**
    * When true, combat renders this scene using whatever the GLB itself
    * defines — its embedded cameras, lights, materials, environment — and

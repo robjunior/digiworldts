@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 
 import type { LobbySceneSettings } from "@digiworld/scene3d/scene";
 import { DEFAULT_LOBBY_SCENE } from "@digiworld/scene3d/scene";
+import { getArenaUrl } from "@digiworld/scene3d/arena-urls";
 
 import { useWebSocket } from "../hooks/useWebSocket";
 import {
@@ -20,12 +21,13 @@ import {
 } from "../lib/api";
 import { getDigdex } from "../lib/api-digdex";
 import { getPvpQuests } from "../lib/api-pvp-quests";
-import { getLobbyScene } from "../lib/api-scenes";
+import { getLobbyScene, getLobbySceneEntity } from "../lib/api-scenes";
 import { getShop } from "../lib/api-shop";
 import { useWsStore } from "../state/wsStore";
 import { DigimonSprite } from "../components/common/DigimonSprite";
 import { TopBar } from "../components/topbar/TopBar";
 import { SocialRail } from "../components/social/SocialRail";
+import { LobbyScene3D, type LobbyFigure } from "../components/lobby/LobbyScene3D";
 import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
 import "../styles/social-rail.css";
@@ -100,43 +102,7 @@ const MODE_ICON_PATHS: Record<GameMode, string> = {
     "M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83",
 };
 
-/* ── lobby scene settings plumbing ──────────────────────────────────── */
-const toCss = (n: number): string => `#${n.toString(16).padStart(6, "0")}`;
-
-function sceneVars(s: LobbySceneSettings): CSSProperties {
-  return {
-    "--lfloor": toCss(s.floorColor),
-    "--lgrid": toCss(s.gridColor),
-    "--lgrid-o": String(s.gridOpacity),
-    "--lseam": toCss(s.seamColor),
-    "--lseam-o": String(s.seamOpacity),
-    "--lglow": toCss(s.glowColor),
-    "--lglow-o": String(s.glowOpacity),
-    "--lspacing": `${s.pedestalSpacing}px`,
-    "--ls": String(s.pedestalScale),
-    "--ltilt": `${s.sideTiltDeg}deg`,
-    "--lcs": String(s.centerScale),
-    "--llift": `${s.centerLift}px`,
-  } as CSSProperties;
-}
-
-type Mote = { left: number; top: number; d: number; del: number; mx: number; gold: boolean };
-
-function buildMotes(count: number): Mote[] {
-  const motes: Mote[] = [];
-  for (let i = 0; i < count; i++) {
-    motes.push({
-      left: (i * 37) % 100,
-      top: 52 + ((i * 53) % 44),
-      d: 6 + ((i * 13) % 10),
-      del: (i * 0.7) % 6.5,
-      mx: ((i % 5) - 2) * 11,
-      gold: i % 7 === 0,
-    });
-  }
-  return motes;
-}
-
+/* ── lobby scene plumbing ───────────────────────────────────────────── */
 const elementOf = (mon: RosterView): string =>
   mon.template?.element ?? mon.template?.attribute ?? "water";
 
@@ -159,7 +125,12 @@ export function Lobby(): JSX.Element {
   const queryClient = useQueryClient();
 
   /* ── data ─────────────────────────────────────────────────────── */
-  const rosterQuery = useQuery({ queryKey: ROSTER_QUERY_KEY, queryFn: getRoster });
+  const rosterQuery = useQuery({
+    queryKey: ROSTER_QUERY_KEY,
+    queryFn: getRoster,
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+  });
   const lastMatchQuery = useQuery({
     queryKey: LAST_MATCH_QUERY_KEY,
     queryFn: getLastMatch,
@@ -174,6 +145,11 @@ export function Lobby(): JSX.Element {
   const sceneQuery = useQuery({
     queryKey: SCENE_QUERY_KEY,
     queryFn: getLobbyScene,
+    staleTime: 60_000,
+  });
+  const sceneEntityQuery = useQuery({
+    queryKey: ["lobby-scene-entity"] as const,
+    queryFn: getLobbySceneEntity,
     staleTime: 60_000,
   });
   const shopQuery = useQuery({
@@ -223,18 +199,26 @@ export function Lobby(): JSX.Element {
   const partyReady = filledParty >= 3;
 
   const sceneSettings = sceneQuery.data ?? DEFAULT_LOBBY_SCENE;
-
-  const motes = useMemo(
-    () =>
-      sceneSettings.particleMode === "off" ? [] : buildMotes(sceneSettings.particleCount),
-    [sceneSettings.particleMode, sceneSettings.particleCount],
+  const figures: (LobbyFigure | null)[] = partySlots.map((m) =>
+    m
+      ? {
+          id: m.id,
+          catalogId: m.catalogId,
+          nickname: m.nickname,
+          level: m.level,
+          element: elementOf(m),
+        }
+      : null,
   );
+  const lobbyEntity = sceneEntityQuery.data;
+  const modelFile = (lobbyEntity?.settings as Readonly<Record<string, unknown>> | undefined)?.modelFile;
+  const modelUrl =
+    typeof modelFile === "string" && modelFile.length > 0 ? getArenaUrl(modelFile) : null;
 
   const [activeMode, setActiveMode] = useState<GameMode>("ranked");
   const [panel, setPanel] = useState<PanelState>(null);
   const [setOpen, setSetOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
-  const [particlesOn, setParticlesOn] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
@@ -286,43 +270,6 @@ export function Lobby(): JSX.Element {
     return () => document.removeEventListener("mousedown", onDown);
   }, [setOpen]);
 
-  /* camera drift — slow idle orbit + subtle pointer parallax */
-  const driftRef = useRef(sceneSettings.driftIntensity);
-  driftRef.current = sceneSettings.driftIntensity;
-  useEffect(() => {
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let raf = 0;
-    let mx = 0;
-    let my = 0;
-    let cx = 0;
-    let cy = 0;
-    let auto = 0;
-    const world = document.getElementById("lob-world");
-    if (!world) return;
-    const onMove = (e: PointerEvent): void => {
-      mx = e.clientX / window.innerWidth - 0.5;
-      my = e.clientY / window.innerHeight - 0.5;
-    };
-    window.addEventListener("pointermove", onMove, { passive: true });
-    const loop = (): void => {
-      auto += 0.0011;
-      const k = driftRef.current;
-      const tx = mx * 0.7 + Math.sin(auto) * 0.5;
-      const ty = my * 0.5 + Math.cos(auto * 0.62) * 0.22;
-      cx += (tx - cx) * 0.04;
-      cy += (ty - cy) * 0.04;
-      world.style.transform = k > 0
-        ? `rotateY(${cx * 2.4 * k}deg) rotateX(${-cy * 1.7 * k}deg) translate3d(${cx * -12 * k}px,${cy * -8 * k}px,0)`
-        : "";
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      cancelAnimationFrame(raf);
-    };
-  }, []);
-
   /* dark theme for this screen only */
   useEffect(() => {
     document.documentElement.classList.add("is-lobby");
@@ -344,101 +291,9 @@ export function Lobby(): JSX.Element {
       : "Searching"
     : null;
 
-  const setToggle = (key: "sfx" | "music" | "particles", val: boolean): void => {
-    if (key === "particles") setParticlesOn(val);
-    showToast(`${key === "sfx" ? "SFX" : key === "music" ? "Música" : "Partículas"} ${val ? "ativado" : "desativado"}`);
+  const setToggle = (key: "sfx" | "music", val: boolean): void => {
+    showToast(`${key === "sfx" ? "SFX" : "Música"} ${val ? "ativado" : "desativado"}`);
   };
-
-  /* ── scene ─────────────────────────────────────────────────────── */
-  const scene = (
-    <div
-      className="lobby-scene"
-      data-od-id="lobby-scene3d"
-      style={sceneVars(sceneSettings)}
-    >
-      <div className="ls-world" id="lob-world">
-        <div className="ls-bg" aria-hidden="true" />
-        <div className="ls-floor" aria-hidden="true" />
-        {sceneSettings.spotlight && <div className="ls-spot" aria-hidden="true" />}
-        {particlesOn && motes.length > 0 && (
-          <div className="ls-motes" aria-hidden="true">
-            {motes.map((m, i) => (
-              <i
-                key={i}
-                className={`mote${m.gold ? " gold" : ""}`}
-                style={
-                  {
-                    left: `${m.left}%`,
-                    top: `${m.top}%`,
-                    "--d": `${m.d}s`,
-                    "--del": `${m.del}s`,
-                    "--mx": `${m.mx}px`,
-                  } as CSSProperties
-                }
-              />
-            ))}
-          </div>
-        )}
-        <div className="scene-mons" role="group" aria-label="Sua party — clique para abrir o perfil">
-          {partySlots.map((mon, i) =>
-            mon ? (
-              <button
-                key={i}
-                type="button"
-                className="dm3"
-                data-pos={i}
-                style={{ "--dm": `var(--el-${elementOf(mon)})` } as CSSProperties}
-                aria-label={`Abrir ${mon.nickname} (Lv ${mon.level}) — perfil`}
-                title={`${mon.nickname} · Lv ${mon.level} — clique para abrir`}
-                onClick={() => navigate(`/creature/${mon.id}`)}
-              >
-                <span className="ped" aria-hidden="true">
-                  <i className="ped-halo" />
-                  <i className="ped-ring" />
-                  <i className="ped-core" />
-                </span>
-                <span className="scone" aria-hidden="true" />
-                <span className="dmf">
-                  <DigimonSprite catalogId={mon.catalogId} className="dm-img" alt="" />
-                </span>
-                <span className="lvb">Lv {mon.level}</span>
-                <span className="nmb">
-                  <span className="n1">{mon.nickname}</span>
-                  <span className="n2">{elementOf(mon)}</span>
-                </span>
-              </button>
-            ) : (
-              <button
-                key={i}
-                type="button"
-                className="dm3 empty"
-                data-pos={i}
-                aria-label={`Slot ${i + 1} da party vazio — convidar um Digimon`}
-                title="Vazio — convidar"
-                onClick={() => openPanel("r", "party")}
-              >
-                <span className="ped" aria-hidden="true">
-                  <i className="ped-halo" />
-                  <i className="ped-ring" />
-                  <i className="ped-core" />
-                </span>
-                <span className="holo" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M12 3l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8V7z" />
-                    <path d="M9.5 12l1.8 1.8L15 10" />
-                  </svg>
-                </span>
-                <span className="nmb">
-                  <span className="n1">Vazio</span>
-                  <span className="n2">Convidar</span>
-                </span>
-              </button>
-            ),
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
   /* ── shared small bits ─────────────────────────────────────────── */
   const plaqueNames =
@@ -479,8 +334,13 @@ export function Lobby(): JSX.Element {
     <div className="lobby-shell" data-od-id="lobby-shell">
       <TopBar />
 
-      {/* 3D backdrop — viewport inteiro, party no centro */}
-      {scene}
+      {/* 3D cena do lobby — SceneEntity kind:'lobby', party em tempo real */}
+      <LobbyScene3D
+        settings={sceneSettings}
+        party={figures}
+        modelUrl={modelUrl ?? null}
+        onOpenCreature={(id) => navigate(`/creature/${id}`)}
+      />
 
       {/* UI overlay — bordas e cantos são as zonas nobres */}
       <div className="lob-stage" data-od-id="lobby-stage">
@@ -967,17 +827,16 @@ export function Lobby(): JSX.Element {
           [
             ["sfx", "SFX"],
             ["music", "Música"],
-            ["particles", "Partículas"],
           ] as const
         ).map(([key, label]) => (
           <div key={key} className="set-row">
             <span className="s-l">{label}</span>
             <button
               type="button"
-              className={`sw ${key === "particles" ? (particlesOn ? "on" : "") : "on"}`}
+              className="sw on"
               role="switch"
-              aria-checked={key === "particles" ? particlesOn : true}
-              onClick={() => setToggle(key, key === "particles" ? !particlesOn : false)}
+              aria-checked={true}
+              onClick={() => setToggle(key, false)}
             >
               <span className="sw-knob" />
             </button>

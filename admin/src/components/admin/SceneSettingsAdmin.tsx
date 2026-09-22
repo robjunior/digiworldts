@@ -56,6 +56,7 @@ const DEFAULT_SETTINGS: SceneSettings = {
 type SceneDraft = {
   readonly name: string;
   readonly elements: readonly Element[];
+  readonly kind?: 'arena' | 'lobby';
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
   readonly weather: WeatherConfig | null;
@@ -66,6 +67,7 @@ function draftFromScene(scene: SceneEntity): SceneDraft {
   return {
     name: scene.name,
     elements: scene.elements,
+    ...(scene.kind !== undefined ? { kind: scene.kind } : {}),
     useGlbSettings: scene.useGlbSettings === true,
     settings: (scene.settings as Partial<SceneSettings>) ?? {},
     weather: scene.weather ?? null,
@@ -185,6 +187,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
+  const setKind = (kind: 'arena' | 'lobby'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
   /* lobby backdrop knobs (nested under settings.lobby) */
@@ -216,6 +219,7 @@ export function SceneSettingsAdmin(): JSX.Element {
       const res = await createScene({
         name: LOBBY_SCENE_NAME,
         elements: [],
+        kind: 'lobby',
         settings: { lobby: DEFAULT_LOBBY_SCENE } as unknown as Record<string, unknown>,
       });
       const list = await getScenes(true);
@@ -336,7 +340,7 @@ export function SceneSettingsAdmin(): JSX.Element {
         <header className="scene-admin-list-header">
           <h2>Scenes</h2>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" — o fundo 3D da tela inicial`}>
+            <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" (kind: lobby) — o fundo 3D da tela inicial`}>
               {busy === 'create' ? 'Creating…' : 'Lobby'}
             </button>
             <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
@@ -483,6 +487,23 @@ export function SceneSettingsAdmin(): JSX.Element {
                 </p>
               </section>
             ) : null}
+
+            <div style={{ padding: '0 16px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <RadioRow
+                label="Tipo"
+                value={draft.kind ?? 'arena'}
+                options={[
+                  { label: 'Arena (combate)', value: 'arena' },
+                  { label: 'Lobby (tela inicial)', value: 'lobby' },
+                ]}
+                onChange={(v) => setKind(v as 'arena' | 'lobby')}
+              />
+              <span className="scene-admin-note" style={{ margin: 0 }}>
+                {draft.kind === 'lobby'
+                  ? 'Renderizada pelo lobby: pedestais da party, chão, partículas e drift de câmera.'
+                  : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
+              </span>
+            </div>
 
             <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings}>
               <Section title="Sun (key light)">

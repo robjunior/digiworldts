@@ -108,6 +108,7 @@ export const ArenaSettingsZ = z.object({
 const SceneCreateZ = z.object({
   name: z.string().trim().min(1).max(120),
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
+  kind: z.enum(['arena', 'lobby']).optional(),
   settings: ArenaSettingsZ,
   useGlbSettings: z.boolean().optional(),
   weather: WeatherConfigZ.nullish(),
@@ -152,6 +153,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const scene = await createSceneEntry({
       name: parsed.data.name,
       elements: parsed.data.elements,
+      ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
       settings: parsed.data.settings,
       useGlbSettings: parsed.data.useGlbSettings === true,
       weather: parsed.data.weather ?? null,
@@ -171,6 +173,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const patch: {
       name?: string;
       elements?: readonly Element[];
+      kind?: 'arena' | 'lobby';
       settings?: Readonly<Record<string, unknown>>;
       useGlbSettings?: boolean;
       weather?: WeatherConfig | null;
@@ -178,6 +181,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     } = {};
     if (parsed.data.name !== undefined) patch.name = parsed.data.name;
     if (parsed.data.elements !== undefined) patch.elements = parsed.data.elements;
+    if (parsed.data.kind !== undefined) patch.kind = parsed.data.kind;
     if (parsed.data.settings !== undefined) patch.settings = parsed.data.settings;
     if (parsed.data.useGlbSettings !== undefined) patch.useGlbSettings = parsed.data.useGlbSettings;
     if (parsed.data.weather !== undefined) patch.weather = parsed.data.weather ?? null;
