@@ -425,6 +425,7 @@ export function SceneSettingsAdmin(): JSX.Element {
               settings={effectiveSettings}
               weather={draft.weather}
               timeOfDay={draft.timeOfDay}
+              lobby={selectedScene !== null && isLobbyScene(selectedScene) ? effectiveLobby : null}
             />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
