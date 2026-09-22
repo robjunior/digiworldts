@@ -10,7 +10,7 @@
 .adv-page{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
 
 /* resource balance bar */
-.adv-page .scroll{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:1fr 380px;gap:22px;padding:22px 28px 22px}
+.adv-page .scroll{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:1fr 380px;gap:22px;padding: 0px 28px 22px}
 @media (max-width:1100px){.adv-page .scroll{grid-template-columns:1fr}}
 .adv-page .col{display:flex;flex-direction:column;min-height:0;min-width:0}
 .adv-page .stitle{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:12px;flex:0 0 auto}
