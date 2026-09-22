@@ -170,6 +170,11 @@ export function Creature(): JSX.Element {
     () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
     [],
   );
+  const animNames = useMemo<Record<string, string>>(() => {
+    const m: Record<string, string> = {};
+    for (const [id, tpl] of templateById) m[id] = tpl.name;
+    return m;
+  }, [templateById]);
 
   useEffect(() => () => { for (const id of timeoutsRef.current) window.clearTimeout(id); timeoutsRef.current = []; }, []);
 
@@ -233,11 +238,6 @@ export function Creature(): JSX.Element {
     timeoutsRef.current.push(fireId);
   };
 
-  const animNames = useMemo<Record<string, string>>(() => {
-    const m: Record<string, string> = {};
-    for (const [id, tpl] of templateById) m[id] = tpl.name;
-    return m;
-  }, [templateById]);
   const animCurrent = animTargetId ? template?.assets.dot ?? null : null;
   const animTargetTemplate = animTargetId ? templateById.get(animTargetId) : undefined;
   const animTargetDot = animTargetTemplate?.assets.dot ?? null;
