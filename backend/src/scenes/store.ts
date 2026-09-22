@@ -52,7 +52,14 @@ function coerceScene(raw: unknown): SceneEntity | null {
   if (lobby !== undefined) settings['lobby'] = lobby;
   else delete settings['lobby'];
   const useGlb = rec['useGlbSettings'] === true;
-  const kind = rec['kind'] === 'lobby' || rec['kind'] === 'arena' ? rec['kind'] : undefined;
+  // kind legado: cena nomeada "Lobby" sem kind explícito conta como lobby na
+  // leitura (o frontend resolve kind:'lobby' primeiro, depois o nome).
+  const kind: 'arena' | 'lobby' | undefined =
+    rec['kind'] === 'lobby' || rec['kind'] === 'arena'
+      ? rec['kind']
+      : typeof rec['name'] === 'string' && rec['name'].trim().toLowerCase() === 'lobby'
+        ? 'lobby'
+        : undefined;
   const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
   const timeOfDay = coerceNullableObject<TimeOfDayConfig>(rec['timeOfDay']);
   const created = typeof rec['createdAt'] === 'number' ? rec['createdAt'] : Date.now();

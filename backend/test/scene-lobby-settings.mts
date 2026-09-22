@@ -21,6 +21,7 @@ const DEFAULT_LOBBY_SCENE = {
   sideTiltDeg: 17,
   centerScale: 1.1,
   centerLift: 36,
+  partyHeight: 0,
   driftIntensity: 1,
 } as const;
 

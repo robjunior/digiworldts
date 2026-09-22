@@ -77,6 +77,13 @@ type SceneDraft = {
   readonly timeOfDay: TimeOfDayConfig | null;
 };
 
+/** Resolves exactly like the frontend lobby lookup: kind:'lobby' first, then the
+ *  legacy name. Scenes matching this get the "lobby" badge in the list. */
+function isLobbyScene(scene: SceneEntity): boolean {
+  return scene.kind === 'lobby'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+}
+
 function draftFromScene(scene: SceneEntity): SceneDraft {
   return {
     name: scene.name,
@@ -374,7 +381,12 @@ export function SceneSettingsAdmin(): JSX.Element {
                   className={`scene-admin-list-item${selectedId === s.id ? ' is-selected' : ''}`}
                   onClick={() => selectScene(s.id)}
                 >
-                  <span className="scene-admin-list-name">{s.name}</span>
+                  <span className="scene-admin-list-name">
+                    {s.name}
+                    {isLobbyScene(s) && (
+                      <span className="scene-admin-list-lobby" title="Cena usada pelo lobby" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--signal, #3b82f6)', color: '#fff', borderRadius: 3 }}>lobby</span>
+                    )}
+                  </span>
                   <span className="scene-admin-list-meta">
                     {s.useGlbSettings === true ? 'GLB' : 'settings'}
                     {s.elements.length > 0 ? ` · ${s.elements.join(', ')}` : ''}
@@ -699,6 +711,7 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Inclinação lateral (°)" value={effectiveLobby.sideTiltDeg} min={0} max={45} step={1} decimals={0} onChange={(v) => patchLobby({ sideTiltDeg: v })} />
                 <SliderRow label="Escala do pedestal central" value={effectiveLobby.centerScale} min={0.5} max={1.8} step={0.02} onChange={(v) => patchLobby({ centerScale: v })} />
                 <SliderRow label="Elevação do centro (px)" value={effectiveLobby.centerLift} min={0} max={160} step={2} decimals={0} onChange={(v) => patchLobby({ centerLift: v })} />
+                <SliderRow label="Altura da party (Y)" value={effectiveLobby.partyHeight} min={-3} max={3} step={0.05} onChange={(v) => patchLobby({ partyHeight: v })} />
                 <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
               </Section>
             </fieldset>

@@ -193,6 +193,10 @@ export type LobbySceneSettings = {
   centerScale: number;
   /** center pedestal forward lift, px (36) — rendered as a "+z" offset */
   centerLift: number;
+  /** Vertical world-offset of the party (pedestals + sprites) so the digimons
+   *  actually seat on the scene's ground/ring — each GLB floors at a different
+   *  height, and the admin needs a knob to realign. Range ≈ -3..3. */
+  partyHeight: number;
   /** camera drift strength 0..2 (1); 0 disables the slow idle orbit.
    *  No effect while the GLB's embedded camera is adopted (useGlbSettings). */
   driftIntensity: number;
@@ -207,6 +211,7 @@ export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
   sideTiltDeg: 17,
   centerScale: 1.1,
   centerLift: 36,
+  partyHeight: 0,
   driftIntensity: 1,
 };
 

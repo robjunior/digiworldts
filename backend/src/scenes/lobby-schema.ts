@@ -18,6 +18,7 @@ export const LOBBY_SETTINGS_KEYS = [
   'sideTiltDeg',
   'centerScale',
   'centerLift',
+  'partyHeight',
   'driftIntensity',
 ] as const;
 
@@ -27,6 +28,7 @@ export const LobbySceneSettingsZ = z.object({
   sideTiltDeg: z.number().min(-60).max(60),
   centerScale: z.number().min(0.3).max(2),
   centerLift: z.number().min(-400).max(400),
+  partyHeight: z.number().min(-6).max(6),
   driftIntensity: z.number().min(0).max(2),
 }).strict();
 

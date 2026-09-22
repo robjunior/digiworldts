@@ -2,8 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
 
-import type { LobbySceneSettings } from "@digiworld/scene3d/scene";
-import { DEFAULT_LOBBY_SCENE } from "@digiworld/scene3d/scene";
+import { DEFAULT_LOBBY_SCENE, type LobbySceneSettings, type SceneSettings } from "@digiworld/scene3d/scene";
 import { getArenaUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/arena-urls";
 
 import { useWebSocket } from "../hooks/useWebSocket";
@@ -343,6 +342,7 @@ export function Lobby(): JSX.Element {
         party={figures}
         modelUrl={modelUrl ?? null}
         useGlbSettings={lobbyEntity?.useGlbSettings === true}
+        {...(lobbyEntity?.settings !== undefined ? { lighting: lobbyEntity.settings as Partial<SceneSettings> } : {})}
         onOpenCreature={(id) => navigate(`/creature/${id}`)}
       />
 

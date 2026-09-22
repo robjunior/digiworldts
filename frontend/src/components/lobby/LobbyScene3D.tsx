@@ -21,7 +21,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
-import type { LobbySceneSettings } from '@digiworld/scene3d/scene';
+import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
 
@@ -41,6 +41,9 @@ type Props = {
   readonly modelUrl?: string | null;
   /** GLB-driven mode: use the GLB's own camera/lights/floor and surrender ours. */
   readonly useGlbSettings?: boolean;
+  /** Editor lighting for the scene (lighting knobs, reutilizados do subset da
+   *  arena) — aplicado quando o GLB não dirige a iluminação. */
+  readonly lighting?: Partial<SceneSettings>;
   readonly onOpenCreature?: (monId: string) => void;
 };
 
@@ -68,7 +71,7 @@ function fanPosition(index: number, spacing: number): { x: number; z: number } {
   return { x: 0, z: 1.7 };
 }
 
-export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpenCreature }: Props): JSX.Element {
+export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
@@ -92,22 +95,35 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
     const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
+    // vertical world-offset of the party — admin knob to seat digimons on the
+    // scene's ground/ring (each GLB floors at a different height).
+    const partyY = settings.partyHeight ?? 0;
     camera.position.copy(cameraBase);
     camera.lookAt(0, 2.4, 0);
 
-    // ── lights (surrendered to the GLB when useGlbSettings ships its own) ─
+    // ── lights (editadas no editor de cenas; cedidas ao GLB quando
+    //    useGlbSettings e o GLB traz as dele — política do loadArenaModelBare) ─
+    const L = lighting ?? {};
     const ownLights: THREE.Light[] = [];
-    const hemi = new THREE.HemisphereLight(0x88a8d0, 0x1b2130, 0.9);
+    const hemi = new THREE.HemisphereLight(
+      L.hemiSkyColor ?? 0x88a8d0,
+      L.hemiGroundColor ?? 0x1b2130,
+      L.hemiIntensity ?? 0.9,
+    );
     ownLights.push(hemi);
     scene.add(hemi);
-    const key = new THREE.DirectionalLight(0xfff2d0, 1.4);
-    key.position.set(-6, 12, 8);
+    const key = new THREE.DirectionalLight(L.sunColor ?? 0xfff2d0, L.sunIntensity ?? 1.4);
+    key.position.set(L.sunPosX ?? -6, L.sunPosY ?? 10, L.sunPosZ ?? 5);
     ownLights.push(key);
     scene.add(key);
-    const rim = new THREE.DirectionalLight(0x2c74ff, 0.5);
+    const rim = new THREE.DirectionalLight(L.rimColor ?? 0x2c74ff, L.rimIntensity ?? 0.5);
     rim.position.set(8, 6, -8);
     ownLights.push(rim);
     scene.add(rim);
+    // névoa do cenário (do editor) — afasta o horizonte do GLB
+    if (L.fogEnabled !== false) {
+      scene.fog = new THREE.Fog(L.fogColor ?? 0x1e2a44, L.fogNear ?? 14, L.fogFar ?? 70);
+    }
 
     // optional GLB environment — o cenário É o GLB (nunca um conjunto procedural)
     let glbRoot: THREE.Group | null = null;
@@ -123,16 +139,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
             const size = box.getSize(new THREE.Vector3());
             const span = Math.max(size.x, size.y, size.z);
             const center = box.getCenter(new THREE.Vector3());
-            if (glbDrives && gltf.cameras.length > 0) {
-              // Câmera embutida adotada — posição original (o autor enquadrou)
-              glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
-            } else {
-              // Nossa câmera enquadra a party: o GLB vira cenário de FUNDO,
-              // atrás dos pedestais, com o chão alinhado à linha da party.
-              const k = 34 / span;
-              if (span > 0) glbRoot.scale.setScalar(k);
-              glbRoot.position.set(-center.x, -box.min.y, -center.z - 26);
+            // Como no combate: o GLB é o CAMPO — a party fica SOBRE o disco
+            // central (pedestais em z ±1.7 ≈ centro do ring). Escala normaliza
+            // só modelos fora de banda; a posição respeita o autor do GLB.
+            if (span > 0 && (span < 20 || span > 90)) {
+              glbRoot.scale.setScalar(48 / span);
             }
+            glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
             scene.add(glbRoot);
 
             if (glbDrives) {
@@ -176,13 +189,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
       }
       const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.05, 48), mat);
       ring.rotation.x = -Math.PI / 2;
-      ring.position.y = GROUND_Y + 0.01;
+      ring.position.y = GROUND_Y + 0.01 + partyY;
       const glow = new THREE.Mesh(
         new THREE.CircleGeometry(1.9, 48),
         new THREE.MeshBasicMaterial({ color: elementColor(key), transparent: true, opacity: 0.1, depthWrite: false }),
       );
       glow.rotation.x = -Math.PI / 2;
-      glow.position.y = GROUND_Y + 0.005;
+      glow.position.y = GROUND_Y + 0.005 + partyY;
       pedestalGroup.add(ring, glow);
       pedestals.push({ ring, glow });
     };
@@ -201,7 +214,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
         depthWrite: false,
       });
       const holo = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 3.6, 20, 1, true), mat);
-      holo.position.y = GROUND_Y + 1.8;
+      holo.position.y = GROUND_Y + 1.8 + partyY;
       scene.add(holo);
       holos.push(holo);
     }
@@ -255,7 +268,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, onOpen
               initiallyDowned: false,
               onClick: undefined,
             });
-            rig.setArenaBaselineY(0);
+            rig.setArenaBaselineY(partyY);
             rigs.set(fig.id, rig);
           } catch (err) {
             // one failing sprite must never blank the whole scene
