@@ -14457,6 +14457,19 @@
         "enabled": 1,
         "created_at": 1786489052841,
         "updated_at": 1786489052841
+      },
+      {
+        "id": "onb_v2x7k9m3q5w8n4r6c1d0phjsztgf",
+        "slug": "equinox",
+        "name": "Equinox",
+        "description": "Light, dark and water — opposites held on one line, and a team that wins by not losing. Salamon banks buffs and recovery, Hagurumon suppresses and corrodes the enemy's momentum, and Lunamon keeps the party from coming apart. No single exploit to hard-counter, but every fight becomes the war of attrition Equinox is built to outlast.",
+        "mon_1_catalog_id": "skb-361",
+        "mon_2_catalog_id": "skb-2",
+        "mon_3_catalog_id": "skb-9",
+        "sort_order": 2,
+        "enabled": 1,
+        "created_at": 1786489052841,
+        "updated_at": 1786489052841
       }
     ],
     "game_settings": [

@@ -393,7 +393,7 @@ type SeedTeam = {
 };
 
 /**
- * The two starter teams offered at `/intro`.
+ * The three starter teams offered at `/intro`.
  *
  * Designed against the rebalanced skill catalog and verified by simulation
  * rather than by eye — every intuition tried here was wrong at least once.
@@ -409,14 +409,19 @@ type SeedTeam = {
  *      99% of its fights to any team carrying a water mon.
  *   2. Match the attribute pattern slot for slot. The AI focuses the front
  *      unit, so slot 0 vs slot 0 decides most fights, and the attribute
- *      triangle is a 1.8x swing (1.35x / 0.75x). Both teams are
+ *      triangle is a 1.8x swing (1.35x / 0.75x). All three teams are
  *      Vaccine / Data / Virus in that order, which makes every slot pairing
  *      attribute-neutral and leaves elements as the only differentiator.
  *   3. Watch for self-defeating elements. `electricity` hits `water` for 1.5x
  *      and `water` hits back for 0.5x, so a water mon facing an electricity
  *      mon is in a 3x hole on its own. A candidate team that swapped its water
  *      for the weakest element in the game went from 55% to 94% purely by
- *      dropping that liability.
+ *      dropping that liability. Equinox below is deliberately slot-neutral
+ *      against BOTH Triad and Tide: none of its slots holds a 3x disadvantage
+ *      (light and dark have no resistances to be exploited here, and water is
+ *      flat-out neutral to both fire and earth), so it starts every matchup on
+ *      an elemental footing and wins or loses on its kit, exactly like the
+ *      first two.
  *
  * All Rookies share identical base stats (hp 500 / en 30 / atk 100 / def 80 /
  * int 90 / spd 100), so element and attribute are the ONLY levers here.
@@ -437,6 +442,14 @@ export const DEFAULT_TEAMS: SeedTeam[] = [
       'Water, ice and lightning — wins by denying turns rather than trading them. Twice the initiative manipulation and the heaviest status pressure in the roster, at roughly 15% less damage. Punishing if the lock holds, fragile if it does not.',
     monCatalogIds: ['skb-343', 'skb-750', 'skb-389'],
     sortOrder: 1,
+  },
+  {
+    slug: 'equinox',
+    name: 'Equinox',
+    description:
+      'Light, dark and water — opposites held on one line, and a team that wins by not losing. Salamon banks buffs and recovery, Hagurumon suppresses and corrodes the enemy\'s momentum, and Lunamon keeps the party from coming apart. No single exploit to hard-counter, but every fight becomes the war of attrition Equinox is built to outlast.',
+    monCatalogIds: ['skb-361', 'skb-2', 'skb-9'],
+    sortOrder: 2,
   },
 ];
 
