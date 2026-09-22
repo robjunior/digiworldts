@@ -54,12 +54,14 @@ const EL_COLOR: Readonly<Record<string, string>> = {
 };
 
 const GROUND_Y = 0;
-/** Slot fan formation (world units). Center is closer to the camera. */
+/** Slot fan formation (world units). Center is closer to the camera.
+ *  Spacing shrinks with a higher divisor so the party reads as one unit —
+ *  the default 256px pedestalSpacing yields ~3.5 units between centers. */
 function fanPosition(index: number, spacing: number): { x: number; z: number } {
-  const s = spacing / 46;
-  if (index === 0) return { x: -s, z: -2.6 };
-  if (index === 2) return { x: s, z: -2.6 };
-  return { x: 0, z: 2.9 };
+  const s = spacing / 74;
+  if (index === 0) return { x: -s, z: -2.4 };
+  if (index === 2) return { x: s, z: -2.4 };
+  return { x: 0, z: 2.6 };
 }
 
 function hex(n: number): string {
@@ -135,7 +137,7 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
-    const cameraBase = new THREE.Vector3(0, 7.2, 17);
+    const cameraBase = new THREE.Vector3(0, 6.6, 15);
     camera.position.copy(cameraBase);
     camera.lookAt(0, 2.6, 0);
 
@@ -276,14 +278,21 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
 
     const applyFan = (): void => {
       for (let slot = 0; slot < 3; slot++) {
-        const fig = party[slot];
-        const rig = fig ? rigs.get(fig.id) : undefined;
+        const rig = bySlot.get(slot);
         if (!rig) continue;
         const pos = fanPosition(slot, settings.pedestalSpacing);
         rig.setBasePosition(pos.x, pos.z);
-        if (slot === 1) rig.mesh.scale.setScalar(1.12 * settings.centerScale);
-        else rig.mesh.scale.setScalar(0.94 * settings.centerScale);
+        // SPRITE_MAX_DIMENSION is 0.7 world units — scale up so the party
+        // reads as proper standing figures (central slightly bigger).
+        const base = slot === 1 ? 4.2 : 3.4;
+        rig.mesh.scale.setScalar(base * settings.centerScale * settings.pedestalScale);
       }
+      const ps = settings.pedestalScale;
+      for (const p of pedestals) {
+        p.ring.scale.setScalar(ps);
+        p.glow.scale.setScalar(ps);
+      }
+      for (const holo of holos) holo.scale.setScalar(ps);
     };
 
     const syncParty = (): void => {
