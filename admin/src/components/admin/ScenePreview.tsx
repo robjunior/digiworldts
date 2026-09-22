@@ -193,12 +193,44 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: 
   const lobbyRef = useRef<LobbyRefs | null>(null);
   const isLobby = lobby !== null && lobby !== undefined;
 
-  /* combat preview (unchanged) */
+  /* Single controlled mount: switching arena <-> lobby tears down the old
+   preview and builds the new one — deps on isLobby, not a stale first render. */
   useEffect(() => {
-    if (isLobby) return;
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (canvas === null || container === null) return;
+
+    if (isLobby) {
+      const fr: LobbyRefs = {
+        renderer: null as never,
+        scene: null as never,
+        camera: null as never,
+        lights: [],
+        pedestals: [],
+        rigs: [],
+        glbRoot: null,
+      };
+      lobbyRef.current = fr;
+      const off = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings);
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          fr.renderer.setSize(width, height);
+          fr.camera.aspect = width / Math.max(height, 1);
+          fr.camera.updateProjectionMatrix();
+        }
+      });
+      ro.observe(container);
+      let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
+      const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+      void loadLobbyGlb(fr, url).catch(() => {});
+      return () => {
+        ro.disconnect();
+        off();
+        lobbyRef.current = null;
+      };
+    }
+
     let manager: SceneManager | null = null;
     try {
       manager = new SceneManager(canvas);
@@ -211,54 +243,20 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: 
     manager.startLoop();
     manager.runEntrance();
     for (const unit of PLACEHOLDER_UNITS) manager.addSprite(unit);
-    const resizeObserver = new ResizeObserver((entries) => {
+    const ro = new ResizeObserver((entries) => {
       for (const entry of entries) managerRef.current?.resize(entry.contentRect.width, entry.contentRect.height);
     });
-    resizeObserver.observe(container);
+    ro.observe(container);
+    let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
+    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+    if (url !== undefined) void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
     return () => {
-      resizeObserver.disconnect();
+      ro.disconnect();
       manager?.dispose();
       managerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  /* lobby preview mount */
-  useEffect(() => {
-    if (!isLobby) return;
-    const canvas = canvasRef.current;
-    const container = containerRef.current;
-    if (canvas === null || container === null) return;
-    const fr: LobbyRefs = {
-      renderer: null as never,
-      scene: null as never,
-      camera: null as never,
-      lights: [],
-      pedestals: [],
-      rigs: [],
-      glbRoot: null,
-    };
-    lobbyRef.current = fr;
-    const cleanup = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings);
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        fr.renderer.setSize(width, height);
-        fr.camera.aspect = width / Math.max(height, 1);
-        fr.camera.updateProjectionMatrix();
-      }
-    });
-    resizeObserver.observe(container);
-    let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
-    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
-    void loadLobbyGlb(fr, url).catch(() => {});
-    return () => {
-      resizeObserver.disconnect();
-      cleanup();
-      lobbyRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isLobby]);
 
   /* reapply lobby knobs live (settings + lobby) */
   useEffect(() => {
@@ -279,10 +277,22 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: 
     let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
     const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
     void loadLobbyGlb(fr, url).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.modelFile, arenaKey, isLobby]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [settings.modelFile, arenaKey, isLobby]);
 
-  /* combat scene settings / weather / time (unchanged) */
+      /* reload combat GLB when model/arena changes */
+      useEffect(() => {
+        if (isLobby) return;
+        const manager = managerRef.current;
+        if (manager === null) return;
+        manager.clearArenaModel();
+        let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
+        const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+        if (url === undefined) return;
+        void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
+      }, [arenaKey, settings.modelFile, isLobby]);
+
+      /* combat scene settings / weather / time */
   useEffect(() => {
     if (isLobby) return;
     managerRef.current?.applySettings(settings);
