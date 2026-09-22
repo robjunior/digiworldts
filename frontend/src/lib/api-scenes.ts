@@ -1,5 +1,6 @@
 import type { Element } from '@digiworld/shared/digimon';
 import type { SceneEntity, SceneListResponse } from '@digiworld/shared/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings } from '@digiworld/scene3d/scene';
 
 import { apiFetch } from './api';
 
@@ -22,6 +23,22 @@ export function getScenes(force = false): Promise<readonly SceneEntity[]> {
 export function invalidateScenesCache(): void {
   cache = null;
   cacheAt = 0;
+}
+
+/**
+ * Resolve the Lobby backdrop settings: the SceneEntity named "Lobby"
+ * (case-insensitive), defined in the admin scene editor, merged over
+ * {@link DEFAULT_LOBBY_SCENE}. Returns the built-in defaults when no scene
+ * has been created yet, so the lobby always renders.
+ */
+export async function getLobbyScene(): Promise<LobbySceneSettings> {
+  const scenes = await getScenes();
+  const lobby = scenes.find(
+    (s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase(),
+  );
+  const stored = (lobby?.settings as Readonly<Record<string, unknown>> | undefined)?.lobby;
+  if (!stored || typeof stored !== 'object') return DEFAULT_LOBBY_SCENE;
+  return { ...DEFAULT_LOBBY_SCENE, ...(stored as Partial<LobbySceneSettings>) };
 }
 
 export type SceneCreateBody = {

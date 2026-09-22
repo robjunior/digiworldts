@@ -10,7 +10,7 @@ import { WEATHER_EMITTER_PRESETS } from '@digiworld/scene3d/particles/presets';
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
-import type { SceneSettings } from '@digiworld/scene3d/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 
 const DEFAULT_SETTINGS: SceneSettings = {
@@ -187,6 +187,49 @@ export function SceneSettingsAdmin(): JSX.Element {
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
+  /* lobby backdrop knobs (nested under settings.lobby) */
+  const effectiveLobby: LobbySceneSettings =
+    (draft?.settings.lobby as LobbySceneSettings | undefined) ?? DEFAULT_LOBBY_SCENE;
+
+  const patchLobby = (change: Partial<LobbySceneSettings>): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const base = (prev.settings.lobby as LobbySceneSettings | undefined) ?? DEFAULT_LOBBY_SCENE;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          lobby: { ...base, ...change },
+        } as unknown as Partial<SceneSettings>,
+      };
+    });
+  };
+
+  const handleCreateLobby = async (): Promise<void> => {
+    const existing = scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: LOBBY_SCENE_NAME,
+        elements: [],
+        settings: { lobby: DEFAULT_LOBBY_SCENE } as unknown as Record<string, unknown>,
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const handleNew = async (): Promise<void> => {
     setBusy('create');
     try {
@@ -292,9 +335,14 @@ export function SceneSettingsAdmin(): JSX.Element {
       <aside className="scene-admin-list-panel" aria-label="Scene list">
         <header className="scene-admin-list-header">
           <h2>Scenes</h2>
-          <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
-            {busy === 'create' ? 'Creating…' : 'New scene'}
-          </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" — o fundo 3D da tela inicial`}>
+              {busy === 'create' ? 'Creating…' : 'Lobby'}
+            </button>
+            <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
+              {busy === 'create' ? 'Creating…' : 'New scene'}
+            </button>
+          </div>
         </header>
         {loadError !== null ? <p className="scene-admin-error">{loadError}</p> : null}
         <ul className="scene-admin-list">
@@ -600,6 +648,34 @@ export function SceneSettingsAdmin(): JSX.Element {
                     )}
                   </>
                 )}
+              </Section>
+
+              <Section title="Lobby (fundo da tela inicial)">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  Define o cenário 3D CSS do lobby: chão em perspectiva, grade, seam dourado,
+                  pedestais da party e partículas. Nomeie a cena de "{LOBBY_SCENE_NAME}"
+                  para o lobby usá-la (botão Lobby na lista cria com os padrões).
+                </p>
+                <ColorRow label="Chão (base)" value={effectiveLobby.floorColor} onChange={(v) => patchLobby({ floorColor: v })} />
+                <ColorRow label="Grade" value={effectiveLobby.gridColor} onChange={(v) => patchLobby({ gridColor: v })} />
+                <SliderRow label="Opacidade da grade" value={effectiveLobby.gridOpacity} min={0} max={0.3} step={0.01} onChange={(v) => patchLobby({ gridOpacity: v })} />
+                <ColorRow label="Seam dourado" value={effectiveLobby.seamColor} onChange={(v) => patchLobby({ seamColor: v })} />
+                <SliderRow label="Opacidade do seam" value={effectiveLobby.seamOpacity} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ seamOpacity: v })} />
+                <ColorRow label="Glow ambiente" value={effectiveLobby.glowColor} onChange={(v) => patchLobby({ glowColor: v })} />
+                <SliderRow label="Intensidade do glow" value={effectiveLobby.glowOpacity} min={0} max={0.6} step={0.01} onChange={(v) => patchLobby({ glowOpacity: v })} />
+                <ToggleRow label="Spotlight central" value={effectiveLobby.spotlight} onChange={(v) => patchLobby({ spotlight: v })} />
+                <SliderRow label="Espaçamento dos pedestais (px)" value={effectiveLobby.pedestalSpacing} min={80} max={500} step={4} decimals={0} onChange={(v) => patchLobby({ pedestalSpacing: v })} />
+                <SliderRow label="Escala dos pedestais" value={effectiveLobby.pedestalScale} min={0.5} max={1.5} step={0.02} onChange={(v) => patchLobby({ pedestalScale: v })} />
+                <SliderRow label="Inclinação lateral (°)" value={effectiveLobby.sideTiltDeg} min={0} max={45} step={1} decimals={0} onChange={(v) => patchLobby({ sideTiltDeg: v })} />
+                <SliderRow label="Escala do pedestal central" value={effectiveLobby.centerScale} min={0.5} max={1.8} step={0.02} onChange={(v) => patchLobby({ centerScale: v })} />
+                <SliderRow label="Elevação do centro (px)" value={effectiveLobby.centerLift} min={0} max={160} step={2} decimals={0} onChange={(v) => patchLobby({ centerLift: v })} />
+                <RadioRow label="Partículas" value={effectiveLobby.particleMode} options={[
+                  { label: 'Dados', value: 'data' },
+                  { label: 'Pixels', value: 'pixels' },
+                  { label: 'Off', value: 'off' },
+                ]} onChange={(v) => patchLobby({ particleMode: v as LobbySceneSettings['particleMode'] })} />
+                <SliderRow label="Quantidade de partículas" value={effectiveLobby.particleCount} min={0} max={80} step={1} decimals={0} onChange={(v) => patchLobby({ particleCount: v })} />
+                <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
               </Section>
             </fieldset>
           </aside>

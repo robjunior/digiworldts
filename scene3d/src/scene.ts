@@ -161,6 +161,74 @@ export type SceneSettings = {
    *  choosing the arena mesh URL. SceneManager.applySettings ignores this field —
    *  it's a selector, not a runtime scene property. */
   modelFile?: string;
+  /** Optional configuration for the LOBBY scene (the CSS-3D backdrop of the
+   *  home/lobby screen). Defined here so the admin scene editor can persist it
+   *  in the same SceneEntity, but ignored entirely by the combat SceneManager. */
+  lobby?: LobbySceneSettings;
+};
+
+/**
+ * Knobs for the lobby's CSS-3D backdrop, edited in the admin scene editor under
+ * a scene named {@link LOBBY_SCENE_NAME}. The Lobby screen merges these over
+ * {@link DEFAULT_LOBBY_SCENE} (admin scene wins; built-in defaults fill gaps).
+ */
+export type LobbyParticleMode = "data" | "pixels" | "off";
+
+export type LobbySceneSettings = {
+  /** deep navy canvas base (default 0x0a0e1a) */
+  floorColor: number;
+  /** perspective-grid line tint (default 0x60a5fa) */
+  gridColor: number;
+  /** grid line opacity 0..1 (0.05) */
+  gridOpacity: number;
+  /** central gold seam (default 0xf59e0b) */
+  seamColor: number;
+  /** seam opacity 0..1 (0.5) */
+  seamOpacity: number;
+  /** ambient radial glow tint (default 0x3b82f6) */
+  glowColor: number;
+  /** glow opacity 0..1 (0.16) */
+  glowOpacity: number;
+  /** soft spotlight from the top of the scene over the party */
+  spotlight: boolean;
+  /** fan-formation spread in px between pedestals (256) */
+  pedestalSpacing: number;
+  /** global pedestal scale 0.5..1.5 (1) */
+  pedestalScale: number;
+  /** side pedestal yaw in degrees (17) */
+  sideTiltDeg: number;
+  /** center pedestal scale vs sides (1.1) */
+  centerScale: number;
+  /** how much the center pedestal lifts toward the camera, px (36) */
+  centerLift: number;
+  /** ambient motes: "data" (blue/gold squares), "pixels" (squares), "off" */
+  particleMode: LobbyParticleMode;
+  /** number of ambient motes 0..80 (26) */
+  particleCount: number;
+  /** camera drift strength 0..2 (1); 0 disables the slow idle orbit */
+  driftIntensity: number;
+};
+
+/** SceneEntity.name the Lobby screen looks up (case-insensitive). */
+export const LOBBY_SCENE_NAME = "Lobby";
+
+export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
+  floorColor: 0x0a0e1a,
+  gridColor: 0x60a5fa,
+  gridOpacity: 0.05,
+  seamColor: 0xf59e0b,
+  seamOpacity: 0.5,
+  glowColor: 0x3b82f6,
+  glowOpacity: 0.16,
+  spotlight: true,
+  pedestalSpacing: 256,
+  pedestalScale: 1,
+  sideTiltDeg: 17,
+  centerScale: 1.1,
+  centerLift: 36,
+  particleMode: "data",
+  particleCount: 26,
+  driftIntensity: 1,
 };
 
 const FRUSTUM = 4.5;

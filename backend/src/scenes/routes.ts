@@ -44,7 +44,26 @@ const WeatherOverrideZ = z.object({
   durationMs: z.number().int().min(1000).max(300_000),
 }).strict();
 
-const ArenaSettingsZ = z.object({
+export const LobbySceneSettingsZ = z.object({
+  floorColor: z.number().int().min(0).max(0xffffff),
+  gridColor: z.number().int().min(0).max(0xffffff),
+  gridOpacity: z.number().min(0).max(1),
+  seamColor: z.number().int().min(0).max(0xffffff),
+  seamOpacity: z.number().min(0).max(1),
+  glowColor: z.number().int().min(0).max(0xffffff),
+  glowOpacity: z.number().min(0).max(1),
+  spotlight: z.boolean(),
+  pedestalSpacing: z.number().min(0).max(1200),
+  pedestalScale: z.number().min(0.3).max(2),
+  sideTiltDeg: z.number().min(-60).max(60),
+  centerScale: z.number().min(0.3).max(2),
+  centerLift: z.number().min(-400).max(400),
+  particleMode: z.enum(['data', 'pixels', 'off']),
+  particleCount: z.number().int().min(0).max(200),
+  driftIntensity: z.number().min(0).max(2),
+}).strict();
+
+export const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
   sunIntensity: z.number().min(0).max(4).optional(),
   sunPosX: z.number().optional(),
@@ -83,6 +102,7 @@ const ArenaSettingsZ = z.object({
   arenaOffsetY: z.number().min(-100).max(100).optional(),
   arenaOffsetZ: z.number().min(-100).max(100).optional(),
   modelFile: z.string().trim().min(1).max(200).optional(),
+  lobby: LobbySceneSettingsZ.optional(),
 }).strict();
 
 const SceneCreateZ = z.object({

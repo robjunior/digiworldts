@@ -1,0 +1,81 @@
+/**
+ * Guard for the lobby scene settings contract.
+ *
+ * The Lobby screen (frontend/src/routes/Lobby.tsx) reads its CSS-3D backdrop
+ * knobs from a SceneEntity named "Lobby" through the same zod-validated
+ * `settings.lobby` payload the admin editor persists. This test locks the
+ * contract at the backend boundary so a future rename/regime change can't
+ * silently break the lobby while all combat-scene tests stay green:
+ *
+ *   1. A full DEFAULT_LOBBY_SCENE-shaped payload parses.
+ *   2. Unknown keys are rejected (.strict()).
+ *   3. Out-of-range values are rejected (drift, particle count, colors).
+ *   4. The `lobby` key is accepted inside ArenaSettingsZ alongside arena keys.
+ */
+import { ArenaSettingsZ, LobbySceneSettingsZ } from '../src/scenes/routes.js';
+
+/** Canonical defaults — mirrors DEFAULT_LOBBY_SCENE in scene3d/src/scene.ts. */
+const DEFAULT_LOBBY_SCENE = {
+  floorColor: 0x0a0e1a,
+  gridColor: 0x60a5fa,
+  gridOpacity: 0.05,
+  seamColor: 0xf59e0b,
+  seamOpacity: 0.5,
+  glowColor: 0x3b82f6,
+  glowOpacity: 0.16,
+  spotlight: true,
+  pedestalSpacing: 256,
+  pedestalScale: 1,
+  sideTiltDeg: 17,
+  centerScale: 1.1,
+  centerLift: 36,
+  particleMode: 'data',
+  particleCount: 26,
+  driftIntensity: 1,
+} as const;
+
+let failures = 0;
+const check = (label: string, ok: boolean): void => {
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}`);
+  if (!ok) failures += 1;
+};
+
+// 1. full payload parses
+const full = LobbySceneSettingsZ.safeParse(DEFAULT_LOBBY_SCENE);
+check('full DEFAULT_LOBBY_SCENE payload parses', full.success === true);
+
+// 2. strict: unknown key rejected
+const unknown = LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, extraKnob: 1 });
+check('unknown key rejected (strict)', unknown.success === false);
+
+// 3a. out-of-range drift rejected
+check(
+  'driftIntensity out of range rejected',
+  LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, driftIntensity: 5 }).success === false,
+);
+// 3b. out-of-range particle count rejected
+check(
+  'particleCount out of range rejected',
+  LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, particleCount: 500 }).success === false,
+);
+// 3c. out-of-range color rejected (0xffffff max)
+check(
+  'floorColor out of range rejected',
+  LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, floorColor: 0x1000000 }).success === false,
+);
+// 3d. invalid particle mode rejected
+check(
+  'particleMode enum enforced',
+  LobbySceneSettingsZ.safeParse({ ...DEFAULT_LOBBY_SCENE, particleMode: 'sparks' }).success === false,
+);
+
+// 4. `lobby` composes inside ArenaSettingsZ with arena keys
+const arena = ArenaSettingsZ.safeParse({
+  sunColor: 0xfff2d0,
+  camDist: 14,
+  modelFile: 'my_scene.glb',
+  lobby: DEFAULT_LOBBY_SCENE,
+});
+check('lobby key accepted inside ArenaSettingsZ', arena.success === true);
+
+process.exit(failures > 0 ? 1 : 0);
