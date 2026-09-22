@@ -80,6 +80,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
   partyRef.current = party;
 
   useEffect(() => {
+    try {
     const host = hostRef.current;
     if (host === null) return;
 
@@ -405,12 +406,23 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       renderer.dispose();
       if (renderer.domElement.parentNode === host) host.removeChild(renderer.domElement);
     };
+    } catch (err) {
+      // qualquer erro no mount nunca deixa tela vazia silenciosa: cai no
+      // fallback honesto e loga para diagnóstico.
+      console.error('[LobbyScene3D] mount failed:', err);
+      if (fallbackRef.current !== null) fallbackRef.current.hidden = false;
+      return undefined;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Party changes → live re-sync (the scene mounts once; this effect reuses it)
   useEffect(() => {
-    partySyncRef.current();
+    try {
+      partySyncRef.current();
+    } catch (err) {
+      console.error('[LobbyScene3D] party sync failed:', err);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [party]);
 
