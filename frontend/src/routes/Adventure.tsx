@@ -17,6 +17,7 @@ import {
 import { getFarm, type FarmView } from '../lib/api-farm';
 import type { RosterView } from '../lib/api';
 import '../styles/extensions-adventure.css';
+import '../styles/balbar.css';
 
 const ADVENTURE_QUERY_KEY = ['adventure'] as const;
 const ROSTER_QUERY_KEY = ['roster'] as const;

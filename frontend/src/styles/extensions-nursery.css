@@ -18,21 +18,7 @@
 
 .nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
 
-/* resource balance bar */
-.nursery-page .balbar { flex: 0 0 auto; display: flex; align-items: center; gap: 0; padding: 14px 28px; border-bottom: 1px solid var(--hair); background: var(--panel); }
-.nursery-page .bal { display: grid; grid-template-columns: 28px auto; gap: 10px; align-items: center; padding: 0 22px; border-right: 1px solid var(--hair); }
-.nursery-page .bal:first-child { padding-left: 0; }
-.nursery-page .bal .ic { width: 28px; height: 28px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); color: var(--res); }
-.nursery-page .bal .ic svg { width: 16px; height: 16px; }
-.nursery-page .bal .col { display: flex; flex-direction: column; }
-.nursery-page .bal .col .k { font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.nursery-page .bal .col .v { font: 800 18px/1.1 var(--font); margin-top: 3px; }
-.nursery-page .bal[data-res="meat"] { --res: var(--meat); }
-.nursery-page .bal[data-res="data"] { --res: var(--data); }
-.nursery-page .bal[data-res="mons"] { --res: var(--signal); }
-.nursery-page .balbar .strip-title { margin-left: auto; text-align: right; }
-.nursery-page .balbar .strip-title .k { font: 800 10px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
-.nursery-page .balbar .strip-title .s { font: 600 12px/1 var(--font); color: var(--muted); margin-top: 5px; }
+
 
 /* scroll area */
 .nursery-page .scroll { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; grid-template-columns: 1fr 400px; gap: 22px; padding: 22px 28px 22px; }
@@ -154,9 +140,4 @@
 /* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
    clipped past the viewport with no way to reach it. Tighten, then allow
    horizontal pan for the remainder. */
-@media (max-width: 768px) {
-  .nursery-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
-  .nursery-page .balbar::-webkit-scrollbar { display: none; }
-  .nursery-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
-  .nursery-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
-}
+

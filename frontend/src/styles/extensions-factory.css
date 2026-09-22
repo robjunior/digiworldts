@@ -14,21 +14,7 @@
 .factory-page [data-fac="chip"] { --fac:color-mix(in oklab,var(--signal) 66%,var(--ink)) }
 .factory-page [data-fac="rare"] { --fac:color-mix(in oklab,var(--signal) 80%,#fff) }
 .factory-page [data-fac="pantry"] { --fac:color-mix(in oklab,var(--signal) 45%,var(--muted)) }
-.factory-page .balbar { flex:0 0 auto; display:flex; align-items:center; gap:0; padding:14px 28px; border-bottom:1px solid var(--hair); background:var(--panel) }
-.factory-page .bal { display:grid; grid-template-columns:28px auto; gap:10px; align-items:center; padding:0 22px; border-right:1px solid var(--hair) }
-.factory-page .bal:first-child { padding-left:0 }
-.factory-page .bal .ic { width:28px; height:28px; display:grid; place-items:center; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm); color:var(--res) }
-.factory-page .bal .ic svg { width:16px; height:16px }
-.factory-page .bal .col { display:flex; flex-direction:column; }
-.factory-page .bal .col .k { font:700 9px/1 var(--font); letter-spacing:.14em; text-transform:uppercase; color:var(--muted) }
-.factory-page .bal .col .v { font:800 18px/1.1 var(--font); margin-top:3px }
-.factory-page .bal[data-res="meat"] { --res:var(--meat) }
-.factory-page .bal[data-res="bits"] { --res:var(--bits) }
-.factory-page .bal[data-res="data"] { --res:var(--data) }
-.factory-page .bal[data-res="credits"] { --res:var(--credits) }
-.factory-page .balbar .strip-title { margin-left:auto; text-align:right }
-.factory-page .balbar .strip-title .k { font:800 10px/1 var(--font); letter-spacing:.22em; text-transform:uppercase; color:var(--signal) }
-.factory-page .balbar .strip-title .s { font:600 12px/1 var(--font); color:var(--muted); margin-top:5px }
+
 .factory-page .scroll { flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; padding:22px 28px 20px }
 .factory-page .scroll::-webkit-scrollbar { width:10px }
 .factory-page .scroll::-webkit-scrollbar-thumb { background:var(--hair) }
@@ -158,11 +144,6 @@
    pinned to a 380px minimum inside a 334px column, so each card is wider
    than the phone and its own contents clip. Stack them instead. */
 @media (max-width: 768px) {
-  .factory-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
-  .factory-page .balbar::-webkit-scrollbar { display: none; }
-  .factory-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
-  .factory-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
-
   .factory-page .scroll { padding: 14px 14px 18px; overflow-y: auto; }
   .factory-page .ovw { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 

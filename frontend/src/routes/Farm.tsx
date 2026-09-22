@@ -15,6 +15,7 @@ import {
   type FarmBuildingView,
 } from '../lib/api-farm';
 import '../styles/extensions-farm.css';
+import '../styles/balbar.css';
 
 const FARM_QUERY_KEY = ['farm'] as const;
 const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;

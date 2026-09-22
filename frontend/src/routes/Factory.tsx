@@ -20,6 +20,7 @@ import {
   type FarmView,
 } from '../lib/api-farm';
 import '../styles/extensions-factory.css';
+import '../styles/balbar.css';
 
 const FARM_QUERY_KEY = ['farm'] as const;
 const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;

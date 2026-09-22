@@ -10,22 +10,6 @@
 .adv-page{display:flex;flex-direction:column;min-height:0;background:var(--bg)}
 
 /* resource balance bar */
-.adv-page .balbar{flex:0 0 auto;display:flex;align-items:center;gap:0;padding:14px 28px;border-bottom:1px solid var(--hair);background:var(--panel)}
-.adv-page .bal{display:grid;grid-template-columns:28px auto;gap:10px;align-items:center;padding:0 22px;border-right:1px solid var(--hair)}
-.adv-page .bal:first-child{padding-left:0}
-.adv-page .bal .ic{width:28px;height:28px;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);color:var(--res)}
-.adv-page .bal .ic svg{width:16px;height:16px}
-.adv-page .bal .col .k{font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.adv-page .bal .col .v{font:800 18px/1.1 var(--font);margin-top:3px}
-.adv-page .bal[data-res="meat"]{--res:var(--meat)}
-.adv-page .bal[data-res="bits"]{--res:var(--bits)}
-.adv-page .bal[data-res="data"]{--res:var(--data)}
-.adv-page .bal[data-res="credits"]{--res:var(--credits)}
-.adv-page .balbar .strip-title{margin-left:auto;text-align:right}
-.adv-page .balbar .strip-title .k{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
-.adv-page .balbar .strip-title .s{font:600 12px/1 var(--font);color:var(--muted);margin-top:5px}
-
-/* ---- content: two columns, single view, no page scroll ---------------- */
 .adv-page .scroll{flex:1 1 auto;min-height:0;overflow:hidden;display:grid;grid-template-columns:1fr 380px;gap:22px;padding:22px 28px 22px}
 @media (max-width:1100px){.adv-page .scroll{grid-template-columns:1fr}}
 .adv-page .col{display:flex;flex-direction:column;min-height:0;min-width:0}
@@ -149,13 +133,3 @@
 /* ---- toast ------------------------------------------------------------- */
 .adv-page .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 18px;clip-path:var(--notch-sm);font:700 12px/1 var(--font);letter-spacing:.02em;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:80}
 .adv-page .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-
-/* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
-   clipped past the viewport with no way to reach it. Tighten, then allow
-   horizontal pan for the remainder. */
-@media (max-width: 768px) {
-  .adv-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
-  .adv-page .balbar::-webkit-scrollbar { display: none; }
-  .adv-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
-  .adv-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
-}
