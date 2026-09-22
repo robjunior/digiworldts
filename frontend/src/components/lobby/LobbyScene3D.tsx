@@ -56,12 +56,12 @@ const EL_COLOR: Readonly<Record<string, string>> = {
 const GROUND_Y = 0;
 /** Slot fan formation (world units). Center is closer to the camera.
  *  Spacing shrinks with a higher divisor so the party reads as one unit —
- *  the default 256px pedestalSpacing yields ~3.5 units between centers. */
+ *  the default 256px pedestalSpacing yields ~2.4 units between centers. */
 function fanPosition(index: number, spacing: number): { x: number; z: number } {
-  const s = spacing / 74;
-  if (index === 0) return { x: -s, z: -2.4 };
-  if (index === 2) return { x: s, z: -2.4 };
-  return { x: 0, z: 2.6 };
+  const s = spacing / 108;
+  if (index === 0) return { x: -s, z: -1.3 };
+  if (index === 2) return { x: s, z: -1.3 };
+  return { x: 0, z: 1.7 };
 }
 
 function hex(n: number): string {
@@ -136,10 +136,10 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(40, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
-    const cameraBase = new THREE.Vector3(0, 6.6, 15);
+    const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
+    const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
     camera.position.copy(cameraBase);
-    camera.lookAt(0, 2.6, 0);
+    camera.lookAt(0, 2.4, 0);
 
     // ── lights ──────────────────────────────────────────────────────────
     scene.add(new THREE.HemisphereLight(0x88a8d0, 0x1b2130, 0.9));
@@ -284,7 +284,7 @@ export function LobbyScene3D({ settings, party, modelUrl, onOpenCreature }: Prop
         rig.setBasePosition(pos.x, pos.z);
         // SPRITE_MAX_DIMENSION is 0.7 world units — scale up so the party
         // reads as proper standing figures (central slightly bigger).
-        const base = slot === 1 ? 4.2 : 3.4;
+        const base = slot === 1 ? 5.2 : 4.3;
         rig.mesh.scale.setScalar(base * settings.centerScale * settings.pedestalScale);
       }
       const ps = settings.pedestalScale;
