@@ -471,7 +471,7 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
     const result = await evolveRoster(req.params.monId, user.id, parsed.data.targetCatalogId);
     if (!result.ok) {
-      const gateReasons = new Set(['invalid target', 'level-too-low', 'no-paths', 'stage-cap', 'race-conflict']);
+      const gateReasons = new Set(['invalid target', 'level-too-low', 'no-paths', 'stage-cap', 'race-conflict', 'no-item-assigned', 'missing-item', 'no-mood', 'attribute-mismatch']);
       const code = result.error === 'mon not found' ? 404 : gateReasons.has(result.error) ? 409 : 500;
       return reply.code(code).send({ error: result.error });
     }

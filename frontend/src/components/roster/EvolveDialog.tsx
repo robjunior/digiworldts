@@ -86,6 +86,8 @@ function reasonDetail(reason: EvolutionReason | undefined, option: EvolutionOpti
       const label = option.requiredItemName ?? option.requiredItemId ?? 'item';
       return `Needs ${option.requiredItemQty} × ${label} (have ${option.itemQtyAvailable})`;
     }
+    case 'no-item-assigned':
+      return 'No evolution item assigned yet — the path is locked until content ships';
     case 'no-paths':
     case 'stage-cap':
       return 'No path';

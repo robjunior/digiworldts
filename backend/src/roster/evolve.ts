@@ -60,7 +60,8 @@ export type EvolveReason =
   | 'stage-cap'
   | 'no-mood'
   | 'attribute-mismatch'
-  | 'missing-item';
+  | 'missing-item'
+  | 'no-item-assigned';
 
 export type EvolutionOption = {
   catalogId: string;
@@ -149,7 +150,11 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
     if (req.requiredAttribute !== null && current.attribute !== req.requiredAttribute) reason = 'attribute-mismatch';
     else if (row.level < req.requiredLevel) reason = 'level-too-low';
     else if (row.mood < req.requiredMood) reason = 'no-mood';
-    else if (req.requiredItemId !== null && itemQtyAvailable < req.requiredItemQty) reason = 'missing-item';
+    // Content pipeline: EVERY evolution requires a chosen item. An edge with no
+    // assigned item is blocked (the admin unlocks paths by creating items and
+    // assigning them to edges — see digimon-content-deploy skill).
+    else if (req.requiredItemId === null) reason = 'no-item-assigned';
+    else if (itemQtyAvailable < req.requiredItemQty) reason = 'missing-item';
 
     const option: EvolutionOption = {
       catalogId: target.id,

@@ -202,22 +202,31 @@ if (process.env.DB_PATH) {
 
   await applySeed(bundle as Parameters<typeof applySeed>[0]);
 
-  const booster = await adapter.one<{ id: string; code: string; status: string; seed_hash: string }>(
-    'SELECT id, code, status, seed_hash FROM boosters WHERE code = ?', ['BT-05']);
-  check('apply: booster row present', booster !== undefined);
-  check('apply: booster status published', booster?.status === 'published');
-  check('apply: booster seed_hash non-empty', typeof booster?.seed_hash === 'string' && booster.seed_hash.length > 0);
+  const boosters = await adapter.query<{ id: string; code: string; status: string; seed_hash: string }>(
+    'SELECT id, code, status, seed_hash FROM boosters ORDER BY code');
+  check('apply: 3 starter-evolution boosters present', boosters.length === 3, String(boosters.length));
+  const bt06 = boosters.find((b) => b.code === 'BT-06');
+  check('apply: BT-06 (Agumon pack) row present', bt06 !== undefined);
+  check('apply: booster status published', bt06?.status === 'published');
+  check('apply: booster seed_hash non-empty', typeof bt06?.seed_hash === 'string' && (bt06?.seed_hash.length ?? 0) > 0);
 
   const nodes = await adapter.query<{ id: string; parent_node_id: string | null; digimon_id: string }>(
-    'SELECT id, parent_node_id, digimon_id FROM booster_digimon_nodes WHERE booster_id = ? ORDER BY id', ['bt-05']);
-  check('apply: 9 digimon nodes', nodes.length === 9, String(nodes.length));
-  const angemon = nodes.find((n) => n.id === 'bt-05:angemon');
-  check('apply: parent ref resolved in DB', angemon?.parent_node_id === 'bt-05:patamon', String(angemon?.parent_node_id));
+    'SELECT id, parent_node_id, digimon_id FROM booster_digimon_nodes WHERE booster_id = ? ORDER BY id', ['bt-06']);
+  check('apply: BT-06 has 3 digimon nodes (agumon + greymon + tyrannomon)', nodes.length === 3, String(nodes.length));
+  const greymon = nodes.find((n) => n.id === 'bt-06:greymon');
+  check('apply: parent ref resolved in DB', greymon?.parent_node_id === 'bt-06:agumon', String(greymon?.parent_node_id));
+  const tyrannomon = nodes.find((n) => n.id === 'bt-06:tyrannomon');
+  check('apply: second evolution also rooted at the starter', tyrannomon?.parent_node_id === 'bt-06:agumon', String(tyrannomon?.parent_node_id));
+
+  const items = await adapter.query<{ id: string; item_id: string }>(
+    'SELECT id, item_id FROM booster_item_entries WHERE booster_id = ? ORDER BY id', ['bt-06']);
+  check('apply: BT-06 carries its 2 evolution-key items', items.length === 2, String(items.length));
+  check('apply: item refs are real shop items', items.every((i) => i.item_id.startsWith('itm-evo-')));
 
   // Re-apply → must converge, not throw duplicate-key (idempotent).
   await applySeed(bundle as Parameters<typeof applySeed>[0]);
-  const after = await adapter.query<{ id: string }>('SELECT id FROM booster_digimon_nodes WHERE booster_id = ?', ['bt-05']);
-  check('apply: idempotent re-apply (no dup rows)', after.length === 9, String(after.length));
+  const after = await adapter.query<{ id: string }>('SELECT id FROM booster_digimon_nodes WHERE booster_id = ?', ['bt-06']);
+  check('apply: idempotent re-apply (no dup rows)', after.length === 3, String(after.length));
 
   adapter.close();
   rmSync(dbPath, { force: true });

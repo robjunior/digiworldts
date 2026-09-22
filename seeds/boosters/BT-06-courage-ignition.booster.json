@@ -1,0 +1,19 @@
+{
+  "$schema": "./booster.schema.json",
+  "code": "BT-06",
+  "name": "Courage Ignition",
+  "set": "Starter Evolution",
+  "releaseDate": "2026-09-22",
+  "description": "Path of the fire-breathing rookie: Agumon and the two Champion fates that await him.",
+  "status": "published",
+  "tags": ["starter", "fire", "agumon", "season-3"],
+  "digimonPool": [
+    { "ref": "agumon", "digimonId": "skb-50", "parentRef": null, "rarity": "common", "weight": 10, "order": 0 },
+    { "ref": "greymon", "digimonId": "skb-326", "parentRef": "agumon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "tyrannomon", "digimonId": "skb-363", "parentRef": "agumon", "rarity": "rare", "weight": 4, "order": 1 }
+  ],
+  "itemPool": [
+    { "ref": "greymon-key", "itemId": "itm-evo-greymon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "tyrannomon-key", "itemId": "itm-evo-tyrannomon", "rarity": "rare", "weight": 3, "order": 1 }
+  ]
+}

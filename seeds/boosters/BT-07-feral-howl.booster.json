@@ -1,0 +1,19 @@
+{
+  "$schema": "./booster.schema.json",
+  "code": "BT-07",
+  "name": "Feral Howl",
+  "set": "Starter Evolution",
+  "releaseDate": "2026-09-22",
+  "description": "The wolf pack awakens: Gabumon and the two fire Champions that carry the howl forward.",
+  "status": "published",
+  "tags": ["starter", "fire", "gabumon", "season-3"],
+  "digimonPool": [
+    { "ref": "gabumon", "digimonId": "skb-151", "parentRef": null, "rarity": "common", "weight": 10, "order": 0 },
+    { "ref": "garurumon", "digimonId": "skb-12", "parentRef": "gabumon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "kyubimon", "digimonId": "skb-395", "parentRef": "gabumon", "rarity": "uncommon", "weight": 4, "order": 1 }
+  ],
+  "itemPool": [
+    { "ref": "garurumon-key", "itemId": "itm-evo-garurumon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "kyubimon-key", "itemId": "itm-evo-kyubimon", "rarity": "uncommon", "weight": 4, "order": 1 }
+  ]
+}

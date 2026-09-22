@@ -11,7 +11,7 @@ export type SeedStarterResponse = {
   readonly reason?: string;
 };
 
-export type EvolutionReason = 'no-paths' | 'level-too-low' | 'stage-cap' | 'no-mood' | 'attribute-mismatch' | 'missing-item';
+export type EvolutionReason = 'no-paths' | 'level-too-low' | 'stage-cap' | 'no-mood' | 'attribute-mismatch' | 'missing-item' | 'no-item-assigned';
 
 export type EvolutionOption = {
   readonly catalogId: string;
