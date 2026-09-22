@@ -212,13 +212,18 @@ export function SceneSettingsAdmin(): JSX.Element {
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
   /* lobby backdrop knobs (nested under settings.lobby) */
-  const effectiveLobby: LobbySceneSettings =
-    (draft?.settings.lobby as LobbySceneSettings | undefined) ?? DEFAULT_LOBBY_SCENE;
+  const effectiveLobby: LobbySceneSettings = {
+    ...DEFAULT_LOBBY_SCENE,
+    ...(draft?.settings.lobby as Partial<LobbySceneSettings> | undefined),
+  };
 
   const patchLobby = (change: Partial<LobbySceneSettings>): void => {
     setDraft((prev) => {
       if (prev === null) return prev;
-      const base = (prev.settings.lobby as LobbySceneSettings | undefined) ?? DEFAULT_LOBBY_SCENE;
+      const base = {
+        ...DEFAULT_LOBBY_SCENE,
+        ...(prev.settings.lobby as Partial<LobbySceneSettings> | undefined),
+      };
       return {
         ...prev,
         settings: {
