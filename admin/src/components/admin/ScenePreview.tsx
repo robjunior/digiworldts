@@ -18,6 +18,11 @@ type ScenePreviewProps = {
    *  party on pedestals) applying the lobby knobs live — mirror of the front
    *  LobbyScene3D so admin edits are visible in the scene preview. */
   readonly lobby?: LobbySceneSettings | null;
+  /** GLB-driven mode (the editor's "Use GLB embedded lighting"): load the arena
+   *  bare so the GLB drives lighting, falling back to the arena-keyed
+   *  atmosphere when the GLB ships no punctual lights. Mirrors what combat
+   *  calls (`loadArenaModelBare`) so the preview matches the real scene. */
+  readonly useGlbSettings?: boolean;
 };
 
 const PLACEHOLDER_UNITS = [
@@ -191,7 +196,7 @@ function mountLobbyPreview(canvas: HTMLCanvasElement, f: LobbyRefs, settings: Sc
   };
 }
 
-export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: ScenePreviewProps): JSX.Element {
+export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, useGlbSettings }: ScenePreviewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const managerRef = useRef<SceneManager | null>(null);
@@ -254,7 +259,12 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: 
     ro.observe(container);
     let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
     const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
-    if (url !== undefined) void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
+    if (url !== undefined) {
+      void (useGlbSettings === true
+        ? manager.loadArenaModelBare(url, arenaKey)
+        : manager.loadArenaModelWithAtmosphere(url, arenaKey)
+      ).catch(() => {});
+    }
     return () => {
       ro.disconnect();
       manager?.dispose();
@@ -294,14 +304,17 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby }: 
         let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
         const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
         if (url === undefined) return;
-        void manager.loadArenaModelWithAtmosphere(url, arenaKey).catch(() => {});
-      }, [arenaKey, settings.modelFile, isLobby]);
+        void (useGlbSettings === true
+          ? manager.loadArenaModelBare(url, arenaKey)
+          : manager.loadArenaModelWithAtmosphere(url, arenaKey)
+        ).catch(() => {});
+      }, [arenaKey, settings.modelFile, isLobby, useGlbSettings]);
 
       /* combat scene settings / weather / time */
   useEffect(() => {
-    if (isLobby) return;
+    if (isLobby || useGlbSettings === true) return;
     managerRef.current?.applySettings(settings);
-  }, [settings, isLobby]);
+  }, [settings, isLobby, useGlbSettings]);
 
   useEffect(() => {
     if (isLobby) return;

@@ -482,6 +482,21 @@ const DEFAULT_ATMOSPHERE: ArenaAtmosphere = {
   dustOpacity: 0.2,
 };
 
+/**
+ * GLB → arena-atmosphere override for the GLB-default fallback (see
+ * `loadArenaModelBare`). Used when a GLB carries no punctual lights, so the
+ * scene still gets a coherent atmosphere instead of the generic default.
+ *
+ * `arena.glb` is the neutral cyber/factory arena — dark steel panels, cable
+ * trays, HDD/terminal props and self-lit screens — so its fallback is the
+ * `steel` industrial look. This is the "atmosphere the GLB uses": it ships no
+ * real lights (only `KHR_materials_emissive_strength` emissive surfaces), so
+ * the closest keyed mood for it is `steel`.
+ */
+const GLB_ATMOSPHERE_BY_FILENAME: Readonly<Record<string, string>> = {
+  'arena.glb': 'steel',
+};
+
 function easeOutCubic(t: number): number {
   const c = 1 - t;
   return 1 - c * c * c;
@@ -1115,26 +1130,77 @@ export class SceneManager {
   }
 
   /**
+   * Apply an atmosphere's LIGHTING only (hemi/key/rim/fill/exposure dust),
+   * leaving `scene.fog` untouched. Used by the GLB-default fallback: with the
+   * GLB driving the look, fog stays disabled (the GLB's own volume/atmosphere
+   * meshes own the haze), but the lights still need a coherent mood.
+   */
+  private applyAtmosphereLighting(atmosphere: ArenaAtmosphere): void {
+    if (this.disposedFlag) return;
+    this.hemi.color.setHex(atmosphere.sky);
+    this.hemi.groundColor.setHex(atmosphere.ground);
+    this.hemi.intensity = atmosphere.hemiIntensity;
+    this.keyLight.color.setHex(atmosphere.keyColor);
+    this.keyLight.intensity = atmosphere.keyIntensity;
+    this.keyLight.position.set(
+      atmosphere.keyPos[0],
+      atmosphere.keyPos[1],
+      atmosphere.keyPos[2],
+    );
+    this.rimLight.color.setHex(atmosphere.rimColor);
+    this.rimLight.intensity = atmosphere.rimIntensity;
+    this.fillLight.color.setHex(atmosphere.fillColor);
+    this.fillLight.intensity = atmosphere.fillIntensity;
+    this.renderer.toneMappingExposure = atmosphere.exposure;
+    // Key light position (a shadow caster) changed: rebuild the shadow map.
+    this.requestShadowRefresh();
+    if (this.dust !== null) {
+      const mat = this.dust.material as THREE.PointsMaterial;
+      mat.color.setHex(atmosphere.dustColor);
+      mat.opacity = atmosphere.dustOpacity;
+      mat.needsUpdate = true;
+    }
+  }
+
+  /**
    * "Bare" arena load: intended for scenes with `useGlbSettings=true`.
-   * Skips `setArenaAtmosphere` and disables scene fog so the GLB drives the look.
+   * Skips `setArenaAtmosphere` so the GLB drives the look, and disables scene
+   * fog so the GLB's own volume/atmosphere owns the haze.
    * The manager's own rig is only surrendered when the GLB actually ships
    * KHR_lights_punctual lights; most biome exports carry none, and dimming
    * unconditionally left those arenas rendering in near-darkness.
+   *
+   * When the GLB ships no lights, the fallback lighting comes from the arena's
+   * keyed atmosphere (`arenaKey`), with a per-filename override for known
+   * bare-geometry arenas like `arena.glb` (→ `steel`). This is what makes
+   * selecting a GLB as default render with a coherent mood even though most
+   * GLBs embed no lights.
    */
-  async loadArenaModelBare(url: string): Promise<void> {
-    this.currentArenaKey = null;
+  async loadArenaModelBare(
+    url: string,
+    arenaKey?: string | null,
+  ): Promise<void> {
+    this.currentArenaKey = arenaKey ?? null;
     await this.loadArenaModel(url);
     let glbLightCount = 0;
     this.arenaGroup.traverse((obj) => {
       if (obj instanceof THREE.Light) glbLightCount += 1;
     });
+    const filename = url.split('/').pop() ?? '';
+    const fallbackKey =
+      GLB_ATMOSPHERE_BY_FILENAME[filename] ??
+      (arenaKey !== undefined && arenaKey !== null ? arenaKey : null);
+    const fallback: ArenaAtmosphere =
+      fallbackKey !== null
+        ? (ARENA_ATMOSPHERES[fallbackKey] ?? DEFAULT_ATMOSPHERE)
+        : DEFAULT_ATMOSPHERE;
     if (glbLightCount > 0) {
       this.hemi.intensity = 0.15;
       this.keyLight.intensity = 0.35;
       this.rimLight.intensity = 0.0;
       this.fillLight.intensity = 0.0;
     } else {
-      this.applyAtmosphere(DEFAULT_ATMOSPHERE);
+      this.applyAtmosphereLighting(fallback);
     }
     this.scene.fog = null;
   }

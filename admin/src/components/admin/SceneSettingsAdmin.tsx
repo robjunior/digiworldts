@@ -425,6 +425,7 @@ export function SceneSettingsAdmin(): JSX.Element {
               settings={effectiveSettings}
               weather={draft.weather}
               timeOfDay={draft.timeOfDay}
+              useGlbSettings={draft.useGlbSettings}
               lobby={selectedScene !== null && isLobbyScene(selectedScene) ? effectiveLobby : null}
             />
           </section>

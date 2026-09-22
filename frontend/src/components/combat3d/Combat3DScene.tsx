@@ -284,7 +284,7 @@ async function loadArenaWithFallback(
     }
 
     const loader = resolution.useGlbSettings
-      ? manager.loadArenaModelBare(resolution.modelUrl)
+      ? manager.loadArenaModelBare(resolution.modelUrl, resolution.arenaKey)
       : manager.loadArenaModelWithAtmosphere(resolution.modelUrl, resolution.arenaKey);
 
     await loader;
@@ -413,7 +413,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     if (resolution.modelUrl !== undefined) {
       const url = resolution.modelUrl;
       const loader = resolution.useGlbSettings
-        ? manager.loadArenaModelBare(url)
+        ? manager.loadArenaModelBare(url, resolution.arenaKey)
         : manager.loadArenaModelWithAtmosphere(url, resolution.arenaKey);
       void loader
         .then(() => {
