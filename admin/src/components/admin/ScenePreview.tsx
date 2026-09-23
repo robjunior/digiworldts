@@ -57,11 +57,13 @@ function fanPosition(index: number, spacing: number): { x: number; z: number } {
 type LobbyRefs = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
+  camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   lights: THREE.Light[];
   pedestals: { ring: THREE.Mesh; glow: THREE.Mesh }[];
   rigs: (SpriteRig | null)[];
   glbRoot: THREE.Group | null;
+  glbLoadVersion: number;
+  dust: THREE.Points | null;
 };
 
 /** Recompute camera, pedestals, party rigs, lights and fog from the scene
@@ -84,17 +86,25 @@ function applyLobbyStage(
   const yaw = (settings.camYawDeg ?? 0) * deg;
   const fov = settings.camFov ?? 36;
   const lookY = partyY + (settings.camLookAtY ?? partyH / 2);
-  const ch = f.camera as THREE.PerspectiveCamera;
-  ch.fov = fov;
-  ch.updateProjectionMatrix();
-  ch.position.set(
-    0 + Math.sin(yaw) * dist * Math.cos(elev),
+  const pos = new THREE.Vector3(
+    Math.sin(yaw) * dist * Math.cos(elev),
     lookY + Math.sin(elev) * dist,
-    12.5 * 0 - Math.cos(yaw) * dist * Math.cos(elev) + 0,
+    -Math.cos(yaw) * dist * Math.cos(elev),
   );
-  // base z: rotate the rest ring around the party
-  ch.position.z = -Math.cos(yaw) * dist * Math.cos(elev);
-  ch.lookAt(0, lookY, 0);
+  const target = new THREE.Vector3(0, lookY, 0);
+  if (settings.cameraType === "ortho") {
+    const frust = settings.camFrustum ?? 14;
+    if (!(f.camera instanceof THREE.OrthographicCamera)) f.camera = new THREE.OrthographicCamera(-frust, frust, frust, -frust, 0.1, 400);
+    f.camera.position.copy(pos);
+    f.camera.lookAt(target);
+    f.camera.updateProjectionMatrix();
+  } else {
+    const pc = f.camera instanceof THREE.PerspectiveCamera ? f.camera : (f.camera = new THREE.PerspectiveCamera(fov, 1, 0.1, 400));
+    pc.fov = fov;
+    pc.position.copy(pos);
+    pc.lookAt(target);
+    pc.updateProjectionMatrix();
+  }
 
   // ── lights (sun/hemi/rim) + weather lighting overrides + time-of-day ──
   for (const l of f.lights) f.scene.remove(l);
@@ -175,6 +185,12 @@ function applyLobbyStage(
   }
   f.renderer.toneMappingExposure = settings.exposure ?? 1;
 
+  // ── ambient dust opacity ────────────────────────────────────────────
+  if (f.dust !== null) {
+    (f.dust.material as THREE.PointsMaterial).opacity = settings.dustOpacity ?? 0;
+    f.dust.visible = (settings.dustOpacity ?? 0) > 0;
+  }
+
   // ── pedestals + party rigs (as before) ─────────────────────────────
   const ps = lobby.pedestalScale ?? 1;
   for (let slot = 0; slot < 3; slot++) {
@@ -223,7 +239,15 @@ function applyLobbyStage(
 /** Load the arena GLB as backdrop, seated on its floor + arena offsets/span. */
 async function loadLobbyGlb(f: LobbyRefs, modelUrl: string | undefined, settings: SceneSettings): Promise<void> {
   if (modelUrl === undefined) return;
-  const gltf = await new GLTFLoader().loadAsync(modelUrl);
+  const version = ++f.glbLoadVersion;
+  let gltf: Awaited<ReturnType<InstanceType<typeof GLTFLoader>["loadAsync"]>>;
+  try {
+    gltf = await new GLTFLoader().loadAsync(modelUrl);
+  } catch {
+    return;
+  }
+  // race guard: se um modelo mais novo foi pedido enquanto carregava, descarta
+  if (version !== f.glbLoadVersion) return;
   const root = gltf.scene;
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
@@ -271,6 +295,21 @@ function mountLobbyPreview(
     glow.rotation.x = -Math.PI / 2;
     f.pedestals.push({ ring, glow });
   }
+  // ambient dust (responds to the Effects → dustOpacity knob)
+  const dustGeo = new THREE.BufferGeometry();
+  const dustCount = 240;
+  const dustPos = new Float32Array(dustCount * 3);
+  for (let i = 0; i < dustCount; i++) {
+    dustPos[i * 3] = (Math.random() - 0.5) * 44;
+    dustPos[i * 3 + 1] = Math.random() * 16;
+    dustPos[i * 3 + 2] = (Math.random() - 0.5) * 36;
+  }
+  dustGeo.setAttribute("position", new THREE.BufferAttribute(dustPos, 3));
+  const dustMat = new THREE.PointsMaterial({ color: 0x9fb0bd, size: 0.05, transparent: true, opacity: 0, depthWrite: false });
+  const dust = new THREE.Points(dustGeo, dustMat);
+  scene.add(dust);
+  f.dust = dust;
+
   applyLobbyStage(f, settings, lobby, weather, timeOfDay);
 
   let raf = 0;
@@ -298,6 +337,12 @@ function mountLobbyPreview(
       p.glow.geometry.dispose();
     }
     if (f.glbRoot !== null) scene.remove(f.glbRoot);
+    if (f.dust !== null) {
+      scene.remove(f.dust);
+      f.dust.geometry.dispose();
+      (f.dust.material as THREE.Material).dispose();
+      f.dust = null;
+    }
     renderer.dispose();
   };
 }
@@ -318,22 +363,34 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
 
     if (isLobby) {
       const fr: LobbyRefs = {
-        renderer: null as never,
-        scene: null as never,
-        camera: null as never,
-        lights: [],
-        pedestals: [],
-        rigs: [],
-        glbRoot: null,
-      };
+            renderer: null as never,
+            scene: null as never,
+            camera: null as never,
+            lights: [],
+            pedestals: [],
+            rigs: [],
+            glbRoot: null,
+            glbLoadVersion: 0,
+            dust: null,
+          };
       lobbyRef.current = fr;
       const off = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null);
       const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           fr.renderer.setSize(width, height);
-          fr.camera.aspect = width / Math.max(height, 1);
-          fr.camera.updateProjectionMatrix();
+          const cam = fr.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
+          if ((cam as unknown as { isOrthographicCamera?: boolean }).isOrthographicCamera) {
+            const o = cam as THREE.OrthographicCamera;
+            const h = o.top - o.bottom;
+            const w = h * (width / Math.max(height, 1));
+            o.left = -w / 2;
+            o.right = w / 2;
+            o.updateProjectionMatrix();
+          } else {
+            (cam as THREE.PerspectiveCamera).aspect = width / Math.max(height, 1);
+            (cam as THREE.PerspectiveCamera).updateProjectionMatrix();
+          }
         }
       });
       ro.observe(container);
