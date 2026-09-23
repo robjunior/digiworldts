@@ -27,7 +27,22 @@ const FRIENDS_QUERY_KEY = ["friends"] as const;
 
 type DmSession = { readonly userId: string; readonly name: string };
 
-export function SocialRail(): JSX.Element {
+export type SocialPartySlot = {
+  readonly id: string;
+  readonly catalogId: string;
+  readonly nickname: string;
+  readonly level: number;
+  readonly element: string;
+  readonly stage: string;
+};
+
+type SocialRailProps = {
+  /** Party (3 slots, null = vazio) rendered as an extra "Party" tab. */
+  readonly party?: readonly (SocialPartySlot | null)[] | null;
+  readonly onOpenCreature?: (id: string) => void;
+};
+
+export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
   const invalidatePvpQuests = useWsStore((s) => s.invalidatePvpQuests);
@@ -39,9 +54,9 @@ export function SocialRail(): JSX.Element {
 
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
-  const [socialTab, setSocialTab] = useState<"chat" | "quests" | "friends">(
-    "chat",
-  );
+  const [socialTab, setSocialTab] = useState<
+    "chat" | "quests" | "friends" | "party"
+  >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
   const [openDms, setOpenDms] = useState<readonly DmSession[]>([]);
@@ -310,6 +325,41 @@ export function SocialRail(): JSX.Element {
           </svg>
           {allFriends.length > 0 && (
             <span className="social-counter">{allFriends.length}</span>
+          )}
+        </button>
+        <button
+          className={`social-icon-btn${socialOpen && socialTab === "party" ? " active" : ""}`}
+          role="tab"
+          aria-selected={socialOpen && socialTab === "party"}
+          onClick={() => {
+            if (socialOpen && socialTab === "party") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("party");
+            }
+          }}
+          title="Party"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="9" cy="8" r="3.5" />
+            <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+            <circle cx="17.5" cy="9.5" r="2.5" />
+            <path d="M16.5 14.5a5 5 0 0 1 5.5 5" />
+          </svg>
+          {party !== undefined && party !== null && (
+            <span className="social-counter">
+              {party.filter(Boolean).length}/3
+            </span>
           )}
         </button>
       </div>
@@ -734,6 +784,61 @@ export function SocialRail(): JSX.Element {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        {/* PARTY PANEL — rail side, junto com social/quests/friends */}
+          <div className="spanel" hidden={socialTab !== "party"}>
+            <div className="party-rail">
+              <div className="friends-section-hd">
+                <span className="k">
+                  Party{" "}
+                  <span className="n">
+                    ({(party ?? []).filter(Boolean).length}/3)
+                  </span>
+                </span>
+              </div>
+              {(party ?? []).map((slot, i) =>
+                slot ? (
+                  <button
+                    key={i}
+                    type="button"
+                    className="friend-row"
+                    onClick={() => onOpenCreature?.(slot.id)}
+                    aria-label={`Abrir perfil de ${slot.nickname}`}
+                  >
+                    <span className="friend-av">{slot.nickname[0]}</span>
+                    <div className="friend-info">
+                      <div className="friend-nm">{slot.nickname}</div>
+                      <div className="friend-sub">
+                        {slot.element} · {slot.stage} · Lv {slot.level}
+                      </div>
+                    </div>
+                    <div className="friend-actions">
+                      <span className="lob-p-link" style={{ margin: 0 }}>
+                        {slot.level}
+                      </span>
+                    </div>
+                  </button>
+                ) : (
+                  <a
+                    key={i}
+                    href="/roster"
+                    className="friend-row offline"
+                    aria-label={`slot ${i + 1} vazio — abrir roster`}
+                  >
+                    <span className="friend-av">?</span>
+                    <div className="friend-info">
+                      <div className="friend-nm">Vazio</div>
+                      <div className="friend-sub">
+                        slot {i + 1} — aberto
+                      </div>
+                    </div>
+                  </a>
+                ),
+              )}
+              <a href="/roster" className="lob-p-link">
+                Gerenciar party
+              </a>
             </div>
           </div>
         </>
