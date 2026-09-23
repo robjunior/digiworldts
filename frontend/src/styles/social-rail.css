@@ -990,3 +990,23 @@
         border-top: 0;
     }
 }
+
+/* ── party slot — mockup OD: sprite pixel, nome, sub uppercase, Lv dourado ── */
+.party-slots { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.party-slots .dm-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+  padding: 10px 12px; background: var(--panel2); border: 1px solid var(--hair);
+  clip-path: var(--notch-sm); cursor: pointer; transition: border-color .12s;
+}
+.party-slots .dm-row:hover { border-color: var(--signal); }
+.party-slots .dm-row .dm-av {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--hair); overflow: hidden;
+}
+.party-slots .dm-row .dm-av img { width: 36px; height: 36px; object-fit: contain; image-rendering: pixelated; }
+.party-slots .dm-row .dm-av .mono { font: 900 20px/1 var(--font); color: var(--muted); }
+.party-slots .dm-row .dm-nm { font: 800 13px/1.1 var(--font); color: var(--ink); }
+.party-slots .dm-row .dm-sub { font: 700 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.party-slots .dm-row .dm-lv { font: 800 11px/1 var(--font); color: var(--gold); }
+.party-slots .dm-row.empty .dm-av { background: transparent; }
+.party-slots .lob-p-link { display: block; padding: 6px 2px 0; text-align: left; }

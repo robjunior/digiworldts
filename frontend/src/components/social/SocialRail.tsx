@@ -21,6 +21,7 @@ import type { PvpQuestPeriod } from "@digiworld/shared/pvp-quest";
 import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
+import { DigimonSprite } from "../common/DigimonSprite";
 import "../../styles/social-rail.css";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
@@ -786,53 +787,52 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
               </div>
             </div>
           </div>
-        {/* PARTY PANEL — rail side, junto com social/quests/friends */}
+        {/* PARTY PANEL — mockup OD: dm-row com sprite pixel, nome, sub, Lv dourado */}
           <div className="spanel" hidden={socialTab !== "party"}>
-            <div className="party-rail">
-              <div className="friends-section-hd">
-                <span className="k">
-                  Party{" "}
-                  <span className="n">
-                    ({(party ?? []).filter(Boolean).length}/3)
-                  </span>
-                </span>
-              </div>
+            <div className="party-slots">
               {(party ?? []).map((slot, i) =>
                 slot ? (
                   <button
                     key={i}
                     type="button"
-                    className="friend-row"
+                    className="dm-row"
+                    data-pos={i}
                     onClick={() => onOpenCreature?.(slot.id)}
                     aria-label={`Abrir perfil de ${slot.nickname}`}
                   >
-                    <span className="friend-av">{slot.nickname[0]}</span>
-                    <div className="friend-info">
-                      <div className="friend-nm">{slot.nickname}</div>
-                      <div className="friend-sub">
-                        {slot.element} · {slot.stage} · Lv {slot.level}
-                      </div>
-                    </div>
-                    <div className="friend-actions">
-                      <span className="lob-p-link" style={{ margin: 0 }}>
-                        {slot.level}
+                    <span className="dm-av">
+                      <DigimonSprite
+                        catalogId={slot.catalogId}
+                        className="dm-img"
+                        alt=""
+                      />
+                    </span>
+                    <span className="dm-tx">
+                      <span className="dm-nm">{slot.nickname}</span>
+                      <span className="dm-sub">
+                        {slot.element} · {slot.stage}
                       </span>
-                    </div>
+                    </span>
+                    <span className="dm-lv">Lv {slot.level}</span>
                   </button>
                 ) : (
                   <a
                     key={i}
                     href="/roster"
-                    className="friend-row offline"
+                    className="dm-row empty"
+                    data-pos={i}
                     aria-label={`slot ${i + 1} vazio — abrir roster`}
                   >
-                    <span className="friend-av">?</span>
-                    <div className="friend-info">
-                      <div className="friend-nm">Vazio</div>
-                      <div className="friend-sub">
-                        slot {i + 1} — aberto
-                      </div>
-                    </div>
+                    <span className="dm-av">
+                      <span className="mono">?</span>
+                    </span>
+                    <span className="dm-tx">
+                      <span className="dm-nm">Vazio</span>
+                      <span className="dm-sub">
+                        slot {i + 1} — aguardando convite
+                      </span>
+                    </span>
+                    <span className="dm-lv">—</span>
                   </a>
                 ),
               )}
