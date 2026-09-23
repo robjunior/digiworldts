@@ -116,13 +116,62 @@ function applyLobbyStage(
   const rim = new THREE.DirectionalLight(settings.rimColor ?? 0x2c74ff, settings.rimIntensity ?? 0.5);
   rim.position.set(8, 6, -8);
   f.scene.add(rim);
-  f.lights = [hemi, key, rim];
+  const fill = new THREE.DirectionalLight(settings.fillColor ?? 0x3b82f6, settings.fillIntensity ?? 0.18);
+  fill.position.set(2, 4, 9);
+  f.scene.add(fill);
+  f.lights = [hemi, key, rim, fill];
 
-  // ── fog (weather or settings) + exposure ────────────────────────────
-  if (settings.fogEnabled !== false) {
+  // ── shadows ──────────────────────────────────────────────────────────
+  const shadows = settings.shadowsEnabled === true;
+  f.renderer.shadowMap.enabled = shadows;
+  if (shadows) {
+    f.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    key.castShadow = true;
+    const mapSize = settings.shadowMapSize ?? 2048;
+    key.shadow.mapSize.set(mapSize, mapSize);
+    key.shadow.bias = settings.shadowBias ?? 0;
+    key.shadow.normalBias = settings.shadowNormalBias ?? 0;
+    key.shadow.radius = settings.shadowRadius ?? 6;
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 60;
+    key.shadow.camera.left = key.shadow.camera.bottom = -30;
+    key.shadow.camera.right = key.shadow.camera.top = 30;
+    key.shadow.camera.updateProjectionMatrix();
+    f.glbRoot?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if ((m as unknown as { isMesh?: boolean }).isMesh) {
+        m.castShadow = true;
+        m.receiveShadow = true;
+      }
+    });
+  } else {
+    key.castShadow = false;
+    f.glbRoot?.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if ((m as unknown as { isMesh?: boolean }).isMesh) {
+        m.castShadow = false;
+        m.receiveShadow = true;
+      }
+    });
+  }
+
+  // ── fog (linear / exp2 / height) + exposure ─────────────────────────
+  if (settings.fogEnabled === false) {
+    f.scene.fog = null;
+  } else {
     const fogColor = wl?.fogColor ?? settings.fogColor ?? 0x1e2a44;
-    if (f.scene.fog instanceof THREE.Fog) (f.scene.fog as THREE.Fog).color.setHex(fogColor);
-    else f.scene.fog = new THREE.Fog(fogColor, settings.fogNear ?? 14, settings.fogFar ?? 70);
+    const mode = settings.fogMode ?? "linear";
+    if (mode === "exp2" || mode === "height") {
+      f.scene.fog = new THREE.FogExp2(
+        fogColor,
+        mode === "height" ? (settings.fogHeight ?? 0) > 0 ? 0.015 : settings.fogDensity ?? 0.02 : settings.fogDensity ?? 0.02,
+      );
+    } else {
+      if (!(f.scene.fog instanceof THREE.Fog)) f.scene.fog = new THREE.Fog(fogColor, settings.fogNear ?? 14, settings.fogFar ?? 70);
+      (f.scene.fog as THREE.Fog).color.setHex(fogColor);
+      (f.scene.fog as THREE.Fog).near = settings.fogNear ?? 14;
+      (f.scene.fog as THREE.Fog).far = settings.fogFar ?? 70;
+    }
   }
   f.renderer.toneMappingExposure = settings.exposure ?? 1;
 
