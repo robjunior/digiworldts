@@ -24,8 +24,6 @@ import { getLobbyScene, getLobbySceneEntity } from "../lib/api-scenes";
 import { getShop } from "../lib/api-shop";
 import { useWsStore } from "../state/wsStore";
 import { DigimonSprite } from "../components/common/DigimonSprite";
-import { TopBar } from "../components/topbar/TopBar";
-import { SocialRail } from "../components/social/SocialRail";
 import { LobbyScene3D, type LobbyFigure } from "../components/lobby/LobbyScene3D";
 import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
@@ -333,7 +331,7 @@ export function Lobby(): JSX.Element {
           : "Draw";
   return (
     <div className="lobby-shell" data-od-id="lobby-shell">
-      <TopBar />
+      {/* O AppShell (pai) fornece o TopBar + SocialRail do padrão do site. */}
 
       {/* 3D cena do lobby — background cinematic */}
       <LobbyScene3D
@@ -417,23 +415,6 @@ export function Lobby(): JSX.Element {
           </div>
         </div>
       </div>
-
-      {/* rail lateral — social + quests + amigos + party */}
-      <SocialRail
-        party={partySlots.map((m) =>
-          m
-            ? {
-                id: m.id,
-                catalogId: m.catalogId,
-                nickname: m.nickname,
-                level: m.level,
-                element: elementOf(m),
-                stage: m.template?.stage ?? "",
-              }
-            : null,
-        )}
-        onOpenCreature={(id) => navigate(`/creature/${id}`)}
-      />
 
       {/* toast */}
       {toast && (

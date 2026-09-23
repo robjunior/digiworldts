@@ -93,9 +93,9 @@ export function App(): JSX.Element {
             <Route path="/intro" element={<Intro />} />
             <Route path="/loading" element={<LoadingTransition />} />
             <Route path="/combat" element={<Combat />} />
-            <Route path="/lobby" element={<Lobby />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
+              <Route path="/lobby" element={<Lobby />} />
               <Route path="/account" element={<Account />} />
               <Route path="/roster" element={<Roster />} />
               <Route path="/creature/:monId" element={<Creature />} />

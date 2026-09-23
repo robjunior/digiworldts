@@ -2,16 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 
 import { ArenaIcon, BackIcon, ShopIcon } from "./common/icons";
 import { TopBar } from "./topbar/TopBar";
 import "../styles/topbar.css";
-import { SocialRail } from "./social/SocialRail";
+import { SocialRail, type SocialPartySlot } from "./social/SocialRail";
 import "../styles/social-rail.css";
 import { useAuth } from "../hooks/useAuth";
 import { useT } from "../hooks/useLocale";
@@ -47,7 +48,7 @@ const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
 };
 
 const PAGE_SCOPE: Readonly<Record<string, string>> = {
-  "/lobby": "",
+  "/lobby": "lobby-layout",
   "/combat": "",
   "/account": "account-page",
   "/roster": "roster-layout",
@@ -247,6 +248,25 @@ export function AppShell(): JSX.Element {
   const party = roster.filter((mon) => mon.status === "party");
   const partyMax = 3;
   const tamerLv = user?.mmr ?? null;
+  const navigate = useNavigate();
+  const isLobby = pathname === "/lobby";
+  const lobbyParty = useMemo<readonly (SocialPartySlot | null)[]>(
+    () =>
+      [0, 1, 2].map((slot) => {
+        const m = roster.find((r) => r.slot === slot);
+        return m
+          ? {
+              id: m.id,
+              catalogId: m.catalogId,
+              nickname: m.nickname,
+              level: m.level,
+              element: m.template?.element ?? m.template?.attribute ?? "water",
+              stage: m.template?.stage ?? "",
+            }
+          : null;
+      }),
+    [roster],
+  );
 
   const renderNav = (entry: NavEntry): JSX.Element => {
     const active = isActive(pathname, entry.to);
@@ -291,7 +311,10 @@ export function AppShell(): JSX.Element {
         <main className={mainClassName}>
           <Outlet />
         </main>
-        <SocialRail />
+        <SocialRail
+          party={isLobby ? lobbyParty : null}
+          onOpenCreature={(id) => navigate(`/creature/${id}`)}
+        />
       </div>
     </div>
   );
