@@ -200,6 +200,16 @@ export type LobbySceneSettings = {
   /** camera drift strength 0..2 (1); 0 disables the slow idle orbit.
    *  No effect while the GLB's embedded camera is adopted (useGlbSettings). */
   driftIntensity: number;
+  /** Octopath-style readability: sprite colour multiplier (HDR) so the
+   *  digimons read bright against the dark arena even at low exposure.
+   *  0.3..8 (default decides; low scene exposure wants it >1). */
+  digimonBrightness: number;
+  /** Stage Spotlight over the party: decent-light floor pool, the digimons'
+   *  PROJETED shadows, and feeds a volumetric beam. 0..6. */
+  stageLightIntensity: number;
+  /** Visibility of the volumetric light shafts (additive cones from the GLB
+   *  spots + the stage light). 0..6. */
+  volumetricIntensity: number;
 };
 
 /** SceneEntity.name the Lobby screen looks up when no scene has kind 'lobby'. */
@@ -213,6 +223,9 @@ export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
   centerLift: 36,
   partyHeight: 0,
   driftIntensity: 1,
+  digimonBrightness: 4,
+  stageLightIntensity: 3,
+  volumetricIntensity: 2,
 };
 
 const FRUSTUM = 4.5;

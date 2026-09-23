@@ -730,6 +730,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Elevação do centro (px)" value={effectiveLobby.centerLift} min={0} max={160} step={2} decimals={0} onChange={(v) => patchLobby({ centerLift: v })} />
                 <SliderRow label="Altura da party (Y)" value={effectiveLobby.partyHeight} min={-3} max={3} step={0.05} onChange={(v) => patchLobby({ partyHeight: v })} />
                 <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
+                <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
+                <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
+                <SliderRow label="Iluminação volumétrica" value={effectiveLobby.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ volumetricIntensity: v })} />
               </Section>
             </fieldset>
           </aside>

@@ -20,6 +20,9 @@ export const LOBBY_SETTINGS_KEYS = [
   'centerLift',
   'partyHeight',
   'driftIntensity',
+  'digimonBrightness',
+  'stageLightIntensity',
+  'volumetricIntensity',
 ] as const;
 
 export const LobbySceneSettingsZ = z.object({
@@ -30,6 +33,9 @@ export const LobbySceneSettingsZ = z.object({
   centerLift: z.number().min(-400).max(400),
   partyHeight: z.number().min(-6).max(6).optional(),
   driftIntensity: z.number().min(0).max(2),
+  digimonBrightness: z.number().min(0.3).max(8).optional(),
+  stageLightIntensity: z.number().min(0).max(6).optional(),
+  volumetricIntensity: z.number().min(0).max(6).optional(),
 }).strict();
 
 /**

@@ -292,10 +292,6 @@ async function loadLobbyGlb(
   const oy = settings.arenaOffsetY ?? 0;
   const oz = settings.arenaOffsetZ ?? 0;
   root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
-  // luzes do GLB em candela estouram o PBR — escala uma vez no load (mesmo
-  // fator do LobbyScene3D), jamais no applyLobbyStage (comporia a cada knob).
-  const GLB_LIGHT_SCALE = 0.05;
-  root.traverse((o) => { const l = o as THREE.Light; if (l.isLight) l.intensity *= GLB_LIGHT_SCALE; });
   f.glbRoot = root;
   f.scene.add(root);
   // o piso da arena mudou (topo do hdd_plattertop) — reassenta party, pedestais

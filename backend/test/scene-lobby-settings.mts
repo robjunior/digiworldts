@@ -23,6 +23,9 @@ const DEFAULT_LOBBY_SCENE = {
   centerLift: 36,
   partyHeight: 0,
   driftIntensity: 1,
+  digimonBrightness: 4,
+  stageLightIntensity: 3,
+  volumetricIntensity: 2,
 } as const;
 
 let failures = 0;
