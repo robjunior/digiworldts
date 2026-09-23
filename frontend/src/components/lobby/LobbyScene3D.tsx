@@ -21,6 +21,7 @@ import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
+import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -200,7 +201,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     let glbRoot: THREE.Group | null = null;
     let glbCamera: THREE.Camera | null = null;
     const glbDrives = useGlbSettings === true;
-    const lightShafts: THREE.Mesh[] = [];
+    const lightShafts: LightShaftHandle[] = [];
     if (modelUrl) {
       try {
         new GLTFLoader().load(
@@ -242,7 +243,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
             });
             // luz de palco + feixes volumétricos no piso real (platter)
             seatStageLight();
-            rebuildLightShafts(glbRoot);
+            rebuildLightShafts();
           },
           undefined,
           () => {
@@ -422,63 +423,65 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
       // reassenta a luz de palco + feixes volumétricos no piso real (platter)
       seatStageLight();
-      rebuildLightShafts(root);
+      rebuildLightShafts();
     }
 
-    // ── volumétrico: raios de luz (spots do GLB + luz de palco) ────────
+    // ── volumétrico: volumes de luz (spots do GLB + luz de palco) ───────
     const clearLightShafts = (): void => {
-      for (const c of lightShafts) {
-        scene.remove(c);
-        c.geometry.dispose();
-        (c.material as THREE.Material).dispose();
+      for (const h of lightShafts) {
+        scene.remove(h.mesh);
+        h.dispose();
       }
       lightShafts.length = 0;
     };
-    /** Cones aditivos dos SpotLights (do ponto até o piso) tornam os feixes de
-     *  luz de palco visíveis no ar. Intensidade HDR × volumetricIntensity pra
-     *  ler mesmo sob o low exposure do tonemapping. */
-    function rebuildLightShafts(root: THREE.Group): void {
+    /** Volumes de luz ray-marched (VolumetricLightShader) de cada SpotLight do
+     *  ponto até o piso — god-rays de palco. Intensidade HDR × volumetricIntensity
+     *  pra ler mesmo sob o low exposure do tonemapping. */
+    function rebuildLightShafts(): void {
       clearLightShafts();
       const vol = settings.volumetricIntensity ?? 1;
       if (vol <= 0) return;
-      const axis = new THREE.Vector3(0, -1, 0); // ConeGeometry apex→base é -Y local
-      const posW = new THREE.Vector3();
+      const fog = scene.fog as THREE.Fog | null;
+      const fogColor = new THREE.Color(fog?.color ?? 0x1e2a44);
+      const fogNear = fog?.near ?? 14;
+      const fogFar = fog?.far ?? 70;
+      const exposure = renderer.toneMappingExposure || 1;
       const fwd = new THREE.Vector3();
-      const addShaft = (from: THREE.Vector3, dir: THREE.Vector3, angle: number, color: THREE.Color): void => {
+      const addShaft = (
+        from: THREE.Vector3,
+        dir: THREE.Vector3,
+        angle: number,
+        color: THREE.Color,
+      ): void => {
         const down = -dir.y;
         if (down < 0.02) return;
         const h = Math.min((from.y - groundY) / down, 60);
         if (h < 0.5) return;
-        const radius = Math.max(h * Math.tan(angle), 0.1);
-        const geo = new THREE.ConeGeometry(radius, h, 24, 1, true);
-        geo.translate(0, h / 2, 0); // apex vira a origem local
-        const mat = new THREE.MeshBasicMaterial({
-          color: color.clone().multiplyScalar(1.6 * vol),
-          transparent: true,
-          opacity: 0.9,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-          side: THREE.DoubleSide,
+        const handle = createLightShaft({
+          color,
+          intensity: 0.08 * vol,
+          position: from,
+          forward: dir,
+          angle,
+          length: h,
+          fogColor,
+          fogNear,
+          fogFar,
+          exposure,
         });
-        const cone = new THREE.Mesh(geo, mat);
-        cone.position.copy(from);
-        cone.quaternion.setFromUnitVectors(axis, dir);
-        scene.add(cone);
-        lightShafts.push(cone);
+        scene.add(handle.mesh);
+        handle.update(camera);
+        lightShafts.push(handle);
       };
 
-      root.updateMatrixWorld(true);
-      root.traverse((obj) => {
-        const l = obj as THREE.SpotLight;
-        if (!l.isSpotLight || !Number.isFinite(l.angle) || l.angle <= 0) return;
-        obj.getWorldPosition(posW);
-        fwd.set(0, 0, -1).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion()));
-        addShaft(posW, fwd, l.angle, l.color);
-      });
-      // feixe da luz de palco (stage aponta pro piso da party)
+      // manter poucos feixes fortes: só a luz de palco sobre a party (os spots
+      // do GLB espalham 9 feixes → somam e estouram a cena). Ajustável no admin.
       const stageHit = new THREE.Vector3().copy(stage.position);
-      fwd.set(0, 0, 0).subVectors(stage.target.position, stage.position).normalize();
-      if (fwd.lengthSq() > 0) addShaft(stageHit, fwd, stage.angle, stage.color);
+      fwd.set(0, 0, 0).subVectors(stage.target.position, stage.position);
+      if (fwd.lengthSq() > 0) {
+        fwd.normalize();
+        addShaft(stageHit, fwd, stage.angle, stage.color);
+      }
     }
 
     // initial build
@@ -522,6 +525,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
+      // mantém o uniforme de câmera dos volumes de luz em sync (drift)
+      for (const h of lightShafts) h.update(activeCam);
 
       // project figure labels onto the screen
       const w = host.clientWidth;

@@ -8,6 +8,7 @@ import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
+import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
@@ -64,6 +65,10 @@ type LobbyRefs = {
   glbRoot: THREE.Group | null;
   glbLoadVersion: number;
   dust: THREE.Points | null;
+  /** luz de palco sobre a party (espelha o LobbyScene3D) */
+  stage: THREE.SpotLight | null;
+  /** volumes de luz (feixes) ativos */
+  lightShafts: LightShaftHandle[];
 };
 
 /** Piso da party no preview: topo do `hdd_plattertop` do GLB quando carregado,
@@ -123,7 +128,7 @@ function applyLobbyStage(
     pc.updateProjectionMatrix();
   }
 
-  // ── lights (sun/hemi/rim) + weather lighting overrides + time-of-day ──
+  // ── lights — espelha 1:1 o LobbyScene3D: hemi + key(caster) + rim + stage ─
   for (const l of f.lights) f.scene.remove(l);
   f.lights = [];
   const wl = weather?.lighting;
@@ -143,52 +148,56 @@ function applyLobbyStage(
   const rim = new THREE.DirectionalLight(settings.rimColor ?? 0x2c74ff, settings.rimIntensity ?? 0.5);
   rim.position.set(8, 6, -8);
   f.scene.add(rim);
-  const fill = new THREE.DirectionalLight(settings.fillColor ?? 0x3b82f6, settings.fillIntensity ?? 0.18);
-  fill.position.set(2, 4, 9);
-  f.scene.add(fill);
-  f.lights = [hemi, key, rim, fill];
-
-  // GLB com luzes próprias → remove key/fill (mesma política do front): mantém
-  // hemi (ambiente) + rim como base, senão a arena fica só spot + breu.
-  if (f.glbRoot !== null) {
-    let glbLight = false;
-    f.glbRoot.traverse((o) => { if ((o as THREE.Light).isLight) glbLight = true; });
-    if (glbLight) { f.scene.remove(key); f.scene.remove(fill); }
+  // luz de palco sobre a party (espelha o front)
+  if (f.stage !== null) {
+    f.scene.remove(f.stage);
+    f.scene.remove(f.stage.target);
+    f.stage = null;
+  }
+  const stageI = lobby.stageLightIntensity ?? 0;
+  if (stageI > 0) {
+    const stage = new THREE.SpotLight(0xfff1d8, stageI * 1.35, 0, 0.62, 0.5, 0);
+    stage.castShadow = true;
+    stage.shadow.mapSize.set(2048, 2048);
+    stage.shadow.bias = -0.0004;
+    stage.shadow.normalBias = 0.03;
+    stage.shadow.camera.near = 0.5;
+    stage.shadow.camera.far = 90;
+    const scCam = stage.shadow.camera as unknown as THREE.OrthographicCamera;
+    scCam.left = -14;
+    scCam.right = 14;
+    scCam.top = 14;
+    scCam.bottom = -14;
+    scCam.updateProjectionMatrix();
+    stage.position.set(0, partyY + 15, partyH * 0.35 + 9);
+    stage.target.position.set(0, partyY + partyH * 0.3, 0);
+    f.scene.add(stage);
+    f.scene.add(stage.target);
+    f.stage = stage;
   }
 
-  // ── shadows ──────────────────────────────────────────────────────────
-  const shadows = settings.shadowsEnabled === true;
-  f.renderer.shadowMap.enabled = shadows;
-  if (shadows) {
-    f.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    key.castShadow = true;
-    const mapSize = settings.shadowMapSize ?? 2048;
-    key.shadow.mapSize.set(mapSize, mapSize);
-    key.shadow.bias = settings.shadowBias ?? 0;
-    key.shadow.normalBias = settings.shadowNormalBias ?? 0;
-    key.shadow.radius = settings.shadowRadius ?? 6;
-    key.shadow.camera.near = 0.5;
-    key.shadow.camera.far = 60;
-    key.shadow.camera.left = key.shadow.camera.bottom = -30;
-    key.shadow.camera.right = key.shadow.camera.top = 30;
-    key.shadow.camera.updateProjectionMatrix();
-    f.glbRoot?.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if ((m as unknown as { isMesh?: boolean }).isMesh) {
-        m.castShadow = true;
-        m.receiveShadow = true;
-      }
-    });
-  } else {
-    key.castShadow = false;
-    f.glbRoot?.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if ((m as unknown as { isMesh?: boolean }).isMesh) {
-        m.castShadow = false;
-        m.receiveShadow = true;
-      }
-    });
-  }
+  // ── shadows — sempre ligado (espelha o front) ────────────────────────
+  f.renderer.shadowMap.enabled = true;
+  f.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.bias = -0.0005;
+  key.shadow.normalBias = 0.02;
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 60;
+  key.shadow.camera.left = -22;
+  key.shadow.camera.right = 22;
+  key.shadow.camera.top = 22;
+  key.shadow.camera.bottom = -22;
+  key.shadow.camera.updateProjectionMatrix();
+  if (f.stage !== null) f.stage.castShadow = true;
+  f.glbRoot?.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if ((m as unknown as { isMesh?: boolean }).isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
 
   // ── fog (linear / exp2 / height) + exposure ─────────────────────────
   if (settings.fogEnabled === false) {
@@ -214,6 +223,54 @@ function applyLobbyStage(
   if (f.dust !== null) {
     (f.dust.material as THREE.PointsMaterial).opacity = settings.dustOpacity ?? 0;
     f.dust.visible = (settings.dustOpacity ?? 0) > 0;
+  }
+
+  // ── volumétrico — VolumetricLightShader compartilhado (espelha 1:1 o front) ─
+  for (const h of f.lightShafts) {
+    f.scene.remove(h.mesh);
+    h.dispose();
+  }
+  f.lightShafts = [];
+  const vol = lobby.volumetricIntensity ?? 1;
+  if (vol > 0) {
+    const sceneFog = f.scene.fog as THREE.Fog | null;
+    const fogColor = new THREE.Color(sceneFog?.color ?? 0x1e2a44);
+    const fogNear = sceneFog?.near ?? 14;
+    const fogFar = sceneFog?.far ?? 70;
+    const exposure = f.renderer.toneMappingExposure || 1;
+    const posW = new THREE.Vector3();
+    const fw = new THREE.Vector3();
+    const addShaft = (from: THREE.Vector3, dir: THREE.Vector3, angle: number, color: THREE.Color): void => {
+      const down = -dir.y;
+      if (down < 0.02) return;
+      const h = Math.min((from.y - partyY) / down, 60);
+      if (h < 0.5) return;
+      const handle = createLightShaft({
+        color,
+        intensity: 0.08 * vol,
+        position: from,
+        forward: dir,
+        angle,
+        length: h,
+        fogColor,
+        fogNear,
+        fogFar,
+        exposure,
+      });
+      f.scene.add(handle.mesh);
+      handle.update(f.camera);
+      f.lightShafts.push(handle);
+    };
+    // manter poucos feixes fortes: só a luz de palco sobre a party (os spots do
+    // GLB somam e estouram a cena). Ajustável no admin.
+    if (f.stage !== null) {
+      posW.copy(f.stage.position);
+      fw.set(0, 0, 0).subVectors(f.stage.target.position, f.stage.position);
+      if (fw.lengthSq() > 0) {
+        fw.normalize();
+        addShaft(posW, fw, f.stage.angle, f.stage.color);
+      }
+    }
   }
 
   // ── pedestals + party rigs (as before) ─────────────────────────────
@@ -256,6 +313,7 @@ function applyLobbyStage(
       const pos = fanPosition(slot, lobby.pedestalSpacing);
       rig.setBasePosition(pos.x, pos.z);
       rig.setArenaBaselineY(partyY);
+      (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(lobby.digimonBrightness ?? 1, 0));
       rig.mesh.scale.setScalar(base * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1));
     }
   }
@@ -320,8 +378,8 @@ function mountLobbyPreview(
   f.scene = scene;
   f.camera = camera;
 
-  scene.add(new THREE.HemisphereLight(settings.hemiSkyColor ?? 0x88a8d0, settings.hemiGroundColor ?? 0x1b2130, settings.hemiIntensity ?? 0.9));
-  if (settings.fogEnabled !== false) scene.fog = new THREE.Fog(settings.fogColor ?? 0x1e2a44, settings.fogNear ?? 14, settings.fogFar ?? 70);
+  // hemi/fog são criados/redefinidos pelo applyLobbyStage (evita dupla
+  // iluminação e espelha 1:1 o front)
 
   f.pedestals = [];
   f.rigs = [];
@@ -381,6 +439,16 @@ function mountLobbyPreview(
       (f.dust.material as THREE.Material).dispose();
       f.dust = null;
     }
+    if (f.stage !== null) {
+      scene.remove(f.stage);
+      scene.remove(f.stage.target);
+      f.stage = null;
+    }
+    for (const h of f.lightShafts) {
+      scene.remove(h.mesh);
+      h.dispose();
+    }
+    f.lightShafts = [];
     renderer.dispose();
   };
 }
@@ -410,6 +478,8 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
             glbRoot: null,
             glbLoadVersion: 0,
             dust: null,
+            stage: null,
+            lightShafts: [],
           };
       lobbyRef.current = fr;
       const off = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null);
