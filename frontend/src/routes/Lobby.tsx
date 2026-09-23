@@ -218,9 +218,11 @@ export function Lobby(): JSX.Element {
   const modelFile = (lobbyEntity?.settings as Readonly<Record<string, unknown>> | undefined)?.modelFile;
   // O ambiente do lobby é SEMPRE um GLB — sem fallback procedural. Se a cena
   // não escolher modelFile, usa o modelo default da lista de arenas.
+  // DEFAULT_ARENA_MODEL já é uma URL de asset (não um filename) — passá-lo ao
+  // getArenaUrl devolveria undefined e o ambiente nunca carregaria no refresh.
   const resolvedUrl =
     typeof modelFile === "string" && modelFile.length > 0 ? getArenaUrl(modelFile) : undefined;
-  const modelUrl = resolvedUrl ?? getArenaUrl(DEFAULT_ARENA_MODEL ?? "") ?? null;
+  const modelUrl = resolvedUrl ?? DEFAULT_ARENA_MODEL ?? null;
 
   const [activeMode, setActiveMode] = useState<GameMode>("ranked");
   const [panel, setPanel] = useState<PanelState>(null);

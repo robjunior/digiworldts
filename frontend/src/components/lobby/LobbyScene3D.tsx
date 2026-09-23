@@ -417,7 +417,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       return undefined;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [settings, modelUrl, useGlbSettings, lighting]);
 
   // Party changes → live re-sync (the scene mounts once; this effect reuses it)
   useEffect(() => {
