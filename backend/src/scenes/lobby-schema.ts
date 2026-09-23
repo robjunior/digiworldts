@@ -23,6 +23,12 @@ export const LOBBY_SETTINGS_KEYS = [
   'digimonBrightness',
   'stageLightIntensity',
   'volumetricIntensity',
+  'volumetricSoftness',
+  'volumetricDistanceBlur',
+  'bloomEnabled',
+  'bloomStrength',
+  'bloomRadius',
+  'bloomThreshold',
 ] as const;
 
 export const LobbySceneSettingsZ = z.object({
@@ -36,6 +42,12 @@ export const LobbySceneSettingsZ = z.object({
   digimonBrightness: z.number().min(0.3).max(8).optional(),
   stageLightIntensity: z.number().min(0).max(6).optional(),
   volumetricIntensity: z.number().min(0).max(6).optional(),
+  volumetricSoftness: z.number().min(0).max(1).optional(),
+  volumetricDistanceBlur: z.number().min(0).max(1).optional(),
+  bloomEnabled: z.boolean().optional(),
+  bloomStrength: z.number().min(0).max(3).optional(),
+  bloomRadius: z.number().min(0).max(1).optional(),
+  bloomThreshold: z.number().min(0).max(2).optional(),
 }).strict();
 
 /**

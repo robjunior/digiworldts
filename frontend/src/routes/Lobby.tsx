@@ -149,12 +149,18 @@ export function Lobby(): JSX.Element {
   const sceneQuery = useQuery({
     queryKey: SCENE_QUERY_KEY,
     queryFn: getLobbyScene,
-    staleTime: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
   const sceneEntityQuery = useQuery({
     queryKey: ["lobby-scene-entity"] as const,
     queryFn: getLobbySceneEntity,
-    staleTime: 60_000,
+    staleTime: 5_000,
+    refetchInterval: 5_000,
+    refetchOnWindowFocus: true,
+    refetchOnMount: 'always',
   });
   const shopQuery = useQuery({
     queryKey: ["shop"] as const,

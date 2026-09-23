@@ -33,7 +33,10 @@ export function invalidateScenesCache(): void {
  * renders.
  */
 export async function getLobbyScene(): Promise<LobbySceneSettings> {
-  const scenes = await getScenes();
+  // The admin editor runs in a separate SPA/process, so its cache cannot
+  // invalidate this module's cache. Force the authoritative read here; the
+  // React query controls the refresh cadence on the lobby page.
+  const scenes = await getScenes(true);
   const lobby = scenes.find((s) => s.kind === 'lobby')
     ?? scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
   const stored = (lobby?.settings as Readonly<Record<string, unknown>> | undefined)?.lobby;
@@ -43,7 +46,7 @@ export async function getLobbyScene(): Promise<LobbySceneSettings> {
 
 /** The SceneEntity currently configured as the lobby backdrop (kind or name). */
 export async function getLobbySceneEntity(): Promise<SceneEntity | null> {
-  const scenes = await getScenes();
+  const scenes = await getScenes(true);
   return scenes.find((s) => s.kind === 'lobby')
     ?? scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase())
     ?? null;

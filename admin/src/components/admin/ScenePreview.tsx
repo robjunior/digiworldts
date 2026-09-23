@@ -1,6 +1,9 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
@@ -55,9 +58,18 @@ function fanPosition(index: number, spacing: number): { x: number; z: number } {
   return { x: 0, z: 1.7 };
 }
 
+function normalizeLobbyGlbLights(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Light)) return;
+    if (obj.intensity > 100) obj.intensity = Math.min(obj.intensity * 0.0001, 8);
+  });
+}
+
 type LobbyRefs = {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
+  composer: EffectComposer;
+  bloomPass: UnrealBloomPass;
   camera: THREE.PerspectiveCamera | THREE.OrthographicCamera;
   lights: THREE.Light[];
   pedestals: { ring: THREE.Mesh; glow: THREE.Mesh }[];
@@ -103,7 +115,7 @@ function applyLobbyStage(
 
   // ── camera (perspective; knobs: dist/elev/yaw/fov/lookAtY) ─────────
   const deg = Math.PI / 180;
-  const dist = settings.camDist ?? 12.5;
+  const dist = Math.max(settings.camDist ?? 28, 26);
   const elev = (settings.camElevDeg ?? 0) * deg;
   const yaw = (settings.camYawDeg ?? 0) * deg;
   const fov = settings.camFov ?? 36;
@@ -129,7 +141,13 @@ function applyLobbyStage(
   }
 
   // ── lights — espelha 1:1 o LobbyScene3D: hemi + key(caster) + rim + stage ─
-  for (const l of f.lights) f.scene.remove(l);
+  // Keep directional targets in the scene graph. Without this, the preview's
+  // target world matrix can remain stale and shadow/light direction diverges
+  // from the actual lobby renderer after knob changes.
+  for (const l of f.lights) {
+    f.scene.remove(l);
+    if (l instanceof THREE.DirectionalLight) f.scene.remove(l.target);
+  }
   f.lights = [];
   const wl = weather?.lighting;
   const phaseDim = timeOfDay?.fixedPhase === "night" || timeOfDay?.fixedPhase === "dusk" ? 0.45 : 1;
@@ -139,15 +157,20 @@ function applyLobbyStage(
     (settings.hemiIntensity ?? 0.9) * (wl?.ambientDimMult ?? 1) * phaseDim,
   );
   f.scene.add(hemi);
+  f.lights.push(hemi);
   const key = new THREE.DirectionalLight(
     wl?.sunColor ?? settings.sunColor ?? 0xfff2d0,
     (settings.sunIntensity ?? 1.4) * (wl?.sunIntensityMult ?? 1) * phaseDim,
   );
   key.position.set(settings.sunPosX ?? -6, settings.sunPosY ?? 10, settings.sunPosZ ?? 5);
+  key.target.position.set(0, 0, 0);
   f.scene.add(key);
+  f.scene.add(key.target);
+  f.lights.push(key);
   const rim = new THREE.DirectionalLight(settings.rimColor ?? 0x2c74ff, settings.rimIntensity ?? 0.5);
   rim.position.set(8, 6, -8);
   f.scene.add(rim);
+  f.lights.push(rim);
   // luz de palco sobre a party (espelha o front)
   if (f.stage !== null) {
     f.scene.remove(f.stage);
@@ -217,7 +240,11 @@ function applyLobbyStage(
       (f.scene.fog as THREE.Fog).far = settings.fogFar ?? 70;
     }
   }
-  f.renderer.toneMappingExposure = settings.exposure ?? 1;
+  f.renderer.toneMappingExposure = Math.min(settings.exposure ?? 0.2, 0.22);
+  f.bloomPass.enabled = lobby.bloomEnabled !== false;
+  f.bloomPass.strength = lobby.bloomStrength !== undefined ? Math.min(lobby.bloomStrength, 0.35) : 0.3;
+  f.bloomPass.radius = lobby.bloomRadius !== undefined ? Math.min(lobby.bloomRadius, 0.5) : 0.45;
+  f.bloomPass.threshold = lobby.bloomThreshold !== undefined ? Math.max(lobby.bloomThreshold, 0.85) : 0.9;
 
   // ── ambient dust opacity ────────────────────────────────────────────
   if (f.dust !== null) {
@@ -240,18 +267,20 @@ function applyLobbyStage(
     const exposure = f.renderer.toneMappingExposure || 1;
     const posW = new THREE.Vector3();
     const fw = new THREE.Vector3();
-    const addShaft = (from: THREE.Vector3, dir: THREE.Vector3, angle: number, color: THREE.Color): void => {
+    const addShaft = (from: THREE.Vector3, dir: THREE.Vector3, angle: number, color: THREE.Color, strength = 0.08): void => {
       const down = -dir.y;
       if (down < 0.02) return;
       const h = Math.min((from.y - partyY) / down, 60);
       if (h < 0.5) return;
       const handle = createLightShaft({
         color,
-        intensity: 0.08 * vol,
+        intensity: strength * vol,
         position: from,
         forward: dir,
         angle,
         length: h,
+        softness: lobby.volumetricSoftness ?? 0.55,
+        distanceBlur: lobby.volumetricDistanceBlur ?? 0.65,
         fogColor,
         fogNear,
         fogFar,
@@ -268,8 +297,21 @@ function applyLobbyStage(
       fw.set(0, 0, 0).subVectors(f.stage.target.position, f.stage.position);
       if (fw.lengthSq() > 0) {
         fw.normalize();
-        addShaft(posW, fw, f.stage.angle, f.stage.color);
+        addShaft(posW, fw, f.stage.angle, f.stage.color, 0.45);
       }
+    }
+    if (f.glbRoot !== null) {
+      let count = 0;
+      const spotPos = new THREE.Vector3();
+      const spotTarget = new THREE.Vector3();
+      f.glbRoot.traverse((obj) => {
+        if (count >= 6 || !(obj instanceof THREE.SpotLight)) return;
+        obj.getWorldPosition(spotPos);
+        obj.target.getWorldPosition(spotTarget);
+        const spotDir = spotTarget.sub(spotPos).normalize();
+        addShaft(spotPos, spotDir, obj.angle, obj.color, 0.2);
+        count += 1;
+      });
     }
   }
 
@@ -351,6 +393,7 @@ async function loadLobbyGlb(
   const oz = settings.arenaOffsetZ ?? 0;
   root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
   f.glbRoot = root;
+  normalizeLobbyGlbLights(root);
   f.scene.add(root);
   // o piso da arena mudou (topo do hdd_plattertop) — reassenta party, pedestais
   // e câmera no chão real do modelo recém-carregado
@@ -377,6 +420,18 @@ function mountLobbyPreview(
   f.renderer = renderer;
   f.scene = scene;
   f.camera = camera;
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), lobby.bloomStrength ?? 0.85, lobby.bloomRadius ?? 0.55, lobby.bloomThreshold ?? 0.65);
+  bloomPass.enabled = lobby.bloomEnabled !== false;
+  composer.addPass(bloomPass);
+  f.composer = composer;
+  f.bloomPass = bloomPass;
+  const initialWidth = Math.max(1, canvas.clientWidth || canvas.parentElement?.clientWidth || 1);
+  const initialHeight = Math.max(1, canvas.clientHeight || canvas.parentElement?.clientHeight || 1);
+  f.composer.setSize(initialWidth, initialHeight);
+  camera.aspect = initialWidth / initialHeight;
+  camera.updateProjectionMatrix();
 
   // hemi/fog são criados/redefinidos pelo applyLobbyStage (evita dupla
   // iluminação e espelha 1:1 o front)
@@ -416,10 +471,10 @@ function mountLobbyPreview(
     const dt = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.elapsedTime;
     for (const rig of f.rigs) rig?.update(dt, elapsed, camera.quaternion);
-    renderer.render(scene, camera);
+    f.composer.render();
     raf = requestAnimationFrame(loop);
   };
-  renderer.render(scene, camera);
+  f.composer.render();
   raf = requestAnimationFrame(loop);
 
   return () => {
@@ -449,6 +504,7 @@ function mountLobbyPreview(
       h.dispose();
     }
     f.lightShafts = [];
+    f.composer.dispose();
     renderer.dispose();
   };
 }
@@ -471,6 +527,8 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       const fr: LobbyRefs = {
             renderer: null as never,
             scene: null as never,
+            composer: null as never,
+            bloomPass: null as never,
             camera: null as never,
             lights: [],
             pedestals: [],
@@ -487,6 +545,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
         for (const entry of entries) {
           const { width, height } = entry.contentRect;
           fr.renderer.setSize(width, height);
+          fr.composer.setSize(width, height);
           const cam = fr.camera as THREE.PerspectiveCamera | THREE.OrthographicCamera;
           if ((cam as unknown as { isOrthographicCamera?: boolean }).isOrthographicCamera) {
             const o = cam as THREE.OrthographicCamera;

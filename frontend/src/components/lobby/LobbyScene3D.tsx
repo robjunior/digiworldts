@@ -20,6 +20,9 @@
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
@@ -72,6 +75,20 @@ function fanPosition(index: number, spacing: number): { x: number; z: number } {
   return { x: 0, z: 1.7 };
 }
 
+function elementColor(element: string): THREE.Color {
+  return new THREE.Color(EL_COLOR[element] ?? '#60a5fa');
+}
+
+function normalizeLobbyGlbLights(root: THREE.Object3D): void {
+  root.traverse((obj) => {
+    if (!(obj instanceof THREE.Light)) return;
+    // Blender exports candela values that are several orders of magnitude too
+    // high for this ACES/WebGL pipeline. Normalize only those HDR outliers and
+    // preserve ordinary authored fill lights.
+    if (obj.intensity > 100) obj.intensity = Math.min(obj.intensity * 0.0001, 8);
+  });
+}
+
 export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -99,7 +116,9 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // Mesmo setup do SceneManager de combate para coerência da arena.
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = lighting?.exposure ?? 1.0;
+    // Embedded arena lights are authored in candela; keep the lobby in a
+    // cinematic range instead of clipping the floor to white.
+    renderer.toneMappingExposure = Math.min(lighting?.exposure ?? 0.2, 0.22);
     // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
     // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
     renderer.shadowMap.enabled = true;
@@ -107,20 +126,41 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
-    const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
-    // Piso da party. O GLB do lobby carrega o elemento `hdd_plattertop` (o topo
-    // do prato do HDD = a altura da arena): quando ele existe, os pés dos
-    // digimons apoiam EXATAMENTE no topo dele (fitPartyToPlatter). Antes disso
-    // (e se o elemento faltar) vale o knob partyHeight como fallback.
+    const camera = new THREE.PerspectiveCamera(
+      lighting?.camFov ?? 42,
+      host.clientWidth / Math.max(host.clientHeight, 1),
+      0.1,
+      400,
+    );
+    // Cinematic lobby framing: the authored GLB camera is usually a close
+    // inspection camera. The lobby uses the editor camera controls so the
+    // preview and the real frontend stay framed identically.
+    const cameraTargetY = lighting?.camLookAtY ?? 3.0;
+    const cameraDistance = Math.max(lighting?.camDist ?? 28, 26);
+    const cameraElevation = THREE.MathUtils.degToRad(lighting?.camElevDeg ?? 24);
+    const cameraYaw = THREE.MathUtils.degToRad(lighting?.camYawDeg ?? 0);
+    const cameraBase = new THREE.Vector3(
+      Math.sin(cameraYaw) * Math.cos(cameraElevation) * cameraDistance,
+      cameraTargetY + Math.sin(cameraElevation) * cameraDistance,
+      Math.cos(cameraYaw) * Math.cos(cameraElevation) * cameraDistance,
+    );
+    // Piso da party: o GLB pode substituir este fallback pelo topo do
+    // hdd_plattertop quando terminar de carregar.
     let groundY = settings.partyHeight ?? 0;
     const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
     let camCenterY = groundY + partyH / 2;
-    cameraBase.y = camCenterY + 3.2;
     camera.position.copy(cameraBase);
     camera.lookAt(0, camCenterY, 0);
-
-    // ── lights (editadas no editor de cenas; cedidas ao GLB quando
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(host.clientWidth, host.clientHeight),
+      settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3,
+      settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45,
+      settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9,
+    );
+    bloomPass.enabled = settings.bloomEnabled !== false;
+    composer.addPass(bloomPass);
     //    useGlbSettings e o GLB traz as dele — política do loadArenaModelBare) ─
     const L = lighting ?? {};
     const ownLights: THREE.Light[] = [];
@@ -199,7 +239,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
 
     // optional GLB environment — o cenário É o GLB (nunca um conjunto procedural)
     let glbRoot: THREE.Group | null = null;
-    let glbCamera: THREE.Camera | null = null;
     const glbDrives = useGlbSettings === true;
     const lightShafts: LightShaftHandle[] = [];
     if (modelUrl) {
@@ -219,16 +258,15 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
               glbRoot.scale.setScalar(48 / span);
             }
             glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
+            normalizeLobbyGlbLights(glbRoot);
             scene.add(glbRoot);
 
             // A altura da arena é o topo do `hdd_plattertop` do GLB — assim que
             // o modelo carrega, senta party/pedestais/holos/câmera nele.
             fitPartyToPlatter(glbRoot);
 
-            if (glbDrives && gltf.cameras.length > 0) {
-              // GLB drives the look: adopt its camera (when it ships one).
-              glbCamera = gltf.cameras[0] as unknown as THREE.Camera;
-            }
+            // A câmera do lobby é controlada pelo editor (camDist/FOV/elev/yaw),
+            // não pela câmera de inspeção que muitos GLBs incluem.
             // Luzes do GLB ficam COMO AUTORADAS — neste pipeline o tonemapping
             // ACES + o knob exposure do editor são o controle tonal (normalizar
             // candela mecanicamente estourava o escuro: mean 128→57).
@@ -414,7 +452,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
       groundY = top;
       camCenterY = groundY + partyH / 2;
-      cameraBase.y = camCenterY + 3.2;
+      cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
       for (const p of pedestals) {
         p.ring.position.y = GROUND_Y + 0.01 + groundY;
         p.glow.position.y = GROUND_Y + 0.005 + groundY;
@@ -452,6 +490,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         dir: THREE.Vector3,
         angle: number,
         color: THREE.Color,
+        strength = 0.08,
       ): void => {
         const down = -dir.y;
         if (down < 0.02) return;
@@ -459,11 +498,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (h < 0.5) return;
         const handle = createLightShaft({
           color,
-          intensity: 0.08 * vol,
+          intensity: strength * vol,
           position: from,
           forward: dir,
           angle,
           length: h,
+          softness: settings.volumetricSoftness ?? 0.55,
+          distanceBlur: settings.volumetricDistanceBlur ?? 0.65,
           fogColor,
           fogNear,
           fogFar,
@@ -480,7 +521,24 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       fwd.set(0, 0, 0).subVectors(stage.target.position, stage.position);
       if (fwd.lengthSq() > 0) {
         fwd.normalize();
-        addShaft(stageHit, fwd, stage.angle, stage.color);
+        addShaft(stageHit, fwd, stage.angle, stage.color, 0.45);
+      }
+
+      // The authored arena contains the actual stage rig. Reuse its downward
+      // spotlights as atmospheric sources so the lobby matches the cinematic
+      // wide shot instead of showing one isolated cone over the party.
+      if (glbRoot !== null) {
+        let count = 0;
+        const spotPos = new THREE.Vector3();
+        const spotTarget = new THREE.Vector3();
+        glbRoot.traverse((obj) => {
+          if (count >= 6 || !(obj instanceof THREE.SpotLight)) return;
+          obj.getWorldPosition(spotPos);
+          obj.target.getWorldPosition(spotTarget);
+          const spotDir = spotTarget.sub(spotPos).normalize();
+          addShaft(spotPos, spotDir, obj.angle, obj.color, 0.2);
+          count += 1;
+        });
       }
     }
 
@@ -506,23 +564,25 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const dt = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
 
-      // GLB-driven scenes keep the author's camera (no drift/lookAt tampering)
-      const useGlbCam = glbCamera !== null;
-      const activeCam = useGlbCam ? glbCamera! : camera;
+      // Camera is always the editor-controlled cinematic camera so the front
+      // and admin preview never diverge because of an authored GLB camera.
+      const activeCam = camera;
+      // camera drift: slow idle orbit + subtle pointer parallax
+      const k = reduced ? 0 : settings.driftIntensity;
+      const yaw = k * (Math.sin(elapsed * 0.14) * 0.06 + mouseX * 0.09);
+      const pitch = k * (Math.cos(elapsed * 0.11) * 0.04 + mouseY * 0.06);
+      camera.position.set(
+        cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
+        cameraBase.y + pitch * 6,
+        -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
+      );
+      // smooth camera look target (always the party's vertical center)
+      camera.lookAt(yaw * 1.5, camCenterY + pitch * 2, 0);
 
-      if (!useGlbCam) {
-        // camera drift: slow idle orbit + subtle pointer parallax
-        const k = reduced ? 0 : settings.driftIntensity;
-        const yaw = k * (Math.sin(elapsed * 0.14) * 0.06 + mouseX * 0.09);
-        const pitch = k * (Math.cos(elapsed * 0.11) * 0.04 + mouseY * 0.06);
-        camera.position.set(
-          cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
-          cameraBase.y + pitch * 6,
-          -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
-        );
-        // smooth camera look target (always the party's vertical center)
-        camera.lookAt(yaw * 1.5, camCenterY + pitch * 2, 0);
-      }
+      bloomPass.enabled = settings.bloomEnabled !== false;
+      bloomPass.strength = settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3;
+      bloomPass.radius = settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45;
+      bloomPass.threshold = settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9;
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
       // mantém o uniforme de câmera dos volumes de luz em sync (drift)
@@ -548,17 +608,18 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const holoPulse = 0.2 + (Math.sin(elapsed * 2.2) + 1) * 0.07;
       for (const holo of holos) (holo.material as THREE.MeshBasicMaterial).opacity = holoPulse;
 
-      renderer.render(scene, activeCam);
+      composer.render();
       raf = requestAnimationFrame(loop);
     };
     // first paint immediately — never a black frame while the rAF warms up
-    renderer.render(scene, camera);
+    composer.render();
     raf = requestAnimationFrame(loop);
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         renderer.setSize(width, height);
+        composer.setSize(width, height);
         camera.aspect = width / Math.max(height, 1);
         camera.updateProjectionMatrix();
       }
@@ -578,6 +639,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       rigs.clear();
       if (glbRoot !== null) scene.remove(glbRoot);
       clearLightShafts();
+      composer.dispose();
       scene.remove(pedestalGroup);
       for (const mat of pedestalMatPool.values()) mat.dispose();
       for (const holo of holos) {

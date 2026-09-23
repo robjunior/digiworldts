@@ -26,6 +26,8 @@ const DEFAULT_LOBBY_SCENE = {
   digimonBrightness: 4,
   stageLightIntensity: 3,
   volumetricIntensity: 2,
+  volumetricSoftness: 0.55,
+  volumetricDistanceBlur: 0.65,
 } as const;
 
 let failures = 0;

@@ -210,6 +210,15 @@ export type LobbySceneSettings = {
   /** Visibility of the volumetric light shafts (additive cones from the GLB
    *  spots + the stage light). 0..6. */
   volumetricIntensity: number;
+  /** Soft atmospheric penumbra at the beam edge, 0..1. */
+  volumetricSoftness: number;
+  /** Distance extinction/blur, 0..1. */
+  volumetricDistanceBlur: number;
+  /** Cinematic post-processing bloom controls. */
+  bloomEnabled: boolean;
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
 };
 
 /** SceneEntity.name the Lobby screen looks up when no scene has kind 'lobby'. */
@@ -226,6 +235,12 @@ export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
   digimonBrightness: 4,
   stageLightIntensity: 3,
   volumetricIntensity: 2,
+  volumetricSoftness: 0.55,
+  volumetricDistanceBlur: 0.65,
+  bloomEnabled: true,
+  bloomStrength: 0.3,
+  bloomRadius: 0.45,
+  bloomThreshold: 0.9,
 };
 
 const FRUSTUM = 4.5;

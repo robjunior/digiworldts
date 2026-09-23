@@ -30,6 +30,10 @@ type LightShaftOptions = {
   angle: number;
   /** cone length (light → floor) */
   length: number;
+  /** 0 = crisp edge, 1 = broad atmospheric penumbra. */
+  softness?: number;
+  /** 0 = uniform beam, 1 = strong distance extinction. */
+  distanceBlur?: number;
   fogColor: THREE.Color;
   fogNear: number;
   fogFar: number;
@@ -50,6 +54,8 @@ uniform vec3 uLightPos;
 uniform vec3 uSpotDir;
 uniform float uAng;
 uniform float uRadiusMax;
+uniform float uSoftness;
+uniform float uDistanceBlur;
 uniform vec4 uLightColor;
 uniform vec3 uCameraPos;
 uniform vec3 uFogColor;
@@ -59,8 +65,10 @@ uniform float uExposure;
 varying vec3 vWorldPos;
 
 void main() {
-  // raio da câmera passando por este fragmento (proxy preenche a área do feixe)
-  vec3 d = normalize(uCameraPos - vWorldPos);
+  // Ray from the camera through the rasterized proxy fragment.
+  // The previous direction was reversed, so the quadratic marched behind the
+  // camera and discarded practically every fragment (an invisible beam).
+  vec3 d = normalize(vWorldPos - uCameraPos);
   vec3 o = uCameraPos - uLightPos;         // raiz do raio no frame do cone
   float oc = dot(o, uSpotDir);
   vec3 op = o - uSpotDir * oc;
@@ -90,14 +98,24 @@ void main() {
   if (tEnter < 0.0 || tEnter > uRadiusMax) discard;
   float pathLen = clamp(t1 - t0, 0.0, uRadiusMax);
   if (pathLen <= 0.001) discard;
+  // Soft penumbra: attenuate the analytic volume before the hard cone edge.
+  // This keeps the beam readable without the plastic "solid cone" look.
+  vec3 entry = uCameraPos + d * tEnter;
+  float alongEntry = dot(entry - uLightPos, uSpotDir);
+  float radiusAtEntry = max(tan(uAng) * max(alongEntry, 0.001), 0.001);
+  float radialEntry = length((entry - uLightPos) - uSpotDir * alongEntry);
+  float edge = smoothstep(0.0, radiusAtEntry * max(uSoftness, 0.001), radiusAtEntry - radialEntry);
+  // Distance blur/extinction makes the shaft dissolve into the fog instead of
+  // ending with a visible uniform tube at the floor.
+  float distanceFade = mix(1.0, exp(-alongEntry / max(uRadiusMax, 0.001) * 4.0), clamp(uDistanceBlur, 0.0, 1.0));
   // posição de entrada ao longo do eixo → fade axial (perto do ponto → base)
-  vec3 hit = uCameraPos - d * tEnter;
+  vec3 hit = entry;
   float along = dot(hit - uLightPos, uSpotDir);
   if (along < 0.0 || along > uRadiusMax) discard;
   float axial = 1.0 - smoothstep(uRadiusMax * 0.25, uRadiusMax, along);
   // densidade do raio no cone (path curto perto da tangente → borda macia)
   float density = clamp(pathLen / (uRadiusMax * 0.5), 0.0, 1.0);
-  float fall = axial * density;
+  float fall = axial * density * edge * distanceFade;
   vec3 col = uLightColor.rgb * fall;
   float fog = smoothstep(uFogNear, uFogFar, length(uCameraPos - vWorldPos));
   col = mix(col, uFogColor, clamp(fog, 0.0, 1.0));
@@ -108,14 +126,18 @@ void main() {
 export function createLightShaft(opts: LightShaftOptions): LightShaftHandle {
   const { position, forward, angle, length } = opts;
   const rad = Math.max(length, 0.1);
-  // proxy esférico cobrindo o meio do feixe p/ rasterizar toda a área do beam
-  const geo = new THREE.SphereGeometry(rad * 0.5, 36, 20);
+  // The proxy only rasterizes pixels; its bounds must cover the widest part of
+  // the cone or the analytic shader is clipped before the beam reaches the floor.
+  const proxyRadius = Math.max(rad * 0.5, rad * Math.tan(Math.max(angle, 0.01)));
+  const geo = new THREE.SphereGeometry(proxyRadius, 36, 20);
   const uniforms = {
     uCameraPos: { value: new THREE.Vector3(0, 8, 8) },
     uLightPos: { value: position.clone() },
     uSpotDir: { value: forward.clone().normalize() },
     uAng: { value: Math.max(angle, 0.01) },
     uRadiusMax: { value: Math.max(length, 0.1) },
+    uSoftness: { value: THREE.MathUtils.clamp(opts.softness ?? 0.55, 0, 1) },
+    uDistanceBlur: { value: THREE.MathUtils.clamp(opts.distanceBlur ?? 0.65, 0, 1) },
     uLightColor: { value: new THREE.Vector4(opts.color.r, opts.color.g, opts.color.b, 1).multiplyScalar(opts.intensity) },
     uFogColor: { value: opts.fogColor },
     uFogNear: { value: opts.fogNear },

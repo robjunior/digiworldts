@@ -548,7 +548,7 @@ export function SceneSettingsAdmin(): JSX.Element {
               </span>
             </div>
 
-            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings}>
+            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby'}>
               <Section title="Sun (key light)">
                 <ColorRow label="Color" value={effectiveSettings.sunColor} onChange={(v) => patchSettings({ sunColor: v })} />
                 <SliderRow label="Intensity" value={effectiveSettings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patchSettings({ sunIntensity: v })} />
@@ -733,6 +733,12 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
                 <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
                 <SliderRow label="Iluminação volumétrica" value={effectiveLobby.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ volumetricIntensity: v })} />
+                <SliderRow label="Suavidade do feixe" value={effectiveLobby.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricSoftness: v })} decimals={2} />
+                <SliderRow label="Blur / queda à distância" value={effectiveLobby.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricDistanceBlur: v })} decimals={2} />
+                <ToggleRow label="Bloom cinematográfico" value={effectiveLobby.bloomEnabled} onChange={(v) => patchLobby({ bloomEnabled: v })} />
+                <SliderRow label="Bloom strength" value={effectiveLobby.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchLobby({ bloomStrength: v })} decimals={2} />
+                <SliderRow label="Bloom radius" value={effectiveLobby.bloomRadius} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ bloomRadius: v })} decimals={2} />
+                <SliderRow label="Bloom threshold" value={effectiveLobby.bloomThreshold} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ bloomThreshold: v })} decimals={2} />
               </Section>
             </fieldset>
           </aside>

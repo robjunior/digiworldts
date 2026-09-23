@@ -92,6 +92,9 @@ tmp/
 # OpenCode agent session artifacts (plans, evidence, drafts)
 .omo/
 
+# Hermes agent local artifacts (plans, evidence) — never source
+.hermes/
+
 # Arena images are written at runtime (ARENAS_DIR) and live in the `arenadata`
 # volume in docker; never source.
 frontend/public/assets/arenas/
