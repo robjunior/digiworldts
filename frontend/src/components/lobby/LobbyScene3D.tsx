@@ -98,11 +98,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(36, host.clientWidth / Math.max(host.clientHeight, 1), 0.1, 400);
     const cameraBase = new THREE.Vector3(0, 6.0, 12.5);
-    // vertical world-offset of the party — admin knob. Centraliza verticalmente no
-    // centro EXATO da geometria: altura do sprite central (0.7·5.2·center·ped).
-    const partyY = settings.partyHeight ?? 0;
+    // Piso da party. O GLB do lobby carrega o elemento `hdd_plattertop` (o topo
+    // do prato do HDD = a altura da arena): quando ele existe, os pés dos
+    // digimons apoiam EXATAMENTE no topo dele (fitPartyToPlatter). Antes disso
+    // (e se o elemento faltar) vale o knob partyHeight como fallback.
+    let groundY = settings.partyHeight ?? 0;
     const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
-    const camCenterY = partyY + partyH / 2;
+    let camCenterY = groundY + partyH / 2;
     cameraBase.y = camCenterY + 3.2;
     camera.position.copy(cameraBase);
     camera.lookAt(0, camCenterY, 0);
@@ -154,6 +156,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
             glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
             scene.add(glbRoot);
 
+            // A altura da arena é o topo do `hdd_plattertop` do GLB — assim que
+            // o modelo carrega, senta party/pedestais/holos/câmera nele.
+            fitPartyToPlatter(glbRoot);
+
             if (glbDrives) {
               // GLB drives the look: adopt its camera; surrender our lights
               // only when the GLB ships its own.
@@ -195,13 +201,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
       const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.05, 48), mat);
       ring.rotation.x = -Math.PI / 2;
-      ring.position.y = GROUND_Y + 0.01 + partyY;
+      ring.position.y = GROUND_Y + 0.01 + groundY;
       const glow = new THREE.Mesh(
         new THREE.CircleGeometry(1.9, 48),
         new THREE.MeshBasicMaterial({ color: elementColor(key), transparent: true, opacity: 0.1, depthWrite: false }),
       );
       glow.rotation.x = -Math.PI / 2;
-      glow.position.y = GROUND_Y + 0.005 + partyY;
+      glow.position.y = GROUND_Y + 0.005 + groundY;
       pedestalGroup.add(ring, glow);
       pedestals.push({ ring, glow });
     };
@@ -220,7 +226,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         depthWrite: false,
       });
       const holo = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 3.6, 20, 1, true), mat);
-      holo.position.y = GROUND_Y + 1.8 + partyY;
+      holo.position.y = GROUND_Y + 1.8 + groundY;
       scene.add(holo);
       holos.push(holo);
     }
@@ -284,7 +290,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
               initiallyDowned: false,
               onClick: undefined,
             });
-            rig.setArenaBaselineY(partyY);
+            rig.setArenaBaselineY(groundY);
             rigs.set(fig.id, rig);
           } catch (err) {
             // one failing sprite must never blank the whole scene
@@ -307,6 +313,39 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
       applyFan();
     };
+
+    // ── piso da arena: topo do `hdd_plattertop` do GLB ──────────────────
+    // Todo GLB de lobby carrega esse elemento (o prato do HDD); o topo dele é
+    // a altura do piso onde a party apoia. Medido em WORLD coords (pós escala/
+    // posição do root) — por isso updateMatrixWorld antes do Box3.
+    const platterTopY = (root: THREE.Group): number | null => {
+      root.updateMatrixWorld(true);
+      let top: number | null = null;
+      root.traverse((obj) => {
+        if (!/hdd_plattertop/i.test(obj.name)) return;
+        const t = new THREE.Box3().setFromObject(obj).max.y;
+        if (Number.isFinite(t) && (top === null || t > top)) top = t;
+      });
+      return top;
+    };
+
+    /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`. */
+    function fitPartyToPlatter(root: THREE.Group): void {
+      const top = platterTopY(root);
+      if (top === null) {
+        console.warn('[LobbyScene3D] hdd_plattertop não encontrado no GLB do lobby — mantém partyHeight como piso');
+        return;
+      }
+      groundY = top;
+      camCenterY = groundY + partyH / 2;
+      cameraBase.y = camCenterY + 3.2;
+      for (const p of pedestals) {
+        p.ring.position.y = GROUND_Y + 0.01 + groundY;
+        p.glow.position.y = GROUND_Y + 0.005 + groundY;
+      }
+      for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
+      for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
+    }
 
     // initial build
     syncParty();

@@ -66,6 +66,23 @@ type LobbyRefs = {
   dust: THREE.Points | null;
 };
 
+/** Piso da party no preview: topo do `hdd_plattertop` do GLB quando carregado,
+ *  senão o knob partyHeight. Espelha o LobbyScene3D do front (mesmo regex e
+ *  mesma medição em world coords). */
+function lobbyGroundY(f: LobbyRefs, lobby: LobbySceneSettings): number {
+  const fallback = lobby.partyHeight ?? 0;
+  const root = f.glbRoot;
+  if (root === null) return fallback;
+  root.updateMatrixWorld(true);
+  let top: number | null = null;
+  root.traverse((o) => {
+    if (!/hdd_plattertop/i.test(o.name)) return;
+    const t = new THREE.Box3().setFromObject(o).max.y;
+    if (Number.isFinite(t) && (top === null || t > top)) top = t;
+  });
+  return top !== null ? top : fallback;
+}
+
 /** Recompute camera, pedestals, party rigs, lights and fog from the scene
  *  settings + lobby knobs + weather/timeOfDay — so every knob is live. */
 function applyLobbyStage(
@@ -75,7 +92,7 @@ function applyLobbyStage(
   weather: WeatherConfig | null | undefined,
   timeOfDay: TimeOfDayConfig | null | undefined,
 ): void {
-  const partyY = lobby.partyHeight ?? 0;
+  const partyY = lobbyGroundY(f, lobby);
   const partyH = 0.7 * 5.2 * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1);
   const centerY = partyY + partyH / 2;
 
@@ -237,7 +254,14 @@ function applyLobbyStage(
 }
 
 /** Load the arena GLB as backdrop, seated on its floor + arena offsets/span. */
-async function loadLobbyGlb(f: LobbyRefs, modelUrl: string | undefined, settings: SceneSettings): Promise<void> {
+async function loadLobbyGlb(
+  f: LobbyRefs,
+  modelUrl: string | undefined,
+  settings: SceneSettings,
+  lobby: LobbySceneSettings,
+  weather: WeatherConfig | null | undefined,
+  timeOfDay: TimeOfDayConfig | null | undefined,
+): Promise<void> {
   if (modelUrl === undefined) return;
   const version = ++f.glbLoadVersion;
   let gltf: Awaited<ReturnType<InstanceType<typeof GLTFLoader>["loadAsync"]>>;
@@ -262,6 +286,9 @@ async function loadLobbyGlb(f: LobbyRefs, modelUrl: string | undefined, settings
   root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
   f.glbRoot = root;
   f.scene.add(root);
+  // o piso da arena mudou (topo do hdd_plattertop) — reassenta party, pedestais
+  // e câmera no chão real do modelo recém-carregado
+  applyLobbyStage(f, settings, lobby, weather, timeOfDay);
 }
 
 function mountLobbyPreview(
@@ -396,7 +423,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       ro.observe(container);
       let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
       const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
-      void loadLobbyGlb(fr, url, settings).catch(() => {});
+      void loadLobbyGlb(fr, url, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null).catch(() => {});
       return () => {
         ro.disconnect();
         off();
@@ -454,7 +481,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
     if (!isLobby) return;
     let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
     const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
-    void loadLobbyGlb(fr, url, settings).catch(() => {});
+    void loadLobbyGlb(fr, url, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [settings.modelFile, arenaKey, isLobby]);
 
