@@ -93,6 +93,12 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(host.clientWidth, host.clientHeight);
+    // Sem o tone mapping do combate, as luzes físicas do GLB (intensidades
+    // candela altíssimas) clipam pro branco e a cena fica estourada/mos da.
+    // Mesmo setup do SceneManager de combate para coerência da arena.
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = lighting?.exposure ?? 1.0;
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -169,7 +175,16 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
                 if ((obj as THREE.Light).isLight) glbLightCount += 1;
               });
               if (glbLightCount > 0) {
-                for (const l of ownLights) scene.remove(l);
+                // Luzes do GLB autoradas em candidela (65k–2.1M) que estouram o
+                // PBR do three — normaliza pra leitura de luz de palco.
+                const GLB_LIGHT_SCALE = 0.05;
+                glbRoot.traverse((obj) => {
+                  const l = obj as THREE.Light;
+                  if (l.isLight) l.intensity *= GLB_LIGHT_SCALE;
+                });
+                // Não remove TODAS as luzes próprias: mantém hemi (ambiente) e
+                // rim (contra-luz fria) como base — senão fica só spot + breu.
+                scene.remove(key);
               }
             }
           },

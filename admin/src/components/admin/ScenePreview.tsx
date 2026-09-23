@@ -148,6 +148,14 @@ function applyLobbyStage(
   f.scene.add(fill);
   f.lights = [hemi, key, rim, fill];
 
+  // GLB com luzes próprias → remove key/fill (mesma política do front): mantém
+  // hemi (ambiente) + rim como base, senão a arena fica só spot + breu.
+  if (f.glbRoot !== null) {
+    let glbLight = false;
+    f.glbRoot.traverse((o) => { if ((o as THREE.Light).isLight) glbLight = true; });
+    if (glbLight) { f.scene.remove(key); f.scene.remove(fill); }
+  }
+
   // ── shadows ──────────────────────────────────────────────────────────
   const shadows = settings.shadowsEnabled === true;
   f.renderer.shadowMap.enabled = shadows;
@@ -284,6 +292,10 @@ async function loadLobbyGlb(
   const oy = settings.arenaOffsetY ?? 0;
   const oz = settings.arenaOffsetZ ?? 0;
   root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
+  // luzes do GLB em candela estouram o PBR — escala uma vez no load (mesmo
+  // fator do LobbyScene3D), jamais no applyLobbyStage (comporia a cada knob).
+  const GLB_LIGHT_SCALE = 0.05;
+  root.traverse((o) => { const l = o as THREE.Light; if (l.isLight) l.intensity *= GLB_LIGHT_SCALE; });
   f.glbRoot = root;
   f.scene.add(root);
   // o piso da arena mudou (topo do hdd_plattertop) — reassenta party, pedestais
@@ -300,6 +312,9 @@ function mountLobbyPreview(
   timeOfDay: TimeOfDayConfig | null,
 ): () => void {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  // mesmo tomapping do combate: sem ACES as luzes físicas do GLB estouram
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 400);

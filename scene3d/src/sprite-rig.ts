@@ -312,9 +312,15 @@ export class SpriteRig implements SpriteRigApi {
       transparent: true,
       depthWrite: false,
       opacity: 0.9,
+      // Coplanar com o piso (arena GLB opaca) -> sem polygonOffset o chão
+      // vence no depth e a sombra some. Empurra o blob pra frente do depth.
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     const shadowGeometry = new THREE.PlaneGeometry(SHADOW_MAX_WIDTH, SHADOW_MAX_WIDTH);
     this.shadow = new THREE.Mesh(shadowGeometry, shadowMat);
+    this.shadow.renderOrder = 10;
     this.shadow.rotation.x = -Math.PI / 2;
     this.shadow.position.set(this.basePosition.x, GROUND_Y, this.basePosition.z);
     this.scene.add(this.shadow);
