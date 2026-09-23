@@ -1010,3 +1010,34 @@
 .party-slots .dm-row .dm-lv { font: 800 11px/1 var(--font); color: var(--gold); }
 .party-slots .dm-row.empty .dm-av { background: transparent; }
 .party-slots .lob-p-link { display: block; padding: 6px 2px 0; text-align: left; }
+
+/* ── glass — fundos semi-transparente (mockup OD) ───────────────────── */
+.social {
+    background: color-mix(in oklab, var(--panel) 66%, transparent);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+/* painéis internos transparentes — herdam o vidro da side; rows separadas
+   por hairline em vez de quadros opacos (igual ao html do Open Design). */
+.social .spanel > .chat,
+.social .spanel > .quests,
+.social .spanel > .friends,
+.social .chatlog,
+.social .chat-channels,
+.social .chatform,
+.social .friends-toolbar,
+.social .friends-list,
+.social .friends-section,
+.social .party-slots,
+.social .msg,
+.social .friend-row,
+.social .friend-request-row,
+.social .quest {
+    background: transparent;
+}
+.social .msg,
+.social .friend-row,
+.social .friend-request-row,
+.social .quest {
+    border-color: color-mix(in oklab, var(--hair) 55%, transparent);
+}
