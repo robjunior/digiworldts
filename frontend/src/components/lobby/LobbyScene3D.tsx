@@ -99,6 +99,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = lighting?.exposure ?? 1.0;
+    // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
+    // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
@@ -128,8 +132,22 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     scene.add(hemi);
     const key = new THREE.DirectionalLight(L.sunColor ?? 0xfff2d0, L.sunIntensity ?? 1.4);
     key.position.set(L.sunPosX ?? -6, L.sunPosY ?? 10, L.sunPosZ ?? 5);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.bias = -0.0005;
+    key.shadow.normalBias = 0.02;
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 60;
+    const ksc = 22;
+    key.shadow.camera.left = -ksc;
+    key.shadow.camera.right = ksc;
+    key.shadow.camera.top = ksc;
+    key.shadow.camera.bottom = -ksc;
+    key.shadow.camera.updateProjectionMatrix();
+    key.target.position.set(0, 0, 0);
     ownLights.push(key);
     scene.add(key);
+    scene.add(key.target);
     const rim = new THREE.DirectionalLight(L.rimColor ?? 0x2c74ff, L.rimIntensity ?? 0.5);
     rim.position.set(8, 6, -8);
     ownLights.push(rim);
@@ -143,6 +161,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     let glbRoot: THREE.Group | null = null;
     let glbCamera: THREE.Camera | null = null;
     const glbDrives = useGlbSettings === true;
+    const lightShafts: THREE.Mesh[] = [];
     if (modelUrl) {
       try {
         new GLTFLoader().load(
@@ -182,10 +201,18 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
                   const l = obj as THREE.Light;
                   if (l.isLight) l.intensity *= GLB_LIGHT_SCALE;
                 });
-                // Não remove TODAS as luzes próprias: mantém hemi (ambiente) e
-                // rim (contra-luz fria) como base — senão fica só spot + breu.
-                scene.remove(key);
               }
+              // Arena recebe/casta sombra e o key fica como caster projeta as
+              // silhuetas dos digimons no chão (mantém hemi+rim de base).
+              glbRoot.traverse((obj) => {
+                const m = obj as THREE.Mesh;
+                if ((m as unknown as { isMesh?: boolean }).isMesh) {
+                  m.castShadow = true;
+                  m.receiveShadow = true;
+                }
+              });
+              // ── volumétrico: raios de luz (cones aditivos) dos spots ──
+              rebuildLightShafts(glbRoot);
             }
           },
           undefined,
@@ -362,6 +389,51 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
     }
 
+    // ── volumétrico: raios de luz dos spots do GLB ─────────────────────
+    const clearLightShafts = (): void => {
+      for (const c of lightShafts) {
+        scene.remove(c);
+        c.geometry.dispose();
+        (c.material as THREE.Material).dispose();
+      }
+      lightShafts.length = 0;
+    };
+    /** Cones aditivos translúcidos dos SpotLights, do ponto até o piso
+     *  (groundY) — luz de palco visível no ar. Rebuild on GLB load. */
+    function rebuildLightShafts(root: THREE.Group): void {
+      clearLightShafts();
+      const centerW = new THREE.Vector3();
+      const fwd = new THREE.Vector3();
+      const axis = new THREE.Vector3(0, -1, 0); // ConeGeometry apex→base é -Y local
+      root.updateMatrixWorld(true);
+      root.traverse((obj) => {
+        const l = obj as THREE.SpotLight;
+        if (!l.isSpotLight || !Number.isFinite(l.angle) || l.angle <= 0) return;
+        obj.getWorldPosition(centerW);
+        fwd.set(0, 0, -1).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion()));
+        const down = -fwd.y;
+        if (down < 0.02) return; // só spots apontados pra baixo
+        const h = Math.min((centerW.y - groundY) / down, 60);
+        if (h < 0.5) return;
+        const radius = Math.max(h * Math.tan(l.angle), 0.1);
+        const geo = new THREE.ConeGeometry(radius, h, 24, 1, true);
+        geo.translate(0, h / 2, 0); // apex vira a origem local
+        const mat = new THREE.MeshBasicMaterial({
+          color: l.color,
+          transparent: true,
+          opacity: 0.08,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const cone = new THREE.Mesh(geo, mat);
+        cone.position.copy(centerW);
+        cone.quaternion.setFromUnitVectors(axis, fwd);
+        scene.add(cone);
+        lightShafts.push(cone);
+      });
+    }
+
     // initial build
     syncParty();
 
@@ -453,6 +525,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       for (const rig of rigs.values()) rig.dispose();
       rigs.clear();
       if (glbRoot !== null) scene.remove(glbRoot);
+      clearLightShafts();
       scene.remove(pedestalGroup);
       for (const mat of pedestalMatPool.values()) mat.dispose();
       for (const holo of holos) {
