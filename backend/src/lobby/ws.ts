@@ -88,6 +88,10 @@ const ChatSchema = z.object({
   dungeonId: z.string().min(1).max(64).optional(),
   toUserId: z.string().min(3).max(64).optional(),
 });
+const DmOpenedSchema = z.object({
+  type: z.literal('dm:opened'),
+  toUserId: z.string().min(3).max(64),
+});
 const PvpInviteSchema = z.object({
   type: z.literal('pvp:invite'),
   targetUserId: z.string().min(3).max(64),
@@ -168,7 +172,7 @@ const DungeonMoveSchema = z.object({
   trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
 });
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema, DungeonMoveSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, DmOpenedSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema, DungeonMoveSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -381,6 +385,21 @@ const handleHello: Handler = async (entry) => {
 
 const handlePing: Handler = async (entry) => {
   safeSend(entry.socket, { type: 'pong' });
+};
+
+// When a user opens a DM tab with a friend, tell the friend so their client
+// auto-opens the same DM chat. Mirrors direct-message routing: deliver to the
+// target only, refusing draws from users the target has blocked.
+const handleDmOpened: Handler = async (entry, msg) => {
+  if (msg.type !== 'dm:opened') return;
+  if (msg.toUserId === entry.userId) return;
+  const blockedByTarget = await listBlockedUserIds(msg.toUserId);
+  if (blockedByTarget.includes(entry.userId)) return;
+  await deliverToUser(msg.toUserId, {
+    type: 'dm:opened',
+    fromUserId: entry.userId,
+    fromName: entry.displayName,
+  });
 };
 
 async function leaveDungeon(entry: PresenceEntry): Promise<void> {
@@ -634,6 +653,7 @@ const dispatcher: Record<IncomingMessage['type'], Handler> = {
   hello: handleHello,
   ping: handlePing,
   chat: handleChat,
+  'dm:opened': handleDmOpened,
   queue: handleQueue,
   act: handleAct,
   spectate: handleSpectate,

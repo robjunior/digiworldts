@@ -51,6 +51,8 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   const queue = useWsStore((s) => s.queue);
   const activeBattle = useWsStore((s) => s.activeBattle);
   const dmsByPeer = useWsStore((s) => s.dmsByPeer);
+  const dmOpened = useWsStore((s) => s.dmOpened);
+  const consumeDmOpened = useWsStore((s) => s.consumeDmOpened);
   const queryClient = useQueryClient();
 
   // ── local UI state ────────────────────────────────────────────
@@ -141,9 +143,33 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
       );
       setActiveChannel(`dm:${userId}`);
       setSocialTab("chat");
+      // Notify the friend so their client opens the same DM chat too.
+      send({ type: "dm:opened", toUserId: userId });
     },
-    [],
+    [send],
   );
+
+  // A friend opened a DM with us — auto-open the tab + rail in response.
+  useEffect(() => {
+    if (dmOpened.length === 0) return;
+    const newly = dmOpened.filter(
+      (d) => !openDms.some((op) => op.userId === d.fromUserId),
+    );
+    if (newly.length > 0) {
+      const names = new Map(newly.map((d) => [d.fromUserId, d.fromName]));
+      const first = newly[0];
+      setOpenDms((prev) => [
+        ...prev,
+        ...Array.from(names.entries()).map(([userId, name]) => ({ userId, name })),
+      ]);
+      if (first !== undefined) {
+        setActiveChannel(`dm:${first.fromUserId}`);
+        setSocialTab("chat");
+        setSocialOpen(true);
+      }
+    }
+    consumeDmOpened();
+  }, [dmOpened, openDms, consumeDmOpened]);
 
   const closeDm = useCallback((userId: string) => {
     setOpenDms((prev) => prev.filter((d) => d.userId !== userId));

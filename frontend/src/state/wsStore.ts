@@ -26,6 +26,12 @@ type PvpInvite = {
   readonly fromName: string;
 };
 
+/** A remote peer opened a DM tab targeting us — their client should auto-open. */
+type DmOpenedSignal = {
+  readonly fromUserId: string;
+  readonly fromName: string;
+};
+
 type QueueState = {
   readonly status: QueueStatus;
   readonly size: number;
@@ -64,7 +70,10 @@ type WsState = {
   readonly pvpNotice: string | null;
   readonly pvpQuestsRefresh: number;
   readonly socialNotifyVersion: number;
+  /** Peers that opened a DM with us; consumed by the social rail to auto-open. */
+  readonly dmOpened: readonly DmOpenedSignal[];
   readonly handleServerMessage: (msg: WSServerMessage) => void;
+  readonly consumeDmOpened: () => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
   readonly clearPvpInvite: () => void;
@@ -92,9 +101,11 @@ const initialState = {
   pvpNotice: null,
   pvpQuestsRefresh: 0,
   socialNotifyVersion: 0,
+  dmOpened: [],
 } satisfies Omit<
   WsState,
   | 'handleServerMessage'
+  | 'consumeDmOpened'
   | 'reset'
   | 'clearActiveBattle'
   | 'clearRoomChat'
@@ -239,9 +250,17 @@ export const useWsStore = create<WsState>((set) => ({
       case 'social:notify':
         set((state) => ({ socialNotifyVersion: state.socialNotifyVersion + 1 }));
         return;
+      case 'dm:opened':
+        set((state) => ({
+          dmOpened: [...state.dmOpened, { fromUserId: msg.fromUserId, fromName: msg.fromName }],
+        }));
+        return;
       default:
         msg satisfies never;
     }
+  },
+  consumeDmOpened: () => {
+    set({ dmOpened: [] });
   },
   reset: () => {
     set(initialState);

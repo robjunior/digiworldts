@@ -30,6 +30,7 @@ export type WSClientMessage =
   | { type: 'hello' }
   | { type: 'ping' }
   | { type: 'chat'; text: string; room?: string; toUserId?: string }
+  | { type: 'dm:opened'; toUserId: string }
   | { type: 'queue'; join: boolean }
   | { type: 'pvp:invite'; targetUserId: string }
   | { type: 'pvp:response'; inviteId: string; accept: boolean }
@@ -147,6 +148,12 @@ export type WSServerMessage =
   | { type: 'pvp:invite'; inviteId: string; fromUserId: string; fromName: string }
   | { type: 'pvp:invite-declined'; inviteId: string; fromName: string }
   | { type: 'pvp:invite-expired'; inviteId: string }
+  | {
+      type: 'dm:opened';
+      /** The other participant — the one who opened the DM tab. */
+      fromUserId: string;
+      fromName: string;
+    }
   | { type: 'error'; code: WSErrorCode; message: string }
   | { type: 'social:notify'; kind: 'friend-request'; fromName: string; fromUserId: string };
 

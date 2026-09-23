@@ -115,4 +115,16 @@ describe('WS store chat routing', () => {
     expect(useWsStore.getState().dmsByPeer).toEqual({});
     expect(useWsStore.getState().chat).toEqual([]);
   });
+
+  it('queues a dm:opened signal when a peer opens a DM with us', () => {
+    send({ type: 'dm:opened', fromUserId: PEER, fromName: 'Peer' });
+    const state = useWsStore.getState();
+    expect(state.dmOpened).toEqual([{ fromUserId: PEER, fromName: 'Peer' }]);
+  });
+
+  it('consumeDmOpened clears pending auto-open signals', () => {
+    send({ type: 'dm:opened', fromUserId: PEER, fromName: 'Peer' });
+    useWsStore.getState().consumeDmOpened();
+    expect(useWsStore.getState().dmOpened).toEqual([]);
+  });
 });
