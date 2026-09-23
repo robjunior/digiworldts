@@ -31,6 +31,13 @@ import "../styles/social-rail.css";
 
 const ROSTER_QUERY_KEY = ["roster"] as const;
 const LAST_MATCH_QUERY_KEY = ["last-match"] as const;
+
+function fmtCountdown(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
+}
 const LIVE_MATCHES_QUERY_KEY = ["live-matches"] as const;
 const DAILY_QUERY_KEY = ["daily"] as const;
 const SCENE_QUERY_KEY = ["lobby-scene"] as const;
@@ -230,6 +237,26 @@ export function Lobby(): JSX.Element {
   const today = daily
     ? (daily.cycle[daily.streakDay] ?? daily.cycle[daily.cycle.length - 1])
     : null;
+  const canClaim = daily?.canClaim ?? false;
+
+  // countdown do resgate diário — conta em tempo real até o fim da janela
+  const [dailyTick, setDailyTick] = useState(0);
+  useEffect(() => {
+    if (!canClaim && (daily?.secondsUntilNext ?? 0) > 0) {
+      const t = window.setInterval(() => setDailyTick((n) => n + 1), 1000);
+      return () => window.clearInterval(t);
+    }
+    setDailyTick(0);
+    return undefined;
+  }, [canClaim, daily?.secondsUntilNext]);
+  const secondsLeft = canClaim ? 0 : Math.max(0, (daily?.secondsUntilNext ?? 0) - dailyTick);
+
+  // quando a janela expira localmente, refetch para liberar o botão sem recarregar
+  useEffect(() => {
+    if ((daily?.secondsUntilNext ?? 0) > 0 && secondsLeft === 0 && !canClaim) {
+      void queryClient.invalidateQueries({ queryKey: DAILY_QUERY_KEY });
+    }
+  }, [secondsLeft, canClaim, daily?.secondsUntilNext, queryClient]);
 
   /* ── feel (toast / panels / scene effects) ─────────────────────── */
   const showToast = (msg: string): void => {
@@ -376,7 +403,9 @@ export function Lobby(): JSX.Element {
                       .join(" · ")
                   : "—"}
               </div>
-              <div className="dm-sub">Resgate diário · renova em 00:00</div>
+              <div className="dm-sub">
+                {canClaim ? "Bônus diário disponível!" : `De novo em ${fmtCountdown(secondsLeft)}`}
+              </div>
             </div>
             <div className="dm-pips">
               {(daily?.cycle ?? []).map((_, i) => (
