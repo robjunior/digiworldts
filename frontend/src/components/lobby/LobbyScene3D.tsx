@@ -382,7 +382,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (!fig) {
           if (label !== null && label !== undefined) {
             label.hidden = false;
-            label.textContent = "Vazio — Convidar";
           }
           continue;
         }
@@ -416,7 +415,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(settings.digimonBrightness ?? 1, 0));
         if (label !== null && label !== undefined) {
           label.hidden = false;
-          label.textContent = `${fig.nickname} · Lv ${fig.level}`;
         }
       }
       for (const [id, rig] of rigs) {
