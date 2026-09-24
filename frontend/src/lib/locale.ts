@@ -105,6 +105,7 @@ const EN: Translations = {
 
   'topbar.nav.home': 'Home',
   'topbar.nav.play': 'Play',
+  'topbar.nav.lobby': 'Lobby',
   'topbar.nav.collection': 'Collection',
   'topbar.nav.explore': 'Explore',
   'topbar.nav.shop': 'Shop',
@@ -569,6 +570,7 @@ const PT: Translations = {
 
   'topbar.nav.home': 'Início',
   'topbar.nav.play': 'Jogar',
+  'topbar.nav.lobby': 'Lobby',
   'topbar.nav.collection': 'Coleção',
   'topbar.nav.explore': 'Explorar',
   'topbar.nav.shop': 'Loja',

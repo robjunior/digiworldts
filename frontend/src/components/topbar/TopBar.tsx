@@ -9,6 +9,7 @@ import { apiFetch, getDaily } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
 import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
 import { useWsStore } from '../../state/wsStore';
+import { PlayMenu } from './PlayMenu';
 
 type MenuKind = 'notif' | 'user' | null;
 
@@ -36,7 +37,7 @@ type NavItem = {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { key: 'topbar.nav.home', to: '/' },
-  { key: 'topbar.nav.play', to: '/lobby' },
+  { key: 'topbar.nav.lobby', to: '/lobby' },
   { key: 'topbar.nav.collection', to: '/digdex' },
   { key: 'topbar.nav.explore', to: '/adventure' },
   { key: 'topbar.nav.shop', to: '/shop' },
@@ -182,9 +183,7 @@ export function TopBar(): JSX.Element | null {
 
   return (
     <header className="topbar" role="banner">
-      <a href="/" className="topbar-logo">
-        <span className="bit">Digi</span>World
-      </a>
+      <PlayMenu />
 
       <nav className="tnav" aria-label="Main">
         {NAV_ITEMS.map((item) => {

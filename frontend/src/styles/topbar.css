@@ -5,8 +5,6 @@
 
 /* ── top bar ──────────────────────────────────────────────────────── */
 .topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
-.topbar-logo{font:900 14px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;display:flex;align-items:center;gap:8px;padding:0 18px 0 6px;color:var(--ink);text-decoration:none}
-.topbar-logo .bit{color:var(--gold)}
 .tnav{display:flex;align-items:center;height:100%;gap:2px}
 .tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
 .tnav-btn:hover{color:var(--ink)}
@@ -50,3 +48,30 @@
 .tmenu .nrow .nm{font:600 11px/1.3 var(--font);color:var(--muted)}
 .tmenu .nrow .na{margin-top:2px;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);align-self:flex-start;background:none;border:0;padding:0;cursor:pointer}
 .tmenu .nrow .na:hover{text-decoration:underline}
+
+/* ── JOGAR play menu (replaces the logo) ───────────────────────────── */
+.playmenu{position:relative;flex:none;display:flex;align-items:center;padding:0 10px 0 2px}
+.play-btn{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 16px 0 14px;font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:#08101f;background:linear-gradient(135deg,#fbbf24,#f59e0b 55%,#d97706);border:0;clip-path:var(--notch-sm-clip);cursor:pointer;transition:filter .15s,transform .1s}
+.play-btn:hover{filter:brightness(1.08)}
+.play-btn:active{transform:scale(.97)}
+.play-btn svg{width:14px;height:14px;display:block}
+.play-btn .play-spin{animation:playSpin .9s linear infinite}
+.play-btn.is-waiting{color:#e8f0ff;background:linear-gradient(135deg,#2563eb,#3b82f6 55%,#60a5fa);animation:playFlashExt 1.4s ease-in-out infinite}
+.play-btn.is-matched{color:#08101f;background:linear-gradient(135deg,#34d399,#10b981 55%,#059669);animation:playPulseExt .7s ease-in-out infinite}
+.play-btn.is-idle{animation:playFlashGold 2.2s ease-in-out infinite}
+@keyframes playFlashGold{0%,100%{box-shadow:0 0 10px rgba(245,158,11,.35),0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 22px rgba(245,158,11,.75),0 0 0 5px rgba(245,158,11,0)}}
+@keyframes playFlashExt{0%,100%{box-shadow:0 0 8px rgba(96,165,250,.3)}50%{box-shadow:0 0 20px rgba(96,165,250,.75)}}
+@keyframes playPulseExt{0%,100%{box-shadow:0 0 8px rgba(16,185,129,.35)}50%{box-shadow:0 0 24px rgba(16,185,129,.8);filter:brightness(1.15)}}
+@keyframes playSpin{to{transform:rotate(360deg)}}
+.play-drop{position:absolute;top:calc(100% + 8px);left:2px;min-width:230px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:6px;z-index:70;display:none;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.play-drop.open{display:block}
+.play-drop-hd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.play-drop-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;background:none;border:0;text-align:left;cursor:pointer;clip-path:var(--notch-xs-clip);transition:background .12s}
+.play-drop-item:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.pdi-ic{width:30px;height:30px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);color:var(--signal)}
+.play-drop-item:hover .pdi-ic{color:var(--gold-bright)}
+.pdi-ic svg{width:16px;height:16px}
+.pdi-tx{display:flex;flex-direction:column;gap:2px}
+.pdi-lb{display:flex;align-items:center;gap:7px;font:800 12px/1 var(--font);letter-spacing:.05em;color:var(--ink)}
+.pdi-live{font:800 7px/1 var(--font);letter-spacing:.14em;padding:2px 4px;color:var(--gold-bright);border:1px solid var(--gold);clip-path:var(--notch-xs-clip)}
+.pdi-mt{font:600 10px/1 var(--font);color:var(--muted)}
