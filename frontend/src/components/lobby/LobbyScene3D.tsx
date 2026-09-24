@@ -443,11 +443,25 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       return top;
     };
 
-    /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`. */
+    /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`.
+     *  Se o GLB é inválido de lobby (sem o platter pra apoiar os digimons),
+     *  FALLBACK para a regra anterior das cenas 3D: party em partyHeight,
+     *  câmera padrão, o GLB só como ambiente. */
     function fitPartyToPlatter(root: THREE.Group): void {
       const top = platterTopY(root);
       if (top === null) {
-        console.warn('[LobbyScene3D] hdd_plattertop não encontrado no GLB do lobby — mantém partyHeight como piso');
+        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa a regra anterior (partyHeight)');
+        groundY = settings.partyHeight ?? 0;
+        camCenterY = groundY + partyH / 2;
+        cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
+        for (const p of pedestals) {
+          p.ring.position.y = GROUND_Y + 0.01 + groundY;
+          p.glow.position.y = GROUND_Y + 0.005 + groundY;
+        }
+        for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
+        for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
+        seatStageLight();
+        rebuildLightShafts();
         return;
       }
       groundY = top;
