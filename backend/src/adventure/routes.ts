@@ -24,6 +24,11 @@ const StartSchema = z.object({
   hours: z.number().int().min(ADVENTURE_MIN_HOURS).max(ADVENTURE_MAX_HOURS),
 });
 
+const CollectSchema = z.object({
+  /** Omit when only one adventure is active (backwards compatible). */
+  adventureId: z.string().min(1).optional(),
+});
+
 function statusForStart(err: StartAdventureError): number {
   switch (err) {
     case 'mon-not-found':
@@ -35,7 +40,7 @@ function statusForStart(err: StartAdventureError): number {
     case 'mon-busy':
     case 'mon-downed':
     case 'mon-listed':
-    case 'active-adventure-exists':
+    case 'active-adventures-limit':
       return 409;
     case 'insufficient-meat':
       return 402;
@@ -83,7 +88,14 @@ export const adventurePlugin: FastifyPluginAsync = async (app): Promise<void> =>
 
   app.post('/api/adventure/collect', async (req, reply) => {
     const user = await requireAuth(req, reply);
-    const result = await collectAdventure(user.id);
+    const parsed = CollectSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return reply.code(400).send({
+        error: 'invalid-input',
+        details: parsed.error.issues,
+      });
+    }
+    const result = await collectAdventure(user.id, parsed.data.adventureId);
     if (!result.ok) {
       return reply.code(statusForCollect(result.error)).send({
         error: result.error,

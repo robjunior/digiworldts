@@ -116,6 +116,13 @@
 .adv-page .lchip[data-res="meat"]{--cc:var(--meat)}.lchip[data-res="bits"]{--cc:var(--bits)}
 .adv-page .lchip[data-res="data"]{--cc:var(--data)}.lchip[data-res="credits"]{--cc:var(--credits)}
 .adv-page .lchip .u{color:var(--muted);font-weight:700;font-size:10px;letter-spacing:.06em}
+.adv-page .found{display:flex;flex-wrap:wrap;gap:8px}
+.adv-page .fchip{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);font:800 11px/1 var(--font)}
+.adv-page .fchip .fspr{width:26px;height:26px;flex:0 0 26px;display:grid;place-items:center}
+.adv-page .fchip .fspr img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}
+.adv-page .fchip .fn{min-width:0;white-space:nowrap}
+.adv-page .fchip .fst{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.adv-page .fchip .fcnt{font-size:9px;color:var(--signal)}
 .adv-page .xprow{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-sm);margin-bottom:8px}
 .adv-page .xprow .xspr{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center}
 .adv-page .xprow .xspr img{width:30px;height:30px;object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges}

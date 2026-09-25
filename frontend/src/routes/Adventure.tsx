@@ -7,6 +7,7 @@ import { Toast } from '../components/common/Toast';
 import { ActiveExpCard } from '../components/adventure/ActiveExpCard';
 import { ExpeditionPlanner } from '../components/adventure/ExpeditionPlanner';
 import { ReportPanel } from '../components/adventure/ReportPanel';
+import { meatCostForHours } from '../components/adventure/utils';
 import { getRoster } from '../lib/api';
 import {
   collectAdventure,
@@ -53,27 +54,29 @@ export function Adventure(): JSX.Element {
   }, [notice]);
 
   const page = adventureQuery.data ?? null;
-  const active = page?.active ?? null;
+  const active = page?.active ?? [];
   const lastCollected = page?.lastCollected ?? null;
   const meatOwned = page?.meatOwned ?? 0;
   const config = page?.config ?? {
     minHours: 1,
     maxHours: 8,
     meatPerHour: 10,
+    meatEscalationPerHour: 5,
     encountersPerHour: 3,
     partySize: 3,
+    maxActive: 3,
   };
   const roster = rosterQuery.data?.roster ?? [];
   const farm: FarmView = farmQuery.data ?? emptyFarm;
 
-  const meatNeeded = hours * config.meatPerHour;
+  const meatNeeded = meatCostForHours(hours, config.meatPerHour, config.meatEscalationPerHour);
 
   const startMutation = useMutation({
     mutationFn: (params: { readonly monIds: readonly string[]; readonly hours: number }) =>
       startAdventure(params.monIds, params.hours),
     onSuccess: (result) => {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
-        active: result.adventure,
+        active: [...(prev?.active ?? []), result.adventure],
         lastCollected: prev?.lastCollected ?? null,
         meatOwned: result.meatOwned,
         config: prev?.config ?? config,
@@ -87,10 +90,10 @@ export function Adventure(): JSX.Element {
   });
 
   const collectMutation = useMutation({
-    mutationFn: collectAdventure,
+    mutationFn: (adventureId: string) => collectAdventure(adventureId),
     onSuccess: (result) => {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
-        active: null,
+        active: (prev?.active ?? []).filter((a) => a.id !== result.adventure.id),
         lastCollected: result.adventure,
         meatOwned: prev?.meatOwned ?? 0,
         config: prev?.config ?? config,
@@ -165,7 +168,8 @@ export function Adventure(): JSX.Element {
     [roster],
   );
 
-  const subtitle = active ? '1 in the field' : 'idle · ready to send';
+  const subtitle =
+    active.length > 0 ? `${active.length} in the field · ${config.maxActive - active.length} free` : 'idle · ready to send';
 
   return (
     <>
@@ -202,22 +206,25 @@ export function Adventure(): JSX.Element {
           </div>
 
           <div className="lstack">
-            <SectionHead title="Active Expeditions" count={active ? 1 : 0} />
+            <SectionHead title="Active Expeditions" count={active.length} />
             <div className="panelbox">
               <div className="pinner">
                 <div className="explist">
-                  {active ? (
-                    <ActiveExpCard
-                      active={active}
-                      now={now}
-                      config={config}
-                      onCollect={() => collectMutation.mutate()}
-                      isCollecting={collectMutation.isPending}
-                    />
+                  {active.length > 0 ? (
+                    active.map((a) => (
+                      <ActiveExpCard
+                        key={a.id}
+                        active={a}
+                        now={now}
+                        config={config}
+                        onCollect={() => collectMutation.mutate(a.id)}
+                        isCollecting={collectMutation.isPending}
+                      />
+                    ))
                   ) : (
                     <div className="exp-empty">
                       No expeditions in the field. Pick a party above and Embark — every run you send appears here with its
-                      own countdown, and you can send as many as you like.
+                      own countdown, and you can send up to {config.maxActive} at once.
                     </div>
                   )}
                 </div>

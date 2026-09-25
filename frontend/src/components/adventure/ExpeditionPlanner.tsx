@@ -88,9 +88,12 @@ export function ExpeditionPlanner({
         </div>
 
         <div className="previewgrid">
-          <div className={`pv ${meatNeeded > meatOwned ? 'short' : ''}`} title="Meat is the fuel for expeditions — produced in the Farm and hunted in the field.">
+          <div
+            className={`pv ${meatNeeded > meatOwned ? 'short' : ''}`}
+            title="Meat fuels expeditions — produced in the Farm and hunted in the field. The cost grows with duration: each hour costs more than the last."
+          >
             <div className="k">Meat</div>
-            <div className="v">{meatNeeded}</div>
+            <div className="v">{meatNeeded.toLocaleString('en-US')}</div>
           </div>
           <div className="pv">
             <div className="k">Encounters</div>

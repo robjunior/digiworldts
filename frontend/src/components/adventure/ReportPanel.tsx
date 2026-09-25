@@ -75,6 +75,27 @@ export function ReportPanel({
         )}
         {noLoot && <span className="rep-empty">No loot this run.</span>}
       </div>
+      {report.foundDigimons.length > 0 && (
+        <>
+          <div className="rlabel">Digimon found</div>
+          <div className="found">
+            {report.foundDigimons.map((f) => (
+              <span
+                className="fchip"
+                key={f.catalogId}
+                title={`${f.name} — ${f.stage}${f.element !== 'null' ? ` · ${f.element}` : ''}`}
+              >
+                <span className="fspr">
+                  <DigimonSprite catalogId={f.catalogId} />
+                </span>
+                <span className="fn">{f.name}</span>
+                <span className="fst">{f.stage}</span>
+                {f.count > 1 && <span className="fcnt">×{f.count}</span>}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
       <div className="rlabel">Experience</div>
       {report.xpDeltas.map((x) => {
         const mon = adventure.party.find((p) => p.monId === x.monId);

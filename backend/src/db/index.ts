@@ -456,6 +456,8 @@ export type AdventureRow = {
   collected_at: number | null;
   seed: number;
   report: string | null;
+  /** Team slot 0..ADVENTURE_MAX_ACTIVE-1; only meaningful while active. */
+  slot: number;
   created_at: number;
 };
 
