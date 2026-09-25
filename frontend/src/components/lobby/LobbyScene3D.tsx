@@ -188,7 +188,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     key.shadow.camera.top = ksc;
     key.shadow.camera.bottom = -ksc;
     key.shadow.camera.updateProjectionMatrix();
-    key.target.position.set(0, 0, 0);
+    key.target.position.set(0, groundY, 0);
+    key.target.updateMatrixWorld(true);
     ownLights.push(key);
     scene.add(key);
     scene.add(key.target);
@@ -454,6 +455,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       if (top === null) {
         console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa como backdrop (partyHeight)');
         groundY = settings.partyHeight ?? 0;
+        key.target.position.y = groundY;
+        key.target.updateMatrixWorld(true);
 
         // Biome/lodge GLBs are environments, not arena stages. Their geometry
         // has no authored party floor and can sit between the camera and the
@@ -490,6 +493,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         return;
       }
       groundY = top;
+      key.target.position.y = groundY;
+      key.target.updateMatrixWorld(true);
       camCenterY = groundY + (lighting?.camLookAtY ?? 0);
       cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
       for (const p of pedestals) {

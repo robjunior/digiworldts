@@ -235,7 +235,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const handleCreateLobby = async (): Promise<void> => {
-    const existing = scenes.find((s) => s.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+    const existing = scenes.find(isLobbyScene);
     if (existing !== undefined) {
       selectScene(existing.id);
       return;
@@ -354,6 +354,7 @@ export function SceneSettingsAdmin(): JSX.Element {
       const res = await updateScene(selectedId, {
         name: draft.name,
         elements: draft.elements,
+        kind: draft.kind ?? 'arena',
         settings,
         useGlbSettings: draft.useGlbSettings,
         weather: draft.weather,

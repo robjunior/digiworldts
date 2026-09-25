@@ -25,6 +25,40 @@ type SceneFileRecord = SceneEntity & {
 };
 
 let cache: readonly SceneEntity[] | null = null;
+let mutationTail: Promise<void> = Promise.resolve();
+
+async function serializeMutation<T>(work: () => Promise<T>): Promise<T> {
+  const previous = mutationTail;
+  let release!: () => void;
+  mutationTail = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await work();
+  } finally {
+    release();
+  }
+}
+
+/** A lobby is a role, not a second scene collection: only one entity may own it. */
+export class LobbySceneAlreadyAssignedError extends Error {
+  readonly code = 'lobby-already-assigned';
+
+  constructor(readonly existingSceneId: string) {
+    super('A lobby scene is already assigned');
+    this.name = 'LobbySceneAlreadyAssignedError';
+  }
+}
+
+function isLobbyScene(scene: SceneEntity): boolean {
+  return scene.kind === 'lobby'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === 'lobby');
+}
+
+function assertLobbyAvailable(scenes: readonly SceneEntity[], kind: SceneEntity['kind'], exceptId?: string): void {
+  if (kind !== 'lobby') return;
+  const existing = scenes.find((scene) => scene.id !== exceptId && isLobbyScene(scene));
+  if (existing !== undefined) throw new LobbySceneAlreadyAssignedError(existing.id);
+}
 
 function isElement(value: unknown): value is Element {
   return typeof value === 'string' && (ELEMENTS as readonly string[]).includes(value);
@@ -178,8 +212,10 @@ export type SceneWriteInput = {
 };
 
 export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEntity> {
-  const all = await readEnvelope();
-  const now = Date.now();
+  return serializeMutation(async () => {
+    const all = await readEnvelope();
+    assertLobbyAvailable(all, input.kind);
+    const now = Date.now();
   const scene: SceneEntity = {
     id: newId('scn'),
     name: input.name.trim(),
@@ -193,14 +229,18 @@ export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEnt
     updatedAt: now,
   };
   await writeEnvelope([...all, scene]);
-  return scene;
+    return scene;
+  });
 }
 
 export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInput>): Promise<SceneEntity | null> {
-  const all = await readEnvelope();
+  return serializeMutation(async () => {
+    const all = await readEnvelope();
   const idx = all.findIndex((s) => s.id === id);
   if (idx === -1) return null;
   const existing = all[idx]!;
+  const nextKind = patch.kind ?? existing.kind;
+  assertLobbyAvailable(all, nextKind, existing.id);
   const next: SceneEntity = {
     id: existing.id,
     name: patch.name !== undefined ? patch.name.trim() : existing.name,
@@ -218,7 +258,8 @@ export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInpu
   const nextList = [...all];
   nextList[idx] = next;
   await writeEnvelope(nextList);
-  return next;
+    return next;
+  });
 }
 
 export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
@@ -227,6 +268,7 @@ export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
   return createSceneEntry({
     name: `${source.name} (copy)`,
     elements: source.elements,
+    ...(source.kind !== undefined ? { kind: source.kind === 'lobby' ? 'arena' : source.kind } : {}),
     settings: source.settings,
     useGlbSettings: source.useGlbSettings === true,
     weather: source.weather ?? null,

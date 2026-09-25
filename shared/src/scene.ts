@@ -103,6 +103,7 @@ export type SceneDeleteResponse = { readonly ok: true };
 export type SceneCreateInput = {
   readonly name: string;
   readonly elements: readonly Element[];
+  readonly kind?: SceneKind;
   readonly settings: Readonly<Record<string, unknown>>;
 };
 

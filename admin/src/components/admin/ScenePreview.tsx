@@ -163,7 +163,10 @@ function applyLobbyStage(
     (settings.sunIntensity ?? 1.4) * (wl?.sunIntensityMult ?? 1) * phaseDim,
   );
   key.position.set(settings.sunPosX ?? -6, settings.sunPosY ?? 10, settings.sunPosZ ?? 5);
-  key.target.position.set(0, 0, 0);
+  // DirectionalLight illuminates along position -> target. Aim at the actual
+  // stage floor, not world Y=0 (the lobby GLB platter can be far above it).
+  key.target.position.set(0, partyY, 0);
+  key.target.updateMatrixWorld(true);
   f.scene.add(key);
   f.scene.add(key.target);
   f.lights.push(key);

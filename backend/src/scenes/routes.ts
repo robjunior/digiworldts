@@ -21,6 +21,7 @@ import {
   deleteSceneEntry,
   getScene,
   listScenes,
+  LobbySceneAlreadyAssignedError,
   updateSceneEntry,
 } from './store.js';
 
@@ -136,15 +137,23 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
     }
-    const scene = await createSceneEntry({
-      name: parsed.data.name,
-      elements: parsed.data.elements,
-      ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
-      settings: parsed.data.settings,
-      useGlbSettings: parsed.data.useGlbSettings === true,
-      weather: parsed.data.weather ?? null,
-      timeOfDay: parsed.data.timeOfDay ?? null,
-    });
+    let scene;
+    try {
+      scene = await createSceneEntry({
+        name: parsed.data.name,
+        elements: parsed.data.elements,
+        ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
+        settings: parsed.data.settings,
+        useGlbSettings: parsed.data.useGlbSettings === true,
+        weather: parsed.data.weather ?? null,
+        timeOfDay: parsed.data.timeOfDay ?? null,
+      });
+    } catch (err) {
+      if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      throw err;
+    }
     await broadcastScenesUpdated();
     log.info('admin.scene.create', { adminId: admin.id, sceneId: scene.id, name: scene.name });
     return reply.code(201).send({ ok: true, scene });
@@ -172,7 +181,15 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     if (parsed.data.useGlbSettings !== undefined) patch.useGlbSettings = parsed.data.useGlbSettings;
     if (parsed.data.weather !== undefined) patch.weather = parsed.data.weather ?? null;
     if (parsed.data.timeOfDay !== undefined) patch.timeOfDay = parsed.data.timeOfDay ?? null;
-    const scene = await updateSceneEntry(req.params.id, patch);
+    let scene;
+    try {
+      scene = await updateSceneEntry(req.params.id, patch);
+    } catch (err) {
+      if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      throw err;
+    }
     if (scene === null) return reply.code(404).send({ error: 'not-found' });
     await broadcastScenesUpdated();
     log.info('admin.scene.update', { adminId: admin.id, sceneId: scene.id });
