@@ -136,7 +136,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // inspection camera. The lobby uses the editor camera controls so the
     // preview and the real frontend stay framed identically.
     const cameraTargetY = lighting?.camLookAtY ?? 3.0;
-    const cameraDistance = Math.max(lighting?.camDist ?? 28, 26);
+    // Distância de apresentação: quanto >MENOR> o valor, mais perto a câmera
+    // fica dos digimons. O clamp baixo (12) garante que o camDist do editor
+    // consiga dar zoom (antes era um piso duro de 26 que impedia aproximar).
+    const cameraDistance = Math.max(lighting?.camDist ?? 14, 12);
     const cameraElevation = THREE.MathUtils.degToRad(lighting?.camElevDeg ?? 24);
     const cameraYaw = THREE.MathUtils.degToRad(lighting?.camYawDeg ?? 0);
     const cameraBase = new THREE.Vector3(
@@ -448,8 +451,31 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     function fitPartyToPlatter(root: THREE.Group): void {
       const top = platterTopY(root);
       if (top === null) {
-        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa a regra anterior (partyHeight)');
+        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa como backdrop (partyHeight)');
         groundY = settings.partyHeight ?? 0;
+
+        // Biome/lodge GLBs are environments, not arena stages. Their geometry
+        // has no authored party floor and can sit between the camera and the
+        // sprites when left at the arena transform. Reframe these models as a
+        // distant backdrop; arena GLBs keep the field transform above.
+        root.position.set(0, 0, 0);
+        root.updateMatrixWorld(true);
+        const sourceBox = new THREE.Box3().setFromObject(root);
+        const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
+        root.scale.multiplyScalar(34 / sourceSpan);
+        root.updateMatrixWorld(true);
+        const backdropBox = new THREE.Box3().setFromObject(root);
+        const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
+        const viewTarget = new THREE.Vector3(0, groundY + partyH / 2, 0);
+        const viewDirection = viewTarget.clone().sub(cameraBase).normalize();
+        const backdropWorldCenter = viewTarget.clone().addScaledVector(viewDirection, 26);
+        root.position.set(
+          backdropWorldCenter.x - backdropCenter.x,
+          backdropWorldCenter.y - backdropCenter.y,
+          backdropWorldCenter.z - backdropCenter.z,
+        );
+        root.updateMatrixWorld(true);
+
         camCenterY = groundY + partyH / 2;
         cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
         for (const p of pedestals) {

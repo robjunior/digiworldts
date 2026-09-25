@@ -115,7 +115,7 @@ function applyLobbyStage(
 
   // ── camera (perspective; knobs: dist/elev/yaw/fov/lookAtY) ─────────
   const deg = Math.PI / 180;
-  const dist = Math.max(settings.camDist ?? 28, 26);
+  const dist = Math.max(settings.camDist ?? 14, 12);
   const elev = (settings.camElevDeg ?? 0) * deg;
   const yaw = (settings.camYawDeg ?? 0) * deg;
   const fov = settings.camFov ?? 36;
