@@ -187,12 +187,12 @@ function applyLobbyStage(
     stage.shadow.camera.near = 0.5;
     stage.shadow.camera.far = 90;
     const scCam = stage.shadow.camera as unknown as THREE.OrthographicCamera;
-    scCam.left = -14;
-    scCam.right = 14;
-    scCam.top = 14;
-    scCam.bottom = -14;
+    scCam.left = -12;
+    scCam.right = 12;
+    scCam.top = 12;
+    scCam.bottom = -12;
     scCam.updateProjectionMatrix();
-    stage.position.set(0, partyY + 15, partyH * 0.35 + 9);
+    stage.position.set(0, partyY + 12, partyH * 0.35 + 7);
     stage.target.position.set(0, partyY + partyH * 0.3, 0);
     f.scene.add(stage);
     f.scene.add(stage.target);
@@ -208,10 +208,10 @@ function applyLobbyStage(
   key.shadow.normalBias = 0.02;
   key.shadow.camera.near = 0.5;
   key.shadow.camera.far = 60;
-  key.shadow.camera.left = -22;
-  key.shadow.camera.right = 22;
-  key.shadow.camera.top = 22;
-  key.shadow.camera.bottom = -22;
+  key.shadow.camera.left = -16;
+  key.shadow.camera.right = 16;
+  key.shadow.camera.top = 16;
+  key.shadow.camera.bottom = -16;
   key.shadow.camera.updateProjectionMatrix();
   if (f.stage !== null) f.stage.castShadow = true;
   f.glbRoot?.traverse((o) => {
@@ -240,7 +240,7 @@ function applyLobbyStage(
       (f.scene.fog as THREE.Fog).far = settings.fogFar ?? 70;
     }
   }
-  f.renderer.toneMappingExposure = Math.min(settings.exposure ?? 0.2, 0.22);
+  f.renderer.toneMappingExposure = Math.min(settings.exposure ?? 0.28, 0.30);
   f.bloomPass.enabled = lobby.bloomEnabled !== false;
   f.bloomPass.strength = lobby.bloomStrength !== undefined ? Math.min(lobby.bloomStrength, 0.35) : 0.3;
   f.bloomPass.radius = lobby.bloomRadius !== undefined ? Math.min(lobby.bloomRadius, 0.5) : 0.45;
@@ -355,7 +355,7 @@ function applyLobbyStage(
       const pos = fanPosition(slot, lobby.pedestalSpacing);
       rig.setBasePosition(pos.x, pos.z);
       rig.setArenaBaselineY(partyY);
-      (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(lobby.digimonBrightness ?? 1, 0));
+      (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(lobby.digimonBrightness ?? 1.8, 0));
       rig.mesh.scale.setScalar(base * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1));
     }
   }

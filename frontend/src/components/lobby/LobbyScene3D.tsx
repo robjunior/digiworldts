@@ -118,7 +118,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // Embedded arena lights are authored in candela; keep the lobby in a
     // cinematic range instead of clipping the floor to white.
-    renderer.toneMappingExposure = Math.min(lighting?.exposure ?? 0.2, 0.22);
+    renderer.toneMappingExposure = Math.min(lighting?.exposure ?? 0.28, 0.30);
     // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
     // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
     renderer.shadowMap.enabled = true;
@@ -182,7 +182,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     key.shadow.normalBias = 0.02;
     key.shadow.camera.near = 0.5;
     key.shadow.camera.far = 60;
-    const ksc = 22;
+    const ksc = 16;
     key.shadow.camera.left = -ksc;
     key.shadow.camera.right = ksc;
     key.shadow.camera.top = ksc;
@@ -215,14 +215,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     stage.shadow.normalBias = 0.03;
     stage.shadow.camera.near = 0.5;
     stage.shadow.camera.far = 90;
-    const ssc = 14;
+    const ssc = 12;
     const scCam = stage.shadow.camera as unknown as THREE.OrthographicCamera;
     scCam.left = -ssc;
     scCam.right = ssc;
     scCam.top = ssc;
     scCam.bottom = -ssc;
     scCam.updateProjectionMatrix();
-    stage.position.set(0, 20, 12);
+    stage.position.set(0, 16, 10);
     stage.target.position.set(0, 0, 0);
     ownLights.push(stage);
     scene.add(stage);
@@ -230,7 +230,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // senta a luz de palco sobre o piso atual (groundY) — re-chamado quando o
     // platter do GLB define a altura real.
     const seatStageLight = (): void => {
-      stage.position.set(0, groundY + 15, partyH * 0.35 + 9);
+      stage.position.set(0, groundY + 12, partyH * 0.35 + 7);
       stage.target.position.set(0, groundY + partyH * 0.3, 0);
       stage.target.updateMatrixWorld();
     };
@@ -415,7 +415,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         // Iluminação simulada estilo Octopath: o sprite (MeshBasic) é não-luz
         // e o tonemapping ACES no low exposure apaga ele — multiplicar o
         // albedo do sheet mantém os digimons legíveis/brilhantes na cena.
-        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(settings.digimonBrightness ?? 1, 0));
+        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(settings.digimonBrightness ?? 1.8, 0));
         if (label !== null && label !== undefined) {
           label.hidden = false;
         }
