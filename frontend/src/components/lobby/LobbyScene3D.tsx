@@ -254,13 +254,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
             const size = box.getSize(new THREE.Vector3());
             const span = Math.max(size.x, size.y, size.z);
             const center = box.getCenter(new THREE.Vector3());
-            // Como no combate: o GLB é o CAMPO — a party fica SOBRE o disco
-            // central (pedestais em z ±1.7 ≈ centro do ring). Escala normaliza
-            // só modelos fora de banda; a posição respeita o autor do GLB.
-            if (span > 0 && (span < 20 || span > 90)) {
-              glbRoot.scale.setScalar(48 / span);
-            }
-            glbRoot.position.set(-center.x, -(box.min.y + 0.02), -center.z);
+            // arenaSpan controla o tamanho da arena no lobby; senão, normaliza
+            // modelos fora de banda (muito pequenos/grandes) para um span razoável.
+            const targetSpan = lighting?.arenaSpan ?? (span < 20 || span > 90 ? 48 : span);
+            if (span > 0 && targetSpan > 0) glbRoot.scale.setScalar(targetSpan / span);
+            const ox = lighting?.arenaOffsetX ?? 0;
+            const oy = lighting?.arenaOffsetY ?? 0;
+            const oz = lighting?.arenaOffsetZ ?? 0;
+            glbRoot.position.set(-center.x * (targetSpan / (span || 1)) + ox, -(box.min.y + 0.02) + oy, -center.z * (targetSpan / (span || 1)) + oz);
             normalizeLobbyGlbLights(glbRoot);
             scene.add(glbRoot);
 
