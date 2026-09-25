@@ -119,7 +119,7 @@ function applyLobbyStage(
   const elev = (settings.camElevDeg ?? 0) * deg;
   const yaw = (settings.camYawDeg ?? 0) * deg;
   const fov = settings.camFov ?? 36;
-  const lookY = partyY + (settings.camLookAtY ?? partyH / 2);
+  const lookY = partyY + (settings.camLookAtY ?? 0);
   const pos = new THREE.Vector3(
     Math.sin(yaw) * dist * Math.cos(elev),
     lookY + Math.sin(elev) * dist,

@@ -151,7 +151,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // hdd_plattertop quando terminar de carregar.
     let groundY = settings.partyHeight ?? 0;
     const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
-    let camCenterY = groundY + partyH / 2;
+    let camCenterY = groundY + (lighting?.camLookAtY ?? 0);
     camera.position.copy(cameraBase);
     camera.lookAt(0, camCenterY, 0);
     const composer = new EffectComposer(renderer);
@@ -477,7 +477,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         );
         root.updateMatrixWorld(true);
 
-        camCenterY = groundY + partyH / 2;
+        camCenterY = groundY + (lighting?.camLookAtY ?? 0);
         cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
         for (const p of pedestals) {
           p.ring.position.y = GROUND_Y + 0.01 + groundY;
@@ -490,7 +490,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         return;
       }
       groundY = top;
-      camCenterY = groundY + partyH / 2;
+      camCenterY = groundY + (lighting?.camLookAtY ?? 0);
       cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
       for (const p of pedestals) {
         p.ring.position.y = GROUND_Y + 0.01 + groundY;
