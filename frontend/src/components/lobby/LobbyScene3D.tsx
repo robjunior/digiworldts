@@ -25,6 +25,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
+import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -117,8 +118,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // Embedded arena lights are authored in candela; keep the lobby in a
-    // cinematic range instead of clipping the floor to white.
-    renderer.toneMappingExposure = Math.min(lighting?.exposure ?? 0.28, 0.30);
+    // cinematic range instead of clipping the floor to white. Honours the
+    // FULL editor range (0.2..2.5) — the old Math.min(x, 0.30) froze the knob
+    // for every value above 0.30. The HDR compensations (sprite brightness,
+    // stage pool, shafts) scale inversely via lobbyHdrCompensation, so the
+    // sprites keep their tune at any exposure while the arena responds.
+    const exposure = clampLobbyExposure(lighting?.exposure);
+    renderer.toneMappingExposure = exposure;
     // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
     // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
     renderer.shadowMap.enabled = true;
@@ -206,7 +212,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // exposure). Intensidade em HDR pra ler com a cena escura.
     const stage = new THREE.SpotLight(
       0xfff1d8,
-      (settings.stageLightIntensity ?? 0) * 1.35,
+      (settings.stageLightIntensity ?? 0) * 1.35 * lobbyHdrCompensation(exposure),
       0,
       0.62,
       0.5,
@@ -238,10 +244,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       stage.target.updateMatrixWorld();
     };
     seatStageLight();
-    // névoa do cenário (do editor) — afasta o horizonte do GLB
-    if (L.fogEnabled !== false) {
-      scene.fog = new THREE.Fog(L.fogColor ?? 0x1e2a44, L.fogNear ?? 14, L.fogFar ?? 70);
-    }
+    // névoa do cenário (do editor) — afasta o horizonte do GLB. Modo
+    // linear/exp2/height honorado via resolveLobbyFog (o front ANTES
+    // ignorava fogMode e renderizava só Fog linear — scene exp2 (Lobby)
+    // aparecia sem névoa no front enquanto o preview ficava enevoado).
+    scene.fog = resolveLobbyFog(L);
 
     // optional GLB environment — o cenário É o GLB (nunca um conjunto procedural)
     let glbRoot: THREE.Group | null = null;
@@ -425,7 +432,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         // Iluminação simulada estilo Octopath: o sprite (MeshBasic) é não-luz
         // e o tonemapping ACES no low exposure apaga ele — multiplicar o
         // albedo do sheet mantém os digimons legíveis/brilhantes na cena.
-        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(settings.digimonBrightness ?? 1.8, 0));
+        // Escala inversa com o exposure (lobbyHdrCompensation) para o knob
+        // de exposição dirigir a arena sem estourar/apagar os sprites.
+        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(
+          Math.max(settings.digimonBrightness ?? 1.8, 0) * lobbyHdrCompensation(exposure),
+        );
         if (label !== null && label !== undefined) {
           label.hidden = false;
         }
@@ -543,7 +554,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const fogColor = new THREE.Color(fog?.color ?? 0x1e2a44);
       const fogNear = fog?.near ?? 14;
       const fogFar = fog?.far ?? 70;
-      const exposure = renderer.toneMappingExposure || 1;
+      // o uniforme de exposição do shader = exposição efetiva (clamp do knob);
+      // a intensidade já vem compensada via lobbyHdrCompensation(exposure).
       const fwd = new THREE.Vector3();
       const addShaft = (
         from: THREE.Vector3,
@@ -558,7 +570,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (h < 0.5) return;
         const handle = createLightShaft({
           color,
-          intensity: strength * vol,
+          intensity: strength * vol * lobbyHdrCompensation(exposure),
           position: from,
           forward: dir,
           angle,

@@ -12,6 +12,7 @@ import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
+import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
@@ -113,15 +114,20 @@ function applyLobbyStage(
   const partyY = origin.y;
   f.stageCenterX = origin.x;
   f.stageCenterZ = origin.z;
-  const partyH = 0.7 * 5.2 * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1);
-  const centerY = partyY + partyH / 2;
+  const partyH = 0.7 * (lobby.pedestalScale ?? 1); // paridade com o front (0.7u)
+  // exposição efetiva (range completo do editor 0.2..2.5) — o clamp antigo
+  // Math.min(x, 0.30) congelava o knob acima de 0.30; os HDR (brightness,
+  // stage, shafts) compensam inversamente via lobbyHdrCompensation.
+  const exposure = clampLobbyExposure(settings.exposure);
+  f.renderer.toneMappingExposure = exposure;
 
   // ── camera (perspective; knobs: dist/elev/yaw/fov/lookAtY) ─────────
   const deg = Math.PI / 180;
   const dist = Math.max(settings.camDist ?? 14, 12);
-  const elev = (settings.camElevDeg ?? 0) * deg;
+  // defaults ESPELHAM o front (LobbyScene3D): elev 24°, fov 42°
+  const elev = (settings.camElevDeg ?? 24) * deg;
   const yaw = (settings.camYawDeg ?? 0) * deg;
-  const fov = settings.camFov ?? 36;
+  const fov = settings.camFov ?? 42;
   const lookY = partyY + (settings.camLookAtY ?? 0);
   const pos = new THREE.Vector3(
     f.stageCenterX + Math.sin(yaw) * dist * Math.cos(elev),
@@ -185,7 +191,7 @@ function applyLobbyStage(
   }
   const stageI = lobby.stageLightIntensity ?? 0;
   if (stageI > 0) {
-    const stage = new THREE.SpotLight(0xfff1d8, stageI * 1.35, 0, 0.62, 0.5, 0);
+    const stage = new THREE.SpotLight(0xfff1d8, stageI * 1.35 * lobbyHdrCompensation(exposure), 0, 0.62, 0.5, 0);
     stage.castShadow = true;
     stage.shadow.mapSize.set(2048, 2048);
     stage.shadow.bias = -0.0004;
@@ -198,8 +204,8 @@ function applyLobbyStage(
     scCam.top = 12;
     scCam.bottom = -12;
     scCam.updateProjectionMatrix();
-    stage.position.set(0, partyY + 12, partyH * 0.35 + 7);
-    stage.target.position.set(0, partyY + partyH * 0.3, 0);
+    stage.position.set(f.stageCenterX, partyY + 12, f.stageCenterZ + partyH * 0.35 + 7);
+    stage.target.position.set(f.stageCenterX, partyY + partyH * 0.3, f.stageCenterZ);
     f.scene.add(stage);
     f.scene.add(stage.target);
     f.stage = stage;
@@ -228,25 +234,10 @@ function applyLobbyStage(
     }
   });
 
-  // ── fog (linear / exp2 / height) + exposure ─────────────────────────
-  if (settings.fogEnabled === false) {
-    f.scene.fog = null;
-  } else {
-    const fogColor = wl?.fogColor ?? settings.fogColor ?? 0x1e2a44;
-    const mode = settings.fogMode ?? "linear";
-    if (mode === "exp2" || mode === "height") {
-      f.scene.fog = new THREE.FogExp2(
-        fogColor,
-        mode === "height" ? (settings.fogHeight ?? 0) > 0 ? 0.015 : settings.fogDensity ?? 0.02 : settings.fogDensity ?? 0.02,
-      );
-    } else {
-      if (!(f.scene.fog instanceof THREE.Fog)) f.scene.fog = new THREE.Fog(fogColor, settings.fogNear ?? 14, settings.fogFar ?? 70);
-      (f.scene.fog as THREE.Fog).color.setHex(fogColor);
-      (f.scene.fog as THREE.Fog).near = settings.fogNear ?? 14;
-      (f.scene.fog as THREE.Fog).far = settings.fogFar ?? 70;
-    }
-  }
-  f.renderer.toneMappingExposure = Math.min(settings.exposure ?? 0.28, 0.30);
+  // ── fog (linear / exp2 / height) ─────────────────────────────────────
+  // resolveLobbyFog é a fonte ÚNICA (dá no front LobbyScene3D o MESMO objeto
+  // de névoa); o override de cor do weather fica no call-site do preview.
+  f.scene.fog = resolveLobbyFog({ ...settings, fogColor: wl?.fogColor ?? settings.fogColor });
   f.bloomPass.enabled = lobby.bloomEnabled !== false;
   f.bloomPass.strength = lobby.bloomStrength !== undefined ? Math.min(lobby.bloomStrength, 0.35) : 0.3;
   f.bloomPass.radius = lobby.bloomRadius !== undefined ? Math.min(lobby.bloomRadius, 0.5) : 0.45;
@@ -270,7 +261,6 @@ function applyLobbyStage(
     const fogColor = new THREE.Color(sceneFog?.color ?? 0x1e2a44);
     const fogNear = sceneFog?.near ?? 14;
     const fogFar = sceneFog?.far ?? 70;
-    const exposure = f.renderer.toneMappingExposure || 1;
     const posW = new THREE.Vector3();
     const fw = new THREE.Vector3();
     const addShaft = (from: THREE.Vector3, dir: THREE.Vector3, angle: number, color: THREE.Color, strength = 0.08): void => {
@@ -280,7 +270,8 @@ function applyLobbyStage(
       if (h < 0.5) return;
       const handle = createLightShaft({
         color,
-        intensity: strength * vol,
+        // intensidade HDR compensada inversamente ao exposure (espelha o front)
+        intensity: strength * vol * lobbyHdrCompensation(exposure),
         position: from,
         forward: dir,
         angle,
@@ -337,7 +328,6 @@ function applyLobbyStage(
       p.ring.visible = true;
       p.glow.visible = true;
     }
-    const base = slot === 1 ? 5.2 : 4.3;
     let rig = f.rigs[slot] ?? null;
     if (rig === null) {
       try {
@@ -361,8 +351,10 @@ function applyLobbyStage(
       const pos = fanPosition(slot, lobby.pedestalSpacing);
       rig.setBasePosition(f.stageCenterX + pos.x, f.stageCenterZ + pos.z);
       rig.setArenaBaselineY(partyY);
-      (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(lobby.digimonBrightness ?? 1.8, 0));
-      rig.mesh.scale.setScalar(base * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1));
+      // brilho HDR dos sprites compensado inversamente ao exposure (espelha o front)
+      (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(
+        Math.max(lobby.digimonBrightness ?? 1.8, 0) * lobbyHdrCompensation(exposure),
+      );
     }
   }
 }
