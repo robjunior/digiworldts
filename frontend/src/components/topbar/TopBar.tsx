@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useAuth } from '../../hooks/useAuth';
 import { useT } from '../../hooks/useLocale';
-import { apiFetch, getDaily } from '../../lib/api';
+import { apiFetch } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
 import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
 import { useWsStore } from '../../state/wsStore';
@@ -78,12 +78,6 @@ export function TopBar(): JSX.Element | null {
     queryFn: getFarm,
     enabled: authed,
     staleTime: 15_000,
-  });
-  const dailyQuery = useQuery({
-    queryKey: ['daily'] as const,
-    queryFn: getDaily,
-    enabled: authed,
-    staleTime: 30_000,
   });
   const friendsQuery = useQuery({
     queryKey: ['friends'] as const,
@@ -215,7 +209,6 @@ export function TopBar(): JSX.Element | null {
   const hasNotifs = notifications.length > 0;
   const credits = farmQuery.data?.credits ?? null;
   const netcore = farmQuery.data?.netcore ?? null;
-  const streakDay = dailyQuery.data?.streakDay ?? 0;
 
   return (
     <header className="topbar" role="banner">
@@ -290,13 +283,6 @@ export function TopBar(): JSX.Element | null {
             <span className="am b">{netcore !== null ? netcore.toLocaleString('en-US') : '—'}</span>
           </span>
         </div>
-
-        {streakDay > 0 && (
-          <span className="streak-pill">
-            <span className="sv">▲</span>
-            <span className="sn">{streakDay}d</span>
-          </span>
-        )}
 
         <div className="tbwrap">
           <button
