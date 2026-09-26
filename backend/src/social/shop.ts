@@ -19,6 +19,7 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { addPendingBuff, type BuffKind } from './buffs.js';
 import { rarityFromRankOrCommon } from '@digiworld/shared/item-rarity';
+import { grantTeamSlots, BASE_TEAM_LIMIT, MAX_TEAM_LIMIT } from '../teams/engine.js';
 
 // ============================================================================
 // SQL
@@ -497,6 +498,20 @@ const SEED_ITEMS: Array<SeedItem> = [
     payload: JSON.stringify({ premiumDays: 30 }),
     item_type: 'premium',
   },
+  {
+    id: 'itm-team-slot',
+    name: 'Extra Team Slot',
+    description: 'Adds +1 saved team slot on the Roster screen. Base limit is 3 teams (5 while Premium).',
+    price_credits: 200,
+    price: 200,
+    currency: 'credits',
+    kind: 'team_slot',
+    class: 'product',
+    shop_category: 'upgrade',
+    payload: JSON.stringify({ team_slot: true }),
+    item_type: 'team_slot',
+    sort_order: 10,
+  },
 ];
 
 const ELEMENT_FAMILIES = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
@@ -798,6 +813,20 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
             await t.run(SQL_INSERT_TRAINING_BUILDING, [
               newId('bld'), me.id, kind, buildingType, now, item.price, now,
             ]);
+          }
+        } else if (item.kind === 'team_slot') {
+          // `itm-team-slot`: +1 saved team slot, repeatable. Grants the wallet
+          // counter directly instead of an inventory row.
+          const walletRow = await t.one<{ extra_team_slots: number }>(
+            `SELECT extra_team_slots FROM player_wallet WHERE user_id = ?`,
+            [me.id],
+          );
+          const extra = walletRow?.extra_team_slots ?? 0;
+          if (extra + qty > MAX_TEAM_LIMIT - BASE_TEAM_LIMIT) {
+            throw new Error('TEAM_SLOT_CAP');
+          }
+          for (let i = 0; i < qty; i++) {
+            await grantTeamSlots(me.id, 1);
           }
         } else {
           await t.run(SQL_UPSERT_INVENTORY, [me.id, item.id, qty, now]);

@@ -164,6 +164,7 @@ export type WalletRow = {
   streak_day: number;
   last_claim_at: number | null;
   premium_until: number | null;
+  extra_team_slots: number;
   updated_at: number;
 };
 
