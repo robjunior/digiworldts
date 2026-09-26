@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type CSSProperties, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ApplyDialog } from '../components/shop/ApplyDialog';
@@ -12,6 +12,7 @@ import '../styles/extensions-inventory.css';
 
 const SHOP_QUERY_KEY = ['shop'] as const;
 const ROSTER_QUERY_KEY = ['roster'] as const;
+const SEEN_KEY = 'dw:inv:seen:v1';
 
 type InvCat = 'consumable' | 'chip' | 'egg' | 'cosmetic' | 'material';
 type Cat = 'all' | InvCat;
@@ -201,6 +202,42 @@ function fmt(n: number): string {
   return n.toLocaleString('pt-BR');
 }
 
+// ---------------------------------------------------------------------------
+// "Seen" tracking — drives the NEW badge. An item is NEW until the player has
+// acknowledged it (hover / long-press / open detail). Persisted in localStorage
+// so items added between sessions surface as new on next visit.
+// ---------------------------------------------------------------------------
+function readSeen(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as string[];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistSeen(seen: Set<string>): void {
+  try {
+    localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+  } catch {
+    /* ignore quota / private-mode errors */
+  }
+}
+
+type PopoverAnchor = {
+  id: string;
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+  width: number;
+};
+
+const POP_W = 268;
+const POP_EST_H = 250;
+
 export function Inventory(): JSX.Element {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -213,6 +250,12 @@ export function Inventory(): JSX.Element {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [applyingItem, setApplyingItem] = useState<InventoryItemView | null>(null);
+  const [popover, setPopover] = useState<PopoverAnchor | null>(null);
+
+  const seenRef = useRef<Set<string>>(readSeen());
+  const hideTimer = useRef<number | null>(null);
+  const holdTimer = useRef<number | null>(null);
+  const longPressedRef = useRef(false);
 
   const inventory = shopQuery.data?.inventory ?? [];
   const catalog = shopQuery.data?.catalog ?? [];
@@ -234,6 +277,14 @@ export function Inventory(): JSX.Element {
     }
     return rows;
   }, [inventory, catalog]);
+
+  // Items present in the inventory but never acknowledged → NEW badge.
+  const newIds = useMemo(() => {
+    const s = seenRef.current;
+    const set = new Set<string>();
+    for (const it of enriched) if (!s.has(it.itemId)) set.add(it.itemId);
+    return set;
+  }, [enriched]);
 
   const counts: Readonly<Record<Cat, number>> = useMemo(() => {
     const map: Record<Cat, number> = {
@@ -276,10 +327,32 @@ export function Inventory(): JSX.Element {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setDetailId(null);
+      if (e.key === 'Escape') {
+        setDetailId(null);
+        setPopover(null);
+      }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Close the hover card when the grid scrolls under it (anchored by rect).
+  useEffect(() => {
+    if (!popover) return undefined;
+    const close = (): void => setPopover(null);
+    const scroller = document.querySelector('[data-od-id="inventory-scroll"]');
+    scroller?.addEventListener('scroll', close, { passive: true });
+    window.addEventListener('resize', close);
+    return () => {
+      scroller?.removeEventListener('scroll', close);
+      window.removeEventListener('resize', close);
+    };
+  }, [popover]);
+
+  const markSeen = useCallback((id: string): void => {
+    if (seenRef.current.has(id)) return;
+    seenRef.current.add(id);
+    persistSeen(seenRef.current);
   }, []);
 
   const applyMutation = useMutation({
@@ -290,6 +363,7 @@ export function Inventory(): JSX.Element {
       setToastMsg(it ? `${it.name} usado ✓` : 'Item usado ✓');
       setApplyingItem(null);
       setDetailId(null);
+      setPopover(null);
       void queryClient.invalidateQueries({ queryKey: SHOP_QUERY_KEY });
     },
     onError: (err: unknown) => {
@@ -321,7 +395,49 @@ export function Inventory(): JSX.Element {
     setSortBy('cat');
   };
 
+  // --- Hover / long-press item card -----------------------------------------
+  const clearHideTimer = (): void => {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+  const scheduleHide = (): void => {
+    clearHideTimer();
+    hideTimer.current = window.setTimeout(() => setPopover(null), 140);
+  };
+  const showPopover = (id: string, el: HTMLElement): void => {
+    clearHideTimer();
+    markSeen(id);
+    const r = el.getBoundingClientRect();
+    setPopover({ id, top: r.top, left: r.left, bottom: r.bottom, right: r.right, width: r.width });
+  };
+
+  useEffect(() => () => {
+    clearHideTimer();
+    if (holdTimer.current !== null) window.clearTimeout(holdTimer.current);
+  }, []);
+
   const detailItem = detailId ? enriched.find((i) => i.itemId === detailId) ?? null : null;
+  const popItem = popover ? enriched.find((i) => i.itemId === popover.id) ?? null : null;
+
+  // Position the popover above (or below, if no room) the anchor cell.
+  const popStyle: CSSProperties | undefined = (() => {
+    if (!popover) return undefined;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const anchorX = popover.left + popover.width / 2;
+    let left = anchorX - POP_W / 2;
+    left = Math.max(8, Math.min(left, vw - POP_W - 8));
+    const above = popover.top - POP_EST_H - 12 > 8;
+    const pos: CSSProperties = { left, width: POP_W };
+    if (above) pos.bottom = vh - popover.top + 12;
+    else pos.top = popover.bottom + 12;
+    return pos;
+  })();
+  const popArrowX = popover
+    ? Math.max(14, Math.min(POP_W - 14, popover.left + popover.width / 2 - (popStyle?.left as number ?? 0)))
+    : 0;
 
   return (
     <>
@@ -415,44 +531,154 @@ export function Inventory(): JSX.Element {
             )}
           </div>
         ) : (
-          filtered.map((it) => {
-            const usable = it.cat === 'consumable';
-            const style: CSSProperties = { ['--el' as string]: CAT_RAIL[it.cat] };
-            return (
-              <div key={it.itemId} className="irow" style={style} data-od-id={`inv-${it.itemId}`}>
-                <div className="nm">
-                  <div className="t">{it.name}<RarityBadge rarity={it.rarity} /></div>
-                  <div className="d">{it.description}</div>
-                </div>
-                <div className="qty">
-                  <span className="x">×</span>
-                  {fmt(it.qty)}
-                </div>
-                <div className="rowtag">
-                  <span className="tagpill">{CAT_TAG[it.cat]}</span>
-                </div>
-                <div className="acts">
-                  {usable && (
-                    <button type="button" className="abtn use" onClick={() => openUse(it)}>
-                      Usar
-                    </button>
-                  )}
-                  <button type="button" className="abtn" onClick={() => openSell(it)}>
-                    Vender
-                  </button>
-                  <button type="button" className="abtn" onClick={() => setDetailId(it.itemId)}>
-                    Detalhe
-                  </button>
-                </div>
-              </div>
-            );
-          })
+          <div className="inv-grid" role="grid" data-od-id="inventory-grid">
+            {filtered.map((it) => {
+              const usable = it.cat === 'consumable';
+              const isNew = newIds.has(it.itemId);
+              const style: CSSProperties = { ['--el' as string]: CAT_RAIL[it.cat] };
+              return (
+                <button
+                  key={it.itemId}
+                  type="button"
+                  className={`inv-cell${isNew ? ' is-new' : ''}`}
+                  style={style}
+                  data-od-id={`inv-${it.itemId}`}
+                  aria-label={`${it.name} ×${fmt(it.qty)}${isNew ? ' (novo)' : ''}`}
+                  onClick={(e) => {
+                    if (longPressedRef.current) {
+                      longPressedRef.current = false;
+                      e.preventDefault();
+                      return;
+                    }
+                    setDetailId(it.itemId);
+                  }}
+                  onMouseEnter={(e) => showPopover(it.itemId, e.currentTarget)}
+                  onMouseLeave={scheduleHide}
+                  onFocus={(e) => showPopover(it.itemId, e.currentTarget)}
+                  onBlur={scheduleHide}
+                  onTouchStart={(e) => {
+                    longPressedRef.current = false;
+                    const el = e.currentTarget;
+                    holdTimer.current = window.setTimeout(
+                      () => {
+                        longPressedRef.current = true;
+                        showPopover(it.itemId, el);
+                      },
+                      380,
+                    );
+                  }}
+                  onTouchEnd={() => {
+                    if (holdTimer.current !== null) {
+                      window.clearTimeout(holdTimer.current);
+                      holdTimer.current = null;
+                    }
+                  }}
+                  onTouchMove={() => {
+                    if (holdTimer.current !== null) {
+                      window.clearTimeout(holdTimer.current);
+                      holdTimer.current = null;
+                    }
+                  }}
+                >
+                  {isNew && <span className="inv-new">NOVO</span>}
+                  <span className="inv-cat">{CAT_TAG[it.cat]}</span>
+                  <span className="inv-ico" aria-hidden="true">
+                    {it.sprite ? (
+                      <img
+                        src={`https://api.skullbot.fr/img/digimon/dot/${it.sprite}.png`}
+                        alt=""
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.replaceWith(document.createTextNode(''));
+                        }}
+                      />
+                    ) : (
+                      iconSvgFor(it.cat, it.itemId)
+                    )}
+                  </span>
+                  <span className="inv-name">
+                    {it.name}
+                    <RarityBadge rarity={it.rarity} />
+                  </span>
+                  <span className="inv-qty">
+                    <span className="x">×</span>
+                    {fmt(it.qty)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
       <div className={`toast ${toastMsg ? 'show' : ''}`} role="status" aria-live="polite">
         {toastMsg}
       </div>
+
+      {popItem && popStyle && (
+        <div
+          className="inv-pop"
+          role="dialog"
+          aria-label={`${popItem.name} — cartão do item`}
+          style={popStyle}
+          data-od-id="inv-popover"
+          onMouseEnter={clearHideTimer}
+          onMouseLeave={scheduleHide}
+        >
+          <span className="inv-pop-arrow" style={{ ['--ax' as string]: `${popArrowX}px` }} aria-hidden="true" />
+          <div
+            className="inv-pop-head"
+            style={{ ['--el' as string]: CAT_RAIL[popItem.cat] } as CSSProperties}
+          >
+            <span className="inv-pop-ico">
+              {popItem.sprite ? (
+                <img
+                  src={`https://api.skullbot.fr/img/digimon/dot/${popItem.sprite}.png`}
+                  alt=""
+                  onError={(e) => {
+                    const t = e.currentTarget;
+                    t.replaceWith(document.createTextNode(''));
+                  }}
+                />
+              ) : (
+                iconSvgFor(popItem.cat, popItem.itemId)
+              )}
+            </span>
+            <div className="inv-pop-t">
+              <div className="inv-pop-name">
+                {popItem.name}
+                <RarityBadge rarity={popItem.rarity} />
+              </div>
+              <div className="inv-pop-sub">
+                {CAT_TAG[popItem.cat]} · ×{fmt(popItem.qty)} em posse
+              </div>
+            </div>
+          </div>
+          <div className="inv-pop-effect">{describeEffect(popItem)}</div>
+          <div className="inv-pop-desc">{popItem.description}</div>
+          <div className="inv-pop-meta">
+            <span>
+              <b>{fmt(popItem.val)}</b> Créditos/un.
+            </span>
+            <span>
+              Total <b>{fmt(popItem.qty * popItem.val)}</b>
+            </span>
+          </div>
+          <div className="inv-pop-actions">
+            {popItem.cat === 'consumable' && (
+              <button type="button" className="abtn use" onClick={() => { setPopover(null); openUse(popItem); }}>
+                Usar
+              </button>
+            )}
+            <button type="button" className="abtn" onClick={() => { setPopover(null); openSell(popItem); }}>
+              Vender
+            </button>
+            <button type="button" className="abtn" onClick={() => { setPopover(null); setDetailId(popItem.itemId); }}>
+              Detalhes
+            </button>
+          </div>
+        </div>
+      )}
 
       {detailItem && (
         <div
