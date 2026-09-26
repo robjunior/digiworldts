@@ -53,7 +53,7 @@ const NAV_ITEMS: readonly NavItem[] = [
       { key: 'nav.training', to: '/training' },
     ],
   },
-  { kind: 'link', key: 'topbar.nav.collection', to: '/digdex' },
+  { kind: 'link', key: 'nav.roster', to: '/roster' },
   { kind: 'link', key: 'topbar.nav.explore', to: '/adventure' },
   { kind: 'link', key: 'topbar.nav.inventory', to: '/items' },
   { kind: 'link', key: 'topbar.nav.shop', to: '/shop' },
@@ -418,6 +418,10 @@ export function TopBar(): JSX.Element | null {
               <ProfileIcon />
               <span>{t('topbar.menu.view_profile')}</span>
             </button>
+            <button type="button" className="mi" role="menuitem" onClick={() => goto('/digdex')}>
+              <CollectionIcon />
+              <span>{t('topbar.menu.collection')}</span>
+            </button>
             <button type="button" className="mi" role="menuitem" onClick={() => goto('/account')}>
               <ConnectionsIcon />
               <span>{t('topbar.menu.connections')}</span>
@@ -483,6 +487,17 @@ function ProfileIcon(): JSX.Element {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
       <path d="M5 20c0-3.3 3.1-6 7-6s7 2.7 7 6" />
+    </svg>
+  );
+}
+
+function CollectionIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
     </svg>
   );
 }
