@@ -20,12 +20,13 @@ import { useResizeObserverCSSVar } from './useResizeObserverCSSVar';
 import { useEnemyActionQueue } from './useEnemyActionQueue';
 import { useAutobattle } from './useAutobattle';
 import { useActionEventProcessing } from './useActionEventProcessing';
-import { usePveDispatch, type PveRewards } from './usePveDispatch';
+import { usePveDispatch } from './usePveDispatch';
 import { useActionDispatch } from './useActionDispatch';
 import { BattleStatusMessage } from './BattleStatusMessage';
 import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
 
 export function Combat3DBody(): JSX.Element | null {
+  const navigate = useNavigate();
   const { send } = useWebSocket();
   const activeBattle = useWsStore((state) => state.activeBattle);
   const battleEvents = useWsStore((state) => state.battleEvents);
@@ -34,7 +35,6 @@ export function Combat3DBody(): JSX.Element | null {
   const [commandMode, setCommandMode] = useState<CommandMode>('menu');
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater3D[]>([]);
-  const [pveResults, setPveResults] = useState<PveRewards | null>(null);
   const [endModalOpen, setEndModalOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
 
@@ -42,11 +42,12 @@ export function Combat3DBody(): JSX.Element | null {
   const cmdRef = useRef<HTMLDivElement | null>(null);
   const seenEventCountRef = useRef(0);
 
-  const onPveResults = (rewards: PveRewards): void => {
-    setPveResults(rewards);
-    setEndModalOpen(true);
-  };
-  const { dispatch: pveDispatch, error: loadError } = usePveDispatch(activeBattle, onPveResults);
+  // End-of-battle rewards (XP awards, NetCore, Bits) arrive with the WS `end`
+  // message; the old PvE world-battle HTTP flow was removed with the world
+  // feature, so this is now the single source for the reward report.
+  const battleRewards = useWsStore((state) => state.battleRewards);
+
+  const { dispatch: pveDispatch, error: loadError } = usePveDispatch(activeBattle, () => {});
 
   const actor = useMemo<FriendlyUnitView | null>(() => {
     if (!activeBattle) return null;
@@ -231,10 +232,11 @@ export function Combat3DBody(): JSX.Element | null {
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
           battle={activeBattle}
-          pveResults={pveResults}
+          rewards={battleRewards}
           onClose={() => {
             setEndModalOpen(false);
             clearActiveBattle();
+            navigate('/', { replace: true });
           }}
         />
       ) : null}

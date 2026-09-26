@@ -70,13 +70,20 @@ export class SqliteAdapter implements DbAdapter {
 
   /**
    * Serialization tail for `transaction()`. better-sqlite3 has ONE
-   * synchronous connection, so a `BEGIN IMMEDIATE` on a handle already inside
-   * a tx throws SQLITE_ERROR — a `Promise.all([tx(…), tx(…)])` crashes the
-   * process. Every `transaction()` call chains onto this tail; failed txs
-   * are caught on the chain itself so one rejection does not poison the
-   * next caller.
+   * synchronous connection, so two top-level `BEGIN IMMEDIATE` on the same
+   * handle race — every top-level `transaction()` call chains onto this tail;
+   * failed txs are caught on the chain itself so one rejection does not poison
+   * the next caller.
+   *
+   * NESTED `transaction()` calls (tx inside a tx callback) never touch the
+   * handle-level BEGIN: they reuse the open outer tx via the same pinned path
+   * the PG adapter uses (`if (this.pinned) return fn(this)`). A throw inside
+   * the nested callback rolls back the whole outer tx — identical semantics
+   * to Postgres' pinned nesting. Doing BEGIN/SAVEPOINT here instead would
+   * crash the process (better-sqlite3 throws on nested BEGIN).
    */
   private txTail: Promise<unknown> = Promise.resolve();
+  private txDepth = 0;
 
   private constructor(private readonly handle: DatabaseHandle) {}
 
@@ -143,13 +150,20 @@ export class SqliteAdapter implements DbAdapter {
   }
 
   async transaction<T>(fn: (tx: DbAdapter) => Promise<T>): Promise<T> {
+    if (this.txDepth > 0) {
+      // Nested tx: reuse the open outer transaction (PG pinned-path parity).
+      return fn(this);
+    }
     const run = async (): Promise<T> => {
       this.handle.exec('BEGIN IMMEDIATE');
+      this.txDepth += 1;
       try {
         const result = await fn(this);
+        this.txDepth -= 1;
         this.handle.exec('COMMIT');
         return result;
       } catch (err) {
+        this.txDepth -= 1;
         try {
           this.handle.exec('ROLLBACK');
         } catch (rollbackErr) {

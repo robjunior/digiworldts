@@ -1,45 +1,18 @@
-import type { BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, XpAward } from '@digiworld/shared/battle';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
 import { DigimonSprite } from '../common/DigimonSprite';
 
-type ItemDrop = { readonly itemId: string; readonly name: string; readonly qty: number };
-type StatSnapshot = { readonly key: string; readonly before: number; readonly after: number };
-type XpAward = {
-  readonly monId: string;
-  readonly catalogId?: string;
-  readonly nickname?: string;
-  readonly xpBefore: number;
-  readonly xpAfter: number;
-  readonly xpFloorBefore: number;
-  readonly xpFloor: number;
-  readonly xpNextBefore: number;
-  readonly xpNext: number;
-  readonly gainedLevels: number;
-  readonly previousLevel?: number;
-  readonly newLevel?: number;
-  readonly delta: number;
-  readonly defeated: boolean;
-  readonly statsBefore?: Readonly<Record<string, number>>;
-  readonly statsAfter?: Readonly<Record<string, number>>;
-};
-
-type PveResults = {
-  readonly xpAwards: readonly XpAward[];
-  readonly itemDrops?: readonly ItemDrop[];
-  readonly netcoreGained?: number;
-  readonly bitsGained?: number;
-};
-
 type EndCardProps = {
   readonly battle: BattleView;
-  readonly pveResults?: PveResults | null;
+  /** End-of-battle rewards from the WS `end` message — XP awards, NetCore, Bits (and PvE loot, if any). */
+  readonly rewards?: BattleEndRewards | null;
   readonly onClose?: () => void;
 };
 
-export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element | null {
   useEffect(() => {
     if (!onClose) return;
     const handler = (event: KeyboardEvent): void => {
@@ -56,7 +29,10 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   const tone = outcomeTone(outcome, battle.yourSide);
   const mmr = extractPvpMmr(battle);
   const hpLeftPct = averageHpLeftPct(battle);
-  const isPve = battle.mode === 'pve';
+  // Ranked (and PvE) rewards arrive with the WS `end` message; the amounts are
+  // the real granted values — not the hardcoded constants the card used to show.
+  const netcoreGained = rewards?.netcoreGained ?? 0;
+  const bitsGained = rewards?.bitsGained ?? 0;
   const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
 
   const card = (
@@ -68,12 +44,13 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
       <h2 className="headline">{headline(outcome, battle.yourSide, battle)}</h2>
       <div className="rewards">
         <div className="r"><span className="k">Rounds</span><span>{battle.round}</span></div>
-        {isPve ? null : (
-          <>
-            <div className="r"><span className="k">Credits</span><span>+{creditsFor(tone)}</span></div>
-            <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div>
-          </>
-        )}
+        {netcoreGained > 0 ? (
+          <div className="r" data-od-id="end-card-netcore"><span className="k">NetCore</span><span>+{netcoreGained}</span></div>
+        ) : null}
+        {bitsGained > 0 ? (
+          <div className="r" data-od-id="end-card-bits"><span className="k">Bits</span><span>+{bitsGained}</span></div>
+        ) : null}
+        <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div>
         {battle.mode === 'pvp' && mmr !== null ? (
           <div className="r" data-od-id="end-card-mmr">
             <span className="k">MMR</span>
@@ -85,22 +62,15 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
             </span>
           </div>
         ) : null}
-        {isPve && pveResults?.netcoreGained !== undefined && pveResults.netcoreGained > 0 ? (
-          <div className="r" data-od-id="end-card-pve-credits"><span className="k">NetCore</span><span>+{pveResults.netcoreGained}</span></div>
-        ) : null}
-        {isPve && pveResults?.bitsGained !== undefined && pveResults.bitsGained > 0 ? (
-          <div className="r" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span>+{pveResults.bitsGained}</span></div>
-        ) : null}
-        {isPve ? <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div> : null}
       </div>
-      {isPve && pveResults ? <PveRewards results={pveResults} /> : null}
+      {rewards !== null && rewards !== undefined && rewards.xpAwards.length > 0 ? <PveRewards results={rewards} /> : null}
       <div className="cta-row">
-        {isPve ? (
-          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-world">
-            Return to World
+        {onClose ? (
+          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-lobby">
+            Back to Lobby
           </button>
         ) : (
-          <Link className="btn btn--secondary" to="/">Back to Menu</Link>
+          <Link className="btn btn--secondary" to="/">Back to Lobby</Link>
         )}
       </div>
     </section>
@@ -124,7 +94,7 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   );
 }
 
-function PveRewards({ results }: { readonly results: PveResults }): JSX.Element | null {
+function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.Element | null {
   const drops: readonly ItemDrop[] = results.itemDrops ?? [];
   const hasLoot = drops.length > 0;
   const hasXp = results.xpAwards.length > 0;
@@ -341,17 +311,6 @@ function headline(outcome: BattleOutcome, yourSide: 'a' | 'b', battle: BattleVie
     default:
       tone satisfies never;
       return 'Battle resolved.';
-  }
-}
-
-function creditsFor(tone: OutcomeTone): number {
-  switch (tone) {
-    case 'win': return 60;
-    case 'draw': return 25;
-    case 'loss': return 15;
-    default:
-      tone satisfies never;
-      return 0;
   }
 }
 

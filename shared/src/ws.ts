@@ -10,7 +10,7 @@
  * Frontend consumes these in frontend/src/hooks/useWebSocket.ts.
  */
 
-import type { Action, BattleEvent, BattleOutcome, BattleView } from './battle.js';
+import type { Action, BattleEndRewards, BattleEvent, BattleOutcome, BattleView } from './battle.js';
 import type { WeatherConfig } from './weather.js';
 
 // ============================================================================
@@ -117,6 +117,7 @@ export type WSServerMessage =
       matchId: string;
       view: BattleView;
       outcome: BattleOutcome;
+      rewards?: BattleEndRewards;
     }
   | {
       type: 'spectate';

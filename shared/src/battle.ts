@@ -215,6 +215,43 @@ export type BattleView = {
   sceneId?: string | null;
 };
 
+/**
+ * End-of-battle rewards attached to the WS `end` message (and historically to
+ * the PvE world-battle HTTP response). The server derives every value inside
+ * `persistAndAwardEnd`'s transaction — clients only render.
+ */
+export type XpAward = {
+  readonly monId: string;
+  readonly catalogId?: string;
+  readonly nickname?: string;
+  readonly xpBefore: number;
+  readonly xpAfter: number;
+  readonly xpFloorBefore: number;
+  readonly xpFloor: number;
+  readonly xpNextBefore: number;
+  readonly xpNext: number;
+  readonly gainedLevels: number;
+  readonly previousLevel?: number;
+  readonly newLevel?: number;
+  readonly delta: number;
+  readonly defeated: boolean;
+  readonly statsBefore?: Readonly<Record<string, number>>;
+  readonly statsAfter?: Readonly<Record<string, number>>;
+};
+
+export type ItemDrop = {
+  readonly itemId: string;
+  readonly name: string;
+  readonly qty: number;
+};
+
+export type BattleEndRewards = {
+  readonly xpAwards: readonly XpAward[];
+  readonly itemDrops?: readonly ItemDrop[];
+  readonly netcoreGained?: number;
+  readonly bitsGained?: number;
+};
+
 export const MISS_CHANCE = 0.08;
 export const CRIT_CHANCE = 0.15;
 export const CRIT_MULT = 1.6;

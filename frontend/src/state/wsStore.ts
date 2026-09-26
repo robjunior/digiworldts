@@ -1,4 +1,4 @@
-import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import type { BattleEndRewards, BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
 import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
@@ -64,6 +64,8 @@ type WsState = {
   readonly activeBattle: BattleView | null;
   readonly battleEvents: BattleEvent[];
   readonly battleOutcome: BattleOutcome | null;
+  /** End-of-battle rewards coming from the WS `end` message (XP, NetCore, Bits). */
+  readonly battleRewards: BattleEndRewards | null;
   readonly welcome: WelcomeState | null;
   readonly weatherOverride: WeatherOverrideState | null;
   readonly pvpInvite: PvpInvite | null;
@@ -95,6 +97,7 @@ const initialState = {
   activeBattle: null,
   battleEvents: [],
   battleOutcome: null,
+  battleRewards: null,
   welcome: null,
   weatherOverride: null,
   pvpInvite: null,
@@ -173,7 +176,7 @@ export const useWsStore = create<WsState>((set) => ({
         set({ queue: { status: msg.status, size: msg.size, since: msg.since ?? null } });
         return;
       case 'match':
-        set({ activeMatchId: msg.matchId, activeBattle: msg.view, battleEvents: [], battleOutcome: null });
+        set({ activeMatchId: msg.matchId, activeBattle: msg.view, battleEvents: [], battleOutcome: null, battleRewards: null });
         return;
       case 'battle':
         set((state) => (state.activeMatchId === msg.matchId ? { activeBattle: msg.view } : state));
@@ -188,7 +191,12 @@ export const useWsStore = create<WsState>((set) => ({
       case 'end':
         set((state) =>
           state.activeMatchId === msg.matchId
-            ? { activeBattle: msg.view, battleOutcome: msg.outcome, battleEvents: msg.view.log.slice(-MAX_LOG_MESSAGES) }
+            ? {
+                activeBattle: msg.view,
+                battleOutcome: msg.outcome,
+                battleEvents: msg.view.log.slice(-MAX_LOG_MESSAGES),
+                battleRewards: msg.rewards ?? null,
+              }
             : state,
         );
         return;
@@ -199,6 +207,7 @@ export const useWsStore = create<WsState>((set) => ({
             activeBattle: msg.view,
             battleEvents: msg.view.log ?? [],
             battleOutcome: msg.view.outcome ?? null,
+            battleRewards: null,
           });
         } else if (msg.status === 'left') {
           set((state) =>
@@ -266,7 +275,7 @@ export const useWsStore = create<WsState>((set) => ({
     set(initialState);
   },
   clearActiveBattle: () => {
-    set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null });
+    set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null, battleRewards: null });
   },
   clearRoomChat: (roomId: string) => {
     set((state) => {
