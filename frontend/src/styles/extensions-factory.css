@@ -1,6 +1,11 @@
 .factory-page, .factory-drawer, .factory-toast {
-  --bg:#0a0a0c;  --panel:#141418;  --ink:#f4f1ea;  --muted:#8a877f; 
-  --hair:#2a2a30;  --signal:#e6001f;  --battle:#e6001f; 
+  /* DigiWorld palette (navy canvas + signal blue accent + gold reserved) —
+     matches Lobby (extensions-lobby.css) and Roster (extensions-roster.css).
+     --battle aliases to --gold as the premium/ready/collect signal. */
+  --bg:#0a0e1a;  --panel:#141c2e;  --panel2:#1a2440;  --ink:#e8f0ff;
+  --muted:#6b7a99;  --hair:#1e2a44;  --hairline:var(--hair);
+  --signal:#3b82f6;  --signal2:#60a5fa;  --accent:var(--signal);
+  --gold:#f59e0b;  --gold-bright:#fbbf24;  --battle:var(--gold);
   --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif; 
   --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px); 
   --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px); 
@@ -66,14 +71,14 @@
 .factory-page .job { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:9px 10px; background:var(--bg); border:1px solid var(--hair); clip-path:var(--notch-sm) }
 .factory-page .job .jn { min-width:0 }
 .factory-page .job .jt { font:700 12px/1.1 var(--font); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
-.factory-page .job .jt .xn { display:inline-block; margin-left:6px; padding:1px 6px; background:var(--fac); color:#0a0a0c; clip-path:var(--notch-sm); font:800 10px/1.4 var(--font); letter-spacing:.04em; vertical-align:middle }
+.factory-page .job .jt .xn { display:inline-block; margin-left:6px; padding:1px 6px; background:var(--fac); color:var(--bg); clip-path:var(--notch-sm); font:800 10px/1.4 var(--font); letter-spacing:.04em; vertical-align:middle }
 .factory-page .job.qgroup .jbar.queued { opacity:.5 }
 .factory-page .job .jbar { height:5px; background:var(--panel); border:1px solid var(--hair); clip-path:polygon(2px 0,100% 0,100% 100%,0 100%); overflow:hidden; margin-top:6px }
 .factory-page .job .jfill { height:100%; background:var(--fac); width:0; transition:width .9s linear }
 .factory-page .job .jmeta { font:700 10px/1 var(--font); color:var(--muted); text-align:right; white-space:nowrap; display:flex; flex-direction:column; gap:5px; align-items:flex-end }
-.factory-page .job.ready .jmeta .rc { color:var(--signal) }
-.factory-page .job .collectbtn { padding:5px 9px; background:var(--signal); color:#fff; clip-path:var(--notch-sm); font:800 9px/1 var(--font); letter-spacing:.08em; text-transform:uppercase }
-.factory-page .job .collectbtn:hover { background:color-mix(in oklab,var(--signal) 88%,var(--ink)) }
+.factory-page .job.ready .jmeta .rc { color:var(--battle) }
+.factory-page .job .collectbtn { padding:5px 9px; background:var(--battle); color:#fff; clip-path:var(--notch-sm); font:800 9px/1 var(--font); letter-spacing:.08em; text-transform:uppercase }
+.factory-page .job .collectbtn:hover { background:color-mix(in oklab,var(--battle) 88%,var(--ink)) }
 .factory-page .job .cancelbtn { padding:5px 9px; background:var(--bg); border:1px solid var(--hair); color:var(--muted); clip-path:var(--notch-sm); font:800 9px/1 var(--font); letter-spacing:.08em; text-transform:uppercase }
 .factory-page .job .cancelbtn:hover { border-color:var(--battle); color:var(--battle) }
 .factory-page .ffoot { border-top:1px solid var(--hair); padding:12px 14px; display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center }
