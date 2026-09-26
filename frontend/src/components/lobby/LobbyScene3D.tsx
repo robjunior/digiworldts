@@ -351,6 +351,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // ── party sprites (the real combat SpriteRig) ───────────────────────
     const rigs = new Map<string, SpriteRig>();
     const bySlot = new Map<number, SpriteRig>();
+    /** unitScale aplicado por slot (para ancorar labels abaixo dos pés). */
+    const rigScales = new Map<number, number>();
 
     const applyFan = (): void => {
       for (let slot = 0; slot < 3; slot++) {
@@ -358,10 +360,12 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (!rig) continue;
         const pos = fanPosition(slot, settings.pedestalSpacing);
         rig.setBasePosition(stageCenterX + pos.x, stageCenterZ + pos.z);
-        // SPRITE_MAX_DIMENSION is 0.7 world units — scale up so the party
-        // reads as proper standing figures (central slightly bigger).
+        // SPRITE_MAX_DIMENSION é 0.7 world units — escala o rig de verdade
+        // (unitScale é mantido pelo update(); setScalar externo seria anulado).
         const base = slot === 1 ? 5.2 : 4.3;
-        rig.mesh.scale.setScalar(base * settings.centerScale * settings.pedestalScale);
+        const scale = base * settings.centerScale * settings.pedestalScale;
+        rig.setUnitScale(scale);
+        rigScales.set(slot, scale);
       }
       const ps = settings.pedestalScale;
       for (const [slot, p] of pedestals.entries()) {
@@ -656,7 +660,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         const label = labelRefs.current[slot];
         const rig = bySlot.get(slot);
         if (!label || !rig) continue;
-        labelV.copy(rig.worldPosition).project(activeCam);
+        labelV.copy(rig.worldPosition);
+        // Ancorar a placa abaixo dos pés: worldPosition é o CENTRO do
+        // billboard; desce metade da altura real (spriteSize × unitScale)
+        // mais uma folga sobre o piso.
+        const scale = rigScales.get(slot) ?? 1;
+        labelV.y -= rig.spriteSize.y * scale * 0.5 + 0.4;
+        labelV.project(activeCam);
         if (labelV.z > 1) {
           label.hidden = true;
         } else {
@@ -753,9 +763,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
               if (fig && onOpenCreature) onOpenCreature(fig.id);
             }}
           >
-            <span className="lob-fig-label-n">
-              {fig ? `${fig.nickname} · Lv ${fig.level}` : 'Vazio — Convidar'}
-            </span>
+            {fig ? (
+              <>
+                <span className="lob-fig-label-n">{fig.nickname}</span>
+                <span className="lob-fig-label-lv">Lv {fig.level}</span>
+              </>
+            ) : (
+              <span className="lob-fig-label-n">Vazio — Convidar</span>
+            )}
           </button>
         );
       })}

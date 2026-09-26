@@ -21,6 +21,13 @@ export type SpriteRigConfig = {
   /** When true (default), the walk frames loop automatically (idle bob).
    *  Combat units pass false so they stand still until an action plays. */
   readonly idleAnimated?: boolean;
+  /**
+   * Optional extra scale applied to the whole billboard, kept stable across
+   * `update()` (which otherwise re-applies `baseScale` every frame and would
+   * wipe an external `mesh.scale` write). Feet stay planted on `GROUND_Y`:
+   * the anchor point grows with the scale. Default 1 (combat).
+   */
+  readonly unitScale?: number;
   readonly initiallyDowned?: boolean;
   readonly onClick?: (() => void | undefined) | undefined;
 };
@@ -48,6 +55,8 @@ export type SpriteRigApi = {
   setTextureUrl(url: string): void;
   setArenaBaselineY(y: number): void;
   setBasePosition(x: number, z: number): void;
+  /** Resize the billboard (kept by `update()`); re-anchors feet on the ground. */
+  setUnitScale(v: number): void;
   setFacingDirection(sign: 1 | -1): void;
   dispose(): void;
 };
@@ -257,6 +266,7 @@ export class SpriteRig implements SpriteRigApi {
   readonly spriteSize: THREE.Vector2 = this.baseScale;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
   private arenaBaselineY = 0;
+  private unitScale = 1;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
   private sheet: SheetState | null = null;
@@ -277,6 +287,7 @@ export class SpriteRig implements SpriteRigApi {
     this.slotIndex = config.slotIndex;
     this.basePosition = slotWorldPosition(config.side, config.slotIndex);
     this.worldPosition = this.basePosition.clone();
+    this.unitScale = config.unitScale ?? 1;
     this._downed = config.initiallyDowned === true;
     this.onClick = config.onClick ?? undefined;
     this.isSpritesheet = config.isSpritesheet === true;
@@ -295,7 +306,7 @@ export class SpriteRig implements SpriteRigApi {
     const geometry = new THREE.PlaneGeometry(1, 1);
     this.mesh = new THREE.Mesh(geometry, this.mat);
     this.mesh.position.copy(this.basePosition);
-    this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.unitScale, this.baseScale.y * this.unitScale, 1);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = false;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
@@ -353,7 +364,7 @@ export class SpriteRig implements SpriteRigApi {
     } else {
       this.baseScale.set(SPRITE_MAX_DIMENSION * aspect, SPRITE_MAX_DIMENSION);
     }
-    this.basePosition.y = this.baseScale.y / 2 + GROUND_Y;
+    this.basePosition.y = (this.baseScale.y * this.unitScale) / 2 + GROUND_Y;
     this.shadowWidthUnits = Math.min(SHADOW_MAX_WIDTH, this.baseScale.x * 1.05);
   }
 
@@ -679,7 +690,7 @@ export class SpriteRig implements SpriteRigApi {
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
     this.mesh.position.y = this.basePosition.y + this.arenaBaselineY + breatheLift;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y * breatheScaleY, 1);
+    this.mesh.scale.set(this.baseScale.x * this.facingSign * this.unitScale, this.baseScale.y * breatheScaleY * this.unitScale, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
@@ -772,6 +783,14 @@ export class SpriteRig implements SpriteRigApi {
   setBasePosition(x: number, z: number): void {
     this.basePosition.x = x;
     this.basePosition.z = z;
+  }
+
+  setUnitScale(v: number): void {
+    if (this.disposedFlag || v <= 0) return;
+    this.unitScale = v;
+    this.basePosition.y = (this.baseScale.y * v) / 2 + GROUND_Y;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
+    this.worldPosition.y = this.mesh.position.y;
   }
 
   dispose(): void {
