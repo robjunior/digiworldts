@@ -95,7 +95,7 @@ const DmOpenedSchema = z.object({
 const PvpInviteSchema = z.object({
   type: z.literal('pvp:invite'),
   targetUserId: z.string().min(3).max(64),
-  dungeonId: z.string().min(1).max(64),
+  dungeonId: z.string().min(1).max(64).optional(),
 });
 const PvpResponseSchema = z.object({
   type: z.literal('pvp:response'),

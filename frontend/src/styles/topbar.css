@@ -1,11 +1,11 @@
 /* =========================================================================
    DIGIWORLD SHARED TOPBAR
-   LoL-client-style top bar, 3 colunas: JOGAR (esq) · nav (centro) · wallet+user (dir)
+   LoL-client-style top bar: JOGAR (esq) · nav à esquerda · wallet+user (dir)
    ========================================================================= */
 
 /* ── top bar ──────────────────────────────────────────────────────── */
-.topbar{height:52px;flex:0 0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
-.tnav{display:flex;align-items:center;height:100%;gap:2px;justify-content:center}
+.topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
+.tnav{display:flex;align-items:center;height:100%;gap:2px}
 .tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
 .tnav-btn:hover{color:var(--ink)}
 .tnav-btn[aria-current="page"]{color:var(--gold)}
@@ -17,7 +17,7 @@
 .tnav-subitem:hover{color:var(--ink);background:var(--panel)}
 .tnav-subitem[aria-current="page"]{color:var(--gold)}
 .tnav-subitem + .tnav-subitem{border-top:1px solid rgba(255,255,255,.04)}
-.topright{justify-self:end;display:flex;align-items:center;gap:8px;position:relative}
+.topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
 .wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
 .wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
 .wc svg{width:14px;height:14px;flex:none;stroke-width:1.7}
@@ -51,6 +51,15 @@
 .tmenu .nrow .nm{font:600 11px/1.3 var(--font);color:var(--muted)}
 .tmenu .nrow .na{margin-top:2px;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);align-self:flex-start;background:none;border:0;padding:0;cursor:pointer}
 .tmenu .nrow .na:hover{text-decoration:underline}
+.tmenu .nrow .n-actions{display:flex;gap:14px;margin-top:4px}
+.tmenu .nrow .na.accept{color:var(--gold)}
+.tmenu .nrow .na.accept:hover{color:var(--gold-bright)}
+.tmenu .nrow .na.decline{color:var(--muted)}
+.tmenu .nrow .na.decline:hover{color:#f87171}
+
+/* ── topbar transient toast (duel declined / expired) ─────────────── */
+.tb-toast{position:fixed;top:60px;right:14px;z-index:100;max-width:320px;padding:10px 14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:600 12px/1.35 var(--font);color:var(--ink);box-shadow:0 12px 32px rgba(0,0,0,.4);animation:ttoastIn .2s ease-out}
+@keyframes ttoastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
 /* ── JOGAR play menu (replaces the logo) ───────────────────────────── */
 .playmenu{position:relative;flex:none;display:flex;align-self:stretch;align-items:stretch;margin-left:-14px;padding:0;border-right:1px solid var(--hair)}

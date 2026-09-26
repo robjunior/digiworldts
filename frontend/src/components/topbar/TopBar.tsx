@@ -7,8 +7,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { useT } from '../../hooks/useLocale';
 import { apiFetch } from '../../lib/api';
 import { getFarm } from '../../lib/api-farm';
+import { getAdventure } from '../../lib/api-adventure';
 import { collectTrainingStation, getTraining, type TrainingView } from '../../lib/api-training';
 import { useWsStore } from '../../state/wsStore';
+import { useWebSocket } from '../../hooks/useWebSocket';
 import { PlayMenu } from './PlayMenu';
 
 type MenuKind = 'notif' | 'user' | null;
@@ -70,6 +72,11 @@ export function TopBar(): JSX.Element | null {
   const [townOpen, setTownOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const socialNotifyVersion = useWsStore((s) => s.socialNotifyVersion);
+  const pvpInvite = useWsStore((s) => s.pvpInvite);
+  const pvpNotice = useWsStore((s) => s.pvpNotice);
+  const clearPvpInvite = useWsStore((s) => s.clearPvpInvite);
+  const clearPvpNotice = useWsStore((s) => s.clearPvpNotice);
+  const { send } = useWebSocket();
 
   const authed = user !== null;
 
@@ -90,6 +97,13 @@ export function TopBar(): JSX.Element | null {
     queryFn: getTraining,
     enabled: authed,
     staleTime: 15_000,
+  });
+  const adventureQuery = useQuery({
+    queryKey: ['adventure'] as const,
+    queryFn: getAdventure,
+    enabled: authed,
+    staleTime: 30_000,
+    refetchInterval: 15_000,
   });
 
   const collectTrainingMutation = useMutation({
@@ -149,6 +163,22 @@ export function TopBar(): JSX.Element | null {
     });
   }
 
+  const readyExpeditions = (adventureQuery.data?.active ?? []).filter(
+    (a) => a.ready && a.collectedAt === null,
+  );
+  if (readyExpeditions.length > 0) {
+    notifications.push({
+      id: 'expedition-ready',
+      title: t('topbar.notif.expedition.title'),
+      detail: t('topbar.notif.expedition.detail'),
+      actionLabel: t('topbar.notif.expedition.action'),
+      onAction: () => {
+        setOpenMenu(null);
+        void navigate('/adventure');
+      },
+    });
+  }
+
   useEffect(() => {
     if (openMenu === null) return;
     const onDocClick = (e: MouseEvent): void => {
@@ -202,11 +232,29 @@ export function TopBar(): JSX.Element | null {
     });
   }, [logout, navigate]);
 
+  const handleDuelRespond = useCallback(
+    (accept: boolean): void => {
+      const invite = useWsStore.getState().pvpInvite;
+      if (invite === null) return;
+      send({ type: 'pvp:response', inviteId: invite.inviteId, accept });
+      clearPvpInvite();
+      setOpenMenu(null);
+    },
+    [send, clearPvpInvite],
+  );
+
+  // Show pvp:notice (declined / expired) briefly as a toast, then clear it.
+  useEffect(() => {
+    if (pvpNotice === null) return;
+    const timer = window.setTimeout(() => clearPvpNotice(), 3500);
+    return () => window.clearTimeout(timer);
+  }, [pvpNotice, clearPvpNotice]);
+
   if (!authed) return null;
 
   const initialLetter = (user.displayName?.[0] ?? user.username?.[0] ?? '?').toUpperCase();
   const tamerLevel = user.mmr;
-  const hasNotifs = notifications.length > 0;
+  const hasNotifs = notifications.length > 0 || pvpInvite !== null;
   const credits = farmQuery.data?.credits ?? null;
   const netcore = farmQuery.data?.netcore ?? null;
 
@@ -302,7 +350,23 @@ export function TopBar(): JSX.Element | null {
             aria-label={t('topbar.notifications.title')}
           >
             <div className="mhd">{t('topbar.notifications.title')}</div>
-            {hasNotifs ? (
+            {pvpInvite !== null && (
+              <div className="nrow" role="menuitem">
+                <span className="nt">
+                  {t('topbar.duel.invite.title', { name: pvpInvite.fromName })}
+                </span>
+                <span className="nm">{t('topbar.duel.invite.detail')}</span>
+                <span className="n-actions">
+                  <button type="button" className="na accept" onClick={() => handleDuelRespond(true)}>
+                    {t('topbar.duel.accept')}
+                  </button>
+                  <button type="button" className="na decline" onClick={() => handleDuelRespond(false)}>
+                    {t('topbar.duel.decline')}
+                  </button>
+                </span>
+              </div>
+            )}
+            {notifications.length > 0 ? (
               notifications.map((n) => (
                 <div className="nrow" key={n.id} role="menuitem">
                   <span className="nt">{n.title}</span>
@@ -313,9 +377,11 @@ export function TopBar(): JSX.Element | null {
                 </div>
               ))
             ) : (
-              <div className="nrow">
-                <span className="nm">{t('topbar.notifications.empty')}</span>
-              </div>
+              pvpInvite === null && (
+                <div className="nrow">
+                  <span className="nm">{t('topbar.notifications.empty')}</span>
+                </div>
+              )
             )}
           </div>
         </div>
@@ -358,6 +424,12 @@ export function TopBar(): JSX.Element | null {
           </div>
         </div>
       </div>
+
+      {pvpNotice !== null && (
+        <div className="tb-toast" role="status" aria-live="polite">
+          {pvpNotice}
+        </div>
+      )}
     </header>
   );
 }

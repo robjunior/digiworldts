@@ -71,6 +71,9 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   const [addFriendSearch, setAddFriendSearch] = useState("");
   const [sentRequests, setSentRequests] = useState<Set<string>>(new Set());
 
+  const [duelNotice, setDuelNotice] = useState<string | null>(null);
+  const duelTimer = useRef<number | null>(null);
+
   const [selectedPeriod, setSelectedPeriod] = useState<PvpQuestPeriod>("DAILY");
   const [claiming, setClaiming] = useState<string | null>(null);
 
@@ -242,6 +245,16 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
     setSentRequests((prev) => new Set(prev).add(displayName));
     friendsQuery.refetch();
   };
+
+  const handleChallengeDuel = useCallback(
+    (userId: string, name: string) => {
+      send({ type: "pvp:invite", targetUserId: userId });
+      setDuelNotice(`Duelo proposto para ${name}.`);
+      if (duelTimer.current !== null) window.clearTimeout(duelTimer.current);
+      duelTimer.current = window.setTimeout(() => setDuelNotice(null), 3000);
+    },
+    [send],
+  );
 
   const toastTimer = useRef<number | null>(null);
   const showToast = useCallback((msg: string) => {
@@ -622,6 +635,12 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                 </button>
               </div>
 
+              {duelNotice !== null && (
+                <div className="rail-note" role="status" aria-live="polite">
+                  {duelNotice}
+                </div>
+              )}
+
               {incomingRequests.length > 0 && (
                 <div className="friends-section">
                   <div className="friends-section-hd">
@@ -689,6 +708,28 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                           strokeWidth="2"
                         >
                           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </button>
+                      <button
+                        className="friend-action duel"
+                        onClick={() => handleChallengeDuel(f.userId, f.displayName)}
+                        title={`Challenge ${f.displayName} to a duel`}
+                        aria-label={`Challenge ${f.displayName} to a duel`}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
+                          <path d="M13 19l6-6" />
+                          <path d="M16 16l4 4" transform="rotate(180 18 18)" />
+                          <path d="M19 21l2-2-2-2-2 2z" />
                         </svg>
                       </button>
                       <button

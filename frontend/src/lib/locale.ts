@@ -142,6 +142,13 @@ const EN: Translations = {
   'topbar.notif.friend.title': 'Friend request from {name}',
   'topbar.notif.friend.detail': 'Tap Accept in the profile screen.',
   'topbar.notif.friend.action': 'Open',
+  'topbar.notif.expedition.title': 'Expedition ready',
+  'topbar.notif.expedition.detail': 'Your party returned — collect the report.',
+  'topbar.notif.expedition.action': 'Collect',
+  'topbar.duel.invite.title': 'Duel invite from {name}',
+  'topbar.duel.invite.detail': 'They want a 3v3 battle.',
+  'topbar.duel.accept': 'Accept',
+  'topbar.duel.decline': 'Decline',
 
   'common.rename': 'Rename',
   'common.evolve': 'Evolve',
