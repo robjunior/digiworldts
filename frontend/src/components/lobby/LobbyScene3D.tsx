@@ -122,7 +122,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
     // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();

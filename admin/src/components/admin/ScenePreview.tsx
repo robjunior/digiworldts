@@ -207,7 +207,7 @@ function applyLobbyStage(
 
   // ── shadows — sempre ligado (espelha o front) ────────────────────────
   f.renderer.shadowMap.enabled = true;
-  f.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  f.renderer.shadowMap.type = THREE.PCFShadowMap;
   key.castShadow = true;
   key.shadow.mapSize.set(2048, 2048);
   key.shadow.bias = -0.0005;
