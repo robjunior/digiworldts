@@ -25,6 +25,7 @@ import { getShop } from "../lib/api-shop";
 import { useWsStore } from "../state/wsStore";
 import { DigimonSprite } from "../components/common/DigimonSprite";
 import { LobbyScene3D, type LobbyFigure } from "../components/lobby/LobbyScene3D";
+import { LobbyQuestBar } from "../components/lobby/LobbyQuestBar";
 import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
 import "../styles/social-rail.css";
@@ -390,8 +391,10 @@ export function Lobby(): JSX.Element {
           <div className="hud-r" aria-hidden="true" />
         </div>
 
-        {/* canto inferior esquerdo: missões diárias + atalhos */}
+        {/* canto inferior esquerdo: quests (topo) + missões diárias + atalhos */}
         <div className="ui-bl" data-od-id="lobby-corner-left">
+          <LobbyQuestBar />
+
           <div className="daily-mini" data-od-id="daily-mini">
             <div className="dm-ico">
               <span className={`rico ${today ? "cred" : ""}`} />
