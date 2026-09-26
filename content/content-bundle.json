@@ -35937,5 +35937,51 @@
       }
     ]
   },
-  "assetManifest": []
+  "assetManifest": [
+    {
+      "rel": "arenas/arena.glb",
+      "bytes": 1613136,
+      "sha256": "bd2e73a0e364c52941c7de57dd5da527d4c5ae2912c42983feec7587bc04e1ba"
+    },
+    {
+      "rel": "arenas/dark_biome.glb",
+      "bytes": 965972,
+      "sha256": "fa23db41b350d985f15f514334d9ad5155aff74cd68dfe51f7c203063ef0d5a8"
+    },
+    {
+      "rel": "arenas/dark_lodge_biome.glb",
+      "bytes": 471528,
+      "sha256": "6e70d84e174a52b887c6864ab0411824afbcec786d9521079cdf7891838401a9"
+    },
+    {
+      "rel": "arenas/factory_biome.glb",
+      "bytes": 3081508,
+      "sha256": "ca233e951c79fc164271a107c98ba5c3c53a888abf5f4e9e21f3d06b46954c07"
+    },
+    {
+      "rel": "arenas/forest_biome.glb",
+      "bytes": 1684804,
+      "sha256": "334b7419ee0a305a25d37e2ea652afc14e64aa59372b82078633de361918b1fe"
+    },
+    {
+      "rel": "arenas/frost_biome.glb",
+      "bytes": 280836,
+      "sha256": "e68ed4b2ad0e10a341bee71c84e961b4f61cf490a176d0c8306e35b757b54c1f"
+    },
+    {
+      "rel": "arenas/lava_river_biome.glb",
+      "bytes": 401988,
+      "sha256": "cad1271a01bbab6a4e8f3240c0d6df440a0d76f96f886caea5ec95eaa5907742"
+    },
+    {
+      "rel": "arenas/rock_biome.glb",
+      "bytes": 950852,
+      "sha256": "30ffc8bab45d0b0229a1f6c427c454501a679983a07ec374a3ed65393d588e1f"
+    },
+    {
+      "rel": "arenas/toytown_biome.glb",
+      "bytes": 2979656,
+      "sha256": "b8d30369956d71f440de8a2b4257c8c400ae9af7c19eb2add1cf73a42c8fcaba"
+    }
+  ]
 }

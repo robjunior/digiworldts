@@ -230,6 +230,19 @@ async function main(): Promise<void> {
     maxAge: '1y',
   });
 
+  // Seeded arena GLBs — written by `content:deploy --apply` (assetManifest)
+  // into the shared arendata volume (`arenasDir`). A scene/default may point
+  // modelFile at `/assets/arenas/<file>.glb` to serve the seedable copy. No
+  // immutable cache: the arena GLB is meant to be replaced on deploy.
+  if (existsSync(config.paths.arenasDir)) {
+    await app.register(fastifyStatic, {
+      root: config.paths.arenasDir,
+      prefix: '/assets/arenas/',
+      decorateReply: false,
+      wildcard: false,
+    });
+  }
+
   if (existsSync(config.paths.frontendDistDir)) {
     await app.register(fastifyStatic, {
       root: config.paths.frontendDistDir,

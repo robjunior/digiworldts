@@ -21,7 +21,7 @@
  * `friendships`, `coin_offers`, `sessions`, `resources`, `login_attempts`).
  */
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { CONTENT_TABLES } from '../seed-export/content-tables.js';
@@ -261,9 +261,14 @@ async function runApply(seedPath: string): Promise<void> {
     throw new Error(`seed artifact contains player-state tables: ${forbidden.join(', ')}`);
   }
 
-  const [{ closeDbAdapter }] = await Promise.all([
+  const [{ closeDbAdapter }, { config }, { applyArenaAssets }] = await Promise.all([
     import('../db/index.js'),
+    import('../config.js'),
+    import('./assets.js'),
   ]);
+
+  // Resolve the bundle directory (parent of the seed JSON that holds staged assets/).
+  const bundleDir = resolve(process.cwd(), dirname(seedPath));
 
   try {
     const summary = await applySeed(env);
@@ -272,6 +277,20 @@ async function runApply(seedPath: string): Promise<void> {
     for (const [name, t] of Object.entries(summary.tables)) {
       // eslint-disable-next-line no-console
       console.log(`  ${name}: ${t.rows} row(s) -> ${t.versions} version(s)`);
+    }
+
+    // File-backed assets (arena GLBs) travel with the bundle too, into the
+    // shared arendata volume (config.paths.arenasDir → served at /assets/arenas/).
+    if ((env.assetManifest ?? []).length > 0) {
+      const assets = await applyArenaAssets(bundleDir, env.assetManifest ?? [], config.paths.arenasDir);
+      const wrote = assets.applied.length;
+      const same = assets.skippedUnchanged.length;
+      const missing = assets.missing.length;
+      // eslint-disable-next-line no-console
+      console.log(`content-deploy: assets applied=${wrote} unchanged=${same} missing=${missing} -> ${config.paths.arenasDir}`);
+      for (const rel of assets.applied) console.log(`  + ${rel}`);
+      for (const rel of assets.skippedUnchanged) console.log(`  = ${rel} (unchanged)`);
+      for (const rel of assets.missing) console.warn(`  ! ${rel} (staged file missing)`);
     }
   } finally {
     await closeDbAdapter();

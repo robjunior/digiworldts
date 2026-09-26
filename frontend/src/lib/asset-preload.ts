@@ -37,6 +37,17 @@ const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
 
 const ARENA_FALLBACK = 'steel';
 
+/** Seeded arena GLB served by the backend at /assets/arenas (content-deploy). */
+const SEEDED_ARENA_PATH = /^\/assets\/arenas\/[a-zA-Z0-9._-]+\.glb$/;
+
+/** Resolve a scene/default modelFile: a seeded backend path is used verbatim;
+ *  otherwise defer to the vite-bundled arena file map. */
+function resolveArenaModelFile(modelFile: string | null): string | undefined {
+  if (modelFile === null) return undefined;
+  if (SEEDED_ARENA_PATH.test(modelFile)) return modelFile;
+  return getArenaUrl(modelFile);
+}
+
 /** Mirror of `pickArenaKey` in Combat3DScene.tsx — majority element of the
  *  enemy side wins, falling back to the first friendly element, then 'steel'. */
 function pickArenaKey(battle: BattleView): string {
@@ -75,7 +86,7 @@ async function resolveArenaModelUrl(battle: BattleView): Promise<string | undefi
     if (scene !== null) {
       const settings = scene.settings as Readonly<Record<string, unknown>>;
       const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
-      const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : undefined;
+      const modelUrl = resolveArenaModelFile(modelFile);
       if (modelUrl !== undefined) return modelUrl;
       return ARENA_MODEL_BY_KEY[fallbackArenaKey] ?? DEFAULT_ARENA_MODEL;
     }
@@ -83,7 +94,7 @@ async function resolveArenaModelUrl(battle: BattleView): Promise<string | undefi
   const all = await getSceneDefaults(false).catch((): PerArenaSceneDefaults => ({}));
   const arenaDefaults = all[fallbackArenaKey] ?? {};
   const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
-  const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey];
+  const modelUrl = resolveArenaModelFile(modelFile) ?? ARENA_MODEL_BY_KEY[fallbackArenaKey];
   return modelUrl ?? DEFAULT_ARENA_MODEL;
 }
 
