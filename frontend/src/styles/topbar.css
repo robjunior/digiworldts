@@ -11,8 +11,7 @@
 .tnav-btn[aria-current="page"]{color:var(--gold)}
 .tnav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
 .tnav-wrap{position:relative;height:100%;display:flex;align-items:center}
-.tnav-wrap .tnav-btn::after{content:"";position:absolute;right:7px;top:50%;width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-60%) rotate(45deg)}
-.tnav-wrap .tnav-btn{padding-right:22px}
+.tnav-caret{flex:none;width:5px;height:5px;margin-left:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
 .tnav-submenu{position:absolute;top:calc(100% + 2px);left:0;min-width:170px;display:flex;flex-direction:column;padding:6px;background:linear-gradient(180deg,#141d30 0%,#0c1120 100%);border:1px solid var(--hair);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:40}
 .tnav-subitem{display:flex;align-items:center;gap:8px;padding:9px 12px;font:600 11px/1 var(--font);letter-spacing:.06em;text-decoration:none;color:var(--muted);background:none;border:0;cursor:pointer;text-align:left;user-select:none}
 .tnav-subitem:hover{color:var(--ink);background:var(--panel)}
@@ -58,8 +57,8 @@
 .tmenu .nrow .na:hover{text-decoration:underline}
 
 /* ── JOGAR play menu (replaces the logo) ───────────────────────────── */
-.playmenu{position:relative;flex:none;display:flex;align-items:center;padding:0 10px 0 2px}
-.play-btn{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 16px 0 14px;font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:#08101f;background:linear-gradient(135deg,#fbbf24,#f59e0b 55%,#d97706);border:0;clip-path:var(--notch-sm-clip);cursor:pointer;transition:filter .15s,transform .1s}
+.playmenu{position:relative;flex:none;display:flex;align-self:stretch;align-items:stretch;margin-left:-14px;padding:0;border-right:1px solid var(--hair)}
+.play-btn{position:relative;display:flex;align-items:center;gap:8px;padding:0 20px;font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:#08101f;background:linear-gradient(135deg,#fbbf24,#f59e0b 55%,#d97706);border:0;clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%);cursor:pointer;transition:filter .15s,transform .1s}
 .play-btn:hover{filter:brightness(1.08)}
 .play-btn:active{transform:scale(.97)}
 .play-btn svg{width:14px;height:14px;display:block}

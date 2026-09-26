@@ -241,6 +241,7 @@ export function TopBar(): JSX.Element | null {
                   onClick={() => setTownOpen((v) => !v)}
                 >
                   {t(item.key)}
+                  <span className="tnav-caret" aria-hidden="true" />
                 </button>
                 {townOpen && (
                   <div className="tnav-submenu" role="menu">
