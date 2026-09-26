@@ -16,6 +16,7 @@ import {
 } from '../lib/api-farm';
 import '../styles/extensions-farm.css';
 import '../styles/balbar.css';
+import '../styles/extensions-premium.css';
 
 const FARM_QUERY_KEY = ['farm'] as const;
 const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;
@@ -34,6 +35,8 @@ const emptyFarm: FarmView = {
   balances: { Meat: 0, Bits: 0, Data: 0 },
   credits: 0,
   netcore: 0,
+  premium: false,
+  premiumBonus: 0,
   buildings: [],
 };
 
@@ -117,6 +120,15 @@ export function Farm(): JSX.Element {
         <ResourceBal resource="credits" label="Credits" value={farm.credits} format={fmt} />
       </BalBar>
 
+      {farm.premium && (
+        <div className="prem-banner" role="status" style={{ marginTop: 8 }}>
+          <span className="ico">&#9733;</span>
+          <span>
+            <b>Premium ativo</b> — produção +50%. Os ganhos em dourado são o bônus; sem renovar, voltam ao normal.
+          </span>
+        </div>
+      )}
+
       <div className="mhead">
         <h1>Production Buildings</h1>
         <span className="sub">
@@ -152,6 +164,7 @@ export function Farm(): JSX.Element {
           <BuildingCard
             key={b.id}
             b={b}
+            premium={farm.premium}
             bits={farm.balances.Bits}
             isPending={pendingBuildingId === b.id}
             onCollect={() => collectOneMutation.mutate(b.id)}
@@ -166,12 +179,14 @@ export function Farm(): JSX.Element {
 function BuildingCard({
   b,
   bits,
+  premium,
   isPending,
   onCollect,
   onUpgrade,
 }: {
   readonly b: FarmBuildingView;
   readonly bits: number;
+  readonly premium: boolean;
   readonly isPending: boolean;
   readonly onCollect: () => void;
   readonly onUpgrade: () => void;
@@ -218,8 +233,10 @@ function BuildingCard({
         </span>
         <span className="tnm">
           <span className="tn">{b.kind}</span>
-          <span className="tr">
+          <span className={`tr${premium ? ' premium-gold' : ''}`}>
             {b.resource} &middot; <b>+{b.ratePerHour}</b>/hr
+            {premium && <span className="prem-plus">{fmt(b.ratePerHour * 0.5)}</span>}
+            {' '}{premium && <span className="prem-tag" style={{ marginLeft: 6 }}>&#9733; PREMIUM</span>}
           </span>
         </span>
         <span className="tlvl">Lv {b.level}</span>
@@ -229,6 +246,9 @@ function BuildingCard({
           <span>Stored</span>
           <span className="mv">
             <span>{fmt(prod)}</span> <span className="mcap">/ {fmt(b.capacity)}</span>
+            {premium && b.premiumBonus > 0 && (
+              <span className="prem-plus" style={{ marginLeft: 6 }}>{fmt(b.premiumBonus)}</span>
+            )}
           </span>
         </div>
         <div className="mbar">
@@ -247,6 +267,7 @@ function BuildingCard({
           onClick={onCollect}
         >
           Collect {collectable > 0 && <span className="bn">{fmt(collectable)}</span>}
+          {premium && b.premiumBonus > 0 && <span className="prem-plus">{fmt(b.premiumBonus)}</span>}
         </button>
         <button
           type="button"

@@ -12,7 +12,6 @@ import { Adventure } from './routes/Adventure';
 import { Digdex } from './routes/Digdex';
 import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
-import { Home } from './routes/Home';
 import { Intro } from './routes/Intro';
 import { Inventory } from './routes/Inventory';
 import { LoadingTransition } from './routes/LoadingTransition';
@@ -32,6 +31,7 @@ import { useWsStore } from './state/wsStore';
 import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
 import './styles/extensions-transition.css';
+import './styles/extensions-premium.css';
 
 const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
 
@@ -94,8 +94,8 @@ export function App(): JSX.Element {
             <Route path="/loading" element={<LoadingTransition />} />
             <Route path="/combat" element={<Combat />} />
             <Route element={<AppShell />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/lobby" element={<Lobby />} />
+              <Route path="/" element={<Lobby />} />
+              <Route path="/lobby" element={<Navigate to="/" replace />} />
               <Route path="/account" element={<Account />} />
               <Route path="/roster" element={<Roster />} />
               <Route path="/creature/:monId" element={<Creature />} />

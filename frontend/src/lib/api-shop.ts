@@ -10,6 +10,7 @@ export type ShopItemKind =
   | 'xp_mult' 
   | 'revive' 
   | 'battle_item' 
+  | 'premium'
   | string;
 export type ShopItemClass = 'product' | 'item';
 export type ShopCurrency = 'credits' | 'netcore';
@@ -28,6 +29,7 @@ export type ShopItemView = {
   readonly sprite?: string | null;
   readonly mono?: string | null;
   readonly rarity?: Rarity;
+  readonly premiumDays?: number;
 };
 
 export type InventoryItemView = {
@@ -72,6 +74,7 @@ export type ShopResponse = {
   readonly wallet: {
     readonly credits: number;
     readonly netcore: number;
+    readonly premiumUntil: number | null;
   };
   readonly inventory: readonly InventoryItemView[];
 };

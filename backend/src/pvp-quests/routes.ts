@@ -79,7 +79,7 @@ export const pvpQuestsPlugin: FastifyPluginAsync = async (app): Promise<void> =>
         distinctId: user.id,
         props: { period, instance_id: req.params.instanceId, reward_kind: result.reward?.kind ?? 'none' },
       });
-      return reply.send({ ok: true, alreadyClaimed: result.alreadyClaimed, reward: result.reward });
+      return reply.send({ ok: true, alreadyClaimed: result.alreadyClaimed, reward: result.reward, premium: result.premium, premiumBonus: result.premiumBonus });
     },
   );
 

@@ -12,12 +12,15 @@ export type FarmBuildingView = {
   readonly produced: number;
   readonly upgradeCost: number;
   readonly full: boolean;
+  readonly premiumBonus: number;
 };
 
 export type FarmView = {
   readonly balances: Record<FarmResourceKind, number>;
   readonly credits: number;
   readonly netcore: number;
+  readonly premium: boolean;
+  readonly premiumBonus: number;
   readonly buildings: readonly FarmBuildingView[];
 };
 

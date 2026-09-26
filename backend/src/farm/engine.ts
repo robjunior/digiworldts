@@ -45,6 +45,7 @@ import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
 import { hasFlag } from '../flags/repo.js';
+import { isUserPremium, PREMIUM_BONUS, premiumMult } from '../premium/index.js';
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -60,12 +61,15 @@ export type BuildingView = {
   produced: number;
   upgradeCost: number;
   full: boolean;
+  premiumBonus: number;
 };
 
 export type FarmView = {
   balances: Record<ResourceKind, number>;
   credits: number;
   netcore: number;
+  premium: boolean;
+  premiumBonus: number;
   buildings: BuildingView[];
 };
 
@@ -126,24 +130,36 @@ const SQL_SELECT_JOB_USER = `SELECT * FROM crafting_jobs WHERE id = ? AND user_i
 const SQL_DELETE_JOB_BY_ID = `DELETE FROM crafting_jobs WHERE id = ? AND user_id = ? AND collected_at IS NULL`;
 const SQL_SELECT_JOB_JOIN_BY_ID = `SELECT j.*, s.name AS item_name FROM crafting_jobs j JOIN shop_items s ON s.id = j.item_id WHERE j.id = ?`;
 
-function computeProduced(row: FarmBuildingRow, now: number): number {
+function computeProduced(row: FarmBuildingRow, now: number, mult = 1): number {
   const elapsed = Math.max(0, now - row.last_touch);
-  const accrued = row.produced + (elapsed / MS_PER_HOUR) * row.rate_per_hour;
+  // Only NEW production (since last_touch) gets the premium multiplier. The
+  // already-banked checkpoint `row.produced` is kept at face value so buying
+  // premium mid-accrual doesn't retroactively boost pre-premium production.
+  const accrued = row.produced + (elapsed / MS_PER_HOUR) * row.rate_per_hour * mult;
   return Math.min(row.capacity, accrued);
 }
 
-function toView(row: FarmBuildingRow, now: number): BuildingView {
-  const produced = computeProduced(row, now);
+/** The portion of `produced` that comes from the premium bonus (0 when non-premium). */
+function premiumBonusOf(row: FarmBuildingRow, now: number, produced: number, mult: number): number {
+  if (mult <= 1) return 0;
+  const base = computeProduced(row, now, 1);
+  return Math.max(0, produced - base);
+}
+
+function toView(row: FarmBuildingRow, now: number, mult = 1): BuildingView {
+  const produced = computeProduced(row, now, mult);
+  const premiumBonus = premiumBonusOf(row, now, produced, mult);
   return {
     id: row.id,
     kind: row.kind,
     resource: row.resource,
     level: row.level,
-    ratePerHour: row.rate_per_hour,
+    ratePerHour: mult * row.rate_per_hour,
     capacity: row.capacity,
     produced,
     upgradeCost: row.upgrade_cost,
     full: produced >= row.capacity,
+    premiumBonus,
   };
 }
 
@@ -179,14 +195,16 @@ export async function seedFarmForUser(userId: string): Promise<void> {
 
 export async function readFarm(userId: string): Promise<FarmView> {
   const now = Date.now();
+  const premium = await isUserPremium(userId, now);
+  const mult = premiumMult(premium);
   const balances: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   for (const r of await q<ResourceRow>(SQL_SELECT_RESOURCES, userId)) balances[r.resource] = r.amount;
   const wallet = await one<WalletRow>(SQL_SELECT_WALLET, userId);
   const credits = wallet?.credits ?? 0;
   const netcore = wallet?.netcore ?? 0;
   const rows = await q<FarmBuildingRow>(SQL_SELECT_BUILDINGS, userId);
-  const buildings = rows.map((row) => toView(row, now));
-  return { balances, credits, netcore, buildings };
+  const buildings = rows.map((row) => toView(row, now, mult));
+  return { balances, credits, netcore, premium, premiumBonus: PREMIUM_BONUS, buildings };
 }
 
 export type CollectResult = { gained: Array<{ resource: ResourceKind; amount: number }>; view: FarmView };
@@ -195,7 +213,9 @@ export async function collectBuilding(userId: string, buildingId: string): Promi
   const row = await one<FarmBuildingRow>(SQL_SELECT_BUILDING, buildingId, userId);
   if (!row) return null;
   const now = Date.now();
-  const produced = Math.floor(computeProduced(row, now));
+  const premium = await isUserPremium(userId, now);
+  const mult = premiumMult(premium);
+  const produced = Math.floor(computeProduced(row, now, mult));
   if (produced <= 0) {
     return { gained: [], view: await readFarm(userId) };
   }
@@ -209,11 +229,13 @@ export async function collectBuilding(userId: string, buildingId: string): Promi
 
 export async function collectAllBuildings(userId: string): Promise<CollectResult> {
   const now = Date.now();
+  const premium = await isUserPremium(userId, now);
+  const mult = premiumMult(premium);
   const rows = await q<FarmBuildingRow>(SQL_SELECT_BUILDINGS, userId);
   const gained: Record<ResourceKind, number> = { Meat: 0, Bits: 0, Data: 0 };
   await tx(async (t) => {
     for (const row of rows) {
-      const produced = Math.floor(computeProduced(row, now));
+      const produced = Math.floor(computeProduced(row, now, mult));
       if (produced <= 0) continue;
       const cas = await t.run(SQL_UPDATE_CHECKPOINT, [0, now, row.id, row.last_touch]);
       if (cas.changes === 0) throw new Error('farm-collect-race');
@@ -492,11 +514,6 @@ function jobRowToView(row: CraftingJobJoinRow, now: number): CraftingJobView {
     isAuto: row.is_auto === 1,
     isActive,
   };
-}
-
-async function isUserPremium(userId: string, now: number = Date.now()): Promise<boolean> {
-  const row = await one<{ premium_until: number | null }>(SQL_SELECT_WALLET_PREMIUM, userId);
-  return (row?.premium_until ?? 0) > now;
 }
 
 const ADVANCE_LOOP_SAFETY_CAP = 200;
@@ -1037,7 +1054,9 @@ export async function upgradeBuilding(
   const row = await one<FarmBuildingRow>(SQL_SELECT_BUILDING, buildingId, userId);
   if (!row) return { error: 'not-found' };
   const now = Date.now();
-  const produced = computeProduced(row, now);
+  const premium = await isUserPremium(userId, now);
+  const mult = premiumMult(premium);
+  const produced = computeProduced(row, now, mult);
   const newRate = Math.round(row.rate_per_hour * 1.25);
   const newCap = Math.round(row.capacity * 1.2);
   const newCost = Math.round(row.upgrade_cost * 1.6);

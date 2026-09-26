@@ -48,6 +48,7 @@ const PAGE_LABEL_KEYS: Readonly<Record<string, string>> = {
 };
 
 const PAGE_SCOPE: Readonly<Record<string, string>> = {
+  "/": "lobby-layout",
   "/lobby": "lobby-layout",
   "/combat": "",
   "/account": "account-page",
@@ -114,7 +115,7 @@ const BEYOND: readonly NavEntry[] = [
   },
   { to: "/digdex", label: "DigiDex", labelKey: "nav.digidex", svg: ICON_ARENA },
   { to: "/roster", label: "Roster", labelKey: "nav.roster", svg: ICON_ARENA },
-  { to: "/lobby", label: "The Arena", labelKey: "nav.arena", svg: ICON_ARENA },
+  { to: "/", label: "The Arena", labelKey: "nav.arena", svg: ICON_ARENA },
 ];
 
 const ADMIN_NAV_OVERVIEW: AdminNavEntry = {
@@ -195,10 +196,10 @@ const ADMIN_NAV_GROUPS: readonly AdminNavGroup[] = [
 ];
 
 const ADMIN_BACK_ENTRY: AdminNavEntry = {
-  to: "/lobby",
+  to: "/",
   label: "Back to game",
   svg: ICON_BACK,
-  route: "/lobby",
+  route: "/",
 };
 
 const BEYOND_STYLE: CSSProperties = { marginTop: 6 };
@@ -249,7 +250,7 @@ export function AppShell(): JSX.Element {
   const partyMax = 3;
   const tamerLv = user?.mmr ?? null;
   const navigate = useNavigate();
-  const isLobby = pathname === "/lobby";
+  const isLobby = pathname === "/" || pathname === "/lobby";
   const lobbyParty = useMemo<readonly (SocialPartySlot | null)[]>(
     () =>
       [0, 1, 2].map((slot) => {

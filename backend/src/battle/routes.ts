@@ -21,6 +21,7 @@ import { countPartyMembers, loadPartyLoadout, partyAverageLevel, partyTrainednes
 import { loadCatalog } from '../digimon/xml.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
 import { consumePreBattleBuffs, consumeXpMultBuffs, xpMultOf, type PendingBuff } from '../social/buffs.js';
+import { isUserPremium } from '../premium/index.js';
 import {
   abandonBattle,
   applyAction,
@@ -509,6 +510,10 @@ async function grantRewardsInTx(
     if (mult > 1) xp = Math.round(xp * mult);
   }
   if (xp <= 0) return;
+  // Premium: +50% XP on top of any buff multipler.
+  if (await isUserPremium(userId, battle.endedAt!)) {
+    xp = Math.round(xp * 1.5);
+  }
   const xpRate = await getXpRate();
   const rows = await txAdapter.query<PartyRow>(SQL_SELECT_PARTY, [userId]);
   const now = Date.now();

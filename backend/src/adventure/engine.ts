@@ -39,6 +39,7 @@ import { awardXp } from '../progression/xp.js';
 import { getXpRate } from '../settings/engine.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import { applyPremiumBonus, isUserPremium } from '../premium/index.js';
 
 const MS_PER_HOUR = 3_600_000;
 export const ADVENTURE_MIN_HOURS = 1;
@@ -151,6 +152,19 @@ export type AdventureReport = {
   readonly koedMonIds: readonly string[];
   /** Unique wild species encountered, first-seen order. */
   readonly foundDigimons: readonly AdventureFoundDigimon[];
+  /** Premium activation at collect time — when true, totals/xp include the +50% bonus. */
+  readonly premium: boolean;
+  /**
+   * The portion of each reward line attributable to the premium bonus (0 when
+   * non-premium). Sum(base+bonus) = totals. Lets the UI render the bonus in gold.
+   */
+  readonly premiumBonus: {
+    readonly meat: number;
+    readonly bits: number;
+    readonly data: number;
+    readonly netcore: number;
+    readonly xp: number;
+  };
 };
 
 export type AdventureView = {
@@ -588,7 +602,8 @@ export async function collectAdventure(
   const { encounters, koedMonIds } = rollEncounters(active.seed, hours, monRows, catalog);
   const wins = encounters.filter((e) => e.outcome === 'win').length;
   const losses = encounters.length - wins;
-  const totals = encounters.reduce(
+  const premium = await isUserPremium(userId, now);
+  const baseTotals = encounters.reduce(
     (acc, e) => ({
       meat: acc.meat + e.meat,
       bits: acc.bits + e.bits,
@@ -597,6 +612,19 @@ export async function collectAdventure(
     }),
     { meat: 0, bits: 0, data: 0, netcore: 0 },
   );
+  const totals = {
+    meat: applyPremiumBonus(baseTotals.meat, premium),
+    bits: applyPremiumBonus(baseTotals.bits, premium),
+    data: applyPremiumBonus(baseTotals.data, premium),
+    netcore: applyPremiumBonus(baseTotals.netcore, premium),
+  };
+  const premiumBonus = {
+    meat: totals.meat - baseTotals.meat,
+    bits: totals.bits - baseTotals.bits,
+    data: totals.data - baseTotals.data,
+    netcore: totals.netcore - baseTotals.netcore,
+    xp: 0, // filled below per-mon (bonus on top of the applied xp)
+  };
   const xpByMon = new Map<string, number>();
   for (const m of monRows) xpByMon.set(m.id, 0);
   for (const e of encounters) {
@@ -608,12 +636,15 @@ export async function collectAdventure(
 
   const xpRate = await getXpRate();
   const xpDeltas: AdventureXpDelta[] = [];
+  let totalXpBonus = 0;
 
   await tx(async (t) => {
     for (const m of monRows) {
       const rawXp = xpByMon.get(m.id) ?? 0;
       if (rawXp > 0) {
         const scaledXp = Math.max(0, Math.round(rawXp * xpRate));
+        const boostedXp = applyPremiumBonus(scaledXp, premium);
+        totalXpBonus += boostedXp - scaledXp;
         const tpl = catalog.digimons.find((d) => d.id === m.catalog_id);
         const stage = tpl?.stage ?? 'Rookie';
         const currentBonus = {
@@ -621,7 +652,7 @@ export async function collectAdventure(
           def: m.def_bonus, int: m.int_bonus, spd: m.spd_bonus,
         };
         const stagePools = parseStagePools(m.stage_pools);
-        const grown = awardXp(m.level, m.xp, currentBonus, stage, scaledXp, tpl?.baseStats, stagePools, xpRate);
+        const grown = awardXp(m.level, m.xp, currentBonus, stage, boostedXp, tpl?.baseStats, stagePools, xpRate);
         await t.run(SQL_UPDATE_MON_XP, [
           grown.level, grown.xp,
           grown.bonus.hp, grown.bonus.en, grown.bonus.atk,
@@ -629,7 +660,7 @@ export async function collectAdventure(
           now, m.id, userId,
         ]);
         xpDeltas.push({
-          monId: m.id, xpGained: scaledXp,
+          monId: m.id, xpGained: boostedXp,
           levelBefore: m.level, levelAfter: grown.level, gainedLevels: grown.gainedLevels,
         });
       }
@@ -648,7 +679,11 @@ export async function collectAdventure(
       await t.run(SQL_UPSERT_SPECIES, [userId, f.catalogId, SPECIES_PERCENT_PER_ENCOUNTER * f.count, now]);
     }
 
-    const report: AdventureReport = { encounters, wins, losses, totals, xpDeltas, koedMonIds, foundDigimons };
+    const report: AdventureReport = {
+      encounters, wins, losses, totals, xpDeltas, koedMonIds, foundDigimons,
+      premium,
+      premiumBonus: { ...premiumBonus, xp: totalXpBonus },
+    };
     const info = await t.run(SQL_MARK_ADVENTURE_COLLECTED, [now, JSON.stringify(report), active.id]);
     if (info.changes === 0) throw new Error('collect-race');
   });

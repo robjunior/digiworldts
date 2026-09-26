@@ -7,7 +7,7 @@ import '../styles/extensions-combat3d.css';
 export function Combat(): JSX.Element {
   const activeBattle = useWsStore((state) => state.activeBattle);
   const location = useLocation();
-  const returnTo = (location.state as { readonly returnTo?: string } | null)?.returnTo ?? '/lobby';
+  const returnTo = (location.state as { readonly returnTo?: string } | null)?.returnTo ?? '/';
 
   if (activeBattle === null) {
     return (

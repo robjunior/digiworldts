@@ -51,6 +51,8 @@ export type AdventureReport = {
   readonly xpDeltas: readonly AdventureXpDelta[];
   readonly koedMonIds: readonly string[];
   readonly foundDigimons: readonly AdventureFoundDigimon[];
+  readonly premium: boolean;
+  readonly premiumBonus: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number; readonly xp: number };
 };
 
 export type AdventureView = {

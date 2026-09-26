@@ -210,6 +210,6 @@ export function Login(): JSX.Element {
 }
 
 function getNextTarget(search: string): string {
-  const next = new URLSearchParams(search).get('next') ?? '/lobby';
-  return next.startsWith('/') && !next.startsWith('//') ? next : '/lobby';
+  const next = new URLSearchParams(search).get('next') ?? '/';
+  return next.startsWith('/') && !next.startsWith('//') ? next : '/';
 }

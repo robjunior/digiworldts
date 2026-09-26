@@ -95,7 +95,7 @@ export function Spectate(): JSX.Element {
 
           <EventList events={battleEvents} />
 
-          <Link to="/lobby" className="btn btn--wide" style={{ marginTop: 12 }}>
+          <Link to="/" className="btn btn--wide" style={{ marginTop: 12 }}>
             Leave spectator mode
           </Link>
         </div>
@@ -111,7 +111,7 @@ function ShellMessage({ title, body }: { title: string; body: string }): JSX.Ele
         <div className="auth-card-in">
           <h1>{title}</h1>
           <p className="lede">{body}</p>
-          <Link className="btn btn--wide" to="/lobby">Return to lobby</Link>
+          <Link className="btn btn--wide" to="/">Return to lobby</Link>
         </div>
       </section>
     </main>

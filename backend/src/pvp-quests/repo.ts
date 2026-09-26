@@ -12,6 +12,7 @@ import type {
 import { describeQuest } from './registry.js';
 import { allWindows, windowSeed, windowFor, type PeriodWindow } from './periods.js';
 import { generateBoard } from './generator.js';
+import { applyPremiumBonus, isUserPremium } from '../premium/index.js';
 
 /**
  * Persistence + reward-authority for the procedural PvP quest board.
@@ -229,6 +230,10 @@ export interface ClaimResult {
   ok: boolean;
   alreadyClaimed: boolean;
   reward: PvpQuestReward | null;
+  /** Premium active at claim time — when true, the granted amounts include +50%. */
+  premium: boolean;
+  /** Portion of the granted reward attributable to the premium bonus (0 when non-premium). */
+  premiumBonus: PvpQuestReward | null;
 }
 
 /**
@@ -238,34 +243,44 @@ export interface ClaimResult {
 export async function claimQuest(userId: string, period: PvpQuestPeriod, windowId: string, instanceId: string): Promise<ClaimResult> {
   return tx(async (t) => {
     const row = await t.one<AssignmentRow>(SQL_ASSIGNMENT_ONE, [userId, period, windowId, instanceId]);
-    if (!row) return { ok: false, alreadyClaimed: false, reward: null };
-    if (row.claimed_at !== null) return { ok: false, alreadyClaimed: true, reward: null };
-    if (row.completed_at === null) return { ok: false, alreadyClaimed: false, reward: null };
+    if (!row) return { ok: false, alreadyClaimed: false, reward: null, premium: false, premiumBonus: null };
+    if (row.claimed_at !== null) return { ok: false, alreadyClaimed: true, reward: null, premium: false, premiumBonus: null };
+    if (row.completed_at === null) return { ok: false, alreadyClaimed: false, reward: null, premium: false, premiumBonus: null };
     const reward = JSON.parse(row.reward) as PvpQuestReward;
     const now = Date.now();
+    const premium = await isUserPremium(userId, now);
     if (reward.kind === 'netcore') {
+      const amount = applyPremiumBonus(reward.amount, premium);
       await t.run(
         `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
          ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`,
-        [userId, reward.amount, now],
+        [userId, amount, now],
       );
     } else if (reward.kind === 'credits') {
+      const amount = applyPremiumBonus(reward.amount, premium);
       await t.run(
         `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, ?, 0, 0, ?)
          ON CONFLICT(user_id) DO UPDATE SET credits = player_wallet.credits + excluded.credits, updated_at = excluded.updated_at`,
-        [userId, reward.amount, now],
+        [userId, amount, now],
       );
     } else if (reward.kind === 'item' || reward.kind === 'battle_item') {
+      const qty = applyPremiumBonus(reward.qty, premium);
       await t.run(
         `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, ?, ?)
          ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`,
-        [userId, reward.itemId, reward.qty, now],
+        [userId, reward.itemId, qty, now],
       );
     }
     // pvp_points/xp/cosmetic: hook point for dedicated systems; claimed_at still
     // flips so the reward cannot be granted twice.
     const marked = await t.run(SQL_CLAIM, [now, userId, period, windowId, instanceId]);
-    return { ok: marked.changes > 0, alreadyClaimed: false, reward };
+    return {
+      ok: marked.changes > 0,
+      alreadyClaimed: false,
+      reward,
+      premium,
+      premiumBonus: premium ? reward : null,
+    };
   });
 }
 

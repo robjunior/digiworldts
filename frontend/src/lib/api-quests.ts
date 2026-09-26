@@ -16,6 +16,11 @@ export type QuestClaimResult = {
   readonly ok: true;
   readonly netcoreGranted: number;
   readonly itemsGranted: readonly { readonly itemId: string; readonly qty: number }[];
+  readonly premium: boolean;
+  readonly premiumBonus: {
+    readonly netcore: number;
+    readonly items: readonly { readonly itemId: string; readonly qty: number }[];
+  };
 };
 
 export async function claimQuest(id: string): Promise<QuestClaimResult> {

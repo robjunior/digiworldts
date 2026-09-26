@@ -38,6 +38,12 @@ importers:
       three:
         specifier: ^0.185.1
         version: 0.185.1
+      three-gpu-pathtracer:
+        specifier: 0.0.23
+        version: 0.0.23(three-mesh-bvh@0.7.4(three@0.185.1))(three@0.185.1)(xatlas-web@0.1.0)
+      three-mesh-bvh:
+        specifier: 0.7.4
+        version: 0.7.4(three@0.185.1)
       three-stdlib:
         specifier: ^2.36.1
         version: 2.36.1(three@0.185.1)
@@ -1904,6 +1910,18 @@ packages:
     resolution: {integrity: sha512-e2zZ96wSChazBsbENf/Pcm/4swHt2cEKQ92rhUjkL9GCKiTDJIaTBenjE/m9DXi0QBmTMDkFDdOomUy20A1tDQ==}
     engines: {node: '>=20'}
 
+  three-gpu-pathtracer@0.0.23:
+    resolution: {integrity: sha512-CjMX5YU3ajDklOv3hW1EQ4CCkPLiLR+jB31w6G5WLf6Nasemib62tmCj45vBK5ItKAD0aHG1NWc479gXzk6fOQ==}
+    peerDependencies:
+      three: '>=0.151.0'
+      three-mesh-bvh: '>=0.7.4'
+      xatlas-web: ^0.1.0
+
+  three-mesh-bvh@0.7.4:
+    resolution: {integrity: sha512-flxe0A4uflTPR6elgq/Y8VrLoljDNS899i422SxQcU3EtMj6o8z4kZRyqZqGWzR0qMf1InTZzY1/0xZl/rnvVw==}
+    peerDependencies:
+      three: '>= 0.151.0'
+
   three-stdlib@2.36.1:
     resolution: {integrity: sha512-XyGQrFmNQ5O/IoKm556ftwKsBg11TIb301MB5dWNicziQBEs2g3gtOYIf7pFiLa0zI2gUwhtCjv9fmjnxKZ1Cg==}
     peerDependencies:
@@ -2110,6 +2128,9 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  xatlas-web@0.1.0:
+    resolution: {integrity: sha512-PprVfuXbaIskxLTLBUQRaWfgSy9xUQqAMIRooOw0P6NYqwgh6T0voeer6+Z5M7AFt5SGXUybuww/uDGs1yw8vQ==}
 
   xml-naming@0.3.0:
     resolution: {integrity: sha512-ghig2TBE/H11aOVgmahA3MhimvkBr6JIYknH/Dhdk10nXwdbIqBJsbfMxpvFPG8bAw77gN29aQWvKpmVoPlvPQ==}
@@ -3648,6 +3669,16 @@ snapshots:
     dependencies:
       real-require: 1.0.0
 
+  three-gpu-pathtracer@0.0.23(three-mesh-bvh@0.7.4(three@0.185.1))(three@0.185.1)(xatlas-web@0.1.0):
+    dependencies:
+      three: 0.185.1
+      three-mesh-bvh: 0.7.4(three@0.185.1)
+      xatlas-web: 0.1.0
+
+  three-mesh-bvh@0.7.4(three@0.185.1):
+    dependencies:
+      three: 0.185.1
+
   three-stdlib@2.36.1(three@0.185.1):
     dependencies:
       '@types/draco3d': 1.4.10
@@ -3799,6 +3830,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   ws@8.21.1: {}
+
+  xatlas-web@0.1.0: {}
 
   xml-naming@0.3.0: {}
 

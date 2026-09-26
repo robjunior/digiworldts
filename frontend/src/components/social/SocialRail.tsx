@@ -23,6 +23,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { DigimonSprite } from "../common/DigimonSprite";
 import "../../styles/social-rail.css";
+import "../../styles/extensions-premium.css";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 
@@ -192,6 +193,7 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   const periods = pvpQuery.data?.periods ?? [];
   const selectedWindow = periods.find((w) => w.period === selectedPeriod);
   const quests = selectedWindow?.quests ?? [];
+  const premiumActive = (user?.premiumUntil ?? 0) > Date.now();
 
   const handleClaim = async (
     period: PvpQuestPeriod,
@@ -523,6 +525,15 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                 })}
               </div>
 
+              {premiumActive && (
+                <div className="prem-banner" style={{ margin: "8px 0" }}>
+                  <span className="ico">&#9733;</span>
+                  <span>
+                    <b>Premium ativo</b> — recompensas de quest +50%.
+                  </span>
+                </div>
+              )}
+
               {quests.length === 0 ? (
                 <div className="empty-line">
                   No {selectedPeriod.toLowerCase()} quests right now — check back
@@ -554,7 +565,7 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                       </span>
                       <div className="q-tx">
                         <div className="q-nm">{q.title}</div>
-                        <div className="q-desc">{formatPvpQuestReward(q.reward)}</div>
+                        <div className={`q-desc${premiumActive ? " prem-gold" : ""}`}>{formatPvpQuestReward(q.reward)}</div>
                         <div className="q-prog">
                           <span className="fill" style={{ width: `${pct}%` }} />
                         </div>

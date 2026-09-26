@@ -31,6 +31,14 @@ export async function getPvpQuestsForPeriod(
 export interface ClaimPvpQuestResult {
   readonly ok: boolean;
   readonly alreadyClaimed: boolean;
+  readonly premium: boolean;
+  readonly premiumBonus: {
+    readonly kind: string;
+    readonly amount?: number;
+    readonly itemId?: string;
+    readonly qty?: number;
+    readonly cosmeticId?: string;
+  } | null;
   readonly reward: {
     readonly kind: string;
     readonly amount?: number;

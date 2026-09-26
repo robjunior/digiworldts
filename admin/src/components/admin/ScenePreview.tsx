@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
+import { ARENA_MODEL_BY_KEY, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
@@ -81,23 +81,23 @@ type LobbyRefs = {
   stage: THREE.SpotLight | null;
   /** volumes de luz (feixes) ativos */
   lightShafts: LightShaftHandle[];
+  stageCenterX: number;
+  stageCenterZ: number;
 };
 
-/** Piso da party no preview: topo do `hdd_plattertop` do GLB quando carregado,
- *  senão o knob partyHeight. Espelha o LobbyScene3D do front (mesmo regex e
- *  mesma medição em world coords). */
-function lobbyGroundY(f: LobbyRefs, lobby: LobbySceneSettings): number {
-  const fallback = lobby.partyHeight ?? 0;
+function lobbyStageOrigin(f: LobbyRefs, lobby: LobbySceneSettings): { y: number; x: number; z: number } {
+  const fallback = { y: lobby.partyHeight ?? 0, x: 0, z: 0 };
   const root = f.glbRoot;
   if (root === null) return fallback;
   root.updateMatrixWorld(true);
-  let top: number | null = null;
+  let top: { y: number; x: number; z: number } | null = null;
   root.traverse((o) => {
     if (!/hdd_plattertop/i.test(o.name)) return;
-    const t = new THREE.Box3().setFromObject(o).max.y;
-    if (Number.isFinite(t) && (top === null || t > top)) top = t;
+    const bounds = new THREE.Box3().setFromObject(o);
+    const candidate = { y: bounds.max.y, x: bounds.getCenter(new THREE.Vector3()).x, z: bounds.getCenter(new THREE.Vector3()).z };
+    if (Number.isFinite(candidate.y) && (top === null || candidate.y > top.y)) top = candidate;
   });
-  return top !== null ? top : fallback;
+  return top ?? fallback;
 }
 
 /** Recompute camera, pedestals, party rigs, lights and fog from the scene
@@ -109,7 +109,10 @@ function applyLobbyStage(
   weather: WeatherConfig | null | undefined,
   timeOfDay: TimeOfDayConfig | null | undefined,
 ): void {
-  const partyY = lobbyGroundY(f, lobby);
+  const origin = lobbyStageOrigin(f, lobby);
+  const partyY = origin.y;
+  f.stageCenterX = origin.x;
+  f.stageCenterZ = origin.z;
   const partyH = 0.7 * 5.2 * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1);
   const centerY = partyY + partyH / 2;
 
@@ -121,11 +124,11 @@ function applyLobbyStage(
   const fov = settings.camFov ?? 36;
   const lookY = partyY + (settings.camLookAtY ?? 0);
   const pos = new THREE.Vector3(
-    Math.sin(yaw) * dist * Math.cos(elev),
+    f.stageCenterX + Math.sin(yaw) * dist * Math.cos(elev),
     lookY + Math.sin(elev) * dist,
-    -Math.cos(yaw) * dist * Math.cos(elev),
+    f.stageCenterZ + Math.cos(yaw) * dist * Math.cos(elev),
   );
-  const target = new THREE.Vector3(0, lookY, 0);
+  const target = new THREE.Vector3(f.stageCenterX, lookY, f.stageCenterZ);
   if (settings.cameraType === "ortho") {
     const frust = settings.camFrustum ?? 14;
     if (!(f.camera instanceof THREE.OrthographicCamera)) f.camera = new THREE.OrthographicCamera(-frust, frust, frust, -frust, 0.1, 400);
@@ -165,7 +168,7 @@ function applyLobbyStage(
   key.position.set(settings.sunPosX ?? -6, settings.sunPosY ?? 10, settings.sunPosZ ?? 5);
   // DirectionalLight illuminates along position -> target. Aim at the actual
   // stage floor, not world Y=0 (the lobby GLB platter can be far above it).
-  key.target.position.set(0, partyY, 0);
+  key.target.position.set(f.stageCenterX, partyY, f.stageCenterZ);
   key.target.updateMatrixWorld(true);
   f.scene.add(key);
   f.scene.add(key.target);
@@ -329,8 +332,8 @@ function applyLobbyStage(
       p.ring.scale.setScalar(ps);
       p.glow.scale.setScalar(ps);
       const pos = fanPosition(slot, lobby.pedestalSpacing);
-      p.ring.position.set(pos.x, partyY, pos.z);
-      p.glow.position.set(pos.x, partyY, pos.z);
+      p.ring.position.set(f.stageCenterX + pos.x, partyY, f.stageCenterZ + pos.z);
+      p.glow.position.set(f.stageCenterX + pos.x, partyY, f.stageCenterZ + pos.z);
       p.ring.visible = true;
       p.glow.visible = true;
     }
@@ -356,7 +359,7 @@ function applyLobbyStage(
     }
     if (rig !== null) {
       const pos = fanPosition(slot, lobby.pedestalSpacing);
-      rig.setBasePosition(pos.x, pos.z);
+      rig.setBasePosition(f.stageCenterX + pos.x, f.stageCenterZ + pos.z);
       rig.setArenaBaselineY(partyY);
       (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(lobby.digimonBrightness ?? 1.8, 0));
       rig.mesh.scale.setScalar(base * (lobby.centerScale ?? 1.1) * (lobby.pedestalScale ?? 1));
@@ -388,7 +391,7 @@ async function loadLobbyGlb(
   const size = box.getSize(new THREE.Vector3());
   const span = Math.max(size.x, size.y, size.z);
   // arenaSpan sets the target size; otherwise normalize only out-of-band models.
-  const targetSpan = settings.arenaSpan ?? (span < 20 || span > 90 ? 30 : span);
+  const targetSpan = (settings.arenaSpan ?? (span < 20 || span > 90 ? 48 : span)) * 0.75;
   if (span > 0 && targetSpan > 0) root.scale.setScalar(targetSpan / span);
   const center = box.getCenter(new THREE.Vector3());
   const ox = settings.arenaOffsetX ?? 0;
@@ -443,9 +446,9 @@ function mountLobbyPreview(
   f.rigs = [];
   for (let slot = 0; slot < 3; slot++) {
     const color = new THREE.Color(EL_COLOR[LOBBY_ELEMENTS[slot] ?? 'water'] ?? 0x60a5fa);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.05, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.5, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2;
-    const glow = new THREE.Mesh(new THREE.CircleGeometry(1.9, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.1, depthWrite: false }));
+    const glow = new THREE.Mesh(new THREE.CircleGeometry(1.4, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(color), transparent: true, opacity: 0.1, depthWrite: false }));
     glow.rotation.x = -Math.PI / 2;
     f.pedestals.push({ ring, glow });
   }
@@ -541,6 +544,8 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
             dust: null,
             stage: null,
             lightShafts: [],
+            stageCenterX: 0,
+            stageCenterZ: 0,
           };
       lobbyRef.current = fr;
       const off = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null);
@@ -564,8 +569,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
         }
       });
       ro.observe(container);
-      let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
-      const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+      const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
       void loadLobbyGlb(fr, url, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null).catch(() => {});
       return () => {
         ro.disconnect();
@@ -590,8 +594,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       for (const entry of entries) managerRef.current?.resize(entry.contentRect.width, entry.contentRect.height);
     });
     ro.observe(container);
-    let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
-    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+    const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
     if (url !== undefined) {
       void (useGlbSettings === true
         ? manager.loadArenaModelBare(url, arenaKey)
@@ -622,8 +625,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       fr.glbRoot = null;
     }
     if (!isLobby) return;
-    let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
-    const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+    const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
     void loadLobbyGlb(fr, url, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null).catch(() => {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [settings.modelFile, arenaKey, isLobby]);
@@ -634,8 +636,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
         const manager = managerRef.current;
         if (manager === null) return;
         manager.clearArenaModel();
-        let picked = settings.modelFile !== undefined ? getArenaUrl(settings.modelFile) : undefined;
-        const url = picked ?? ARENA_MODEL_BY_KEY[arenaKey];
+        const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
         if (url === undefined) return;
         void (useGlbSettings === true
           ? manager.loadArenaModelBare(url, arenaKey)

@@ -12,6 +12,7 @@ import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
 import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
+import { ThreeEditorFrame } from './ThreeEditorFrame';
 
 /**
  * EDITOR-SPLIT PLAN (anotação de esquema):
@@ -134,6 +135,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [busy, setBusy] = useState<'copy' | 'delete' | 'create' | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorSceneId, setEditorSceneId] = useState<string | null>(null);
 
   const [triggerPreset, setTriggerPreset] = useState<WeatherPreset>('rain');
   const [triggerDurationMs, setTriggerDurationMs] = useState(10000);
@@ -451,6 +453,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                 </p>
               </div>
               <div className="scene-admin-header-actions">
+                <button type="button" onClick={() => setEditorSceneId(selectedScene.id)}>
+                  Open official Three.js Editor
+                </button>
                 <button type="button" onClick={() => { void handleSave(); }} disabled={!dirty || saveStatus === 'saving'}>
                   {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save'}
                 </button>
@@ -513,6 +518,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                   }}
                 >
                   <option value="">— no model (default per-element fallback) —</option>
+                  {typeof draft.settings.modelFile === 'string' && !ARENA_FILE_LIST.includes(draft.settings.modelFile) ? (
+                    <option value={draft.settings.modelFile}>Published / custom GLB</option>
+                  ) : null}
                   {ARENA_FILE_LIST.map((filename) => (
                     <option key={filename} value={filename}>{filename}</option>
                   ))}
@@ -745,6 +753,29 @@ export function SceneSettingsAdmin(): JSX.Element {
           </aside>
         </>
       )}
+      {editorSceneId !== null ? (() => {
+        const editorScene = scenes.find((item) => item.id === editorSceneId);
+        return editorScene === undefined ? null : (
+          <ThreeEditorFrame
+            key={editorScene.id}
+            scene={editorScene}
+            onClose={() => setEditorSceneId(null)}
+            onSaved={(saved) => {
+              setScenes((current) => current.map((item) => item.id === saved.id ? saved : item));
+              setDraft((current) => {
+                if (current === null || selectedId !== saved.id) return current;
+                const nextSettings = { ...current.settings } as Record<string, unknown>;
+                for (const key of ['editorProjectFile', 'modelFile'] as const) {
+                  const value = saved.settings[key];
+                  if (value === undefined) delete nextSettings[key];
+                  else nextSettings[key] = value;
+                }
+                return { ...current, settings: nextSettings as Partial<SceneSettings> };
+              });
+            }}
+          />
+        );
+      })() : null}
     </div>
   );
 }

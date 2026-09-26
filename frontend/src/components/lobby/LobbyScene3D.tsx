@@ -150,10 +150,12 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // Piso da party: o GLB pode substituir este fallback pelo topo do
     // hdd_plattertop quando terminar de carregar.
     let groundY = settings.partyHeight ?? 0;
+    let stageCenterX = 0;
+    let stageCenterZ = 0;
     const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
     let camCenterY = groundY + (lighting?.camLookAtY ?? 0);
-    camera.position.copy(cameraBase);
-    camera.lookAt(0, camCenterY, 0);
+    camera.position.copy(cameraBase).add(new THREE.Vector3(stageCenterX, 0, stageCenterZ));
+    camera.lookAt(stageCenterX, camCenterY, stageCenterZ);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     const bloomPass = new UnrealBloomPass(
@@ -188,7 +190,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     key.shadow.camera.top = ksc;
     key.shadow.camera.bottom = -ksc;
     key.shadow.camera.updateProjectionMatrix();
-    key.target.position.set(0, groundY, 0);
+    key.target.position.set(stageCenterX, groundY, stageCenterZ);
     key.target.updateMatrixWorld(true);
     ownLights.push(key);
     scene.add(key);
@@ -231,8 +233,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // senta a luz de palco sobre o piso atual (groundY) — re-chamado quando o
     // platter do GLB define a altura real.
     const seatStageLight = (): void => {
-      stage.position.set(0, groundY + 12, partyH * 0.35 + 7);
-      stage.target.position.set(0, groundY + partyH * 0.3, 0);
+      stage.position.set(stageCenterX, groundY + 12, stageCenterZ + partyH * 0.35 + 7);
+      stage.target.position.set(stageCenterX, groundY + partyH * 0.3, stageCenterZ);
       stage.target.updateMatrixWorld();
     };
     seatStageLight();
@@ -257,7 +259,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
             const center = box.getCenter(new THREE.Vector3());
             // arenaSpan controla o tamanho da arena no lobby; senão, normaliza
             // modelos fora de banda (muito pequenos/grandes) para um span razoável.
-            const targetSpan = lighting?.arenaSpan ?? (span < 20 || span > 90 ? 48 : span);
+            const targetSpan = (lighting?.arenaSpan ?? (span < 20 || span > 90 ? 48 : span)) * 0.75;
             if (span > 0 && targetSpan > 0) glbRoot.scale.setScalar(targetSpan / span);
             const ox = lighting?.arenaOffsetX ?? 0;
             const oy = lighting?.arenaOffsetY ?? 0;
@@ -314,11 +316,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         mat = new THREE.MeshBasicMaterial({ color: elementColor(key), transparent: true, opacity: 0.45, side: THREE.DoubleSide });
         pedestalMatPool.set(key, mat);
       }
-      const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.05, 48), mat);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(1.2, 1.5, 48), mat);
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = GROUND_Y + 0.01 + groundY;
       const glow = new THREE.Mesh(
-        new THREE.CircleGeometry(1.9, 48),
+        new THREE.CircleGeometry(1.4, 48),
         new THREE.MeshBasicMaterial({ color: elementColor(key), transparent: true, opacity: 0.1, depthWrite: false }),
       );
       glow.rotation.x = -Math.PI / 2;
@@ -355,18 +357,25 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         const rig = bySlot.get(slot);
         if (!rig) continue;
         const pos = fanPosition(slot, settings.pedestalSpacing);
-        rig.setBasePosition(pos.x, pos.z);
+        rig.setBasePosition(stageCenterX + pos.x, stageCenterZ + pos.z);
         // SPRITE_MAX_DIMENSION is 0.7 world units — scale up so the party
         // reads as proper standing figures (central slightly bigger).
         const base = slot === 1 ? 5.2 : 4.3;
         rig.mesh.scale.setScalar(base * settings.centerScale * settings.pedestalScale);
       }
       const ps = settings.pedestalScale;
-      for (const p of pedestals) {
+      for (const [slot, p] of pedestals.entries()) {
         p.ring.scale.setScalar(ps);
         p.glow.scale.setScalar(ps);
+        const pos = fanPosition(slot, settings.pedestalSpacing);
+        p.ring.position.set(stageCenterX + pos.x, GROUND_Y + 0.01 + groundY, stageCenterZ + pos.z);
+        p.glow.position.set(stageCenterX + pos.x, GROUND_Y + 0.005 + groundY, stageCenterZ + pos.z);
       }
-      for (const holo of holos) holo.scale.setScalar(ps);
+      for (const [slot, holo] of holos.entries()) {
+        const pos = fanPosition(slot, settings.pedestalSpacing);
+        holo.position.set(stageCenterX + pos.x, GROUND_Y + 1.8 + groundY, stageCenterZ + pos.z);
+        holo.scale.setScalar(ps);
+      }
     };
 
     const syncParty = (): void => {
@@ -435,27 +444,31 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // Todo GLB de lobby carrega esse elemento (o prato do HDD); o topo dele é
     // a altura do piso onde a party apoia. Medido em WORLD coords (pós escala/
     // posição do root) — por isso updateMatrixWorld antes do Box3.
-    const platterTopY = (root: THREE.Group): number | null => {
+    function platterOrigin(root: THREE.Group): { y: number; x: number; z: number } | null {
       root.updateMatrixWorld(true);
-      let top: number | null = null;
+      let top: { y: number; x: number; z: number } | null = null;
       root.traverse((obj) => {
         if (!/hdd_plattertop/i.test(obj.name)) return;
-        const t = new THREE.Box3().setFromObject(obj).max.y;
-        if (Number.isFinite(t) && (top === null || t > top)) top = t;
+        const bounds = new THREE.Box3().setFromObject(obj);
+        const center = bounds.getCenter(new THREE.Vector3());
+        const candidate = { y: bounds.max.y, x: center.x, z: center.z };
+        if (Number.isFinite(candidate.y) && (top === null || candidate.y > top.y)) top = candidate;
       });
       return top;
-    };
+    }
 
     /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`.
      *  Se o GLB é inválido de lobby (sem o platter pra apoiar os digimons),
      *  FALLBACK para a regra anterior das cenas 3D: party em partyHeight,
      *  câmera padrão, o GLB só como ambiente. */
     function fitPartyToPlatter(root: THREE.Group): void {
-      const top = platterTopY(root);
-      if (top === null) {
+      const platter = platterOrigin(root);
+      if (platter === null) {
         console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa como backdrop (partyHeight)');
+        stageCenterX = 0;
+        stageCenterZ = 0;
         groundY = settings.partyHeight ?? 0;
-        key.target.position.y = groundY;
+        key.target.position.set(stageCenterX, groundY, stageCenterZ);
         key.target.updateMatrixWorld(true);
 
         // Biome/lodge GLBs are environments, not arena stages. Their geometry
@@ -490,10 +503,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
         seatStageLight();
         rebuildLightShafts();
+        applyFan();
         return;
       }
-      groundY = top;
-      key.target.position.y = groundY;
+      stageCenterX = platter.x;
+      stageCenterZ = platter.z;
+      groundY = platter.y;
+      key.target.position.set(stageCenterX, groundY, stageCenterZ);
       key.target.updateMatrixWorld(true);
       camCenterY = groundY + (lighting?.camLookAtY ?? 0);
       cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
@@ -506,6 +522,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       // reassenta a luz de palco + feixes volumétricos no piso real (platter)
       seatStageLight();
       rebuildLightShafts();
+      applyFan();
     }
 
     // ── volumétrico: volumes de luz (spots do GLB + luz de palco) ───────
@@ -616,12 +633,12 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const yaw = k * (Math.sin(elapsed * 0.14) * 0.06 + mouseX * 0.09);
       const pitch = k * (Math.cos(elapsed * 0.11) * 0.04 + mouseY * 0.06);
       camera.position.set(
-        cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
+        stageCenterX + cameraBase.x * Math.cos(yaw) + cameraBase.z * Math.sin(yaw),
         cameraBase.y + pitch * 6,
-        -cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
+        stageCenterZ - cameraBase.x * Math.sin(yaw) + cameraBase.z * Math.cos(yaw),
       );
-      // smooth camera look target (always the party's vertical center)
-      camera.lookAt(yaw * 1.5, camCenterY + pitch * 2, 0);
+      // smooth camera look target around the resolved platter center
+      camera.lookAt(stageCenterX + yaw * 1.5, camCenterY + pitch * 2, stageCenterZ);
 
       bloomPass.enabled = settings.bloomEnabled !== false;
       bloomPass.strength = settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3;

@@ -12,6 +12,9 @@ import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
 import { LobbySceneSettingsZ } from './lobby-schema.js';
+import { config } from '../config.js';
+import { writeSceneRevision, MAX_SCENE_GLB_BYTES, MAX_SCENE_PROJECT_BYTES } from './assets.js';
+import { resolve } from 'node:path';
 
 export { LobbySceneSettingsZ } from './lobby-schema.js';
 
@@ -49,6 +52,15 @@ const WeatherOverrideZ = z.object({
   durationMs: z.number().int().min(1000).max(300_000),
 }).strict();
 
+
+const SceneAssetUrlZ = z.string().trim().min(1).max(200).refine((value) =>
+  /^[A-Za-z0-9_.-]+\.glb$/i.test(value)
+  || /^\/assets\/scenes\/scn_[0-9a-hjkmnp-tv-z]{26}\/rev_[a-f0-9]{32}\/scene\.glb$/.test(value),
+  'Expected a bundled GLB filename or a generated scene asset URL',
+);
+const SceneProjectUrlZ = z.string().trim().min(1).max(200).regex(
+  /^\/assets\/scenes\/scn_[0-9a-hjkmnp-tv-z]{26}\/rev_[a-f0-9]{32}\/project\.app\.json$/,
+);
 
 export const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
@@ -88,7 +100,8 @@ export const ArenaSettingsZ = z.object({
   arenaOffsetX: z.number().min(-100).max(100).optional(),
   arenaOffsetY: z.number().min(-100).max(100).optional(),
   arenaOffsetZ: z.number().min(-100).max(100).optional(),
-  modelFile: z.string().trim().min(1).max(200).optional(),
+  modelFile: SceneAssetUrlZ.optional(),
+  editorProjectFile: SceneProjectUrlZ.optional(),
   lobby: LobbySceneSettingsZ.optional(),
 }).strict();
 
@@ -125,6 +138,52 @@ async function broadcastWeatherTriggered(input: z.infer<typeof WeatherOverrideZ>
 }
 
 export const scenesPlugin: FastifyPluginAsync = async (app) => {
+  app.post<{ Params: { id: string } }>('/api/admin/scenes/:id/assets', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const scene = await getScene(req.params.id);
+    if (scene === null) return reply.code(404).send({ error: 'not-found' });
+
+    const files = new Map<string, Buffer>();
+    try {
+      for await (const part of req.parts({
+        limits: { files: 2, fields: 0, fileSize: MAX_SCENE_GLB_BYTES },
+      })) {
+        if (part.type !== 'file' || (part.fieldname !== 'project' && part.fieldname !== 'glb')) {
+          return reply.code(400).send({ error: 'invalid-assets' });
+        }
+        if (files.has(part.fieldname)) return reply.code(400).send({ error: 'duplicate-asset' });
+        const bytes = await part.toBuffer();
+        if (part.fieldname === 'project' && bytes.byteLength > MAX_SCENE_PROJECT_BYTES) {
+          return reply.code(413).send({ error: 'project-too-large' });
+        }
+        files.set(part.fieldname, bytes);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes('File too large') ? 413 : 400;
+      return reply.code(status).send({ error: status === 413 ? 'asset-too-large' : 'invalid-assets' });
+    }
+
+    const projectBytes = files.get('project');
+    const glbBytes = files.get('glb');
+    if (projectBytes === undefined || glbBytes === undefined) {
+      return reply.code(400).send({ error: 'project-and-glb-required' });
+    }
+    try {
+      const revision = await writeSceneRevision(
+        resolve(config.paths.dataDir, 'scenes', 'assets'),
+        scene.id,
+        projectBytes,
+        glbBytes,
+      );
+      log.info('admin.scene.assets.upload', { adminId: admin.id, sceneId: scene.id, revision: revision.revision });
+      return reply.code(201).send({ ok: true, revision });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(400).send({ error: 'invalid-assets', details: message });
+    }
+  });
+
   app.get('/api/scene/scenes', async (req, reply) => {
     await requireAuth(req, reply);
     const scenes = await listScenes();

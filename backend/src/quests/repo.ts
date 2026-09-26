@@ -14,6 +14,7 @@ import type { DbExecutor } from '../db/executor.js';
 import { one, q, run, tx } from '../db/index.js';
 import { hasFlag, listFlags, setFlag } from '../flags/repo.js';
 import { newId } from '../util/ids.js';
+import { applyPremiumBonus, isUserPremium } from '../premium/index.js';
 
 type QuestRow = {
   readonly id: string;
@@ -429,6 +430,13 @@ export type QuestClaimResult = {
   readonly ok: boolean;
   readonly netcoreGranted: number;
   readonly itemsGranted: readonly { readonly itemId: string; readonly qty: number }[];
+  /** Premium active at claim time — when true, granted amounts include +50%. */
+  readonly premium: boolean;
+  /** Portion of each reward attributable to the premium bonus (0 when non-premium). */
+  readonly premiumBonus: {
+    readonly netcore: number;
+    readonly items: readonly { readonly itemId: string; readonly qty: number }[];
+  };
 };
 
 function weightedPickLootItem(items: readonly { readonly itemId: string; readonly weight: number; readonly minQty: number; readonly maxQty: number }[]): { readonly itemId: string; readonly minQty: number; readonly maxQty: number } | null {
@@ -451,11 +459,16 @@ function randomQtyBetween(min: number, max: number): number {
 export async function claimQuest(userId: string, questId: string): Promise<QuestClaimResult> {
   return tx(async (t) => {
     const questRow = await t.one<QuestRow>(SQL_GET_QUEST, [questId]);
-    if (!questRow) return { ok: false, netcoreGranted: 0, itemsGranted: [] };
+    if (!questRow) {
+      return { ok: false, netcoreGranted: 0, itemsGranted: [], premium: false, premiumBonus: { netcore: 0, items: [] } };
+    }
     const quest = questFromRow(questRow);
     const now = Date.now();
     const marked = await t.run(SQL_MARK_CLAIMED, [now, userId, questId]);
-    if (marked.changes === 0) return { ok: false, netcoreGranted: 0, itemsGranted: [] };
+    if (marked.changes === 0) {
+      return { ok: false, netcoreGranted: 0, itemsGranted: [], premium: false, premiumBonus: { netcore: 0, items: [] } };
+    }
+    const premium = await isUserPremium(userId, now);
 
     if (quest.completesFlag) {
       await setFlag(userId, quest.completesFlag, now, t);
@@ -464,11 +477,13 @@ export async function claimQuest(userId: string, questId: string): Promise<Quest
     let netcoreGranted = 0;
     const guaranteedNetcore = quest.finalReward.guaranteedNetcore ?? 0;
     if (guaranteedNetcore > 0) {
-      await t.run(SQL_GRANT_CLAIM_NETCORE, [userId, guaranteedNetcore, now]);
-      netcoreGranted = guaranteedNetcore;
+      netcoreGranted = applyPremiumBonus(guaranteedNetcore, premium);
+      await t.run(SQL_GRANT_CLAIM_NETCORE, [userId, netcoreGranted, now]);
     }
+    const netcoreBonus = netcoreGranted - guaranteedNetcore;
 
     const itemsGranted: { itemId: string; qty: number }[] = [];
+    const itemsBonus: { itemId: string; qty: number }[] = [];
     const pickCount = Math.max(0, quest.finalReward.pickCount);
     if (pickCount > 0 && quest.finalReward.items.length > 0) {
       const accumulator = new Map<string, number>();
@@ -479,13 +494,22 @@ export async function claimQuest(userId: string, questId: string): Promise<Quest
         if (qty <= 0) continue;
         accumulator.set(picked.itemId, (accumulator.get(picked.itemId) ?? 0) + qty);
       }
-      for (const [itemId, qty] of accumulator) {
+      for (const [itemId, baseQty] of accumulator) {
+        const qty = applyPremiumBonus(baseQty, premium);
         await t.run(SQL_GRANT_CLAIM_ITEM, [userId, itemId, qty, now]);
         itemsGranted.push({ itemId, qty });
+        const bonus = qty - baseQty;
+        if (bonus > 0) itemsBonus.push({ itemId, qty: bonus });
       }
     }
 
-    return { ok: true, netcoreGranted, itemsGranted };
+    return {
+      ok: true,
+      netcoreGranted,
+      itemsGranted,
+      premium,
+      premiumBonus: { netcore: netcoreBonus, items: itemsBonus },
+    };
   });
 }
 

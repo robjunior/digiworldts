@@ -30,18 +30,35 @@ type FriendsResponse = {
   readonly incoming: readonly FriendRequest[];
 };
 
-type NavItem = {
+type NavLeaf = {
   readonly key: string;
   readonly to: string;
 };
 
+type NavItem =
+  | ({ readonly kind: 'link' } & NavLeaf)
+  | { readonly kind: 'parent'; readonly key: string; readonly children: readonly NavLeaf[] };
+
 const NAV_ITEMS: readonly NavItem[] = [
-  { key: 'topbar.nav.home', to: '/' },
-  { key: 'topbar.nav.lobby', to: '/lobby' },
-  { key: 'topbar.nav.collection', to: '/digdex' },
-  { key: 'topbar.nav.explore', to: '/adventure' },
-  { key: 'topbar.nav.shop', to: '/shop' },
+  { kind: 'link', key: 'topbar.nav.lobby', to: '/' },
+  {
+    kind: 'parent',
+    key: 'topbar.nav.town',
+    children: [
+      { key: 'nav.factory', to: '/factory' },
+      { key: 'nav.farm', to: '/farm' },
+      { key: 'nav.nursery', to: '/nursery' },
+    ],
+  },
+  { kind: 'link', key: 'topbar.nav.collection', to: '/digdex' },
+  { kind: 'link', key: 'topbar.nav.explore', to: '/adventure' },
+  { kind: 'link', key: 'topbar.nav.inventory', to: '/items' },
+  { kind: 'link', key: 'topbar.nav.shop', to: '/shop' },
 ];
+
+function navActive(pathname: string, to: string): boolean {
+  return pathname === to || pathname.startsWith(`${to}/`);
+}
 
 export function TopBar(): JSX.Element | null {
   const { user, logout } = useAuth();
@@ -50,6 +67,7 @@ export function TopBar(): JSX.Element | null {
   const { pathname } = useLocation();
   const queryClient = useQueryClient();
   const [openMenu, setOpenMenu] = useState<MenuKind>(null);
+  const [townOpen, setTownOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const socialNotifyVersion = useWsStore((s) => s.socialNotifyVersion);
 
@@ -155,6 +173,25 @@ export function TopBar(): JSX.Element | null {
     };
   }, [openMenu]);
 
+  useEffect(() => {
+    if (!townOpen) return;
+    const onDocClick = (e: MouseEvent): void => {
+      const wrap = document.getElementById('tnav-town-wrap');
+      if (wrap === null) return;
+      if (e.target instanceof Node && wrap.contains(e.target)) return;
+      setTownOpen(false);
+    };
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setTownOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [townOpen]);
+
   const toggleMenu = useCallback((kind: 'notif' | 'user'): void => {
     setOpenMenu((cur) => (cur === kind ? null : kind));
   }, []);
@@ -187,7 +224,47 @@ export function TopBar(): JSX.Element | null {
 
       <nav className="tnav" aria-label="Main">
         {NAV_ITEMS.map((item) => {
-          const active = pathname === item.to || pathname.startsWith(`${item.to}/`);
+          if (item.kind === 'parent') {
+            const active = item.children.some((child) => navActive(pathname, child.to));
+            return (
+              <div
+                key={item.key}
+                id="tnav-town-wrap"
+                className={`tnav-wrap${townOpen ? ' is-open' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="tnav-btn"
+                  aria-haspopup="true"
+                  aria-expanded={townOpen}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={() => setTownOpen((v) => !v)}
+                >
+                  {t(item.key)}
+                </button>
+                {townOpen && (
+                  <div className="tnav-submenu" role="menu">
+                    {item.children.map((child) => (
+                      <button
+                        key={child.key}
+                        type="button"
+                        role="menuitem"
+                        className="tnav-subitem"
+                        aria-current={navActive(pathname, child.to) ? 'page' : undefined}
+                        onClick={() => {
+                          setTownOpen(false);
+                          navigate(child.to);
+                        }}
+                      >
+                        {t(child.key)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          const active = navActive(pathname, item.to);
           return (
             <button
               key={item.key}

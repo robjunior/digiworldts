@@ -50,6 +50,7 @@ SELECT ?, id, ? FROM shop_items
 WHERE id = ? AND enabled = 1 AND status = 'published' AND class = 'product' AND one_time = 1
 ON CONFLICT(user_id, item_id) DO NOTHING`;
 const SQL_SELECT_PURCHASES = `SELECT item_id FROM player_shop_purchases WHERE user_id = ?`;
+const SQL_GRANT_PREMIUM = `UPDATE player_wallet SET premium_until = ?, updated_at = ? WHERE user_id = ?`;
 
 const SQL_SELECT_BUNDLES = `SELECT * FROM shop_bundles WHERE enabled = 1 ORDER BY sort_order ASC, name ASC`;
 const SQL_SELECT_BUNDLE = `SELECT * FROM shop_bundles WHERE id = ? AND enabled = 1`;
@@ -466,6 +467,36 @@ const SEED_ITEMS: Array<SeedItem> = [
     class: 'item',
     payload: JSON.stringify({ quest_reward: true }),
   },
+  {
+    id: 'itm-premium-7d',
+    name: 'Premium · 7 days',
+    description: '+50% production, XP and quest rewards for 7 days, plus auto-crafting and premium training stations.',
+    price_credits: 1200,
+    price: 1200,
+    currency: 'credits',
+    kind: 'premium',
+    class: 'product',
+    shop_category: 'premium',
+    featured: 0,
+    quick_offer: 0,
+    payload: JSON.stringify({ premiumDays: 7 }),
+    item_type: 'premium',
+  },
+  {
+    id: 'itm-premium-30d',
+    name: 'Premium · 30 days',
+    description: '+50% production, XP and quest rewards for 30 days, plus auto-crafting and premium training stations.',
+    price_credits: 4000,
+    price: 4000,
+    currency: 'credits',
+    kind: 'premium',
+    class: 'product',
+    shop_category: 'premium',
+    featured: 1,
+    quick_offer: 1,
+    payload: JSON.stringify({ premiumDays: 30 }),
+    item_type: 'premium',
+  },
 ];
 
 const ELEMENT_FAMILIES = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'] as const;
@@ -696,7 +727,7 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       catalog: products.map(mapItem),
       bundles,
       categories,
-      wallet: { credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0 },
+      wallet: { credits: wallet?.credits ?? 0, netcore: wallet?.netcore ?? 0, premiumUntil: wallet?.premium_until ?? null },
       inventory: inv.map((i) => ({ itemId: i.item_id, name: i.name, description: i.description, qty: i.qty, rarity: rarityFromRankOrCommon(i.rarity) })),
     });
   });
@@ -749,7 +780,16 @@ export const shopPlugin: FastifyPluginAsync = async (app): Promise<void> => {
         }
 
         // Grant item
-        if (item.kind === 'building_placement') {
+        if (item.kind === 'premium') {
+          let payload: { premiumDays?: number } = {};
+          try { payload = JSON.parse(item.payload) as { premiumDays?: number }; } catch {}
+          const days = Math.max(1, Math.min(365, Math.floor(payload.premiumDays ?? 0) || 7));
+          const walletRow = await t.one<{ premium_until: number | null }>(`SELECT premium_until FROM player_wallet WHERE user_id = ?`, [me.id]);
+          const cur = walletRow?.premium_until ?? 0;
+          const base = cur > now ? cur : now;
+          const premiumUntil = base + days * 86_400_000;
+          await t.run(SQL_GRANT_PREMIUM, [premiumUntil, now, me.id]);
+        } else if (item.kind === 'building_placement') {
           let payload: { buildingType?: string; kind?: string } = {};
           try { payload = JSON.parse(item.payload) as { buildingType?: string; kind?: string }; } catch {}
           const buildingType = payload.buildingType === 'training_premium' ? 'training_premium' : 'training';

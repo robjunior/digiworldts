@@ -18,6 +18,15 @@ export function getArenaUrl(filename: string): string | undefined {
   return urlsByFilename[filename];
 }
 
+const PUBLISHED_SCENE_MODEL_PATH = /^\/assets\/scenes\/scn_[0-9a-hjkmnp-tv-z]{26}\/rev_[a-f0-9]{32}\/scene\.glb$/;
+
+/** Resolve a stored scene model reference without permitting arbitrary fetches. */
+export function resolveSceneModelUrl(modelFile: string | undefined, fallback?: string): string | undefined {
+  if (modelFile === undefined || modelFile === '') return fallback;
+  if (PUBLISHED_SCENE_MODEL_PATH.test(modelFile)) return modelFile;
+  return getArenaUrl(modelFile) ?? fallback;
+}
+
 export const ARENA_MODEL_BY_KEY: Readonly<Record<string, string | undefined>> = Object.freeze({
   plant: urlsByFilename['forest_biome.glb'],
   steel: urlsByFilename['factory_biome.glb'],

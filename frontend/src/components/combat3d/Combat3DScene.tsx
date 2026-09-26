@@ -7,7 +7,7 @@ import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo,
 import { SceneManager, type SceneSettings, type SpriteInit } from '@digiworld/scene3d';
 import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 import type { SpriteSide } from '@digiworld/scene3d/sprite-rig';
-import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
+import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -167,7 +167,7 @@ function buildSceneResolutionFromEntity(
 ): SceneResolution {
   const settings = scene.settings as Partial<SceneSettings>;
   const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
-  const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : undefined;
+  const modelUrl = resolveSceneModelUrl(modelFile ?? undefined);
   const arenaKey = arenaKeyForScene(scene, fallbackArenaKey);
   const useGlbSettings = scene.useGlbSettings === true;
 
@@ -192,7 +192,10 @@ function buildSceneResolutionFromDefaults(
 ): SceneResolution {
   const arenaDefaults = all[fallbackArenaKey] ?? {};
   const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
-  const modelUrl = (modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey]) ?? DEFAULT_ARENA_MODEL;
+  const modelUrl = resolveSceneModelUrl(
+    modelFile ?? undefined,
+    ARENA_MODEL_BY_KEY[fallbackArenaKey] ?? DEFAULT_ARENA_MODEL,
+  );
   // Arena comes from unit elements, not from the scene entity: without this the ambience of
   // a battle whose elements match no scene would silently vanish.
   const ambienceScene = scenes.find((s) => s.elements.length > 0 && arenaKeyForScene(s, fallbackArenaKey) === fallbackArenaKey) ?? null;

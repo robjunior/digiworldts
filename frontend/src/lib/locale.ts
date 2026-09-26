@@ -106,8 +106,10 @@ const EN: Translations = {
   'topbar.nav.home': 'Home',
   'topbar.nav.play': 'Play',
   'topbar.nav.lobby': 'Lobby',
+  'topbar.nav.town': 'City',
   'topbar.nav.collection': 'Collection',
   'topbar.nav.explore': 'Explore',
+  'topbar.nav.inventory': 'Inventory',
   'topbar.nav.shop': 'Shop',
 
   'hud.tamer_lv': 'Tamer Lv',
@@ -571,8 +573,10 @@ const PT: Translations = {
   'topbar.nav.home': 'Início',
   'topbar.nav.play': 'Jogar',
   'topbar.nav.lobby': 'Lobby',
+  'topbar.nav.town': 'Cidade',
   'topbar.nav.collection': 'Coleção',
   'topbar.nav.explore': 'Explorar',
+  'topbar.nav.inventory': 'Inventário',
   'topbar.nav.shop': 'Loja',
 
   'hud.tamer_lv': 'Nv Tamer',

@@ -440,8 +440,9 @@ export const TUTORIALS: Readonly<Record<string, Tutorial>> = {
  */
 export function tutorialForPath(pathname: string): Tutorial | null {
   if (pathname.startsWith('/admin')) return null;
-  if (pathname === '/login' || pathname === '/reset' || pathname === '/intro' || pathname === '/') return null;
+  if (pathname === '/login' || pathname === '/reset' || pathname === '/intro') return null;
   if (pathname === '/spectate') return null;
+  if (pathname === '/') return TUTORIALS['/lobby'] ?? null;
   if (pathname.startsWith('/dungeon/')) return TUTORIALS['/dungeon'] ?? null;
   return TUTORIALS[pathname] ?? null;
 }

@@ -75,7 +75,7 @@ export function PlayMenu(): JSX.Element {
   const pickMode = (): void => {
     setOpen(false);
     send({ type: 'queue', join: true });
-    void navigate('/lobby');
+    void navigate('/');
   };
 
   const label = waiting ? 'Queue' : matched ? 'Match' : 'Jogar';

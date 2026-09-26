@@ -100,7 +100,7 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
             Return to World
           </button>
         ) : (
-          <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
+          <Link className="btn btn--secondary" to="/">Back to Menu</Link>
         )}
       </div>
     </section>

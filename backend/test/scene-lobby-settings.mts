@@ -78,6 +78,11 @@ const arena = ArenaSettingsZ.safeParse({
 });
 check('lobby key accepted inside ArenaSettingsZ', arena.success === true);
 
+const publishedModel = '/assets/scenes/scn_0123456789abcdefghjkmnpqrs/rev_0123456789abcdef0123456789abcdef/scene.glb';
+const publishedProject = '/assets/scenes/scn_0123456789abcdefghjkmnpqrs/rev_0123456789abcdef0123456789abcdef/project.app.json';
+check('published model and editable project URLs pass the scene contract', ArenaSettingsZ.safeParse({ modelFile: publishedModel, editorProjectFile: publishedProject }).success);
+check('unsafe remote or traversal scene asset refs are rejected', ArenaSettingsZ.safeParse({ modelFile: 'https://example.invalid/scene.glb', editorProjectFile: '/../project.app.json' }).success === false);
+
 // 5. sanitizer rescata cenas antigas: só chaves conhecidas sobrevivem
 import { sanitizeLobbySettings } from '../src/scenes/lobby-schema.js';
 const dirty = {

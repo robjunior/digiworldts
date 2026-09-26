@@ -31,7 +31,7 @@ export function LoadingTransition(): JSX.Element {
   }, [navigate, state]);
 
   if (state === null) {
-    return <Navigate to="/lobby" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (

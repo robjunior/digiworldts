@@ -190,7 +190,7 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyMultipart, {
-    limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 4 },
+    limits: { fileSize: 128 * 1024 * 1024, files: 2, fields: 0 },
     preservePath: true,
   });
 
@@ -219,6 +219,14 @@ async function main(): Promise<void> {
     root: config.paths.npcPortraitsDir,
     prefix: '/assets/npc/',
     decorateReply: false,
+  });
+
+  await app.register(fastifyStatic, {
+    root: resolve(config.paths.dataDir, 'scenes', 'assets'),
+    prefix: '/assets/scenes/',
+    decorateReply: false,
+    immutable: true,
+    maxAge: '1y',
   });
 
   if (existsSync(config.paths.frontendDistDir)) {
@@ -270,7 +278,7 @@ async function main(): Promise<void> {
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.url;
-    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon') || url.startsWith('/assets/sprites') || url.startsWith('/assets/sprites-static');
+    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon') || url.startsWith('/assets/sprites') || url.startsWith('/assets/scenes') || url.startsWith('/assets/npc');
     if (req.method === 'GET' && !isApi && existsSync(config.paths.frontendDistDir)) {
       return reply.sendFile('index.html');
     }

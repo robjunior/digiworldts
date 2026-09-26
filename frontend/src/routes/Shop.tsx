@@ -9,6 +9,7 @@ import { applyShopItem, buyShopItem, buyBundle, coinClass, getShop } from '../li
 import type { InventoryItemView, ShopItemView, BundleView } from '../lib/api-shop';
 import { ApiError } from '../lib/api';
 import '../styles/extensions-shop.css';
+import '../styles/extensions-premium.css';
 
 const SHOP_QUERY_KEY = ['shop'] as const;
 const ROSTER_QUERY_KEY = ['roster'] as const;
@@ -89,8 +90,9 @@ export function Shop(): JSX.Element {
   const catalog = data?.catalog ?? [];
   const bundles = data?.bundles ?? [];
   const categories = data?.categories ?? [];
-  const wallet = data?.wallet ?? { credits: 0, netcore: 0 };
+  const wallet = data?.wallet ?? { credits: 0, netcore: 0, premiumUntil: null };
   const inventory = data?.inventory ?? [];
+  const premiumActive = (wallet.premiumUntil ?? 0) > Date.now();
 
   const filteredCatalog = useMemo(() => {
     if (activeCat === 'all') return catalog;
@@ -234,6 +236,16 @@ export function Shop(): JSX.Element {
         </div>
       </div>
 
+      {premiumActive && (
+        <div className="prem-banner" style={{ margin: '14px 24px 0' }} role="status">
+          <span className="ico">&#9733;</span>
+          <span>
+            <b>Premium ativo</b> — até {new Date((wallet.premiumUntil ?? 0)).toLocaleDateString('pt-BR')}. Seu bônus de{' '}
+            <b>+50% em produção, XP e quests</b> está valendo. Não renovar na loja encerra os ganhos extras.
+          </span>
+        </div>
+      )}
+
       <div className="feature" data-od-id="shop-feature">
         {featured ? (
           <article className="hero" data-od-id="shop-hero">
@@ -353,10 +365,10 @@ export function Shop(): JSX.Element {
       <div className="scroll" data-od-id="shop-scroll">
         <div className="grid" id="grid" data-od-id="shop-grid">
           {filteredCatalog.map(item => (
-            <article className="card" key={item.id} data-od-id={`shop-card-${item.id}`}>
+            <article className={`card${item.kind === 'premium' ? ' premium-card' : ''}`} key={item.id} data-od-id={`shop-card-${item.id}`}>
               <Thumb item={item} />
               <div className="cnm">{item.name}<span className="csub">{item.description}</span></div>
-              <span className="tagpill">{item.shopCategory || 'Item'}</span>
+              <span className="tagpill">{item.kind === 'premium' ? '\u2605 Premium' : (item.shopCategory || 'Item')}</span>
               <div className="foot">
                 <PriceLine item={item} />
                 {inventory.find(i => i.itemId === item.id && i.qty > 0) ? (
@@ -368,7 +380,7 @@ export function Shop(): JSX.Element {
                   </button>
                 ) : (
                   <button 
-                    className={`buy ghost ${item.owned ? 'owned' : ''}`} 
+                    className={`buy ghost ${item.owned ? 'owned' : ''}${item.kind === 'premium' ? ' premium-buy' : ''}`} 
                     disabled={item.owned || buyMutation.isPending}
                     onClick={() => attemptBuy(item)}
                   >
