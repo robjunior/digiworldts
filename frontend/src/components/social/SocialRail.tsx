@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   useState,
   useRef,
@@ -16,14 +16,11 @@ import {
   type FriendView,
   type FriendRequestView,
 } from "../../lib/api";
-import { getPvpQuests, claimPvpQuest, formatPvpQuestReward } from "../../lib/api-pvp-quests";
-import type { PvpQuestPeriod } from "@digiworld/shared/pvp-quest";
 import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { DigimonSprite } from "../common/DigimonSprite";
 import "../../styles/social-rail.css";
-import "../../styles/extensions-premium.css";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 
@@ -47,19 +44,16 @@ type SocialRailProps = {
 export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
-  const invalidatePvpQuests = useWsStore((s) => s.invalidatePvpQuests);
   const chat = useWsStore((s) => s.chat);
   const queue = useWsStore((s) => s.queue);
-  const activeBattle = useWsStore((s) => s.activeBattle);
   const dmsByPeer = useWsStore((s) => s.dmsByPeer);
   const dmOpened = useWsStore((s) => s.dmOpened);
   const consumeDmOpened = useWsStore((s) => s.consumeDmOpened);
-  const queryClient = useQueryClient();
 
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<
-    "chat" | "quests" | "friends" | "party"
+    "chat" | "friends" | "party"
   >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
@@ -74,9 +68,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   const [duelNotice, setDuelNotice] = useState<string | null>(null);
   const duelTimer = useRef<number | null>(null);
 
-  const [selectedPeriod, setSelectedPeriod] = useState<PvpQuestPeriod>("DAILY");
-  const [claiming, setClaiming] = useState<string | null>(null);
-
   // ── friends query ─────────────────────────────────────────────
   const friendsQuery = useQuery({
     queryKey: FRIENDS_QUERY_KEY,
@@ -86,21 +77,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   const allFriends: readonly FriendView[] = friendsQuery.data?.friends ?? [];
   const incomingRequests: readonly FriendRequestView[] =
     friendsQuery.data?.incoming ?? [];
-
-  // ── pvp quests ────────────────────────────────────────────────
-  const pvpQuery = useQuery({
-    queryKey: ["pvp-quests"] as const,
-    queryFn: getPvpQuests,
-    enabled: true,
-    staleTime: 30_000,
-  });
-
-  useEffect(() => {
-    if (activeBattle?.status === "ended") {
-      invalidatePvpQuests();
-      pvpQuery.refetch();
-    }
-  }, [activeBattle?.status, invalidatePvpQuests, pvpQuery]);
 
   // ── derived counters ──────────────────────────────────────────
   const activeDmUserId = activeChannel.startsWith("dm:")
@@ -120,15 +96,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
       activeChannel !== `dm:${d.userId}`
     );
   }).length;
-
-  const availableCount =
-    pvpQuery.data?.periods.reduce((acc, w) => {
-      return (
-        acc +
-        w.quests.filter((q) => q.state === "completed" && q.claimedAt === null)
-          .length
-      );
-    }, 0) ?? 0;
 
   // auto-scroll chat
   useEffect(() => {
@@ -190,30 +157,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
       send({ type: "chat", text: txt });
     }
     setChatInput("");
-  };
-
-  // ── quest handlers ────────────────────────────────────────────
-  const periods = pvpQuery.data?.periods ?? [];
-  const selectedWindow = periods.find((w) => w.period === selectedPeriod);
-  const quests = selectedWindow?.quests ?? [];
-  const premiumActive = (user?.premiumUntil ?? 0) > Date.now();
-
-  const handleClaim = async (
-    period: PvpQuestPeriod,
-    windowId: string,
-    instanceId: string,
-  ) => {
-    setClaiming(instanceId);
-    try {
-      const result = await claimPvpQuest(period, windowId, instanceId);
-      if (result.ok) {
-        await pvpQuery.refetch();
-      }
-    } catch {
-      // keep existing state
-    } finally {
-      setClaiming(null);
-    }
   };
 
   // ── friends handlers ──────────────────────────────────────────
@@ -304,36 +247,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
           </svg>
           {unreadDmCount > 0 && (
             <span className="social-counter">{unreadDmCount}</span>
-          )}
-        </button>
-        <button
-          className={`social-icon-btn${socialOpen && socialTab === "quests" ? " active" : ""}`}
-          role="tab"
-          aria-selected={socialOpen && socialTab === "quests"}
-          onClick={() => {
-            if (socialOpen && socialTab === "quests") {
-              setSocialOpen(false);
-            } else {
-              setSocialOpen(true);
-              setSocialTab("quests");
-            }
-          }}
-          title="Quests"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
-          </svg>
-          {availableCount > 0 && (
-            <span className="social-counter">{availableCount}</span>
           )}
         </button>
         <button
@@ -506,106 +419,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                   Send
                 </button>
               </form>
-            </div>
-          </div>
-
-          {/* QUESTS PANEL */}
-          <div className="spanel" hidden={socialTab !== "quests"}>
-            <div className="quests">
-              <div className="qp-tabs" role="tablist" aria-label="Quest period">
-                {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((period) => {
-                  const window = periods.find((w) => w.period === period);
-                  const completedCount =
-                    window?.quests.filter((q) => q.state === "completed")
-                      .length ?? 0;
-                  const totalCount = window?.quests.length ?? 0;
-                  return (
-                    <button
-                      key={period}
-                      className={`qp-tab${selectedPeriod === period ? " active" : ""}`}
-                      role="tab"
-                      aria-selected={selectedPeriod === period}
-                      onClick={() => setSelectedPeriod(period)}
-                    >
-                      {period.charAt(0) + period.slice(1).toLowerCase()}
-                      {totalCount > 0 && (
-                        <span className="qp-tab-count">
-                          {completedCount}/{totalCount}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {premiumActive && (
-                <div className="prem-banner" style={{ margin: "8px 0" }}>
-                  <span className="ico">&#9733;</span>
-                  <span>
-                    <b>Premium ativo</b> — recompensas de quest +50%.
-                  </span>
-                </div>
-              )}
-
-              {quests.length === 0 ? (
-                <div className="empty-line">
-                  No {selectedPeriod.toLowerCase()} quests right now — check back
-                  soon.
-                </div>
-              ) : (
-                quests.map((q) => {
-                  const pct =
-                    q.target > 0
-                      ? Math.min(
-                          100,
-                          Math.round((q.progress / q.target) * 100),
-                        )
-                      : 0;
-                  const done = q.state === "completed";
-                  const claimed = q.state === "claimed";
-                  return (
-                    <div key={q.instanceId} className="quest">
-                      <span className="q-ico">
-                        <svg
-                          className={`q-ic ${done ? "gold" : "blue"}`}
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z" />
-                        </svg>
-                      </span>
-                      <div className="q-tx">
-                        <div className="q-nm">{q.title}</div>
-                        <div className={`q-desc${premiumActive ? " prem-gold" : ""}`}>{formatPvpQuestReward(q.reward)}</div>
-                        <div className="q-prog">
-                          <span className="fill" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                      <span className={`q-count${done ? " done" : ""}`}>
-                        {q.progress}/{q.target}
-                      </span>
-                      {done && !claimed && (
-                        <button
-                          className="q-claim"
-                          disabled={claiming === q.instanceId}
-                          onClick={() =>
-                            handleClaim(
-                              selectedPeriod,
-                              selectedWindow!.windowId,
-                              q.instanceId,
-                            )
-                          }
-                        >
-                          {claiming === q.instanceId ? "Claiming…" : "Claim"}
-                        </button>
-                      )}
-                      {claimed && <span className="q-claim done">Claimed</span>}
-                    </div>
-                  );
-                })
-              )}
             </div>
           </div>
 
