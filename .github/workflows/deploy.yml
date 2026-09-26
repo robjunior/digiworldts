@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -86,20 +88,47 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Export seeds e check
+      - name: Content xref gate
+        # Validate the COMMITTED content bundle (content/content-bundle.json) for
+        # cross-domain reference integrity. This is the bundle the deploy step
+        # applies to the target DB, so it must be internally consistent. This
+        # ALWAYS runs (unlike the old seed-export gate, which required a local
+        # sqlite dev DB on the runner and silently no-op'd on Postgres). Fails the
+        # deploy on any broken ref (quest→missing dialogue/item/digimon, etc.)
+        # before a single row is written to the target DB.
         run: |
-          if [ -f "backend/data/digiworld.db" ]; then
-            pnpm --filter @digiworld/backend seed:export --out /tmp/seed-artifact
-            pnpm typecheck:xref /tmp/seed-artifact/seed.json
-          fi
+          pnpm --filter @digiworld/backend content:xref
 
       - name: Deploy containers
         env:
           ENV_NAME: ${{ inputs.target_env || (github.ref_name == 'staging' && 'staging' || 'production') }}
+          # Limit parallel builds so we don't OOM the runner. Docker Compose
+          # builds all services in parallel by default; with 4 services each
+          # running apt-get + pnpm install + native builds (argon2, better-sqlite3),
+          # that exhausts RAM and the runner process gets killed mid-deploy.
+          COMPOSE_PARALLEL_LIMIT: "1"
+          BUILDKIT_PROGRESS: "plain"
         run: |
           PROJECT="digiworld-${ENV_NAME}"
           docker compose -p "$PROJECT" --profile discord --profile admin up -d --build --remove-orphans --wait
           docker compose -p "$PROJECT" ps
+
+      - name: Deploy content (committed bundle)
+        # Apply the COMMITTED content bundle (content/content-bundle.json) to the
+        # freshly-deployed DB. Runs INSIDE the backend container: the target DB is
+        # Postgres on the compose network (not host-exposed) and content:deploy is
+        # TS (devDeps not in the runtime image), so we exec the compiled
+        # dist/content-deploy/cli.js in-network. The bundle is mounted read-only at
+        # /app/backend/content via docker-compose.yml. content:deploy --apply is
+        # transactional + xref-gated and only upserts content rows (never player
+        # state); re-running is idempotent.
+        env:
+          ENV_NAME: ${{ inputs.target_env || (github.ref_name == 'staging' && 'staging' || 'production') }}
+        run: |
+          PROJECT="digiworld-${ENV_NAME}"
+          sleep 5
+          docker compose -p "$PROJECT" exec -T backend \
+            node dist/content-deploy/cli.js --apply content/content-bundle.json
 
       - name: Container logs (on failure)
         if: failure()

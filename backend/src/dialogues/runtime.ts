@@ -12,7 +12,6 @@ import { clearFlag, hasFlag, setFlag } from '../flags/repo.js';
 import { grantItem, hasItem, removeItem } from '../items/grant.js';
 import { startQuestWithin } from '../quests/repo.js';
 import { addNetcore, hasCredits, hasNetcore } from '../wallet/repo.js';
-import { partyElements, teleportPlayer } from '../world/engine.js';
 import type { CrossRefChecker } from './xref.js';
 import { unresolvedReferences } from './xref.js';
 
@@ -87,9 +86,8 @@ const PREDICATES: Readonly<Record<string, Predicate>> = {
   has_ntc: (ctx, args, ex) => hasNetcore(ctx.userId, asAmount(args[0], 'has_ntc'), ex),
   has_credits: (ctx, args, ex) => hasCredits(ctx.userId, asAmount(args[0], 'has_credits'), ex),
   party_has_element: async (ctx, args) => {
-    const target = asString(args[0]!, 'party_has_element');
-    const elements = await partyElements(ctx.userId);
-    return elements.includes(target as (typeof elements)[number]);
+    // Removed: world.dungeon feature deleted - party element check disabled
+    return false;
   },
 };
 
@@ -129,7 +127,7 @@ const ACTIONS: Readonly<Record<string, ActionHandler>> = {
     return result.changes > 0;
   },
   teleport: async (ctx, args, ex) => {
-    await teleportPlayer(ctx.userId, asCoordinate(args[0], 'teleport'), asCoordinate(args[1], 'teleport'), ex);
+    // Removed: world.dungeon feature deleted - teleport disabled
     return true;
   },
   unlock_area: async (ctx, args, ex) => {

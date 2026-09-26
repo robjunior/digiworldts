@@ -1,5 +1,5 @@
-import type { BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
-import type { DungeonRemotePlayer, PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
+import type { BattleEndRewards, BattleEvent, BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import type { PresenceUser, QueueStatus, WelcomeUser, WSServerMessage } from '@digiworld/shared/ws';
 import type { WeatherConfig } from '@digiworld/shared/weather';
 import { create } from 'zustand';
 
@@ -11,14 +11,25 @@ type ChatMessage = {
   readonly displayName: string;
   readonly text: string;
   readonly at: number;
-  readonly dungeonId?: string;
+  readonly toUserId?: string | undefined;
+};
+
+type SystemMessage = {
+  readonly text: string;
+  readonly at: number;
+  readonly kind: '' | 'hit' | 'item';
 };
 
 type PvpInvite = {
   readonly inviteId: string;
   readonly fromUserId: string;
   readonly fromName: string;
-  readonly dungeonId: string;
+};
+
+/** A remote peer opened a DM tab targeting us — their client should auto-open. */
+type DmOpenedSignal = {
+  readonly fromUserId: string;
+  readonly fromName: string;
 };
 
 type QueueState = {
@@ -33,7 +44,7 @@ type WelcomeState = {
   readonly activeMatches: number;
 };
 
-type WeatherOverrideState = {
+export type WeatherOverrideState = {
   readonly sceneId: string | null;
   readonly matchId: string | null;
   readonly weather: WeatherConfig;
@@ -46,24 +57,30 @@ type WsState = {
   readonly presenceCount: number;
   readonly chat: ChatMessage[];
   readonly chatsByRoom: Record<string, ChatMessage[]>;
+  /** Direct messages, keyed by the OTHER participant's userId. */
+  readonly dmsByPeer: Record<string, ChatMessage[]>;
   readonly queue: QueueState;
   readonly activeMatchId: string | null;
   readonly activeBattle: BattleView | null;
   readonly battleEvents: BattleEvent[];
   readonly battleOutcome: BattleOutcome | null;
+  /** End-of-battle rewards coming from the WS `end` message (XP, NetCore, Bits). */
+  readonly battleRewards: BattleEndRewards | null;
   readonly welcome: WelcomeState | null;
   readonly weatherOverride: WeatherOverrideState | null;
-  readonly dungeonPlayers: DungeonRemotePlayer[];
   readonly pvpInvite: PvpInvite | null;
   readonly pvpNotice: string | null;
+  readonly pvpQuestsRefresh: number;
   readonly socialNotifyVersion: number;
-  readonly chatByDungeon: Record<string, ChatMessage[]>;
+  /** Peers that opened a DM with us; consumed by the social rail to auto-open. */
+  readonly dmOpened: readonly DmOpenedSignal[];
   readonly handleServerMessage: (msg: WSServerMessage) => void;
+  readonly consumeDmOpened: () => void;
   readonly clearActiveBattle: () => void;
   readonly clearRoomChat: (roomId: string) => void;
-  readonly clearDungeonPlayers: () => void;
   readonly clearPvpInvite: () => void;
   readonly clearPvpNotice: () => void;
+  readonly invalidatePvpQuests: () => void;
   readonly reset: () => void;
 };
 
@@ -74,27 +91,30 @@ const initialState = {
   presenceCount: 0,
   chat: [],
   chatsByRoom: {},
+  dmsByPeer: {},
   queue: { status: 'idle', size: 0, since: null },
   activeMatchId: null,
   activeBattle: null,
   battleEvents: [],
   battleOutcome: null,
+  battleRewards: null,
   welcome: null,
   weatherOverride: null,
-  dungeonPlayers: [],
   pvpInvite: null,
   pvpNotice: null,
+  pvpQuestsRefresh: 0,
   socialNotifyVersion: 0,
-  chatByDungeon: {},
+  dmOpened: [],
 } satisfies Omit<
   WsState,
   | 'handleServerMessage'
+  | 'consumeDmOpened'
   | 'reset'
   | 'clearActiveBattle'
   | 'clearRoomChat'
-  | 'clearDungeonPlayers'
   | 'clearPvpInvite'
   | 'clearPvpNotice'
+  | 'invalidatePvpQuests'
 >;
 
 export const useWsStore = create<WsState>((set) => ({
@@ -113,17 +133,24 @@ export const useWsStore = create<WsState>((set) => ({
         set({ presence: msg.users, presenceCount: msg.count });
         return;
       case 'chat':
-        if (msg.dungeonId !== undefined) {
-          const dungeonId = msg.dungeonId;
-          set((state) => ({
-            chatByDungeon: {
-              ...state.chatByDungeon,
-              [dungeonId]: [
-                ...(state.chatByDungeon[dungeonId] ?? []),
-                { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, dungeonId },
-              ].slice(-MAX_LOG_MESSAGES),
-            },
-          }));
+        if (msg.toUserId !== undefined) {
+          const toUserId = msg.toUserId;
+          // Direct message: keep it in its own per-peer log so it never leaks
+          // into the General tab. The peer is the other participant — our own
+          // id lives in the welcome payload.
+          set((state) => {
+            const myId = state.welcome?.user.id;
+            const peer = myId !== undefined && msg.from === myId ? toUserId : msg.from;
+            return {
+              dmsByPeer: {
+                ...state.dmsByPeer,
+                [peer]: [
+                  ...(state.dmsByPeer[peer] ?? []),
+                  { from: msg.from, displayName: msg.displayName, text: msg.text, at: msg.at, toUserId },
+                ].slice(-MAX_LOG_MESSAGES),
+              },
+            };
+          });
           return;
         }
         if (msg.room !== undefined) {
@@ -149,7 +176,7 @@ export const useWsStore = create<WsState>((set) => ({
         set({ queue: { status: msg.status, size: msg.size, since: msg.since ?? null } });
         return;
       case 'match':
-        set({ activeMatchId: msg.matchId, activeBattle: msg.view, battleEvents: [], battleOutcome: null });
+        set({ activeMatchId: msg.matchId, activeBattle: msg.view, battleEvents: [], battleOutcome: null, battleRewards: null });
         return;
       case 'battle':
         set((state) => (state.activeMatchId === msg.matchId ? { activeBattle: msg.view } : state));
@@ -164,23 +191,27 @@ export const useWsStore = create<WsState>((set) => ({
       case 'end':
         set((state) =>
           state.activeMatchId === msg.matchId
-            ? { activeBattle: msg.view, battleOutcome: msg.outcome, battleEvents: msg.view.log.slice(-MAX_LOG_MESSAGES) }
+            ? {
+                activeBattle: msg.view,
+                battleOutcome: msg.outcome,
+                battleEvents: msg.view.log.slice(-MAX_LOG_MESSAGES),
+                battleRewards: msg.rewards ?? null,
+              }
             : state,
         );
         return;
       case 'spectate':
-        // Spectator join: hydrate battle state so subsequent battle/event/end
-        // messages (which gate on activeMatchId matching) actually apply.
         if (msg.status === 'joined' && msg.view) {
           set({
-            activeMatchId: msg.matchId,
+            activeMatchId: msg.view.id,
             activeBattle: msg.view,
             battleEvents: msg.view.log ?? [],
             battleOutcome: msg.view.outcome ?? null,
+            battleRewards: null,
           });
         } else if (msg.status === 'left') {
           set((state) =>
-            state.activeMatchId === msg.matchId
+            state.activeMatchId === msg.view?.id
               ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null }
               : state,
           );
@@ -210,25 +241,8 @@ export const useWsStore = create<WsState>((set) => ({
         return;
       case 'pong':
         return;
-      case 'dungeon:players':
-        set({ dungeonPlayers: msg.players });
-        return;
-      case 'dungeon:player-update':
-        set((state) => {
-          const known = state.dungeonPlayers.find((p) => p.userId === msg.player.userId);
-          const player = known === undefined ? msg.player : { ...known, ...msg.player };
-          return {
-            dungeonPlayers: known === undefined
-              ? [...state.dungeonPlayers, player]
-              : state.dungeonPlayers.map((p) => (p.userId === player.userId ? player : p)),
-          };
-        });
-        return;
-      case 'dungeon:player-left':
-        set((state) => ({ dungeonPlayers: state.dungeonPlayers.filter((p) => p.userId !== msg.userId) }));
-        return;
       case 'pvp:invite':
-        set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName, dungeonId: msg.dungeonId } });
+        set({ pvpInvite: { inviteId: msg.inviteId, fromUserId: msg.fromUserId, fromName: msg.fromName } });
         return;
       case 'pvp:invite-declined':
         set((state) => ({
@@ -245,15 +259,23 @@ export const useWsStore = create<WsState>((set) => ({
       case 'social:notify':
         set((state) => ({ socialNotifyVersion: state.socialNotifyVersion + 1 }));
         return;
+      case 'dm:opened':
+        set((state) => ({
+          dmOpened: [...state.dmOpened, { fromUserId: msg.fromUserId, fromName: msg.fromName }],
+        }));
+        return;
       default:
         msg satisfies never;
     }
+  },
+  consumeDmOpened: () => {
+    set({ dmOpened: [] });
   },
   reset: () => {
     set(initialState);
   },
   clearActiveBattle: () => {
-    set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null });
+    set({ activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null, battleRewards: null });
   },
   clearRoomChat: (roomId: string) => {
     set((state) => {
@@ -262,13 +284,13 @@ export const useWsStore = create<WsState>((set) => ({
       return { chatsByRoom: next };
     });
   },
-  clearDungeonPlayers: () => {
-    set({ dungeonPlayers: [] });
-  },
   clearPvpInvite: () => {
     set({ pvpInvite: null });
   },
   clearPvpNotice: () => {
     set({ pvpNotice: null });
+  },
+  invalidatePvpQuests: () => {
+    set((state) => ({ pvpQuestsRefresh: state.pvpQuestsRefresh + 1 }));
   },
 }));

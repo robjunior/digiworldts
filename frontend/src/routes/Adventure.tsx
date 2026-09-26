@@ -7,6 +7,7 @@ import { Toast } from '../components/common/Toast';
 import { ActiveExpCard } from '../components/adventure/ActiveExpCard';
 import { ExpeditionPlanner } from '../components/adventure/ExpeditionPlanner';
 import { ReportPanel } from '../components/adventure/ReportPanel';
+import { meatCostForHours } from '../components/adventure/utils';
 import { getRoster } from '../lib/api';
 import {
   collectAdventure,
@@ -17,6 +18,7 @@ import {
 import { getFarm, type FarmView } from '../lib/api-farm';
 import type { RosterView } from '../lib/api';
 import '../styles/extensions-adventure.css';
+import '../styles/balbar.css';
 
 const ADVENTURE_QUERY_KEY = ['adventure'] as const;
 const ROSTER_QUERY_KEY = ['roster'] as const;
@@ -26,6 +28,8 @@ const emptyFarm: FarmView = {
   balances: { Meat: 0, Bits: 0, Data: 0 },
   credits: 0,
   netcore: 0,
+  premium: false,
+  premiumBonus: 0,
   buildings: [],
 };
 
@@ -52,30 +56,31 @@ export function Adventure(): JSX.Element {
   }, [notice]);
 
   const page = adventureQuery.data ?? null;
-  const active = page?.active ?? null;
+  const active = page?.active ?? [];
   const lastCollected = page?.lastCollected ?? null;
-  const provisionsOwned = page?.provisionsOwned ?? 0;
+  const meatOwned = page?.meatOwned ?? 0;
   const config = page?.config ?? {
     minHours: 1,
     maxHours: 8,
-    provisionsPerHour: 10,
-    provisionItemId: 'itm-provision',
+    meatPerHour: 10,
+    meatEscalationPerHour: 5,
     encountersPerHour: 3,
     partySize: 3,
+    maxActive: 3,
   };
   const roster = rosterQuery.data?.roster ?? [];
   const farm: FarmView = farmQuery.data ?? emptyFarm;
 
-  const provisionsNeeded = hours * config.provisionsPerHour;
+  const meatNeeded = meatCostForHours(hours, config.meatPerHour, config.meatEscalationPerHour);
 
   const startMutation = useMutation({
     mutationFn: (params: { readonly monIds: readonly string[]; readonly hours: number }) =>
       startAdventure(params.monIds, params.hours),
     onSuccess: (result) => {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
-        active: result.adventure,
+        active: [...(prev?.active ?? []), result.adventure],
         lastCollected: prev?.lastCollected ?? null,
-        provisionsOwned: result.provisionsOwned,
+        meatOwned: result.meatOwned,
         config: prev?.config ?? config,
       }));
       queryClient.invalidateQueries({ queryKey: ROSTER_QUERY_KEY });
@@ -87,12 +92,12 @@ export function Adventure(): JSX.Element {
   });
 
   const collectMutation = useMutation({
-    mutationFn: collectAdventure,
+    mutationFn: (adventureId: string) => collectAdventure(adventureId),
     onSuccess: (result) => {
       queryClient.setQueryData<AdventurePageView>(ADVENTURE_QUERY_KEY, (prev) => ({
-        active: null,
+        active: (prev?.active ?? []).filter((a) => a.id !== result.adventure.id),
         lastCollected: result.adventure,
-        provisionsOwned: prev?.provisionsOwned ?? 0,
+        meatOwned: prev?.meatOwned ?? 0,
         config: prev?.config ?? config,
       }));
       queryClient.invalidateQueries({ queryKey: ADVENTURE_QUERY_KEY });
@@ -125,8 +130,8 @@ export function Adventure(): JSX.Element {
   }
 
   const filled = selectedIds.filter((id) => id !== null).length;
-  const enoughProv = provisionsOwned >= provisionsNeeded;
-  const canStart = filled === config.partySize && enoughProv;
+  const enoughMeat = meatOwned >= meatNeeded;
+  const canStart = filled === config.partySize && enoughMeat;
 
   const hint: { readonly node: ReactNode; readonly warn: boolean } = useMemo(() => {
     if (filled < config.partySize) {
@@ -139,11 +144,11 @@ export function Adventure(): JSX.Element {
         warn: false,
       };
     }
-    if (!enoughProv) {
+    if (!enoughMeat) {
       return {
         node: (
           <>
-            Need <b>{provisionsNeeded}</b> provisions — you have <b>{provisionsOwned}</b>. Craft more in the Pantry.
+            Need <b>{meatNeeded}</b> Meat — you have <b>{meatOwned}</b>. Produce more in the Farm or hunt it down.
           </>
         ),
         warn: true,
@@ -152,12 +157,12 @@ export function Adventure(): JSX.Element {
     return {
       node: (
         <>
-          Ready — <b>{provisionsNeeded}</b> provisions for a <b>{hours}h</b> run.
+          Ready — <b>{meatNeeded}</b> Meat for a <b>{hours}h</b> run.
         </>
       ),
       warn: false,
     };
-  }, [filled, config.partySize, enoughProv, provisionsNeeded, provisionsOwned, hours]);
+  }, [filled, config.partySize, enoughMeat, meatNeeded, meatOwned, hours]);
 
   const displayRoster = useMemo<readonly RosterView[]>(
     () =>
@@ -165,7 +170,8 @@ export function Adventure(): JSX.Element {
     [roster],
   );
 
-  const subtitle = active ? '1 in the field' : 'idle · ready to send';
+  const subtitle =
+    active.length > 0 ? `${active.length} in the field · ${config.maxActive - active.length} free` : 'idle · ready to send';
 
   return (
     <>
@@ -174,7 +180,7 @@ export function Adventure(): JSX.Element {
         <ResourceBal resource="bits" label="Bits" value={farm.balances.Bits ?? 0} />
         <ResourceBal resource="data" label="Data" value={farm.balances.Data ?? 0} />
         <ResourceBal resource="credits" label="Credits" value={farm.credits ?? 0} />
-        <ResourceBal resource="provisions" label="Provisions" value={provisionsOwned} />
+        <ResourceBal resource="meat" label="Meat" value={meatOwned} />
       </BalBar>
 
       <div className="scroll">
@@ -187,8 +193,8 @@ export function Adventure(): JSX.Element {
               now={now}
               hours={hours}
               config={config}
-              provisionsOwned={provisionsOwned}
-              provisionsNeeded={provisionsNeeded}
+              meatOwned={meatOwned}
+              meatNeeded={meatNeeded}
               canStart={canStart}
               isPending={startMutation.isPending}
               hint={hint}
@@ -202,22 +208,25 @@ export function Adventure(): JSX.Element {
           </div>
 
           <div className="lstack">
-            <SectionHead title="Active Expeditions" count={active ? 1 : 0} />
+            <SectionHead title="Active Expeditions" count={active.length} />
             <div className="panelbox">
               <div className="pinner">
                 <div className="explist">
-                  {active ? (
-                    <ActiveExpCard
-                      active={active}
-                      now={now}
-                      config={config}
-                      onCollect={() => collectMutation.mutate()}
-                      isCollecting={collectMutation.isPending}
-                    />
+                  {active.length > 0 ? (
+                    active.map((a) => (
+                      <ActiveExpCard
+                        key={a.id}
+                        active={a}
+                        now={now}
+                        config={config}
+                        onCollect={() => collectMutation.mutate(a.id)}
+                        isCollecting={collectMutation.isPending}
+                      />
+                    ))
                   ) : (
                     <div className="exp-empty">
                       No expeditions in the field. Pick a party above and Embark — every run you send appears here with its
-                      own countdown, and you can send as many as you like.
+                      own countdown, and you can send up to {config.maxActive} at once.
                     </div>
                   )}
                 </div>

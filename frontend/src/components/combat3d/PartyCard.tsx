@@ -1,5 +1,8 @@
 import { memo } from 'react';
 import type { FriendlyUnitView } from '@digiworld/shared/battle';
+import { AttributeIcon } from '../combat/AttributeIcon';
+
+const portraitUrl = (templateId: string) => `/assets/digimon/${templateId}/portrait.webp`;
 
 export const PartyCard = memo(function PartyCard({ unit, active }: { readonly unit: FriendlyUnitView; readonly active: boolean }): JSX.Element {
   const hpPct = unit.hpMax > 0 ? Math.max(0, unit.hp) / unit.hpMax : 0;
@@ -10,10 +13,10 @@ export const PartyCard = memo(function PartyCard({ unit, active }: { readonly un
       <div className="ph">
         <span className="spr-slot pspr" style={{ ['--el' as string]: `var(--el-${unit.element})` }}>
           <span className="mono" aria-hidden="true">{mono}</span>
-          <img src={`/assets/digimon/${unit.templateId}/dot.gif`} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
+          <img src={portraitUrl(unit.templateId)} alt="" onError={(e) => e.currentTarget.setAttribute('data-failed', '')} />
         </span>
         <span className="pn">
-          <span className="nm">{unit.name}</span>
+          <span className="nm"><AttributeIcon attribute={unit.attribute} size="sm" />{unit.name}</span>
           <span className="lv">Lv {unit.level}</span>
         </span>
       </div>

@@ -20,6 +20,7 @@ const FIRE_FRAGMENT = `
   uniform vec3 uColorHot;
   uniform vec3 uColorMid;
   uniform vec3 uColorCool;
+  uniform float uCore;
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7)) + uSeed) * 43758.5453);
@@ -60,8 +61,13 @@ const FIRE_FRAGMENT = `
     col = mix(col, uColorHot, smoothstep(0.5, 1.0, shape + rim * 0.2));
     float lifecycle = smoothstep(0.0, 0.25, uProgress) * (1.0 - smoothstep(0.6, 1.0, uProgress));
     float alpha = shape * rim * lifecycle * 1.2;
+    // Core layers: trade the red flame ramp for a near-white, sharper bloom so
+    // they read as the hot "pop" at impact instead of a dimmed flame.
+    vec3 outCol = mix(uColorCool, uColorMid, smoothstep(0.0, 0.6, shape));
+    outCol = mix(outCol, uColorHot, smoothstep(0.5, 1.0, shape + rim * 0.2));
+    outCol = mix(outCol, vec3(1.0, 0.95, 0.82), uCore * 0.85);
     if (alpha < 0.02) discard;
-    gl_FragColor = vec4(col, alpha);
+    gl_FragColor = vec4(outCol, alpha);
   }
 `;
 
@@ -72,15 +78,24 @@ const FIRE_LAYERS: ReadonlyArray<{
   readonly zOffset: number;
   readonly opacity: number;
   readonly delayS: number;
+  /** Core bloom layers bias the fragment toward white so they read as a hot,
+   *  sharp pop at impact rather than a dimmed flame. */
+  readonly core?: boolean;
 }> = [
   { baseScale: 1.6, growScale: 1.3, yOffset: 0.4, zOffset: 0, opacity: 1.0, delayS: 0.0 },
   { baseScale: 2.2, growScale: 1.4, yOffset: 0.9, zOffset: 0.08, opacity: 0.7, delayS: 0.05 },
   { baseScale: 1.2, growScale: 1.2, yOffset: 0.2, zOffset: -0.08, opacity: 0.9, delayS: 0.1 },
+  // Core bloom: a tight, bright-white layer that pops at the moment of impact
+  // (delayed to ~impact time) so a fire skill reads as a hotter, sharper hit.
+  { baseScale: 0.6, growScale: 2.4, yOffset: 0.45, zOffset: 0, opacity: 1.0, delayS: 0.14, core: true },
 ];
 
 const HOT_COLOR = new THREE.Color(0xfff2b8);
 const MID_COLOR = new THREE.Color(0xff8a3a);
 const COOL_COLOR = new THREE.Color(0xd23028);
+// Core bloom uses a brighter, whiter hot color so the impact pop reads hot.
+const CORE_HOT_COLOR = new THREE.Color(0xffffff);
+const CORE_MID_COLOR = new THREE.Color(0xffd9a0);
 
 type FlameLayer = {
   readonly mesh: THREE.Mesh;
@@ -112,8 +127,13 @@ export function buildFireRunner(scene: THREE.Scene, effect: AttackEffect3D): Run
         uTime: { value: 0 },
         uProgress: { value: 0 },
         uSeed: { value: seed + index * 17.31 },
-        uColorHot: { value: HOT_COLOR.clone() },
-        uColorMid: { value: MID_COLOR.clone().multiplyScalar(cfg.opacity) },
+        uCore: { value: cfg.core === true ? 1 : 0 },
+        uColorHot: { value: (cfg.core === true ? CORE_HOT_COLOR : HOT_COLOR).clone() },
+        uColorMid: {
+          value: (cfg.core === true ? CORE_MID_COLOR : MID_COLOR)
+            .clone()
+            .multiplyScalar(cfg.opacity),
+        },
         uColorCool: { value: COOL_COLOR.clone().multiplyScalar(cfg.opacity) },
       },
     });

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 export type AvatarPickChoice = {
   readonly value: string | null;
@@ -79,17 +80,10 @@ export function AvatarPicker(props: AvatarPickerProps): JSX.Element {
               >
                 {isMonogram ? (
                   <span className="mono">{initialLetter}</span>
+                ) : choice.catalogId != null ? (
+                  <DigimonSprite catalogId={choice.catalogId} />
                 ) : (
-                  <img
-                    src={`/assets/digimon/${choice.catalogId}/dot.gif`}
-                    alt=""
-                    onError={(ev) => {
-                      const span = document.createElement('span');
-                      span.className = 'mono';
-                      span.textContent = choice.label[0]?.toUpperCase() ?? '?';
-                      ev.currentTarget.replaceWith(span);
-                    }}
-                  />
+                  <span className="mono">{initialLetter}</span>
                 )}
                 <span className="cap">{choice.label}</span>
               </button>

@@ -2,16 +2,51 @@ import type { BattleView, UnitId } from '@digiworld/shared/battle';
 import { ELEMENT_TO_ARENA_KEY } from '@digiworld/shared/scene';
 import type { SceneEntity } from '@digiworld/shared/scene';
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
-import { SceneManager, type SceneSettings } from '@digiworld/scene3d/scene';
+import { SceneManager, type SceneSettings, type SpriteInit } from '@digiworld/scene3d';
 import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 import type { SpriteSide } from '@digiworld/scene3d/sprite-rig';
-import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
+import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import { getSceneDefaults, type PerArenaSceneDefaults } from '../../lib/scene-defaults';
 import { getScenes } from '../../lib/api-scenes';
+import { unitSpriteSheetUrl } from '../../lib/asset-preload';
 import { useAuth } from '../../hooks/useAuth';
 import { useWsStore } from '../../state/wsStore';
+import type { WeatherOverrideState } from '../../state/wsStore';
+
+/** Shared module constants. */
+const HOVER_SPRITE_SIDE: SpriteSide = 'opp';
+const LOCAL_STORAGE_OVERRIDE_KEY = 'digiworld.scene-settings-override';
+const LOCAL_STORAGE_BASELINE_KEY = 'digiworld.scene-defaults-baseline';
+
+/** Opt-in perf HUD: append `?hud=1` to the URL to show FPS/ms/draws/triangles. */
+function hudFromUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const v = new URLSearchParams(window.location.search).get('hud');
+    return v === '1' || v === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/** Null-safe accessor for the SceneManager ref. Returns null (and warns) when
+ *  the manager has not been initialized yet, so callers can early-return
+ *  instead of repeating `sceneRef.current === null` checks. */
+function useSceneManager() {
+  const sceneRef = useRef<SceneManager | null>(null);
+
+  const getManager = useCallback((): SceneManager | null => {
+    if (sceneRef.current === null) {
+      console.warn('SceneManager not initialized');
+      return null;
+    }
+    return sceneRef.current;
+  }, []);
+
+  return { sceneRef, getManager };
+}
 
 const ARENA_BY_ELEMENT: Readonly<Record<string, string>> = {
   plant: 'plant',
@@ -77,6 +112,9 @@ export type Combat3DSceneHandle = {
 type SceneProps = {
   readonly battle: BattleView;
   readonly onReady?: () => void;
+  readonly onEnemyClick?: (unitId: UnitId) => void;
+  readonly onEnemyHover?: (unitId: UnitId | null) => void;
+  readonly onFriendlyClick?: (unitId: UnitId) => void;
 };
 
 type UnitPlacement = {
@@ -87,21 +125,30 @@ type UnitPlacement = {
   readonly down: boolean;
 };
 
+// Combat uses the 2×2 four-frame sprite sheets (walk row + hit row). The dot.gif
+// is the fallback for digimons that lack a generated sheet; the rig detects a
+// missing image and keeps the placeholder, so a bad URL never hard-fails.
 function toPlacements(battle: BattleView): readonly UnitPlacement[] {
-  const you: UnitPlacement[] = battle.friendly.map((unit, index) => ({
-    unitId: unit.id,
-    side: 'you',
-    slotIndex: index,
-    textureUrl: `/assets/digimon/${unit.templateId}/dot.gif`,
-    down: unit.down,
-  }));
-  const opp: UnitPlacement[] = battle.enemy.map((unit, index) => ({
-    unitId: unit.id,
-    side: 'opp',
-    slotIndex: index,
-    textureUrl: `/assets/digimon/${unit.templateId}/dot.gif`,
-    down: unit.down,
-  }));
+  const you = battle.friendly.map((unit, index) => {
+    const placement: UnitPlacement = {
+      unitId: unit.id,
+      side: 'you' as SpriteSide,
+      slotIndex: index,
+      textureUrl: unitSpriteSheetUrl(unit.templateId),
+      down: unit.down,
+    };
+    return placement;
+  });
+  const opp = battle.enemy.map((unit, index) => {
+    const placement: UnitPlacement = {
+      unitId: unit.id,
+      side: 'opp' as SpriteSide,
+      slotIndex: index,
+      textureUrl: unitSpriteSheetUrl(unit.templateId),
+      down: unit.down,
+    };
+    return placement;
+  });
   return [...you, ...opp];
 }
 
@@ -111,10 +158,181 @@ function extractPatch(raw: Readonly<Record<string, unknown>>): Partial<SceneSett
   return patch as Partial<SceneSettings>;
 }
 
-export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(function Combat3DScene({ battle, onReady }, ref) {
+/** Build a SceneResolution from a matched scene entity, or null if no scene
+ *  matched `sceneId`. `modelUrl` is `undefined` only when the entity has no
+ *  `modelFile` AND there is no element-keyed fallback — in that case the caller
+ *  falls back to `DEFAULT_ARENA_MODEL` when it actually loads the model. */
+function buildSceneResolutionFromEntity(
+  scene: SceneEntity,
+  fallbackArenaKey: string,
+): SceneResolution {
+  const settings = scene.settings as Partial<SceneSettings>;
+  const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
+  const modelUrl = resolveSceneModelUrl(modelFile ?? undefined);
+  const arenaKey = arenaKeyForScene(scene, fallbackArenaKey);
+  const useGlbSettings = scene.useGlbSettings === true;
+
+  return {
+    source: 'scene-entity',
+    arenaKey,
+    modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey] ?? DEFAULT_ARENA_MODEL,
+    useGlbSettings,
+    settingsPatch: useGlbSettings ? {} : extractPatch(scene.settings),
+    weather: scene.weather ?? null,
+    timeOfDay: scene.timeOfDay ?? null,
+  };
+}
+
+/** Build a SceneResolution from the per-arena defaults, using `scenes` to pick
+ *  an ambience scene (weather / time-of-day) whose elements match the fallback
+ *  arena key. The arena model comes from the unit elements, not the defaults. */
+function buildSceneResolutionFromDefaults(
+  fallbackArenaKey: string,
+  all: PerArenaSceneDefaults,
+  scenes: readonly SceneEntity[],
+): SceneResolution {
+  const arenaDefaults = all[fallbackArenaKey] ?? {};
+  const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
+  const modelUrl = resolveSceneModelUrl(
+    modelFile ?? undefined,
+    ARENA_MODEL_BY_KEY[fallbackArenaKey] ?? DEFAULT_ARENA_MODEL,
+  );
+  // Arena comes from unit elements, not from the scene entity: without this the ambience of
+  // a battle whose elements match no scene would silently vanish.
+  const ambienceScene = scenes.find((s) => s.elements.length > 0 && arenaKeyForScene(s, fallbackArenaKey) === fallbackArenaKey) ?? null;
+  return {
+    source: 'arena-defaults',
+    arenaKey: fallbackArenaKey,
+    modelUrl,
+    useGlbSettings: false,
+    settingsPatch: extractPatch(arenaDefaults),
+    weather: ambienceScene?.weather ?? null,
+    timeOfDay: ambienceScene?.timeOfDay ?? null,
+  };
+}
+
+/** Pure resolution of the arena scene from a scene entity (when sceneId is set)
+ *  or from the per-arena defaults. Returns null when sceneId was set but no
+ *  matching scene was found, letting the caller fall back to defaults. */
+async function resolveArenaScene(
+  sceneId: string | null,
+  fallbackArenaKey: string,
+  scenes: readonly SceneEntity[],
+  defaults: PerArenaSceneDefaults,
+): Promise<SceneResolution | null> {
+  if (sceneId !== null) {
+    const scene = scenes.find((s) => s.id === sceneId) ?? null;
+    if (scene !== null) return buildSceneResolutionFromEntity(scene, fallbackArenaKey);
+  }
+  return null;
+}
+
+function loadAdminSceneOverride(arenaKey: string): Partial<SceneSettings> {
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_OVERRIDE_KEY);
+    if (raw === null) return {};
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const perArenaEntry = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>)[arenaKey] : null;
+    return (typeof perArenaEntry === 'object' && perArenaEntry !== null ? perArenaEntry : {}) as Partial<SceneSettings>;
+  } catch {
+    return {};
+  }
+}
+
+function clearAdminOverrides(): void {
+  try {
+    window.localStorage.removeItem(LOCAL_STORAGE_OVERRIDE_KEY);
+    window.localStorage.removeItem(LOCAL_STORAGE_BASELINE_KEY);
+  } catch {}
+}
+
+/** Apply the resolved patch (and any admin localStorage override) onto the
+ *  manager. Admin overrides win key-by-key over the resolution patch, then the
+ *  remaining resolution keys are applied on top. No-op when GLB settings drive
+ *  the scene (the GLB defines its own look). */
+function applyResolutionSettings(
+  manager: SceneManager,
+  resolution: SceneResolution,
+  isAdmin: boolean,
+): void {
+  if (resolution.useGlbSettings) return;
+
+  const localKeys = new Set<string>();
+  if (isAdmin) {
+    const localOverride = loadAdminSceneOverride(resolution.arenaKey);
+    for (const key of Object.keys(localOverride)) localKeys.add(key);
+    if (localKeys.size > 0) manager.applySettings(localOverride);
+  }
+
+  const patchToApply: Partial<SceneSettings> = {};
+  for (const key of Object.keys(resolution.settingsPatch) as (keyof SceneSettings)[]) {
+    if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = resolution.settingsPatch[key];
+  }
+  if (Object.keys(patchToApply).length > 0) manager.applySettings(patchToApply);
+}
+
+/** Load the resolved arena GLB (or start straight over the default backdrop)
+ *  and begin the render loop. On load failure the loop still starts over the
+ *  backdrop so the stage renders and combat stays playable; `onReady` fires
+ *  only on a clean arena-load so callers don't depend on a possibly-bad mesh. */
+async function loadArenaWithFallback(
+  manager: SceneManager,
+  resolution: SceneResolution,
+  onReady: () => void,
+): Promise<void> {
+  try {
+    if (resolution.modelUrl === undefined) {
+      manager.startLoop();
+      manager.setHud(hudFromUrl());
+      return;
+    }
+
+    const loader = resolution.useGlbSettings
+      ? manager.loadArenaModelBare(resolution.modelUrl, resolution.arenaKey)
+      : manager.loadArenaModelWithAtmosphere(resolution.modelUrl, resolution.arenaKey);
+
+    await loader;
+    manager.startLoop();
+    manager.runEntrance();
+    manager.setHud(hudFromUrl());
+    onReady();
+  } catch (err: unknown) {
+    console.warn('arena.load.fail', resolution.modelUrl, err);
+    manager.startLoop();
+    manager.setHud(hudFromUrl());
+  }
+}
+
+/** Whether a weather override targets this battle. Null override never targets. */
+function targetedByWeatherOverride(
+  override: WeatherOverrideState | null,
+  battle: BattleView,
+): boolean {
+  if (override === null) return false;
+  return (
+    (override.sceneId === null && override.matchId === null) ||
+    (override.sceneId !== null && override.sceneId === (battle.sceneId ?? null)) ||
+    (override.matchId !== null && override.matchId === battle.id)
+  );
+}
+
+/** Read the hovered opponent sprite under a screen position, or null. */
+function spriteAtScreenPosition(
+  manager: SceneManager,
+  container: HTMLElement,
+  clientX: number,
+  clientY: number,
+): { readonly unitId: string; readonly side: SpriteSide; readonly downed: boolean } | null {
+  const rect = container.getBoundingClientRect();
+  const x = clientX - rect.left;
+  const y = clientY - rect.top;
+  return manager.getSpriteAtScreenPosition?.(x, y);
+}
+
+export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(function Combat3DScene({ battle, onReady, onEnemyClick, onEnemyHover, onFriendlyClick }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const sceneRef = useRef<SceneManager | null>(null);
+  const { sceneRef, getManager } = useSceneManager();
   const { user } = useAuth();
   const isAdmin = user?.isAdmin === true;
   const fallbackArenaKey = useMemo(() => pickArenaKey(battle), [battle]);
@@ -125,58 +343,29 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     let cancelled = false;
     async function resolve(): Promise<void> {
       const scenes = await getScenes(false).catch(() => [] as readonly SceneEntity[]);
-      if (sceneId !== null) {
-        const scene = scenes.find((s) => s.id === sceneId) ?? null;
-        if (scene !== null) {
-          const settings = scene.settings as Partial<SceneSettings>;
-          const modelFile = typeof settings.modelFile === 'string' && settings.modelFile !== '' ? settings.modelFile : null;
-          const modelUrl = modelFile !== null ? getArenaUrl(modelFile) : undefined;
-          const arenaKey = arenaKeyForScene(scene, fallbackArenaKey);
-          const useGlbSettings = scene.useGlbSettings === true;
-          if (cancelled) return;
-          setResolution({
-            source: 'scene-entity',
-            arenaKey,
-            modelUrl: modelUrl ?? ARENA_MODEL_BY_KEY[arenaKey] ?? DEFAULT_ARENA_MODEL,
-            useGlbSettings,
-            settingsPatch: useGlbSettings ? {} : extractPatch(scene.settings),
-            weather: scene.weather ?? null,
-            timeOfDay: scene.timeOfDay ?? null,
-          });
-          return;
-        }
+      const fromEntity = await resolveArenaScene(sceneId, fallbackArenaKey, scenes, {});
+      if (fromEntity !== null) {
+        if (cancelled) return;
+        setResolution(fromEntity);
+        return;
       }
       const all = await getSceneDefaults(false).catch((): PerArenaSceneDefaults => ({}));
       if (cancelled) return;
-      const arenaDefaults = all[fallbackArenaKey] ?? {};
-      const modelFile = typeof arenaDefaults.modelFile === 'string' && arenaDefaults.modelFile !== '' ? arenaDefaults.modelFile : null;
-      const modelUrl = (modelFile !== null ? getArenaUrl(modelFile) : ARENA_MODEL_BY_KEY[fallbackArenaKey]) ?? DEFAULT_ARENA_MODEL;
-      // Arena comes from unit elements, not from the scene entity: without this the ambience of
-      // a battle whose elements match no scene would silently vanish.
-      const ambienceScene = scenes.find((s) => s.elements.length > 0 && arenaKeyForScene(s, fallbackArenaKey) === fallbackArenaKey) ?? null;
-      setResolution({
-        source: 'arena-defaults',
-        arenaKey: fallbackArenaKey,
-        modelUrl,
-        useGlbSettings: false,
-        settingsPatch: extractPatch(arenaDefaults),
-        weather: ambienceScene?.weather ?? null,
-        timeOfDay: ambienceScene?.timeOfDay ?? null,
-      });
+      setResolution(buildSceneResolutionFromDefaults(fallbackArenaKey, all, scenes));
     }
     void resolve();
     return () => { cancelled = true; };
   }, [sceneId, fallbackArenaKey]);
 
   useEffect(() => {
-    const manager = sceneRef.current;
+    const manager = getManager();
     if (manager === null || resolution === null) return;
     let cancelled = false;
     manager.clearArenaModel();
     if (resolution.modelUrl !== undefined) {
       const url = resolution.modelUrl;
       const loader = resolution.useGlbSettings
-        ? manager.loadArenaModelBare(url)
+        ? manager.loadArenaModelBare(url, resolution.arenaKey)
         : manager.loadArenaModelWithAtmosphere(url, resolution.arenaKey);
       void loader
         .then(() => {
@@ -188,66 +377,45 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
           // so the first painted frame is the arena itself.
           manager.startLoop();
           manager.runEntrance();
+          manager.setHud(hudFromUrl());
         })
         .catch((err) => {
           console.warn('arena.load.fail', url, err);
           // Arena failed to load: still run the loop over the default backdrop
           // so the stage renders and combat stays playable.
-          if (!cancelled) manager.startLoop();
+          if (!cancelled) {
+            manager.startLoop();
+            manager.setHud(hudFromUrl());
+          }
         });
     } else {
       manager.startLoop();
+      manager.setHud(hudFromUrl());
     }
-    if (!resolution.useGlbSettings) {
-      const localKeys = new Set<string>();
-      try {
-        if (isAdmin) {
-          const raw = window.localStorage.getItem('digiworld.scene-settings-override');
-          if (raw !== null) {
-            const parsed = JSON.parse(raw) as Record<string, unknown>;
-            const perArenaEntry = parsed && typeof parsed === 'object' ? parsed[resolution.arenaKey] : null;
-            if (perArenaEntry !== null && typeof perArenaEntry === 'object') {
-              const localArenaOverride = perArenaEntry as Partial<SceneSettings>;
-              for (const k of Object.keys(localArenaOverride)) localKeys.add(k);
-              manager.applySettings(localArenaOverride);
-            }
-          }
-        }
-      } catch {}
-      const patchToApply: Partial<SceneSettings> = {};
-      for (const key of Object.keys(resolution.settingsPatch) as (keyof SceneSettings)[]) {
-        if (!localKeys.has(key)) (patchToApply as Record<string, unknown>)[key] = resolution.settingsPatch[key];
-      }
-      if (Object.keys(patchToApply).length > 0) manager.applySettings(patchToApply);
-    }
+    applyResolutionSettings(manager, resolution, isAdmin);
     return () => { cancelled = true; };
-  }, [resolution, isAdmin]);
+  }, [resolution, isAdmin, getManager]);
 
   useEffect(() => {
-    const manager = sceneRef.current;
+    const manager = getManager();
     if (manager === null || resolution === null) return;
     manager.setWeather(resolution.weather);
     manager.setTimeOfDay(resolution.timeOfDay);
-  }, [resolution]);
+  }, [resolution, getManager]);
 
   const weatherOverride = useWsStore((s) => s.weatherOverride);
   useEffect(() => {
-    const manager = sceneRef.current;
-    if (manager === null || resolution === null) return;
-    if (weatherOverride === null) return;
-    const targetsThisScene =
-      (weatherOverride.sceneId === null && weatherOverride.matchId === null) ||
-      (weatherOverride.sceneId !== null && weatherOverride.sceneId === (battle.sceneId ?? null)) ||
-      (weatherOverride.matchId !== null && weatherOverride.matchId === battle.id);
-    if (!targetsThisScene) return;
+    const manager = getManager();
+    if (manager === null || resolution === null || weatherOverride === null) return;
+    if (!targetedByWeatherOverride(weatherOverride, battle)) return;
     manager.setWeather(weatherOverride.weather);
     const revertAfter = Math.max(0, weatherOverride.startedAt + weatherOverride.durationMs - Date.now());
     const t = window.setTimeout(() => {
-      const m = sceneRef.current;
+      const m = getManager();
       if (m !== null) m.setWeather(resolution.weather);
     }, revertAfter);
     return () => window.clearTimeout(t);
-  }, [weatherOverride, resolution, battle.id, battle.sceneId]);
+  }, [weatherOverride, resolution, battle.id, battle.sceneId, getManager]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -269,10 +437,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     // that SceneManager builds in its constructor. On arena-load failure the
     // loop still starts over the backdrop so the stage isn't left blank.
     if (!isAdmin) {
-      try {
-        window.localStorage.removeItem('digiworld.scene-settings-override');
-        window.localStorage.removeItem('digiworld.scene-defaults-baseline');
-      } catch {}
+      clearAdminOverrides();
     }
 
     const resizeObserver = new ResizeObserver((entries) => {
@@ -293,7 +458,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   }, [onReady, isAdmin]);
 
   useEffect(() => {
-    const manager = sceneRef.current;
+    const manager = getManager();
     if (manager === null) return;
 
     const placements = toPlacements(battle);
@@ -304,37 +469,67 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     for (const placement of placements) {
       const existing = manager.getSprite(placement.unitId);
       if (existing === undefined) {
-        manager.addSprite({
+        const spriteInit: SpriteInit = {
           unitId: placement.unitId,
           side: placement.side,
           slotIndex: placement.slotIndex,
           textureUrl: placement.textureUrl,
+          isSpritesheet: true,
+          idleAnimated: false,
           initiallyDowned: placement.down,
-        });
+          onClick: undefined,
+        };
+        manager.addSprite(spriteInit);
       } else {
         existing.setDowned(placement.down);
       }
     }
-  }, [battle]);
+  }, [battle, getManager]);
+
+  // A targeted command can be confirmed directly on the 3D enemy sprite.
+  useEffect(() => {
+    const container = containerRef.current;
+    const manager = getManager();
+    if (container === null || manager === null || (onEnemyClick === undefined && onFriendlyClick === undefined)) return;
+    const handleClick = (event: MouseEvent): void => {
+      const sprite = spriteAtScreenPosition(manager, container, event.clientX, event.clientY);
+      if (sprite?.side === HOVER_SPRITE_SIDE && !sprite.downed) onEnemyClick?.(sprite.unitId as UnitId);
+      if (sprite?.side === 'you' && !sprite.downed) onFriendlyClick?.(sprite.unitId as UnitId);
+    };
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
+  }, [getManager, onEnemyClick, onFriendlyClick]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const manager = getManager();
+    if (container === null || manager === null || onEnemyHover === undefined) return;
+    const handleMove = (event: MouseEvent): void => {
+      const sprite = spriteAtScreenPosition(manager, container, event.clientX, event.clientY);
+      onEnemyHover(sprite?.side === HOVER_SPRITE_SIDE && !sprite.downed ? sprite.unitId as UnitId : null);
+    };
+    container.addEventListener('mousemove', handleMove);
+    return () => container.removeEventListener('mousemove', handleMove);
+  }, [getManager, onEnemyHover]);
 
   useImperativeHandle(ref, () => ({
     playEffect(element, sourceId, targetId, opts) {
-      const manager = sceneRef.current;
+      const manager = getManager();
       if (manager === null) return;
       manager.playEffect(element, sourceId, targetId, opts ?? {});
     },
     screenPositionOf(unitId) {
-      const manager = sceneRef.current;
+      const manager = getManager();
       if (manager === null) return null;
       const sprite = manager.getSprite(unitId);
       if (sprite === undefined) return null;
       return manager.projectWorldToScreen(sprite.worldPosition);
     },
     getSettings() {
-      return sceneRef.current?.getSettings() ?? null;
+      return getManager()?.getSettings() ?? null;
     },
     applySettings(patch) {
-      sceneRef.current?.applySettings(patch);
+      getManager()?.applySettings(patch);
     },
   }), []);
 

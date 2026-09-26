@@ -1,0 +1,88 @@
+/* =========================================================================
+   PREMIUM BONUS — gold indicators for premium (+50%) gains.
+   Brand gold comes from an explicit token so it survives any --gold alias
+   ambiguity (tokens.css maps --gold to red in some screens). All premium
+   gain indicators share these classes so the player immediately sees which
+   gains are boosted — and what they lose by not renewing.
+   ========================================================================= */
+
+.prem-gold {
+  color: #fbbf24; /* goldBright */
+}
+.prem-gold-bright {
+  color: #f59e0b;
+}
+/* Alias used by Farm building rate rows. */
+.premium-gold { color: #fbbf24; }
+
+/* Compact inline tag: "+50% PREMIUM" */
+.prem-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 800 9px/1 var(--font, sans-serif);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  border: 1px solid #f59e0b;
+  background: color-mix(in oklab, #f59e0b 12%, transparent);
+  padding: 3px 7px;
+  clip-path: var(--notch-xs, polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px));
+  white-space: nowrap;
+}
+.prem-tag .star { color: #fbbf24; }
+
+/* Inline amount that is premium-boosted (rendered around the gold amount). */
+.prem-amt {
+  color: #fbbf24;
+  font-weight: 800;
+}
+/* The "+X" extra from premium, shown separately so the player sees the bonus. */
+.prem-plus {
+  color: #fbbf24;
+  font-weight: 800;
+}
+.prem-plus::before { content: "+"; }
+
+/* Banner shown on pages when premium is active. */
+.prem-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px;
+  margin: 0 0 14px;
+  border: 1px solid #f59e0b;
+  background: color-mix(in oklab, #f59e0b 10%, transparent);
+  clip-path: var(--notch-sm, polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px));
+  font: 700 11px/1.3 var(--font, sans-serif);
+  color: var(--ink, #e8f0ff);
+}
+.prem-banner b { color: #fbbf24; font-weight: 800; }
+.prem-banner .ico { color: #fbbf24; flex: none; }
+
+/* Shop premium card highlight. */
+.shop-page .premium-card {
+  border-color: #f59e0b;
+}
+.shop-page .card.premium-card .tagpill {
+  color: #fbbf24;
+  border: 1px solid #f59e0b;
+  padding: 2px 6px;
+  clip-path: var(--notch-xs, polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px));
+}
+.shop-page .buy.premium-buy {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a1205;
+}
+.shop-page .buy.premium-buy:hover:not(:disabled) {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+/* Farm: gold rate/hr indicator */
+.farm-rate-prem {
+  color: #fbbf24;
+}
+.farm-rate-prem .prem-plus { color: #fbbf24; }
+
+/* Adventure report */
+.rep-prem-total { color: #fbbf24; }

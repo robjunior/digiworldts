@@ -15,9 +15,9 @@ const SQL_SELECT_ALL = `SELECT * FROM shop_items ORDER BY kind, name`;
 const SQL_SELECT_ALL_BY_TYPE = `SELECT * FROM shop_items WHERE item_type = ? ORDER BY kind, name`;
 const SQL_SELECT_BY_ID = `SELECT * FROM shop_items WHERE id = ?`;
 const SQL_SELECT_BY_NAME = `SELECT * FROM shop_items WHERE name = ?`;
-const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, item_type, kit_class, kit_max_qty, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ?, rarity = ?, item_type = ?, kit_class = ?, kit_max_qty = ? WHERE id = ?`;
+const SQL_INSERT = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, is_quest_item, rarity, item_type, kit_class, kit_max_qty, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const SQL_UPDATE = `UPDATE shop_items SET name = ?, description = ?, price_credits = ?, price = ?, currency = ?, shop_category = ?, featured = ?, quick_offer = ?, one_time = ?, sort_order = ?, kind = ?, class = ?, payload = ?, enabled = ?, is_quest_item = ?, rarity = ?, item_type = ?, kit_class = ?, kit_max_qty = ?, status = ? WHERE id = ?`;
 const SQL_SOFT_DELETE = `UPDATE shop_items SET enabled = 0 WHERE id = ?`;
 
 const VALID_KINDS = ['consumable', 'cosmetic', 'evolve', 'building_placement', 'ticket', 'revive'] as const;
@@ -217,10 +217,15 @@ function validateInput(input: ShopItemInput): ShopItemError | null {
   if (!name || name.length < 2 || name.length > 64) return 'invalid-name';
   const desc = input.description?.trim();
   if (desc != null && desc.length > 400) return 'invalid-description';
-  if (typeof input.price !== 'number' || input.price < 0 || !Number.isFinite(input.price)) {
+  // Accept either `price` (preferred) or `priceCredits` (legacy frontend field)
+  const priceValue = input.price ?? input.priceCredits;
+  if (typeof priceValue !== 'number' || priceValue < 0 || !Number.isFinite(priceValue)) {
     return 'invalid-price';
   }
-  if (input.currency !== 'credits' && input.currency !== 'netcore') {
+  // `currency`/`shopCategory` are optional from the admin form (frontend
+  // ShopItemInput omits them); default them downstream instead of 400-ing.
+  if (input.currency !== undefined && input.currency !== null && input.currency !== '' &&
+      input.currency !== 'credits' && input.currency !== 'netcore') {
     return 'invalid-currency';
   }
   if (!VALID_KINDS.includes(input.kind)) return 'invalid-kind';
@@ -253,19 +258,22 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
   const now = Date.now();
   const id = newId('itm');
   
-  const price = Math.max(0, Math.floor(input.price));
+  const priceValue = input.price ?? input.priceCredits;
+  const price = Math.max(0, Math.floor(priceValue));
   const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : 0;
   const itemType: ItemType = input.itemType ?? 'consumable';
   const kitClass: KitClass | null = input.kitClass ?? null;
   const kitMaxQty: number | null = input.kitMaxQty ?? null;
+  const currency = (input.currency === 'credits' || input.currency === 'netcore') ? input.currency : 'credits';
+  const shopCategory = input.shopCategory ?? 'misc';
   const row: ExtendedShopItemRow = {
     id,
     name: input.name.trim(),
     description: input.description?.trim() ?? '',
     price_credits: price,
     price,
-    currency: input.currency,
-    shop_category: input.shopCategory,
+    currency,
+    shop_category: shopCategory,
     featured: input.featured ? 1 : 0,
     quick_offer: input.quickOffer ? 1 : 0,
     one_time: input.oneTime ? 1 : 0,
@@ -279,12 +287,13 @@ export async function createShopItem(input: ShopItemInput): Promise<ShopItemOutc
     item_type: itemType,
     kit_class: kitClass,
     kit_max_qty: kitMaxQty,
+    status: input.status ?? 'draft',
     created_at: now,
   };
   await run(SQL_INSERT, [
     row.id, row.name, row.description, row.price_credits, row.price, row.currency, row.shop_category,
     row.featured, row.quick_offer, row.one_time, row.sort_order, row.kind, row.class, row.payload,
-    row.enabled, row.is_quest_item, row.rarity, itemType, kitClass, kitMaxQty, row.created_at,
+    row.enabled, row.is_quest_item, row.rarity, itemType, kitClass, kitMaxQty, row.status, row.created_at,
   ]);
   log.info('shop.item.create', { id: row.id, name: row.name, kind: row.kind, class: row.class, isQuestItem: row.is_quest_item === 1, rarity: row.rarity, itemType, kitClass, kitMaxQty });
   return { ok: true, item: rowToView(row) };
@@ -298,7 +307,8 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
   const nameCollide = await one<ExtendedShopItemRow>(SQL_SELECT_BY_NAME, input.name.trim());
   if (nameCollide && nameCollide.id !== id) return { ok: false, error: 'duplicate-name' };
   
-  const price = Math.max(0, Math.floor(input.price));
+  const priceValue = input.price ?? input.priceCredits;
+  const price = Math.max(0, Math.floor(priceValue));
   const rarityRank = input.rarity !== undefined ? RARITY_RANK[input.rarity] : existing.rarity;
   const existingItemType = (existing.item_type ?? 'consumable') as ItemType;
   const existingKitClassRaw = existing.kit_class ?? null;
@@ -309,6 +319,7 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
   const itemType: ItemType = input.itemType !== undefined ? input.itemType : existingItemType;
   const kitClass: KitClass | null = input.kitClass !== undefined ? input.kitClass : existingKitClass;
   const kitMaxQty: number | null = input.kitMaxQty !== undefined ? input.kitMaxQty : (existing.kit_max_qty ?? null);
+  const status: 'draft' | 'published' = input.status ?? (existing.status === 'published' ? 'published' : 'draft');
   const merged: ExtendedShopItemRow = {
     ...existing,
     name: input.name.trim(),
@@ -330,12 +341,13 @@ export async function updateShopItem(id: string, input: ShopItemInput): Promise<
     item_type: itemType,
     kit_class: kitClass,
     kit_max_qty: kitMaxQty,
+    status,
   };
   await run(SQL_UPDATE, [
     merged.name, merged.description, merged.price_credits, merged.price, merged.currency,
     merged.shop_category, merged.featured, merged.quick_offer, merged.one_time, merged.sort_order,
     merged.kind, merged.class, merged.payload, merged.enabled, merged.is_quest_item, merged.rarity,
-    itemType, kitClass, kitMaxQty, id,
+    itemType, kitClass, kitMaxQty, merged.status, id,
   ]);
   log.info('shop.item.update', { id, name: merged.name, class: merged.class, isQuestItem: merged.is_quest_item === 1, rarity: merged.rarity, itemType, kitClass, kitMaxQty });
   return { ok: true, item: rowToView(merged) };

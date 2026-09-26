@@ -2,11 +2,7 @@ import type { CSSProperties } from 'react';
 
 import type { InventoryItemView, ShopItemKind, ShopItemView } from '../../lib/api-shop';
 
-export type ShopFilter = 'all' | 'consumable' | 'evolve' | 'building_placement' | 'cosmetic';
-
-export type KindStyle = CSSProperties & {
-  readonly '--kind-color': string;
-};
+export type ShopFilter = 'all' | 'consumable' | 'evolve' | 'building_placement' | 'cosmetic' | 'battle_item';
 
 export const SHOP_FILTERS: readonly { readonly label: string; readonly value: ShopFilter }[] = [
   { label: 'All', value: 'all' },
@@ -14,6 +10,7 @@ export const SHOP_FILTERS: readonly { readonly label: string; readonly value: Sh
   { label: 'Chips', value: 'evolve' },
   { label: 'Buildings', value: 'building_placement' },
   { label: 'Cosmetics', value: 'cosmetic' },
+  { label: 'Battle Items', value: 'battle_item' },
 ] as const;
 
 export function kindLabel(kind: ShopItemKind): string {
@@ -30,6 +27,8 @@ export function kindLabel(kind: ShopItemKind): string {
       return 'Booster';
     case 'revive':
       return 'Revive';
+    case 'battle_item':
+      return 'Battle Item';
     default:
       return kind;
   }
@@ -49,6 +48,8 @@ export function kindStyle(kind: ShopItemKind): KindStyle {
       return { '--kind-color': 'var(--el-fire)' };
     case 'revive':
       return { '--kind-color': 'var(--battle)' };
+    case 'battle_item':
+      return { '--kind-color': 'var(--pvp)' };
     default:
       return { '--kind-color': 'var(--muted)' };
   }
@@ -61,3 +62,7 @@ export function isQuantityItem(kind: ShopItemKind): boolean {
 export function itemOwnedQty(item: ShopItemView, inventory: readonly InventoryItemView[]): number {
   return inventory.find((entry) => entry.itemId === item.id)?.qty ?? 0;
 }
+
+export type KindStyle = CSSProperties & {
+  readonly '--kind-color': string;
+};

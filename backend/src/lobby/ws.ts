@@ -52,9 +52,13 @@ import {
   refreshDungeonPresence,
   removeDungeonPresence,
   setDungeonPresence,
+  announceDungeonMove,
 } from '../dungeons/presence.js';
 import type { Action } from './../battle/types.js';
 import { getCluster, type Unsubscribe } from '../cluster/index.js';
+import { moveRun } from '../dungeons/repo.js';
+import { hasActivePveBattle } from '../world/pve-battle.js';
+import type { DungeonMoveResponse } from '@digiworld/shared/world';
 
 const PRESENCE_INTERVAL_MS = 3_000;
 const PRESENCE_TTL_SEC = 30;
@@ -82,11 +86,16 @@ const ChatSchema = z.object({
   text: z.string().trim().min(1).max(300),
   room: z.string().min(3).max(64).optional(),
   dungeonId: z.string().min(1).max(64).optional(),
+  toUserId: z.string().min(3).max(64).optional(),
+});
+const DmOpenedSchema = z.object({
+  type: z.literal('dm:opened'),
+  toUserId: z.string().min(3).max(64),
 });
 const PvpInviteSchema = z.object({
   type: z.literal('pvp:invite'),
   targetUserId: z.string().min(3).max(64),
-  dungeonId: z.string().min(1).max(64),
+  dungeonId: z.string().min(1).max(64).optional(),
 });
 const PvpResponseSchema = z.object({
   type: z.literal('pvp:response'),
@@ -153,8 +162,17 @@ const DungeonJoinSchema = z.object({
   trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
 });
 const DungeonLeaveSchema = z.object({ type: z.literal('dungeon:leave') });
+const DungeonMoveSchema = z.object({
+  type: z.literal('dungeon:move'),
+  correlationId: z.string().min(1).max(64),
+  dungeonId: z.string().min(1).max(64),
+  x: z.number().int().min(0).max(9999),
+  y: z.number().int().min(0).max(9999),
+  party: z.array(z.string().min(1).max(64)).max(3).optional(),
+  trail: z.array(z.object({ x: z.number().int().min(-1).max(200), y: z.number().int().min(-1).max(200) })).max(3).optional(),
+});
 
-const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema]);
+const MessageSchema = z.union([HelloSchema, PingSchema, ChatSchema, DmOpenedSchema, PvpInviteSchema, PvpResponseSchema, QueueSchema, ActSchema, SpectateSchema, DungeonJoinSchema, DungeonLeaveSchema, DungeonMoveSchema]);
 type IncomingMessage = z.infer<typeof MessageSchema>;
 
 // ============================================================================
@@ -367,57 +385,57 @@ const handleHello: Handler = async (entry) => {
 
 const handlePing: Handler = async (entry) => {
   safeSend(entry.socket, { type: 'pong' });
-  if (entry.dungeonScope !== null) {
-    await refreshDungeonPresence(entry.dungeonScope, entry.userId);
-  }
+};
+
+// When a user opens a DM tab with a friend, tell the friend so their client
+// auto-opens the same DM chat. Mirrors direct-message routing: deliver to the
+// target only, refusing draws from users the target has blocked.
+const handleDmOpened: Handler = async (entry, msg) => {
+  if (msg.type !== 'dm:opened') return;
+  if (msg.toUserId === entry.userId) return;
+  const blockedByTarget = await listBlockedUserIds(msg.toUserId);
+  if (blockedByTarget.includes(entry.userId)) return;
+  await deliverToUser(msg.toUserId, {
+    type: 'dm:opened',
+    fromUserId: entry.userId,
+    fromName: entry.displayName,
+  });
 };
 
 async function leaveDungeon(entry: PresenceEntry): Promise<void> {
-  const scope = entry.dungeonScope;
-  if (scope === null) return;
   entry.dungeonScope = null;
   entry.blockedIds = new Set();
-  await removeDungeonPresence(scope, entry.userId);
-  await publishDungeonPayload(scope, { type: 'dungeon:player-left', userId: entry.userId });
 }
 
 const handleDungeonJoin: Handler = async (entry, msg) => {
   if (msg.type !== 'dungeon:join') return;
   await leaveDungeon(entry);
-  const scope = await dungeonPresenceScope(msg.dungeonId);
-  if (scope === null) {
-    safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'unknown dungeon' });
-    return;
-  }
-  entry.dungeonScope = scope;
+  entry.dungeonScope = msg.dungeonId;
   entry.blockedIds = new Set(await listBlockedUserIds(entry.userId));
-  const me = {
-    userId: entry.userId,
-    displayName: entry.displayName,
-    x: msg.x,
-    y: msg.y,
-    gridX: msg.gridX,
-    gridY: msg.gridY,
-    dungeonId: msg.dungeonId,
-    leaderCatalogId: msg.leaderCatalogId,
-    party: msg.party,
-    trail: msg.trail ?? [],
-  };
-  await setDungeonPresence(scope, me);
-  const snapshot = (await dungeonPresenceSnapshot(scope)).filter(
-    (player) => player.userId !== entry.userId && !entry.blockedIds.has(player.userId),
-  );
-  safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: snapshot });
-  await publishDungeonPayload(scope, {
-    type: 'dungeon:player-update',
-    dungeonId: msg.dungeonId,
-    player: me,
-    blockedBy: [...entry.blockedIds],
-  });
+  safeSend(entry.socket, { type: 'dungeon:players', dungeonId: msg.dungeonId, players: [] });
 };
 
 const handleDungeonLeave: Handler = async (entry) => {
   await leaveDungeon(entry);
+};
+
+const handleDungeonMove: Handler = async (entry, msg) => {
+  if (msg.type !== 'dungeon:move') return;
+  if (entry.dungeonScope === null) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'bad-message', message: 'Not in a dungeon.' });
+    return;
+  }
+  const moved = await moveRun(entry.userId, msg.dungeonId, msg.x, msg.y);
+  if (!moved.ok) {
+    safeSend(entry.socket, { type: 'dungeon:move-error', correlationId: msg.correlationId, code: 'unknown', message: 'Move failed.' });
+    return;
+  }
+  const result: DungeonMoveResponse = {
+    run: moved.run,
+    triggeredEncounterId: null,
+    pickedUpItemId: null,
+  };
+  safeSend(entry.socket, { type: 'dungeon:move-result', correlationId: msg.correlationId, result });
 };
 
 const handleChat: Handler = async (entry, msg) => {
@@ -440,6 +458,20 @@ const handleChat: Handler = async (entry, msg) => {
   };
   if (msg.room !== undefined && msg.dungeonId !== undefined) {
     safeSend(entry.socket, { type: 'error', code: 'bad-message', message: 'room and dungeonId are mutually exclusive' });
+    return;
+  }
+  // Direct message: deliver only to sender + recipient (DM chat tab).
+  if (msg.toUserId !== undefined && msg.toUserId !== entry.userId) {
+    const blockedByTarget = await listBlockedUserIds(msg.toUserId);
+    if (blockedByTarget.includes(entry.userId)) {
+      safeSend(entry.socket, { type: 'error', code: 'blocked', message: 'that user has blocked you' });
+      return;
+    }
+    const dmPayload = JSON.stringify({ ...basePayload, toUserId: msg.toUserId });
+    await Promise.all([
+      cluster.publish(`${WSDELIVER_PREFIX}${entry.userId}`, dmPayload),
+      cluster.publish(`${WSDELIVER_PREFIX}${msg.toUserId}`, dmPayload),
+    ]);
     return;
   }
   if (msg.room !== undefined) {
@@ -621,11 +653,13 @@ const dispatcher: Record<IncomingMessage['type'], Handler> = {
   hello: handleHello,
   ping: handlePing,
   chat: handleChat,
+  'dm:opened': handleDmOpened,
   queue: handleQueue,
   act: handleAct,
   spectate: handleSpectate,
   'dungeon:join': handleDungeonJoin,
   'dungeon:leave': handleDungeonLeave,
+  'dungeon:move': handleDungeonMove,
   'pvp:invite': handlePvpInvite,
   'pvp:response': handlePvpResponse,
 };

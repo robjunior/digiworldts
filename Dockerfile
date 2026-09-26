@@ -22,6 +22,7 @@ WORKDIR /app
 COPY package.json pnpm-workspace.yaml tsconfig.base.json ./
 COPY pnpm-lock.yaml* ./
 COPY backend/package.json ./backend/
+COPY scripts/ ./scripts/
 RUN pnpm install --prod=false --prefer-offline || pnpm install
 
 # Copy the backend workspace (paths kept aligned with backend/tsconfig.json).

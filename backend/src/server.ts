@@ -34,14 +34,13 @@ import { authPlugin } from './auth/routes.js';
 import { oauthPlugin } from './auth/oauth/routes.js';
 import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
-import { seedSkillsCatalogFromXml } from './skills/seed.js';
 import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
+import { boosterPlugin } from './boosters/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
 import { friendsPlugin, setFriendNotifier, setOnlineChecker } from './social/friends.js';
 import { seedShopItems, shopPlugin } from './social/shop.js';
-import { seedDefaultRarityTables } from './dungeons/rarity-tables.js';
 import { dailyPlugin } from './social/daily.js';
 import { trainingPlugin } from './training/routes.js';
 import { lobbyPlugin, stopLobbyLoops, getLobbyConnectionSnapshot, deliverToUser } from './lobby/ws.js';
@@ -53,10 +52,9 @@ import { scenesPlugin } from './scenes/routes.js';
 import { particlePresetsPlugin } from './particle-presets/routes.js';
 import { skillVfxPresetsPlugin } from './skill-vfx/routes.js';
 import { seedDefaultGameSettings } from './settings/engine.js';
-import { seedDefaultQuests, seedDefaultWorldObjects } from './quests/seed.js';
-import { worldPlugin } from './world/routes.js';
+import { seedDefaultQuests } from './quests/seed.js';
 import { questsPlugin } from './quests/routes.js';
-import { dungeonsPlugin } from './dungeons/routes.js';
+import { pvpQuestsPlugin } from './pvp-quests/routes.js';
 import { dialoguesPlugin } from './dialogues/routes.js';
 import { tilesetsPlugin } from './tilesets/routes.js';
 import { nurseryPlugin } from './nursery/routes.js';
@@ -123,15 +121,12 @@ async function main(): Promise<void> {
 
   await seedShopItems();
   await seedFarmRecipes();
-  await seedDefaultRarityTables();
   await backfillStarterFactoriesForExistingUsers();
   await seedInitialBlueprints();
   await seedDefaultOnboarding();
   await seedDefaultGameSettings();
-  await seedDefaultWorldObjects();
   await seedDefaultQuests();
   await seedInitialNpcs();
-  await seedSkillsCatalogFromXml();
   if (config.SKILLS_V2_ENABLED) {
     const v2Result = await seedSkillsCatalogV2();
     log.info('skills.v2.boot.seed', {
@@ -195,7 +190,7 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyMultipart, {
-    limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 4 },
+    limits: { fileSize: 128 * 1024 * 1024, files: 2, fields: 0 },
     preservePath: true,
   });
 
@@ -206,9 +201,32 @@ async function main(): Promise<void> {
   });
 
   await app.register(fastifyStatic, {
+    root: resolve(config.paths.assetsDir, '..', 'sprites'),
+    prefix: '/assets/sprites/',
+    decorateReply: false,
+  });
+
+  // Static (frame-0) sprite cells cut from the same generated sheets — used by
+  // still/2D surfaces (roster, lobby, cards) so every digimon display reads
+  // from the sheet rather than the legacy dot.gif. Missing cells 404 (below).
+  await app.register(fastifyStatic, {
+    root: resolve(config.paths.assetsDir, '..', 'sprites-static'),
+    prefix: '/assets/sprites-static/',
+    decorateReply: false,
+  });
+
+  await app.register(fastifyStatic, {
     root: config.paths.npcPortraitsDir,
     prefix: '/assets/npc/',
     decorateReply: false,
+  });
+
+  await app.register(fastifyStatic, {
+    root: resolve(config.paths.dataDir, 'scenes', 'assets'),
+    prefix: '/assets/scenes/',
+    decorateReply: false,
+    immutable: true,
+    maxAge: '1y',
   });
 
   if (existsSync(config.paths.frontendDistDir)) {
@@ -228,6 +246,7 @@ async function main(): Promise<void> {
   await app.register(authPlugin);
   await app.register(oauthPlugin);
   await app.register(rosterPlugin);
+  await app.register(boosterPlugin);
   await app.register(farmPlugin);
   await app.register(adminPlugin);
   await app.register(friendsPlugin);
@@ -241,10 +260,9 @@ async function main(): Promise<void> {
   await app.register(particlePresetsPlugin);
   await app.register(skillVfxPresetsPlugin);
   await app.register(questsPlugin);
-  await app.register(dungeonsPlugin);
+  await app.register(pvpQuestsPlugin);
   await app.register(dialoguesPlugin);
   await app.register(tilesetsPlugin);
-  await app.register(worldPlugin);
   await app.register(nurseryPlugin);
   await app.register(marketPlugin);
   await app.register(coinMarketPlugin);
@@ -252,13 +270,7 @@ async function main(): Promise<void> {
   await app.register(adventurePlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
-  await app.register(seasonsPlugin);
-  await app.register(playerPlugin);
-  await app.register(linkPlugin);
-  await app.register(npcsPlugin);
-  await app.register(servicePlugin);
   await app.register(lobbyPlugin);
-
   app.get('/api/health', async (_req, reply) => reply.send({ ok: true, at: Date.now() }));
 
   setOnlineChecker(isUserOnlineFromLobby);
@@ -266,7 +278,7 @@ async function main(): Promise<void> {
 
   app.setNotFoundHandler((req, reply) => {
     const url = req.url;
-    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon');
+    const isApi = url.startsWith('/api') || url.startsWith('/ws') || url.startsWith('/assets/digimon') || url.startsWith('/assets/sprites') || url.startsWith('/assets/scenes') || url.startsWith('/assets/npc');
     if (req.method === 'GET' && !isApi && existsSync(config.paths.frontendDistDir)) {
       return reply.sendFile('index.html');
     }

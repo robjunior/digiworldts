@@ -87,12 +87,17 @@ function hydrate(row: NpcRow): Npc {
   };
 }
 
-export async function listNpcs(): Promise<readonly Npc[]> {
+export async function listNpcs(
+  drafts?: boolean
+): Promise<readonly Npc[]> {
   const rows = await q<NpcRow>(SQL_SELECT_ALL);
   return rows.map(hydrate);
 }
 
-export async function getNpc(id: string): Promise<Npc | null> {
+export async function getNpc(
+  id: string,
+  drafts?: boolean
+): Promise<Npc | null> {
   const row = await one<NpcRow>(SQL_SELECT_ONE, id);
   return row === null ? null : hydrate(row);
 }

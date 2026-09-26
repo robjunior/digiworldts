@@ -1,4 +1,5 @@
 import type { PendingHatchEntry, SpeciesDataEntry } from '../../lib/api-nursery';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 type DigitamaPoolProps = {
   readonly entries: readonly SpeciesDataEntry[];
@@ -35,7 +36,7 @@ function DigitamaRow({ entry, busy, onHatch }: { readonly entry: SpeciesDataEntr
   return (
     <div className="drow" data-tier={tier} data-cat={entry.catalogId}>
       <span className="dspr">
-        <img src={`/assets/digimon/${entry.catalogId}/dot.gif`} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} />
+        <DigimonSprite catalogId={entry.catalogId} />
       </span>
       <div className="dmid">
         <div className="dn">{entry.name} <span className="tier">{tier}</span></div>

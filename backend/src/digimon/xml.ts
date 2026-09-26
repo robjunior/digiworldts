@@ -323,7 +323,9 @@ const MAX_CATALOG_BYTES = 10 * 1024 * 1024;
  * exist yet (fresh install) rather than throwing — the admin seeds it later.
  * Any parse or Zod error is thrown with a readable prefix.
  */
-export function loadCatalog(): Catalog {
+export function loadCatalog(
+  options?: { publishedOnly?: boolean }
+): Catalog {
   const path = config.paths.catalogXml;
   if (!existsSync(path)) {
     log.info('catalog.load.missing', { path });

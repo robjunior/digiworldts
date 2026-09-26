@@ -55,7 +55,7 @@ export type DayReward = {
   readonly meat?: number;
   readonly bits?: number;
   readonly data?: number;
-  readonly credits?: number;
+  readonly netcore?: number;
 };
 
 export type DailyResponse = {
@@ -202,70 +202,12 @@ export function chatOpenDm(username: string): Promise<{
   return apiFetch('/api/chat/dm/open', { method: 'POST', body: { username } });
 }
 
-type WorldBattleResponse = {
-  readonly battle: BattleView;
-};
-
-type WorldMoveResponse = {
-  readonly battle?: BattleView | null;
-  readonly battleStartError?: string | null;
-};
-
-export { actInWorldBattle } from './api-world';
-
-export async function getBattleView(): Promise<BattleView> {
-  const response = await apiFetch<WorldBattleResponse>('/api/world/battle');
-  return response.battle;
-}
-
-export async function startWildEncounter(): Promise<BattleView> {
-  const directions = ['up', 'right', 'down', 'left'] as const;
-  for (const dir of directions) {
-    const response = await apiFetch<WorldMoveResponse>('/api/world/move', { method: 'POST', body: { dir } });
-    if (response.battle) {
-      return response.battle;
-    }
-  }
-  return getBattleView();
-}
-
 export function getRoster(): Promise<RosterResponse> {
   return apiFetch<RosterResponse>('/api/roster');
 }
 
 export function getDaily(): Promise<DailyResponse> {
   return apiFetch<DailyResponse>('/api/daily');
-}
-
-// PHASE 6 CANDIDATE: promote friends HTTP response types to shared.
-export type FriendView = {
-  readonly userId: string;
-  readonly displayName: string;
-  readonly online: boolean;
-  readonly since: number;
-};
-
-export type FriendRequestView = {
-  readonly userId: string;
-  readonly displayName: string;
-  readonly at: number;
-};
-
-export type FriendsResponse = {
-  readonly friends: readonly FriendView[];
-  readonly incoming: readonly FriendRequestView[];
-  readonly outgoing: readonly FriendRequestView[];
-};
-
-export function getFriends(): Promise<FriendsResponse> {
-  return apiFetch<FriendsResponse>('/api/friends');
-}
-
-export function requestFriend(username: string): Promise<{ readonly status: string }> {
-  return apiFetch<{ readonly status: string }>('/api/friends/request', {
-    method: 'POST',
-    body: { username },
-  });
 }
 
 export function claimDaily(): Promise<DailyClaimResponse> {
@@ -350,4 +292,64 @@ function toApiError(status: number, payload: unknown): ApiError {
 
 function isErrorPayload(payload: unknown): payload is ErrorPayload {
   return typeof payload === 'object' && payload !== null && 'error' in payload;
+}
+
+// ── Friends ─────────────────────────────────────────────────────────
+export type FriendView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly online: boolean;
+  readonly since: number;
+};
+
+export type FriendRequestView = {
+  readonly userId: string;
+  readonly displayName: string;
+  readonly at: number;
+};
+
+export type FriendsResponse = {
+  readonly friends: readonly FriendView[];
+  readonly incoming: readonly FriendRequestView[];
+  readonly outgoing: readonly FriendRequestView[];
+};
+
+export async function getFriends(): Promise<FriendsResponse> {
+  return apiFetch<FriendsResponse>('/api/friends');
+}
+
+export async function requestFriend(username: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/request', { method: 'POST', body: JSON.stringify({ username }) });
+}
+
+/** Request by user id — used where only a presence/friend row id is available. */
+export async function requestFriendById(userId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/request', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
+export async function acceptFriend(userId: string): Promise<{ status: string }> {
+  return apiFetch<{ status: string }>('/api/friends/accept', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
+export async function removeFriend(userId: string): Promise<{ ok: boolean }> {
+  return apiFetch<{ ok: boolean }>('/api/friends/remove', { method: 'POST', body: JSON.stringify({ userId }) });
+}
+
+// ── Live matches ────────────────────────────────────────────────────
+export type LiveMatchSummary = {
+  readonly matchId: string;
+  readonly playerA: { readonly userId: string; readonly displayName: string };
+  readonly playerB: { readonly userId: string; readonly displayName: string };
+  readonly spectactorCount: number;
+};
+
+export async function getLiveMatches(): Promise<readonly LiveMatchSummary[]> {
+  try {
+    return await apiFetch<readonly LiveMatchSummary[]>('/api/battle/live');
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
 }

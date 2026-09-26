@@ -8,13 +8,13 @@
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@digiworld/scene3d": "workspace:*",
     "@digiworld/shared": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
-    "phaser": "^3.90.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router": "^7.1.1",
@@ -27,9 +27,11 @@
     "@types/react-dom": "^18.3.5",
     "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "happy-dom": "^15.0.0",
     "playwright": "^1.62.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^2.1.0"
   },
   "engines": {
     "node": ">=22"

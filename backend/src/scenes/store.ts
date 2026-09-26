@@ -8,6 +8,7 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
 import { config } from '../config.js';
 import { log } from '../util/log.js';
+import { sanitizeLobbySettings } from './lobby-schema.js';
 import { newId } from '../util/ids.js';
 
 const SCENES_PATH = resolve(config.paths.dataDir, 'scenes', 'scenes.json');
@@ -24,6 +25,40 @@ type SceneFileRecord = SceneEntity & {
 };
 
 let cache: readonly SceneEntity[] | null = null;
+let mutationTail: Promise<void> = Promise.resolve();
+
+async function serializeMutation<T>(work: () => Promise<T>): Promise<T> {
+  const previous = mutationTail;
+  let release!: () => void;
+  mutationTail = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await work();
+  } finally {
+    release();
+  }
+}
+
+/** A lobby is a role, not a second scene collection: only one entity may own it. */
+export class LobbySceneAlreadyAssignedError extends Error {
+  readonly code = 'lobby-already-assigned';
+
+  constructor(readonly existingSceneId: string) {
+    super('A lobby scene is already assigned');
+    this.name = 'LobbySceneAlreadyAssignedError';
+  }
+}
+
+function isLobbyScene(scene: SceneEntity): boolean {
+  return scene.kind === 'lobby'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === 'lobby');
+}
+
+function assertLobbyAvailable(scenes: readonly SceneEntity[], kind: SceneEntity['kind'], exceptId?: string): void {
+  if (kind !== 'lobby') return;
+  const existing = scenes.find((scene) => scene.id !== exceptId && isLobbyScene(scene));
+  if (existing !== undefined) throw new LobbySceneAlreadyAssignedError(existing.id);
+}
 
 function isElement(value: unknown): value is Element {
   return typeof value === 'string' && (ELEMENTS as readonly string[]).includes(value);
@@ -44,7 +79,21 @@ function coerceScene(raw: unknown): SceneEntity | null {
   const settings: Record<string, unknown> = typeof settingsRaw === 'object' && settingsRaw !== null && !Array.isArray(settingsRaw)
     ? { ...(settingsRaw as Record<string, unknown>) }
     : {};
+  // Sanitize the lobby subset on read: scenes saved before the schema shrank
+  // carry leftover keys (floorColor, particles…) that .strict() would reject on
+  // the next write. Salvage = only known keys survive; empty stays undefined.
+  const lobby = sanitizeLobbySettings(settings['lobby']);
+  if (lobby !== undefined) settings['lobby'] = lobby;
+  else delete settings['lobby'];
   const useGlb = rec['useGlbSettings'] === true;
+  // kind legado: cena nomeada "Lobby" sem kind explícito conta como lobby na
+  // leitura (o frontend resolve kind:'lobby' primeiro, depois o nome).
+  const kind: 'arena' | 'lobby' | undefined =
+    rec['kind'] === 'lobby' || rec['kind'] === 'arena'
+      ? rec['kind']
+      : typeof rec['name'] === 'string' && rec['name'].trim().toLowerCase() === 'lobby'
+        ? 'lobby'
+        : undefined;
   const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
   const timeOfDay = coerceNullableObject<TimeOfDayConfig>(rec['timeOfDay']);
   const created = typeof rec['createdAt'] === 'number' ? rec['createdAt'] : Date.now();
@@ -54,6 +103,7 @@ function coerceScene(raw: unknown): SceneEntity | null {
     name: rec['name'],
     elements,
     settings,
+    ...(kind !== undefined ? { kind } : {}),
     useGlbSettings: useGlb,
     weather,
     timeOfDay,
@@ -155,19 +205,23 @@ export type SceneWriteInput = {
   readonly name: string;
   readonly elements: readonly Element[];
   readonly settings: Readonly<Record<string, unknown>>;
+  readonly kind?: 'arena' | 'lobby';
   readonly useGlbSettings?: boolean;
   readonly weather?: WeatherConfig | null;
   readonly timeOfDay?: TimeOfDayConfig | null;
 };
 
 export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEntity> {
-  const all = await readEnvelope();
-  const now = Date.now();
+  return serializeMutation(async () => {
+    const all = await readEnvelope();
+    assertLobbyAvailable(all, input.kind);
+    const now = Date.now();
   const scene: SceneEntity = {
     id: newId('scn'),
     name: input.name.trim(),
     elements: [...input.elements],
     settings: { ...input.settings },
+    ...(input.kind !== undefined ? { kind: input.kind } : {}),
     useGlbSettings: input.useGlbSettings === true,
     weather: input.weather ?? null,
     timeOfDay: input.timeOfDay ?? null,
@@ -175,19 +229,26 @@ export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEnt
     updatedAt: now,
   };
   await writeEnvelope([...all, scene]);
-  return scene;
+    return scene;
+  });
 }
 
 export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInput>): Promise<SceneEntity | null> {
-  const all = await readEnvelope();
+  return serializeMutation(async () => {
+    const all = await readEnvelope();
   const idx = all.findIndex((s) => s.id === id);
   if (idx === -1) return null;
   const existing = all[idx]!;
+  const nextKind = patch.kind ?? existing.kind;
+  assertLobbyAvailable(all, nextKind, existing.id);
   const next: SceneEntity = {
     id: existing.id,
     name: patch.name !== undefined ? patch.name.trim() : existing.name,
     elements: patch.elements !== undefined ? [...patch.elements] : existing.elements,
     settings: patch.settings !== undefined ? { ...patch.settings } : existing.settings,
+    ...(patch.kind !== undefined || existing.kind !== undefined
+      ? { kind: (patch.kind ?? existing.kind) as 'arena' | 'lobby' }
+      : {}),
     useGlbSettings: patch.useGlbSettings !== undefined ? patch.useGlbSettings === true : (existing.useGlbSettings ?? false),
     weather: patch.weather !== undefined ? patch.weather : (existing.weather ?? null),
     timeOfDay: patch.timeOfDay !== undefined ? patch.timeOfDay : (existing.timeOfDay ?? null),
@@ -197,7 +258,8 @@ export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInpu
   const nextList = [...all];
   nextList[idx] = next;
   await writeEnvelope(nextList);
-  return next;
+    return next;
+  });
 }
 
 export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
@@ -206,6 +268,7 @@ export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
   return createSceneEntry({
     name: `${source.name} (copy)`,
     elements: source.elements,
+    ...(source.kind !== undefined ? { kind: source.kind === 'lobby' ? 'arena' : source.kind } : {}),
     settings: source.settings,
     useGlbSettings: source.useGlbSettings === true,
     weather: source.weather ?? null,

@@ -1,12 +1,19 @@
 .nursery-page {
-  /* Persona 5 theme — acid red on ink (shared across all screens). */
-  --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
-  --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
+  /* DigiWorld palette (navy canvas + signal blue accent + gold reserved) —
+     matches Lobby (extensions-lobby.css), Roster (extensions-roster.css) and
+     Factory (extensions-factory.css).
+     --battle aliases to --gold as the premium/ready/collect signal; --good
+     (full data / ready egg / high mood) resolves to a gold tint. */
+  --bg:#0a0e1a; --panel:#141c2e; --panel2:#1a2440; --ink:#e8f0ff;
+  --muted:#6b7a99; --hair:#1e2a44; --hairline:var(--hair);
+  --signal:#3b82f6; --signal2:#60a5fa; --accent:var(--signal);
+  --gold:#f59e0b; --gold-bright:#fbbf24; --battle:var(--gold);
+  --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
   --notch:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
   --notch-sm:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
   --meat:color-mix(in oklab,var(--battle) 62%,var(--ink));
   --data:color-mix(in oklab,var(--signal) 52%,var(--ink));
-  --good:color-mix(in oklab,var(--signal) 40%,#fff);
+  --good:color-mix(in oklab,var(--battle) 40%,#fff);
   --common:var(--muted);
   --uncommon:color-mix(in oklab,var(--signal) 55%,var(--ink));
   --rare:color-mix(in oklab,var(--signal) 80%,#fff);
@@ -18,21 +25,7 @@
 
 .nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
 
-/* resource balance bar */
-.nursery-page .balbar { flex: 0 0 auto; display: flex; align-items: center; gap: 0; padding: 14px 28px; border-bottom: 1px solid var(--hair); background: var(--panel); }
-.nursery-page .bal { display: grid; grid-template-columns: 28px auto; gap: 10px; align-items: center; padding: 0 22px; border-right: 1px solid var(--hair); }
-.nursery-page .bal:first-child { padding-left: 0; }
-.nursery-page .bal .ic { width: 28px; height: 28px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); color: var(--res); }
-.nursery-page .bal .ic svg { width: 16px; height: 16px; }
-.nursery-page .bal .col { display: flex; flex-direction: column; }
-.nursery-page .bal .col .k { font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-.nursery-page .bal .col .v { font: 800 18px/1.1 var(--font); margin-top: 3px; }
-.nursery-page .bal[data-res="meat"] { --res: var(--meat); }
-.nursery-page .bal[data-res="data"] { --res: var(--data); }
-.nursery-page .bal[data-res="mons"] { --res: var(--signal); }
-.nursery-page .balbar .strip-title { margin-left: auto; text-align: right; }
-.nursery-page .balbar .strip-title .k { font: 800 10px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
-.nursery-page .balbar .strip-title .s { font: 600 12px/1 var(--font); color: var(--muted); margin-top: 5px; }
+
 
 /* scroll area */
 .nursery-page .scroll { flex: 1 1 auto; min-height: 0; overflow: hidden; display: grid; grid-template-columns: 1fr 400px; gap: 22px; padding: 22px 28px 22px; }
@@ -125,7 +118,8 @@
 .nursery-page .esub { font: 700 9px/1 var(--font); letter-spacing: .06em; color: var(--muted); margin-top: 3px; }
 .nursery-page .etime { font: 800 13px/1 var(--font); color: var(--muted); white-space: nowrap; }
 .nursery-page .egg.ready .etime { color: var(--good); }
-.nursery-page .collectbtn { padding: 7px 11px; background: var(--signal); color: #fff; clip-path: var(--notch-sm); font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.nursery-page .collectbtn { padding: 7px 11px; background: var(--battle); color: #fff; clip-path: var(--notch-sm); font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.nursery-page .collectbtn:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 88%, var(--ink)); }
 .nursery-page .rempty { color: var(--muted); font-size: 11.5px; padding: 8px 2px; line-height: 1.5; }
 
 /* Toast */
@@ -139,24 +133,21 @@
 }
 
 .pen3d { position: relative; width: 100%; height: 100%; min-height: 620px; }
-.pen3d__canvas { display: block; width: 100%; height: 100%; border-radius: 8px; background: #0a0f18; }
-.pen-menu { position: absolute; pointer-events: auto; z-index: 30; min-width: 220px; background: rgba(12,18,28,0.94); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: #d8dee9; }
+.pen3d__canvas { display: block; width: 100%; height: 100%; clip-path: var(--notch); background: var(--bg); }
+.pen-menu { position: absolute; pointer-events: auto; z-index: 30; min-width: 220px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: var(--ink); }
 .pen-menu__hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
-.pen-menu__stage { padding: 2px 6px; border-radius: 4px; font-size: 11px; background: rgba(255,255,255,0.06); }
+.pen-menu__stage { padding: 2px 6px; clip-path: var(--notch-sm); font-size: 11px; background: var(--panel2); }
 .pen-menu__btns { display: flex; gap: 6px; margin-bottom: 8px; }
-.pen-menu__btns button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; font-size: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; color: inherit; cursor: pointer; }
+.pen-menu__btns button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px; padding: 6px 8px; font-size: 12px; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); color: inherit; cursor: pointer; }
+.pen-menu__btns button:hover:not(:disabled) { border-color: var(--signal); }
 .pen-menu__btns button:disabled { opacity: 0.4; cursor: not-allowed; }
 .pen-menu__btns svg { width: 14px; height: 14px; }
 .pen-menu__timer { font-size: 12px; text-align: center; opacity: 0.75; padding: 4px 0; }
-.pen-menu__grad { width: 100%; padding: 8px; background: #4c9aff; border: 0; border-radius: 6px; color: #fff; font-weight: 600; cursor: pointer; }
+.pen-menu__grad { width: 100%; padding: 8px; background: var(--battle); border: 0; clip-path: var(--notch-sm); color: #fff; font-weight: 600; cursor: pointer; }
+.pen-menu__grad:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 88%, var(--ink)); }
 .pen-menu__grad:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* mobile: the balance strip is flex-nowrap, so its last chip (Credits) was
    clipped past the viewport with no way to reach it. Tighten, then allow
    horizontal pan for the remainder. */
-@media (max-width: 768px) {
-  .nursery-page .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
-  .nursery-page .balbar::-webkit-scrollbar { display: none; }
-  .nursery-page .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
-  .nursery-page .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
-}
+

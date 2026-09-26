@@ -22,6 +22,15 @@ verified-at-commit: 4e70621
 
 # Dungeons
 
+> [!warning] Refactor incoming — V1 legacy
+> This note describes the **currently-shipped V1** dungeon system. A
+> large refactor (kit + stash, extraction, item rarity, Cypher
+> evolution keys, per-layer Tiled collision, multi-floor) is planned.
+> See [[2026-08-07 — Dungeon crawler + extraction refactor]] for the
+> decision and [[Dungeon Extraction]] for the target-state
+> architecture. This note remains authoritative for V1 behaviour
+> until phase **F3** of the rollout ships.
+
 > [!info] TL;DR
 > Tile-based grid dungeons with **five** authoring layers stacked on
 > `(x, y)` tiles: encounters (fixed + random), doors (key-item gated),

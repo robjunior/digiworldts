@@ -70,6 +70,7 @@ export type Action =
   | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId; extraTargetIds?: readonly UnitId[] }
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
   | { type: 'use_item'; unitId: UnitId; targetId: UnitId; itemId: string }
+  | { type: 'guard'; unitId: UnitId }
   | { type: 'flee' };
 
 export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'capture-hit' | 'capture-miss' | 'item-heal' | 'item-en' | 'item-cure' | 'item-buff' | 'item-revive' | null;
@@ -174,6 +175,7 @@ export type EnemyUnitView = {
   templateId: string;
   name: string;
   element: Element;
+  attribute: Attribute;
   resistances?: ResistanceMap;
   level: number;
   hp: number;
@@ -213,6 +215,43 @@ export type BattleView = {
   log: BattleEvent[];
   opponentDisplayName?: string;
   sceneId?: string | null;
+};
+
+/**
+ * End-of-battle rewards attached to the WS `end` message (and historically to
+ * the PvE world-battle HTTP response). The server derives every value inside
+ * `persistAndAwardEnd`'s transaction — clients only render.
+ */
+export type XpAward = {
+  readonly monId: string;
+  readonly catalogId?: string;
+  readonly nickname?: string;
+  readonly xpBefore: number;
+  readonly xpAfter: number;
+  readonly xpFloorBefore: number;
+  readonly xpFloor: number;
+  readonly xpNextBefore: number;
+  readonly xpNext: number;
+  readonly gainedLevels: number;
+  readonly previousLevel?: number;
+  readonly newLevel?: number;
+  readonly delta: number;
+  readonly defeated: boolean;
+  readonly statsBefore?: Readonly<Record<string, number>>;
+  readonly statsAfter?: Readonly<Record<string, number>>;
+};
+
+export type ItemDrop = {
+  readonly itemId: string;
+  readonly name: string;
+  readonly qty: number;
+};
+
+export type BattleEndRewards = {
+  readonly xpAwards: readonly XpAward[];
+  readonly itemDrops?: readonly ItemDrop[];
+  readonly netcoreGained?: number;
+  readonly bitsGained?: number;
 };
 
 export const MISS_CHANCE = 0.08;

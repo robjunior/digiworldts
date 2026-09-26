@@ -118,7 +118,8 @@
       <evolve targetId="skb-25"></evolve>
       <evolve targetId="skb-54"></evolve>
       <evolve targetId="skb-70"></evolve>
-      <evolve targetId="skb-326"></evolve>
+      <evolve targetId="skb-326" requiredItemId="itm-evo-greymon" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-363" requiredItemId="itm-evo-tyrannomon" requiredItemQty="1"></evolve>
       <evolve targetId="skb-209"></evolve>
     </evolutions>
     <resistances>
@@ -322,10 +323,10 @@
       <skill id="s3" name="Tsuno Kougeki" element="water" cost="41" power="380" description="Attacks with its horn."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-12"></evolve>
+      <evolve targetId="skb-12" requiredItemId="itm-evo-garurumon" requiredItemQty="1"></evolve>
       <evolve targetId="skb-344"></evolve>
       <evolve targetId="skb-373"></evolve>
-      <evolve targetId="skb-395"></evolve>
+      <evolve targetId="skb-395" requiredItemId="itm-evo-kyubimon" requiredItemQty="1"></evolve>
       <evolve targetId="skb-729"></evolve>
     </evolutions>
     <resistances>
@@ -5063,10 +5064,11 @@
       <skill id="s3" name="Hane Binta" element="water" cost="41" power="380" description="Strikes the opponent with its large ears."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-87"></evolve>
+      <evolve targetId="skb-87" requiredItemId="itm-evo-angemon" requiredItemQty="1"></evolve>
       <evolve targetId="skb-146"></evolve>
       <evolve targetId="skb-548"></evolve>
       <evolve targetId="skb-372"></evolve>
+      <evolve targetId="skb-93" requiredItemId="itm-evo-devimon" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>

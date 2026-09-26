@@ -26,8 +26,9 @@
  *     in the DB are left untouched (deletes are reported by --diff, never
  *     executed by --apply).
  *
- * Domain model: `domain` = content table name, `ref_id` = the row's primary
- * key value (from CONTENT_TABLES orderBy, composite keys JSON-joined). This
+ * Domain model: `domain` = content table name, `ref_id` = the row's
+ * identity key value (from CONTENT_TABLES orderBy — PK columns, or a stable
+ * unique natural key like onboarding_teams.slug; composite keys JSON-joined). This
  * maps 1:1 onto the seed artifact's `tables` object and keeps the version
  * ledger per content row.
  */
@@ -114,8 +115,9 @@ function qid(ident: string): string {
   return `"${ident}"`;
 }
 
-/** Build `INSERT ... ON CONFLICT(pk) DO UPDATE SET ...` for one content table.
- *  Columns come from the artifact row keys; PKs from CONTENT_TABLES. */
+/** Build `INSERT ... ON CONFLICT(identity) DO UPDATE SET ...` for one content
+ *  table. Columns come from the artifact row keys; the conflict/identity
+ *  columns from CONTENT_TABLES orderBy (PK or stable unique natural key). */
 function buildUpsertSql(table: string, cols: readonly string[], pk: readonly string[]): string {
   const colList = cols.map(qid).join(', ');
   const placeholders = cols.map(() => '?').join(', ');
@@ -582,6 +584,27 @@ export function validateXref(
     }
   }
 
+  // --- Booster tables (manual curation; §2.4/§6.3) ---
+  // boosters → no cross-table refs of its own; nodes/items live under a booster.
+  const boosterNodes = env.tables['booster_digimon_nodes'] ?? [];
+  const boosterItems = env.tables['booster_item_entries'] ?? [];
+  const boosterNodeIds = new Set(boosterNodes.map((r) => String(r['id'])));
+  for (const n of boosterNodes) {
+    const refId = String(n['id']);
+    if (digimon && typeof n['digimon_id'] === 'string' && n['digimon_id'] && !digimon.ids.has(n['digimon_id'])) {
+      push('booster_digimon_nodes', refId, `booster node ${refId}: digimon_id references unknown digimon "${n['digimon_id']}"`);
+    }
+    if (n['parent_node_id'] !== null && n['parent_node_id'] !== undefined && !boosterNodeIds.has(String(n['parent_node_id']))) {
+      push('booster_digimon_nodes', refId, `booster node ${refId}: parent_node_id references unknown node "${n['parent_node_id']}"`);
+    }
+  }
+  for (const it of boosterItems) {
+    const refId = String(it['id']);
+    if (typeof it['item_id'] === 'string' && it['item_id'] && !itemIds.has(it['item_id'])) {
+      push('booster_item_entries', refId, `booster item ${refId}: item_id references unknown item "${it['item_id']}"`);
+    }
+  }
+
   return errors;
 }
 
@@ -613,13 +636,31 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
     const tables: ApplySummary['tables'] = {};
     let totalVersions = 0;
 
-    for (const name of Object.keys(env.tables)) {
+    // Iterate in CONTENT_TABLES order to respect FK dependencies
+    for (const { name } of CONTENT_TABLES) {
       const rows = env.tables[name] ?? [];
       const pk = pkColumnsOf(name);
       const cols: string[] = [];
       const seen = new Set<string>();
       for (const r of rows) for (const c of Object.keys(r)) if (!seen.has(c)) { seen.add(c); cols.push(c); }
       const upsertSql = buildUpsertSql(name, cols, pk);
+
+      // For dungeons, pre-clear any existing rows that would violate the
+      // idx_dungeons_group_grid_position unique index (same grid coords, different ID)
+      if (name === 'dungeons') {
+        for (const row of rows) {
+          const groupId = row['dungeon_group_id'];
+          const gx = row['grid_x'];
+          const gy = row['grid_y'];
+          if (groupId && gx !== null && gx !== undefined && gy !== null && gy !== undefined) {
+            // Delete any existing dungeon at this grid position with a different ID
+            await t.run(
+              `DELETE FROM dungeons WHERE dungeon_group_id = ? AND grid_x = ? AND grid_y = ? AND id <> ?`,
+              [groupId, gx, gy, row['id']]
+            );
+          }
+        }
+      }
 
       for (const row of rows) {
         try {

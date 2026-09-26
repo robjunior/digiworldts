@@ -1,0 +1,1059 @@
+/* ── SOCIAL RAIL (shared component) ──────────────────────────────── */
+/* Overlay — floats on top of content, which reserves space with padding-right. */
+.social {
+    --font:
+        "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial,
+        sans-serif;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 340px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--panel);
+    overflow: hidden;
+    z-index: 30;
+    border-left: 1px solid var(--hair);
+    transition:
+        width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        min-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.social.collapsed {
+    width: 48px;
+    min-width: 48px !important;
+    border-left: 0;
+}
+.social.collapsed > * {
+    opacity: 0;
+    pointer-events: none;
+}
+.social.collapsed .social-icons {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.social-icons {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 8px 8px 6px;
+    flex: 0 0 auto;
+}
+.social-icon-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+        color 0.15s,
+        border-color 0.15s,
+        background 0.15s;
+    overflow: visible;
+}
+.social-icon-btn:hover {
+    color: var(--ink);
+    border-color: var(--signal);
+    background: color-mix(in oklab, var(--signal) 8%, var(--panel2));
+}
+.social-icon-btn.active {
+    color: var(--gold);
+    border-color: var(--gold);
+    background: color-mix(in oklab, var(--gold) 10%, var(--panel2));
+    box-shadow: inset 0 0 0 1px var(--gold);
+}
+.social-icon-btn svg {
+    flex: none;
+}
+
+.social-counter {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--signal);
+    color: #fff;
+    font: 800 9px/1 var(--font);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    border: 1px solid var(--panel);
+    pointer-events: none;
+}
+.social-counter:empty {
+    display: none;
+}
+.social-icon-btn.active .social-counter {
+    background: var(--gold);
+    color: #0a0a0a;
+}
+
+.social:not(.collapsed) .social-icons {
+    flex-direction: row;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--hair);
+    gap: 4px;
+}
+.social:not(.collapsed) .social-icon-btn {
+    flex: 1;
+    max-width: 80px;
+}
+
+/* panels slide animation */
+.social .spanel[hidden] {
+    display: none !important;
+}
+.social .spanel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    animation: socialSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@keyframes socialSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.social.collapsed .spanel {
+    display: none !important;
+}
+
+/* ── CHAT ─────────────────────────────────────────────────────── */
+.social .chat {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.social .chat-channels {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+    padding: 10px 12px 8px;
+    border-bottom: 1px solid var(--hair);
+    overflow-x: auto;
+}
+.social .chat-channels::-webkit-scrollbar {
+    height: 4px;
+}
+.social .chat-channels::-webkit-scrollbar-thumb {
+    background: var(--hair);
+}
+.social .ch-btn {
+    padding: 5px 12px;
+    font: 700 10px/1 var(--font);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    white-space: nowrap;
+    cursor: pointer;
+    transition: 0.12s;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.social .ch-btn:hover {
+    color: var(--ink);
+    border-color: var(--signal);
+}
+.social .ch-btn[aria-current="true"] {
+    background: var(--signal);
+    color: #fff;
+    border-color: var(--signal);
+}
+.social .ch-btn .ch-unread {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--gold);
+    color: #0a0a0a;
+    font: 800 8px/1 var(--font);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+}
+.social .ch-btn[aria-current="true"] .ch-unread {
+    background: #fff;
+    color: var(--signal);
+}
+.social .ch-tab {
+    position: relative;
+    display: flex;
+    flex: none;
+}
+.social .ch-tab .ch-btn {
+    padding-right: 20px;
+}
+.social .ch-close {
+    position: absolute;
+    top: 50%;
+    right: 3px;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--muted);
+    cursor: pointer;
+    z-index: 2;
+    transition: color 0.12s;
+}
+.social .ch-close svg {
+    width: 8px;
+    height: 8px;
+}
+.social .ch-close:hover {
+    color: var(--gold);
+}
+.social .ch-tab .ch-btn[aria-current="true"] + .ch-close {
+    color: rgba(255, 255, 255, 0.8);
+}
+.social .ch-tab .ch-btn[aria-current="true"] + .ch-close:hover {
+    color: #fff;
+}
+.social .chatlog {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.social .chatlog::-webkit-scrollbar {
+    width: 6px;
+}
+.social .chatlog::-webkit-scrollbar-thumb {
+    background: var(--hair);
+    border-radius: 3px;
+}
+.social .msg {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+    line-height: 1.45;
+    transition: background 0.12s;
+}
+.social .msg:hover {
+    background: var(--panel2);
+}
+.social .msg .ts {
+    font: 500 10px/1 var(--font);
+    color: var(--muted);
+    flex: none;
+    min-width: 36px;
+}
+.social .msg .who {
+    font: 700 12px/1 var(--font);
+    flex: none;
+}
+.social .msg .who.me {
+    color: var(--gold);
+}
+.social .msg .who.sys {
+    color: var(--signal2);
+}
+.social .msg .tx {
+    color: var(--ink);
+    flex: 1;
+    word-break: break-word;
+}
+.social .msg.join .tx,
+.social .msg.leave .tx {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 12px;
+}
+.social .msg.system {
+    background: rgba(59, 130, 246, 0.08);
+    border-left: 2px solid var(--signal);
+}
+.social .chatform {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--hair);
+    background: var(--panel2);
+}
+.social .chatform input {
+    flex: 1;
+    height: 36px;
+    padding: 0 12px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--hair);
+    border-right: 0;
+    clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
+    font: 500 13px/1 var(--font);
+    outline: none;
+}
+.social .chatform input::placeholder {
+    color: var(--muted);
+}
+.social .chatform input:focus {
+    border-color: var(--signal);
+}
+.social .chatform button {
+    padding: 0 16px;
+    height: 36px;
+    background: var(--signal);
+    color: #fff;
+    border: 0;
+    clip-path: polygon(
+        0 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%
+    );
+    font: 800 11px/1 var(--font);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.social .chatform button:hover {
+    background: var(--signal2);
+}
+
+/* ── QUESTS ──────────────────────────────────────────────────── */
+.social .quests {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px;
+}
+.social .quests::-webkit-scrollbar {
+    width: 6px;
+}
+.social .quests::-webkit-scrollbar-thumb {
+    background: var(--hair);
+    border-radius: 3px;
+}
+.social .qp-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--hair);
+}
+.social .qp-tab {
+    flex: 1;
+    padding: 10px 8px;
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    transition:
+        color 0.12s,
+        border-color 0.12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+.social .qp-tab:hover {
+    color: var(--ink);
+}
+.social .qp-tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+}
+.social .qp-tab-count {
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--hair);
+    color: var(--ink);
+    font: 800 8px/1 var(--font);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+}
+.social .qp-tab.active .qp-tab-count {
+    background: var(--gold);
+    color: #0a0a0a;
+}
+.social .quest {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    margin-bottom: 6px;
+    transition: border-color 0.12s;
+}
+.social .quest:hover {
+    border-color: var(--signal);
+}
+.social .quest .q-ico {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+}
+.social .quest .q-ic {
+    width: 18px;
+    height: 18px;
+}
+.social .quest .q-ic.gold {
+    color: var(--gold);
+}
+.social .quest .q-ic.blue {
+    color: var(--signal2);
+}
+.social .quest .q-tx {
+    flex: 1;
+    min-width: 0;
+}
+.social .quest .q-nm {
+    font: 700 12px/1.1 var(--font);
+    color: var(--ink);
+}
+.social .quest .q-desc {
+    font: 500 10px/1.3 var(--font);
+    color: var(--muted);
+    margin-top: 2px;
+}
+.social .quest .q-prog {
+    margin-top: 5px;
+    height: 4px;
+    background: var(--bg);
+    border-radius: 2px;
+    overflow: hidden;
+}
+.social .quest .q-prog .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--signal), var(--gold));
+    transition: width 0.4s cubic-bezier(0.2, 0, 1, 1);
+}
+.social .quest .q-count {
+    font: 800 11px/1 var(--font);
+    color: var(--signal2);
+    white-space: nowrap;
+}
+.social .quest .q-count.done {
+    color: var(--gold);
+}
+.social .quest .q-claim {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, var(--gold), #d97706);
+    color: #0a0a0a;
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 0;
+    cursor: pointer;
+}
+.social .quest .q-claim.done {
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--hair);
+    cursor: default;
+}
+
+/* ── FRIENDS ─────────────────────────────────────────────────── */
+.social .friends {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 14px;
+}
+.social .friends::-webkit-scrollbar {
+    width: 6px;
+}
+.social .friends::-webkit-scrollbar-thumb {
+    background: var(--hair);
+    border-radius: 3px;
+}
+.social .friends-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.social .friends-toolbar input {
+    flex: 1;
+    height: 34px;
+    padding: 0 12px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--hair);
+    clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
+    font: 500 12px/1 var(--font);
+    outline: none;
+}
+.social .friends-toolbar input::placeholder {
+    color: var(--muted);
+}
+.social .friends-toolbar input:focus {
+    border-color: var(--signal);
+}
+.social .add-friend-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    height: 34px;
+    background: var(--signal);
+    color: #fff;
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    border: 0;
+    cursor: pointer;
+    transition: filter 0.12s;
+}
+.social .add-friend-btn:hover {
+    filter: brightness(1.15);
+}
+.social .add-friend-btn svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+.social .friends-section {
+    margin-bottom: 18px;
+}
+.social .friends-section-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--hair);
+}
+.social .friends-section-hd .k {
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.social .friends-section-hd .n {
+    font: 700 10px/1 var(--font);
+    color: var(--signal2);
+}
+.social .friend-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px 10px 14px;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    border-left: 3px solid var(--signal);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    margin-bottom: 6px;
+    transition:
+        border-color 0.15s,
+        background 0.15s;
+}
+.social .friend-row:hover {
+    border-color: var(--signal);
+    background: color-mix(in oklab, var(--signal) 5%, var(--panel2));
+}
+.social .friend-row.offline {
+    border-left-color: var(--muted);
+    opacity: 0.72;
+}
+.social .friend-row.offline:hover {
+    opacity: 1;
+    border-left-color: var(--muted);
+}
+.social .friend-av {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 900 13px/1 var(--font);
+    color: var(--signal2);
+    position: relative;
+}
+.social .friend-av .online-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--panel2);
+    background: var(--signal);
+}
+.social .friend-av .online-dot.off {
+    background: var(--muted);
+}
+.social .friend-av .online-dot.ingame {
+    background: var(--gold);
+}
+.social .friend-info {
+    min-width: 0;
+}
+.social .friend-nm {
+    font: 700 12px/1.1 var(--font);
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.social .friend-sub {
+    font: 500 10px/1.3 var(--font);
+    color: var(--muted);
+    margin-top: 2px;
+}
+.social .friend-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0.55;
+    transition: opacity 0.15s;
+}
+.social .friend-row:hover .friend-actions {
+    opacity: 1;
+}
+.social .friend-action {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    cursor: pointer;
+    transition: 0.12s;
+}
+.social .friend-action:hover {
+    border-color: var(--signal);
+    color: var(--signal2);
+}
+.social .friend-action.dm {
+    color: var(--signal2);
+}
+.social .friend-action.dm:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.social .friend-action.remove {
+    color: var(--muted);
+}
+.social .friend-action.remove:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.social .friend-action.duel {
+    color: var(--gold);
+}
+.social .friend-action.duel:hover {
+    border-color: var(--signal);
+    color: var(--signal2);
+}
+.social .rail-note {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: color-mix(in oklab, var(--signal) 8%, var(--panel2));
+    border: 1px solid color-mix(in oklab, var(--signal) 35%, var(--hair));
+    font: 600 11px/1.3 var(--font);
+    color: var(--ink);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.social .friend-request-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px 10px 14px;
+    background: color-mix(in oklab, var(--signal) 6%, var(--panel2));
+    border: 1px solid color-mix(in oklab, var(--signal) 30%, var(--hair));
+    border-left: 3px solid var(--signal);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    margin-bottom: 6px;
+    transition: border-color 0.15s;
+}
+.social .friend-request-row:hover {
+    border-color: var(--signal);
+}
+.social .request-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+.social .request-accept,
+.social .request-decline {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 800 14px/1 var(--font);
+    border: 0;
+    cursor: pointer;
+    transition: 0.12s;
+}
+.social .request-accept {
+    background: var(--signal);
+    color: #fff;
+}
+.social .request-accept:hover {
+    filter: brightness(1.15);
+    transform: scale(1.08);
+}
+.social .request-decline {
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--hair);
+}
+.social .request-decline:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    transform: scale(1.08);
+}
+.social .add-friend-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 14, 26, 0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+}
+.social .add-friend-modal.open {
+    display: flex;
+}
+.social .afm-box {
+    width: min(360px, 100%);
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        10px 0,
+        100% 0,
+        100% calc(100% - 10px),
+        calc(100% - 10px) 100%,
+        0 100%,
+        0 10px
+    );
+    padding: 20px;
+}
+.social .afm-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.social .afm-hd h3 {
+    font: 800 14px/1 var(--font);
+    margin: 0;
+}
+.social .afm-close {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    cursor: pointer;
+    font: 700 12px/1 var(--font);
+}
+.social .afm-close:hover {
+    border-color: var(--signal);
+}
+.social .afm-input {
+    width: 100%;
+    height: 38px;
+    padding: 0 12px;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 500 13px/1 var(--font);
+    outline: none;
+    margin-bottom: 12px;
+}
+.social .afm-input:focus {
+    border-color: var(--signal);
+}
+.social .afm-results {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+.social .afm-result {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+}
+.social .afm-result .nm {
+    font: 700 12px/1 var(--font);
+}
+.social .afm-send {
+    padding: 5px 14px;
+    background: var(--signal);
+    color: #fff;
+    clip-path: polygon(
+        6px 0,
+        100% 0,
+        100% calc(100% - 6px),
+        calc(100% - 6px) 100%,
+        0 100%,
+        0 6px
+    );
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 0;
+    cursor: pointer;
+}
+.social .afm-send:hover {
+    filter: brightness(1.15);
+}
+.social .afm-send.sent {
+    background: var(--bg);
+    color: var(--muted);
+    border: 1px solid var(--hair);
+    cursor: default;
+}
+.social .afm-empty {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 12px;
+    text-align: center;
+}
+
+/* ── responsive ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .social {
+        border-left: 0;
+        border-top: 1px solid var(--hair);
+        max-height: 50vh;
+    }
+    .social.collapsed {
+        width: auto;
+        min-width: 0 !important;
+        height: 0;
+        min-height: 0 !important;
+        border-top: 0;
+    }
+}
+
+/* ── party slot — mockup OD: sprite pixel, nome, sub uppercase, Lv dourado ── */
+.party-slots { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.party-slots .dm-row {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center;
+  padding: 10px 12px; background: var(--panel2); border: 1px solid var(--hair);
+  clip-path: var(--notch-sm); cursor: pointer; transition: border-color .12s;
+}
+.party-slots .dm-row:hover { border-color: var(--signal); }
+.party-slots .dm-row .dm-av {
+  width: 40px; height: 40px; display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--hair); overflow: hidden;
+}
+.party-slots .dm-row .dm-av img { width: 36px; height: 36px; object-fit: contain; image-rendering: pixelated; }
+.party-slots .dm-row .dm-av .mono { font: 900 20px/1 var(--font); color: var(--muted); }
+.party-slots .dm-row .dm-nm { font: 800 13px/1.1 var(--font); color: var(--ink); }
+.party-slots .dm-row .dm-sub { font: 700 9px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.party-slots .dm-row .dm-lv { font: 800 11px/1 var(--font); color: var(--gold); }
+.party-slots .dm-row.empty .dm-av { background: transparent; }
+.party-slots .lob-p-link { display: block; padding: 6px 2px 0; text-align: left; }
+
+/* ── glass — fundos semi-transparente (mockup OD) ───────────────────── */
+.social {
+    background: color-mix(in oklab, var(--panel) 66%, transparent);
+    backdrop-filter: blur(18px) saturate(1.1);
+    -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+/* painéis internos transparentes — herdam o vidro da side; rows separadas
+   por hairline em vez de quadros opacos (igual ao html do Open Design). */
+.social .spanel > .chat,
+.social .spanel > .quests,
+.social .spanel > .friends,
+.social .chatlog,
+.social .chat-channels,
+.social .chatform,
+.social .friends-toolbar,
+.social .friends-list,
+.social .friends-section,
+.social .party-slots,
+.social .msg,
+.social .friend-row,
+.social .friend-request-row,
+.social .quest {
+    background: transparent;
+}
+.social .msg,
+.social .friend-row,
+.social .friend-request-row,
+.social .quest {
+    border-color: color-mix(in oklab, var(--hair) 55%, transparent);
+}

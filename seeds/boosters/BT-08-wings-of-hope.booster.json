@@ -1,0 +1,19 @@
+{
+  "$schema": "./booster.schema.json",
+  "code": "BT-08",
+  "name": "Wings of Hope",
+  "set": "Starter Evolution",
+  "releaseDate": "2026-09-22",
+  "description": "Light and shadow from the same wings: Patamon, Angemon and the fallen Devimon.",
+  "status": "published",
+  "tags": ["starter", "light", "dark", "patamon", "season-3"],
+  "digimonPool": [
+    { "ref": "patamon", "digimonId": "skb-96", "parentRef": null, "rarity": "common", "weight": 10, "order": 0 },
+    { "ref": "angemon", "digimonId": "skb-87", "parentRef": "patamon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "devimon", "digimonId": "skb-93", "parentRef": "patamon", "rarity": "rare", "weight": 4, "order": 1 }
+  ],
+  "itemPool": [
+    { "ref": "angemon-key", "itemId": "itm-evo-angemon", "rarity": "uncommon", "weight": 5, "order": 0 },
+    { "ref": "devimon-key", "itemId": "itm-evo-devimon", "rarity": "rare", "weight": 3, "order": 1 }
+  ]
+}

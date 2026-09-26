@@ -10,6 +10,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -62,9 +63,16 @@ function parseCliArgs(argv: string[]): CliOptions {
   return { seedPath };
 }
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Project root is 4 directories up from this file
+// (backend/src/content-deploy/xref.ts -> backend/)
+const repoRoot = resolve(__dirname, '..', '..', '..');
+
 async function resolveSeedPath(path: string): Promise<string> {
   const { stat } = await import('node:fs/promises');
-  const abs = resolve(process.cwd(), path);
+  // Resolve relative to repo root, not process.cwd() —
+  // pnpm --filter changes CWD to backend/ where content/ is not at root.
+  const abs = resolve(repoRoot, path);
   try {
     const info = await stat(abs);
     return info.isDirectory() ? resolve(abs, 'seed.json') : abs;

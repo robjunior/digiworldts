@@ -14,7 +14,7 @@ type EvolveDialogProps = {
 };
 
 // Mirror of backend STAGE_MULTIPLIER (backend/src/digimon/element.ts) so we can preview stat gains.
-const STAGE_MULT: Record<Stage, number> = {
+export const STAGE_MULT: Record<Stage, number> = {
   Baby: 0.4,
   'In-Training': 0.6,
   Rookie: 1.0,
@@ -24,7 +24,7 @@ const STAGE_MULT: Record<Stage, number> = {
 };
 
 // Reasonable per-stage Meat cost preview (Meat is the roster evolution material).
-const EVO_MEAT: Record<Stage, number> = {
+export const EVO_MEAT: Record<Stage, number> = {
   Baby: 0,
   'In-Training': 40,
   Rookie: 80,
@@ -34,12 +34,12 @@ const EVO_MEAT: Record<Stage, number> = {
 };
 
 const STAT_KEYS = ['hp', 'atk', 'int', 'en', 'def', 'spd'] as const;
-const STAT_LABELS: Record<(typeof STAT_KEYS)[number], string> = { hp: 'HP', atk: 'ATK', int: 'INT', en: 'EN', def: 'DEF', spd: 'SPD' };
+export const STAT_LABELS: Record<(typeof STAT_KEYS)[number], string> = { hp: 'HP', atk: 'ATK', int: 'INT', en: 'EN', def: 'DEF', spd: 'SPD' };
 
 type AnimStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /** Oldest-first history + current form. All met by definition — never masked. */
-function pastLine(
+export function pastLine(
   history: readonly string[],
   currentId: string,
   templates: ReadonlyMap<string, TemplateDigimon>,
@@ -55,7 +55,7 @@ function pastLine(
   return out;
 }
 
-function computeStatGains(
+export function computeStatGains(
   current: ReturnType<typeof totalStats>,
   currentStage: Stage,
   targetStage: Stage,
@@ -86,6 +86,8 @@ function reasonDetail(reason: EvolutionReason | undefined, option: EvolutionOpti
       const label = option.requiredItemName ?? option.requiredItemId ?? 'item';
       return `Needs ${option.requiredItemQty} × ${label} (have ${option.itemQtyAvailable})`;
     }
+    case 'no-item-assigned':
+      return 'No evolution item assigned yet — the path is locked until content ships';
     case 'no-paths':
     case 'stage-cap':
       return 'No path';
@@ -285,7 +287,7 @@ function capElement(element: Element | 'null'): string {
   return first.toUpperCase() + element.slice(1);
 }
 
-function EvoLine({
+export function EvoLine({
   past,
   rootId,
   gate,
@@ -378,7 +380,7 @@ function EvoLine({
   );
 }
 
-function EvoConditions({
+export function EvoConditions({
   gate,
   selectedOption,
   selectedTemplate,

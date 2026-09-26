@@ -10,13 +10,12 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { Account } from './routes/Account';
 import { Adventure } from './routes/Adventure';
 import { Digdex } from './routes/Digdex';
-import { Dungeon } from './routes/Dungeon';
 import { Factory } from './routes/Factory';
 import { Farm } from './routes/Farm';
-import { Home } from './routes/Home';
 import { Intro } from './routes/Intro';
 import { Inventory } from './routes/Inventory';
 import { LoadingTransition } from './routes/LoadingTransition';
+import { InventorySpikeDemo } from './features/inventory/InventorySpikeDemo';
 import { Lobby } from './routes/Lobby';
 import { Login } from './routes/Login';
 import { Market } from './routes/Market';
@@ -24,6 +23,7 @@ import { Nursery } from './routes/Nursery';
 import { OAuthDecide } from './routes/OAuthDecide';
 import { Reset } from './routes/Reset';
 import { Roster } from './routes/Roster';
+import { Creature } from './routes/Creature';
 import { Shop } from './routes/Shop';
 import { Spectate } from './routes/Spectate';
 import { Training } from './routes/Training';
@@ -31,8 +31,8 @@ import { useWsStore } from './state/wsStore';
 import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
 import './styles/extensions-transition.css';
+import './styles/extensions-premium.css';
 
-const World = lazy(() => import('./routes/World').then((m) => ({ default: m.World })));
 const Combat = lazy(() => import('./routes/Combat').then((m) => ({ default: m.Combat })));
 
 function SuspenseFallback(): JSX.Element {
@@ -94,22 +94,22 @@ export function App(): JSX.Element {
             <Route path="/loading" element={<LoadingTransition />} />
             <Route path="/combat" element={<Combat />} />
             <Route element={<AppShell />}>
-              <Route path="/" element={<Home />} />
+              <Route path="/" element={<Lobby />} />
+              <Route path="/lobby" element={<Navigate to="/" replace />} />
               <Route path="/account" element={<Account />} />
-              <Route path="/lobby" element={<Lobby />} />
               <Route path="/roster" element={<Roster />} />
+              <Route path="/creature/:monId" element={<Creature />} />
               <Route path="/farm" element={<Farm />} />
               <Route path="/factory" element={<Factory />} />
               <Route path="/adventure" element={<Adventure />} />
               <Route path="/training" element={<Training />} />
               <Route path="/shop" element={<Shop />} />
               <Route path="/items" element={<Inventory />} />
+              <Route path="/inv-spike" element={<InventorySpikeDemo />} />
               <Route path="/market" element={<Market />} />
               <Route path="/nursery" element={<Nursery />} />
-              <Route path="/world" element={<World />} />
               <Route path="/digdex" element={<Digdex />} />
-              <Route path="/dungeon" element={<Navigate to="/world" replace />} />
-              <Route path="/dungeon/:id" element={<Dungeon />} />
+              <Route path="/world" element={<Navigate to="/" replace />} />
               <Route path="/spectate" element={<Spectate />} />
             </Route>
           </Route>

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { Element } from '@digiworld/shared/digimon';
+import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 
 import { DigdexDetail } from '../components/digdex/DigdexDetailModal';
 import { DigdexHive } from '../components/digdex/DigdexHive';
@@ -12,18 +12,6 @@ const DIGDEX_QUERY_KEY = ['digdex'] as const;
 type Filter = 'all' | 'met' | 'unmet';
 type StageFilter = 'all' | 'Rookie' | 'Champion' | 'Ultimate' | 'Mega';
 type ElementFilter = Element | 'all';
-
-/**
- * Display order for the element filter list in the sidebar. Intentionally
- * decoupled from `ELEMENTS` in shared/digimon.ts — that constant is the
- * canonical source of truth used by battle math, DB queries, and telemetry,
- * so it stays in `ELEMENTS.indexOf()` / iteration order. This one groups
- * elemental affinities the way the reference UI does (heat → water → nature
- * → energy → wind → cold → structural → shadow/light → primitive → null).
- */
-const ELEMENT_DISPLAY_ORDER: readonly Element[] = [
-  'fire', 'water', 'plant', 'electricity', 'wind', 'ice', 'steel', 'dark', 'light', 'earth', 'null',
-];
 
 const FILTERS: readonly { readonly id: Filter; readonly label: string }[] = [
   { id: 'all', label: 'All' },
@@ -40,8 +28,8 @@ const STAGE_FILTERS: readonly { readonly id: StageFilter; readonly label: string
 ];
 
 const ELEMENT_FILTERS: readonly { readonly id: ElementFilter; readonly label: string }[] = [
-  { id: 'all', label: 'All Elements' },
-  ...ELEMENT_DISPLAY_ORDER.map((el) => ({ id: el, label: el.charAt(0).toUpperCase() + el.slice(1) })),
+  { id: 'all', label: 'All' },
+  ...ELEMENTS.map((el) => ({ id: el, label: el.charAt(0).toUpperCase() + el.slice(1) })),
 ];
 
 export function Digdex(): JSX.Element {
@@ -223,12 +211,15 @@ export function Digdex(): JSX.Element {
         )}
 
         {selected ? (
-          <DigdexDetail
-            entry={selected}
-            entriesById={entriesById}
-            onClose={() => setSelected(null)}
-            onSelect={setSelected}
-          />
+          <>
+            <div className="detail-backdrop" onClick={() => setSelected(null)} />
+            <DigdexDetail
+              entry={selected}
+              entriesById={entriesById}
+              onClose={() => setSelected(null)}
+              onSelect={setSelected}
+            />
+          </>
         ) : (
           <aside className="detail">
             <div className="dempty">

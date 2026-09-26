@@ -7,7 +7,29 @@ export type SpriteRigConfig = {
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly textureUrl: string;
+  /**
+   * Treat `textureUrl` as a spritesheet laid out as a 2×2 grid of 32×32 px
+   * frames (a 64×64 image). The top row holds the walk cycle:
+   *   frames 0,1 = WALK cycle — always loops,
+   *   frame  2   = TAKE_HIT (taking a hit / recoil),
+   *   frame  3   = ATTACK   (giving a hit) — played via playAttack().
+   * When false (the default), the legacy path applies: a single image / GIF is
+   * loaded as one texture (dot.gif portraits, pen sprites, admin previews).
+   * Combat passes `isSpritesheet: true`; everything else keeps the old path.
+   */
+  readonly isSpritesheet?: boolean;
+  /** When true (default), the walk frames loop automatically (idle bob).
+   *  Combat units pass false so they stand still until an action plays. */
+  readonly idleAnimated?: boolean;
+  /**
+   * Optional extra scale applied to the whole billboard, kept stable across
+   * `update()` (which otherwise re-applies `baseScale` every frame and would
+   * wipe an external `mesh.scale` write). Feet stay planted on `GROUND_Y`:
+   * the anchor point grows with the scale. Default 1 (combat).
+   */
+  readonly unitScale?: number;
   readonly initiallyDowned?: boolean;
+  readonly onClick?: (() => void | undefined) | undefined;
 };
 
 export type SpriteRigApi = {
@@ -33,6 +55,8 @@ export type SpriteRigApi = {
   setTextureUrl(url: string): void;
   setArenaBaselineY(y: number): void;
   setBasePosition(x: number, z: number): void;
+  /** Resize the billboard (kept by `update()`); re-anchors feet on the ground. */
+  setUnitScale(v: number): void;
   setFacingDirection(sign: 1 | -1): void;
   dispose(): void;
 };
@@ -46,6 +70,25 @@ const HIT_ANIM_S = 0.35;
 const ATTACK_LUNGE_UNITS = 1.2;
 const HIT_SHAKE_UNITS = 0.07;
 const ALPHA_THRESHOLD = 24;
+
+// Spritesheet cycle durations (ms per frame).
+const WALK_FRAME_MS = 320;
+const HIT_FRAME_MS = 160;
+
+// Subtle "alive" breathing for combat units (idleAnimated: false). No frame
+// swap and no horizontal hop — just a gentle vertical scale + lift so a unit
+// standing still between actions doesn't read as frozen / broken.
+const BREATHE_HZ = 0.5;          // breaths per second
+const BREATHE_SCALE_AMP = 0.03;   // ±3% height
+const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
+
+// Spritesheet layout: 2 columns × 2 rows of 32×32 frames (a 64×64 image).
+// Frame 1=top-left, 2=top-right, 3=bottom-left, 4=bottom-right.
+const SHEET_COLS = 2;
+const SHEET_ROWS = 2;
+// Indices into the flattened cell array (row * cols + col).
+const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
+const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
 
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
@@ -145,11 +188,72 @@ type IlluminationState = {
   decayPerSec: number;
 };
 
+const SPRITE_SHEET_SERVER_PREFIX = '/assets/sprites/';
+const SPRITE_SHEET_STATIC_PREFIX = '/assets/sprites-static/';
+const SKULLBOT_DOT_PREFIX = '/assets/digimon/';
+
+/**
+ * Resolve the 2×2 four-frame sprite-sheet URL for a digimon (walk row + hit row).
+ * Sheets live at `/assets/sprites/<skullbotId>.png`, keyed by the integer the
+ * catalog id encodes (`skb-317` → `317`), matching `data/sprites/dot317.PNG`.
+ * The rig (and the 2D/Phaser consumers) fall back to dot.gif on a 404.
+ */
+export function unitSpriteSheetUrl(templateId: string): string {
+  const numeric = templateId.replace(/^skb-/, '');
+  return `${SPRITE_SHEET_SERVER_PREFIX}${numeric}.png`;
+}
+
+/**
+ * Resolve the static (frame-0) sprite URL for a digimon — a single 32×32 cell
+ * cut from the same sheet, used by still/2D surfaces (roster, lobby, cards...)
+ * so every display of a digimon reads from the generated sheet rather than the
+ * legacy `dot.gif`. Falls back to dot.gif when the cell is missing.
+ */
+export function unitSpriteStaticUrl(templateId: string): string {
+  const numeric = templateId.replace(/^skb-/, '');
+  return `${SPRITE_SHEET_STATIC_PREFIX}${numeric}.png`;
+}
+
+/** Legacy single-frame dot.gif URL; kept as the universal fallback. */
+export function unitDotUrl(templateId: string): string {
+  return `${SKULLBOT_DOT_PREFIX}${templateId}/dot.gif`;
+}
+
+/**
+ * Spritesheet playback state. The source image is a 2×2 grid of 32×32 cells.
+ * `walk` loops continuously; `hitActive` triggers a single-frame pose (TAKE_HIT on
+ * playHit, ATTACK on playAttack) for HIT_FRAME_MS then returns to walking.
+ */
+type SheetState = {
+  readonly canvas: HTMLCanvasElement;
+  readonly ctx: CanvasRenderingContext2D;
+  readonly texture: THREE.CanvasTexture;
+  readonly image: HTMLImageElement;
+  walkIndex: number;
+  walkElapsed: number;
+  hitActive: boolean;
+  hitElapsed: number;
+  /** Walk cycle frames for THIS sheet: top row [0,1] for 64×64 real digimon,
+   *  all four [0,1,2,3] for 32×32 "4 colors per frame" user sheets. */
+  readonly walkIndices: readonly number[];
+};
+
 export class SpriteRig implements SpriteRigApi {
   readonly unitId: string;
   readonly side: SpriteSide;
   readonly slotIndex: number;
   readonly worldPosition: THREE.Vector3;
+
+  get downed(): boolean {
+    return this._downed;
+  }
+
+  /** True while an attack/hit animation is mid-flight. The billboard actually
+   *  translates (lunge) or shakes during these, so the scene must refresh the
+   *  shadow map across the whole window rather than just on the first frame. */
+  get animating(): boolean {
+    return this.anim !== null;
+  }
 
   private readonly scene: THREE.Scene;
   readonly mesh: THREE.Mesh;
@@ -162,12 +266,19 @@ export class SpriteRig implements SpriteRigApi {
   readonly spriteSize: THREE.Vector2 = this.baseScale;
   private shadowWidthUnits = SHADOW_MAX_WIDTH;
   private arenaBaselineY = 0;
+  private unitScale = 1;
   private gif: GifState | null = null;
   private anim: AnimState | null = null;
+  private sheet: SheetState | null = null;
   private illumination: IlluminationState | null = null;
-  private downed: boolean;
+  private _downed: boolean;
   private disposedFlag = false;
+  private onClick: ((unitId: string) => void | undefined) | undefined;
   private facingSign: 1 | -1 = 1;
+  private readonly isSpritesheet: boolean;
+  private idleAnimated: boolean;
+  /** Per-rig phase so units don't breathe in lockstep. */
+  private readonly breathePhase = Math.random() * Math.PI * 2;
 
   constructor(scene: THREE.Scene, config: SpriteRigConfig) {
     this.scene = scene;
@@ -176,7 +287,11 @@ export class SpriteRig implements SpriteRigApi {
     this.slotIndex = config.slotIndex;
     this.basePosition = slotWorldPosition(config.side, config.slotIndex);
     this.worldPosition = this.basePosition.clone();
-    this.downed = config.initiallyDowned === true;
+    this.unitScale = config.unitScale ?? 1;
+    this._downed = config.initiallyDowned === true;
+    this.onClick = config.onClick ?? undefined;
+    this.isSpritesheet = config.isSpritesheet === true;
+    this.idleAnimated = config.idleAnimated !== false;
 
     const placeholder = makePlaceholderTexture();
     this.baseColor = new THREE.Color(0xffffff);
@@ -191,7 +306,7 @@ export class SpriteRig implements SpriteRigApi {
     const geometry = new THREE.PlaneGeometry(1, 1);
     this.mesh = new THREE.Mesh(geometry, this.mat);
     this.mesh.position.copy(this.basePosition);
-    this.mesh.scale.set(this.baseScale.x, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.unitScale, this.baseScale.y * this.unitScale, 1);
     this.mesh.castShadow = true;
     this.mesh.receiveShadow = false;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({
@@ -200,6 +315,7 @@ export class SpriteRig implements SpriteRigApi {
       depthPacking: THREE.RGBADepthPacking,
     });
     this.mesh.userData = { spriteRig: this };
+
     this.scene.add(this.mesh);
 
     const shadowMat = new THREE.MeshBasicMaterial({
@@ -207,9 +323,15 @@ export class SpriteRig implements SpriteRigApi {
       transparent: true,
       depthWrite: false,
       opacity: 0.9,
+      // Coplanar com o piso (arena GLB opaca) -> sem polygonOffset o chão
+      // vence no depth e a sombra some. Empurra o blob pra frente do depth.
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
     });
     const shadowGeometry = new THREE.PlaneGeometry(SHADOW_MAX_WIDTH, SHADOW_MAX_WIDTH);
     this.shadow = new THREE.Mesh(shadowGeometry, shadowMat);
+    this.shadow.renderOrder = 10;
     this.shadow.rotation.x = -Math.PI / 2;
     this.shadow.position.set(this.basePosition.x, GROUND_Y, this.basePosition.z);
     this.scene.add(this.shadow);
@@ -242,7 +364,7 @@ export class SpriteRig implements SpriteRigApi {
     } else {
       this.baseScale.set(SPRITE_MAX_DIMENSION * aspect, SPRITE_MAX_DIMENSION);
     }
-    this.basePosition.y = this.baseScale.y / 2 + GROUND_Y;
+    this.basePosition.y = (this.baseScale.y * this.unitScale) / 2 + GROUND_Y;
     this.shadowWidthUnits = Math.min(SHADOW_MAX_WIDTH, this.baseScale.x * 1.05);
   }
 
@@ -256,6 +378,10 @@ export class SpriteRig implements SpriteRigApi {
   }
 
   private loadTexture(url: string): void {
+    if (this.isSpritesheet) {
+      this.loadSpritesheet(url);
+      return;
+    }
     if (/\.gif(\?|$)/i.test(url)) {
       this.loadGif(url);
       return;
@@ -281,6 +407,86 @@ export class SpriteRig implements SpriteRigApi {
       }
       this.analyzeStaticAlphaBbox(tex);
     });
+  }
+
+  private loadSpritesheet(url: string): void {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.decoding = 'async';
+    img.onload = () => {
+      if (this.disposedFlag) {
+        img.remove();
+        return;
+      }
+      const w = img.naturalWidth || 64;
+      const h = img.naturalHeight || 64;
+      // Cell size is derived from the SOURCE sheet, independent of the canvas.
+      const cellW = Math.max(1, Math.floor(w / SHEET_COLS));
+      const cellH = Math.max(1, Math.floor(h / SHEET_ROWS));
+      // The texture holds exactly ONE cell (1:1, no upscale). Stretching a 16px
+      // cell into a 64px canvas and using that as the texture is what made
+      // frames look chunky/cropped through alphaTest.
+      const canvas = document.createElement('canvas');
+      canvas.width = cellW;
+      canvas.height = cellH;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (ctx === null) {
+        img.remove();
+        return;
+      }
+      ctx.imageSmoothingEnabled = false;
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      // Spritesheet is authored facing the 'opp' side (right); flip for 'you'.
+      this.applyFacingFlip(texture);
+      const previous = this.mat.map;
+      this.mat.map = texture;
+      this.mat.needsUpdate = true;
+      this.syncDepthMap();
+      previous?.dispose();
+      this.applyAspect(cellW, cellH);
+      const walkIndices = cellW <= 16 ? [0, 1, 2, 3] : [0, 1];
+      const sheet: SheetState = {
+        canvas,
+        ctx,
+        texture,
+        image: img,
+        walkIndex: 0,
+        walkElapsed: 0,
+        hitActive: false,
+        hitElapsed: 0,
+        walkIndices,
+      };
+      this.sheet = sheet;
+      this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
+      try {
+        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
+      } catch {
+        /* bbox analysis is best-effort */
+      }
+    };
+    img.onerror = () => {
+      // Sheet failed: keep the placeholder so the unit still renders.
+      img.remove();
+    };
+    img.src = url;
+  }
+
+  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas at 1:1. */
+  private drawSheetFrame(sheet: SheetState, cell: number): void {
+    const imgW = sheet.image.naturalWidth || 64;
+    const imgH = sheet.image.naturalHeight || 64;
+    const cellW = Math.max(1, Math.floor(imgW / SHEET_COLS));
+    const cellH = Math.max(1, Math.floor(imgH / SHEET_ROWS));
+    const col = cell % SHEET_COLS;
+    const row = Math.floor(cell / SHEET_COLS);
+    const sx = col * cellW;
+    const sy = row * cellH;
+    sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
+    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, cellW, cellH);
+    sheet.texture.needsUpdate = true;
   }
 
   private loadGif(url: string): void {
@@ -423,7 +629,9 @@ export class SpriteRig implements SpriteRigApi {
     if (this.disposedFlag || !this.mesh.visible) return;
     this.mesh.quaternion.copy(cameraQuat);
 
-    if (this.gif !== null) {
+    if (this.sheet !== null) {
+      this.updateSheet(this.sheet, dt);
+    } else if (this.gif !== null) {
       const gif = this.gif;
       if (gif.frames.length > 0) {
         gif.elapsedMsInFrame += dt * 1000;
@@ -473,10 +681,16 @@ export class SpriteRig implements SpriteRigApi {
       }
     }
 
+    // Gentle breathing so a still unit (combat passes idleAnimated:false) looks
+    // alive instead of frozen/broken. No frame swap, no horizontal "jump".
+    const breathe = Math.sin((elapsedS * BREATHE_HZ + this.breathePhase) * Math.PI * 2);
+    const breatheScaleY = 1 + breathe * BREATHE_SCALE_AMP;
+    const breatheLift = breathe * BREATHE_LIFT * this.baseScale.y;
+
     this.mesh.position.x = this.basePosition.x + lungeOffset + ox;
-    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY + breatheLift;
     this.mesh.position.z = this.basePosition.z;
-    this.mesh.scale.set(this.baseScale.x * this.facingSign, this.baseScale.y, 1);
+    this.mesh.scale.set(this.baseScale.x * this.facingSign * this.unitScale, this.baseScale.y * breatheScaleY * this.unitScale, 1);
 
     this.worldPosition.set(this.mesh.position.x, this.mesh.position.y, this.mesh.position.z);
 
@@ -496,14 +710,49 @@ export class SpriteRig implements SpriteRigApi {
     void elapsedS;
   }
 
+  /** Advance spritesheet playback (walk loop, or the hit cycle while active). */
+  private updateSheet(sheet: SheetState, dt: number): void {
+    if (sheet.hitActive) {
+      sheet.hitElapsed += dt * 1000;
+      if (sheet.hitElapsed >= HIT_FRAME_MS) {
+        sheet.hitElapsed -= HIT_FRAME_MS;
+        // Single-frame hit pose (TAKE_HIT = frame 2). Just hold it; on timeout revert to walk.
+        sheet.hitActive = false;
+        sheet.walkIndex = 0;
+        sheet.walkElapsed = 0;
+        this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
+      }
+      return;
+    }
+    if (!this.idleAnimated) return; // combat units stand still on frame 0
+    sheet.walkElapsed += dt * 1000;
+    if (sheet.walkElapsed >= WALK_FRAME_MS) {
+      sheet.walkElapsed -= WALK_FRAME_MS;
+      sheet.walkIndex = (sheet.walkIndex + 1) % sheet.walkIndices.length;
+      this.drawSheetFrame(sheet, sheet.walkIndices[sheet.walkIndex]!);
+    }
+  }
+
   playAttack(): void {
     if (this.disposedFlag) return;
+    // Lunge transform (kept for spatial weight) + the sheet's ATTACK frame (frame 3).
     this.anim = { type: 'attack', t: 0, dur: ATTACK_ANIM_S };
+    if (this.sheet !== null) {
+      this.sheet.hitActive = true;
+      this.sheet.hitElapsed = 0;
+      this.drawSheetFrame(this.sheet, ATTACK_FRAME_INDEX);
+    }
   }
 
   playHit(): void {
     if (this.disposedFlag) return;
+    // Shake-on-take-damage (spatial) + sheet's TAKE_HIT frame (frame 2).
     this.anim = { type: 'hit', t: 0, dur: HIT_ANIM_S };
+    if (this.sheet !== null) {
+      this.sheet.hitActive = true;
+      this.sheet.hitElapsed = 0;
+      this.drawSheetFrame(this.sheet, TAKE_HIT_FRAME_INDEX);
+    }
   }
 
   illuminate(color: THREE.Color | number, intensity: number, decayPerSec = 4): void {
@@ -518,7 +767,7 @@ export class SpriteRig implements SpriteRigApi {
 
   setDowned(down: boolean): void {
     if (this.disposedFlag) return;
-    this.downed = down;
+    this._downed = down;
     this.mesh.visible = !down;
     this.shadow.visible = !down;
   }
@@ -536,6 +785,14 @@ export class SpriteRig implements SpriteRigApi {
     this.basePosition.z = z;
   }
 
+  setUnitScale(v: number): void {
+    if (this.disposedFlag || v <= 0) return;
+    this.unitScale = v;
+    this.basePosition.y = (this.baseScale.y * v) / 2 + GROUND_Y;
+    this.mesh.position.y = this.basePosition.y + this.arenaBaselineY;
+    this.worldPosition.y = this.mesh.position.y;
+  }
+
   dispose(): void {
     if (this.disposedFlag) return;
     this.disposedFlag = true;
@@ -550,6 +807,10 @@ export class SpriteRig implements SpriteRigApi {
       this.gif.fallbackImg?.remove();
       this.gif.texture.dispose();
       for (const frame of this.gif.frames) frame.bitmap.close();
+    }
+    if (this.sheet !== null) {
+      this.sheet.image.remove();
+      this.sheet.texture.dispose();
     }
   }
 }

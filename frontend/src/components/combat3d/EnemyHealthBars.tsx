@@ -1,8 +1,11 @@
 import { memo, useEffect, useRef } from 'react';
 import type { BattleView, UnitId } from '@digiworld/shared/battle';
+import type { Element } from '@digiworld/shared/digimon';
 import type { Combat3DSceneHandle } from './Combat3DScene';
+import { affinity } from '../combat/SkillMenu';
+import { AttributeIcon } from '../combat/AttributeIcon';
 
-export const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null> }): JSX.Element {
+export const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef, hoveredTargetId, selectionElement }: { readonly battle: BattleView; readonly sceneRef: React.RefObject<Combat3DSceneHandle | null>; readonly hoveredTargetId?: UnitId | null; readonly selectionElement?: Element | null }): JSX.Element {
   const alive = battle.enemy.filter((e) => !e.down && e.hp > 0);
   const barRefs = useRef<Map<UnitId, HTMLDivElement>>(new Map());
 
@@ -48,9 +51,10 @@ export const EnemyHealthBars = memo(function EnemyHealthBars({ battle, sceneRef 
             className="ehpbar"
             style={{ position: 'absolute', top: 0, left: 0, opacity: 0, width: '120px', background: 'rgba(0,0,0,0.5)', padding: '4px', border: '1px solid var(--hair)', display: 'flex', flexDirection: 'column', gap: '2px' }}
           >
-            <div style={{ fontSize: '10px', fontWeight: 800, color: '#fff', textShadow: '0 1px 2px #000' }}>{enemy.name}</div>
-            <div style={{ height: '4px', background: 'var(--panel)', width: '100%' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: 'var(--el-electricity)', transition: 'width 0.2s' }} />
+            <div className="enemy-arena-card__head"><AttributeIcon attribute={enemy.attribute} size="sm" /><span>{enemy.name}</span><b>Lv {enemy.level}</b></div>
+            {hoveredTargetId === enemy.id && selectionElement ? <div className={`enemy-target-advantage enemy-target-advantage--${affinity(selectionElement, enemy)}`}>{affinity(selectionElement, enemy).toUpperCase()}</div> : null}
+            <div className="enemy-arena-card__bar">
+              <div style={{ width: `${pct}%` }} />
             </div>
           </div>
         );

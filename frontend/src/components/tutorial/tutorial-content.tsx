@@ -287,11 +287,11 @@ const ADVENTURE_TUTORIAL: Tutorial = {
       ),
     },
     {
-      title: 'Provisions',
+      title: 'Meat',
       body: (
         <>
-          Every expedition burns {kw('Provisions')} — craft them in the Factory Pantry. Longer
-          runs need more provisions but return more loot per hour.
+          Every expedition burns {kw('Meat')} — produced in the Farm and hunted in the field.
+          Longer runs need more meat but return more loot per hour.
         </>
       ),
     },
@@ -440,8 +440,9 @@ export const TUTORIALS: Readonly<Record<string, Tutorial>> = {
  */
 export function tutorialForPath(pathname: string): Tutorial | null {
   if (pathname.startsWith('/admin')) return null;
-  if (pathname === '/login' || pathname === '/reset' || pathname === '/intro' || pathname === '/') return null;
+  if (pathname === '/login' || pathname === '/reset' || pathname === '/intro') return null;
   if (pathname === '/spectate') return null;
+  if (pathname === '/') return TUTORIALS['/lobby'] ?? null;
   if (pathname.startsWith('/dungeon/')) return TUTORIALS['/dungeon'] ?? null;
   return TUTORIALS[pathname] ?? null;
 }

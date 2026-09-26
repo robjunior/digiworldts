@@ -20,6 +20,7 @@ import {
   type FarmView,
 } from '../lib/api-farm';
 import '../styles/extensions-factory.css';
+import '../styles/balbar.css';
 
 const FARM_QUERY_KEY = ['farm'] as const;
 const RECIPES_QUERY_KEY = ['farm', 'recipes'] as const;
@@ -28,6 +29,8 @@ const emptyFarm: FarmView = {
   balances: { Meat: 0, Bits: 0, Data: 0 },
   credits: 0,
   netcore: 0,
+  premium: false,
+  premiumBonus: 0,
   buildings: [],
 };
 

@@ -451,11 +451,13 @@ export type AdventureRow = {
   user_id: string;
   mon_ids: string;
   distance_ms: number;
-  provisions_spent: number;
+  meat_spent: number;
   started_at: number;
   collected_at: number | null;
   seed: number;
   report: string | null;
+  /** Team slot 0..ADVENTURE_MAX_ACTIVE-1; only meaningful while active. */
+  slot: number;
   created_at: number;
 };
 

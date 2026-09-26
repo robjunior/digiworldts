@@ -15,12 +15,14 @@
 import { one, q, run, tx, type UserRow } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
-import { awardXp, xpFromDefeats, type DefeatedFoe } from '../progression/xp.js';
+import { awardXp, xpFromDefeats, xpToReach, type DefeatedFoe } from '../progression/xp.js';
 import { getXpRate, getDamageRate } from '../settings/engine.js';
 import { countPartyMembers, loadPartyLoadout, partyAverageLevel, partyTrainedness } from '../roster/routes.js';
 import { loadCatalog } from '../digimon/xml.js';
+import { scaleStatsForLevel } from '../digimon/element.js';
 import type { Stage, TemplateDigimon } from '../digimon/types.js';
 import { consumePreBattleBuffs, consumeXpMultBuffs, xpMultOf, type PendingBuff } from '../social/buffs.js';
+import { isUserPremium } from '../premium/index.js';
 import {
   abandonBattle,
   applyAction,
@@ -44,7 +46,9 @@ import { getCluster } from '../cluster/index.js';
 import { clearSpectators, listSpectators } from './spectate.js';
 import { pickSceneForElements } from '../scenes/picker.js';
 import type { Element } from '@digiworld/shared/digimon';
+import type { BattleEndRewards, XpAward } from '@digiworld/shared/battle';
 import { emit } from '../telemetry/emit.js';
+import { processPvpBattle } from '../pvp-quests/evaluator.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -57,7 +61,7 @@ const WSDELIVER = (uid: string): string => `wsdeliver:${uid}`;
 // SQL for durable persistence + rewards
 // ---------------------------------------------------------------------------
 const SQL_INSERT_MATCH = `INSERT INTO matches (id, player_a, player_b, winner, outcome, rounds, started_at, ended_at, log) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-const SQL_SELECT_PARTY = `SELECT id, catalog_id, level, xp, slot_index, hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus FROM player_roster WHERE user_id = ? AND slot_index IS NOT NULL ORDER BY slot_index`;
+const SQL_SELECT_PARTY = `SELECT id, nickname, catalog_id, level, xp, slot_index, hp_bonus, en_bonus, atk_bonus, def_bonus, int_bonus, spd_bonus FROM player_roster WHERE user_id = ? AND slot_index IS NOT NULL ORDER BY slot_index`;
 const SQL_UPDATE_MON = `UPDATE player_roster SET level = ?, xp = ?, hp_bonus = ?, en_bonus = ?, atk_bonus = ?, def_bonus = ?, int_bonus = ?, spd_bonus = ?, updated_at = ? WHERE id = ?`;
 const SQL_ADD_NETCORE = `INSERT INTO player_wallet (user_id, credits, netcore, streak_day, updated_at) VALUES (?, 0, ?, 0, ?)
      ON CONFLICT(user_id) DO UPDATE SET netcore = player_wallet.netcore + excluded.netcore, updated_at = excluded.updated_at`;
@@ -71,6 +75,7 @@ type PvpMmrResult = { a: MmrDelta; b: MmrDelta };
 
 type PartyRow = {
   id: string;
+  nickname: string;
   catalog_id: string;
   level: number;
   xp: number;
@@ -239,13 +244,13 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     const viewA = serializeForSide(battle, 'a');
     const viewB = serializeForSide(battle, 'b');
     const ended = battle.status === 'ended';
-    let pvpMmr: PvpMmrResult | null = null;
+    let endResult: PersistedEnd | null = null;
     if (ended) {
-      pvpMmr = await persistAndAwardEnd(battle);
+      endResult = await persistAndAwardEnd(battle);
       await deleteBattleState(battle);
-      if (pvpMmr) {
-        attachPvpMmrToView(viewA, pvpMmr.a);
-        attachPvpMmrToView(viewB, pvpMmr.b);
+      if (endResult?.mmr) {
+        attachPvpMmrToView(viewA, endResult.mmr.a);
+        attachPvpMmrToView(viewB, endResult.mmr.b);
       }
     } else {
       // Every applied action mutates the battle -- turnCursor, hp, en, ailments.
@@ -261,8 +266,8 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     await deliverToSpectators(battle.id, { type: 'event', matchId: battle.id, events: result.events });
     await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
     if (ended) {
-      await deliverToUser(battle.playerA, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
-      await deliverToUser(battle.playerB, { type: 'end', matchId: battle.id, view: viewB, outcome: viewB.outcome });
+      await deliverToUser(battle.playerA, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome, rewards: endResult?.rewardsA });
+      await deliverToUser(battle.playerB, { type: 'end', matchId: battle.id, view: viewB, outcome: viewB.outcome, rewards: endResult?.rewardsB });
       await deliverToSpectators(battle.id, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
       await clearSpectators(battle.id);
     }
@@ -286,13 +291,13 @@ export async function handleDisconnect(userId: string): Promise<{ matchId: strin
     }
     const side = sideForPlayerId(battle, userId);
     abandonBattle(battle, side ?? null);
-    const pvpMmr = await persistAndAwardEnd(battle);
+    const endResult = await persistAndAwardEnd(battle);
     await deleteBattleState(battle);
     const opponentId = battle.playerA === userId ? battle.playerB : battle.playerA;
     const opponentSide: BattleSide = battle.playerA === userId ? 'b' : 'a';
     const opponentView = serializeForSide(battle, opponentSide);
-    if (pvpMmr) {
-      attachPvpMmrToView(opponentView, opponentSide === 'a' ? pvpMmr.a : pvpMmr.b);
+    if (endResult?.mmr) {
+      attachPvpMmrToView(opponentView, opponentSide === 'a' ? endResult.mmr.a : endResult.mmr.b);
     }
     // Spectators saw everything from A's perspective; deliver end from that view.
     const spectatorView = opponentSide === 'a' ? opponentView : serializeForSide(battle, 'a');
@@ -371,7 +376,13 @@ function outcomeToSummary(outcome: BattleOutcome): {
   }
 }
 
-async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> {
+type PersistedEnd = {
+  mmr: PvpMmrResult | null;
+  rewardsA: BattleEndRewards;
+  rewardsB: BattleEndRewards;
+};
+
+async function persistAndAwardEnd(battle: Battle): Promise<PersistedEnd | null> {
   if (!battle.outcome || !battle.endedAt) return null;
   const summary = outcomeToSummary(battle.outcome);
   const winnerUserId = summary.winnerId === 'a' ? battle.playerA : summary.winnerId === 'b' ? battle.playerB : null;
@@ -395,6 +406,8 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
     };
   }
 
+  let rewardsA: BattleEndRewards = { xpAwards: [] };
+  let rewardsB: BattleEndRewards = { xpAwards: [] };
   await tx(async (t) => {
     await t.run(SQL_INSERT_MATCH, [
       battle.id,
@@ -407,9 +420,19 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
       battle.endedAt!,
       JSON.stringify(rowLog),
     ]);
-    await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
-    await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
-    const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<void> => {
+    // Quest progress is derived from authoritative battle state and applied in
+    // the SAME transaction as the match row, so it can never be lost or double
+    // counted relative to the persisted match.
+    if (battle.mode === 'pvp') {
+      try {
+        await processPvpBattle(battle);
+      } catch (err) {
+        log.warn('battle.end.pvp-quest.failed', { matchId: battle.id, err: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    rewardsA = await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
+    rewardsB = await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
+    const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<{ netcore: number; bits: number }> => {
       const [netcore, bits] =
         result === 'win' ? [CREDITS_PER_WIN, BITS_PER_WIN] :
         result === 'loss' ? [CREDITS_PER_LOSS, BITS_PER_LOSS] :
@@ -417,9 +440,14 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
         [0, 0];
       if (netcore > 0) await t.run(SQL_ADD_NETCORE, [userId, netcore, battle.endedAt!]);
       if (bits > 0) await t.run(SQL_ADD_BITS, [userId, bits, battle.endedAt!]);
+      return { netcore, bits };
     };
-    await grantWallet(battle.playerA, summary.aResult);
-    await grantWallet(battle.playerB, summary.bResult);
+    const [walletA, walletB] = await Promise.all([
+      grantWallet(battle.playerA, summary.aResult),
+      grantWallet(battle.playerB, summary.bResult),
+    ]);
+    rewardsA = { ...rewardsA, netcoreGained: walletA.netcore, bitsGained: walletA.bits };
+    rewardsB = { ...rewardsB, netcoreGained: walletB.netcore, bitsGained: walletB.bits };
     if (pvpMmr) {
       await t.run(SQL_UPDATE_USER_MMR, [pvpMmr.a.after, battle.endedAt!, battle.playerA]);
       await t.run(SQL_UPDATE_USER_MMR, [pvpMmr.b.after, battle.endedAt!, battle.playerB]);
@@ -461,7 +489,7 @@ async function persistAndAwardEnd(battle: Battle): Promise<PvpMmrResult | null> 
   };
   emitFor(battle.playerA, 'a', summary.aResult, pvpMmr?.a ?? null);
   emitFor(battle.playerB, 'b', summary.bResult, pvpMmr?.b ?? null);
-  return pvpMmr;
+  return { mmr: pvpMmr, rewardsA, rewardsB };
 }
 
 function attachPvpMmrToView(view: BattleView, mmr: MmrDelta): void {
@@ -480,9 +508,13 @@ async function grantRewardsInTx(
   side: BattleSide,
   result: 'win' | 'loss' | 'draw' | 'fled',
   templates: Map<string, TemplateDigimon>,
-): Promise<void> {
-  if (battle.mode === 'pvp') return;
+): Promise<BattleEndRewards> {
   const userId = side === 'a' ? battle.playerA : battle.playerB;
+  // Ranked XP goes to the winning side only — computed exactly like PvE
+  // (xpFromDefeats on the defeated foe levels, trainer multiplier), so the XP
+  // scales with the levels of the digimon that won the fight. Draws, losses
+  // and flees grant no monster XP; wallet rows are granted separately.
+  if (battle.mode === 'pvp' && result !== 'win') return { xpAwards: [] };
   const myUnits = battle.units.filter((u) => u.side === side);
   const oppUnits = battle.units.filter((u) => u.side !== side);
   const participantSlots = new Set<number>(myUnits.map((u) => u.slot));
@@ -497,27 +529,50 @@ async function grantRewardsInTx(
     const mult = xpMultOf(await consumeXpMultBuffs(userId));
     if (mult > 1) xp = Math.round(xp * mult);
   }
-  if (xp <= 0) return;
+  if (xp <= 0) return { xpAwards: [] };
+  // Premium: +50% XP on top of any buff multipler.
+  if (await isUserPremium(userId, battle.endedAt!)) {
+    xp = Math.round(xp * 1.5);
+  }
   const xpRate = await getXpRate();
   const rows = await txAdapter.query<PartyRow>(SQL_SELECT_PARTY, [userId]);
   const now = Date.now();
+  const scaledXpPerParticipant = Math.max(0, Math.round(xp * xpRate));
+  const xpAwards: XpAward[] = [];
   for (const r of rows) {
     if (!participantSlots.has(r.slot_index)) continue;
     const template = templates.get(r.catalog_id);
     const stage: Stage = template?.stage ?? 'Rookie';
+    const unit = battle.units.find((u) => u.side === side && u.slot === r.slot_index);
+    const isDefeated = unit ? unit.hp <= 0 : false;
+    const previousLevel = r.level;
+    const previousXp = r.xp;
+    const currentBonus = {
+      hp: r.hp_bonus,
+      en: r.en_bonus,
+      atk: r.atk_bonus,
+      def: r.def_bonus,
+      int: r.int_bonus,
+      spd: r.spd_bonus,
+    };
     const grown = awardXp(
       r.level,
       r.xp,
-      { hp: r.hp_bonus, en: r.en_bonus, atk: r.atk_bonus, def: r.def_bonus, int: r.int_bonus, spd: r.spd_bonus },
+      currentBonus,
       stage,
       xp,
       template?.baseStats,
       undefined,
       xpRate,
     );
+    // Clamp the accumulated XP to the floor of the new level, so a legacy row
+    // whose xp sits below its level's floor gets corrected on award and the
+    // UI bracket (xpFloor…xpNext) always contains xpAfter.
+    const grownFloor = xpToReach(grown.level, stage);
+    const nextXp = Math.max(grownFloor, grown.xp);
     await txAdapter.run(SQL_UPDATE_MON, [
       grown.level,
-      grown.xp,
+      nextXp,
       grown.bonus.hp,
       grown.bonus.en,
       grown.bonus.atk,
@@ -527,7 +582,30 @@ async function grantRewardsInTx(
       now,
       r.id,
     ]);
+    xpAwards.push({
+      monId: r.id,
+      catalogId: r.catalog_id,
+      nickname: r.nickname,
+      delta: scaledXpPerParticipant,
+      previousLevel,
+      newLevel: grown.level,
+      gainedLevels: grown.gainedLevels,
+      xpBefore: previousXp,
+      xpAfter: nextXp,
+      xpFloor: grownFloor,
+      xpNext: xpToReach(grown.level + 1, stage),
+      xpFloorBefore: xpToReach(previousLevel, stage),
+      xpNextBefore: xpToReach(previousLevel + 1, stage),
+      defeated: isDefeated,
+      ...(template?.baseStats
+        ? {
+            statsBefore: scaleStatsForLevel(template.baseStats, previousLevel, currentBonus),
+            statsAfter: scaleStatsForLevel(template.baseStats, grown.level, grown.bonus),
+          }
+        : {}),
+    });
   }
+  return { xpAwards };
 }
 
-export { countPartyMembers, partyAverageLevel, partyTrainedness };
+export { countPartyMembers, partyAverageLevel, partyTrainedness, persistAndAwardEnd };

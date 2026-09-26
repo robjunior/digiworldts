@@ -28,9 +28,8 @@
 .tbar .strip-title .k{font:800 10px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal)}
 .tbar .strip-title .s{font:600 12px/1 var(--font);color:var(--muted);margin-top:5px}
 
-/* ---- content: stations | roster --------------------------------------- */
-.stage{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr 340px;gap:22px;padding:22px 28px 22px}
-@media (max-width:1120px){.stage{grid-template-columns:1fr}.rostercol{display:none}}
+/* ---- content: stations ------------------------------------------------ */
+.stage{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr;gap:22px;padding:22px 28px 22px}
 .col{display:flex;flex-direction:column;min-height:0;min-width:0}
 .stitle{font:800 11px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:12px;flex:0 0 auto}
 .stitle::after{content:"";flex:1;height:1px;background:var(--hair)}

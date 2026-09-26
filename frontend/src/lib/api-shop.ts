@@ -2,7 +2,16 @@ import { apiFetch } from './api';
 import type { OkResponse } from './api-roster';
 import type { Rarity } from '@digiworld/shared/item-rarity';
 
-export type ShopItemKind = 'consumable' | 'evolve' | 'building_placement' | 'cosmetic' | 'xp_mult' | 'revive' | string;
+export type ShopItemKind = 
+  | 'consumable' 
+  | 'evolve' 
+  | 'building_placement' 
+  | 'cosmetic' 
+  | 'xp_mult' 
+  | 'revive' 
+  | 'battle_item' 
+  | 'premium'
+  | string;
 export type ShopItemClass = 'product' | 'item';
 export type ShopCurrency = 'credits' | 'netcore';
 
@@ -20,6 +29,7 @@ export type ShopItemView = {
   readonly sprite?: string | null;
   readonly mono?: string | null;
   readonly rarity?: Rarity;
+  readonly premiumDays?: number;
 };
 
 export type InventoryItemView = {
@@ -64,6 +74,7 @@ export type ShopResponse = {
   readonly wallet: {
     readonly credits: number;
     readonly netcore: number;
+    readonly premiumUntil: number | null;
   };
   readonly inventory: readonly InventoryItemView[];
 };
@@ -98,7 +109,7 @@ export function getInventory(): Promise<Pick<ShopResponse, 'inventory' | 'wallet
 }
 
 export function getItems(): Promise<ItemsResponse> {
-  return apiFetch<ItemsResponse>('/api/items');
+  return apiFetch<ItemsResponse>('/api/shop');
 }
 
 export function buyShopItem(itemId: string, qty: number): Promise<BuyResponse> {

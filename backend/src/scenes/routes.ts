@@ -11,12 +11,20 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
+import { LobbySceneSettingsZ } from './lobby-schema.js';
+import { config } from '../config.js';
+import { writeSceneRevision, MAX_SCENE_GLB_BYTES, MAX_SCENE_PROJECT_BYTES } from './assets.js';
+import { resolve } from 'node:path';
+
+export { LobbySceneSettingsZ } from './lobby-schema.js';
+
 import {
   copySceneEntry,
   createSceneEntry,
   deleteSceneEntry,
   getScene,
   listScenes,
+  LobbySceneAlreadyAssignedError,
   updateSceneEntry,
 } from './store.js';
 
@@ -44,7 +52,17 @@ const WeatherOverrideZ = z.object({
   durationMs: z.number().int().min(1000).max(300_000),
 }).strict();
 
-const ArenaSettingsZ = z.object({
+
+const SceneAssetUrlZ = z.string().trim().min(1).max(200).refine((value) =>
+  /^[A-Za-z0-9_.-]+\.glb$/i.test(value)
+  || /^\/assets\/scenes\/scn_[0-9a-hjkmnp-tv-z]{26}\/rev_[a-f0-9]{32}\/scene\.glb$/.test(value),
+  'Expected a bundled GLB filename or a generated scene asset URL',
+);
+const SceneProjectUrlZ = z.string().trim().min(1).max(200).regex(
+  /^\/assets\/scenes\/scn_[0-9a-hjkmnp-tv-z]{26}\/rev_[a-f0-9]{32}\/project\.app\.json$/,
+);
+
+export const ArenaSettingsZ = z.object({
   sunColor: z.number().int().min(0).max(0xffffff).optional(),
   sunIntensity: z.number().min(0).max(4).optional(),
   sunPosX: z.number().optional(),
@@ -82,12 +100,15 @@ const ArenaSettingsZ = z.object({
   arenaOffsetX: z.number().min(-100).max(100).optional(),
   arenaOffsetY: z.number().min(-100).max(100).optional(),
   arenaOffsetZ: z.number().min(-100).max(100).optional(),
-  modelFile: z.string().trim().min(1).max(200).optional(),
+  modelFile: SceneAssetUrlZ.optional(),
+  editorProjectFile: SceneProjectUrlZ.optional(),
+  lobby: LobbySceneSettingsZ.optional(),
 }).strict();
 
 const SceneCreateZ = z.object({
   name: z.string().trim().min(1).max(120),
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
+  kind: z.enum(['arena', 'lobby']).optional(),
   settings: ArenaSettingsZ,
   useGlbSettings: z.boolean().optional(),
   weather: WeatherConfigZ.nullish(),
@@ -117,6 +138,52 @@ async function broadcastWeatherTriggered(input: z.infer<typeof WeatherOverrideZ>
 }
 
 export const scenesPlugin: FastifyPluginAsync = async (app) => {
+  app.post<{ Params: { id: string } }>('/api/admin/scenes/:id/assets', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const scene = await getScene(req.params.id);
+    if (scene === null) return reply.code(404).send({ error: 'not-found' });
+
+    const files = new Map<string, Buffer>();
+    try {
+      for await (const part of req.parts({
+        limits: { files: 2, fields: 0, fileSize: MAX_SCENE_GLB_BYTES },
+      })) {
+        if (part.type !== 'file' || (part.fieldname !== 'project' && part.fieldname !== 'glb')) {
+          return reply.code(400).send({ error: 'invalid-assets' });
+        }
+        if (files.has(part.fieldname)) return reply.code(400).send({ error: 'duplicate-asset' });
+        const bytes = await part.toBuffer();
+        if (part.fieldname === 'project' && bytes.byteLength > MAX_SCENE_PROJECT_BYTES) {
+          return reply.code(413).send({ error: 'project-too-large' });
+        }
+        files.set(part.fieldname, bytes);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes('File too large') ? 413 : 400;
+      return reply.code(status).send({ error: status === 413 ? 'asset-too-large' : 'invalid-assets' });
+    }
+
+    const projectBytes = files.get('project');
+    const glbBytes = files.get('glb');
+    if (projectBytes === undefined || glbBytes === undefined) {
+      return reply.code(400).send({ error: 'project-and-glb-required' });
+    }
+    try {
+      const revision = await writeSceneRevision(
+        resolve(config.paths.dataDir, 'scenes', 'assets'),
+        scene.id,
+        projectBytes,
+        glbBytes,
+      );
+      log.info('admin.scene.assets.upload', { adminId: admin.id, sceneId: scene.id, revision: revision.revision });
+      return reply.code(201).send({ ok: true, revision });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return reply.code(400).send({ error: 'invalid-assets', details: message });
+    }
+  });
+
   app.get('/api/scene/scenes', async (req, reply) => {
     await requireAuth(req, reply);
     const scenes = await listScenes();
@@ -129,14 +196,23 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid-input', issues: parsed.error.issues });
     }
-    const scene = await createSceneEntry({
-      name: parsed.data.name,
-      elements: parsed.data.elements,
-      settings: parsed.data.settings,
-      useGlbSettings: parsed.data.useGlbSettings === true,
-      weather: parsed.data.weather ?? null,
-      timeOfDay: parsed.data.timeOfDay ?? null,
-    });
+    let scene;
+    try {
+      scene = await createSceneEntry({
+        name: parsed.data.name,
+        elements: parsed.data.elements,
+        ...(parsed.data.kind !== undefined ? { kind: parsed.data.kind } : {}),
+        settings: parsed.data.settings,
+        useGlbSettings: parsed.data.useGlbSettings === true,
+        weather: parsed.data.weather ?? null,
+        timeOfDay: parsed.data.timeOfDay ?? null,
+      });
+    } catch (err) {
+      if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      throw err;
+    }
     await broadcastScenesUpdated();
     log.info('admin.scene.create', { adminId: admin.id, sceneId: scene.id, name: scene.name });
     return reply.code(201).send({ ok: true, scene });
@@ -151,6 +227,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const patch: {
       name?: string;
       elements?: readonly Element[];
+      kind?: 'arena' | 'lobby';
       settings?: Readonly<Record<string, unknown>>;
       useGlbSettings?: boolean;
       weather?: WeatherConfig | null;
@@ -158,11 +235,20 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     } = {};
     if (parsed.data.name !== undefined) patch.name = parsed.data.name;
     if (parsed.data.elements !== undefined) patch.elements = parsed.data.elements;
+    if (parsed.data.kind !== undefined) patch.kind = parsed.data.kind;
     if (parsed.data.settings !== undefined) patch.settings = parsed.data.settings;
     if (parsed.data.useGlbSettings !== undefined) patch.useGlbSettings = parsed.data.useGlbSettings;
     if (parsed.data.weather !== undefined) patch.weather = parsed.data.weather ?? null;
     if (parsed.data.timeOfDay !== undefined) patch.timeOfDay = parsed.data.timeOfDay ?? null;
-    const scene = await updateSceneEntry(req.params.id, patch);
+    let scene;
+    try {
+      scene = await updateSceneEntry(req.params.id, patch);
+    } catch (err) {
+      if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      throw err;
+    }
     if (scene === null) return reply.code(404).send({ error: 'not-found' });
     await broadcastScenesUpdated();
     log.info('admin.scene.update', { adminId: admin.id, sceneId: scene.id });

@@ -1,4 +1,4 @@
-import type { Stage } from '@digiworld/shared/digimon';
+import type { Element, Stage } from '@digiworld/shared/digimon';
 
 import { apiFetch } from './api';
 
@@ -14,11 +14,15 @@ export type AdventureMemberView = {
 export type AdventureEncounter = {
   readonly index: number;
   readonly wildLevel: number;
+  readonly wildCatalogId: string;
+  readonly wildName: string;
+  readonly wildStage: Stage;
+  readonly wildElement: Element;
   readonly outcome: 'win' | 'loss';
   readonly meat: number;
   readonly bits: number;
   readonly data: number;
-  readonly credits: number;
+  readonly netcore: number;
   readonly xpPerMon: number;
   readonly koMonId: string | null;
 };
@@ -31,6 +35,14 @@ export type AdventureXpDelta = {
   readonly gainedLevels: number;
 };
 
+export type AdventureFoundDigimon = {
+  readonly catalogId: string;
+  readonly name: string;
+  readonly stage: Stage;
+  readonly element: Element;
+  readonly count: number;
+};
+
 export type AdventureReport = {
   readonly encounters: readonly AdventureEncounter[];
   readonly wins: number;
@@ -38,16 +50,20 @@ export type AdventureReport = {
   readonly totals: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number };
   readonly xpDeltas: readonly AdventureXpDelta[];
   readonly koedMonIds: readonly string[];
+  readonly foundDigimons: readonly AdventureFoundDigimon[];
+  readonly premium: boolean;
+  readonly premiumBonus: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number; readonly xp: number };
 };
 
 export type AdventureView = {
   readonly id: string;
+  readonly slot: number;
   readonly startedAt: number;
   readonly distanceMs: number;
   readonly finishesAt: number;
   readonly remainingMs: number;
   readonly ready: boolean;
-  readonly provisionsSpent: number;
+  readonly meatSpent: number;
   readonly party: readonly AdventureMemberView[];
   readonly collectedAt: number | null;
   readonly report: AdventureReport | null;
@@ -56,23 +72,24 @@ export type AdventureView = {
 export type AdventureConfigView = {
   readonly minHours: number;
   readonly maxHours: number;
-  readonly provisionsPerHour: number;
-  readonly provisionItemId: string;
+  readonly meatPerHour: number;
+  readonly meatEscalationPerHour: number;
   readonly encountersPerHour: number;
   readonly partySize: number;
+  readonly maxActive: number;
 };
 
 export type AdventurePageView = {
-  readonly active: AdventureView | null;
+  readonly active: readonly AdventureView[];
   readonly lastCollected: AdventureView | null;
-  readonly provisionsOwned: number;
+  readonly meatOwned: number;
   readonly config: AdventureConfigView;
 };
 
 export type StartAdventureResult = {
   readonly ok: true;
   readonly adventure: AdventureView;
-  readonly provisionsOwned: number;
+  readonly meatOwned: number;
 };
 
 export type CollectAdventureResult = {
@@ -88,6 +105,9 @@ export function startAdventure(monIds: readonly string[], hours: number): Promis
   return apiFetch<StartAdventureResult>('/api/adventure/start', { method: 'POST', body: { monIds, hours } });
 }
 
-export function collectAdventure(): Promise<CollectAdventureResult> {
-  return apiFetch<CollectAdventureResult>('/api/adventure/collect', { method: 'POST' });
+export function collectAdventure(adventureId?: string): Promise<CollectAdventureResult> {
+  return apiFetch<CollectAdventureResult>('/api/adventure/collect', {
+    method: 'POST',
+    body: adventureId ? { adventureId } : {},
+  });
 }

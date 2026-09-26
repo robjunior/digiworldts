@@ -89,10 +89,10 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, on
       <div className="rows">
         {unit.skills.map((skill) => {
           const canAfford = skill.energyCost <= unit.en;
-          const disabled = !canAfford || target === null;
+          const disabled = !canAfford;
           const name = localizedName(skill, locale);
           const description = localizedDescription(skill, locale) ?? `${skill.element} attack · ${skill.power} power`;
-          const affinityCue = target ? affinity(skill.element, target) : 'none';
+          const affinityCue: Affinity = 'none';
           return (
             <button
               key={skill.id}
@@ -102,13 +102,12 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, on
               onMouseEnter={() => setHoveredDesc(description)}
               onMouseLeave={() => setHoveredDesc(null)}
               onClick={() => {
-                if (!target) return;
                 const pickCount = skillPlayerPickCount(skill);
                 if (pickCount === 1) {
                   onPickSkill(skill.id);
                 } else {
                   setMultiPickSkillId(skill.id);
-                  setPickedTargets(new Set([target.id]));
+                  setPickedTargets(new Set());
                 }
               }}
             >

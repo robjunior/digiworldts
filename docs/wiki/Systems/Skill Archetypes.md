@@ -82,19 +82,19 @@ You cannot filter by archetype. The concept has no representation in the DB.
 
 The mapping across all 11 elements:
 
-| Element     | DB id         | Archetype 1    | Archetype 2 | Archetype 3     |
-| ----------- | ------------- | -------------- | ----------- | --------------- |
-| Fire        | `fire`        | Berserker      | Burst       | DoT             |
-| Water       | `water`       | Controller     | Displacer   | Sustain         |
-| Wind        | `wind`        | Skirmisher     | Speedster   | Evasion         |
-| Electric    | `electricity` | Combo          | Chain       | Stun            |
-| Plant       | `plant`       | DoT            | Healer      | Zone Control    |
-| Earth       | `earth`       | Tank           | Guardian    | Terrain Control |
-| Ice         | `ice`         | Controller     | Lockdown    | Debuffer        |
-| Dark        | `dark`        | Assassin       | Debuffer    | Drain           |
-| Light       | `light`       | Healer         | Buffer      | Purifier        |
-| Metal       | `steel`       | Tank           | Counter     | Fortress        |
-| Null        | `null`        | Adaptive       | Trickster   | Wildcard + Disruptor |
+| Element  | DB id         | Archetype 1 | Archetype 2 | Archetype 3          |
+| -------- | ------------- | ----------- | ----------- | -------------------- |
+| Fire     | `fire`        | Berserker   | Burst       | DoT                  |
+| Water    | `water`       | Controller  | Displacer   | Sustain              |
+| Wind     | `wind`        | Skirmisher  | Speedster   | Evasion              |
+| Electric | `electricity` | Combo       | Chain       | Stun                 |
+| Plant    | `plant`       | DoT         | Healer      | Zone Control         |
+| Earth    | `earth`       | Tank        | Guardian    | Terrain Control      |
+| Ice      | `ice`         | Controller  | Lockdown    | Debuffer             |
+| Dark     | `dark`        | Assassin    | Debuffer    | Drain                |
+| Light    | `light`       | Healer      | Buffer      | Purifier             |
+| Metal    | `steel`       | Tank        | Counter     | Fortress             |
+| Null     | `null`        | Adaptive    | Trickster   | Wildcard + Disruptor |
 
 > [!success] Implementation status — complete
 > All eleven elements have been re-authored under this framework, and every

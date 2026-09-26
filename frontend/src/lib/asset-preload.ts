@@ -2,7 +2,6 @@ import type { BattleView } from '@digiworld/shared/battle';
 import type { SceneEntity } from '@digiworld/shared/scene';
 import { ARENA_MODEL_BY_KEY, DEFAULT_ARENA_MODEL, getArenaUrl } from '@digiworld/scene3d/arena-urls';
 
-import { getDungeon } from './api-dungeon';
 import { getScenes } from './api-scenes';
 import { getSceneDefaults, type PerArenaSceneDefaults } from './scene-defaults';
 
@@ -129,6 +128,18 @@ export function unitDotUrl(templateId: string): string {
 }
 
 /**
+ * Four-frame spritesheet URL for a combat unit. The sheets live at
+ * `/assets/sprites/<skullbotId>.png` (a 2×2 grid: top row = walk cycle,
+ * bottom row = hit cycle) and are keyed by the Skullbot integer id that the
+ * catalog id encodes (`skb-317` → `317`), matching `data/sprites/dot317.PNG`.
+ * `dot.gif` is the graceful fallback when a sheet is missing.
+ */
+export function unitSpriteSheetUrl(templateId: string): string {
+  const numeric = templateId.replace(/^skb-/, '');
+  return `/assets/sprites/${numeric}.png`;
+}
+
+/**
  * Preload everything the combat screen needs for first paint:
  *   - the resolved arena GLB URL (scene entity / arena defaults / element key),
  *   - enemy portraits (for the splash and HUD),
@@ -140,18 +151,7 @@ export async function preloadCombatAssets(battle: BattleView): Promise<void> {
   const arenaUrl = await resolveArenaModelUrl(battle).catch((err) => { console.warn('preload.arena.resolve.fail', err); return undefined; });
   if (arenaUrl !== undefined) urls.push(arenaUrl);
   for (const enemy of battle.enemy) urls.push(unitPortraitUrl(enemy.templateId));
-  for (const unit of battle.friendly) urls.push(unitDotUrl(unit.templateId));
-  for (const enemy of battle.enemy) urls.push(unitDotUrl(enemy.templateId));
+  for (const unit of battle.friendly) urls.push(unitSpriteSheetUrl(unit.templateId));
+  for (const enemy of battle.enemy) urls.push(unitSpriteSheetUrl(enemy.templateId));
   await Promise.all(urls.map((url) => (url.endsWith('.glb') ? preloadFetch(url) : preloadImage(url))));
-}
-
-/**
- * Preload every tileset spritesheet a dungeon needs, so the grid renders
- * without network stalls. Best-effort: dungeon fetch failure and per-image
- * failures are warned and swallowed.
- */
-export async function preloadDungeonAssets(dungeonId: string): Promise<void> {
-  const view = await getDungeon(dungeonId).catch((err) => { console.warn('preload.dungeon.fetch.fail', dungeonId, err); return null; });
-  if (view === null) return;
-  await Promise.all(view.tilesets.map((tileset) => preloadImage(tileset.imageUrl)));
 }

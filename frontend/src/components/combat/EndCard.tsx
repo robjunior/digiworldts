@@ -1,24 +1,18 @@
-import type { BattleOutcome, BattleView } from '@digiworld/shared/battle';
+import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, XpAward } from '@digiworld/shared/battle';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
 
-import type { ItemDrop, StatSnapshot, XpAward } from '../../lib/api-world';
-
-type PveResults = {
-  readonly xpAwards: readonly XpAward[];
-  readonly itemDrops?: readonly ItemDrop[];
-  readonly netcoreGained?: number;
-  readonly bitsGained?: number;
-};
+import { DigimonSprite } from '../common/DigimonSprite';
 
 type EndCardProps = {
   readonly battle: BattleView;
-  readonly pveResults?: PveResults | null;
+  /** End-of-battle rewards from the WS `end` message — XP awards, NetCore, Bits (and PvE loot, if any). */
+  readonly rewards?: BattleEndRewards | null;
   readonly onClose?: () => void;
 };
 
-export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element | null {
   useEffect(() => {
     if (!onClose) return;
     const handler = (event: KeyboardEvent): void => {
@@ -35,7 +29,10 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   const tone = outcomeTone(outcome, battle.yourSide);
   const mmr = extractPvpMmr(battle);
   const hpLeftPct = averageHpLeftPct(battle);
-  const isPve = battle.mode === 'pve';
+  // Ranked (and PvE) rewards arrive with the WS `end` message; the amounts are
+  // the real granted values — not the hardcoded constants the card used to show.
+  const netcoreGained = rewards?.netcoreGained ?? 0;
+  const bitsGained = rewards?.bitsGained ?? 0;
   const stopPropagation = (event: React.MouseEvent): void => event.stopPropagation();
 
   const card = (
@@ -47,12 +44,13 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
       <h2 className="headline">{headline(outcome, battle.yourSide, battle)}</h2>
       <div className="rewards">
         <div className="r"><span className="k">Rounds</span><span>{battle.round}</span></div>
-        {isPve ? null : (
-          <>
-            <div className="r"><span className="k">Credits</span><span>+{creditsFor(tone)}</span></div>
-            <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div>
-          </>
-        )}
+        {netcoreGained > 0 ? (
+          <div className="r" data-od-id="end-card-netcore"><span className="k">NetCore</span><span>+{netcoreGained}</span></div>
+        ) : null}
+        {bitsGained > 0 ? (
+          <div className="r" data-od-id="end-card-bits"><span className="k">Bits</span><span>+{bitsGained}</span></div>
+        ) : null}
+        <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div>
         {battle.mode === 'pvp' && mmr !== null ? (
           <div className="r" data-od-id="end-card-mmr">
             <span className="k">MMR</span>
@@ -64,22 +62,15 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
             </span>
           </div>
         ) : null}
-        {isPve && pveResults?.netcoreGained !== undefined && pveResults.netcoreGained > 0 ? (
-          <div className="r" data-od-id="end-card-pve-credits"><span className="k">NetCore</span><span>+{pveResults.netcoreGained}</span></div>
-        ) : null}
-        {isPve && pveResults?.bitsGained !== undefined && pveResults.bitsGained > 0 ? (
-          <div className="r" data-od-id="end-card-pve-bits"><span className="k">Bits</span><span>+{pveResults.bitsGained}</span></div>
-        ) : null}
-        {isPve ? <div className="r"><span className="k">HP left</span><span>{hpLeftPct}%</span></div> : null}
       </div>
-      {isPve && pveResults ? <PveRewards results={pveResults} /> : null}
+      {rewards !== null && rewards !== undefined && rewards.xpAwards.length > 0 ? <PveRewards results={rewards} /> : null}
       <div className="cta-row">
-        {isPve ? (
-          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-world">
-            Return to World
+        {onClose ? (
+          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-lobby">
+            Back to Lobby
           </button>
         ) : (
-          <Link className="btn btn--secondary" to="/lobby">Back to Menu</Link>
+          <Link className="btn btn--secondary" to="/">Back to Lobby</Link>
         )}
       </div>
     </section>
@@ -103,7 +94,7 @@ export function EndCard({ battle, pveResults, onClose }: EndCardProps): JSX.Elem
   );
 }
 
-function PveRewards({ results }: { readonly results: PveResults }): JSX.Element | null {
+function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.Element | null {
   const drops: readonly ItemDrop[] = results.itemDrops ?? [];
   const hasLoot = drops.length > 0;
   const hasXp = results.xpAwards.length > 0;
@@ -221,40 +212,41 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
   }, [active]);
 
   const showLevelUp = done && leveledUp;
-  const displayLevel = showLevelUp ? award.newLevel : award.previousLevel;
-  const portraitUrl = `/assets/digimon/${award.catalogId}/dot.gif`;
+  const displayLevel = showLevelUp ? (award.newLevel ?? award.xpAfter) : (award.previousLevel ?? Math.floor(award.xpBefore / 10));
   const rowClass = ['pve-xp-row', award.defeated ? 'is-defeated' : '', leveledUp ? 'is-levelup' : '', showLevelUp ? 'is-lvlup-open' : ''].filter(Boolean).join(' ');
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>
       <div className="pve-xp-actor">
-        <img className="pve-xp-portrait" src={portraitUrl} alt="" aria-hidden="true" />
+        <DigimonSprite catalogId={award.catalogId ?? award.monId} className="pve-xp-portrait" />
         <div className="pve-xp-info">
-          <b className="pve-xp-nick">{award.nickname}</b>
+          <b className="pve-xp-nick">{award.nickname ?? award.monId}</b>
           <span className="pve-xp-lvl">Lv <b>{displayLevel}</b></span>
         </div>
       </div>
       {showLevelUp ? (
         <div className="pve-xp-lvlup" role="status">
           <span className="pve-lvlup-badge">LVLUP+</span>
-          <div className="pve-lvlup-stats">
-            {STAT_KEYS.map((k) => {
-              const before = award.statsBefore[k as StatKey];
-              const after = award.statsAfter[k as StatKey];
-              const gain = after - before;
-              const changed = gain !== 0;
-              return (
-                <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : gain < 0 ? 'is-down' : ''}`}>
-                  <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
-                  <b className="pve-lvlup-stat-new">{after}</b>
-                  {changed ? (
-                    <span className="pve-lvlup-stat-old" title="previous value">{before}</span>
-                  ) : (
-                    <span className="pve-lvlup-stat-old pve-lvlup-stat-old--same" aria-hidden="true">—</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          {(award.statsBefore !== undefined || award.statsAfter !== undefined) ? (
+            <div className="pve-lvlup-stats">
+              {STAT_KEYS.map((k) => {
+                const before = (award.statsBefore ?? {})[k as StatKey] ?? 0;
+                const after = (award.statsAfter ?? {})[k as StatKey] ?? 0;
+                const gain = after - before;
+                const changed = gain !== 0;
+                return (
+                  <div key={k} className={`pve-lvlup-stat ${gain > 0 ? 'is-up' : gain < 0 ? 'is-down' : ''}`}>
+                    <span className="pve-lvlup-stat-k">{k.toUpperCase()}</span>
+                    <b className="pve-lvlup-stat-new">{after}</b>
+                    {changed ? (
+                      <span className="pve-lvlup-stat-old" title="previous value">{before}</span>
+                    ) : (
+                      <span className="pve-lvlup-stat-old pve-lvlup-stat-old--same" aria-hidden="true">—</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="pve-xp-progress" ref={wrapperRef} style={{ ['--tremble' as string]: 0 }}>
@@ -319,17 +311,6 @@ function headline(outcome: BattleOutcome, yourSide: 'a' | 'b', battle: BattleVie
     default:
       tone satisfies never;
       return 'Battle resolved.';
-  }
-}
-
-function creditsFor(tone: OutcomeTone): number {
-  switch (tone) {
-    case 'win': return 60;
-    case 'draw': return 25;
-    case 'loss': return 15;
-    default:
-      tone satisfies never;
-      return 0;
   }
 }
 

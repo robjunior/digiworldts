@@ -24,6 +24,7 @@ import {
   type SpeciesDataEntry,
 } from '../lib/api-nursery';
 import '../styles/extensions-nursery.css';
+import '../styles/balbar.css';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
 const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;

@@ -1,0 +1,68 @@
+/* ===================================================================
+   BalBar — shared resource-balance ribbon (Factory / Farm / Adventure / Nursery).
+
+   Imported by every route that renders <BalBar/>. Previously this was
+   duplicated, page-scoped, in extensions-factory/farm/adventure/nursery.css
+   with silent drift (farm/adventure had no notched icons, adventure was
+   missing the .col column rule, tabular-nums was inconsistent). Unified here
+   as a single source of truth.
+
+   Scoped under the .balbar root so the generic `.bal` class never leaks into
+   other pages that use a bare `.bal` (e.g. Inventory / Shop wallet chips).
+   =================================================================== */
+
+.balbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 14px 28px;
+  border-bottom: 1px solid var(--hair);
+  background: var(--panel);
+}
+
+.balbar .bal {
+  display: grid;
+  grid-template-columns: 28px auto;
+  gap: 10px;
+  align-items: center;
+  padding: 0 22px;
+  border-right: 1px solid var(--hair);
+}
+.balbar .bal:first-child { padding-left: 0; }
+
+.balbar .bal .ic {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  border: 1px solid var(--hair);
+  clip-path: var(--notch-sm-clip);
+  color: var(--res);
+}
+.balbar .bal .ic svg { width: 16px; height: 16px; }
+
+.balbar .bal .col { display: flex; flex-direction: column; }
+.balbar .bal .col .k { font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.balbar .bal .col .v { font: 800 18px/1.1 var(--font); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* per-resource tint */
+.balbar .bal[data-res="meat"] { --res: var(--meat); }
+.balbar .bal[data-res="bits"] { --res: var(--bits); }
+.balbar .bal[data-res="data"] { --res: var(--data); }
+.balbar .bal[data-res="credits"] { --res: var(--credits); }
+.balbar .bal[data-res="mons"] { --res: var(--signal); }
+
+.balbar .strip-title { margin-left: auto; text-align: right; padding-left: 22px; }
+.balbar .strip-title .k { font: 800 10px/1 var(--font); letter-spacing: .22em; text-transform: uppercase; color: var(--signal); }
+.balbar .strip-title .s { font: 600 12px/1 var(--font); color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+/* the strip is flex-nowrap; its last chip (Credits) was clipping past the
+   viewport on mobile. Tighten, then allow horizontal pan for the remainder. */
+@media (max-width: 768px) {
+  .balbar { padding: 10px 12px; overflow-x: auto; scrollbar-width: none; }
+  .balbar::-webkit-scrollbar { display: none; }
+  .balbar .bal { padding: 0 12px; gap: 7px; grid-template-columns: 20px auto; flex: 0 0 auto; }
+  .balbar .strip-title { flex: 0 0 auto; padding-left: 12px; }
+}

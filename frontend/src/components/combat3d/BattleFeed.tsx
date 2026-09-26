@@ -75,6 +75,8 @@ function actionText(event: Extract<BattleEvent, { type: 'action' }>, battle: Bat
       return `${actor} used an item on ${target}`;
     case 'skill':
       return `${actor} cast ${event.skillName ?? 'a skill'} on ${target}`;
+    case 'guard':
+      return `${actor} guarded`;
     case 'fight':
       return `${actor} attacked ${target}`;
     default:

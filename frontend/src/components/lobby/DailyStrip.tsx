@@ -96,7 +96,7 @@ function rewardLabel(reward: DayReward): string {
 }
 
 function rewardAmount(reward: DayReward): number {
-  return reward.meat ?? reward.bits ?? reward.data ?? reward.credits ?? 0;
+  return reward.meat ?? reward.bits ?? reward.data ?? reward.netcore ?? 0;
 }
 
 function rewardKind(reward: DayReward): string {
@@ -109,7 +109,7 @@ function rewardKind(reward: DayReward): string {
   if (reward.data !== undefined) {
     return 'Data';
   }
-  return 'Credits';
+  return 'NetCore';
 }
 
 function formatSeconds(seconds: number): string {

@@ -2,7 +2,7 @@ import { one, q, run } from '../db/index.js';
 import { log } from '../util/log.js';
 import { newId } from '../util/ids.js';
 import type { Quest, WorldObjectKind } from '@digiworld/shared/quest';
-import { BIOME_COLOR, BIOME_COORDS, biomeAt, type Biome } from '../world/biomes.js';
+import { BIOME_COLOR, BIOME_COORDS, biomeAt, type Biome } from '@digiworld/shared/world';
 
 const SQL_COUNT_WORLD_OBJECTS = 'SELECT COUNT(*) AS n FROM world_objects';
 const SQL_WORLD_OBJECTS_MISSING_COORDS = `SELECT id, x, y FROM world_objects WHERE lat = 0 AND lon = 0`;
@@ -23,7 +23,7 @@ type Seed = {
 };
 
 function biomeSeed(x: number, y: number, kind: WorldObjectKind, scale: number, biome: Biome, passable: 0 | 1, label: string): Seed {
-  return { x, y, kind, scale, tint: BIOME_COLOR[biome], passable, label };
+  return { x, y, kind, scale, tint: BIOME_COLOR[biome] ?? null, passable, label };
 }
 
 const DEFAULT_SEEDS: readonly Seed[] = [

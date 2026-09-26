@@ -454,6 +454,21 @@ body:has(.combat3d-shell) {
   border-color: color-mix(in oklab, var(--signal) 55%, var(--hairline));
 }
 
+/* ---- cursor styles for targeting modes ---- */
+.stage[data-targeting="true"] .c3d-canvas-host {
+  cursor: crosshair;
+}
+
+.stage[data-targeting="true"] .c3d-canvas-host:hover {
+  cursor: crosshair;
+}
+
+.c3d-cmd[data-mode="target-skill"] ~ .c3d-canvas-host,
+.c3d-cmd[data-mode="target-fight"] ~ .c3d-canvas-host,
+.c3d-cmd[data-mode="items"] ~ .c3d-canvas-host {
+  cursor: crosshair;
+}
+
 .c3d-cmd > .command-panel {
   height: auto;
   min-height: 0;
@@ -736,8 +751,7 @@ body:has(.combat3d-shell) {
 .c3d-buff--up { border-left-color: #4ade80; color: #4ade80; }
 .c3d-buff--down { border-left-color: #f87171; color: #f87171; }
 .c3d-buff--shield { border-left-color: #38bdf8; color: #38bdf8; }
-.c3d-buff--gold { border-left-color: var(--gold); color: var(--gold); }
-
+.c3d-buff--gold { border-left-color: var(--gold); color: var(--gold); }\n\n/* --- Persistent buff/debuff particle effects --- */\n.c3d-persistent-buff-layer {\n  position: absolute;\n  inset: 0;\n  pointer-events: none;\n  z-index: 5;\n}\n\n.c3d-persistent-effect {\n  position: absolute;\n  width: 20px;\n  height: 20px;\n  pointer-events: none;\n  border-radius: 50%;\n  opacity: 0.7;\n  animation: c3dPersistentEffectPop .3s cubic-bezier(.16, 1, .3, 1) both;\n}\n\n.c3d-persistent-effect.poison {\n  background: color-mix(in oklab, var(--bubblegum) 60%, transparent);\n  box-shadow: 0 0 10px color-mix(in oklab, var(--battle) 50%, transparent);\n}\n\n.c3d-persistent-effect.burn {\n  background: color-mix(in oklab, var(--signal) 70%, transparent);\n  box-shadow: 0 0 10px var(--signal);\n}\n\n.c3d-persistent-effect.freeze {\n  background: color-mix(in oklab, var(--ice) 60%, transparent);\n  box-shadow: 0 0 10px color-mix(in oklab, var(--ice) 50%, transparent);\n}\n\n.c3d-persistent-effect.paralysis {\n  background: color-mix(in oklab, var(--electricity) 60%, transparent);\n  box-shadow: 0 0 10px color-mix(in oklab, var(--electricity) 50%, transparent);\n}\n\n@keyframes c3dPersistentEffectPop{\n  0%, 100% { transform: scale(0); opacity: 0; }\n  50% { transform: scale(1); opacity: 0.7; }\n}\n\n/* --- End persistent buff/debuff particle effects --- */\n
 .c3d-enemy-hp {
   position: absolute;
   top: 0;
@@ -985,7 +999,9 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .overlay{position:absolute;inset:0;z-index:2;pointer-events:none}
 .overlay>*{pointer-events:auto}
 /* ---- top-center: ROUND / YOUR TURN strip + NEXT turn-order queue ------- */
-.topbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:11px;z-index:3;max-width:38vw}
+/* Scope this combat-only HUD selector: AppShell keeps the shared TopBar mounted
+   while routes change, so a global `.topbar` rule corrupts the lobby chrome. */
+.overlay > .topbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:11px;z-index:3;max-width:38vw}
 .tstrip{display:flex;align-items:center;gap:0;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);overflow:hidden}
 .tstrip .rd{font:800 10px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:var(--muted);padding:11px 15px}
 .tstrip .tt{font:800 10px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;padding:11px 15px}
@@ -1047,6 +1063,23 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 .erow.sel::before{background:var(--signal)}
 .erow.sel .edot{background:var(--signal)}
 .erow:focus-visible{outline:none;border-color:var(--signal)}
+
+/* ---- enemy tooltip ---------------------------------------------------- */
+.enemy-tooltip{position:fixed;z-index:100;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:12px 14px;min-width:180px;max-width:260px;font:inherit;color:var(--ink);pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.35);animation:tooltipFade 0.12s ease-out}
+@keyframes tooltipFade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.tooltip-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--hair)}
+.tooltip-element{font:800 10px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--el,var(--muted));padding:2px 6px;border:1px solid color-mix(in oklab,var(--el,var(--hair)) 45%,var(--hair));clip-path:var(--notch-sm-clip)}
+.tooltip-name{font:800 14px/1.2 var(--font);flex:1}
+.tooltip-stats{display:flex;flex-direction:column;gap:4px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.stat-label{font:700 11px/1 var(--font);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.stat-value{font:800 12px/1 var(--font);color:var(--ink);text-align:right}
+.tooltip-ailments{margin-top:8px;padding-top:8px;border-top:1px solid var(--hair)}
+.tooltip-ailments .stat-value{color:var(--signal);word-break:break-word}
+
+/* ---- 3D sprite hover tooltip ------------------------------------------ */
+.sprite-tooltip{position:fixed;z-index:100;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:12px 14px;min-width:180px;max-width:260px;font:inherit;color:var(--ink);pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,0.35);animation:tooltipFade 0.12s ease-out}
+
 /* ---- bottom-left: party HP cards --------------------------------------- */
 .party-cards{position:absolute;left:16px;bottom:16px;z-index:3;display:flex;flex-direction:column;gap:6px;width:clamp(196px,14.5vw,224px);max-width:24vw}
 .pcard{background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);position:relative;padding:8px 11px 9px;overflow:hidden}
@@ -1431,6 +1464,82 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
 
 .mobile-feed-toggle, .mobile-feed-close { display: none; }
 
+.enemy-arena-card__head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink);
+  font: 800 10px/1.1 var(--font);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.enemy-arena-card__head span:not(.attribute-icon) { overflow: hidden; text-overflow: ellipsis; }
+.enemy-arena-card__head b { margin-left: auto; color: var(--muted); font-size: 8px; }
+.enemy-arena-card__bar { height: 5px; background: var(--bg); border: 1px solid var(--hair); overflow: hidden; }
+.enemy-arena-card__bar > div { height: 100%; background: var(--battle); transition: width .2s; }
+
+/* Attribute badges carry the Digimon combat triangle independently of the
+   element tint: Data/Vaccine/Virus/Free remain readable at a glance. */
+.attribute-icon {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid currentColor;
+  clip-path: var(--notch-xs-clip);
+  font: 900 9px/1 var(--font);
+  letter-spacing: -.04em;
+}
+.attribute-icon--sm { width: 16px; height: 16px; font-size: 7px; }
+.attribute-icon--data { color: var(--signal2); }
+.attribute-icon--vaccine { color: var(--good, var(--signal)); }
+.attribute-icon--virus { color: var(--battle); }
+.attribute-icon--free { color: var(--gold-bright, var(--en)); }
+.attribute-icon--variable { color: var(--el-wind); }
+.attribute-icon--unknown, .attribute-icon--nodata { color: var(--muted); }
+.pcard .nm, .erow .enm { display: inline-flex; align-items: center; gap: 5px; min-width: 0; }
+.pcard .nm .attribute-icon { margin-right: 2px; }
+
+/* Combat keeps the existing 3D scene but adopts the active DigiWorld navy UI. */
+.win:has(.stage) {
+  --bg: #0a0e1a;
+  --panel: #141c2e;
+  --ink: #e8f0ff;
+  --muted: #6b7a99;
+  --hair: #1e2a44;
+  --hairline: var(--hair);
+  --signal: #3b82f6;
+  --signal2: #60a5fa;
+  --gold: #f59e0b;
+  --gold-bright: #fbbf24;
+  --battle: var(--gold);
+  --font: 'Inter', system-ui, sans-serif;
+  --notch-clip: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  --notch-sm-clip: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  --notch-xs-clip: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  --good: #34d399;
+  --el-fire: #e6001f;
+  --el-water: #3b82f6;
+  --el-plant: #34d399;
+  --el-electricity: #fbbf24;
+  --el-wind: #94a3b8;
+  --el-ice: #c7eafb;
+  --el-earth: #a38566;
+  --el-steel: #9ca3af;
+  --el-light: #fef3c7;
+  --el-dark: #7c3aed;
+  --el-null: var(--muted);
+}
+.stage[data-targeting="true"] .c3d-canvas-host { pointer-events: auto; cursor: crosshair; }
+.stage[data-targeting="true"] .c3d-canvas-host .c3d-canvas { cursor: crosshair; }
+.erow .attribute-icon { align-self: center; }
+
+@media (max-width: 720px) {
+  .enemy-arena-card__head { font-size: 9px; }
+  .attribute-icon { width: 20px; height: 20px; }
+}
+
 @media (max-width: 720px) and (orientation: portrait) {
   .team-badge {
     display: none;
@@ -1441,7 +1550,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
     flex-direction: column;
   }
 
-  .topbar {
+  .overlay > .topbar {
     position: relative;
     top: 0;
     left: 0;
@@ -1452,7 +1561,7 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
     z-index: 3;
   }
   
-  .topbar .c3d-order {
+  .overlay > .topbar .c3d-order {
     display: none;
   }
 
@@ -1638,3 +1747,231 @@ body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-varian
     z-index: 5;
   }
 }
+
+/* Standard command panel: no radial controls. */
+.cmd[data-mode="menu"] {
+  left: 18px; right: auto; bottom: 18px; width: 292px; max-width: none;
+  height: auto; border: 1px solid var(--hair); background: color-mix(in oklab, var(--bg) 88%, transparent);
+  padding: 0; box-shadow: 0 10px 30px color-mix(in oklab, var(--bg) 60%, transparent);
+}
+.command-menu { padding: 12px; }
+.command-menu__title { color: var(--muted); font: 800 10px/1 var(--font); letter-spacing: .18em; text-transform: uppercase; padding: 0 2px 10px; }
+.command-menu__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.command-menu__item {
+  display: grid; grid-template-columns: 28px 1fr; grid-template-rows: 1fr auto; column-gap: 8px;
+  min-height: 62px; padding: 9px 10px; text-align: left; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip);
+  transition: transform .14s cubic-bezier(.23,1,.32,1), border-color .18s, background .18s;
+}
+.command-menu__item svg { grid-row: 1 / 3; width: 24px; height: 24px; align-self: center; fill: none; stroke: var(--signal2); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.command-menu__item span { align-self: end; font: 800 12px/1.1 var(--font); letter-spacing: .04em; text-transform: uppercase; }
+.command-menu__item small { align-self: start; color: var(--muted); font: 600 9px/1.2 var(--font); margin-top: 3px; }
+.command-menu__item:hover:not(:disabled) { transform: translateY(-2px); border-color: var(--signal); background: color-mix(in oklab, var(--signal) 13%, var(--panel)); }
+.command-menu__item:hover:not(:disabled) svg { stroke: var(--ink); }
+.command-menu__item.disabled { opacity: .4; cursor: not-allowed; }
+.command-menu__flee { width: 100%; margin-top: 8px; padding: 7px; color: var(--muted); border-top: 1px solid var(--hair); font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; text-align: center; }
+.command-menu__flee:hover { color: var(--battle); }
+.cmd[data-mode="skills"], .cmd[data-mode="target-skill"], .cmd[data-mode="items"], .cmd[data-mode="target-fight"] {
+  width: min(620px, 42vw); right: 6%; bottom: 12%; max-width: none;
+}
+.party-cards { left: 50%; right: auto; bottom: 16px; transform: translateX(-50%); flex-direction: row; width: min(58vw, 710px); max-width: calc(100vw - 360px); gap: 8px; }
+.pcard { flex: 1 1 0; min-width: 178px; }
+.cmd[data-mode="skills"], .cmd[data-mode="target-skill"], .cmd[data-mode="items"], .cmd[data-mode="target-fight"] {
+  width: min(620px, 42vw); right: 6%; bottom: 12%; max-width: none;
+}
+@media (max-width: 900px) {
+  .party-cards { left: 50%; width: calc(100vw - 28px); max-width: none; overflow-x: auto; }
+  .pcard { flex: 0 0 220px; }
+  .cmd[data-mode="menu"] { left: 10px; bottom: 10px; width: 276px; }
+  .cmd[data-mode="skills"], .cmd[data-mode="target-skill"], .cmd[data-mode="items"], .cmd[data-mode="target-fight"] { right: 16px; width: min(480px, calc(100vw - 32px)); }
+}
+
+/* Final combat utility layout. */
+.command-menu__grid { grid-template-columns: 1fr; gap: 6px; }
+.command-menu__item { min-height: 52px; }
+.command-menu__item small { white-space: nowrap; }
+.command-menu--disabled { opacity: .62; }
+.pcard .stat .sk { padding: 0; border: 0; width: 15px; }
+.battle-utility {
+  position: absolute; left: 16px; top: 16px; z-index: 5;
+  display: flex; flex-direction: column; align-items: stretch; gap: 10px; width: 224px;
+}
+.battle-flee-snippet {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px;
+  color: var(--battle); background: color-mix(in oklab, var(--panel) 92%, transparent);
+  border: 1px solid var(--hair); clip-path: var(--notch-sm-clip);
+  font: 800 10px/1 var(--font); letter-spacing: .14em; text-transform: uppercase;
+}
+.battle-flee-snippet:hover:not(:disabled) { border-color: var(--signal); background: color-mix(in oklab, var(--signal) 10%, var(--panel)); }
+.battle-flee-snippet:disabled { opacity: .45; cursor: not-allowed; }
+.battle-utility .feed { position: static; width: 100%; max-height: 270px; }
+@media (max-width: 720px) and (orientation: portrait) {
+  .battle-utility { left: 8px; top: 8px; width: 190px; }
+  .battle-utility .feed { max-height: 42vh; }
+  .enemy-rail { gap: 8px; }
+  .enemy-rail .erow, .enemy-rail .erow:first-child { margin-top: 0; }
+}
+
+/* The command tab remains anchored while skills/items float above the arena. */
+.cmd, .cmd[data-mode="skills"], .cmd[data-mode="target-skill"], .cmd[data-mode="items"], .cmd[data-mode="target-fight"] {
+  left: 18px; right: auto; bottom: 18px; width: 292px; max-width: none; height: auto;
+  background: transparent; border: 0; padding: 0; box-shadow: none; overflow: visible;
+}
+.command-overlay {
+  position: fixed; left: 326px; right: 260px; top: auto; bottom: 18px; z-index: 100;
+  width: auto; max-height: min(72vh, 680px);
+  transform: none; overflow: auto;
+  padding: 14px; color: var(--ink);
+  background: color-mix(in oklab, var(--bg) 78%, transparent);
+  border: 1px solid color-mix(in oklab, var(--signal) 58%, var(--hair));
+  box-shadow: 0 18px 55px color-mix(in oklab, var(--bg) 62%, transparent), 0 0 24px color-mix(in oklab, var(--signal) 16%, transparent);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  clip-path: var(--notch-clip);
+}
+.command-overlay .chelp, .command-overlay .chead, .command-overlay .rows { background: transparent; }
+.command-overlay .rows { max-height: min(60vh, 560px); }
+.enemy-rail { gap: 0; }
+.enemy-rail .erow { margin-top: -9px; z-index: 1; transition: transform .14s cubic-bezier(.23,1,.32,1), z-index 0s; }
+.enemy-rail .erow:first-child { margin-top: 0; }
+.enemy-rail .erow:nth-child(2) { z-index: 2; }
+.enemy-rail .erow:nth-child(3) { z-index: 3; }
+.enemy-rail .erow:hover, .enemy-rail .erow.sel { z-index: 5; transform: translateX(-5px); }
+@media (max-width: 900px) {
+  .cmd, .cmd[data-mode="skills"], .cmd[data-mode="target-skill"], .cmd[data-mode="items"], .cmd[data-mode="target-fight"] { left: 10px; right: auto; bottom: 10px; width: 276px; }
+  .command-overlay { width: min(680px, calc(100vw - 24px)); }
+}
+
+/* Turn rail, active unit callout, and target feedback. */
+.turn-order-rail {
+  position: absolute; top: 92px; right: 16px; z-index: 8;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  padding: 8px 6px; background: color-mix(in oklab, var(--panel) 88%, transparent);
+  border: 1px solid var(--hair); clip-path: var(--notch-sm-clip);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+}
+.turn-order-rail__label { color: var(--muted); font: 800 8px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; writing-mode: vertical-rl; }
+.turn-order-rail .c3d-order-slot { width: 38px; height: 38px; }
+.turn-order-rail .c3d-order-mon { width: 30px; height: 30px; }
+.turn-order-rail .c3d-order-slot.is-current { transform: scale(1.12); }
+.active-turn-banner {
+  position: absolute; top: 18px; left: 50%; z-index: 9; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 8px; padding: 9px 16px;
+  background: color-mix(in oklab, var(--panel) 92%, transparent); border: 1px solid var(--signal);
+  clip-path: var(--notch-sm-clip); box-shadow: 0 0 20px color-mix(in oklab, var(--signal) 18%, transparent);
+}
+.active-turn-banner span { color: var(--signal2); font: 800 9px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; }
+.active-turn-banner.is-enemy { border-color: var(--battle); }
+.active-turn-banner.is-enemy span { color: var(--battle); }
+.active-turn-banner b { color: var(--ink); font: 800 13px/1 var(--font); }
+.active-turn-marker { position: absolute; z-index: 6; width: 82px; height: 82px; transform: translate(-50%, -50%); pointer-events: none; }
+.active-turn-marker span { display: block; width: 100%; height: 100%; border: 2px solid var(--signal); clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); box-shadow: 0 0 16px color-mix(in oklab, var(--signal) 55%, transparent); animation: activeTurnPulse 1.2s ease-in-out infinite; }
+@keyframes activeTurnPulse { 50% { opacity: .45; transform: scale(1.08); } }
+.pcard { min-width: 154px; padding: 7px 9px 8px; }
+.pcard .pspr { width: 38px; height: 38px; flex-basis: 38px; font-size: 34px; }
+.pcard .pspr img { width: 34px; height: 34px; }
+.pcard .ph { gap: 7px; margin-bottom: 4px; }
+.pcard .pn .nm { font-size: 11px; }
+.pcard .stat { gap: 5px; margin-top: 2px; }
+.stage[data-target-side="enemy"][data-targeting="true"] .c3d-canvas-host { cursor: crosshair; }
+.stage[data-target-side="ally"][data-targeting="true"] .c3d-canvas-host { cursor: cell; }
+.targeting-details { padding: 12px 10px 3px; color: var(--signal2); font: 800 11px/1.3 var(--font); letter-spacing: .04em; text-transform: uppercase; }
+.targeting-description { padding: 3px 10px 8px; color: var(--muted); font: 600 11px/1.4 var(--font); }
+.targeting-hint { display: flex; align-items: center; gap: 9px; padding: 16px 10px; color: var(--signal2); font: 700 11px/1.3 var(--font); }
+.targeting-hint__cursor { font-size: 24px; color: var(--signal); }
+.targeting-hint button { margin-left: auto; color: var(--muted); font: 800 9px/1 var(--font); text-transform: uppercase; }
+.targeting-hint button:hover { color: var(--ink); }
+@media (max-width: 720px) and (orientation: portrait) {
+  .turn-order-rail { right: 8px; top: 76px; }
+  .active-turn-banner { top: 8px; }
+}
+.cmd { z-index: 120; }
+.command-shell > .command-menu {
+  width: 292px; padding: 12px;
+  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  border: 1px solid var(--hair); clip-path: var(--notch-clip);
+  box-shadow: 0 10px 30px color-mix(in oklab, var(--bg) 60%, transparent);
+}
+.battle-utility { left: auto; right: 18px; top: auto; bottom: 18px; z-index: 121; }
+.party-cards {
+  left: 18px; right: auto; top: 18px; bottom: auto; transform: none;
+  width: 196px; max-width: 196px; flex-direction: column; gap: 8px;
+}
+.party-cards .pcard { width: 196px; min-width: 0; flex: 0 0 auto; }
+.command-menu__item.selected {
+  color: var(--ink); border-color: var(--signal); background: color-mix(in oklab, var(--signal) 20%, var(--panel));
+  box-shadow: inset 3px 0 0 var(--signal), 0 0 14px color-mix(in oklab, var(--signal) 16%, transparent);
+}
+.command-menu__item.selected svg { stroke: var(--signal2); }
+.cmd { z-index: 1000; }
+.command-overlay { z-index: 1001; }
+.battle-feed-header {
+  display: flex; align-items: center; justify-content: space-between; min-height: 28px; padding: 0 2px 7px;
+  color: var(--muted); cursor: pointer; user-select: none; border-bottom: 1px solid var(--hair);
+  font: 800 10px/1 var(--font); letter-spacing: .14em; text-transform: uppercase;
+  transition: color 140ms ease-out, border-color 180ms ease-out;
+}
+.battle-feed-header:hover, .battle-feed-header:focus-visible { color: var(--ink); border-color: var(--signal); outline: none; }
+.battle-feed-chevron { color: var(--signal2); font-size: 16px; line-height: 1; }
+.battle-feed-body { display: grid; grid-template-rows: 0fr; opacity: 0; margin-top: 0; transition: grid-template-rows 180ms cubic-bezier(.23,1,.32,1), opacity 140ms cubic-bezier(.23,1,.32,1), margin-top 180ms cubic-bezier(.23,1,.32,1); }
+.battle-feed-body > .feed { min-height: 0; overflow: hidden; }
+.battle-feed-body.is-open { grid-template-rows: 1fr; opacity: 1; margin-top: 8px; }
+@media (max-width: 900px) {
+  .party-cards { left: 10px; top: 10px; width: 180px; max-width: 180px; }
+  .party-cards .pcard { width: 180px; }
+  .battle-utility { right: 10px; bottom: 10px; left: auto; top: auto; }
+  .command-overlay { left: 10px; right: 10px; bottom: 185px; width: auto; max-height: min(58vh, 520px); }
+}
+.turn-order-rail {
+  top: 50%; right: 24px; transform: translateY(-50%); z-index: 110;
+  width: 86px; height: 420px; padding: 12px 8px;
+  overflow: hidden; justify-content: center; gap: 10px;
+  background: color-mix(in oklab, var(--panel) 82%, transparent);
+  box-shadow: 0 0 28px color-mix(in oklab, var(--signal) 12%, transparent);
+}
+.turn-order-rail__label { position: absolute; top: 7px; z-index: 3; writing-mode: horizontal-tb; font-size: 8px; }
+.turn-order-wheel { position: relative; width: 100%; height: 390px; flex: 0 0 390px; overflow: hidden; mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%); }
+.turn-order-wheel::after { display: none; }
+.turn-order-wheel__track { display: flex; flex-direction: column; align-items: center; gap: 9px; padding-top: 42px; animation: turnOrderWheelSpin 18s linear infinite; will-change: transform; }
+.turn-order-rail .c3d-order-slot { position: relative; flex: 0 0 57px; width: 57px; height: 57px; display: grid; place-items: center; border-radius: 13px; }
+.turn-order-rail .c3d-order-mon { width: 45px; height: 45px; }
+.turn-order-rail .c3d-order-slot.is-current { transform: scale(1.08); }
+@keyframes turnOrderWheelSpin { from { transform: translateY(0); } to { transform: translateY(calc(-1 * var(--turn-count) * 66px)); } }
+@media (prefers-reduced-motion: reduce) { .turn-order-wheel__track { animation: none; } }
+@media (max-width: 900px) { .turn-order-rail { right: 10px; width: 76px; height: min(54vh, 380px); } }
+/* The wheel advances only when the active turn changes; it never spins continuously. */
+.turn-order-wheel__track {
+  animation: none;
+  padding-top: calc(50% - 28.5px);
+  transform: translateY(calc(-1 * var(--turn-advance) * 66px));
+}
+.turn-order-wheel__track {
+  animation: none;
+  padding-top: calc(50% - 28.5px);
+  transform: translateY(calc(-1 * var(--turn-current) * 66px));
+  transition: transform 300ms cubic-bezier(.23,1,.32,1);
+}
+.turn-order-wheel .c3d-order-slot {
+  animation: none;
+  opacity: .94;
+  border-radius: 0;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+.turn-order-wheel { mask-image: none; }
+.turn-order-wheel .c3d-order-slot.is-current { opacity: 1; transform: scale(1.08); }
+.turn-order-wheel__track {
+  transform: translateY(calc(-1 * var(--turn-advance) * 66px));
+  transition: none;
+}
+.turn-order-wheel__track.is-moving { transition: transform 300ms cubic-bezier(.23,1,.32,1); }
+.turn-order-wheel .c3d-order-slot.is-defeated .c3d-order-mon { filter: grayscale(1) contrast(.72); opacity: .72; }
+.turn-order-rail { top: 18px; right: 24px; transform: none; }
+.turn-order-wheel .c3d-order-mon { transform: scaleX(-1); }
+.turn-order-wheel .c3d-order-slot.is-opp .c3d-order-mon { transform: scaleX(-1); }
+.enemy-target-advantage { color: var(--muted); font: 800 9px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; }
+.enemy-target-advantage--weak { color: var(--battle); }
+.enemy-target-advantage--resist { color: var(--signal2); }
+.enemy-target-advantage--none { color: var(--muted); }
+.turn-order-wheel .c3d-order-slot.is-defeated { border-color: color-mix(in oklab, var(--muted) 55%, var(--hairline)); }
+.overlay { z-index: 20; }
+@media (max-width: 900px) { .turn-order-rail { top: 10px; right: 10px; transform: none; } }
+.command-overlay { background: color-mix(in oklab, var(--bg) 94%, transparent); }

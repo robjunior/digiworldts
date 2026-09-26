@@ -1,0 +1,116 @@
+/* =========================================================================
+   DIGIWORLD SHARED TOPBAR
+   LoL-client-style top bar: JOGAR (esq) · nav à esquerda · wallet+user (dir)
+   ========================================================================= */
+
+/* ── top bar ──────────────────────────────────────────────────────── */
+.topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
+.tnav{display:flex;align-items:center;height:100%;gap:2px}
+.tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
+.tnav-btn:hover{color:var(--ink)}
+.tnav-btn[aria-current="page"]{color:var(--gold)}
+.tnav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
+.tnav-wrap{position:relative;height:100%;display:flex;align-items:center}
+.tnav-caret{flex:none;width:5px;height:5px;margin-left:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
+.tnav-submenu{position:absolute;top:calc(100% + 2px);left:0;min-width:170px;display:flex;flex-direction:column;padding:6px;background:linear-gradient(180deg,#141d30 0%,#0c1120 100%);border:1px solid var(--hair);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:40}
+.tnav-subitem{display:flex;align-items:center;gap:8px;padding:9px 12px;font:600 11px/1 var(--font);letter-spacing:.06em;text-decoration:none;color:var(--muted);background:none;border:0;cursor:pointer;text-align:left;user-select:none}
+.tnav-subitem:hover{color:var(--ink);background:var(--panel)}
+.tnav-subitem[aria-current="page"]{color:var(--gold)}
+.tnav-subitem + .tnav-subitem{border-top:1px solid rgba(255,255,255,.04)}
+.topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
+.wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
+.wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
+.wc svg{width:14px;height:14px;flex:none;stroke-width:1.7}
+.wc.cred svg{color:var(--gold-bright);filter:drop-shadow(0 0 4px rgba(245,158,11,.35))}
+.wc.netcore svg{color:var(--signal2)}
+.wc .am{color:var(--gold-bright)}
+.wc .am.b{color:var(--signal2)}
+.tb-av{width:34px;height:34px;flex:none;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:900 14px/1 var(--font);color:var(--signal2);cursor:pointer;background:none;padding:0}
+.tb-av:hover{border-color:var(--signal)}
+
+/* ── dropdown menus (notifications + tamer menu) ──────────────────── */
+.tbwrap{position:relative}
+.tbtn{position:relative;display:flex;align-items:center;gap:8px;height:34px;padding:0 8px;background:var(--panel);border:1px solid var(--hair);color:var(--ink);cursor:pointer;clip-path:var(--notch-sm-clip);transition:border-color .12s,background .12s}
+.tbtn:hover{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 8%,var(--panel))}
+.tbtn[aria-expanded="true"]{border-color:var(--signal);background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.tbtn svg{width:16px;height:16px;display:block}
+.tbtn.icon{width:34px;padding:0;justify-content:center}
+.tbtn .uav{width:20px;height:20px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);font:900 10px/1 var(--font);color:var(--signal);clip-path:var(--notch-xs-clip)}
+.tbtn .unm{font:800 11px/1 var(--font);letter-spacing:.04em;color:var(--ink)}
+.tbtn .dot-badge{position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--signal);border-radius:50%;box-shadow:0 0 0 2px var(--panel)}
+.tmenu{position:absolute;top:calc(100% + 6px);right:0;min-width:220px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:6px;z-index:60;display:none}
+.tmenu.open{display:block}
+.tmenu .mhd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.tmenu a,.tmenu button.mi{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;background:none;border:0;text-align:left;text-decoration:none;color:var(--ink);font:600 12px/1.1 var(--font);cursor:pointer;clip-path:var(--notch-xs-clip)}
+.tmenu a:hover,.tmenu button.mi:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel));color:var(--ink)}
+.tmenu a svg,.tmenu button.mi svg{width:15px;height:15px;flex:none;color:var(--muted)}
+.tmenu a:hover svg,.tmenu button.mi:hover svg{color:var(--signal)}
+.tmenu .nrow{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-bottom:1px solid var(--hair)}
+.tmenu .nrow:last-child{border-bottom:0}
+.tmenu .nrow .nt{font:700 12px/1.2 var(--font);color:var(--ink)}
+.tmenu .nrow .nm{font:600 11px/1.3 var(--font);color:var(--muted)}
+.tmenu .nrow .na{margin-top:2px;font:700 9px/1 var(--font);letter-spacing:.1em;text-transform:uppercase;color:var(--signal);align-self:flex-start;background:none;border:0;padding:0;cursor:pointer}
+.tmenu .nrow .na:hover{text-decoration:underline}
+.tmenu .nrow .n-actions{display:flex;gap:14px;margin-top:4px}
+.tmenu .nrow .na.accept{color:var(--gold)}
+.tmenu .nrow .na.accept:hover{color:var(--gold-bright)}
+.tmenu .nrow .na.decline{color:var(--muted)}
+.tmenu .nrow .na.decline:hover{color:#f87171}
+
+/* ── topbar transient toast (duel declined / expired) ─────────────── */
+.tb-toast{position:fixed;top:60px;right:14px;z-index:100;max-width:320px;padding:10px 14px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:600 12px/1.35 var(--font);color:var(--ink);box-shadow:0 12px 32px rgba(0,0,0,.4);animation:ttoastIn .2s ease-out}
+@keyframes ttoastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+
+/* ── JOGAR play menu (replaces the logo) ───────────────────────────── */
+.playmenu{position:relative;flex:none;display:flex;align-self:stretch;align-items:stretch;margin-left:-14px;padding:0;border-right:1px solid var(--hair)}
+.play-btn{position:relative;display:flex;align-items:center;gap:8px;padding:0 20px;font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:#08101f;background:linear-gradient(135deg,#fbbf24,#f59e0b 55%,#d97706);border:0;clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%);cursor:pointer;transition:filter .15s,transform .1s}
+.play-btn:hover{filter:brightness(1.08)}
+.play-btn:active{transform:scale(.97)}
+.play-btn svg{width:14px;height:14px;display:block}
+.play-btn .play-spin{animation:playSpin .9s linear infinite}
+.play-btn.is-waiting{color:#e8f0ff;background:linear-gradient(135deg,#2563eb,#3b82f6 55%,#60a5fa);animation:playFlashExt 1.4s ease-in-out infinite}
+.play-btn.is-matched{color:#08101f;background:linear-gradient(135deg,#34d399,#10b981 55%,#059669);animation:playPulseExt .7s ease-in-out infinite}
+.play-btn.is-idle{animation:playFlashGold 2.2s ease-in-out infinite}
+@keyframes playFlashGold{0%,100%{box-shadow:0 0 10px rgba(245,158,11,.35),0 0 0 0 rgba(245,158,11,0)}50%{box-shadow:0 0 22px rgba(245,158,11,.75),0 0 0 5px rgba(245,158,11,0)}}
+@keyframes playFlashExt{0%,100%{box-shadow:0 0 8px rgba(96,165,250,.3)}50%{box-shadow:0 0 20px rgba(96,165,250,.75)}}
+@keyframes playPulseExt{0%,100%{box-shadow:0 0 8px rgba(16,185,129,.35)}50%{box-shadow:0 0 24px rgba(16,185,129,.8);filter:brightness(1.15)}}
+@keyframes playSpin{to{transform:rotate(360deg)}}
+
+/* Responsive contract: keep the shared chrome in one row. The center nav
+   becomes the only horizontally scrollable region instead of allowing its
+   items to collide with the wallet/user controls. */
+@media (max-width: 1100px) {
+  .topbar { padding: 0 8px; }
+  .tnav-btn { padding-inline: 10px; }
+  .wallet { gap: 8px; padding-inline: 8px; }
+  .topright { gap: 4px; }
+}
+
+@media (max-width: 820px) {
+  .topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .tnav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .tnav::-webkit-scrollbar { display: none; }
+  .tnav-btn { flex: 0 0 auto; padding-inline: 9px; }
+  .wallet { display: none; }
+  .tbtn:not(.icon) { width: 34px; padding: 0; justify-content: center; }
+  .tbtn:not(.icon) .unm { display: none; }
+}
+
+@media (max-width: 520px) {
+  .play-btn { padding-inline: 13px; letter-spacing: .12em; }
+  .tnav-btn { padding-inline: 8px; font-size: 10px; letter-spacing: .08em; }
+  .topright { gap: 3px; }
+}
+
+.play-drop{position:absolute;top:calc(100% + 8px);left:2px;min-width:230px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:6px;z-index:70;display:none;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.play-drop.open{display:block}
+.play-drop-hd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.play-drop-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;background:none;border:0;text-align:left;cursor:pointer;clip-path:var(--notch-xs-clip);transition:background .12s}
+.play-drop-item:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
+.pdi-ic{width:30px;height:30px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);color:var(--signal)}
+.play-drop-item:hover .pdi-ic{color:var(--gold-bright)}
+.pdi-ic svg{width:16px;height:16px}
+.pdi-tx{display:flex;flex-direction:column;gap:2px}
+.pdi-lb{display:flex;align-items:center;gap:7px;font:800 12px/1 var(--font);letter-spacing:.05em;color:var(--ink)}
+.pdi-live{font:800 7px/1 var(--font);letter-spacing:.14em;padding:2px 4px;color:var(--gold-bright);border:1px solid var(--gold);clip-path:var(--notch-xs-clip)}
+.pdi-mt{font:600 10px/1 var(--font);color:var(--muted)}

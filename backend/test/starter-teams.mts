@@ -1,17 +1,18 @@
 /**
  * Starter team guard.
  *
- * The two teams offered at `/intro` are the first balance decision a player
- * meets, and the three they replace were badly lopsided — measured over 400
- * battles each, `aggressive` lost to `balanced` 1% to 100%, because it was
- * three fire Rookies and elemental affinity is a 3x swing against a mono-element
- * team while its chain bonus is only 1.4x.
+ * The teams offered at `/intro` are the first balance decision a player
+ * meets. The original three (`aggressive`/`balanced`/`wildcard`) were badly
+ * lopsided — measured over 400 battles each, `aggressive` lost to `balanced`
+ * 1% to 100%, because it was three fire Rookies and elemental affinity is a
+ * 3x swing against a mono-element team while its chain bonus is only 1.4x.
+ * They were replaced by the current trio, which satisfy the structural
+ * constraints that came out of running the replacement by simulation.
  *
- * These assertions encode the constraints that came out of designing the
- * replacements by simulation, so a future edit to `DEFAULT_TEAMS` cannot
- * silently reintroduce the same class of defect. They are structural and fast;
- * the head-to-head balance itself is measured separately, since 1000 battles
- * per pairing does not belong in a smoke test.
+ * These assertions encode those constraints, so a future edit to
+ * `DEFAULT_TEAMS` cannot silently reintroduce the same class of defect. They
+ * are structural and fast; the head-to-head balance itself is measured
+ * separately, since 1000 battles per pairing does not belong in a smoke test.
  *
  * The last section is the one that matters most operationally: it proves that
  * retiring a starter team leaves the rosters of players who already picked it
@@ -23,6 +24,7 @@ import { existsSync, unlinkSync } from 'node:fs';
 
 import { DEFAULT_TEAMS } from '../src/onboarding/engine.ts';
 import { loadCatalog } from '../src/digimon/xml.ts';
+import { affinity } from '../src/digimon/element.ts';
 import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 
 const DB_PATH = process.env.DB_PATH;
@@ -45,7 +47,7 @@ const catalog = loadCatalog();
 const byId = new Map(catalog.digimons.map((d) => [d.id, d]));
 
 console.log('=== Shape ===');
-check('exactly two starter teams are offered', DEFAULT_TEAMS.length === 2, `got ${DEFAULT_TEAMS.length}`);
+check('exactly three starter teams are offered', DEFAULT_TEAMS.length === 3, `got ${DEFAULT_TEAMS.length}`);
 check('slugs are unique', new Set(DEFAULT_TEAMS.map((t) => t.slug)).size === DEFAULT_TEAMS.length);
 check(
   'the retired slugs are gone from the constant',
@@ -80,12 +82,50 @@ const attributePatterns = DEFAULT_TEAMS.map((t) =>
 // The battle AI focuses the front unit, so slot 0 fights slot 0 and the
 // attribute triangle (1.35x / 0.75x, a 1.8x swing) decides most fights. Sharing
 // one pattern makes every slot pairing attribute-neutral and leaves elements as
-// the only thing separating the two teams.
+// the only thing separating the three teams.
 check(
   'both teams share an attribute pattern slot for slot',
   new Set(attributePatterns).size === 1,
   attributePatterns.join('  vs  '),
 );
+
+// Constraint 3, as a fast structural guard. A mon whose slot is 3x-weak
+// (trades at ≤0.35) to EVERY rival it can face at that slot is a liability no
+// kit can reliably offset — that is what sank the replacement candidates. A
+// team may hold a single such hole when at least one rival offers it a neutral
+// option at that slot (Triad's fire slot-0 is 3x-weak to Tide's water but
+// neutral to wood/… rivals), which is the normal, kit-offset case. We only fail
+// when BOTH rivals swing the same slot 3x against it. Equinox is slot-neutral
+// everywhere by design.
+{
+  const mult = (attacker: string, defender: string): number => {
+    const kind = affinity(attacker as never, defender as never);
+    if (kind === 'weak') return 1.5;
+    if (kind === 'resist') return 0.5;
+    return 1;
+  };
+  const slotElements = DEFAULT_TEAMS.map((t) => t.monCatalogIds.map((id) => byId.get(id)?.element ?? 'null'));
+  console.log('\n=== No slot 3x-weak to BOTH rivals (constraint 3) ===');
+  for (let s = 0; s < 3; s++) {
+    for (let t = 0; t < DEFAULT_TEAMS.length; t++) {
+      const candEl = slotElements[t]![s]!;
+      let bestTrade = 0;
+      let worstTrade = Number.POSITIVE_INFINITY;
+      for (let o = 0; o < DEFAULT_TEAMS.length; o++) {
+        if (o === t) continue;
+        const oppEl = slotElements[o]![s]!;
+        const trade = mult(candEl, oppEl) / mult(oppEl, candEl);
+        bestTrade = Math.max(bestTrade, trade);
+        worstTrade = Math.min(worstTrade, trade);
+      }
+      check(
+        `${DEFAULT_TEAMS[t]!.slug} slot ${s} (${candEl}) is not 3x-weak to both rivals`,
+        bestTrade > 0.35,
+        `best (neutral) trade vs a rival = ${bestTrade.toFixed(2)}, worst = ${worstTrade.toFixed(2)}`,
+      );
+    }
+  }
+}
 
 console.log('\n=== Retiring a team does not touch existing players ===');
 {

@@ -2,6 +2,7 @@ import type { JSX } from 'react';
 
 import { formatClock } from './utils';
 import type { AdventureConfigView, AdventureView } from '../../lib/api-adventure';
+import { DigimonSprite } from '../common/DigimonSprite';
 
 /**
  * Active expedition card — a single in-progress adventure with countdown,
@@ -32,13 +33,13 @@ export function ActiveExpCard({
       <div className="ehead">
         <span className="emini">
           {active.party.map((p) => (
-            <img key={p.monId} src={`/assets/digimon/${p.catalogId}/dot.gif`} alt="" loading="lazy" />
+            <DigimonSprite key={p.monId} catalogId={p.catalogId} />
           ))}
         </span>
         <span className="enames">
           {active.party.map((p) => p.nickname).join(' · ')}
           <span className="esub">
-            {h}h run · {active.provisionsSpent} prov · ~{Math.round(h * config.encountersPerHour)} enc
+            {h}h run · {active.meatSpent} meat · ~{Math.round(h * config.encountersPerHour)} enc
           </span>
         </span>
         <span className={`eclock ${ready ? 'ready' : ''}`}>{ready ? 'READY' : formatClock(remainingMs)}</span>

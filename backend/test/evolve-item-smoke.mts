@@ -11,8 +11,9 @@
  *     catalog swap (proves inventory is not double-decremented, not silently
  *     zeroed);
  *   - a second evolve on the swapped mon fails cleanly (no runaway spend);
- *   - a non-item edge (`requiredItemId` unset) neither reads nor writes the
- *     inventory, i.e. the pair invariant is respected end-to-end.
+ *   - a non-item edge (`requiredItemId` unset) is BLOCKED with reason
+ *     `no-item-assigned` — every evolution path requires a chosen item
+ *     (content-gating), so it neither reads nor writes the inventory.
  *
  * The catalog is written to a real file via `saveCatalog` and read back via
  * `loadCatalog` so the XML round-trip layer is exercised too — the same code
@@ -174,11 +175,12 @@ await test('gate priority: attribute-mismatch beats missing-item when both would
   );
 });
 
-await test('a no-item edge is eligible immediately (pair invariant: requiredItemId=null ⇒ qty=0)', async () => {
+await test('a no-item edge is blocked with reason=no-item-assigned (content-gating: every evolution needs a chosen item)', async () => {
   const gate = await getEvolutionOptions(MON_A, USER_A);
   const opt = gate!.options.find((o) => o.catalogId === 'mon-champ-freebie');
   assert(opt !== undefined, 'expected an option for mon-champ-freebie');
-  assert(opt!.eligible === true, `expected the no-item edge to be eligible, got reason=${opt!.reason}`);
+  assert(opt!.eligible === false, `expected the no-item edge to be blocked, got reason=${opt!.reason}`);
+  assert(opt!.reason === 'no-item-assigned', `expected reason=no-item-assigned, got ${opt!.reason}`);
   assert(opt!.requiredItemId === null, 'expected requiredItemId=null on the no-item edge');
   assert(opt!.requiredItemQty === 0, 'expected requiredItemQty=0 when no item is required');
 });
@@ -245,12 +247,13 @@ await test('a second evolveRoster on the swapped mon fails cleanly (no runaway s
 // Cross-user isolation & no-item consumption invariant.
 // ---------------------------------------------------------------------------
 
-await test("the no-item edge does not touch a user's inventory at all", async () => {
+await test("a blocked (no-item-assigned) edge refuses evolveRoster and does not touch a user's inventory", async () => {
   await grantItem(USER_B, STONE, 5);
   const outcome = await evolveRoster(MON_B, USER_B, 'mon-champ-freebie');
-  assert(outcome.ok === true, `expected the freebie evolve to succeed, got error=${!outcome.ok ? outcome.error : ''}`);
+  assert(outcome.ok === false, `expected the freebie evolve to be refused (no item assigned), got ${outcome.ok ? 'ok' : ''}`);
+  assert(!outcome.ok && outcome.error === 'no-item-assigned', `expected error=no-item-assigned, got ${!outcome.ok ? outcome.error : ''}`);
   const balance = await countItem(USER_B, STONE);
-  assert(balance === 5, `no-item edge must not consume inventory — balance is ${balance}`);
+  assert(balance === 5, `blocked edge must not consume inventory — balance is ${balance}`);
 });
 
 process.stdout.write(`evolve item tests: ${passed} passed, ${failed} failed\n`);

@@ -116,7 +116,7 @@
   --claim-todo:  var(--hair);
 
   /* -- Type --------------------------------------------- */
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font: 'Russo One', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 
   /* -- Shape -------------------------------------------- */
   --notch:    10px;

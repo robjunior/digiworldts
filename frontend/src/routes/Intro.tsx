@@ -53,7 +53,7 @@ export function Intro(): JSX.Element {
   }, [config?.bgImage]);
 
   if (user?.onboardingCompleted === true || data?.completed === true) {
-    return <Navigate to="/lobby" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const revealTeams = (): void => {
@@ -78,12 +78,12 @@ export function Intro(): JSX.Element {
       await queryClient.invalidateQueries({ queryKey: AUTH_ME_KEY });
       window.setTimeout(() => {
         setTransitionActive(true);
-        window.setTimeout(() => navigate('/lobby', { replace: true }), 800);
+        window.setTimeout(() => navigate('/', { replace: true }), 800);
       }, 600);
     } catch (error) {
       setSelectedTeamId(null);
       if (error instanceof ApiError && error.status === 409) {
-        navigate('/lobby', { replace: true });
+        navigate('/', { replace: true });
         return;
       }
       if (error instanceof ApiError) {

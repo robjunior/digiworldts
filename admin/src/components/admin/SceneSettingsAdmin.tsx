@@ -10,8 +10,23 @@ import { WEATHER_EMITTER_PRESETS } from '@digiworld/scene3d/particles/presets';
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
-import type { SceneSettings } from '@digiworld/scene3d/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
+import { ThreeEditorFrame } from './ThreeEditorFrame';
+
+/**
+ * EDITOR-SPLIT PLAN (anotação de esquema):
+ * O editor de cenas será separado por consumidor — nursery / city / lobby /
+ * combat — com UMA única base CRUD + validação reutilizada (SceneEntity,
+ * `kind`, envelope de `settings`). Cada kind liga o seu subset de settings:
+ *   - kind 'arena'  -> ArenaSettingsZ (sun/fog/camera/arena/GLB)
+ *   - kind 'lobby'  -> LobbySceneSettingsZ (palco da party: formação + drift)
+ *   - (futuro) 'nursery' / 'city' -> seus próprios subsets (mesma surface)
+ * A seção "Lobby (palco da party)" abaixo e os knobs de arena são os dois
+ * subsets atuais; quando o split acontecer, cada um vira uma tab/ab do editor
+ * reutilizando createScene/updateScene/getScenes (api-scenes.ts) sem duplicar
+ * o CRUD nem o preview. Novos knobs entram no subset — nunca no schema global.
+ */
 
 const DEFAULT_SETTINGS: SceneSettings = {
   sunColor: 0xfff2d0,
@@ -56,16 +71,25 @@ const DEFAULT_SETTINGS: SceneSettings = {
 type SceneDraft = {
   readonly name: string;
   readonly elements: readonly Element[];
+  readonly kind?: 'arena' | 'lobby';
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
   readonly weather: WeatherConfig | null;
   readonly timeOfDay: TimeOfDayConfig | null;
 };
 
+/** Resolves exactly like the frontend lobby lookup: kind:'lobby' first, then the
+ *  legacy name. Scenes matching this get the "lobby" badge in the list. */
+function isLobbyScene(scene: SceneEntity): boolean {
+  return scene.kind === 'lobby'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+}
+
 function draftFromScene(scene: SceneEntity): SceneDraft {
   return {
     name: scene.name,
     elements: scene.elements,
+    ...(scene.kind !== undefined ? { kind: scene.kind } : {}),
     useGlbSettings: scene.useGlbSettings === true,
     settings: (scene.settings as Partial<SceneSettings>) ?? {},
     weather: scene.weather ?? null,
@@ -111,6 +135,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [busy, setBusy] = useState<'copy' | 'delete' | 'create' | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [editorSceneId, setEditorSceneId] = useState<string | null>(null);
 
   const [triggerPreset, setTriggerPreset] = useState<WeatherPreset>('rain');
   const [triggerDurationMs, setTriggerDurationMs] = useState(10000);
@@ -185,7 +210,57 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
+  const setKind = (kind: 'arena' | 'lobby'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
+
+  /* lobby backdrop knobs (nested under settings.lobby) */
+  const effectiveLobby: LobbySceneSettings = {
+    ...DEFAULT_LOBBY_SCENE,
+    ...(draft?.settings.lobby as Partial<LobbySceneSettings> | undefined),
+  };
+
+  const patchLobby = (change: Partial<LobbySceneSettings>): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const base = {
+        ...DEFAULT_LOBBY_SCENE,
+        ...(prev.settings.lobby as Partial<LobbySceneSettings> | undefined),
+      };
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          lobby: { ...base, ...change },
+        } as unknown as Partial<SceneSettings>,
+      };
+    });
+  };
+
+  const handleCreateLobby = async (): Promise<void> => {
+    const existing = scenes.find(isLobbyScene);
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: LOBBY_SCENE_NAME,
+        elements: [],
+        kind: 'lobby',
+        settings: { lobby: DEFAULT_LOBBY_SCENE } as unknown as Record<string, unknown>,
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const handleNew = async (): Promise<void> => {
     setBusy('create');
@@ -268,10 +343,21 @@ export function SceneSettingsAdmin(): JSX.Element {
     if (selectedId === null || draft === null) return;
     setSaveStatus('saving');
     try {
+      // aplaina o subset `lobby` com default no envio: o draft.settings pode
+      // carregar o lobby CRU de uma cena legada (ex.: sem partyHeight), e o
+      // zod rejeitaria. merge só quando o lobby já existe (arena não ganha).
+      const settings = { ...draft.settings };
+      if (settings.lobby !== undefined) {
+        settings.lobby = {
+          ...DEFAULT_LOBBY_SCENE,
+          ...(settings.lobby as Partial<LobbySceneSettings> | undefined),
+        };
+      }
       const res = await updateScene(selectedId, {
         name: draft.name,
         elements: draft.elements,
-        settings: draft.settings,
+        kind: draft.kind ?? 'arena',
+        settings,
         useGlbSettings: draft.useGlbSettings,
         weather: draft.weather,
         timeOfDay: draft.timeOfDay,
@@ -292,9 +378,14 @@ export function SceneSettingsAdmin(): JSX.Element {
       <aside className="scene-admin-list-panel" aria-label="Scene list">
         <header className="scene-admin-list-header">
           <h2>Scenes</h2>
-          <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
-            {busy === 'create' ? 'Creating…' : 'New scene'}
-          </button>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" (kind: lobby) — o fundo 3D da tela inicial`}>
+              {busy === 'create' ? 'Creating…' : 'Lobby'}
+            </button>
+            <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
+              {busy === 'create' ? 'Creating…' : 'New scene'}
+            </button>
+          </div>
         </header>
         {loadError !== null ? <p className="scene-admin-error">{loadError}</p> : null}
         <ul className="scene-admin-list">
@@ -308,7 +399,12 @@ export function SceneSettingsAdmin(): JSX.Element {
                   className={`scene-admin-list-item${selectedId === s.id ? ' is-selected' : ''}`}
                   onClick={() => selectScene(s.id)}
                 >
-                  <span className="scene-admin-list-name">{s.name}</span>
+                  <span className="scene-admin-list-name">
+                    {s.name}
+                    {isLobbyScene(s) && (
+                      <span className="scene-admin-list-lobby" title="Cena usada pelo lobby" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--signal, #3b82f6)', color: '#fff', borderRadius: 3 }}>lobby</span>
+                    )}
+                  </span>
                   <span className="scene-admin-list-meta">
                     {s.useGlbSettings === true ? 'GLB' : 'settings'}
                     {s.elements.length > 0 ? ` · ${s.elements.join(', ')}` : ''}
@@ -332,6 +428,8 @@ export function SceneSettingsAdmin(): JSX.Element {
               settings={effectiveSettings}
               weather={draft.weather}
               timeOfDay={draft.timeOfDay}
+              useGlbSettings={draft.useGlbSettings}
+              lobby={selectedScene !== null && isLobbyScene(selectedScene) ? effectiveLobby : null}
             />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
@@ -355,6 +453,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                 </p>
               </div>
               <div className="scene-admin-header-actions">
+                <button type="button" onClick={() => setEditorSceneId(selectedScene.id)}>
+                  Open official Three.js Editor
+                </button>
                 <button type="button" onClick={() => { void handleSave(); }} disabled={!dirty || saveStatus === 'saving'}>
                   {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save'}
                 </button>
@@ -417,6 +518,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                   }}
                 >
                   <option value="">— no model (default per-element fallback) —</option>
+                  {typeof draft.settings.modelFile === 'string' && !ARENA_FILE_LIST.includes(draft.settings.modelFile) ? (
+                    <option value={draft.settings.modelFile}>Published / custom GLB</option>
+                  ) : null}
                   {ARENA_FILE_LIST.map((filename) => (
                     <option key={filename} value={filename}>{filename}</option>
                   ))}
@@ -436,7 +540,24 @@ export function SceneSettingsAdmin(): JSX.Element {
               </section>
             ) : null}
 
-            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings}>
+            <div style={{ padding: '0 16px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <RadioRow
+                label="Tipo"
+                value={draft.kind ?? 'arena'}
+                options={[
+                  { label: 'Arena (combate)', value: 'arena' },
+                  { label: 'Lobby (tela inicial)', value: 'lobby' },
+                ]}
+                onChange={(v) => setKind(v as 'arena' | 'lobby')}
+              />
+              <span className="scene-admin-note" style={{ margin: 0 }}>
+                {draft.kind === 'lobby'
+                  ? 'Renderizada pelo lobby: pedestais da party, chão, partículas e drift de câmera.'
+                  : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
+              </span>
+            </div>
+
+            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby'}>
               <Section title="Sun (key light)">
                 <ColorRow label="Color" value={effectiveSettings.sunColor} onChange={(v) => patchSettings({ sunColor: v })} />
                 <SliderRow label="Intensity" value={effectiveSettings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patchSettings({ sunIntensity: v })} />
@@ -601,10 +722,60 @@ export function SceneSettingsAdmin(): JSX.Element {
                   </>
                 )}
               </Section>
+
+              <Section title="Lobby (palco da party)">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  O cenário do lobby vem SEMPRE do GLB em "GLB model file" (o
+                  modelo default da lista é usado se nenhum for escolhido — não
+                  existe cena procedural). Estes knobs configuram apenas o palco
+                  da party sobre o GLB. Cena com kind "lobby" (botão Lobby na
+                  lista) + "<code>useGlbSettings</code>" ligado = o GLB define
+                  câmera e luzes; desligado = o editor define luz/câmera.
+                </p>
+                <SliderRow label="Espaçamento dos pedestais (px)" value={effectiveLobby.pedestalSpacing} min={80} max={500} step={4} decimals={0} onChange={(v) => patchLobby({ pedestalSpacing: v })} />
+                <SliderRow label="Escala dos pedestais" value={effectiveLobby.pedestalScale} min={0.5} max={1.5} step={0.02} onChange={(v) => patchLobby({ pedestalScale: v })} />
+                <SliderRow label="Inclinação lateral (°)" value={effectiveLobby.sideTiltDeg} min={0} max={45} step={1} decimals={0} onChange={(v) => patchLobby({ sideTiltDeg: v })} />
+                <SliderRow label="Escala do pedestal central" value={effectiveLobby.centerScale} min={0.5} max={1.8} step={0.02} onChange={(v) => patchLobby({ centerScale: v })} />
+                <SliderRow label="Elevação do centro (px)" value={effectiveLobby.centerLift} min={0} max={160} step={2} decimals={0} onChange={(v) => patchLobby({ centerLift: v })} />
+                <SliderRow label="Altura da party (Y)" value={effectiveLobby.partyHeight} min={-3} max={3} step={0.05} onChange={(v) => patchLobby({ partyHeight: v })} />
+                <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
+                <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
+                <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
+                <SliderRow label="Iluminação volumétrica" value={effectiveLobby.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ volumetricIntensity: v })} />
+                <SliderRow label="Suavidade do feixe" value={effectiveLobby.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricSoftness: v })} decimals={2} />
+                <SliderRow label="Blur / queda à distância" value={effectiveLobby.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricDistanceBlur: v })} decimals={2} />
+                <ToggleRow label="Bloom cinematográfico" value={effectiveLobby.bloomEnabled} onChange={(v) => patchLobby({ bloomEnabled: v })} />
+                <SliderRow label="Bloom strength" value={effectiveLobby.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchLobby({ bloomStrength: v })} decimals={2} />
+                <SliderRow label="Bloom radius" value={effectiveLobby.bloomRadius} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ bloomRadius: v })} decimals={2} />
+                <SliderRow label="Bloom threshold" value={effectiveLobby.bloomThreshold} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ bloomThreshold: v })} decimals={2} />
+              </Section>
             </fieldset>
           </aside>
         </>
       )}
+      {editorSceneId !== null ? (() => {
+        const editorScene = scenes.find((item) => item.id === editorSceneId);
+        return editorScene === undefined ? null : (
+          <ThreeEditorFrame
+            key={editorScene.id}
+            scene={editorScene}
+            onClose={() => setEditorSceneId(null)}
+            onSaved={(saved) => {
+              setScenes((current) => current.map((item) => item.id === saved.id ? saved : item));
+              setDraft((current) => {
+                if (current === null || selectedId !== saved.id) return current;
+                const nextSettings = { ...current.settings } as Record<string, unknown>;
+                for (const key of ['editorProjectFile', 'modelFile'] as const) {
+                  const value = saved.settings[key];
+                  if (value === undefined) delete nextSettings[key];
+                  else nextSettings[key] = value;
+                }
+                return { ...current, settings: nextSettings as Partial<SceneSettings> };
+              });
+            }}
+          />
+        );
+      })() : null}
     </div>
   );
 }

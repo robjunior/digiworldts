@@ -1,4 +1,5 @@
 import { defineConfig, loadEnv, type ProxyOptions } from 'vite';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 
 /**
@@ -54,7 +55,10 @@ export default defineConfig(({ mode }) => {
         '/api': { target: backendUrl, ...proxyCommon },
         '/ws': { target: wsBackend, ws: true, ...proxyCommon },
         '/assets/digimon': { target: backendUrl, ...proxyCommon },
+        '/assets/sprites': { target: backendUrl, ...proxyCommon },
+        '/assets/sprites-static': { target: backendUrl, ...proxyCommon },
         '/assets/arenas': { target: backendUrl, ...proxyCommon },
+        '/assets/scenes': { target: backendUrl, ...proxyCommon },
       },
     },
     build: {
@@ -62,6 +66,12 @@ export default defineConfig(({ mode }) => {
       sourcemap: true,
       outDir: 'dist',
       emptyOutDir: true,
+      rollupOptions: {
+        input: [
+          fileURLToPath(new URL('./index.html', import.meta.url)),
+          fileURLToPath(new URL('./threejs-editor/index.html', import.meta.url)),
+        ],
+      },
     },
     css: {
       modules: {

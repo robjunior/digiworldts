@@ -55,7 +55,7 @@ export type DayReward = {
   readonly meat?: number;
   readonly bits?: number;
   readonly data?: number;
-  readonly credits?: number;
+  readonly netcore?: number;
 };
 
 export type DailyResponse = {
@@ -210,8 +210,6 @@ type WorldMoveResponse = {
   readonly battle?: BattleView | null;
   readonly battleStartError?: string | null;
 };
-
-export { actInWorldBattle } from './api-world';
 
 export async function getBattleView(): Promise<BattleView> {
   const response = await apiFetch<WorldBattleResponse>('/api/world/battle');

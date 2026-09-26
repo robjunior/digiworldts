@@ -1,16 +1,29 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'three-stdlib';
+import * as THREE from "three";
+import { GLTFLoader } from "three-stdlib";
 
 import type {
   ParticleEmitterConfig,
   TimeOfDayConfig,
   WeatherConfig,
-} from '@digiworld/shared/weather';
+} from "@digiworld/shared/weather";
 
-import { RUNNERS } from './attack-runners';
-import { buildPresetRunner } from './attack-runners/preset';
-import type { AnimatedElement, AttackEffect3D, Runner3D } from './attack-runners/types';
-import { DEFAULT_EFFECT_DURATION_S, ELEMENT_LIGHT_COLOR } from './attack-runners/types';
+import { RUNNERS } from "./attack-runners";
+import { buildPresetRunner } from "./attack-runners/preset";
+import type {
+  AnimatedElement,
+  AttackEffect3D,
+  Runner3D,
+} from "./attack-runners/types";
+import {
+  DEFAULT_EFFECT_DURATION_S,
+  ELEMENT_LIGHT_COLOR,
+} from "./attack-runners/types";
+import {
+  buildImpactController,
+  shakeForElement,
+  nextShakeOffset,
+  IMPACT_SHAKE_DURATION_S,
+} from "./attack-runners/impact";
 
 /**
  * Where a skill effect leaves the attacker and where it lands on the receiver,
@@ -26,17 +39,58 @@ const EMIT_FORWARD_RATIO = 0.45;
 const IMPACT_HEIGHT_RATIO = 0.08;
 /** Fallback when no source unit is known: the effect falls from overhead. */
 const UNSOURCED_DROP_HEIGHT = 4;
-import { resolveSkillVfxPreset } from './skill-vfx-resolver';
-import { FORMATION_SIDE_X, FORMATION_SLOT_Z_SPACING, SpriteRig, slotWorldPosition, type SpriteRigConfig, type SpriteSide } from './sprite-rig';
-import { ParticleEmitter } from './particles/ParticleEmitter';
-import { ThunderFlashController } from './particles/ThunderFlashController';
-import { WEATHER_EMITTER_PRESETS } from './particles/presets';
-import { TimeOfDayDriver, interpolatePhases, type PhasePreset } from './time-of-day';
+import { resolveSkillVfxPreset } from "./skill-vfx-resolver";
+import {
+  FORMATION_SIDE_X,
+  FORMATION_SLOT_Z_SPACING,
+  SpriteRig,
+  slotWorldPosition,
+  type SpriteRigConfig,
+  type SpriteSide,
+} from "./sprite-rig";
+import { ParticleEmitter } from "./particles/ParticleEmitter";
+import { ThunderFlashController } from "./particles/ThunderFlashController";
+import { WEATHER_EMITTER_PRESETS } from "./particles/presets";
+import { prewarmParticleMaterials } from "./particles/shaders";
+import type { ParticleShaderKind } from "@digiworld/shared/weather";
+import {
+  TimeOfDayDriver,
+  interpolatePhases,
+  type PhasePreset,
+} from "./time-of-day";
 
-export type SpriteInit = SpriteRigConfig;
+export type SpriteInit = SpriteRigConfig & {
+  readonly onClick: (() => void | undefined) | undefined;
+};
+
+/**
+ * Wraps a deferred attack-runner build so the (allocating) construction of
+ * ParticleEmitters / ShaderMaterials happens on the next render tick, never on
+ * the input/click frame. `playEffect` returns immediately with a runner-shaped
+ * object; the real `Runner3D` is built lazily on first `tick`. This is what
+ * removes the stutter on the first skill cast — the heavy work moves off the
+ * frame that also handles input + sprite animation.
+ */
+function createDeferredRunner(build: () => Runner3D): Runner3D {
+  let inner: Runner3D | null = null;
+  let disposed = false;
+  return {
+    tick(dtS: number, elapsedS: number, cameraQuat: THREE.Quaternion): void {
+      if (inner === null) {
+        if (disposed) return;
+        inner = build();
+      }
+      inner.tick(dtS, elapsedS, cameraQuat);
+    },
+    dispose(): void {
+      disposed = true;
+      if (inner !== null) inner.dispose();
+    },
+  };
+}
 
 function forceTransparencyIfAlpha(mat: THREE.Material): void {
-  if (!('alphaMap' in mat)) return;
+  if (!("alphaMap" in mat)) return;
   const m = mat as THREE.MeshStandardMaterial;
   if (m.transparent) return;
   if (m.alphaMap === null || m.alphaMap === undefined) return;
@@ -44,13 +98,21 @@ function forceTransparencyIfAlpha(mat: THREE.Material): void {
   m.needsUpdate = true;
 }
 
-const FLOOR_NAME_PATTERNS: readonly RegExp[] = [/floor/i, /ground/i, /terrain/i, /surface/i, /platform/i, /base(?!ment)/i];
+const FLOOR_NAME_PATTERNS: readonly RegExp[] = [
+  /floor/i,
+  /ground/i,
+  /terrain/i,
+  /surface/i,
+  /platform/i,
+  /base(?!ment)/i,
+];
 
 function isFloorNamed(mesh: THREE.Object3D): boolean {
   let node: THREE.Object3D | null = mesh;
   while (node !== null) {
     const name = node.name;
-    if (name.length > 0 && FLOOR_NAME_PATTERNS.some((p) => p.test(name))) return true;
+    if (name.length > 0 && FLOOR_NAME_PATTERNS.some((p) => p.test(name)))
+      return true;
     node = node.parent;
   }
   return false;
@@ -68,7 +130,7 @@ export type SceneSettings = {
   shadowNormalBias: number;
   shadowMapSize: number;
   fogEnabled: boolean;
-  fogMode: 'linear' | 'exp2' | 'height';
+  fogMode: "linear" | "exp2" | "height";
   fogColor: number;
   fogNear: number;
   fogFar: number;
@@ -78,7 +140,7 @@ export type SceneSettings = {
   arenaOffsetX: number;
   arenaOffsetY: number;
   arenaOffsetZ: number;
-  cameraType: 'ortho' | 'perspective';
+  cameraType: "ortho" | "perspective";
   camFov: number;
   hemiSkyColor: number;
   hemiGroundColor: number;
@@ -99,6 +161,86 @@ export type SceneSettings = {
    *  choosing the arena mesh URL. SceneManager.applySettings ignores this field —
    *  it's a selector, not a runtime scene property. */
   modelFile?: string;
+  /** Optional configuration for the LOBBY scene (the CSS-3D backdrop of the
+   *  home/lobby screen). Defined here so the admin scene editor can persist it
+   *  in the same SceneEntity, but ignored entirely by the combat SceneManager. */
+  lobby?: LobbySceneSettings;
+};
+
+/**
+ * Knobs for the lobby's 3D backdrop, edited in the admin scene editor under a
+ * scene of `kind: 'lobby'`. The lobby's ENVIRONMENT always comes from the scene's
+ * `modelFile` GLB (there is intentionally no procedural fallback stage — if a
+ * lobby scene has no modelFile, the frontend falls back to the default arena
+ * GLB, never to a generated set). These settings only shape the party stage
+ * (fan formation + camera drift) on top of the GLB.
+ *
+ * Editor-split note: the scene editor is planned to be broken apart per
+ * consumer (nursery / city / lobby / combat) reusing the same CRUD + zod
+ * surface. Each `SceneKind` will bind its own `settings` subset; this type is
+ * the `lobby` subset. Formatting knobs that the renderer does not yet consume
+ * (e.g. `sideTiltDeg`) stay in the schema so the editor is stable and the
+ * renderer can adopt them without a migration.
+ */
+export type LobbySceneSettings = {
+  /** fan spread in px (256) — renderer divides by 108 for world units */
+  pedestalSpacing: number;
+  /** global pedestal scale 0.5..1.5 (1) */
+  pedestalScale: number;
+  /** side pedestal yaw in degrees (17) — reserved for the fan tilt pass */
+  sideTiltDeg: number;
+  /** center pedestal scale vs sides (1.1) */
+  centerScale: number;
+  /** center pedestal forward lift, px (36) — rendered as a "+z" offset */
+  centerLift: number;
+  /** Vertical world-offset of the party (pedestals + sprites) so the digimons
+   *  actually seat on the scene's ground/ring — each GLB floors at a different
+   *  height, and the admin needs a knob to realign. Range ≈ -3..3. */
+  partyHeight: number;
+  /** camera drift strength 0..2 (1); 0 disables the slow idle orbit.
+   *  No effect while the GLB's embedded camera is adopted (useGlbSettings). */
+  driftIntensity: number;
+  /** Octopath-style readability: sprite colour multiplier (HDR) so the
+   *  digimons read bright against the dark arena even at low exposure.
+   *  0.3..8 (default decides; low scene exposure wants it >1). */
+  digimonBrightness: number;
+  /** Stage Spotlight over the party: decent-light floor pool, the digimons'
+   *  PROJETED shadows, and feeds a volumetric beam. 0..6. */
+  stageLightIntensity: number;
+  /** Visibility of the volumetric light shafts (additive cones from the GLB
+   *  spots + the stage light). 0..6. */
+  volumetricIntensity: number;
+  /** Soft atmospheric penumbra at the beam edge, 0..1. */
+  volumetricSoftness: number;
+  /** Distance extinction/blur, 0..1. */
+  volumetricDistanceBlur: number;
+  /** Cinematic post-processing bloom controls. */
+  bloomEnabled: boolean;
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
+};
+
+/** SceneEntity.name the Lobby screen looks up when no scene has kind 'lobby'. */
+export const LOBBY_SCENE_NAME = "Lobby";
+
+export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
+  pedestalSpacing: 256,
+  pedestalScale: 1,
+  sideTiltDeg: 17,
+  centerScale: 1.1,
+  centerLift: 36,
+  partyHeight: 0,
+  driftIntensity: 1,
+  digimonBrightness: 4,
+  stageLightIntensity: 3,
+  volumetricIntensity: 2,
+  volumetricSoftness: 0.55,
+  volumetricDistanceBlur: 0.65,
+  bloomEnabled: true,
+  bloomStrength: 0.3,
+  bloomRadius: 0.45,
+  bloomThreshold: 0.9,
 };
 
 const FRUSTUM = 4.5;
@@ -138,7 +280,7 @@ type ArenaAtmosphere = {
 
 const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
   plant: {
-    key: 'plant',
+    key: "plant",
     sky: 0xffd7a8,
     ground: 0x3a5a2a,
     hemiIntensity: 0.85,
@@ -157,7 +299,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.28,
   },
   steel: {
-    key: 'steel',
+    key: "steel",
     sky: 0x60789a,
     ground: 0x1a2028,
     hemiIntensity: 0.55,
@@ -176,7 +318,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.22,
   },
   water: {
-    key: 'water',
+    key: "water",
     sky: 0x9ed4ff,
     ground: 0x2d4a68,
     hemiIntensity: 0.9,
@@ -195,7 +337,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.24,
   },
   rock: {
-    key: 'rock',
+    key: "rock",
     sky: 0xffbf80,
     ground: 0x5a3820,
     hemiIntensity: 0.75,
@@ -214,7 +356,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.34,
   },
   dark: {
-    key: 'dark',
+    key: "dark",
     sky: 0x2a2440,
     ground: 0x0a0812,
     hemiIntensity: 0.35,
@@ -233,7 +375,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.32,
   },
   fire: {
-    key: 'fire',
+    key: "fire",
     sky: 0x2a0a0a,
     ground: 0x1a0808,
     hemiIntensity: 0.4,
@@ -252,7 +394,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.4,
   },
   ice: {
-    key: 'ice',
+    key: "ice",
     sky: 0xc8e8ff,
     ground: 0xd0e0f0,
     hemiIntensity: 1.0,
@@ -271,7 +413,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.3,
   },
   field: {
-    key: 'field',
+    key: "field",
     sky: 0xb8d8f0,
     ground: 0x4a7a3a,
     hemiIntensity: 0.9,
@@ -290,7 +432,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.28,
   },
   null: {
-    key: 'null',
+    key: "null",
     sky: 0xf0d8d8,
     ground: 0xd8c0a8,
     hemiIntensity: 0.75,
@@ -309,7 +451,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.24,
   },
   wind: {
-    key: 'wind',
+    key: "wind",
     sky: 0xd4e8f0,
     ground: 0x8a8478,
     hemiIntensity: 0.95,
@@ -328,7 +470,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
     dustOpacity: 0.35,
   },
   light: {
-    key: 'light',
+    key: "light",
     sky: 0xf2ead0,
     ground: 0xd9cfaa,
     hemiIntensity: 1.05,
@@ -349,7 +491,7 @@ const ARENA_ATMOSPHERES: Readonly<Record<string, ArenaAtmosphere>> = {
 };
 
 const DEFAULT_ATMOSPHERE: ArenaAtmosphere = {
-  key: 'default',
+  key: "default",
   sky: 0x88a8d0,
   ground: GROUND_COLOR,
   hemiIntensity: 0.62,
@@ -368,6 +510,21 @@ const DEFAULT_ATMOSPHERE: ArenaAtmosphere = {
   dustOpacity: 0.2,
 };
 
+/**
+ * GLB → arena-atmosphere override for the GLB-default fallback (see
+ * `loadArenaModelBare`). Used when a GLB carries no punctual lights, so the
+ * scene still gets a coherent atmosphere instead of the generic default.
+ *
+ * `arena.glb` is the neutral cyber/factory arena — dark steel panels, cable
+ * trays, HDD/terminal props and self-lit screens — so its fallback is the
+ * `steel` industrial look. This is the "atmosphere the GLB uses": it ships no
+ * real lights (only `KHR_materials_emissive_strength` emissive surfaces), so
+ * the closest keyed mood for it is `steel`.
+ */
+const GLB_ATMOSPHERE_BY_FILENAME: Readonly<Record<string, string>> = {
+  'arena.glb': 'steel',
+};
+
 function easeOutCubic(t: number): number {
   const c = 1 - t;
   return 1 - c * c * c;
@@ -383,31 +540,39 @@ function hashRng(seed: number): () => number {
 
 function buildGroundTexture(): THREE.CanvasTexture {
   const size = 512;
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  if (ctx === null) throw new Error('scene: 2d context unavailable for ground texture');
-  const g = ctx.createRadialGradient(size / 2, size / 2, size * 0.15, size / 2, size / 2, size * 0.65);
-  g.addColorStop(0, '#243046');
-  g.addColorStop(0.6, '#1a2334');
-  g.addColorStop(1, '#0f1520');
+  const ctx = canvas.getContext("2d");
+  if (ctx === null)
+    throw new Error("scene: 2d context unavailable for ground texture");
+  const g = ctx.createRadialGradient(
+    size / 2,
+    size / 2,
+    size * 0.15,
+    size / 2,
+    size / 2,
+    size * 0.65,
+  );
+  g.addColorStop(0, "#243046");
+  g.addColorStop(0.6, "#1a2334");
+  g.addColorStop(1, "#0f1520");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, size, size);
   const rng = hashRng(0x9e3779b9);
-  ctx.fillStyle = 'rgba(120,150,200,0.045)';
+  ctx.fillStyle = "rgba(120,150,200,0.045)";
   for (let x = 0; x < size; x += 32) {
     ctx.fillRect(x, 0, 1, size);
     ctx.fillRect(0, x, size, 1);
   }
-  ctx.fillStyle = 'rgba(140,180,240,0.07)';
+  ctx.fillStyle = "rgba(140,180,240,0.07)";
   for (let i = 0; i < 380; i += 1) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
     const r = 1 + Math.floor(rng() * 2);
     ctx.fillRect(x, y, r, r);
   }
-  ctx.fillStyle = 'rgba(240,220,180,0.03)';
+  ctx.fillStyle = "rgba(240,220,180,0.03)";
   for (let i = 0; i < 60; i += 1) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
@@ -423,16 +588,17 @@ function buildGroundTexture(): THREE.CanvasTexture {
 }
 
 function buildSkyTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 4;
   canvas.height = 512;
-  const ctx = canvas.getContext('2d');
-  if (ctx === null) throw new Error('scene: 2d context unavailable for sky texture');
+  const ctx = canvas.getContext("2d");
+  if (ctx === null)
+    throw new Error("scene: 2d context unavailable for sky texture");
   const g = ctx.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, '#080b13');
-  g.addColorStop(0.4, '#101830');
-  g.addColorStop(0.75, '#1c2a48');
-  g.addColorStop(1, '#0b1220');
+  g.addColorStop(0, "#080b13");
+  g.addColorStop(0.4, "#101830");
+  g.addColorStop(0.75, "#1c2a48");
+  g.addColorStop(1, "#0b1220");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 4, 512);
   const tex = new THREE.CanvasTexture(canvas);
@@ -445,7 +611,7 @@ export class SceneManager {
   readonly scene: THREE.Scene;
   camera: THREE.OrthographicCamera | THREE.PerspectiveCamera;
   readonly renderer: THREE.WebGLRenderer;
-  private readonly clock: THREE.Clock;
+  private readonly clock: THREE.Timer;
   private readonly hemi: THREE.HemisphereLight;
   private readonly keyLight: THREE.DirectionalLight;
   private readonly rimLight: THREE.DirectionalLight;
@@ -454,9 +620,19 @@ export class SceneManager {
   private readonly propsGroup: THREE.Group;
   private readonly ringsGroup: THREE.Group;
   private readonly arenaGroup: THREE.Group;
-  private readonly floatingProps: Array<{ mesh: THREE.Mesh; baseY: number; rotationSpeed: number; bobSpeed: number; bobOffset: number; bobAmp: number }> = [];
+  private readonly floatingProps: Array<{
+    mesh: THREE.Mesh;
+    baseY: number;
+    rotationSpeed: number;
+    bobSpeed: number;
+    bobOffset: number;
+    bobAmp: number;
+  }> = [];
   private readonly sprites: Map<string, SpriteRig> = new Map();
-  private readonly effects: Map<string, { runner: Runner3D; elapsed: number; duration: number }> = new Map();
+  private readonly effects: Map<
+    string,
+    { runner: Runner3D; elapsed: number; duration: number }
+  > = new Map();
   private rafId = 0;
   private disposedFlag = false;
   private stageWidth = 1;
@@ -468,6 +644,9 @@ export class SceneManager {
   private camElevDeg = CAM_ELEV_DEG;
   private camYawDeg = CAM_YAW_DEG;
   private camDist = CAM_DIST;
+  // Camera base position (no shake). Shake offsets are added on top each frame
+  // and recomputed from this, so they never accumulate across frames.
+  private readonly cameraBasePos = new THREE.Vector3(0, 0, 0);
   private camLookAtY = CAM_LOOK_AT_Y;
   private cameraLookOffset = new THREE.Vector3(0, 0, 0);
   private camFrustum = FRUSTUM;
@@ -476,40 +655,93 @@ export class SceneManager {
   private readonly dustPhase: Float32Array;
   private readonly dustBaseXZ: Float32Array;
   private skyTexture: THREE.CanvasTexture | null = null;
-  private currentFogMode: 'linear' | 'exp2' | 'height' = 'linear';
+  private currentFogMode: "linear" | "exp2" | "height" = "linear";
   private currentFogEnabled = true;
   private currentArenaSpan = 28;
   private currentArenaOffsetX = 0;
   private currentArenaOffsetY = 0;
   private currentArenaOffsetZ = 0;
-  private currentCameraType: 'ortho' | 'perspective' = 'ortho';
+  private currentCameraType: "ortho" | "perspective" = "ortho";
   private currentCamFov = 45;
 
+  // Screen-shake state: a transient positional offset applied to the camera
+  // right before each render, decaying to zero over IMPACT_SHAKE_DURATION_S.
+  // Triggered on skill impact so a landed hit jolts the stage.
+  private shakeAmplitude = 0;
+  private shakeElapsed = 0;
+  private shakeActive = false;
+
   private readonly activeEmitters: Map<string, ParticleEmitter> = new Map();
-  private readonly fadingEmitters: Array<{ emitter: ParticleEmitter; elapsedS: number; durationS: number }> = [];
+  private readonly fadingEmitters: Array<{
+    emitter: ParticleEmitter;
+    elapsedS: number;
+    durationS: number;
+  }> = [];
   private currentWeather: WeatherConfig | null = null;
   private thunder: ThunderFlashController | null = null;
-  private weatherFade: { elapsedS: number; durationS: number; active: boolean } = { elapsedS: 0, durationS: 0, active: false };
+  private weatherFade: {
+    elapsedS: number;
+    durationS: number;
+    active: boolean;
+  } = { elapsedS: 0, durationS: 0, active: false };
   private baseSunColor = 0xfff2d0;
   private baseSunIntensity = 1.0;
   private baseHemiIntensity = 0.62;
   private timeDriver: TimeOfDayDriver | null = null;
-  private phaseBlend: { fromPreset: PhasePreset; toPreset: PhasePreset; elapsedS: number; durationS: number; active: boolean } | null = null;
+  private phaseBlend: {
+    fromPreset: PhasePreset;
+    toPreset: PhasePreset;
+    elapsedS: number;
+    durationS: number;
+    active: boolean;
+  } | null = null;
   private currentArenaUrl: string | null = null;
   private currentArenaKey: string | null = null;
   private readonly heightFogUniforms = { fogHeight: { value: 2.0 } };
   private lastAppliedPatch: Partial<SceneSettings> = {};
-  private applyingReplayFromAtmosphere = false;
+  private isApplyingFromAtmosphere = false;
+  /** Reused across ray picks (sprite screen hits, arena floor detection) so we
+   *  don't allocate a fresh Raycaster on every call. */
+  private readonly raycaster = new THREE.Raycaster();
+
+  // --- Optional perf HUD (off by default; zero cost when disabled) ---
+  private hudEnabled = false;
+  private hudEl: HTMLDivElement | null = null;
+  private hudAccumS = 0;
+  private hudFrames = 0;
+  private hudLastMs = 0;
+  private hudLastDrawCalls = 0;
+  private hudLastTriangles = 0;
+  private hudParent: HTMLElement = document.body;
+
+  /** Whether the shadow map has been rendered at least once this loop run.
+   *  Combined with `autoUpdate = false`, we prime it on the first frame and
+   *  then only re-render when a shadow-affecting change requests a refresh. */
+  private shadowPrimed = false;
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+    });
     this.renderer.setClearColor(0x0b1220, 1);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // On-demand shadows. The shadow map is expensive to rebuild (2048² PCF over
+    // every caster), so we DON'T re-render it every frame. It is only refreshed
+    // on discrete shadow-affecting changes (arena load, sprite add/remove,
+    // attack/hit anim windows, light/settings changes, time-of-day). Idle
+    // frames skip a full shadow pass entirely — this is the main stutter fix.
+    this.renderer.shadowMap.autoUpdate = false;
+
+    // Anchor the perf HUD into the canvas's parent so it can't be hidden behind
+    // the WebGL canvas or lost inside a transformed/portaled container.
+    if (canvas.parentElement !== null) this.hudParent = canvas.parentElement;
 
     this.scene = new THREE.Scene();
     this.skyTexture = buildSkyTexture();
@@ -564,7 +796,17 @@ export class SceneManager {
     this.dust = this.buildDust(dustCount);
     this.scene.add(this.dust);
 
-    this.clock = new THREE.Clock();
+    this.clock = new THREE.Timer();
+
+    // Global escape hatch: `window.__sceneHud()` toggles the perf HUD from the
+    // devtools console, regardless of URL params. Useful when ?hud=1 doesn't
+    // survive a route redirect.
+    try {
+      (window as unknown as { __sceneHud?: () => boolean }).__sceneHud = () =>
+        this.toggleHud();
+    } catch {
+      /* window unavailable — skip */
+    }
   }
 
   private buildDust(count: number): THREE.Points {
@@ -583,7 +825,7 @@ export class SceneManager {
       this.dustBaseY[i] = y;
       this.dustPhase[i] = rng() * Math.PI * 2;
     }
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     const material = new THREE.PointsMaterial({
       color: DEFAULT_ATMOSPHERE.dustColor,
       size: 0.055,
@@ -605,23 +847,36 @@ export class SceneManager {
     this.hemi.intensity = atmosphere.hemiIntensity;
     this.keyLight.color.setHex(atmosphere.keyColor);
     this.keyLight.intensity = atmosphere.keyIntensity;
-    this.keyLight.position.set(atmosphere.keyPos[0], atmosphere.keyPos[1], atmosphere.keyPos[2]);
+    this.keyLight.position.set(
+      atmosphere.keyPos[0],
+      atmosphere.keyPos[1],
+      atmosphere.keyPos[2],
+    );
     this.rimLight.color.setHex(atmosphere.rimColor);
     this.rimLight.intensity = atmosphere.rimIntensity;
     this.fillLight.color.setHex(atmosphere.fillColor);
     this.fillLight.intensity = atmosphere.fillIntensity;
     if (this.currentFogEnabled) {
-      if (this.currentFogMode === 'exp2' || this.currentFogMode === 'height') {
-        const prevExp = this.scene.fog instanceof THREE.FogExp2 ? this.scene.fog.density : 0.035;
+      if (this.currentFogMode === "exp2" || this.currentFogMode === "height") {
+        const prevExp =
+          this.scene.fog instanceof THREE.FogExp2
+            ? this.scene.fog.density
+            : 0.035;
         this.scene.fog = new THREE.FogExp2(atmosphere.fogColor, prevExp);
-        if (this.currentFogMode === 'height') this.applyHeightFogToScene();
+        if (this.currentFogMode === "height") this.applyHeightFogToScene();
       } else {
-        this.scene.fog = new THREE.Fog(atmosphere.fogColor, atmosphere.fogNear, atmosphere.fogFar);
+        this.scene.fog = new THREE.Fog(
+          atmosphere.fogColor,
+          atmosphere.fogNear,
+          atmosphere.fogFar,
+        );
       }
     } else {
       this.scene.fog = null;
     }
     this.renderer.toneMappingExposure = atmosphere.exposure;
+    // Key light position (a shadow caster) changed: rebuild the shadow map.
+    this.requestShadowRefresh();
     if (this.dust !== null) {
       const mat = this.dust.material as THREE.PointsMaterial;
       mat.color.setHex(atmosphere.dustColor);
@@ -629,17 +884,20 @@ export class SceneManager {
       mat.needsUpdate = true;
     }
     if (Object.keys(this.lastAppliedPatch).length > 0) {
-      this.applyingReplayFromAtmosphere = true;
+      this.isApplyingFromAtmosphere = true;
       try {
         this.applySettings(this.lastAppliedPatch);
       } finally {
-        this.applyingReplayFromAtmosphere = false;
+        this.isApplyingFromAtmosphere = false;
       }
     }
   }
 
   setArenaAtmosphere(arenaKey: string | null): void {
-    const atm = arenaKey !== null ? (ARENA_ATMOSPHERES[arenaKey] ?? DEFAULT_ATMOSPHERE) : DEFAULT_ATMOSPHERE;
+    const atm =
+      arenaKey !== null
+        ? (ARENA_ATMOSPHERES[arenaKey] ?? DEFAULT_ATMOSPHERE)
+        : DEFAULT_ATMOSPHERE;
     this.applyAtmosphere(atm);
   }
 
@@ -666,12 +924,17 @@ export class SceneManager {
   private placeCameraIso(): void {
     const elev = (this.camElevDeg * Math.PI) / 180;
     const yaw = (this.camYawDeg * Math.PI) / 180;
-    this.camera.position.set(
+    this.cameraBasePos.set(
       Math.sin(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.x,
       Math.sin(elev) * this.camDist + this.cameraLookOffset.y,
       Math.cos(yaw) * Math.cos(elev) * this.camDist + this.cameraLookOffset.z,
     );
-    this.camera.lookAt(this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
+    this.camera.position.copy(this.cameraBasePos);
+    this.camera.lookAt(
+      this.cameraLookOffset.x,
+      this.camLookAtY + this.cameraLookOffset.y,
+      this.cameraLookOffset.z,
+    );
   }
 
   private updateProjection(): void {
@@ -691,8 +954,10 @@ export class SceneManager {
     }
   }
 
-  private makeCamera(type: 'ortho' | 'perspective'): THREE.OrthographicCamera | THREE.PerspectiveCamera {
-    if (type === 'perspective') {
+  private makeCamera(
+    type: "ortho" | "perspective",
+  ): THREE.OrthographicCamera | THREE.PerspectiveCamera {
+    if (type === "perspective") {
       const aspect = this.stageWidth / Math.max(1, this.stageHeight);
       return new THREE.PerspectiveCamera(this.currentCamFov, aspect, 0.1, 100);
     }
@@ -709,6 +974,17 @@ export class SceneManager {
     cam.near = 0.5;
     cam.far = Math.max(45, this.currentArenaSpan * 2.5);
     cam.updateProjectionMatrix();
+    this.renderer.shadowMap.needsUpdate = true;
+  }
+
+  /**
+   * Request a single shadow-map re-render on the next frame. With
+   * `autoUpdate = false`, the shadow map is only rebuilt when this is called,
+   * so callers must invoke it on every shadow-affecting change (sprite add/
+   * remove, attack/hit animation windows, light or settings changes, time-of-
+   * day transitions, arena swaps). Cheap: just flips a flag the renderer reads.
+   */
+  requestShadowRefresh(): void {
     this.renderer.shadowMap.needsUpdate = true;
   }
 
@@ -729,11 +1005,21 @@ export class SceneManager {
   private buildTeamSideRings(): void {
     const geometry = new THREE.RingGeometry(0.55, 0.62, 32);
     const buildFor = (sign: number, color: number): void => {
-      const material = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, side: THREE.DoubleSide, fog: false });
+      const material = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.55,
+        side: THREE.DoubleSide,
+        fog: false,
+      });
       for (let i = 0; i < 3; i += 1) {
         const ring = new THREE.Mesh(geometry, material);
         ring.rotation.x = -Math.PI / 2;
-        ring.position.set(sign * FORMATION_SIDE_X, 0.03, (i - 1) * FORMATION_SLOT_Z_SPACING);
+        ring.position.set(
+          sign * FORMATION_SIDE_X,
+          0.03,
+          (i - 1) * FORMATION_SLOT_Z_SPACING,
+        );
         this.ringsGroup.add(ring);
       }
     };
@@ -837,6 +1123,7 @@ export class SceneManager {
     const root = gltf.scene;
     this.normalizeArenaTransform(root);
     this.arenaGroup.add(root);
+    this.arenaRoot = root;
     this.currentArenaUrl = url;
     this.setBackdropActive(true);
     let hasFloorMesh = false;
@@ -851,7 +1138,7 @@ export class SceneManager {
       }
     });
     this.ground.visible = !hasFloorMesh;
-    if (this.currentFogMode === 'height') {
+    if (this.currentFogMode === "height") {
       root.traverse((obj) => {
         if (!(obj instanceof THREE.Mesh)) return;
         const mat = obj.material;
@@ -861,33 +1148,87 @@ export class SceneManager {
     }
   }
 
-  async loadArenaModelWithAtmosphere(url: string, arenaKey: string): Promise<void> {
+  async loadArenaModelWithAtmosphere(
+    url: string,
+    arenaKey: string,
+  ): Promise<void> {
     this.currentArenaKey = arenaKey;
     this.setArenaAtmosphere(arenaKey);
     await this.loadArenaModel(url);
   }
 
   /**
+   * Apply an atmosphere's LIGHTING only (hemi/key/rim/fill/exposure dust),
+   * leaving `scene.fog` untouched. Used by the GLB-default fallback: with the
+   * GLB driving the look, fog stays disabled (the GLB's own volume/atmosphere
+   * meshes own the haze), but the lights still need a coherent mood.
+   */
+  private applyAtmosphereLighting(atmosphere: ArenaAtmosphere): void {
+    if (this.disposedFlag) return;
+    this.hemi.color.setHex(atmosphere.sky);
+    this.hemi.groundColor.setHex(atmosphere.ground);
+    this.hemi.intensity = atmosphere.hemiIntensity;
+    this.keyLight.color.setHex(atmosphere.keyColor);
+    this.keyLight.intensity = atmosphere.keyIntensity;
+    this.keyLight.position.set(
+      atmosphere.keyPos[0],
+      atmosphere.keyPos[1],
+      atmosphere.keyPos[2],
+    );
+    this.rimLight.color.setHex(atmosphere.rimColor);
+    this.rimLight.intensity = atmosphere.rimIntensity;
+    this.fillLight.color.setHex(atmosphere.fillColor);
+    this.fillLight.intensity = atmosphere.fillIntensity;
+    this.renderer.toneMappingExposure = atmosphere.exposure;
+    // Key light position (a shadow caster) changed: rebuild the shadow map.
+    this.requestShadowRefresh();
+    if (this.dust !== null) {
+      const mat = this.dust.material as THREE.PointsMaterial;
+      mat.color.setHex(atmosphere.dustColor);
+      mat.opacity = atmosphere.dustOpacity;
+      mat.needsUpdate = true;
+    }
+  }
+
+  /**
    * "Bare" arena load: intended for scenes with `useGlbSettings=true`.
-   * Skips `setArenaAtmosphere` and disables scene fog so the GLB drives the look.
+   * Skips `setArenaAtmosphere` so the GLB drives the look, and disables scene
+   * fog so the GLB's own volume/atmosphere owns the haze.
    * The manager's own rig is only surrendered when the GLB actually ships
    * KHR_lights_punctual lights; most biome exports carry none, and dimming
    * unconditionally left those arenas rendering in near-darkness.
+   *
+   * When the GLB ships no lights, the fallback lighting comes from the arena's
+   * keyed atmosphere (`arenaKey`), with a per-filename override for known
+   * bare-geometry arenas like `arena.glb` (→ `steel`). This is what makes
+   * selecting a GLB as default render with a coherent mood even though most
+   * GLBs embed no lights.
    */
-  async loadArenaModelBare(url: string): Promise<void> {
-    this.currentArenaKey = null;
+  async loadArenaModelBare(
+    url: string,
+    arenaKey?: string | null,
+  ): Promise<void> {
+    this.currentArenaKey = arenaKey ?? null;
     await this.loadArenaModel(url);
     let glbLightCount = 0;
     this.arenaGroup.traverse((obj) => {
       if (obj instanceof THREE.Light) glbLightCount += 1;
     });
+    const filename = url.split('/').pop() ?? '';
+    const fallbackKey =
+      GLB_ATMOSPHERE_BY_FILENAME[filename] ??
+      (arenaKey !== undefined && arenaKey !== null ? arenaKey : null);
+    const fallback: ArenaAtmosphere =
+      fallbackKey !== null
+        ? (ARENA_ATMOSPHERES[fallbackKey] ?? DEFAULT_ATMOSPHERE)
+        : DEFAULT_ATMOSPHERE;
     if (glbLightCount > 0) {
       this.hemi.intensity = 0.15;
       this.keyLight.intensity = 0.35;
       this.rimLight.intensity = 0.0;
       this.fillLight.intensity = 0.0;
     } else {
-      this.applyAtmosphere(DEFAULT_ATMOSPHERE);
+      this.applyAtmosphereLighting(fallback);
     }
     this.scene.fog = null;
   }
@@ -902,9 +1243,14 @@ export class SceneManager {
 
     // Fade out current emitters over the transitionMs of the OUTGOING config
     // (fall back to the incoming one, then a safe default).
-    const outgoingFadeMs = this.currentWeather?.transitionMs ?? config?.transitionMs ?? 2000;
+    const outgoingFadeMs =
+      this.currentWeather?.transitionMs ?? config?.transitionMs ?? 2000;
     for (const emitter of this.activeEmitters.values()) {
-      this.fadingEmitters.push({ emitter, elapsedS: 0, durationS: outgoingFadeMs / 1000 });
+      this.fadingEmitters.push({
+        emitter,
+        elapsedS: 0,
+        durationS: outgoingFadeMs / 1000,
+      });
     }
     this.activeEmitters.clear();
 
@@ -915,7 +1261,11 @@ export class SceneManager {
 
     if (config === null) {
       this.currentWeather = null;
-      this.weatherFade = { elapsedS: 0, durationS: outgoingFadeMs / 1000, active: true };
+      this.weatherFade = {
+        elapsedS: 0,
+        durationS: outgoingFadeMs / 1000,
+        active: true,
+      };
       return;
     }
 
@@ -935,21 +1285,32 @@ export class SceneManager {
     this.applyWeatherLighting(config);
 
     if (config.lighting.thunder?.enabled === true) {
-      this.thunder = new ThunderFlashController(config.lighting.thunder, this.keyLight, this.hemi);
+      this.thunder = new ThunderFlashController(
+        config.lighting.thunder,
+        this.keyLight,
+        this.hemi,
+      );
     }
 
     this.currentWeather = config;
     const transitionMs = config.transitionMs ?? 2000;
-    this.weatherFade = { elapsedS: 0, durationS: transitionMs / 1000, active: true };
+    this.weatherFade = {
+      elapsedS: 0,
+      durationS: transitionMs / 1000,
+      active: true,
+    };
   }
 
   private applyWeatherLighting(config: WeatherConfig): void {
     const lighting = config.lighting;
-    if (lighting.sunColor !== undefined) this.keyLight.color.setHex(lighting.sunColor);
+    if (lighting.sunColor !== undefined)
+      this.keyLight.color.setHex(lighting.sunColor);
     if (lighting.sunIntensityMult !== undefined) {
-      this.keyLight.intensity = this.baseSunIntensity * lighting.sunIntensityMult;
+      this.keyLight.intensity =
+        this.baseSunIntensity * lighting.sunIntensityMult;
     }
-    if (lighting.ambientTint !== undefined) this.hemi.color.setHex(lighting.ambientTint);
+    if (lighting.ambientTint !== undefined)
+      this.hemi.color.setHex(lighting.ambientTint);
     if (lighting.ambientDimMult !== undefined) {
       this.hemi.intensity = this.baseHemiIntensity * lighting.ambientDimMult;
     }
@@ -961,7 +1322,8 @@ export class SceneManager {
       this.scene.fog = null;
     }
     if (lighting.exposureMult !== undefined) {
-      this.renderer.toneMappingExposure = this.atmosphere.exposure * lighting.exposureMult;
+      this.renderer.toneMappingExposure =
+        this.atmosphere.exposure * lighting.exposureMult;
     }
   }
 
@@ -979,7 +1341,10 @@ export class SceneManager {
     }
     const nextDriver = new TimeOfDayDriver(config);
     nextDriver.tick(performance.now());
-    const from = this.phaseBlend?.toPreset ?? this.timeDriver?.currentPreset ?? nextDriver.currentPreset;
+    const from =
+      this.phaseBlend?.toPreset ??
+      this.timeDriver?.currentPreset ??
+      nextDriver.currentPreset;
     this.timeDriver = nextDriver;
     this.phaseBlend = {
       fromPreset: from,
@@ -994,8 +1359,13 @@ export class SceneManager {
     const OPACITY_FLOOR = 0.001;
     if (this.weatherFade.active) {
       this.weatherFade.elapsedS += dt;
-      const t = Math.min(1, this.weatherFade.elapsedS / Math.max(0.0001, this.weatherFade.durationS));
-      for (const emitter of this.activeEmitters.values()) emitter.setOpacityMultiplier(t);
+      const t = Math.min(
+        1,
+        this.weatherFade.elapsedS /
+          Math.max(0.0001, this.weatherFade.durationS),
+      );
+      for (const emitter of this.activeEmitters.values())
+        emitter.setOpacityMultiplier(t);
       if (t >= 1) this.weatherFade.active = false;
     }
     for (const emitter of this.activeEmitters.values()) emitter.tick(dt);
@@ -1003,7 +1373,8 @@ export class SceneManager {
     for (let i = this.fadingEmitters.length - 1; i >= 0; i -= 1) {
       const entry = this.fadingEmitters[i]!;
       entry.elapsedS += dt;
-      const t = 1 - Math.min(1, entry.elapsedS / Math.max(0.0001, entry.durationS));
+      const t =
+        1 - Math.min(1, entry.elapsedS / Math.max(0.0001, entry.durationS));
       entry.emitter.setOpacityMultiplier(t);
       entry.emitter.tick(dt);
       if (t <= OPACITY_FLOOR) {
@@ -1022,8 +1393,18 @@ export class SceneManager {
     let preset = this.timeDriver.currentPreset;
     if (this.phaseBlend?.active === true) {
       this.phaseBlend.elapsedS += dt;
-      const t = Math.min(1, this.phaseBlend.elapsedS / this.phaseBlend.durationS);
-      preset = interpolatePhases(this.phaseBlend.fromPreset, this.phaseBlend.toPreset, t);
+      const t = Math.min(
+        1,
+        this.phaseBlend.elapsedS / this.phaseBlend.durationS,
+      );
+      preset = interpolatePhases(
+        this.phaseBlend.fromPreset,
+        this.phaseBlend.toPreset,
+        t,
+      );
+      // Transition: the key light moves through the blend, so refresh the
+      // shadow map once per frame while the blend is active.
+      this.requestShadowRefresh();
       if (t >= 1) {
         this.phaseBlend.active = false;
         this.phaseBlend.fromPreset = this.phaseBlend.toPreset;
@@ -1035,11 +1416,16 @@ export class SceneManager {
     if (this.currentWeather === null) {
       this.keyLight.color.setHex(preset.sunColor);
       this.keyLight.intensity = preset.sunIntensity;
-      this.keyLight.position.set(preset.sunPosition[0], preset.sunPosition[1], preset.sunPosition[2]);
+      this.keyLight.position.set(
+        preset.sunPosition[0],
+        preset.sunPosition[1],
+        preset.sunPosition[2],
+      );
       this.hemi.color.setHex(preset.hemiSky);
       this.hemi.groundColor.setHex(preset.hemiGround);
       this.hemi.intensity = preset.hemiIntensity;
-      this.renderer.toneMappingExposure = this.atmosphere.exposure * preset.exposureMultiplier;
+      this.renderer.toneMappingExposure =
+        this.atmosphere.exposure * preset.exposureMultiplier;
       this.baseSunColor = preset.sunColor;
       this.baseSunIntensity = preset.sunIntensity;
       this.baseHemiIntensity = preset.hemiIntensity;
@@ -1071,17 +1457,25 @@ export class SceneManager {
       obj.frustumCulled = false;
     });
     this.renderer.shadowMap.needsUpdate = true;
+    // Arena caster geometry changed: ensure shadows are rebuilt on-demand.
+    this.requestShadowRefresh();
   }
 
   private detectPlayFloorY(root: THREE.Object3D): number {
     const allMeshes: THREE.Mesh[] = [];
-    root.traverse((obj) => { if (obj instanceof THREE.Mesh) allMeshes.push(obj); });
+    root.traverse((obj) => {
+      if (obj instanceof THREE.Mesh) allMeshes.push(obj);
+    });
     if (allMeshes.length === 0) return 0;
     const floorNamed = allMeshes.filter((m) => isFloorNamed(m));
     const targets = floorNamed.length > 0 ? floorNamed : allMeshes;
     const spawns: readonly THREE.Vector3[] = [
-      slotWorldPosition('you', 0), slotWorldPosition('you', 1), slotWorldPosition('you', 2),
-      slotWorldPosition('opp', 0), slotWorldPosition('opp', 1), slotWorldPosition('opp', 2),
+      slotWorldPosition("you", 0),
+      slotWorldPosition("you", 1),
+      slotWorldPosition("you", 2),
+      slotWorldPosition("opp", 0),
+      slotWorldPosition("opp", 1),
+      slotWorldPosition("opp", 2),
     ];
     const raycaster = new THREE.Raycaster();
     const downward = new THREE.Vector3(0, -1, 0);
@@ -1089,7 +1483,8 @@ export class SceneManager {
     for (const spawn of spawns) {
       raycaster.set(new THREE.Vector3(spawn.x, 20, spawn.z), downward);
       const hits = raycaster.intersectObjects(targets, false);
-      const topmost = floorNamed.length > 0 ? hits[0] : hits.find((h) => h.point.y <= 3.5);
+      const topmost =
+        floorNamed.length > 0 ? hits[0] : hits.find((h) => h.point.y <= 3.5);
       if (topmost) floorYs.push(topmost.point.y);
     }
     if (floorYs.length === 0) return 0;
@@ -1110,6 +1505,9 @@ export class SceneManager {
         }
       });
     }
+    this.arenaRoot = null;
+    // Arena casters removed: rebuild the shadow map next frame.
+    this.requestShadowRefresh();
   }
 
   clearArenaModel(): void {
@@ -1135,7 +1533,11 @@ export class SceneManager {
       shadowMapSize: this.keyLight.shadow.mapSize.x,
       fogEnabled: this.currentFogEnabled && fog !== null,
       fogMode: this.currentFogMode,
-      fogColor: fogAsLinear ? fogAsLinear.color.getHex() : (fogAsExp ? fogAsExp.color.getHex() : 0x000000),
+      fogColor: fogAsLinear
+        ? fogAsLinear.color.getHex()
+        : fogAsExp
+          ? fogAsExp.color.getHex()
+          : 0x000000,
       fogNear: fogAsLinear ? fogAsLinear.near : 12,
       fogFar: fogAsLinear ? fogAsLinear.far : 32,
       fogDensity: fogAsExp ? fogAsExp.density : 0.035,
@@ -1148,7 +1550,10 @@ export class SceneManager {
       fillColor: this.fillLight.color.getHex(),
       fillIntensity: this.fillLight.intensity,
       exposure: this.renderer.toneMappingExposure,
-      dustOpacity: this.dust !== null ? (this.dust.material as THREE.PointsMaterial).opacity : 0,
+      dustOpacity:
+        this.dust !== null
+          ? (this.dust.material as THREE.PointsMaterial).opacity
+          : 0,
       camElevDeg: this.camElevDeg,
       camYawDeg: this.camYawDeg,
       camDist: this.camDist,
@@ -1164,27 +1569,27 @@ export class SceneManager {
   }
 
   private applyHeightFogTo(material: THREE.Material): void {
-    if (material.userData['_heightFogApplied'] === true) return;
-    material.userData['_heightFogApplied'] = true;
+    if (material.userData["_heightFogApplied"] === true) return;
+    material.userData["_heightFogApplied"] = true;
     const uniforms = this.heightFogUniforms;
     material.onBeforeCompile = (shader) => {
-      shader.uniforms['fogHeight'] = uniforms.fogHeight;
+      shader.uniforms["fogHeight"] = uniforms.fogHeight;
       shader.vertexShader = shader.vertexShader
         .replace(
-          '#include <fog_pars_vertex>',
-          '#include <fog_pars_vertex>\nvarying vec3 vFogWorldPosition;',
+          "#include <fog_pars_vertex>",
+          "#include <fog_pars_vertex>\nvarying vec3 vFogWorldPosition;",
         )
         .replace(
-          '#include <fog_vertex>',
-          '#include <fog_vertex>\nvFogWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+          "#include <fog_vertex>",
+          "#include <fog_vertex>\nvFogWorldPosition = (modelMatrix * vec4(transformed, 1.0)).xyz;",
         );
       shader.fragmentShader = shader.fragmentShader
         .replace(
-          '#include <fog_pars_fragment>',
-          '#include <fog_pars_fragment>\nvarying vec3 vFogWorldPosition;\nuniform float fogHeight;',
+          "#include <fog_pars_fragment>",
+          "#include <fog_pars_fragment>\nvarying vec3 vFogWorldPosition;\nuniform float fogHeight;",
         )
         .replace(
-          '#include <fog_fragment>',
+          "#include <fog_fragment>",
           `#ifdef USE_FOG
   vec3 fogOrigin = cameraPosition;
   vec3 fogDirection = normalize(vFogWorldPosition - fogOrigin);
@@ -1201,8 +1606,8 @@ export class SceneManager {
   }
 
   private removeHeightFogFrom(material: THREE.Material): void {
-    if (material.userData['_heightFogApplied'] !== true) return;
-    material.userData['_heightFogApplied'] = false;
+    if (material.userData["_heightFogApplied"] !== true) return;
+    material.userData["_heightFogApplied"] = false;
     material.onBeforeCompile = () => {};
     material.needsUpdate = true;
   }
@@ -1226,85 +1631,174 @@ export class SceneManager {
 
   applySettings(patch: Partial<SceneSettings>): void {
     if (this.disposedFlag) return;
-    if (patch.sunColor !== undefined) this.keyLight.color.setHex(patch.sunColor);
-    if (patch.sunIntensity !== undefined) this.keyLight.intensity = patch.sunIntensity;
+    this.applyLighting(patch);
+    this.applyShadows(patch);
+    this.applyFog(patch);
+    this.applyCamera(patch);
+    this.applyArena(patch);
+    if (!this.isApplyingFromAtmosphere) {
+      this.recordPatch(patch);
+    }
+  }
+
+  private applyLighting(patch: Partial<SceneSettings>): void {
+    if (patch.sunColor !== undefined)
+      this.keyLight.color.setHex(patch.sunColor);
+    if (patch.sunIntensity !== undefined)
+      this.keyLight.intensity = patch.sunIntensity;
     if (patch.sunPosX !== undefined) this.keyLight.position.x = patch.sunPosX;
     if (patch.sunPosY !== undefined) this.keyLight.position.y = patch.sunPosY;
     if (patch.sunPosZ !== undefined) this.keyLight.position.z = patch.sunPosZ;
+    if (patch.hemiSkyColor !== undefined)
+      this.hemi.color.setHex(patch.hemiSkyColor);
+    if (patch.hemiGroundColor !== undefined)
+      this.hemi.groundColor.setHex(patch.hemiGroundColor);
+    if (patch.hemiIntensity !== undefined)
+      this.hemi.intensity = patch.hemiIntensity;
+    if (patch.rimColor !== undefined)
+      this.rimLight.color.setHex(patch.rimColor);
+    if (patch.rimIntensity !== undefined)
+      this.rimLight.intensity = patch.rimIntensity;
+    if (patch.fillColor !== undefined)
+      this.fillLight.color.setHex(patch.fillColor);
+    if (patch.fillIntensity !== undefined)
+      this.fillLight.intensity = patch.fillIntensity;
+    if (patch.exposure !== undefined)
+      this.renderer.toneMappingExposure = patch.exposure;
+    if (patch.dustOpacity !== undefined && this.dust !== null) {
+      (this.dust.material as THREE.PointsMaterial).opacity = patch.dustOpacity;
+    }
+  }
+
+  private applyShadows(patch: Partial<SceneSettings>): void {
     if (patch.shadowsEnabled !== undefined) {
       this.renderer.shadowMap.enabled = patch.shadowsEnabled;
       this.keyLight.castShadow = patch.shadowsEnabled;
     }
-    if (patch.shadowRadius !== undefined) this.keyLight.shadow.radius = patch.shadowRadius;
-    if (patch.shadowBias !== undefined) this.keyLight.shadow.bias = patch.shadowBias;
-    if (patch.shadowNormalBias !== undefined) this.keyLight.shadow.normalBias = patch.shadowNormalBias;
+    if (patch.shadowRadius !== undefined)
+      this.keyLight.shadow.radius = patch.shadowRadius;
+    if (patch.shadowBias !== undefined)
+      this.keyLight.shadow.bias = patch.shadowBias;
+    if (patch.shadowNormalBias !== undefined)
+      this.keyLight.shadow.normalBias = patch.shadowNormalBias;
     if (patch.shadowMapSize !== undefined) {
-      this.keyLight.shadow.mapSize.set(patch.shadowMapSize, patch.shadowMapSize);
+      this.keyLight.shadow.mapSize.set(
+        patch.shadowMapSize,
+        patch.shadowMapSize,
+      );
       this.keyLight.shadow.map?.dispose();
       this.keyLight.shadow.map = null;
     }
-    if (patch.fogEnabled !== undefined || patch.fogMode !== undefined || patch.fogColor !== undefined || patch.fogNear !== undefined || patch.fogFar !== undefined || patch.fogDensity !== undefined || patch.fogHeight !== undefined) {
-      const fog = this.scene.fog;
-      const fogAsLinear = fog instanceof THREE.Fog ? fog : null;
-      const fogAsExp = fog instanceof THREE.FogExp2 ? fog : null;
-      const prevMode = this.currentFogMode;
-      const enabled = patch.fogEnabled ?? this.currentFogEnabled;
-      const mode = patch.fogMode ?? this.currentFogMode;
-      this.currentFogEnabled = enabled;
-      this.currentFogMode = mode;
-      if (patch.fogHeight !== undefined) this.heightFogUniforms.fogHeight.value = patch.fogHeight;
-      if (enabled) {
-        const color = patch.fogColor ?? (fogAsLinear?.color.getHex() ?? fogAsExp?.color.getHex() ?? 0x1e2a44);
-        if (mode === 'exp2' || mode === 'height') {
-          const density = patch.fogDensity ?? (fogAsExp?.density ?? 0.035);
-          this.scene.fog = new THREE.FogExp2(color, density);
-        } else {
-          const near = patch.fogNear ?? (fogAsLinear?.near ?? 12);
-          const far = patch.fogFar ?? (fogAsLinear?.far ?? 32);
-          this.scene.fog = new THREE.Fog(color, near, far);
-        }
+    // Any shadow-related setting changed: rebuild the map once next frame.
+    if (
+      patch.shadowsEnabled !== undefined ||
+      patch.shadowRadius !== undefined ||
+      patch.shadowBias !== undefined ||
+      patch.shadowNormalBias !== undefined ||
+      patch.shadowMapSize !== undefined
+    ) {
+      this.requestShadowRefresh();
+    }
+  }
+
+  private applyFog(patch: Partial<SceneSettings>): void {
+    const fogPatch =
+      patch.fogEnabled !== undefined ||
+      patch.fogMode !== undefined ||
+      patch.fogColor !== undefined ||
+      patch.fogNear !== undefined ||
+      patch.fogFar !== undefined ||
+      patch.fogDensity !== undefined ||
+      patch.fogHeight !== undefined;
+    if (!fogPatch) return;
+    const fog = this.scene.fog;
+    const fogAsLinear = fog instanceof THREE.Fog ? fog : null;
+    const fogAsExp = fog instanceof THREE.FogExp2 ? fog : null;
+    const prevMode = this.currentFogMode;
+    const enabled = patch.fogEnabled ?? this.currentFogEnabled;
+    const mode = patch.fogMode ?? this.currentFogMode;
+    this.currentFogEnabled = enabled;
+    this.currentFogMode = mode;
+    if (patch.fogHeight !== undefined)
+      this.heightFogUniforms.fogHeight.value = patch.fogHeight;
+    if (enabled) {
+      const color =
+        patch.fogColor ??
+        fogAsLinear?.color.getHex() ??
+        fogAsExp?.color.getHex() ??
+        0x1e2a44;
+      if (mode === "exp2" || mode === "height") {
+        const density = patch.fogDensity ?? fogAsExp?.density ?? 0.035;
+        const clamped = Math.max(0.001, Math.min(1, density));
+        this.scene.fog = new THREE.FogExp2(color, clamped);
       } else {
-        this.scene.fog = null;
+        const near = patch.fogNear ?? fogAsLinear?.near ?? 12;
+        const far = patch.fogFar ?? fogAsLinear?.far ?? 32;
+        this.scene.fog = new THREE.Fog(color, near, far);
       }
-      if (mode === 'height' && (prevMode !== 'height' || patch.fogMode === 'height')) {
-        this.applyHeightFogToScene();
-      } else if (mode !== 'height' && prevMode === 'height') {
-        this.removeHeightFogFromScene();
-      }
+    } else {
+      this.scene.fog = null;
     }
-    if (patch.hemiSkyColor !== undefined) this.hemi.color.setHex(patch.hemiSkyColor);
-    if (patch.hemiGroundColor !== undefined) this.hemi.groundColor.setHex(patch.hemiGroundColor);
-    if (patch.hemiIntensity !== undefined) this.hemi.intensity = patch.hemiIntensity;
-    if (patch.rimColor !== undefined) this.rimLight.color.setHex(patch.rimColor);
-    if (patch.rimIntensity !== undefined) this.rimLight.intensity = patch.rimIntensity;
-    if (patch.fillColor !== undefined) this.fillLight.color.setHex(patch.fillColor);
-    if (patch.fillIntensity !== undefined) this.fillLight.intensity = patch.fillIntensity;
-    if (patch.exposure !== undefined) this.renderer.toneMappingExposure = patch.exposure;
-    if (patch.dustOpacity !== undefined && this.dust !== null) {
-      (this.dust.material as THREE.PointsMaterial).opacity = patch.dustOpacity;
+    if (
+      mode === "height" &&
+      (prevMode !== "height" || patch.fogMode === "height")
+    ) {
+      this.applyHeightFogToScene();
+    } else if (mode !== "height" && prevMode === "height") {
+      this.removeHeightFogFromScene();
     }
+  }
+
+  private applyCamera(patch: Partial<SceneSettings>): void {
     let cameraChanged = false;
-    if (patch.camElevDeg !== undefined) { this.camElevDeg = patch.camElevDeg; cameraChanged = true; }
-    if (patch.camYawDeg !== undefined) { this.camYawDeg = patch.camYawDeg; cameraChanged = true; }
-    if (patch.camDist !== undefined) { this.camDist = patch.camDist; cameraChanged = true; }
-    if (patch.camLookAtY !== undefined) { this.camLookAtY = patch.camLookAtY; cameraChanged = true; }
-    if (patch.camFrustum !== undefined) { this.camFrustum = patch.camFrustum; this.updateProjection(); }
+    if (patch.camElevDeg !== undefined) {
+      this.camElevDeg = patch.camElevDeg;
+      cameraChanged = true;
+    }
+    if (patch.camYawDeg !== undefined) {
+      this.camYawDeg = patch.camYawDeg;
+      cameraChanged = true;
+    }
+    if (patch.camDist !== undefined) {
+      this.camDist = patch.camDist;
+      cameraChanged = true;
+    }
+    if (patch.camLookAtY !== undefined) {
+      this.camLookAtY = patch.camLookAtY;
+      cameraChanged = true;
+    }
+    if (patch.camFrustum !== undefined) {
+      this.camFrustum = patch.camFrustum;
+      this.updateProjection();
+    }
     if (patch.camFov !== undefined) this.currentCamFov = patch.camFov;
-    if (patch.cameraType !== undefined && patch.cameraType !== this.currentCameraType) {
+    if (
+      patch.cameraType !== undefined &&
+      patch.cameraType !== this.currentCameraType
+    ) {
       this.currentCameraType = patch.cameraType;
       this.camera = this.makeCamera(patch.cameraType);
       this.placeCameraIso();
       this.updateProjection();
-    } else if (patch.camFov !== undefined && this.camera instanceof THREE.PerspectiveCamera) {
+    } else if (
+      patch.camFov !== undefined &&
+      this.camera instanceof THREE.PerspectiveCamera
+    ) {
       this.camera.fov = patch.camFov;
       this.camera.updateProjectionMatrix();
     }
     if (cameraChanged) this.placeCameraIso();
-    if (patch.arenaSpan !== undefined && patch.arenaSpan !== this.currentArenaSpan) {
+  }
+
+  private applyArena(patch: Partial<SceneSettings>): void {
+    if (
+      patch.arenaSpan !== undefined &&
+      patch.arenaSpan !== this.currentArenaSpan
+    ) {
       this.currentArenaSpan = patch.arenaSpan;
       this.updateShadowCameraBounds();
-      const root = this.arenaGroup.children[0];
-      if (root !== undefined) {
+      const root = this.arenaRoot;
+      if (root !== null) {
         const box = new THREE.Box3().setFromObject(root);
         const size = new THREE.Vector3();
         box.getSize(size);
@@ -1313,11 +1807,22 @@ export class SceneManager {
         root.scale.multiplyScalar(factor);
       }
     }
-    if (patch.arenaOffsetX !== undefined) this.currentArenaOffsetX = patch.arenaOffsetX;
-    if (patch.arenaOffsetY !== undefined) this.currentArenaOffsetY = patch.arenaOffsetY;
-    if (patch.arenaOffsetZ !== undefined) this.currentArenaOffsetZ = patch.arenaOffsetZ;
-    if (patch.arenaOffsetX !== undefined || patch.arenaOffsetY !== undefined || patch.arenaOffsetZ !== undefined) {
-      this.arenaGroup.position.set(this.currentArenaOffsetX, this.currentArenaOffsetY, this.currentArenaOffsetZ);
+    if (patch.arenaOffsetX !== undefined)
+      this.currentArenaOffsetX = patch.arenaOffsetX;
+    if (patch.arenaOffsetY !== undefined)
+      this.currentArenaOffsetY = patch.arenaOffsetY;
+    if (patch.arenaOffsetZ !== undefined)
+      this.currentArenaOffsetZ = patch.arenaOffsetZ;
+    if (
+      patch.arenaOffsetX !== undefined ||
+      patch.arenaOffsetY !== undefined ||
+      patch.arenaOffsetZ !== undefined
+    ) {
+      this.arenaGroup.position.set(
+        this.currentArenaOffsetX,
+        this.currentArenaOffsetY,
+        this.currentArenaOffsetZ,
+      );
     }
     if (patch.arenaOffsetY !== undefined) {
       // Sprites live on scene root (not under arenaGroup) so shifting arenaGroup.y
@@ -1337,14 +1842,20 @@ export class SceneManager {
         sprite.setArenaBaselineY(this.currentArenaOffsetY);
       }
     }
-    if (!this.applyingReplayFromAtmosphere) {
-      for (const key of Object.keys(patch) as (keyof SceneSettings)[]) {
-        if (patch[key] !== undefined) {
-          (this.lastAppliedPatch as Record<string, unknown>)[key] = patch[key];
-        }
+  }
+
+  /** Cache the most recently loaded arena root so span recompute / disposal
+   *  can read it without re-indexing arenaGroup.children. */
+  private arenaRoot: THREE.Object3D | null = null;
+
+  private recordPatch(patch: Partial<SceneSettings>): void {
+    for (const key of Object.keys(patch) as (keyof SceneSettings)[]) {
+      if (patch[key] !== undefined) {
+        (this.lastAppliedPatch as Record<string, unknown>)[key] = patch[key];
       }
     }
   }
+
 
   resize(width: number, height: number): void {
     if (this.disposedFlag) return;
@@ -1363,12 +1874,14 @@ export class SceneManager {
     this.updateProjection();
   }
 
-  addSprite(config: SpriteInit): SpriteRig {
+  async addSprite(config: SpriteInit): Promise<SpriteRig> {
     const existing = this.sprites.get(config.unitId);
     if (existing !== undefined) return existing;
     const sprite = new SpriteRig(this.scene, config);
     sprite.setArenaBaselineY(this.currentArenaOffsetY);
     this.sprites.set(config.unitId, sprite);
+    // New caster added: rebuild the shadow map once next frame.
+    this.requestShadowRefresh();
     return sprite;
   }
 
@@ -1377,6 +1890,8 @@ export class SceneManager {
     if (sprite === undefined) return;
     sprite.dispose();
     this.sprites.delete(unitId);
+    // Caster removed: rebuild the shadow map once next frame.
+    this.requestShadowRefresh();
   }
 
   getSprite(unitId: string): SpriteRig | undefined {
@@ -1396,11 +1911,16 @@ export class SceneManager {
     element: AnimatedElement,
     sourceUnitId: string | null,
     targetUnitId: string,
-    options: { readonly durationS?: number; readonly onImpact?: () => void; readonly vfxPresetId?: string } = {},
+    options: {
+      readonly durationS?: number;
+      readonly onImpact?: () => void;
+      readonly vfxPresetId?: string;
+    } = {},
   ): string | null {
     const target = this.sprites.get(targetUnitId);
     if (target === undefined) return null;
-    const source = sourceUnitId === null ? null : this.sprites.get(sourceUnitId) ?? null;
+    const source =
+      sourceUnitId === null ? null : (this.sprites.get(sourceUnitId) ?? null);
 
     // `worldPosition` is the billboard's centre, so anchoring an effect to it
     // makes the projectile leave the middle of the attacker and land in the
@@ -1411,20 +1931,31 @@ export class SceneManager {
     const targetPos = target.worldPosition
       .clone()
       .add(new THREE.Vector3(0, target.spriteSize.y * IMPACT_HEIGHT_RATIO, 0));
-    const sourcePos = source === null
-      ? targetPos.clone().add(new THREE.Vector3(0, UNSOURCED_DROP_HEIGHT, 0))
-      : (() => {
-          // Face the receiver in XZ only: lifting the emitter must not tilt the
-          // direction it fires in.
-          const forward = targetPos.clone().sub(source.worldPosition);
-          forward.y = 0;
-          if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
-          else forward.normalize();
-          return source.worldPosition
-            .clone()
-            .add(new THREE.Vector3(0, source.spriteSize.y * EMIT_HEIGHT_RATIO, 0))
-            .add(forward.multiplyScalar(source.spriteSize.x * EMIT_FORWARD_RATIO));
-        })();
+    const sourcePos =
+      source === null
+        ? targetPos.clone().add(new THREE.Vector3(0, UNSOURCED_DROP_HEIGHT, 0))
+        : (() => {
+            // Face the receiver in XZ only: lifting the emitter must not tilt the
+            // direction it fires in.
+            const forward = targetPos.clone().sub(source.worldPosition);
+            forward.y = 0;
+            if (forward.lengthSq() < 1e-6) forward.set(0, 0, 1);
+            else forward.normalize();
+            return source.worldPosition
+              .clone()
+              .add(
+                new THREE.Vector3(
+                  0,
+                  source.spriteSize.y * EMIT_HEIGHT_RATIO,
+                  0,
+                ),
+              )
+              .add(
+                forward.multiplyScalar(
+                  source.spriteSize.x * EMIT_FORWARD_RATIO,
+                ),
+              );
+          })();
     const durationS = options.durationS ?? DEFAULT_EFFECT_DURATION_S;
     const id = `fx-${element}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const effect: AttackEffect3D = {
@@ -1437,6 +1968,9 @@ export class SceneManager {
     };
 
     if (source !== null) source.playAttack();
+    // Attacker lunges during its attack window: refresh the shadow map once so
+    // the moving silhouette casts a correct (on-demand) shadow for that moment.
+    this.requestShadowRefresh();
 
     const originalOnImpact = effect.onImpact;
     const wrappedEffect: AttackEffect3D = {
@@ -1444,6 +1978,14 @@ export class SceneManager {
       onImpact: () => {
         target.playHit();
         target.illuminate(ELEMENT_LIGHT_COLOR[element], 0.9, 3.5);
+        // Receiver shakes on hit: refresh the shadow map once for the hit pose.
+        this.requestShadowRefresh();
+        // Centralized ability-impact polish: a shared element-colored ring +
+        // spark burst plays on every landed hit (all 11 element runners and the
+        // SkillVfxPreset runner funnel through this callback), and the camera
+        // jolts once so the hit reads physically.
+        this.spawnImpact(element, targetPos);
+        this.triggerShake(shakeForElement(element));
         originalOnImpact?.();
       },
     };
@@ -1451,25 +1993,113 @@ export class SceneManager {
     if (options.vfxPresetId !== undefined) {
       const preset = resolveSkillVfxPreset(options.vfxPresetId);
       if (preset !== null) {
-        const runner = buildPresetRunner(this.scene, wrappedEffect, preset);
-        this.effects.set(id, { runner, elapsed: 0, duration: preset.totalDurationMs / 1000 });
+        // Defer the (allocating) runner construction off the input/click frame.
+        // Previously `buildPresetRunner` allocated a ParticleEmitter per slot
+        // (InstancedMesh + 8 attributes + ShaderMaterial) synchronously here, so
+        // the first skill cast paid a multi-ms GC + GPU upload hitch. The
+        // DeferredRunner builds it lazily on the next render tick instead.
+        const runner = createDeferredRunner(() =>
+          buildPresetRunner(this.scene, wrappedEffect, preset),
+        );
+        this.effects.set(id, {
+          runner,
+          elapsed: 0,
+          duration: preset.totalDurationMs / 1000,
+        });
         return id;
       }
     }
 
     const builder = RUNNERS[element];
-    const runner = builder(this.scene, wrappedEffect);
+    const runner = createDeferredRunner(() =>
+      builder(this.scene, wrappedEffect),
+    );
     this.effects.set(id, { runner, elapsed: 0, duration: durationS });
     return id;
+  }
+
+  /**
+   * Spawn the shared element-colored impact flourish (ring + spark burst +
+   * light pulse) at a landed hit. Registered as an ordinary effect so the
+   * render loop ticks + disposes it exactly like a runner. No-op when the
+   * element is unknown (buildImpactController returns null defensively).
+   */
+  private spawnImpact(element: AnimatedElement, position: THREE.Vector3): void {
+    const controller = buildImpactController(this.scene, { element, position });
+    if (controller === null) return;
+    this.effects.set(controller.id, {
+      runner: controller.runner,
+      elapsed: 0,
+      duration: controller.duration,
+    });
+  }
+
+  /**
+   * Kick off a one-shot camera screen-shake. Repeated hits refresh the timer so
+   * a flurry of blows keeps the stage jolting rather than cutting the shake
+   * short. Amplitude comes from the element's tuning (0 = no shake requested).
+   */
+  private triggerShake(amplitude: number): void {
+    if (amplitude <= 0) return;
+    this.shakeAmplitude = amplitude;
+    this.shakeElapsed = 0;
+    this.shakeActive = true;
+  }
+
+  /** Advance + apply the screen-shake camera offset for this frame. */
+  private applyShake(dtS: number): void {
+    if (!this.shakeActive) return;
+    this.shakeElapsed += dtS;
+    const { x, y } = nextShakeOffset(
+      this.shakeAmplitude,
+      this.shakeElapsed,
+      IMPACT_SHAKE_DURATION_S,
+    );
+    if (x === 0 && y === 0) {
+      this.shakeActive = false;
+      // Re-place the camera cleanly so the offset doesn't stick at a residue.
+      this.placeCameraIso();
+      return;
+    }
+    // Reset to the jitter-free base, then offset: keeps the shake from
+    // accumulating across frames (which would drift the camera off-stage).
+    this.camera.position.copy(this.cameraBasePos);
+    this.camera.position.x += x;
+    this.camera.position.y += y;
+  }
+
+  /**
+   * Dust is "enabled" only when the points cloud exists and is actually
+   * visible. We also treat opacity ≤ ~0 as disabled so an admin-driven fade to
+   * zero (dustOpacity) stops the per-frame position rewrite, letting the loop
+   * skip a useless buffer upload.
+   */
+  private isDustEnabled(): boolean {
+    if (this.dust === null) return false;
+    if (!this.dust.visible) return false;
+    const mat = this.dust.material as THREE.PointsMaterial;
+    return mat.opacity > 0.001;
   }
 
   startLoop(): void {
     if (this.disposedFlag) return;
     if (this.rafId !== 0) return;
-    const tick = (): void => {
+    const tick = (rafTimestamp: number): void => {
       if (this.disposedFlag) return;
+      // `THREE.Timer` only advances its internal delta/elapsed when `update()`
+      // is called each frame — unlike the old `THREE.Clock`. Without this,
+      // `getDelta()`/`getElapsed()` return 0 forever, freezing the entrance
+      // camera pan/zoom, sprite movement, and effect runners (all advanced by dt).
+      this.clock.update(rafTimestamp);
       const dt = this.clock.getDelta();
-      const elapsed = this.clock.elapsedTime;
+      const elapsed = this.clock.getElapsed();
+      // On-demand shadows: prime the map on the very first frame so the first
+      // painted frame already has correct shadows, then never rebuild unless a
+      // shadow-affecting change calls requestShadowRefresh().
+      if (!this.shadowPrimed) {
+        this.renderer.shadowMap.needsUpdate = true;
+        this.shadowPrimed = true;
+      }
       if (this.entranceActive) {
         this.entranceElapsed += dt;
         const t = Math.min(1, this.entranceElapsed / ENTRANCE_DURATION_S);
@@ -1477,40 +2107,67 @@ export class SceneManager {
         this.zoomMult = ENTRANCE_ZOOM_START + (1 - ENTRANCE_ZOOM_START) * eased;
         this.updateProjection();
         const panX = ENTRANCE_PAN_START_X * (1 - eased);
-        this.camera.lookAt(panX + this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
+        this.camera.lookAt(
+          panX + this.cameraLookOffset.x,
+          this.camLookAtY + this.cameraLookOffset.y,
+          this.cameraLookOffset.z,
+        );
         if (t >= 1) {
           this.zoomMult = 1;
           this.entranceActive = false;
           this.updateProjection();
-          this.camera.lookAt(this.cameraLookOffset.x, this.camLookAtY + this.cameraLookOffset.y, this.cameraLookOffset.z);
+          this.camera.lookAt(
+            this.cameraLookOffset.x,
+            this.camLookAtY + this.cameraLookOffset.y,
+            this.cameraLookOffset.z,
+          );
         }
       }
       for (const sprite of this.sprites.values()) {
         sprite.update(dt, elapsed, this.camera.quaternion);
       }
+      // While any sprite is mid attack/hit it actually translates (lunge) or
+      // shakes, so its shadow must track the motion across the whole anim
+      // window — not just on the first frame. Refresh on each such frame.
+      // This is bounded by the short anim durations, so idle frames (the 99%
+      // case) still skip the shadow pass entirely.
+      let anyAnimating = false;
+      for (const sprite of this.sprites.values()) {
+        if (sprite.animating) {
+          anyAnimating = true;
+          break;
+        }
+      }
+      if (anyAnimating) this.requestShadowRefresh();
       for (const prop of this.floatingProps) {
-        prop.mesh.position.y = prop.baseY + Math.sin(elapsed * prop.bobSpeed + prop.bobOffset) * prop.bobAmp;
+        prop.mesh.position.y =
+          prop.baseY +
+          Math.sin(elapsed * prop.bobSpeed + prop.bobOffset) * prop.bobAmp;
         prop.mesh.rotation.y += prop.rotationSpeed * dt;
       }
-      if (this.dust !== null) {
-        const positions = this.dust.geometry.getAttribute('position') as THREE.BufferAttribute;
+      if (this.isDustEnabled()) {
+        const positions = this.dust!.geometry.getAttribute(
+          "position",
+        ) as THREE.BufferAttribute;
         const arr = positions.array as Float32Array;
         for (let i = 0; i < this.dustBaseY.length; i += 1) {
           const phase = this.dustPhase[i]! + elapsed * 0.18;
           arr[i * 3] = this.dustBaseXZ[i * 2]! + Math.sin(phase * 0.7) * 0.35;
           arr[i * 3 + 1] = this.dustBaseY[i]! + Math.sin(phase) * 0.22;
-          arr[i * 3 + 2] = this.dustBaseXZ[i * 2 + 1]! + Math.cos(phase * 0.5) * 0.28;
+          arr[i * 3 + 2] =
+            this.dustBaseXZ[i * 2 + 1]! + Math.cos(phase * 0.5) * 0.28;
         }
         positions.needsUpdate = true;
       }
-      const swayPhase = elapsed * 0.11;
+      // Key light + hemi sit at a fixed position each frame. Previously the
+      // key light was jiggled by a sine sway here, which forced the shadow map
+      // to recompute every frame (autoUpdate). With on-demand shadows the light
+      // is instead set once in applyAtmosphere/normalizeArenaTransform and only
+      // when a shadow-affecting change calls requestShadowRefresh().
       const basePos = this.atmosphere.keyPos;
-      this.keyLight.position.set(
-        basePos[0] + Math.sin(swayPhase) * 0.35,
-        basePos[1] + Math.sin(swayPhase * 1.7) * 0.15,
-        basePos[2] + Math.cos(swayPhase) * 0.35,
-      );
-      this.hemi.intensity = this.atmosphere.hemiIntensity + Math.sin(elapsed * 0.28) * 0.03;
+      this.keyLight.position.set(basePos[0], basePos[1], basePos[2]);
+      this.hemi.intensity =
+        this.atmosphere.hemiIntensity + Math.sin(elapsed * 0.28) * 0.03;
       this.tickTimeOfDay(dt);
       this.tickWeather(dt);
       const toRemove: string[] = [];
@@ -1524,7 +2181,12 @@ export class SceneManager {
         ctx?.runner.dispose();
         this.effects.delete(id);
       }
+      // Apply the one-shot impact screen-shake (if active) just before draw, so
+      // the jolt is visible this frame and recomputed from the camera base next
+      // frame (no accumulation).
+      this.applyShake(dt);
       this.renderer.render(this.scene, this.camera);
+      this.sampleHud(dt);
       this.rafId = requestAnimationFrame(tick);
     };
     this.rafId = requestAnimationFrame(tick);
@@ -1535,21 +2197,124 @@ export class SceneManager {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /**
+   * Toggle the on-screen perf HUD (FPS, frame ms, draw calls, triangles).
+   * Off by default. Use `scene.setHud(true)` / `scene.toggleHud()`, or pass
+   * `?hud=1` / `?hud=0` from the host (e.g. the combat3d debug route).
+   * Zero cost when disabled — sampling only runs while enabled.
+   */
+  setHud(on: boolean): void {
+    this.hudEnabled = on;
+    if (!on) {
+      if (this.hudEl !== null) {
+        this.hudEl.remove();
+        this.hudEl = null;
+      }
+      return;
+    }
+    if (this.hudEl === null) {
+      const el = document.createElement("div");
+      el.style.cssText =
+        "position:absolute;left:8px;top:8px;z-index:2147483647;padding:6px 8px;" +
+        "font:11px/1.4 ui-monospace,Menlo,Consolas,monospace;color:#9effa0;" +
+        "background:rgba(0,0,0,0.65);border:1px solid rgba(120,255,140,0.45);" +
+        "border-radius:4px;pointer-events:none;white-space:pre;text-align:left;";
+      el.textContent = "HUD…";
+      this.hudParent.appendChild(el);
+      this.hudEl = el;
+    }
+  }
+
+  toggleHud(): boolean {
+    this.setHud(!this.hudEnabled);
+    return this.hudEnabled;
+  }
+
+  private sampleHud(dt: number): void {
+    if (!this.hudEnabled || this.hudEl === null) return;
+    this.hudFrames += 1;
+    this.hudAccumS += dt;
+    if (this.hudAccumS < 0.5) return;
+    const fps = this.hudFrames / this.hudAccumS;
+    const ms = (this.hudAccumS / this.hudFrames) * 1000;
+    const info = this.renderer.info;
+    this.hudLastMs = ms;
+    this.hudLastDrawCalls = info.render.calls;
+    this.hudLastTriangles = info.render.triangles;
+    this.hudEl.textContent =
+      `FPS ${fps.toFixed(0)}  ${ms.toFixed(1)} ms/frame\n` +
+      `draws ${this.hudLastDrawCalls}  tris ${this.hudLastTriangles.toLocaleString()}\n` +
+      `shadow ${this.renderer.shadowMap.enabled ? this.keyLight.shadow.mapSize.x + "²" : "off"}`;
+    this.hudFrames = 0;
+    this.hudAccumS = 0;
+  }
+
   stopLoop(): void {
     if (this.rafId !== 0) {
       cancelAnimationFrame(this.rafId);
       this.rafId = 0;
-    }  }
+    }
+  }
 
   private readonly projectScratch = new THREE.Vector3();
 
-  projectWorldToScreen(worldPos: THREE.Vector3): { readonly x: number; readonly y: number } {
+  projectWorldToScreen(worldPos: THREE.Vector3): {
+    readonly x: number;
+    readonly y: number;
+  } {
     const v = this.projectScratch.copy(worldPos);
     v.project(this.camera);
     return {
       x: (v.x * 0.5 + 0.5) * this.stageWidth,
       y: (-v.y * 0.5 + 0.5) * this.stageHeight,
     };
+  }
+
+  getSpriteAtScreenPosition(
+    screenX: number,
+    screenY: number,
+  ): { unitId: string; side: SpriteSide; downed: boolean } | null {
+    const ndc = new THREE.Vector2(
+      (screenX / this.stageWidth) * 2 - 1,
+      -(screenY / this.stageHeight) * 2 + 1,
+    );
+
+    this.raycaster.setFromCamera(ndc, this.camera);
+
+    const spriteMeshes: THREE.Mesh[] = [];
+    for (const sprite of this.sprites.values()) {
+      spriteMeshes.push(sprite.mesh);
+    }
+
+    if (spriteMeshes.length === 0) return null;
+
+    const intersects = this.raycaster.intersectObjects(spriteMeshes, false);
+    if (intersects.length === 0) return null;
+
+    const hitMesh = intersects[0]?.object;
+    if (!hitMesh) return null;
+    const unitId = hitMesh.userData?.spriteRig?.unitId;
+    if (!unitId) return null;
+
+    const sprite = this.sprites.get(unitId);
+    if (!sprite) return null;
+
+    return {
+      unitId: sprite.unitId,
+      side: sprite.side,
+      downed: sprite.downed,
+    };
+  }
+
+  /**
+   * Pre-compile the attack/skill particle materials so the first cast never pays
+   * a ShaderMaterial allocation or a synchronous GLSL compile on the click
+   * frame. Call once during scene init (while a loading screen is up). The
+   * material objects are cached by `createEmitterMaterial`, so every subsequent
+   * skill cast reuses them.
+   */
+  prewarmAttackVfx(shaderKinds: readonly ParticleShaderKind[]): void {
+    prewarmParticleMaterials(shaderKinds);
   }
 
   dispose(): void {
