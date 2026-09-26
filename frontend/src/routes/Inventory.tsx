@@ -259,8 +259,6 @@ export function Inventory(): JSX.Element {
 
   const inventory = shopQuery.data?.inventory ?? [];
   const catalog = shopQuery.data?.catalog ?? [];
-  const wallet = shopQuery.data?.wallet ?? { credits: 0, netcore: 0 };
-
   const enriched: readonly EnrichedItem[] = useMemo(() => {
     const rows: EnrichedItem[] = [];
     for (const item of inventory) {
@@ -474,18 +472,6 @@ export function Inventory(): JSX.Element {
             Limpar filtros
           </button>
         )}
-        <div className="wallet">
-          <span className="bal">
-            <span className="coin cred" />
-            <span className="k">Créditos</span>
-            <span>{fmt(wallet.credits)}</span>
-          </span>
-          <span className="bal">
-            <span className="coin net" />
-            <span className="k">NetCore</span>
-            <span>{fmt(wallet.netcore)}</span>
-          </span>
-        </div>
       </div>
 
       <div className="cats" role="tablist" data-od-id="inventory-cats">

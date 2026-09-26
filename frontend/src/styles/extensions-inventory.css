@@ -91,35 +91,9 @@
 }
 .inventory-page .clearf:hover { border-color: var(--muted); color: var(--ink); }
 
-.inventory-page .wallet {
+.inventory-page .clearf {
   margin-left: auto;
-  display: flex;
-  gap: 10px;
 }
-.inventory-page .bal {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: var(--bg);
-  border: 1px solid var(--hair);
-  clip-path: var(--notch-sm);
-  font: 800 13px/1 var(--font);
-}
-.inventory-page .bal .k {
-  font: 700 9px/1 var(--font);
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-.inventory-page .bal .coin {
-  width: 12px;
-  height: 12px;
-  clip-path: var(--notch-sm);
-  flex: none;
-}
-.inventory-page .coin.cred { background: var(--credits); }
-.inventory-page .coin.net { background: var(--meat); }
 
 /* category tabs */
 .inventory-page .cats {
