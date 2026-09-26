@@ -31,7 +31,6 @@ export function Training(): JSX.Element {
   const selectedStation = view?.stations.find((station) => station.buildingId === selectedBuildingId) ?? null;
   const activeCount = view?.stations.filter((station) => station.active !== null).length ?? 0;
   const readyCount = view?.stations.filter((station) => station.active !== null && now >= station.active.startedAt + station.active.durationMs).length ?? 0;
-  const benchCount = view?.eligibleMons.length ?? 0;
 
   const assignMutation = useMutation({
     mutationFn: (draft: TrainingDraft) => assignTrainingStation(draft.buildingId, { monId: draft.monId, statKinds: draft.statKinds, durationMs: draft.durationMin * 60_000 }),
@@ -73,22 +72,12 @@ export function Training(): JSX.Element {
     setTimeout(() => setNotice(''), 2200);
   }
 
-  function handleBenchAssign(monId: string) {
-    const idle = view?.stations.find(s => !s.active);
-    if (!idle) {
-      showToast('All stations are busy');
-      return;
-    }
-    setSelectedBuildingId(idle.buildingId);
-  }
-
   const stationsCount = view?.stations.length ?? 0;
 
   return (
     <>
       <div className="tbar" data-od-id="training-bar" id="tbar">
         <div className="tstat"><span className="k">Stations</span><span className="v">{activeCount}<small>/{stationsCount} busy</small></span></div>
-        <div className="tstat"><span className="k">Bench</span><span className="v">{benchCount}<small> ready</small></span></div>
         <div className="tstat"><span className="k">Ready to collect</span><span className="v" style={readyCount > 0 ? { color: 'var(--good)' } : {}}>{readyCount}</span></div>
         <div className="strip-title">
           <div className="k">Training</div>
@@ -112,29 +101,6 @@ export function Training(): JSX.Element {
                 onCollect={(buildingId) => collectMutation.mutate(buildingId)} 
               />
             )) : <div style={{ color: 'var(--muted)', fontSize: '11px' }}>No training stations. Buy one from the Shop.</div>}
-          </div>
-        </div>
-        <div className="col rostercol">
-          <h3 className="stitle">Bench <span className="cnt">{benchCount} eligible</span></h3>
-          <div className="rosterhint">Party members can't train — <a href="/roster" style={{ color: 'var(--signal)', textDecoration: 'underline' }}>bench a Digimon from Roster</a> first. Mood dips on long sessions.</div>
-          <div className="rosterlist" data-od-id="roster-rail">
-            {rosterQuery.data?.roster.map((m) => {
-              const training = view?.stations.some(s => s.active?.monId === m.id);
-              const isParty = m.status === 'party';
-              const locked = isParty || training;
-              const band = moodBand(m.mood);
-              const tag = isParty ? 'In party' : training ? 'Training' : '';
-              return (
-                <div key={m.id} className={`mrow ${isParty ? 'party' : ''}`} data-mood={band}>
-                  <span className="mspr"><img src={m.template?.assets.portrait ?? ''} alt="" onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }} /></span>
-                  <div className="mn">
-                    <div className="mnn">{m.nickname}</div>
-                    <div className="msub">Lv {m.level} · <span className="mood"><span className="md"></span>{moodStateLabel(m.mood)}</span></div>
-                  </div>
-                  {locked ? <span className="lockp">{tag}</span> : <button className="btn ghost" style={{ padding: '7px 10px', fontSize: '9px' }} disabled={pendingBuildingId !== null} onClick={() => handleBenchAssign(m.id)}>Train</button>}
-                </div>
-              );
-            }) ?? <div className="rempty">No Digimon on your roster.</div>}
           </div>
         </div>
       </div>
@@ -161,12 +127,4 @@ function formatGains(gained: Readonly<Record<string, number | undefined>>): stri
   const parts = Object.entries(gained)
     .flatMap(([stat, value]) => (typeof value === 'number' ? [`+${value} ${stat.toUpperCase()}`] : []));
   return parts.length > 0 ? parts.join(', ') : 'no stats';
-}
-
-function moodBand(v: number): string {
-  return v >= 70 ? 'high' : v >= 35 ? 'mid' : 'low';
-}
-
-function moodStateLabel(v: number): string {
-  return v >= 70 ? 'Content' : v >= 35 ? 'Neutral' : 'Restless';
 }
