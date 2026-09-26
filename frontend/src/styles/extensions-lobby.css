@@ -1436,11 +1436,43 @@ a.sf-item:hover { border-color: var(--signal); }
 }
 
 @media (max-width: 1000px) {
-    .ui-bl,
+    .ui-bl {
+        left: 12px;
+        bottom: 86px;
+        width: min(336px, calc(100vw - 24px));
+    }
     .ui-br { display: none; }
-    .plaque { max-width: 60vw; }
+    .plaque { max-width: min(60vw, 520px); }
+    .dock { gap: 6px; padding: 8px; }
     .dock-btn { padding: 10px 14px; }
     .dock-btn.primary { padding: 12px 22px; }
+}
+
+@media (max-width: 700px) {
+    .hud-row { top: 58px; padding: 0 8px; }
+    .plaque { max-width: calc(100vw - 16px); padding: 8px 10px; gap: 6px; }
+    .plaque .pl-names { max-width: 42vw; }
+    .plaque .pl-q { display: none; }
+    .ui-bl { left: 8px; bottom: 80px; width: calc(100vw - 16px); }
+    .daily-mini { padding: 9px 10px; gap: 8px; }
+    .daily-mini .dm-pips { display: none; }
+    .qa-mini { padding: 6px; }
+    .qa-mini .qgrid { gap: 4px; }
+    .qa-mini .qa { padding: 6px 3px; }
+    .qa-mini .qa .qa-tile { width: 26px; height: 26px; }
+    .qa-mini .qa-nm { font-size: 8px; }
+    .dock { left: 8px; right: 8px; bottom: 8px; transform: none; justify-content: stretch; gap: 4px; padding: 6px; }
+    .dock-btn { min-width: 0; flex: 1 1 0; justify-content: center; padding: 10px 6px; gap: 5px; font-size: 9px; letter-spacing: .06em; }
+    .dock-btn.primary { padding: 11px 8px; font-size: 10px; }
+    .lob-panel { width: calc(100vw - 16px); }
+    .lob-pop { right: 8px; width: min(260px, calc(100vw - 16px)); }
+}
+
+@media (max-width: 420px) {
+    .plaque .pl-st { display: none; }
+    .ui-bl { bottom: 74px; }
+    .daily-mini .dm-sub { display: none; }
+    .qa-mini .qa-nm { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
