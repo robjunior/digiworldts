@@ -152,7 +152,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     let groundY = settings.partyHeight ?? 0;
     let stageCenterX = 0;
     let stageCenterZ = 0;
-    const partyH = 0.7 * 5.2 * (settings.centerScale ?? 1.1) * (settings.pedestalScale ?? 1);
+    const partyH = 0.7 * (settings.pedestalScale ?? 1);
     let camCenterY = groundY + (lighting?.camLookAtY ?? 0);
     camera.position.copy(cameraBase).add(new THREE.Vector3(stageCenterX, 0, stageCenterZ));
     camera.lookAt(stageCenterX, camCenterY, stageCenterZ);
@@ -351,8 +351,6 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // ── party sprites (the real combat SpriteRig) ───────────────────────
     const rigs = new Map<string, SpriteRig>();
     const bySlot = new Map<number, SpriteRig>();
-    /** unitScale aplicado por slot (para ancorar labels abaixo dos pés). */
-    const rigScales = new Map<number, number>();
 
     const applyFan = (): void => {
       for (let slot = 0; slot < 3; slot++) {
@@ -360,12 +358,9 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (!rig) continue;
         const pos = fanPosition(slot, settings.pedestalSpacing);
         rig.setBasePosition(stageCenterX + pos.x, stageCenterZ + pos.z);
-        // SPRITE_MAX_DIMENSION é 0.7 world units — escala o rig de verdade
-        // (unitScale é mantido pelo update(); setScalar externo seria anulado).
-        const base = slot === 1 ? 5.2 : 4.3;
-        const scale = base * settings.centerScale * settings.pedestalScale;
-        rig.setUnitScale(scale);
-        rigScales.set(slot, scale);
+        // Paridade com a cena de combate: SpriteRig na escala padrão (0.7u),
+        // a mesma câmera a ~14u — os digimons do lobby têm o MESMO tamanho
+        // visual da batalha. Nada de escala artificial de lobby.
       }
       const ps = settings.pedestalScale;
       for (const [slot, p] of pedestals.entries()) {
@@ -624,6 +619,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     window.addEventListener('pointermove', onPointerMove, { passive: true });
 
     const labelV = new THREE.Vector3();
+    const feetV = new THREE.Vector3();
+    const headV = new THREE.Vector3();
     const loop = (): void => {
       if (disposed) return;
       const dt = Math.min(clock.getDelta(), 0.05);
@@ -656,24 +653,74 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       // project figure labels onto the screen
       const w = host.clientWidth;
       const h = host.clientHeight;
+      // Corpo (cabeça → pés) e profundidade de cada sprite, em espaço de tela:
+      // usado para ocultar um label que cobriria OUTRO digimon (nunca por cima).
+      const HALF_H = 0.7 * 0.5; // spriteSize.y (0.7u, paridade com combate) / 2
+      const bodies: { l: number; r: number; t: number; b: number; depth: number }[] = [];
+      for (let slot = 0; slot < 3; slot++) {
+        const rig = bySlot.get(slot);
+        if (!rig) continue;
+        feetV.copy(rig.worldPosition);
+        feetV.y -= HALF_H;
+        headV.copy(rig.worldPosition);
+        headV.y += HALF_H;
+        feetV.project(activeCam);
+        headV.project(activeCam);
+        if (feetV.z > 1 || headV.z > 1) {
+          bodies.push({ l: 0, r: 0, t: 0, b: 0, depth: 0 });
+          continue;
+        }
+        const sx = (feetV.x * 0.5 + 0.5) * w;
+        const syTop = (-headV.y * 0.5 + 0.5) * h;
+        const syBottom = (-feetV.y * 0.5 + 0.5) * h;
+        const ph = Math.max(syBottom - syTop, 4);
+        bodies.push({
+          l: sx - ph * 0.5,
+          r: sx + ph * 0.5,
+          t: syTop,
+          b: syBottom,
+          depth: activeCam.position.distanceTo(rig.worldPosition),
+        });
+      }
       for (let slot = 0; slot < 3; slot++) {
         const label = labelRefs.current[slot];
         const rig = bySlot.get(slot);
         if (!label || !rig) continue;
         labelV.copy(rig.worldPosition);
         // Ancorar a placa abaixo dos pés: worldPosition é o CENTRO do
-        // billboard; desce metade da altura real (spriteSize × unitScale)
-        // mais uma folga sobre o piso.
-        const scale = rigScales.get(slot) ?? 1;
-        labelV.y -= rig.spriteSize.y * scale * 0.5 + 0.4;
+        // billboard; desce metade da altura (0.7u, paridade com combate)
+        // mais uma folga mínima — a placa fica na base do pedestal.
+        labelV.y -= HALF_H + 0.1;
         labelV.project(activeCam);
         if (labelV.z > 1) {
           label.hidden = true;
-        } else {
-          label.hidden = false;
-          label.style.left = `${((labelV.x * 0.5 + 0.5) * w).toFixed(0)}px`;
-          label.style.top = `${((-labelV.y * 0.5 + 0.5) * h).toFixed(0)}px`;
+          continue;
         }
+        const lx = (labelV.x * 0.5 + 0.5) * w;
+        const ly = (-labelV.y * 0.5 + 0.5) * h;
+        label.style.left = `${lx.toFixed(0)}px`;
+        label.style.top = `${ly.toFixed(0)}px`;
+        // Cache do tamanho medido (offsetWidth zera quando a label está hidden)
+        if (label.dataset.lw === undefined && label.offsetWidth > 0) {
+          label.dataset.lw = String(label.offsetWidth);
+          label.dataset.lh = String(label.offsetHeight);
+        }
+        // Guarda de oclusão: esconde o label se ele cair por cima do corpo de
+        // um digimon MAIS DISTANTE (o do próprio slot é o âncora, ignora).
+        const lw2 = (Number(label.dataset.lw) || 100) * 0.5;
+        const lh2 = Number(label.dataset.lh) || 26;
+        const myDepth = bodies[slot]?.depth ?? Number.POSITIVE_INFINITY;
+        let occluded = false;
+        for (let other = 0; other < 3; other++) {
+          if (other === slot) continue;
+          const body = bodies[other];
+          if (!body) continue;
+          if (body.b <= 0 || body.depth <= myDepth) continue; // outro na frente (ou sem corpo)
+          if (lx + lw2 < body.l || lx - lw2 > body.r || ly > body.b || ly + lh2 < body.t) continue;
+          occluded = true;
+          break;
+        }
+        label.hidden = occluded;
       }
       // holo flicker
       const holoPulse = 0.2 + (Math.sin(elapsed * 2.2) + 1) * 0.07;
