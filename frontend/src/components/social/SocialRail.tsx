@@ -19,29 +19,13 @@ import {
 import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
-import { DigimonSprite } from "../common/DigimonSprite";
 import "../../styles/social-rail.css";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 
 type DmSession = { readonly userId: string; readonly name: string };
 
-export type SocialPartySlot = {
-  readonly id: string;
-  readonly catalogId: string;
-  readonly nickname: string;
-  readonly level: number;
-  readonly element: string;
-  readonly stage: string;
-};
-
-type SocialRailProps = {
-  /** Party (3 slots, null = vazio) rendered as an extra "Party" tab. */
-  readonly party?: readonly (SocialPartySlot | null)[] | null;
-  readonly onOpenCreature?: (id: string) => void;
-};
-
-export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Element {
+export function SocialRail(): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
   const chat = useWsStore((s) => s.chat);
@@ -53,7 +37,7 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<
-    "chat" | "friends" | "party"
+    "chat" | "friends"
   >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
@@ -280,41 +264,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
           </svg>
           {allFriends.length > 0 && (
             <span className="social-counter">{allFriends.length}</span>
-          )}
-        </button>
-        <button
-          className={`social-icon-btn${socialOpen && socialTab === "party" ? " active" : ""}`}
-          role="tab"
-          aria-selected={socialOpen && socialTab === "party"}
-          onClick={() => {
-            if (socialOpen && socialTab === "party") {
-              setSocialOpen(false);
-            } else {
-              setSocialOpen(true);
-              setSocialTab("party");
-            }
-          }}
-          title="Party"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="9" cy="8" r="3.5" />
-            <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
-            <circle cx="17.5" cy="9.5" r="2.5" />
-            <path d="M16.5 14.5a5 5 0 0 1 5.5 5" />
-          </svg>
-          {party !== undefined && party !== null && (
-            <span className="social-counter">
-              {party.filter(Boolean).length}/3
-            </span>
           )}
         </button>
       </div>
@@ -676,60 +625,6 @@ export function SocialRail({ party, onOpenCreature }: SocialRailProps): JSX.Elem
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        {/* PARTY PANEL — mockup OD: dm-row com sprite pixel, nome, sub, Lv dourado */}
-          <div className="spanel" hidden={socialTab !== "party"}>
-            <div className="party-slots">
-              {(party ?? []).map((slot, i) =>
-                slot ? (
-                  <button
-                    key={i}
-                    type="button"
-                    className="dm-row"
-                    data-pos={i}
-                    onClick={() => onOpenCreature?.(slot.id)}
-                    aria-label={`Abrir perfil de ${slot.nickname}`}
-                  >
-                    <span className="dm-av">
-                      <DigimonSprite
-                        catalogId={slot.catalogId}
-                        className="dm-img"
-                        alt=""
-                      />
-                    </span>
-                    <span className="dm-tx">
-                      <span className="dm-nm">{slot.nickname}</span>
-                      <span className="dm-sub">
-                        {slot.element} · {slot.stage}
-                      </span>
-                    </span>
-                    <span className="dm-lv">Lv {slot.level}</span>
-                  </button>
-                ) : (
-                  <a
-                    key={i}
-                    href="/roster"
-                    className="dm-row empty"
-                    data-pos={i}
-                    aria-label={`slot ${i + 1} vazio — abrir roster`}
-                  >
-                    <span className="dm-av">
-                      <span className="mono">?</span>
-                    </span>
-                    <span className="dm-tx">
-                      <span className="dm-nm">Vazio</span>
-                      <span className="dm-sub">
-                        slot {i + 1} — aguardando convite
-                      </span>
-                    </span>
-                    <span className="dm-lv">—</span>
-                  </a>
-                ),
-              )}
-              <a href="/roster" className="lob-p-link">
-                Gerenciar party
-              </a>
             </div>
           </div>
         </>
