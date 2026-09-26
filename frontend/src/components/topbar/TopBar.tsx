@@ -215,7 +215,6 @@ export function TopBar(): JSX.Element | null {
   const hasNotifs = notifications.length > 0;
   const credits = farmQuery.data?.credits ?? null;
   const netcore = farmQuery.data?.netcore ?? null;
-  const bits = farmQuery.data?.balances?.Bits ?? null;
   const streakDay = dailyQuery.data?.streakDay ?? 0;
 
   return (
@@ -282,16 +281,12 @@ export function TopBar(): JSX.Element | null {
 
       <div className="topright" ref={rootRef}>
         <div className="wallet">
-          <span className="wc">
-            <span className="dot cred" aria-hidden="true" />{' '}
+          <span className="wc cred" aria-label={`Créditos: ${credits ?? '—'}`}>
+            <CreditsIcon />
             <span className="am">{credits !== null ? credits.toLocaleString('en-US') : '—'}</span>
           </span>
-          <span className="wc">
-            <span className="dot bits" aria-hidden="true" />{' '}
-            <span className="am b">{bits !== null ? bits.toLocaleString('en-US') : '—'}</span>
-          </span>
-          <span className="wc">
-            <span className="dot bits" aria-hidden="true" />{' '}
+          <span className="wc netcore" aria-label={`NetCore: ${netcore ?? '—'}`}>
+            <NetcoreIcon />
             <span className="am b">{netcore !== null ? netcore.toLocaleString('en-US') : '—'}</span>
           </span>
         </div>
@@ -386,6 +381,24 @@ function BellIcon(): JSX.Element {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
       <path d="M10 21h4" />
+    </svg>
+  );
+}
+
+function CreditsIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" />
+      <circle cx="12" cy="12" r="4" />
+    </svg>
+  );
+}
+
+function NetcoreIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} aria-hidden="true">
+      <path d="M12 2.5l7.5 4.33v8.66L12 19.83 4.5 15.5V6.83z" />
+      <circle cx="12" cy="12" r="3.2" />
     </svg>
   );
 }

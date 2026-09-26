@@ -20,10 +20,9 @@
 .topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
 .wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
 .wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
-.wc .dot{width:14px;height:14px;flex:none;border-radius:50%}
-.wc .dot.cred{background:linear-gradient(135deg,#fbbf24,#f59e0b);box-shadow:0 0 6px rgba(245,158,11,.4)}
-.wc .dot.bits{background:linear-gradient(135deg,#60a5fa,#3b82f6)}
-.wc .dot.gem{background:linear-gradient(135deg,var(--gold-bright),var(--gold));box-shadow:0 0 6px rgba(245,158,11,.4)}
+.wc svg{width:14px;height:14px;flex:none;stroke-width:1.7}
+.wc.cred svg{color:var(--gold-bright);filter:drop-shadow(0 0 4px rgba(245,158,11,.35))}
+.wc.netcore svg{color:var(--signal2)}
 .wc .am{color:var(--gold-bright)}
 .wc .am.b{color:var(--signal2)}
 .streak-pill{display:flex;align-items:center;gap:5px;padding:0 12px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);font:800 11px/1 var(--font)}
