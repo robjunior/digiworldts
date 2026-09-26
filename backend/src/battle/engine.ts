@@ -411,6 +411,19 @@ export function applyAction(
     return { ok: false, error: 'unit is defeated', code: 'unit-invalid' };
   }
 
+  if (action.type === 'guard') {
+    actor.activeBuffs = [
+      ...(actor.activeBuffs ?? []).filter((buff) => buff.kind !== 'damage_reduction'),
+      { kind: 'damage_reduction', amount: 0.5, remainingTurns: 1, sourceId: actor.id },
+    ];
+    const now = Date.now();
+    pushEvent(battle, { at: now, round: battle.round, type: 'action', actor: actor.id, actorName: actor.name, action, cue: null });
+    battle.lastAction = { side: actingSide, element: 'null', attribute: actor.attribute, wasHit: false };
+    tickActorAilments(battle, actor);
+    advanceTurnQueue(battle);
+    return { ok: true, battle, events: battle.log.slice(eventsBefore) };
+  }
+
   if (action.type === 'use_item') {
     if (battle.mode !== 'pve') {
       return { ok: false, error: 'items are PVE-only', code: 'item-invalid' };
@@ -968,6 +981,7 @@ export function serializeForSide(battle: Battle, side: BattleSide): BattleView {
         templateId: u.templateId,
         name: u.name,
         element: u.element,
+        attribute: u.attribute,
         level: u.level,
         hp: u.hp,
         hpMax: u.hpMax,

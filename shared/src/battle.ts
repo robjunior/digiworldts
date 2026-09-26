@@ -70,6 +70,7 @@ export type Action =
   | { type: 'skill'; unitId: UnitId; skillId: string; targetId: UnitId; extraTargetIds?: readonly UnitId[] }
   | { type: 'capture'; unitId: UnitId; targetId: UnitId }
   | { type: 'use_item'; unitId: UnitId; targetId: UnitId; itemId: string }
+  | { type: 'guard'; unitId: UnitId }
   | { type: 'flee' };
 
 export type ActionCue = 'crit' | 'miss' | 'resist' | 'weak' | 'immune' | 'chain' | 'attr-advantage' | 'attr-disadvantage' | 'capture-hit' | 'capture-miss' | 'item-heal' | 'item-en' | 'item-cure' | 'item-buff' | 'item-revive' | null;
@@ -174,6 +175,7 @@ export type EnemyUnitView = {
   templateId: string;
   name: string;
   element: Element;
+  attribute: Attribute;
   resistances?: ResistanceMap;
   level: number;
   hp: number;

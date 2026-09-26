@@ -1,6 +1,7 @@
 import type { EnemyUnitView, UnitId } from '@digiworld/shared/battle';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useT } from '../../hooks/useLocale';
+import { AttributeIcon } from '../combat/AttributeIcon';
 
 export function EnemyRail({ aliveEnemies, selectedTargetId, canAct, onSelect, onSpriteClick }: { readonly aliveEnemies: readonly EnemyUnitView[]; readonly selectedTargetId: UnitId | null; readonly canAct: boolean; readonly onSelect: (id: UnitId) => void; readonly onSpriteClick?: (id: UnitId) => void }): JSX.Element {
   const t = useT();
@@ -36,8 +37,8 @@ export function EnemyRail({ aliveEnemies, selectedTargetId, canAct, onSelect, on
             aria-pressed={selectedTargetId === foe.id}
             aria-describedby={hoveredId === foe.id ? `enemy-tooltip-${foe.id}` : undefined}
           >
-            <span className="edot pill" style={{ ['--el' as string]: `var(--el-${foe.element})` }} />
-            <span className="enm">{foe.name}</span>
+            <AttributeIcon attribute={foe.attribute} size="md" />
+            <span className="enm"><span className="edot pill" style={{ ['--el' as string]: `var(--el-${foe.element})` }} />{foe.name}</span>
             <span className="ehp">{foe.hp}/{foe.hpMax}</span>
           </button>
         ))}

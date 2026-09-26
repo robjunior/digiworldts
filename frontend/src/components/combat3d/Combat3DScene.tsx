@@ -1,4 +1,4 @@
-import type { BattleView, EnemyUnitView, UnitId } from '@digiworld/shared/battle';
+import type { BattleView, UnitId } from '@digiworld/shared/battle';
 import { ELEMENT_TO_ARENA_KEY } from '@digiworld/shared/scene';
 import type { SceneEntity } from '@digiworld/shared/scene';
 import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
@@ -13,11 +13,9 @@ import { getScenes } from '../../lib/api-scenes';
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
 import { useAuth } from '../../hooks/useAuth';
 import { useWsStore } from '../../state/wsStore';
-import { useT } from '../../hooks/useLocale';
 import type { WeatherOverrideState } from '../../state/wsStore';
 
 /** Shared module constants. */
-const TOOLTIP_DELAY_MS = 300;
 const HOVER_SPRITE_SIDE: SpriteSide = 'opp';
 const LOCAL_STORAGE_OVERRIDE_KEY = 'digiworld.scene-settings-override';
 const LOCAL_STORAGE_BASELINE_KEY = 'digiworld.scene-defaults-baseline';
@@ -114,6 +112,9 @@ export type Combat3DSceneHandle = {
 type SceneProps = {
   readonly battle: BattleView;
   readonly onReady?: () => void;
+  readonly onEnemyClick?: (unitId: UnitId) => void;
+  readonly onEnemyHover?: (unitId: UnitId | null) => void;
+  readonly onFriendlyClick?: (unitId: UnitId) => void;
 };
 
 type UnitPlacement = {
@@ -328,55 +329,7 @@ function spriteAtScreenPosition(
   return manager.getSpriteAtScreenPosition?.(x, y);
 }
 
-/** Apply a rendered tooltip for an opponent sprite currently under the cursor. */
-const HoverTooltip = memo(function HoverTooltip({
-  x,
-  y,
-  enemy,
-  t,
-}: {
-  readonly x: number;
-  readonly y: number;
-  readonly enemy: EnemyUnitView;
-  readonly t: (key: string, params?: Readonly<Record<string, string | number>>) => string;
-}): JSX.Element {
-  return (
-    <div
-      className="sprite-tooltip"
-      role="tooltip"
-      style={{
-        left: x + 16,
-        top: y - 16,
-        transform: 'translateY(-100%)',
-      }}
-    >
-      <div className="tooltip-header">
-        <span className="tooltip-element" style={{ ['--el' as string]: `var(--el-${enemy.element})` }}>
-          {enemy.element}
-        </span>
-        <span className="tooltip-name">{enemy.name}</span>
-      </div>
-      <div className="tooltip-stats">
-        <div className="stat-row">
-          <span className="stat-label">{t('combat.level')}</span>
-          <span className="stat-value">Lv {enemy.level}</span>
-        </div>
-        <div className="stat-row">
-          <span className="stat-label">{t('combat.hp')}</span>
-          <span className="stat-value">{enemy.hp} / {enemy.hpMax}</span>
-        </div>
-      </div>
-      {enemy.ailments.length > 0 && (
-        <div className="tooltip-ailments">
-          <span className="stat-label">{t('combat.ailments')}</span>
-          <span className="stat-value">{enemy.ailments.map((a) => a.kind).join(', ')}</span>
-        </div>
-      )}
-    </div>
-  );
-});
-
-export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(function Combat3DScene({ battle, onReady }, ref) {
+export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(function Combat3DScene({ battle, onReady, onEnemyClick, onEnemyHover, onFriendlyClick }, ref) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { sceneRef, getManager } = useSceneManager();
@@ -385,10 +338,6 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   const fallbackArenaKey = useMemo(() => pickArenaKey(battle), [battle]);
   const sceneId = battle.sceneId ?? null;
   const [resolution, setResolution] = useState<SceneResolution | null>(null);
-
-  // 3D Sprite hover tooltip state
-  const [hoveredSprite, setHoveredSprite] = useState<{ unitId: string; x: number; y: number } | null>(null);
-  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -537,46 +486,31 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     }
   }, [battle, getManager]);
 
-  // Mouse interaction for 3D sprite hover tooltips
+  // A targeted command can be confirmed directly on the 3D enemy sprite.
   useEffect(() => {
     const container = containerRef.current;
     const manager = getManager();
-    if (!container || !manager) return;
-
-    let tooltipTimeout: number | null = null;
-
-    const clearTooltip = () => {
-      if (tooltipTimeout !== null) window.clearTimeout(tooltipTimeout);
-      tooltipTimeout = null;
-      setHoveredSprite(null);
-    };
-
-    const handleMouseMove = (event: MouseEvent) => {
+    if (container === null || manager === null || (onEnemyClick === undefined && onFriendlyClick === undefined)) return;
+    const handleClick = (event: MouseEvent): void => {
       const sprite = spriteAtScreenPosition(manager, container, event.clientX, event.clientY);
-      const enemyId = sprite?.side === HOVER_SPRITE_SIDE && !sprite.downed ? sprite.unitId : null;
-      const enemy = enemyId !== null ? battle.enemy.find((e) => e.id === enemyId) : undefined;
-
-      if (enemy) {
-        clearTimeout(tooltipTimeout ?? undefined);
-        tooltipTimeout = window.setTimeout(() => {
-          setHoveredSprite({ unitId: enemy.id, x: event.clientX, y: event.clientY });
-        }, TOOLTIP_DELAY_MS);
-        return;
-      }
-      clearTooltip();
+      if (sprite?.side === HOVER_SPRITE_SIDE && !sprite.downed) onEnemyClick?.(sprite.unitId as UnitId);
+      if (sprite?.side === 'you' && !sprite.downed) onFriendlyClick?.(sprite.unitId as UnitId);
     };
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
+  }, [getManager, onEnemyClick, onFriendlyClick]);
 
-    const handleMouseLeave = () => clearTooltip();
-
-    container.addEventListener('mousemove', handleMouseMove);
-    container.addEventListener('mouseleave', handleMouseLeave);
-
-    return () => {
-      container.removeEventListener('mousemove', handleMouseMove);
-      container.removeEventListener('mouseleave', handleMouseLeave);
-      clearTooltip();
+  useEffect(() => {
+    const container = containerRef.current;
+    const manager = getManager();
+    if (container === null || manager === null || onEnemyHover === undefined) return;
+    const handleMove = (event: MouseEvent): void => {
+      const sprite = spriteAtScreenPosition(manager, container, event.clientX, event.clientY);
+      onEnemyHover(sprite?.side === HOVER_SPRITE_SIDE && !sprite.downed ? sprite.unitId as UnitId : null);
     };
-  }, [battle, getManager]);
+    container.addEventListener('mousemove', handleMove);
+    return () => container.removeEventListener('mousemove', handleMove);
+  }, [getManager, onEnemyHover]);
 
   useImperativeHandle(ref, () => ({
     playEffect(element, sourceId, targetId, opts) {
@@ -602,12 +536,6 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   return (
     <div className="c3d-canvas-host" ref={containerRef}>
       <canvas className="c3d-canvas" ref={canvasRef} aria-hidden="true" />
-
-      {/* 3D Sprite hover tooltip */}
-      {hoveredSprite && (() => {
-        const enemy = battle.enemy.find((e) => e.id === hoveredSprite.unitId);
-        return enemy ? <HoverTooltip x={hoveredSprite.x} y={hoveredSprite.y} enemy={enemy} t={t} /> : null;
-      })()}
     </div>
   );
 });

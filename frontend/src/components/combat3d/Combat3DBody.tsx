@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
 import { CommandPanel, type CommandMode } from '../combat/CommandPanel';
+import { AttributeIcon } from '../combat/AttributeIcon';
 import { EndCard } from '../combat/EndCard';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useWsStore } from '../../state/wsStore';
@@ -12,10 +13,10 @@ import { BuffBadgesLayer } from './BuffBadgesLayer';
 import { EnemyHealthBars } from './EnemyHealthBars';
 import { PartyCard } from './PartyCard';
 import { BattleFeed } from './BattleFeed';
-import { EnemyRail } from './EnemyRail';
+import { TurnOrderRail } from './TurnOrderRail';
+import { ActiveTurnMarker } from './ActiveTurnMarker';
 import { Floaters, type Floater3D } from './Floaters';
 import { AutobattleToggle } from './AutobattleToggle';
-import { SideBadge, TeamBadge, TopBar } from './SideAndTopBadges';
 import { useResizeObserverCSSVar } from './useResizeObserverCSSVar';
 import { useEnemyActionQueue } from './useEnemyActionQueue';
 import { useAutobattle } from './useAutobattle';
@@ -37,6 +38,9 @@ export function Combat3DBody(): JSX.Element | null {
   const [floaters, setFloaters] = useState<readonly Floater3D[]>([]);
   const [endModalOpen, setEndModalOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
+  const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
+  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const [hoveredTargetId, setHoveredTargetId] = useState<UnitId | null>(null);
 
   const sceneRef = useRef<Combat3DSceneHandle | null>(null);
   const cmdRef = useRef<HTMLDivElement | null>(null);
@@ -104,6 +108,17 @@ export function Combat3DBody(): JSX.Element | null {
   }, [activeBattle?.status]);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      setCommandMode('menu');
+      setPendingSkillId(null);
+      setPendingItemId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
     const nextEvents = battleEvents.slice(seenEventCountRef.current);
     const vfxSeen = new Set<string>();
     seenEventCountRef.current = battleEvents.length;
@@ -128,6 +143,9 @@ export function Combat3DBody(): JSX.Element | null {
   const canAct = activeBattle.yourTurn && actor !== null && !actor.down && activeBattle.status === 'active';
   const showAutobattle = activeBattle.mode === 'pve' && activeBattle.status === 'active';
   const displayEvents = battleEvents.length > 0 ? battleEvents : activeBattle.log ?? [];
+  const activeTurnUnit = activeBattle.currentTurnUnitId
+    ? activeBattle.friendly.find((unit) => unit.id === activeBattle.currentTurnUnitId) ?? activeBattle.enemy.find((unit) => unit.id === activeBattle.currentTurnUnitId)
+    : null;
 
   return (
     <div
@@ -136,8 +154,33 @@ export function Combat3DBody(): JSX.Element | null {
       data-targeting={
         commandMode === 'target-fight' || commandMode === 'target-skill' || commandMode === 'items'
       }
+      data-target-side={commandMode === 'items' ? 'ally' : 'enemy'}
     >
-      <Combat3DScene ref={sceneRef} battle={activeBattle} />
+      <Combat3DScene
+        ref={sceneRef}
+        battle={activeBattle}
+        onEnemyClick={(unitId) => {
+          if (!canAct) return;
+          if (commandMode === 'target-fight') {
+            dispatch({ type: 'fight', unitId: actor!.id, targetId: unitId });
+            setCommandMode('menu');
+          } else if (commandMode === 'target-skill') {
+            const skillId = pendingSkillId;
+            if (skillId !== null) {
+              dispatch({ type: 'skill', unitId: actor!.id, skillId, targetId: unitId });
+              setPendingSkillId(null);
+              setCommandMode('menu');
+            }
+          }
+        }}
+        onEnemyHover={setHoveredTargetId}
+        onFriendlyClick={(unitId) => {
+          if (commandMode !== 'items' || !canAct || pendingItemId === null || actor === null) return;
+          dispatch({ type: 'use_item', unitId: actor.id, targetId: unitId, itemId: pendingItemId });
+          setPendingItemId(null);
+          setCommandMode('menu');
+        }}
+      />
 
       <div className="arena-fallback" id="arena-fallback" role="img" aria-label="3D arena unavailable — combat still playable">
         <div className="box">
@@ -147,46 +190,31 @@ export function Combat3DBody(): JSX.Element | null {
         </div>
       </div>
 
-      <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} />
+      <EnemyHealthBars battle={activeBattle} sceneRef={sceneRef} hoveredTargetId={hoveredTargetId} selectionElement={commandMode === 'target-skill' && pendingSkillId !== null ? actor?.skills.find((skill) => skill.id === pendingSkillId)?.element ?? null : null} />
       <AilmentBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
       <BuffBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
 
-      <div className="overlay">
-        <div className={`side-badge ${feedOpen ? 'open' : ''}`}>
-          <button
-            className="mobile-feed-toggle"
-            aria-label="Open battle log"
-            aria-expanded={feedOpen}
-            onClick={() => setFeedOpen(!feedOpen)}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 6h16M4 12h16M4 18h7" />
-            </svg>
-          </button>
-          <div className="side-badge-content">
-            <SideBadge battle={activeBattle} />
+        <div className="overlay">
+          <div className={`battle-utility ${feedOpen ? 'open' : ''}`}>
+            <div className="battle-feed-header" role="button" tabIndex={0} aria-expanded={feedOpen} onClick={() => setFeedOpen(!feedOpen)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setFeedOpen(!feedOpen); }}>
+            <span>Battle feed</span><span className="battle-feed-chevron" aria-hidden="true">{feedOpen ? '⌃' : '⌄'}</span>
+          </div>
+          <div className={`battle-feed-body ${feedOpen ? 'is-open' : ''}`}>
             <BattleFeed events={displayEvents} battle={activeBattle} />
-            {feedOpen && (
-              <button className="mobile-feed-close" onClick={() => setFeedOpen(false)}>
-                Close
-              </button>
-            )}
           </div>
         </div>
 
         <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
 
-        <TopBar battle={activeBattle} actor={actor} />
-
-        <TeamBadge friendly={activeBattle.friendly} />
-
-        <EnemyRail
-          aliveEnemies={aliveEnemies}
-          selectedTargetId={selectedTargetId}
-          canAct={canAct}
-          onSelect={setSelectedTargetId}
-          onSpriteClick={setSelectedTargetId}
-        />
+        <TurnOrderRail battle={activeBattle} />
+        <ActiveTurnMarker battle={activeBattle} sceneRef={sceneRef} />
+        {activeTurnUnit ? (
+          <div className={`active-turn-banner ${activeBattle.currentTurnBelongsToYou ? 'is-you' : 'is-enemy'}`} role="status">
+            <span>{activeBattle.currentTurnBelongsToYou ? 'Your turn' : 'Enemy turn'}</span>
+            <AttributeIcon attribute={activeTurnUnit.attribute} size="sm" />
+            <b>{activeTurnUnit.name}</b>
+          </div>
+        ) : null}
 
         <div className="party-cards" role="group" aria-label="Your party">
           {activeBattle.friendly.map((unit) => (
@@ -223,6 +251,9 @@ export function Combat3DBody(): JSX.Element | null {
             }
             onUseItem={(itemId, targetId) => actor && dispatch({ type: 'use_item', unitId: actor.id, targetId, itemId })}
             onFlee={() => dispatch({ type: 'flee' })}
+            onGuard={() => actor && dispatch({ type: 'guard', unitId: actor.id })}
+            onPendingSkill={setPendingSkillId}
+            onPendingItem={setPendingItemId}
           />
         </div>
 
