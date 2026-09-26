@@ -50,6 +50,7 @@ const NAV_ITEMS: readonly NavItem[] = [
       { key: 'nav.factory', to: '/factory' },
       { key: 'nav.farm', to: '/farm' },
       { key: 'nav.nursery', to: '/nursery' },
+      { key: 'nav.training', to: '/training' },
     ],
   },
   { kind: 'link', key: 'topbar.nav.collection', to: '/digdex' },
@@ -121,13 +122,21 @@ export function TopBar(): JSX.Element | null {
 
   const notifications: NotificationItem[] = [];
   const buildings = farmQuery.data?.buildings ?? [];
-  const producedTotal = buildings.reduce((sum, b) => sum + Math.floor(b.produced), 0);
-  if (producedTotal > 0) {
-    const detailKey = producedTotal === 1 ? 'topbar.notif.farm.detail_one' : 'topbar.notif.farm.detail_other';
+  const fullBuildings = buildings.filter((b) => b.full);
+  if (fullBuildings.length > 0) {
+    const fullResources = Array.from(
+      fullBuildings.reduce((acc, b) => {
+        const cur = acc.get(b.resource) ?? 0;
+        acc.set(b.resource, cur + Math.floor(b.produced));
+        return acc;
+      }, new Map<string, number>()),
+    )
+      .map(([res, amt]) => `${res} (${amt})`)
+      .join(', ');
     notifications.push({
       id: 'farm-harvest',
       title: t('topbar.notif.farm.title'),
-      detail: t(detailKey, { count: producedTotal }),
+      detail: t('topbar.notif.farm.full_detail', { resources: fullResources }),
       actionLabel: t('topbar.notif.farm.action'),
       onAction: () => {
         setOpenMenu(null);
