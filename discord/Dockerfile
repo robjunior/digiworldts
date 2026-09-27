@@ -8,7 +8,8 @@ ENV NODE_ENV=production
 ENV PNPM_HOME=/pnpm
 ENV PATH=/pnpm:$PATH
 
-RUN corepack enable
+RUN corepack enable \
+ && corepack prepare pnpm@10.34.5 --activate
 
 WORKDIR /app
 

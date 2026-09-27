@@ -2,6 +2,7 @@
   "name": "digiworld",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.5",
   "description": "Digimon-style 3v3 MMO — monorepo root (backend/frontend/shared)",
   "type": "module",
   "scripts": {
