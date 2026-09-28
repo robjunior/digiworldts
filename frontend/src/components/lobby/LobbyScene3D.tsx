@@ -25,7 +25,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
-import { lobbyPartyGround, resolveLobbyFog, clampLobbyExposure, lobbyHdrCompensation } from '@digiworld/scene3d/lobby-settings';
+import { lobbyPartyGround, resolveLobbyFog, clampLobbyExposure, lobbyHdrCompensation, resolveStageLightIntensity } from '@digiworld/scene3d/lobby-settings';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -212,7 +212,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // exposure). Intensidade em HDR pra ler com a cena escura.
     const stage = new THREE.SpotLight(
       0xfff1d8,
-      (settings.stageLightIntensity ?? 0) * 1.35 * lobbyHdrCompensation(exposure),
+      resolveStageLightIntensity(settings.stageLightIntensity) * 1.35 * lobbyHdrCompensation(exposure),
       0,
       0.62,
       0.5,

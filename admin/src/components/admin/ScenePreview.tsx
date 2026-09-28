@@ -12,7 +12,7 @@ import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
-import { clampLobbyExposure, lobbyHdrCompensation, lobbyPartyGround, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
+import { clampLobbyExposure, lobbyHdrCompensation, lobbyPartyGround, resolveLobbyFog, resolveStageLightIntensity } from '@digiworld/scene3d/lobby-settings';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
@@ -187,7 +187,10 @@ function applyLobbyStage(
     f.scene.remove(f.stage.target);
     f.stage = null;
   }
-  const stageI = lobby.stageLightIntensity ?? 0;
+  // Luz de palco sobre a party (espelha o front 1:1) — a intensidade usa o
+  // MESMO piso compartilhado (resolveStageLightIntensity): o knob escala o
+  // pool visual mas nunca mata o caster das silhuetas dos digimons.
+  const stageI = resolveStageLightIntensity(lobby.stageLightIntensity);
   if (stageI > 0) {
     const stage = new THREE.SpotLight(0xfff1d8, stageI * 1.35 * lobbyHdrCompensation(exposure), 0, 0.62, 0.5, 0);
     stage.castShadow = true;

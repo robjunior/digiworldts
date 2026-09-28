@@ -696,6 +696,11 @@ export class SpriteRig implements SpriteRigApi {
 
     this.shadow.scale.set(this.shadowWidthUnits / SHADOW_MAX_WIDTH, (this.shadowWidthUnits * SHADOW_DEPTH_RATIO) / SHADOW_MAX_WIDTH, 1);
     this.shadow.position.x = this.mesh.position.x;
+    // O depth do blob já segue via position.y (setArenaBaselineY); o z ficava
+    // PRESO no slot de combate do construtor — no lobby, onde setBasePosition
+    // espalha a party ao longo de z (±1.3/1.7), a sombra ficava 1-4u atrás do
+    // digimon ("digimons não estão castando sombra"). Espelha o z do mesh.
+    this.shadow.position.z = this.mesh.position.z;
 
     if (this.illumination !== null) {
       const illum = this.illumination;
@@ -783,6 +788,10 @@ export class SpriteRig implements SpriteRigApi {
   setBasePosition(x: number, z: number): void {
     this.basePosition.x = x;
     this.basePosition.z = z;
+    // Move o blob de contato junto (a sombra é o contato COM o piso — ela não
+    // pode esperar o próximo update(). Nada tocava z antes: no lobby o blob
+    // ficava preso no z do slot de combate do construtor.
+    this.shadow.position.set(x, this.shadow.position.y, z);
   }
 
   setUnitScale(v: number): void {

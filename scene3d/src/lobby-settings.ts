@@ -44,6 +44,18 @@ export function lobbyHdrCompensation(exposure: number): number {
   return LOBBY_EXPOSURE_REF / Math.max(exposure, LOBBY_EXPOSURE_MIN);
 }
 
+/** Piso de intensidade da luz de palco (front + preview usam o MESMO valor).
+ *  O knob stageLightIntensity escala o pool VISUAL, mas a luz de palco é a
+ *  castadora das silhuetas dos digimons no piso — com o knob em 0 (`?? 0`
+ *  antigo) a sombra morria junto. Um piso baixo (1.2) mantém o caster vivo
+ *  com pool sutil em qualquer valor do editor. */
+export const STAGE_LIGHT_MIN_INTENSITY = 1.2;
+
+/** Intensidade efetiva da luz de palco: knob do editor com o piso aplicado. */
+export function resolveStageLightIntensity(knob: number | undefined): number {
+  return Math.max(knob ?? 3, STAGE_LIGHT_MIN_INTENSITY);
+}
+
 /** World-space party ground + horizontal center of a loaded lobby GLB:
  *  1. `hdd_plattertop` top surface (arena field) — topmost platter wins;
  *  2. else the TOP of the largest-xz-footprint floor-ish surface
