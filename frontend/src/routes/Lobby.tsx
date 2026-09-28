@@ -2,9 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router";
 
-import { DEFAULT_LOBBY_SCENE, type LobbySceneSettings, type SceneSettings } from "@digiworld/scene3d/scene";
-import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/arena-urls";
-
 import { useWebSocket } from "../hooks/useWebSocket";
 import {
   authLogout,
@@ -16,15 +13,11 @@ import {
   type DailyResponse,
   type LastMatchSummary,
   type LiveMatchSummary,
-  type RosterView,
 } from "../lib/api";
 import { getDigdex } from "../lib/api-digdex";
 import { getPvpQuests } from "../lib/api-pvp-quests";
-import { getLobbyScene, getLobbySceneEntity } from "../lib/api-scenes";
 import { getShop } from "../lib/api-shop";
 import { useWsStore } from "../state/wsStore";
-import { DigimonSprite } from "../components/common/DigimonSprite";
-import { LobbyScene3D, type LobbyFigure } from "../components/lobby/LobbyScene3D";
 import { LobbyQuestBar } from "../components/lobby/LobbyQuestBar";
 import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
@@ -41,7 +34,6 @@ function fmtCountdown(totalSeconds: number): string {
 }
 const LIVE_MATCHES_QUERY_KEY = ["live-matches"] as const;
 const DAILY_QUERY_KEY = ["daily"] as const;
-const SCENE_QUERY_KEY = ["lobby-scene"] as const;
 
 function normalizeOutcome(
   outcome: LastMatchSummary["outcome"],
@@ -107,9 +99,9 @@ const MODE_ICON_PATHS: Record<GameMode, string> = {
     "M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83",
 };
 
-/* ── lobby scene plumbing ───────────────────────────────────────────── */
-const elementOf = (mon: RosterView): string =>
-  mon.template?.element ?? mon.template?.attribute ?? "water";
+/* ── lobby scene plumbing ─────────────────────────────────────────────
+   A cena 3D vive no LobbySceneHost (AppShell) — consultas de cena/party são
+   de lá; esta página lê o mesmo cache react-query para a UI do overlay.  */
 
 /* ── panels ─────────────────────────────────────────────────────────── */
 type PanelSect = "play" | "party" | "store" | "social" | "news" | "dex";
@@ -147,22 +139,6 @@ export function Lobby(): JSX.Element {
     staleTime: 30_000,
   });
   const dailyQuery = useQuery({ queryKey: DAILY_QUERY_KEY, queryFn: getDaily });
-  const sceneQuery = useQuery({
-    queryKey: SCENE_QUERY_KEY,
-    queryFn: getLobbyScene,
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
-  });
-  const sceneEntityQuery = useQuery({
-    queryKey: ["lobby-scene-entity"] as const,
-    queryFn: getLobbySceneEntity,
-    staleTime: 5_000,
-    refetchInterval: 5_000,
-    refetchOnWindowFocus: true,
-    refetchOnMount: 'always',
-  });
   const shopQuery = useQuery({
     queryKey: ["shop"] as const,
     queryFn: getShop,
@@ -208,25 +184,6 @@ export function Lobby(): JSX.Element {
   );
   const filledParty = partySlots.filter(Boolean).length;
   const partyReady = filledParty >= 3;
-
-  const sceneSettings = sceneQuery.data ?? DEFAULT_LOBBY_SCENE;
-  const figures: (LobbyFigure | null)[] = partySlots.map((m) =>
-    m
-      ? {
-          id: m.id,
-          catalogId: m.catalogId,
-          nickname: m.nickname,
-          level: m.level,
-          element: elementOf(m),
-        }
-      : null,
-  );
-  const lobbyEntity = sceneEntityQuery.data;
-  const modelFile = (lobbyEntity?.settings as Readonly<Record<string, unknown>> | undefined)?.modelFile;
-  const modelUrl = resolveSceneModelUrl(
-    typeof modelFile === "string" ? modelFile : undefined,
-    DEFAULT_ARENA_MODEL,
-  ) ?? null;
 
   const [activeMode, setActiveMode] = useState<GameMode>("ranked");
   const [panel, setPanel] = useState<PanelState>(null);
@@ -364,17 +321,9 @@ export function Lobby(): JSX.Element {
           : "Draw";
   return (
     <div className="lobby-shell" data-od-id="lobby-shell">
-      {/* O AppShell (pai) fornece o TopBar + SocialRail do padrão do site. */}
-
-      {/* 3D cena do lobby — background cinematic */}
-      <LobbyScene3D
-        settings={sceneSettings}
-        party={figures}
-        modelUrl={modelUrl ?? null}
-        useGlbSettings={lobbyEntity?.useGlbSettings === true}
-        {...(lobbyEntity?.settings !== undefined ? { lighting: lobbyEntity.settings as Partial<SceneSettings> } : {})}
-        onOpenCreature={(id) => navigate(`/creature/${id}`)}
-      />
+      {/* O AppShell (pai) fornece o TopBar + SocialRail do padrão do site.
+          A cena 3D de fundo é o LobbySceneHost — persistente, montada fora
+          das rotas; esta página desenha apenas a UI por cima dela. */}
 
       {/* UI overlay — bordas e cantos são as zonas nobres; sem dock, sem config/sair */}
       <div className="lob-stage" data-od-id="lobby-stage">

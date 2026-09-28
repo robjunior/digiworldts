@@ -13,6 +13,7 @@ import { TopBar } from "./topbar/TopBar";
 import "../styles/topbar.css";
 import { SocialRail } from "./social/SocialRail";
 import "../styles/social-rail.css";
+import { LobbySceneHost } from "./lobby/LobbySceneHost";
 import { useAuth } from "../hooks/useAuth";
 import { useT } from "../hooks/useLocale";
 import { getRoster } from "../lib/api";
@@ -288,6 +289,10 @@ export function AppShell(): JSX.Element {
   return (
     <div className={`win win--fill${sidebarOpen ? " has-sidebar-open" : ""}`}>
       <TopBar />
+      {/* Cena 3D do lobby persistente: montada UMA vez por sessão, visível
+          apenas no lobby (LobbySceneHost cuida da visibilidade) — trocar de
+          página não recarrega o GLB/a party. */}
+      <LobbySceneHost />
       <div className="body">
         <main className={mainClassName}>
           <Outlet />

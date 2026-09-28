@@ -49,6 +49,9 @@ type Props = {
   /** Editor lighting for the scene (lighting knobs, reutilizados do subset da
    *  arena) — aplicado quando o GLB não dirige a iluminação. */
   readonly lighting?: Partial<SceneSettings>;
+  /** Host persistence: false = cena montada mas oculta (outra página) —
+   *  o loop para de renderizar frames, mas nada é descartado/reconstruído. */
+  readonly visible?: boolean;
   readonly onOpenCreature?: (monId: string) => void;
 };
 
@@ -90,13 +93,23 @@ function normalizeLobbyGlbLights(root: THREE.Object3D): void {
   });
 }
 
-export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, onOpenCreature }: Props): JSX.Element {
+export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, visible = true, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
   const partySyncRef = useRef<() => void>(() => undefined);
   const partyRef = useRef<Props['party']>(party);
   partyRef.current = party;
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
+  // Fingerprint de CONTEÚDO da cena — e não identidade de objeto das props:
+  // os refetches periódicos do editor devolvem objetos novos com o mesmo
+  // conteúdo, e antes cada um derrubava/reconstruía a cena inteira (GLB
+  // re-parseado, sprites recriados) a cada 5s e a cada retorno ao lobby.
+  // Com a key de conteúdo a cena só reconstrói quando algo REAL mudou
+  // (modelFile, useGlbSettings ou qualquer knob de settings/lighting).
+  const sceneKey = `${modelUrl ?? ''}\u0001${useGlbSettings === true}\u0001${JSON.stringify(settings)}\u0001${JSON.stringify(lighting ?? null)}`;
 
   useEffect(() => {
     try {
@@ -614,6 +627,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const dt = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
 
+      // Host persistence: fora do lobby a cena fica montada mas oculta —
+      // não renderiza frames (GPU livre), porém nada é descartado; o
+      // retorno ao lobby retoma exatamente de onde estava.
+      if (!visibleRef.current) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+
       // Camera is always the editor-controlled cinematic camera so the front
       // and admin preview never diverge because of an authored GLB camera.
       const activeCam = camera;
@@ -764,7 +785,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       return undefined;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, modelUrl, useGlbSettings, lighting]);
+  }, [sceneKey]);
 
   // Party changes → live re-sync (the scene mounts once; this effect reuses it)
   useEffect(() => {
