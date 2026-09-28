@@ -292,6 +292,7 @@ export function Creature(): JSX.Element {
             <div className="cr-xp">
               <span className="xp-fill" style={{ width: `${xpPct(mon)}%` }} />
               <span className="xp-num">{Math.round(mon.xp)} <i>/</i> {mon.xpNext}</span>
+              <span className="xp-level">LV {mon.level}</span>
             </div>
           </div>
         </div>
