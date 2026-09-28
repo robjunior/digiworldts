@@ -12,7 +12,7 @@ import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
-import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
+import { clampLobbyExposure, lobbyHdrCompensation, lobbyPartyGround, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
 
 type ScenePreviewProps = {
   readonly arenaKey: string;
@@ -84,21 +84,19 @@ type LobbyRefs = {
   lightShafts: LightShaftHandle[];
   stageCenterX: number;
   stageCenterZ: number;
+  /** Piso real da party resolvido no load do GLB (platter OU piso do modelo
+   *  normalizado) — lobbyStageOrigin lê daqui em vez de re-normalizar a cada
+   *  applyLobbyStage (que roda a cada knob change e comporia o scale). */
+  partyOrigin: { y: number; x: number; z: number } | null;
 };
 
 function lobbyStageOrigin(f: LobbyRefs, lobby: LobbySceneSettings): { y: number; x: number; z: number } {
   const fallback = { y: lobby.partyHeight ?? 0, x: 0, z: 0 };
-  const root = f.glbRoot;
-  if (root === null) return fallback;
-  root.updateMatrixWorld(true);
-  let top: { y: number; x: number; z: number } | null = null;
-  root.traverse((o) => {
-    if (!/hdd_plattertop/i.test(o.name)) return;
-    const bounds = new THREE.Box3().setFromObject(o);
-    const candidate = { y: bounds.max.y, x: bounds.getCenter(new THREE.Vector3()).x, z: bounds.getCenter(new THREE.Vector3()).z };
-    if (Number.isFinite(candidate.y) && (top === null || candidate.y > top.y)) top = candidate;
-  });
-  return top ?? fallback;
+  // Piso resolvido uma vez no load do GLB (lobbyPartyGround: platter arena OU
+  // maior piso do modelo normalizado). Nunca re-meça aqui — applyLobbyStage
+  // roda a cada knob change e a renormalização comporia o scale.
+  if (f.partyOrigin !== null) return f.partyOrigin;
+  return fallback;
 }
 
 /** Recompute camera, pedestals, party rigs, lights and fog from the scene
@@ -361,9 +359,12 @@ function applyLobbyStage(
 
 /** Load the arena GLB as backdrop, seated on its floor + arena offsets/span.
  *  Mirrors LobbyScene3D: an `hdd_plattertop` GLB is a FIELD (arena-span
- *  transform, floor at min.y); a platterless biome/lodge GLB is a distant
- *  BACKDROP (scale 34/sourceSpan, lowest point at partyHeight, center z=-26)
- *  so the party rests ON the scene floor in the preview exactly as live. */
+ *  transform, party on the platter); a platterless biome/lodge GLB is
+ *  normalized to 34/sourceSpan and the party seats ON its real floor plane
+ *  (Ground_* / *_Floor / Floor_*), centered — NOT at z=-26 (that left the
+ *  digimons floating ~15u in front of the visible floor) and NOT on the
+ *  partyHeight knob. The resolved party origin is stored once in
+ *  `f.partyOrigin`; applyLobbyStage reads it without renormalizing. */
 async function loadLobbyGlb(
   f: LobbyRefs,
   modelUrl: string | undefined,
@@ -386,14 +387,8 @@ async function loadLobbyGlb(
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const span = Math.max(size.x, size.y, size.z);
-  const hasPlatter = ((): boolean => {
-    let found = false;
-    root.traverse((o) => {
-      if (/hdd_plattertop/i.test(o.name)) found = true;
-    });
-    return found;
-  })();
-  if (hasPlatter) {
+  const probe = lobbyPartyGround(root);
+  if (probe !== null && probe.kind === 'platter') {
     // arenaSpan sets the target size; otherwise normalize only out-of-band models.
     const targetSpan = (settings.arenaSpan ?? (span < 20 || span > 90 ? 48 : span)) * 0.75;
     if (span > 0 && targetSpan > 0) root.scale.setScalar(targetSpan / span);
@@ -402,30 +397,28 @@ async function loadLobbyGlb(
     const oy = settings.arenaOffsetY ?? 0;
     const oz = settings.arenaOffsetZ ?? 0;
     root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
+    root.updateMatrixWorld(true);
+    f.partyOrigin = lobbyPartyGround(root);
   } else {
-    // Biome/lodge GLB: reframe as backdrop, lowest point AT the party ground —
-    // identical math to LobbyScene3D.fitPartyToPlatter's fallback.
+    // Biome/lodge: reset the load-callback field transform (arenaSpan/offsets
+    // are arena-tuned and would blow up these models), normalize to
+    // 34/sourceSpan and seat the party on the model's real floor center.
     root.position.set(0, 0, 0);
+    root.scale.setScalar(1);
     root.updateMatrixWorld(true);
     const sourceBox = new THREE.Box3().setFromObject(root);
     const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
-    root.scale.multiplyScalar(34 / sourceSpan);
+    root.scale.setScalar(34 / sourceSpan);
     root.updateMatrixWorld(true);
-    const backdropBox = new THREE.Box3().setFromObject(root);
-    const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
-    const groundY = lobby.partyHeight ?? 0;
-    root.position.set(
-      -backdropCenter.x,
-      groundY - backdropBox.min.y,
-      -26 - backdropCenter.z,
-    );
+    f.partyOrigin = lobbyPartyGround(root);
+    if (f.partyOrigin === null) f.partyOrigin = { y: lobby.partyHeight ?? 0, x: 0, z: 0 };
   }
   root.updateMatrixWorld(true);
   f.glbRoot = root;
   normalizeLobbyGlbLights(root);
   f.scene.add(root);
-  // o piso da arena mudou (topo do hdd_plattertop) — reassenta party, pedestais
-  // e câmera no chão real do modelo recém-carregado
+  // o piso da arena mudou (topo do hdd_plattertop/maior piso) — reassenta
+  // party, pedestais e câmera no chão real do modelo recém-carregado
   applyLobbyStage(f, settings, lobby, weather, timeOfDay);
 }
 
@@ -569,6 +562,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
             lightShafts: [],
             stageCenterX: 0,
             stageCenterZ: 0,
+            partyOrigin: null,
           };
       lobbyRef.current = fr;
       const off = mountLobbyPreview(canvas, fr, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null);
@@ -647,6 +641,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       fr.scene.remove(fr.glbRoot);
       fr.glbRoot = null;
     }
+    fr.partyOrigin = null; // novo load — piso antigo não vale (platter→biome etc.)
     if (!isLobby) return;
     const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
     void loadLobbyGlb(fr, url, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null).catch(() => {});

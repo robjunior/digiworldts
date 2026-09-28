@@ -25,7 +25,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
-import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from '@digiworld/scene3d/lobby-settings';
+import { lobbyPartyGround, resolveLobbyFog, clampLobbyExposure, lobbyHdrCompensation } from '@digiworld/scene3d/lobby-settings';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -451,75 +451,49 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     };
 
     // ── piso da arena: topo do `hdd_plattertop` do GLB ──────────────────
-    // Todo GLB de lobby carrega esse elemento (o prato do HDD); o topo dele é
-    // a altura do piso onde a party apoia. Medido em WORLD coords (pós escala/
-    // posição do root) — por isso updateMatrixWorld antes do Box3.
-    function platterOrigin(root: THREE.Group): { y: number; x: number; z: number } | null {
-      root.updateMatrixWorld(true);
-      let top: { y: number; x: number; z: number } | null = null;
-      root.traverse((obj) => {
-        if (!/hdd_plattertop/i.test(obj.name)) return;
-        const bounds = new THREE.Box3().setFromObject(obj);
-        const center = bounds.getCenter(new THREE.Vector3());
-        const candidate = { y: bounds.max.y, x: center.x, z: center.z };
-        if (Number.isFinite(candidate.y) && (top === null || candidate.y > top.y)) top = candidate;
-      });
-      return top;
-    }
-
-    /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`.
-     *  Se o GLB é inválido de lobby (sem o platter pra apoiar os digimons),
-     *  FALLBACK para a regra anterior das cenas 3D: party em partyHeight,
-     *  câmera padrão, o GLB só como ambiente. */
+    // O piso real da party vem de lobbyPartyGround (shared lobby-settings):
+    // platter (arena) OU o maior piso do modelo (biome/lodge). Medido em
+    // WORLD coords (pós escala/posição do root) — updateMatrixWorld antes.
+    /** Senta a party/pedestais/holos/câmera no piso real do GLB (topo do
+     *  `hdd_plattertop` numa arena, OU o maior piso do modelo num biome/lodge).
+     *  Se nenhum piso é detectável, FALLBACK para partyHeight. */
     function fitPartyToPlatter(root: THREE.Group): void {
-      const platter = platterOrigin(root);
-      if (platter === null) {
-        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa como backdrop (partyHeight)');
-        stageCenterX = 0;
-        stageCenterZ = 0;
-        groundY = settings.partyHeight ?? 0;
-        key.target.position.set(stageCenterX, groundY, stageCenterZ);
-        key.target.updateMatrixWorld(true);
-
-        // Biome/lodge GLBs are environments, not arena stages. Their geometry
-        // has no authored party floor and can sit between the camera and the
-        // sprites when left at the arena transform. Reframe these models as a
-        // distant backdrop; arena GLBs keep the field transform above.
+      // Uma GLB de arena tem o hdd_plattertop (piso real da party) e mantém o
+      // campo transform do load. Biomes/lodges (forest_biome, dark_lodge...)
+      // NÃO têm platter — mas também são campos com piso real (Ground_* /
+      // *_Floor / Floor_*). Eles são renormalizados para 34/sourceSpan (os
+      // knobs arenaSpan/arenaOffset são tune para a arena e explodiriam o
+      // modelo) e a party apoia NO TOPO do maior piso do modelo, centrada —
+      // não num backdrop 26u atrás (que deixava os digimons flutuando ~15u na
+      // frente do piso visível). A mesma regra vive em lobbyPartyGround
+      // (scene3d/src/lobby-settings.ts), usada pelo LobbyScene3D E pelo
+      // ScenePreview.
+      const probe = lobbyPartyGround(root);
+      if (probe !== null && probe.kind === 'platter') {
+        stageCenterX = probe.x;
+        stageCenterZ = probe.z;
+        groundY = probe.y;
+      } else if (probe !== null) {
+        // Biome/lodge: reset o transform do load (arena-tuned), normaliza e
+        // re-mede o piso no modelo já normalizado.
         root.position.set(0, 0, 0);
+        root.scale.setScalar(1);
         root.updateMatrixWorld(true);
         const sourceBox = new THREE.Box3().setFromObject(root);
         const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
-        root.scale.multiplyScalar(34 / sourceSpan);
+        root.scale.setScalar(34 / sourceSpan);
         root.updateMatrixWorld(true);
-        const backdropBox = new THREE.Box3().setFromObject(root);
-        const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
-        // Align the model's LOWEST POINT to groundY (the party floor) and place
-        // its bounding-box center at z=-26 — not the box center at the camera
-        // target — so the digimons rest ON the scene floor instead of floating
-        // at partyHeight with the forest floor ~12u below them.
-        root.position.set(
-          stageCenterX - backdropCenter.x,
-          groundY - backdropBox.min.y,
-          -26 - backdropCenter.z,
-        );
-        root.updateMatrixWorld(true);
-
-        camCenterY = groundY + (lighting?.camLookAtY ?? 0);
-        cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
-        for (const p of pedestals) {
-          p.ring.position.y = GROUND_Y + 0.01 + groundY;
-          p.glow.position.y = GROUND_Y + 0.005 + groundY;
-        }
-        for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
-        for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
-        seatStageLight();
-        rebuildLightShafts();
-        applyFan();
-        return;
+        const ground = lobbyPartyGround(root) ?? { kind: 'bbox', y: 0, x: 0, z: 0 };
+        stageCenterX = ground.x;
+        stageCenterZ = ground.z;
+        groundY = ground.y;
+        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — party no piso do modelo (34/sourceSpan)');
+      } else {
+        console.warn('[LobbyScene3D] GLB do lobby sem piso detectável — usa partyHeight');
+        stageCenterX = 0;
+        stageCenterZ = 0;
+        groundY = settings.partyHeight ?? 0;
       }
-      stageCenterX = platter.x;
-      stageCenterZ = platter.z;
-      groundY = platter.y;
       key.target.position.set(stageCenterX, groundY, stageCenterZ);
       key.target.updateMatrixWorld(true);
       camCenterY = groundY + (lighting?.camLookAtY ?? 0);
@@ -530,7 +504,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
       for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
       for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
-      // reassenta a luz de palco + feixes volumétricos no piso real (platter)
+      // reassenta a luz de palco + feixes volumétricos no piso real (platter
+      // OU piso do biome — o modelo já está normalizado)
       seatStageLight();
       rebuildLightShafts();
       applyFan();

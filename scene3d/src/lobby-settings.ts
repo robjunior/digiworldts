@@ -44,6 +44,65 @@ export function lobbyHdrCompensation(exposure: number): number {
   return LOBBY_EXPOSURE_REF / Math.max(exposure, LOBBY_EXPOSURE_MIN);
 }
 
+/** World-space party ground + horizontal center of a loaded lobby GLB:
+ *  1. `hdd_plattertop` top surface (arena field) — topmost platter wins;
+ *  2. else the TOP of the largest-xz-footprint floor-ish surface
+ *     (`Ground_*` / `*_Floor` / `Floor_*`) — biome/lodge fields seat the party
+ *     ON their real floor plane, not on a `partyHeight` knob;
+ *  3. else the model's lowest point + box center (last resort).
+ *
+ *  Used by BOTH LobbyScene3D (front) and the admin ScenePreview so the two
+ *  always agree on where the party stands. Call after the GLB's FINAL
+ *  transform (field for arenas, 34/sourceSpan normalize for platterless
+ *  biomes/lodges) with root matrixWorld fresh. The `kind` lets the caller
+ *  decide the transform BEFORE calling again (arena keeps the field
+ *  transform; a platterless model is normalized to 34/sourceSpan first). */
+export type LobbyPartyGround =
+  | { kind: 'platter'; y: number; x: number; z: number }
+  | { kind: 'floor'; y: number; x: number; z: number }
+  | { kind: 'bbox'; y: number; x: number; z: number };
+
+const PARTY_PLATTER_RE = /hdd_plattertop/i;
+const PARTY_FLOOR_RE = /ground|_floor|floor/i;
+
+export function lobbyPartyGround(root: THREE.Object3D): LobbyPartyGround | null {
+  root.updateMatrixWorld(true);
+
+  // 1. Arena: the party floor is the TOP of the hdd_plattertop element.
+  let platter: LobbyPartyGround | null = null;
+  root.traverse((o) => {
+    if (!PARTY_PLATTER_RE.test(o.name)) return;
+    const b = new THREE.Box3().setFromObject(o);
+    if (!Number.isFinite(b.max.y)) return;
+    const c = b.getCenter(new THREE.Vector3());
+    if (platter === null || b.max.y > platter.y) platter = { kind: 'platter', y: b.max.y, x: c.x, z: c.z };
+  });
+  if (platter !== null) return platter;
+
+  // 2. Biome/lodge field: stand on the biggest flat surface (its ground
+  //    plane), not on a stair/rock node with a smaller footprint.
+  let floor: LobbyPartyGround | null = null;
+  let floorArea = -1;
+  root.traverse((o) => {
+    if (!PARTY_FLOOR_RE.test(o.name)) return;
+    const b = new THREE.Box3().setFromObject(o);
+    if (!Number.isFinite(b.max.y)) return;
+    const s = b.getSize(new THREE.Vector3());
+    const area = s.x * s.z;
+    if (area <= floorArea) return;
+    const c = b.getCenter(new THREE.Vector3());
+    floor = { kind: 'floor', y: b.max.y, x: c.x, z: c.z };
+    floorArea = area;
+  });
+  if (floor !== null) return floor;
+
+  // 3. No recognizable floor — seat on the lowest point of the model.
+  const b = new THREE.Box3().setFromObject(root);
+  if (!Number.isFinite(b.min.y)) return null;
+  const c = b.getCenter(new THREE.Vector3());
+  return { kind: 'bbox', y: b.min.y, x: c.x, z: c.z };
+}
+
 const FOG_DEFAULT_COLOR = 0x1e2a44;
 const FOG_DEFAULT_NEAR = 14;
 const FOG_DEFAULT_FAR = 70;

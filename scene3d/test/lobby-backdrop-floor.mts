@@ -1,13 +1,18 @@
 /**
- * Regression repro: biome/lodge GLBs without `hdd_plattertop` seat the lobby
- * party on the SCENE FLOOR, not at the raw `partyHeight` knob.
+ * Regression repro: a platterless biome/lodge GLB chosen as the lobby scene
+ * seats the party ON the model's real floor plane, centered — exactly like the
+ * arena seats on its hdd_plattertop. Previously the fallback reframed these
+ * models as a distant backdrop (scale 34/sourceSpan + bounding-box center at
+ * z=-26), which left the digimons floating ~15u in front of the visible floor
+ * ("looks bad, not aligned").
  *
- * Replicates LobbyScene3D.fitPartyToPlatter's no-platter fallback (and the
- * mirrored admin ScenePreview.loadLobbyGlb): reset root transform, scale to
- * 34/sourceSpan, then align the model's LOWEST POINT to groundY and place the
- * bounding-box center at z=-26. Before the fix the fallback centered the box
- * on the camera view ray, leaving the forest floor ~12u BELOW the party —
- * digimons floated ("renderizando lá em cima").
+ * The NEW rule (shared `lobbyPartyGround` in scene3d/src/lobby-settings.ts,
+ * used by LobbyScene3D AND the admin ScenePreview):
+ *   - arena GLB (has hdd_plattertop) → keep the load field transform, party on
+ *     the platter top;
+ *   - otherwise → reset root, scale 34/sourceSpan, party on the TOP of the
+ *     largest-xz-footprint floor-ish surface (Ground_* / *_Floor / Floor_*),
+ *     horizontally centered ON that floor (no z=-26, no partyHeight knob).
  *
  * Run:  npx tsx scene3d/test/lobby-backdrop-floor.mts
  */
@@ -17,9 +22,14 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Import the REAL shared helper the renderers use (must stay in lockstep with
+// LobbyScene3D.fitPartyToPlatter and ScenePreview.loadLobbyGlb).
+const { lobbyPartyGround } = await import('file://' + resolve(process.cwd(), 'src/lobby-settings.ts'));
+
 const GLB = resolve(process.cwd(), 'assets', 'arenas', 'forest_biome.glb');
-if (!existsSync(GLB)) {
-  console.error(`missing forest_biome.glb at ${GLB}`);
+const LODGE = resolve(process.cwd(), 'assets', 'arenas', 'dark_lodge_biome.glb');
+if (!existsSync(GLB) || !existsSync(LODGE)) {
+  console.error(`missing biome GLBs at ${GLB} / ${LODGE}`);
   process.exit(1);
 }
 
@@ -55,49 +65,86 @@ const check = (label: string, ok: boolean, detail = ''): void => {
   if (!ok) failures += 1;
 };
 
-const gltf = await new GLTFLoader().loadAsync(new URL('file://' + GLB).href);
-const root = gltf.scene;
+const load = (path: string) => new GLTFLoader().loadAsync(new URL('file://' + path).href);
 
-// No platter in the biome.
-let platterFound = false;
-root.traverse((o) => { if (/hdd_plattertop/i.test(o.name)) platterFound = true; });
-check('forest_biome.glb has no hdd_plattertop (fallback path)', platterFound === false);
-
-// --- Exact fallback math (mirrors LobbyScene3D / ScenePreview) ---
-function reframeAsBackdrop(model: THREE.Object3D, groundY: number): void {
+// biome floor: normalize 34/sourceSpan then seat (mirrors both renderers).
+function normalizeBiome(model: THREE.Object3D): void {
   model.position.set(0, 0, 0);
+  model.scale.setScalar(1);
   model.updateMatrixWorld(true);
   const sourceBox = new THREE.Box3().setFromObject(model);
   const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
-  model.scale.multiplyScalar(34 / sourceSpan);
-  model.updateMatrixWorld(true);
-  const backdropBox = new THREE.Box3().setFromObject(model);
-  const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
-  model.position.set(
-    0 - backdropCenter.x,
-    groundY - backdropBox.min.y,
-    -26 - backdropCenter.z,
-  );
+  model.scale.setScalar(34 / sourceSpan);
   model.updateMatrixWorld(true);
 }
 
-// Forest scene partyHeight = 3 (dev data) — party feet must TOUCH the floor.
-const groundY = 3;
-reframeAsBackdrop(root, groundY);
-const box = new THREE.Box3().setFromObject(root);
-const center = box.getCenter(new THREE.Vector3());
-check('backdrop lowest point == party ground (feet on floor)',
-  Math.abs(box.min.y - groundY) < 1e-6, `min.y=${box.min.y} groundY=${groundY}`);
-check('backdrop bounding-box center at z=-26',
-  Math.abs(center.z + 26) < 1e-6, `center.z=${center.z}`);
-check('backdrop center x aligned to stage center (0)',
-  Math.abs(center.x) < 1e-6, `center.x=${center.x}`);
+/** largest-xz-footprint floor-ish node (the ground plane, not a stair/rock). */
+function floorNodeOf(root: THREE.Object3D): { b: THREE.Box3 } | null {
+  let best: { b: THREE.Box3 } | null = null;
+  let bestArea = -1;
+  root.traverse((o) => {
+    if (!/ground|_floor|floor/i.test(o.name)) return;
+    const b = new THREE.Box3().setFromObject(o);
+    const s = b.getSize(new THREE.Vector3());
+    const area = s.x * s.z;
+    if (area <= bestArea) return;
+    best = { b };
+    bestArea = area;
+  });
+  return best;
+}
 
-// Default partyHeight (0) also rests on the floor.
-const root2 = (await new GLTFLoader().loadAsync(new URL('file://' + GLB).href)).scene;
-reframeAsBackdrop(root2, 0);
-const box2 = new THREE.Box3().setFromObject(root2);
-check('default partyHeight=0: feet on floor', Math.abs(box2.min.y) < 1e-6, `min.y=${box2.min.y}`);
+// --- 1. forest_biome.glb: party on Ground_Grass, centered ---------------
+{
+  const root = (await load(GLB)).scene;
+  normalizeBiome(root);
+  const ground = lobbyPartyGround(root);
+  check('forest: detected kind=floor (largest Ground_* plane)', ground?.kind === 'floor', String(ground?.kind));
+  const box = new THREE.Box3().setFromObject(root);
+  const span = box.getSize(new THREE.Vector3()).length();
+  check('forest: normalized span ~34u', Math.abs(span - 34) < 1.5, `span=${span.toFixed(2)}`);
+  const floor = floorNodeOf(root);
+  check('forest: floor node found', floor !== null);
+  check('forest: party feet == Ground_Grass top',
+    floor !== null && ground !== null && Math.abs(ground.y - floor.b.max.y) < 1e-6,
+    `groundY=${ground?.y.toFixed(3)} floorTop=${floor?.b.max.y.toFixed(3)}`);
+  check('forest: party horizontally ON the floor surface',
+    floor !== null && ground !== null && ground.x >= floor.b.min.x - 1e-6 && ground.x <= floor.b.max.x + 1e-6
+    && ground.z >= floor.b.min.z - 1e-6 && ground.z <= floor.b.max.z + 1e-6,
+    `party@(${ground?.x.toFixed(2)},${ground?.z.toFixed(2)})`);
+  // NOT pushed 26u behind: the party must sit INSIDE the model's x/z span.
+  check('forest: party not displaced 26u behind (inside model span)',
+    ground !== null && ground.z >= box.min.z - 1e-6 && ground.z <= box.max.z + 1e-6,
+    `z=${ground?.z.toFixed(2)} span z[${box.min.z.toFixed(2)},${box.max.z.toFixed(2)}]`);
+}
+
+// --- 2. dark_lodge_biome.glb (the current Lobby scene model): Lodge_Floor ---
+{
+  const root = (await load(LODGE)).scene;
+  normalizeBiome(root);
+  const ground = lobbyPartyGround(root);
+  check('lodge: detected kind=floor (Lodge_Floor)', ground?.kind === 'floor', String(ground?.kind));
+  const floor = floorNodeOf(root);
+  check('lodge: floor node found', floor !== null);
+  check('lodge: party feet == Lodge_Floor top',
+    floor !== null && ground !== null && Math.abs(ground.y - floor.b.max.y) < 1e-6,
+    `groundY=${ground?.y.toFixed(3)} floorTop=${floor?.b.max.y.toFixed(3)}`);
+  check('lodge: party horizontally ON the floor surface',
+    floor !== null && ground !== null && ground.x >= floor.b.min.x - 1e-6 && ground.x <= floor.b.max.x + 1e-6
+    && ground.z >= floor.b.min.z - 1e-6 && ground.z <= floor.b.max.z + 1e-6,
+    `party@(${ground?.x.toFixed(2)},${ground?.z.toFixed(2)})`);
+  const box = new THREE.Box3().setFromObject(root);
+  check('lodge: party not displaced 26u behind (inside model span)',
+    ground !== null && ground.z >= box.min.z - 1e-6 && ground.z <= box.max.z + 1e-6,
+    `z=${ground?.z.toFixed(2)} span z[${box.min.z.toFixed(2)},${box.max.z.toFixed(2)}]`);
+}
+
+// --- 3. arena.glb keeps the platter classification (regression guard) ------
+{
+  const root = (await load(resolve(process.cwd(), 'assets', 'arenas', 'arena.glb'))).scene;
+  const probe = lobbyPartyGround(root);
+  check('arena: classified platter (unchanged field path)', probe?.kind === 'platter', String(probe?.kind));
+}
 
 console.log(`\n=== SUMMARY: ${failures === 0 ? 'all' : failures} passed ===`);
 process.exit(failures > 0 ? 1 : 0);
