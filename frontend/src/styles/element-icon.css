@@ -1,0 +1,49 @@
+/* Centralized DigiWorld element icons — see components/common/ElementIcon.tsx.
+   Self-scoped under .element-icon so it can't leak into route layouts.
+   Element color arrives via --ec (canonical design-tokens value); surfaces resolve
+   to the host palette with fallbacks. Notch treatment used in place of radius. */
+
+.element-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: none;
+  line-height: 1;
+  color: var(--ec, var(--muted, #6b7a99));
+  font: 700 9px/1 var(--font, 'Inter', system-ui, sans-serif);
+  letter-spacing: 0.06em;
+  text-transform: capitalize;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.element-icon__glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 1px 3px color-mix(in oklab, var(--ec, #6b7a99) 55%, transparent));
+}
+
+.element-icon__glyph svg {
+  display: block;
+  fill: currentColor;
+}
+
+.element-icon__label {
+  color: var(--muted, #6b7a99);
+}
+
+/* Badge variant: notch-clipped surface with a soft element glow, hairline border. */
+.element-icon--badge .element-icon__glyph {
+  border: 1px solid color-mix(in oklab, var(--ec, #6b7a99) 46%, var(--hairline, #1e2a44));
+  background:
+    radial-gradient(130% 95% at 20% 10%, color-mix(in oklab, var(--ec, #6b7a99) 30%, transparent), transparent 60%),
+    var(--panel2, #1a2440);
+}
+
+.element-icon--badge.element-icon--size-xs .element-icon__glyph { clip-path: polygon(0 4px, 4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%); }
+.element-icon--badge.element-icon--size-sm .element-icon__glyph { clip-path: polygon(0 5px, 5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%); }
+.element-icon--badge.element-icon--size-md .element-icon__glyph { clip-path: polygon(0 7px, 7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%); }
+.element-icon--badge.element-icon--size-lg .element-icon__glyph { clip-path: polygon(0 9px, 9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%); }

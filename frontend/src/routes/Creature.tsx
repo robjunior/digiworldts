@@ -7,6 +7,7 @@ import type { Attribute, Element, Stage, TemplateDigimon } from '@digiworld/shar
 import { RenameDialog } from '../components/roster/RenameDialog';
 import { ResistanceChart } from '../components/roster/ResistanceChart';
 import { SkillEditor } from '../components/roster/SkillEditor';
+import { ElementIcon } from '../components/common/ElementIcon';
 import { EvolutionChain } from '../components/roster/EvolutionChain';
 import { EvoConditions, EvoLine, pastLine } from '../components/roster/EvolveDialog';
 import type { ActivityByMon, RosterMon } from '../components/roster/types';
@@ -273,7 +274,7 @@ export function Creature(): JSX.Element {
             <p className="tpl">{template?.name ?? mon.catalogId} &nbsp;/&nbsp; Attribute <b>{attribute}</b> · {cap(e)}</p>
             <div className="meta">
               <div className="cell"><div className="lbl">Level</div><div className="val">{mon.level}</div></div>
-              <div className="cell"><div className="lbl">Element</div><div className="val el">{cap(e)}</div></div>
+              <div className="cell"><div className="lbl">Element</div><div className="val el"><ElementIcon element={currentElement} size="sm" />{cap(e)}</div></div>
               <div className="cell"><div className="lbl">Stage</div><div className="val">{stage}</div></div>
               <div className="cell"><div className="lbl">Mood</div><div className="val">{mon.mood}%</div></div>
             </div>
