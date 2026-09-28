@@ -4,7 +4,7 @@ import './../../styles/element-icon.css';
 
 type ElementKey = keyof typeof elements;
 
-const SIZES: Record<ElementIconSize, number> = { xs: 12, sm: 15, md: 20, lg: 28 };
+const SIZES: Record<ElementIconSize, number> = { xs: 16, sm: 20, md: 26, lg: 36 };
 
 export type ElementIconSize = 'xs' | 'sm' | 'md' | 'lg';
 export type ElementIconVariant = 'bare' | 'badge';

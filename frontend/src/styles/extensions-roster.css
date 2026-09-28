@@ -816,6 +816,12 @@ button {
     width: 19px;
     height: 19px;
 }
+/* element glyphs render ~30% larger than the shared attribute-icon size; scoped so
+   neighboring attribute tiles keep their 19px geometry (50px tile, 28px ic slot unchanged) */
+.rmtile .ic .element-icon .element-icon__glyph svg {
+    width: 25px;
+    height: 25px;
+}
 .rmtile .rl {
     width: 100%;
     text-align: center;
