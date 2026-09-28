@@ -18,7 +18,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { applyArenaAssets } from '../src/content-deploy/assets.ts';
+import { applyArenaAssets, applySceneAssets } from '../src/content-deploy/assets.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
@@ -103,6 +103,12 @@ function main(): void {
     check('5 committed bundle assetManifest carries arena GLBs',
       arenaEntries.some((e) => e.rel === 'arenas/arena.glb'),
       `arenas entries=${arenaEntries.length}`);
+    // Scene presets must ship in the same bundle — a staging lobby with an
+    // empty scenes.json falls back to DEFAULT_ARENA_MODEL (forest biome).
+    const sceneEntries = (bundle.assetManifest ?? []).filter((e) => e.rel.startsWith('scenes/'));
+    check('5e committed bundle assetManifest carries scenes/scenes.json',
+      sceneEntries.some((e) => e.rel === 'scenes/scenes.json'),
+      `scenes entries=${sceneEntries.length}`);
     const realDest = join(scratch, 'real-dest');
     const s5 = await applyArenaAssets(join(ROOT, 'content'), bundle.assetManifest, realDest);
     check('5b committed arena.glb applied to target',
@@ -116,6 +122,20 @@ function main(): void {
     const s5b = await applyArenaAssets(join(ROOT, 'content'), bundle.assetManifest, realDest);
     check('5d re-applying real bundle is idempotent', s5b.applied.length === 0
       && s5b.skippedUnchanged.length === arenaEntries.length, JSON.stringify(s5b));
+
+    // --- 6. scenes/scenes.json applies from the committed bundle -----------
+    const scenesDest = join(scratch, 'real-scenes-dest');
+    const s6 = await applySceneAssets(join(ROOT, 'content'), bundle.assetManifest, scenesDest);
+    check('6a committed scenes/scenes.json applied to target',
+      s6.applied.includes('scenes/scenes.json')
+      && existsSync(join(scenesDest, 'scenes.json')), JSON.stringify(s6));
+    // Staged scenes.json must equal the dev-authoritative scenes store file.
+    const srcScenes = readFileSync(join(ROOT, 'backend', 'data', 'scenes', 'scenes.json'));
+    check('6b applied scenes.json == dev scenes store file',
+      sha256(readFileSync(join(scenesDest, 'scenes.json'))) === sha256(srcScenes));
+    const s6b = await applySceneAssets(join(ROOT, 'content'), bundle.assetManifest, scenesDest);
+    check('6c re-applying scenes idempotent', s6b.applied.length === 0
+      && s6b.skippedUnchanged.length === sceneEntries.length, JSON.stringify(s6b));
 
     rmSync(scratch, { recursive: true, force: true });
     console.log(`\n=== SUMMARY: ${passed} passed, ${failed} failed ===`);

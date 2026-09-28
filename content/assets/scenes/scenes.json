@@ -1,0 +1,249 @@
+{
+  "version": 2,
+  "scenes": [
+    {
+      "id": "scn_5m08njedq62my3rv087038vvfn",
+      "name": "Forest",
+      "elements": [
+        "plant"
+      ],
+      "settings": {
+        "sunIntensity": 2.5,
+        "shadowRadius": 1.5,
+        "shadowBias": -0.0001,
+        "shadowNormalBias": 0.055,
+        "shadowMapSize": 4096,
+        "fogMode": "linear",
+        "fogColor": 9433252,
+        "fogNear": 20.5,
+        "fogFar": 29,
+        "fogDensity": 0.001,
+        "fogHeight": -5,
+        "hemiSkyColor": 9433252,
+        "hemiGroundColor": 10076657,
+        "hemiIntensity": 0,
+        "dustOpacity": 0.92,
+        "camElevDeg": 25,
+        "camYawDeg": 13.5,
+        "camDist": 13.4,
+        "camLookAtY": 0.15,
+        "camFrustum": 3,
+        "cameraType": "ortho",
+        "arenaSpan": 41,
+        "modelFile": "forest_biome.glb",
+        "lobby": {
+          "pedestalSpacing": 256,
+          "pedestalScale": 1.5,
+          "sideTiltDeg": 34,
+          "centerScale": 1.42,
+          "centerLift": 134,
+          "partyHeight": 3,
+          "driftIntensity": 1.6
+        }
+      },
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1786638586516,
+      "updatedAt": 1790167137442
+    },
+    {
+      "id": "scn_54h65r40e1rqanr3en507mpydh",
+      "name": "Earth",
+      "elements": [
+        "earth"
+      ],
+      "settings": {
+        "sunIntensity": 1.08,
+        "sunPosX": -2.5,
+        "sunPosY": 13.1,
+        "sunPosZ": 0,
+        "shadowRadius": 0.5,
+        "shadowBias": -0.0002,
+        "shadowNormalBias": 0.005,
+        "shadowMapSize": 4096,
+        "fogMode": "exp2",
+        "fogColor": 16753480,
+        "fogNear": 25.5,
+        "fogDensity": 0.025,
+        "hemiIntensity": 0.68,
+        "exposure": 1,
+        "dustOpacity": 0,
+        "camLookAtY": -0.15,
+        "camFrustum": 5.6,
+        "cameraType": "ortho",
+        "camFov": 43,
+        "arenaSpan": 50,
+        "arenaOffsetX": 2.2,
+        "arenaOffsetZ": 0
+      },
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1786638627627,
+      "updatedAt": 1786992910715
+    },
+    {
+      "id": "scn_hj3rwkc9tbdhktjtq20mt7maxk",
+      "name": "Ice",
+      "elements": [
+        "wind"
+      ],
+      "settings": {
+        "shadowRadius": 1.5,
+        "shadowBias": 0.0001,
+        "shadowNormalBias": 0.02,
+        "exposure": 1.68,
+        "dustOpacity": 0,
+        "camElevDeg": 22,
+        "camYawDeg": 54,
+        "camDist": 14.2,
+        "camLookAtY": -0.25,
+        "camFrustum": 7.6,
+        "cameraType": "ortho",
+        "arenaSpan": 62,
+        "arenaOffsetY": 0.6,
+        "arenaOffsetZ": -2.2,
+        "modelFile": "frost_biome.glb"
+      },
+      "useGlbSettings": false,
+      "weather": {
+        "preset": "blizzard",
+        "emitters": [],
+        "lighting": {
+          "sunIntensityMult": 0.35,
+          "ambientDimMult": 0.85,
+          "fogEnabled": true,
+          "fogDensity": 0.03
+        },
+        "transitionMs": 2000
+      },
+      "timeOfDay": null,
+      "createdAt": 1786638718749,
+      "updatedAt": 1786992992158
+    },
+    {
+      "id": "scn_rz387wc5qtbsxbkyrfc95rvvnp",
+      "name": "Wind",
+      "elements": [
+        "wind"
+      ],
+      "settings": {},
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1786638940427,
+      "updatedAt": 1786639208367
+    },
+    {
+      "id": "scn_nak6wk6mgtktha3mjpxbrkehm2",
+      "name": "Water",
+      "elements": [
+        "water"
+      ],
+      "settings": {
+        "arenaSpan": 59,
+        "modelFile": "forest_biome.glb"
+      },
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1786651662257,
+      "updatedAt": 1786651687936
+    },
+    {
+      "id": "scn_ds89cnzbfxj2anx35gge7w85rz",
+      "name": "Fire",
+      "elements": [],
+      "settings": {
+        "sunIntensity": 1.32,
+        "shadowRadius": 1.5,
+        "shadowBias": -0.0079,
+        "shadowNormalBias": 0.025,
+        "shadowMapSize": 4096,
+        "fogMode": "exp2",
+        "fogColor": 16742400,
+        "fogNear": 20.5,
+        "fogFar": 5,
+        "fogDensity": 0.026,
+        "hemiSkyColor": 16753480,
+        "hemiGroundColor": 16380011,
+        "hemiIntensity": 1.84,
+        "rimColor": 15049994,
+        "fillIntensity": 0.3,
+        "camYawDeg": 6,
+        "arenaSpan": 38,
+        "arenaOffsetX": -1.2,
+        "arenaOffsetY": 0,
+        "arenaOffsetZ": 1.8,
+        "modelFile": "lava_river_biome.glb"
+      },
+      "useGlbSettings": false,
+      "weather": {
+        "preset": "ashfall",
+        "emitters": [],
+        "lighting": {
+          "sunColor": 12994048,
+          "sunIntensityMult": 2.85,
+          "ambientDimMult": 1
+        },
+        "transitionMs": 4000
+      },
+      "timeOfDay": null,
+      "createdAt": 1786993082611,
+      "updatedAt": 1787229389158
+    },
+    {
+      "id": "scn_ad34g6p2je81kejys7w74495dh",
+      "name": "Lobby",
+      "elements": [],
+      "settings": {
+        "sunColor": 14687012,
+        "sunIntensity": 0.8,
+        "sunPosX": -10.3,
+        "shadowsEnabled": true,
+        "shadowRadius": 2,
+        "fogEnabled": true,
+        "fogMode": "exp2",
+        "fogColor": 16311388,
+        "fogNear": 7,
+        "fogDensity": 0.0664,
+        "fogHeight": -0.55,
+        "exposure": 0.2,
+        "dustOpacity": 0.02,
+        "camDist": 14,
+        "camLookAtY": 1.35,
+        "cameraType": "perspective",
+        "arenaSpan": 104,
+        "arenaOffsetX": -5.2,
+        "arenaOffsetY": -10.4,
+        "modelFile": "arena.glb",
+        "editorProjectFile": "/assets/scenes/scn_ad34g6p2je81kejys7w74495dh/rev_b1c86a3f6e3346eca32297419f9990d3/project.app.json",
+        "lobby": {
+          "pedestalSpacing": 152,
+          "pedestalScale": 0.94,
+          "sideTiltDeg": 0,
+          "centerScale": 0.68,
+          "centerLift": 64,
+          "partyHeight": 0.85,
+          "driftIntensity": 0.55,
+          "digimonBrightness": 1.5,
+          "stageLightIntensity": 0.1,
+          "volumetricIntensity": 0.9,
+          "volumetricSoftness": 0.55,
+          "volumetricDistanceBlur": 0,
+          "bloomEnabled": true,
+          "bloomStrength": 0.85,
+          "bloomRadius": 0.55,
+          "bloomThreshold": 0.65
+        }
+      },
+      "kind": "lobby",
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1790105708125,
+      "updatedAt": 1790459261343
+    }
+  ]
+}

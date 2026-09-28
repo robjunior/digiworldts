@@ -261,7 +261,7 @@ async function runApply(seedPath: string): Promise<void> {
     throw new Error(`seed artifact contains player-state tables: ${forbidden.join(', ')}`);
   }
 
-  const [{ closeDbAdapter }, { config }, { applyArenaAssets }] = await Promise.all([
+  const [{ closeDbAdapter }, { config }, { applyArenaAssets, applySceneAssets }] = await Promise.all([
     import('../db/index.js'),
     import('../config.js'),
     import('./assets.js'),
@@ -292,6 +292,19 @@ async function runApply(seedPath: string): Promise<void> {
       for (const rel of assets.skippedUnchanged) console.log(`  = ${rel} (unchanged)`);
       for (const rel of assets.missing) console.warn(`  ! ${rel} (staged file missing)`);
     }
+
+    // Scene presets (scenes.json) land in the scenes data dir, which the scenes
+    // store reads — so the admin-authored lobby/scene config ships to stage too.
+    const scenesDest = resolve(config.paths.dataDir, 'scenes');
+    const sceneAssets = await applySceneAssets(bundleDir, env.assetManifest ?? [], scenesDest);
+    const sWrote = sceneAssets.applied.length;
+    const sSame = sceneAssets.skippedUnchanged.length;
+    const sMissing = sceneAssets.missing.length;
+    // eslint-disable-next-line no-console
+    console.log(`content-deploy: scene assets applied=${sWrote} unchanged=${sSame} missing=${sMissing} -> ${scenesDest}`);
+    for (const rel of sceneAssets.applied) console.log(`  + ${rel}`);
+    for (const rel of sceneAssets.skippedUnchanged) console.log(`  = ${rel} (unchanged)`);
+    for (const rel of sceneAssets.missing) console.warn(`  ! ${rel} (staged file missing)`);
   } finally {
     await closeDbAdapter();
   }

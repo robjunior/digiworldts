@@ -16,7 +16,7 @@
  * Run: npx tsx backend/scripts/bundle-arena-assets.mts   (from repo root)
  */
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,6 +25,10 @@ const ROOT = resolve(HERE, '..', '..'); // backend/scripts/ → repo root
 const BUNDLE_PATH = resolve(ROOT, 'content', 'content-bundle.json');
 const ARENAS_SRC = resolve(ROOT, 'scene3d', 'assets', 'arenas');
 const STAGE_DIR = resolve(ROOT, 'content', 'assets', 'arenas');
+// Scene presets (the admin-authored scenes.json) ship with the bundle so the
+// staging/prod lobby resolves the configured scene instead of the default.
+const SCENES_SRC = resolve(ROOT, 'backend', 'data', 'scenes', 'scenes.json');
+const STAGE_SCENES_DIR = resolve(ROOT, 'content', 'assets', 'scenes');
 
 type AssetEntry = { rel: string; bytes: number; sha256: string };
 
@@ -49,9 +53,20 @@ for (const file of glbFiles) {
   entries.push({ rel: `arenas/${file}`, bytes: st.size, sha256: sha256File(resolve(STAGE_DIR, file)) });
 }
 
-// Preserve any already-committed non-arena manifest entries (e.g. scenes.json).
+// --- Stage the scene presets (scenes.json) alongside the arenas -------------
+mkdirSync(STAGE_SCENES_DIR, { recursive: true });
+if (existsSync(SCENES_SRC)) {
+  copyFileSync(SCENES_SRC, resolve(STAGE_SCENES_DIR, 'scenes.json'));
+  const st = statSync(resolve(STAGE_SCENES_DIR, 'scenes.json'));
+  entries.push({ rel: 'scenes/scenes.json', bytes: st.size, sha256: sha256File(resolve(STAGE_SCENES_DIR, 'scenes.json')) });
+} else {
+  console.warn('scenes.json not found at backend/data/scenes — skipping scene preset staging');
+}
+
+// Preserve any already-committed non-arena manifest entries, except the ones
+// we re-build below (scenes/scenes.json is always re-staged from dev data).
 const prior = Array.isArray(bundle.assetManifest) ? bundle.assetManifest : [];
-const nonArena = prior.filter((e: AssetEntry) => !e.rel.startsWith('arenas/'));
+const nonArena = prior.filter((e: AssetEntry) => !e.rel.startsWith('arenas/') && e.rel !== 'scenes/scenes.json');
 const newManifest = [...nonArena, ...entries];
 
 // --- Assert tables byte-identical (minimal-diff rule) ---
@@ -67,7 +82,7 @@ if (!changed) {
   writeFileSync(BUNDLE_PATH, `${JSON.stringify(bundle, null, 2)}\n`, 'utf8');
 }
 
-console.log(`arena assets: ${entries.map((e) => e.rel).join(', ') || '(none)'}`);
-console.log(`staged -> ${STAGE_DIR}`);
+console.log(`arena/scene assets: ${entries.map((e) => e.rel).join(', ') || '(none)'}`);
+console.log(`staged -> ${STAGE_DIR} + ${STAGE_SCENES_DIR}`);
 console.log(`assetManifest entries: ${newManifest.length} (was ${prior.length})`);
 console.log(`bundle: ${BUNDLE_PATH}${changed ? ' (written)' : ' (unchanged)'}`);

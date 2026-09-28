@@ -493,13 +493,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         root.updateMatrixWorld(true);
         const backdropBox = new THREE.Box3().setFromObject(root);
         const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
-        const viewTarget = new THREE.Vector3(0, groundY + partyH / 2, 0);
-        const viewDirection = viewTarget.clone().sub(cameraBase).normalize();
-        const backdropWorldCenter = viewTarget.clone().addScaledVector(viewDirection, 26);
+        // Align the model's LOWEST POINT to groundY (the party floor) and place
+        // its bounding-box center at z=-26 — not the box center at the camera
+        // target — so the digimons rest ON the scene floor instead of floating
+        // at partyHeight with the forest floor ~12u below them.
         root.position.set(
-          backdropWorldCenter.x - backdropCenter.x,
-          backdropWorldCenter.y - backdropCenter.y,
-          backdropWorldCenter.z - backdropCenter.z,
+          stageCenterX - backdropCenter.x,
+          groundY - backdropBox.min.y,
+          -26 - backdropCenter.z,
         );
         root.updateMatrixWorld(true);
 

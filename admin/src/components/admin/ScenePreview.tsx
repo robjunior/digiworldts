@@ -359,7 +359,11 @@ function applyLobbyStage(
   }
 }
 
-/** Load the arena GLB as backdrop, seated on its floor + arena offsets/span. */
+/** Load the arena GLB as backdrop, seated on its floor + arena offsets/span.
+ *  Mirrors LobbyScene3D: an `hdd_plattertop` GLB is a FIELD (arena-span
+ *  transform, floor at min.y); a platterless biome/lodge GLB is a distant
+ *  BACKDROP (scale 34/sourceSpan, lowest point at partyHeight, center z=-26)
+ *  so the party rests ON the scene floor in the preview exactly as live. */
 async function loadLobbyGlb(
   f: LobbyRefs,
   modelUrl: string | undefined,
@@ -382,14 +386,41 @@ async function loadLobbyGlb(
   const box = new THREE.Box3().setFromObject(root);
   const size = box.getSize(new THREE.Vector3());
   const span = Math.max(size.x, size.y, size.z);
-  // arenaSpan sets the target size; otherwise normalize only out-of-band models.
-  const targetSpan = (settings.arenaSpan ?? (span < 20 || span > 90 ? 48 : span)) * 0.75;
-  if (span > 0 && targetSpan > 0) root.scale.setScalar(targetSpan / span);
-  const center = box.getCenter(new THREE.Vector3());
-  const ox = settings.arenaOffsetX ?? 0;
-  const oy = settings.arenaOffsetY ?? 0;
-  const oz = settings.arenaOffsetZ ?? 0;
-  root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
+  const hasPlatter = ((): boolean => {
+    let found = false;
+    root.traverse((o) => {
+      if (/hdd_plattertop/i.test(o.name)) found = true;
+    });
+    return found;
+  })();
+  if (hasPlatter) {
+    // arenaSpan sets the target size; otherwise normalize only out-of-band models.
+    const targetSpan = (settings.arenaSpan ?? (span < 20 || span > 90 ? 48 : span)) * 0.75;
+    if (span > 0 && targetSpan > 0) root.scale.setScalar(targetSpan / span);
+    const center = box.getCenter(new THREE.Vector3());
+    const ox = settings.arenaOffsetX ?? 0;
+    const oy = settings.arenaOffsetY ?? 0;
+    const oz = settings.arenaOffsetZ ?? 0;
+    root.position.set(-center.x * (targetSpan / (span || 1)) + ox, -box.min.y + oy, -center.z * (targetSpan / (span || 1)) + oz);
+  } else {
+    // Biome/lodge GLB: reframe as backdrop, lowest point AT the party ground —
+    // identical math to LobbyScene3D.fitPartyToPlatter's fallback.
+    root.position.set(0, 0, 0);
+    root.updateMatrixWorld(true);
+    const sourceBox = new THREE.Box3().setFromObject(root);
+    const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
+    root.scale.multiplyScalar(34 / sourceSpan);
+    root.updateMatrixWorld(true);
+    const backdropBox = new THREE.Box3().setFromObject(root);
+    const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
+    const groundY = lobby.partyHeight ?? 0;
+    root.position.set(
+      -backdropCenter.x,
+      groundY - backdropBox.min.y,
+      -26 - backdropCenter.z,
+    );
+  }
+  root.updateMatrixWorld(true);
   f.glbRoot = root;
   normalizeLobbyGlbLights(root);
   f.scene.add(root);

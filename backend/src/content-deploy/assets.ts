@@ -26,26 +26,28 @@ function sha256(buf: Buffer): string {
 export type AssetApplySummary = { applied: string[]; skippedUnchanged: string[]; missing: string[] };
 
 /**
- * Write every `arenas/*` asset listed in the manifest into `destRoot`,
+ * Write every `<prefix>` asset listed in the manifest into `destRoot`,
  * reading the source bytes from `<bundleDir>/assets/<rel>`.
  *
  * @param bundleDir  Directory that contains the bundle alongside its
  *                   staged `assets/` files (e.g. the `content/` repo dir).
  * @param manifest  The bundle's `assetManifest`.
- * @param destRoot  Destination directory (e.g. config.paths.arenaSeedDir).
+ * @param prefix    Manifest rel prefix to materialize (`arenas/`, `scenes/`).
+ * @param destRoot  Destination directory root for the prefix's files.
  */
-export async function applyArenaAssets(
+export async function applyAssetPrefix(
   bundleDir: string,
   manifest: readonly BundleAsset[],
+  prefix: string,
   destRoot: string,
 ): Promise<AssetApplySummary> {
   const summary: AssetApplySummary = { applied: [], skippedUnchanged: [], missing: [] };
-  const arenaEntries = manifest.filter((a) => a.rel.startsWith('arenas/'));
+  const entries = manifest.filter((a) => a.rel.startsWith(prefix));
 
-  for (const entry of arenaEntries) {
-    const rel = entry.rel.slice('arenas/'.length);
-    // Safety: never let a manifest entry escape the arenas subdir.
-    const cleanRel = relative('arenas', join('arenas', rel));
+  for (const entry of entries) {
+    const rel = entry.rel.slice(prefix.length);
+    // Safety: never let a manifest entry escape the prefix's dest dir.
+    const cleanRel = relative(prefix, join(prefix, rel));
     if (cleanRel.split('/').includes('..')) {
       // eslint-disable-next-line no-console
       console.warn(`content-deploy: skipping unsafe asset rel "${entry.rel}"`);
@@ -86,6 +88,24 @@ export async function applyArenaAssets(
   }
 
   return summary;
+}
+
+/** Materialize `arenas/*` assets (compat wrapper). */
+export async function applyArenaAssets(
+  bundleDir: string,
+  manifest: readonly BundleAsset[],
+  destRoot: string,
+): Promise<AssetApplySummary> {
+  return applyAssetPrefix(bundleDir, manifest, 'arenas/', destRoot);
+}
+
+/** Materialize `scenes/*` assets (scene presets: scenes.json). */
+export async function applySceneAssets(
+  bundleDir: string,
+  manifest: readonly BundleAsset[],
+  destRoot: string,
+): Promise<AssetApplySummary> {
+  return applyAssetPrefix(bundleDir, manifest, 'scenes/', destRoot);
 }
 
 /** Staged files already materialized in `<bundleDir>/assets` (for refresh tooling). */

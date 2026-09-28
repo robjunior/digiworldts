@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
@@ -25,7 +25,17 @@ type SceneFileRecord = SceneEntity & {
 };
 
 let cache: readonly SceneEntity[] | null = null;
+let cacheStamp: { mtimeMs: number; size: number } | null = null;
 let mutationTail: Promise<void> = Promise.resolve();
+
+async function fileStamp(): Promise<{ mtimeMs: number; size: number } | null> {
+  try {
+    const st = await stat(SCENES_PATH);
+    return { mtimeMs: st.mtimeMs, size: st.size };
+  } catch {
+    return null;
+  }
+}
 
 async function serializeMutation<T>(work: () => Promise<T>): Promise<T> {
   const previous = mutationTail;
@@ -156,11 +166,20 @@ function capitalize(s: string): string {
 }
 
 async function readEnvelope(): Promise<readonly SceneEntity[]> {
-  if (cache !== null) return cache;
-  if (!existsSync(SCENES_PATH)) {
+  // Re-stat the file every read instead of trusting a one-shot module cache:
+  // content-deploy --apply (and hand edits) write scenes.json outside the
+  // running process, so a first-read cache would keep serving [] on staging.
+  const stamp = await fileStamp();
+  if (stamp !== null && cacheStamp !== null && cache !== null
+    && stamp.mtimeMs === cacheStamp.mtimeMs && stamp.size === cacheStamp.size) {
+    return cache;
+  }
+  if (stamp === null) {
+    if (cache !== null) return cache; // file removed externally — keep last known
     const seeded = await seedFromLegacyDefaults();
     await writeEnvelope(seeded);
-    cache = seeded;
+    const seededStamp = await fileStamp();
+    cacheStamp = seededStamp;
     log.info('scenes.store.seed', { count: seeded.length, source: seeded.length > 0 ? 'legacy-defaults' : 'empty' });
     return seeded;
   }
@@ -177,10 +196,12 @@ async function readEnvelope(): Promise<readonly SceneEntity[]> {
       if (scene !== null) scenes.push(scene);
     }
     cache = scenes;
+    cacheStamp = stamp;
     return scenes;
   } catch (err) {
     log.warn('scenes.store.read.fail', { err: err instanceof Error ? err.message : String(err) });
     cache = [];
+    cacheStamp = stamp;
     return [];
   }
 }
@@ -190,6 +211,7 @@ async function writeEnvelope(scenes: readonly SceneEntity[]): Promise<void> {
   const envelope: SceneFileEnvelope = { version: 2, scenes: scenes.map(sceneToRecord) };
   await writeFile(SCENES_PATH, JSON.stringify(envelope, null, 2), 'utf8');
   cache = scenes;
+  cacheStamp = await fileStamp();
 }
 
 export async function listScenes(): Promise<readonly SceneEntity[]> {
@@ -286,4 +308,5 @@ export async function deleteSceneEntry(id: string): Promise<boolean> {
 
 export function invalidateSceneCache(): void {
   cache = null;
+  cacheStamp = null;
 }

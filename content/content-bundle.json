@@ -35982,6 +35982,11 @@
       "rel": "arenas/toytown_biome.glb",
       "bytes": 2979656,
       "sha256": "b8d30369956d71f440de8a2b4257c8c400ae9af7c19eb2add1cf73a42c8fcaba"
+    },
+    {
+      "rel": "scenes/scenes.json",
+      "bytes": 6499,
+      "sha256": "6228bec3e1250de660ea700b9f25cd57ab834681f14be68ad9ec79c7db70a584"
     }
   ]
 }
