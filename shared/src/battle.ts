@@ -289,3 +289,74 @@ export function skillPlayerPickCount(skill: Skill): 1 | 2 | 3 {
   }
   return max;
 }
+
+/**
+ * Targeting scope of a skill, derived from its DSL action targets.
+ *
+ * The DSL resolves most targets from battle state at cast time (`self`,
+ * `caster_ally_*`, `enemy_all`, `enemy_random`, position patterns, ...); only
+ * `primary_target` and `player_pick_2/3` require the player to choose. The
+ * scope drives the combat UI:
+ *  - `'auto'`  — no player pick needed anywhere → cast immediately on select.
+ *  - `'enemy'` — a pick is required and the skill hits the enemy side (enemy
+ *                patterns, damage/ailment/EN-drain/debuff actions) → keep the
+ *                enemy picker.
+ *  - `'any'`   — a pick is required but the skill carries no enemy-side or
+ *                offensive action → party-only manual skills; let the player
+ *                click a friendly digimon (or an enemy) as the target.
+ *
+ * Targets nested inside `schedule`/`conditional` actions are walked too, so a
+ * delayed or conditional `primary_target` still counts as manual.
+ */
+export type SkillTargetScope = 'auto' | 'enemy' | 'any';
+
+const MANUAL_TARGETS: ReadonlySet<string> = new Set(['primary_target', 'player_pick_2', 'player_pick_3']);
+
+/** Action kinds that damage or impair — picking a target for them is offensive. */
+const OFFENSIVE_KINDS: ReadonlySet<string> = new Set(['deal_damage', 'drain', 'apply_status', 'consume_en']);
+
+/** Buff kinds that debuff (buff kind string ends with `_down`). */
+function isDebuff(buff: unknown): boolean {
+  return typeof buff === 'string' && buff.endsWith('_down');
+}
+
+function visitActions(actions: unknown, visit: (action: Record<string, unknown>) => void): void {
+  if (Array.isArray(actions)) {
+    for (const inner of actions) visitActions(inner, visit);
+    return;
+  }
+  if (actions === null || typeof actions !== 'object') return;
+  const a = actions as Record<string, unknown>;
+  visit(a);
+  // `schedule` nests its inner action under `action`; `conditional` under
+  // `then`/`else`. Recurse so delayed/branched picks are not missed.
+  visitActions(a.action, visit);
+  visitActions(a.then, visit);
+  visitActions(a.else, visit);
+}
+
+export function skillTargetScope(skill: Skill): SkillTargetScope {
+  const actions = skill.actions;
+  // Legacy non-DSL skill: engine resolves it against the picked target.
+  if (!Array.isArray(actions) || actions.length === 0) return 'enemy';
+  let hasManual = false;
+  let hasEnemyPattern = false;
+  let hasOffensiveManual = false;
+  visitActions(actions, (a) => {
+    const target = a.target;
+    if (typeof target !== 'string') return;
+    const manual = MANUAL_TARGETS.has(target);
+    if (manual) hasManual = true;
+    if (target.startsWith('enemy_')) hasEnemyPattern = true;
+    if (!manual) return;
+    const kind = a.kind;
+    if (typeof kind === 'string' && OFFENSIVE_KINDS.has(kind)) hasOffensiveManual = true;
+    if (kind === 'modify_stat' && typeof a.delta === 'number' && a.delta < 0) hasOffensiveManual = true;
+    if (kind === 'apply_buff' && isDebuff(a.buff)) hasOffensiveManual = true;
+    // A positive initiative shift on a picked target delays it — on a manual
+    // pick that is an enemy speed-control (delay), never a party buff.
+    if (kind === 'shift_initiative' && typeof a.delta === 'number' && a.delta > 0) hasOffensiveManual = true;
+  });
+  if (!hasManual) return 'auto';
+  return hasEnemyPattern || hasOffensiveManual ? 'enemy' : 'any';
+}

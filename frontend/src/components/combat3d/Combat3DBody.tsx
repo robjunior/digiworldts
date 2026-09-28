@@ -1,4 +1,5 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import { skillTargetScope } from '@digiworld/shared/battle';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useNavigate } from 'react-router';
@@ -67,6 +68,14 @@ export function Combat3DBody(): JSX.Element | null {
     }
     return activeBattle.enemy.find((e) => !e.down && e.hp > 0) ?? null;
   }, [activeBattle, selectedTargetId]);
+
+  // Party-only manual skills (no enemy-side pattern in their actions) let the
+  // player click one of their own digimon as the target.
+  const pendingSkillScope = useMemo<'auto' | 'enemy' | 'any' | null>(() => {
+    if (pendingSkillId === null || actor === null) return null;
+    const skill = actor.skills.find((s) => s.id === pendingSkillId);
+    return skill ? skillTargetScope(skill) : null;
+  }, [pendingSkillId, actor]);
 
   const aliveEnemies = useMemo<readonly EnemyUnitView[]>(
     () => (activeBattle ? activeBattle.enemy.filter((e) => !e.down) : []),
@@ -154,7 +163,13 @@ export function Combat3DBody(): JSX.Element | null {
       data-targeting={
         commandMode === 'target-fight' || commandMode === 'target-skill' || commandMode === 'items'
       }
-      data-target-side={commandMode === 'items' ? 'ally' : 'enemy'}
+      data-target-side={
+        commandMode === 'items'
+          ? 'ally'
+          : commandMode === 'target-skill' && pendingSkillScope === 'any'
+            ? 'both'
+            : 'enemy'
+      }
     >
       <Combat3DScene
         ref={sceneRef}
@@ -175,10 +190,17 @@ export function Combat3DBody(): JSX.Element | null {
         }}
         onEnemyHover={setHoveredTargetId}
         onFriendlyClick={(unitId) => {
-          if (commandMode !== 'items' || !canAct || pendingItemId === null || actor === null) return;
-          dispatch({ type: 'use_item', unitId: actor.id, targetId: unitId, itemId: pendingItemId });
-          setPendingItemId(null);
-          setCommandMode('menu');
+          if (!canAct || actor === null) return;
+          if (commandMode === 'items' && pendingItemId !== null) {
+            dispatch({ type: 'use_item', unitId: actor.id, targetId: unitId, itemId: pendingItemId });
+            setPendingItemId(null);
+            setCommandMode('menu');
+          } else if (commandMode === 'target-skill' && pendingSkillId !== null && pendingSkillScope === 'any') {
+            // Party-only manual skill — the friendly digimon is a valid target.
+            dispatch({ type: 'skill', unitId: actor.id, skillId: pendingSkillId, targetId: unitId });
+            setPendingSkillId(null);
+            setCommandMode('menu');
+          }
         }}
       />
 

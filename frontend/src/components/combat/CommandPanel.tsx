@@ -1,4 +1,5 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import { skillTargetScope } from '@digiworld/shared/battle';
 import { useState } from 'react';
 
 import { useLocale, useT } from '../../hooks/useLocale';
@@ -127,7 +128,10 @@ function PanelContent(props: PanelContentProps): JSX.Element {
       }
       const combo = Array.isArray(skill.actions) && skill.actions.length > 1 ? `Combo · ${skill.actions.length} effects` : 'Single action';
       const details = `${skill.element.toUpperCase()} · ${skill.power} power · ${skill.energyCost} EN · ${combo}`;
-      return <TargetingHint title={localizedName(skill, locale)} hint="Click an enemy in the arena to use this skill." details={details} description={localizedDescription(skill, locale)} onBack={() => {
+      const hint = skillTargetScope(skill) === 'any'
+        ? 'Click an enemy or one of your friendly digimon in the arena to use this skill.'
+        : 'Click an enemy in the arena to use this skill.';
+      return <TargetingHint title={localizedName(skill, locale)} hint={hint} details={details} description={localizedDescription(skill, locale)} onBack={() => {
         setPendingSkillId(null);
         onPendingSkill?.(null);
         onMode('skills');
