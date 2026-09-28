@@ -12,11 +12,7 @@
 .tnav-btn[aria-current="page"]::after{content:"";position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--gold);border-radius:1px}
 .tnav-wrap{position:relative;height:100%;display:flex;align-items:center}
 .tnav-caret{flex:none;width:5px;height:5px;margin-left:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
-.tnav-submenu{position:absolute;top:calc(100% + 2px);left:0;min-width:170px;display:flex;flex-direction:column;padding:6px;background:linear-gradient(180deg,#141d30 0%,#0c1120 100%);border:1px solid var(--hair);box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:40}
-.tnav-subitem{display:flex;align-items:center;gap:8px;padding:9px 12px;font:600 11px/1 var(--font);letter-spacing:.06em;text-decoration:none;color:var(--muted);background:none;border:0;cursor:pointer;text-align:left;user-select:none}
-.tnav-subitem:hover{color:var(--ink);background:var(--panel)}
-.tnav-subitem[aria-current="page"]{color:var(--gold)}
-.tnav-subitem + .tnav-subitem{border-top:1px solid rgba(255,255,255,.04)}
+.tnav-wrap.is-open .tnav-btn{color:var(--gold)}
 .topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
 .wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
 .wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
@@ -102,15 +98,35 @@
   .topright { gap: 3px; }
 }
 
-.play-drop{position:absolute;top:calc(100% + 8px);left:2px;min-width:230px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:6px;z-index:70;display:none;box-shadow:0 16px 40px rgba(0,0,0,.45)}
-.play-drop.open{display:block}
-.play-drop-hd{padding:8px 10px 6px;font:700 9px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-.play-drop-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;background:none;border:0;text-align:left;cursor:pointer;clip-path:var(--notch-xs-clip);transition:background .12s}
-.play-drop-item:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel))}
-.pdi-ic{width:30px;height:30px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);color:var(--signal)}
-.play-drop-item:hover .pdi-ic{color:var(--gold-bright)}
-.pdi-ic svg{width:16px;height:16px}
-.pdi-tx{display:flex;flex-direction:column;gap:2px}
-.pdi-lb{display:flex;align-items:center;gap:7px;font:800 12px/1 var(--font);letter-spacing:.05em;color:var(--ink)}
-.pdi-live{font:800 7px/1 var(--font);letter-spacing:.14em;padding:2px 4px;color:var(--gold-bright);border:1px solid var(--gold);clip-path:var(--notch-xs-clip)}
-.pdi-mt{font:600 10px/1 var(--font);color:var(--muted)}
+/* ── Full-screen sub-menu overlays (JOGAR + nav parents) ───────────── */
+/* Both the play menu and nav-parent submenus open as a full-screen,
+   top-down animated overlay above everything. A shared `.ov-*` system
+   renders a dimmed veil + centered panel with a header and columned
+   self-explanatory cards. */
+.play-menu-overlay,.tnav-menu-overlay{position:fixed;inset:0;z-index:120;display:flex;align-items:flex-start;justify-content:center;padding:64px 16px 24px}
+.ov-veil{position:fixed;inset:0;background:color-mix(in oklab,var(--bg) 62%,transparent);backdrop-filter:blur(3px);border:0;cursor:default;animation:ovFade .18s ease-out}
+.ov-panel{position:relative;width:min(860px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-clip);box-shadow:0 32px 80px rgba(0,0,0,.55);animation:ovDrop .34s cubic-bezier(.2,.8,.25,1)}
+.ov-head{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:22px 24px 18px;border-bottom:1px solid var(--hair)}
+.ov-kicker{font:700 9px/1 var(--font);letter-spacing:.22em;text-transform:uppercase;color:var(--signal2)}
+.ov-title{margin:0;font:900 24px/1 var(--font);letter-spacing:-.02em;color:var(--ink)}
+.ov-sub{margin:0;font:500 12px/1.5 var(--font);color:var(--muted);max-width:520px}
+.ov-close{position:absolute;top:18px;right:18px;width:32px;height:32px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);color:var(--muted);cursor:pointer;transition:color .12s,border-color .12s}
+.ov-close:hover{color:var(--ink);border-color:var(--signal)}
+.ov-close svg{width:15px;height:15px}
+.ov-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;padding:20px 24px 26px}
+.ov-card{display:flex;flex-direction:column;gap:8px;padding:16px 14px;text-align:left;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);cursor:pointer;transition:background .12s,border-color .12s,transform .12s;animation:ovCard .42s cubic-bezier(.2,.8,.25,1) both}
+.ov-cols .ov-card:nth-child(1){animation-delay:.15s}
+.ov-cols .ov-card:nth-child(2){animation-delay:.2s}
+.ov-cols .ov-card:nth-child(3){animation-delay:.25s}
+.ov-cols .ov-card:nth-child(4){animation-delay:.3s}
+.ov-card:hover{background:color-mix(in oklab,var(--signal) 10%,var(--panel));border-color:var(--signal);transform:translateY(-2px)}
+.ov-card[aria-current="page"]{border-color:var(--gold)}
+.ov-card-ic{width:38px;height:38px;flex:none;display:grid;place-items:center;background:var(--bg);border:1px solid var(--hair);clip-path:var(--notch-xs-clip);color:var(--signal)}
+.ov-card:hover .ov-card-ic{color:var(--gold-bright)}
+.ov-card-ic svg{width:19px;height:19px}
+.ov-card-lb{display:flex;align-items:center;gap:8px;font:800 13px/1 var(--font);letter-spacing:.05em;color:var(--ink)}
+.ov-live{font:800 7px/1 var(--font);letter-spacing:.14em;padding:2px 4px;color:var(--gold-bright);border:1px solid var(--gold);clip-path:var(--notch-xs-clip)}
+.ov-card-desc{font:500 11px/1.5 var(--font);color:var(--muted)}
+@keyframes ovFade{from{opacity:0}to{opacity:1}}
+@keyframes ovDrop{from{opacity:0;transform:translateY(-24px)}to{opacity:1;transform:none}}
+@keyframes ovCard{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
