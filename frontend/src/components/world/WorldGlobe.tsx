@@ -586,6 +586,8 @@ export function WorldGlobe({
       // `THREE.Timer` needs `update()` each frame; otherwise `getElapsed()`
       // stays 0 and the selection-ring pulse below is frozen.
       clock.update(rafTimestamp);
+      // dt deste frame (uma vez por frame — getDelta consome o valor).
+      const frameDelta = Math.min(clock.getDelta(), 0.05);
       if (!stateRef.current.visible) {
         popupAnchorStore.set(null);
         return; // host persistente: pausa fora do /world
@@ -602,10 +604,14 @@ export function WorldGlobe({
       ) {
         stateRef.current.rotY += 0.0016;
       }
-      // Quando um node está focado, centralizamos o globo de forma EXATA:
-      // quaternio q (n->camera) aplicado direto no globo. Arrasto usa o euler.
+      // Quando um node está focado, giramos o globo SUAVEMENTE até centralizar:
+      // slerp do quaternio atual (globe.quaternion, já sincronizado) pro exato
+      // q (n->camera). Arrasto usa o euler (rotation.x/.y).
       if (focusActive && !stateRef.current.dragging) {
-        globe.quaternion.copy(stateRef.current.focusQ as THREE.Quaternion);
+        globe.quaternion.slerp(
+          stateRef.current.focusQ as THREE.Quaternion,
+          1 - Math.exp(-frameDelta * 6),
+        );
       } else {
         globe.rotation.y = stateRef.current.rotY;
         globe.rotation.x = stateRef.current.rotX;
@@ -649,7 +655,7 @@ export function WorldGlobe({
         (n.ring.material as THREE.MeshBasicMaterial).opacity = isSel ? 1 : 0.7;
       });
 
-      const delta = Math.min(clock.getDelta(), 0.05);
+      const delta = frameDelta;
       for (const wk of walkers) {
         wk.angle += wk.speed * delta;
         const x = Math.cos(wk.angle) * wk.radius;

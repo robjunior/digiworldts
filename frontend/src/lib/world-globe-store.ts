@@ -28,10 +28,8 @@ const initialState = (): WorldGlobeUI => ({
   hoveredIdx: -1,
   hoverTip: null,
   webglFailed: false,
-  autoSpin:
-    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      ? !window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      : true,
+  // O globo NÃO gira sozinho — só a rotação do jogador (arraste) o move.
+  autoSpin: false,
 });
 
 let state: WorldGlobeUI = initialState();

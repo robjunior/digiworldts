@@ -1,20 +1,20 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPveWorld } from '../lib/api-world';
-import type { WorldRegion } from '@digiworld/shared/world';
 import { requestExpeditionConfig } from '../lib/rail-expeditions-store';
 import { WorldStrip } from '../components/world/WorldStrip';
 import { WorldHoverTip } from '../components/world/WorldHoverTip';
 import { useWorldGlobeUI, worldGlobeStore, usePopupAnchor, popupAnchorStore } from '../lib/world-globe-store';
-import { AdventureIcon, CloseIcon, RosterIcon } from '../components/common/icons';
+import { ArenaIcon, CloseIcon, WorldIcon } from '../components/common/icons';
 import '../styles/extensions-world.css';
 
 // A cena 3D (globo + digimons) vive no WorldSceneHost (AppShell), persistente —
 // esta página só desenha a UI do overlay por cima dela e lê o worldGlobeStore
-// pro estado interativo (seleção, hover, auto-spin, fallback de WebGL). A
-// configuração de party/expedição mora no RAIL (Expedições → Config), então o
-// popup aqui é compacto: só nome da localidade + ícones que abrem o rail.
+// pro estado interativo (seleção, hover, fallback de WebGL). A configuração de
+// party/batalha/expedição mora no RAIL (Expedições → Config), então o popup
+// aqui é compacto: nome da localidade + botões (ícone+texto) que abrem o rail.
+// O globo NÃO gira sozinho — só a rotação do jogador (arraste).
 export function World(): JSX.Element {
   const world = useQuery({ queryKey: ['pve-world'], queryFn: getPveWorld });
 
@@ -22,33 +22,15 @@ export function World(): JSX.Element {
   const popupAnchor = usePopupAnchor();
 
   const places = world.data?.places ?? [];
-  const regions = useMemo<readonly WorldRegion[]>(
-    () =>
-      places.map((place) => ({
-        id: place.id,
-        label: place.name,
-        description: place.description,
-        element: 'null',
-        biome: 'forest',
-        lat: 0,
-        lon: 0,
-        dungeonId: place.id,
-        levelCap: place.maxWildLevel ?? 99,
-        danger: place.maxWildLevel ?? 1,
-        scouted: true,
-      })),
-    [places],
-  );
   const selectedPlace = ui.selectedIdx === null ? null : (places[ui.selectedIdx] ?? null);
 
-  const toggleSpin = useCallback(() => worldGlobeStore.set({ autoSpin: !worldGlobeStore.get().autoSpin }), []);
-  // Fecha o popup: limpa seleção/foco, solta a âncora e retoma o giro.
+  // Fecha o popup: limpa seleção/foco e solta a âncora.
   const closePopup = useCallback(() => {
-    worldGlobeStore.set({ selectedIdx: null, focus: null, autoSpin: true });
+    worldGlobeStore.set({ selectedIdx: null, focus: null, autoSpin: false });
     popupAnchorStore.set(null);
   }, []);
-  // Party e expedição são configurados no rail (Expedições → Config), com o
-  // node já pré-selecionado.
+  // Battle/Explore são configurados no rail (Expedições → Config), com o node
+  // já pré-selecionado.
   const openInRail = useCallback(() => {
     if (selectedPlace) requestExpeditionConfig(selectedPlace.id);
   }, [selectedPlace]);
@@ -66,11 +48,7 @@ export function World(): JSX.Element {
           </div>
         ) : null}
         <div className="overlay">
-          <WorldStrip
-            selectedRegion={ui.selectedIdx === null ? null : regions[ui.selectedIdx] ?? null}
-            autoSpin={ui.autoSpin}
-            onToggleAutoSpin={toggleSpin}
-          />
+          <WorldStrip />
           <WorldHoverTip tip={ui.hoverTip} />
         </div>
       </div>
@@ -85,11 +63,13 @@ export function World(): JSX.Element {
           </button>
           <span className="world-place-popup__name">{selectedPlace.name}</span>
           <div className="world-place-popup__actions">
-            <button type="button" className="world-place-popup__act" onClick={openInRail} aria-label="Configurar party" title="Configurar party no rail">
-              <RosterIcon />
+            <button type="button" className="world-place-popup__act" onClick={openInRail}>
+              <ArenaIcon />
+              <span>Battle</span>
             </button>
-            <button type="button" className="world-place-popup__act" onClick={openInRail} aria-label="Enviar expedição" title="Enviar expedição no rail">
-              <AdventureIcon />
+            <button type="button" className="world-place-popup__act" onClick={openInRail}>
+              <WorldIcon />
+              <span>Explore</span>
             </button>
           </div>
         </section>
