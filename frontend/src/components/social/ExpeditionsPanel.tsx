@@ -11,7 +11,7 @@ import {
   type AdventureConfigView,
   type AdventurePageView,
 } from '../../lib/api-adventure';
-import { getPveWorld, startPveEncounter } from '../../lib/api-world';
+import { getPveWorld, savePveParty, startPveEncounter } from '../../lib/api-world';
 import { useT } from '../../hooks/useLocale';
 import {
   railExpeditionsStore,
@@ -40,6 +40,17 @@ const STAGE_RANK: Readonly<Record<string, number>> = {
   Ultimate: 4,
   Mega: 5,
   Ultra: 6,
+};
+
+// Mesmo fator de estágio que o backend usa em startPveEncounter p/ debitar meat.
+const STAGE_MEAT_FACTOR: Readonly<Record<string, number>> = {
+  Fresh: 0.5,
+  'In-Training': 0.75,
+  Rookie: 1,
+  Champion: 1.5,
+  Ultimate: 2,
+  Mega: 2.75,
+  Ultra: 3.5,
 };
 
 // Mesma conversão grid→lat/lon do WorldSceneHost: selecionar um lugar no rail
@@ -193,7 +204,20 @@ export function ExpeditionsPanel({
     };
   }, [selectedPlace, hours, teamPower, teamStages]);
 
-  const ensufficientMeat = meatOwned >= cost.total;
+  // Custo real da batalha PvE (mesma fórmula do backend startPveEncounter:
+  // soma level×fatorDeEstágio / 10, arredondada pra cima). Independe de horas.
+  const battleCost = useMemo(() => {
+    const monIds = selectedTeam?.monIds.filter((id): id is string => id !== null) ?? [];
+    const sum = monIds.reduce((acc, monId) => {
+      const mon = rosterById.get(monId);
+      const level = mon?.level ?? 1;
+      const stage = mon?.template?.stage ?? 'Rookie';
+      return acc + level * (STAGE_MEAT_FACTOR[stage] ?? 1);
+    }, 0);
+    return Math.max(1, Math.ceil(sum / 10));
+  }, [selectedTeam, rosterById]);
+
+  const ensufficientMeat = meatOwned >= (mode === 'battle' ? battleCost : cost.total);
   const canSend =
     selectedTeam !== null &&
     selectedPlace !== null &&
@@ -224,10 +248,22 @@ export function ExpeditionsPanel({
     onError: (error) => setNotice(error instanceof Error ? error.message : 'send failed'),
   });
 
-  // Batalha imediata (startPveEncounter) — mesmo Config, modo "battle".
+  // Batalha PvE (combate 3D controlado pelo jogador): salva o time como
+  // exploreParty, inicia o match — o backend entrega o match no socket e o
+  // RealtimeBridge (App) roteia pra /combat sozinho.
   const battleMutation = useMutation({
-    mutationFn: (placeId: string) => startPveEncounter(placeId, 'explore', hours),
+    mutationFn: async ({
+      placeId,
+      monIds,
+    }: {
+      readonly placeId: string;
+      readonly monIds: readonly string[];
+    }) => {
+      await savePveParty('explore', [...monIds]);
+      return startPveEncounter(placeId, 'explore', 1);
+    },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: WORLD_KEY });
       queryClient.invalidateQueries({ queryKey: ADVENTURE_KEY });
       queryClient.invalidateQueries({ queryKey: ROSTER_KEY });
       queryClient.invalidateQueries({ queryKey: FARM_KEY });
@@ -235,7 +271,6 @@ export function ExpeditionsPanel({
       setHours(1);
       setSelectedPlaceId(null);
       setMode('expedition');
-      setExpSubTab('andamento');
       setNotice(t('expeditions.battle_started'));
     },
     onError: (error) => setNotice(error instanceof Error ? error.message : 'battle failed'),
@@ -265,21 +300,21 @@ export function ExpeditionsPanel({
       return { node: <>{t('expeditions.pick_team')}</>, warn: false };
     }
     if (selectedPlace === null) return { node: <>{t('expeditions.pick_place')}</>, warn: false };
+    const need = mode === 'battle' ? battleCost : cost.total;
     if (!ensufficientMeat) {
       return {
-        node: (
-          <>
-            {t('expeditions.need_meat', { need: String(cost.total), have: String(meatOwned) })}
-          </>
-        ),
+        node: <>{t('expeditions.need_meat', { need: String(need), have: String(meatOwned) })}</>,
         warn: true,
       };
+    }
+    if (mode === 'battle') {
+      return { node: <>{t('expeditions.battle_ready', { meat: String(battleCost) })}</>, warn: false };
     }
     return {
       node: <>{t('expeditions.ready', { meat: String(cost.total), hours: String(hours) })}</>,
       warn: false,
     };
-  }, [selectedTeam, selectedPlace, config.partySize, ensufficientMeat, cost.total, meatOwned, hours, t]);
+  }, [selectedTeam, selectedPlace, config.partySize, ensufficientMeat, cost.total, battleCost, mode, meatOwned, hours, t]);
 
   const presetHours = useMemo(
     () => [1, 2, 4, 8].filter((h) => h <= config.maxHours),
@@ -331,27 +366,6 @@ export function ExpeditionsPanel({
       {/* ── CONFIG (só no Mundo) ─────────────────────────────────────── */}
       {isWorldPage && visibleTab === 'config' && (
         <div className="exp-config">
-          {/* o Config controla expedição E batalha — escolha pelo modo */}
-          <div className="exp-mode-tabs" role="tablist" aria-label={t('expeditions.mode_label')}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'expedition'}
-              className={mode === 'expedition' ? 'is-active' : ''}
-              onClick={() => setMode('expedition')}
-            >
-              {t('expeditions.mode_expedition')}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'battle'}
-              className={mode === 'battle' ? 'is-active' : ''}
-              onClick={() => setMode('battle')}
-            >
-              {t('expeditions.mode_battle')}
-            </button>
-          </div>
           <div className="exp-section">
             <div className="exp-section-hd">{t('expeditions.team')}</div>
             {completeTeams.length === 0 ? (
@@ -398,113 +412,153 @@ export function ExpeditionsPanel({
             )}
           </div>
 
+          {/* O seletor de modo (o "botão") aparece após escolher um time completo.
+              Clicar num modo revela o restante do menu, de acordo com a função:
+              expedição = idle (ficam horas, voltam com loot); batalha = PvE de
+              combate 3D jogado pelo jogador (entra, luta em sequência, pode sair). */}
           {selectedTeam !== null && (
-            <div className="exp-section">
-              <div className="exp-section-hd">{t('expeditions.time')}</div>
-              <div className="exp-hours">
-                <div className="exp-hours-row">
-                  <span className="exp-hours-val">
-                    {t('expeditions.hours', { hours: String(hours) })}
-                  </span>
-                  <div className="exp-presets">
-                    {presetHours.map((h) => (
+            <>
+              <div className="exp-mode-tabs" role="tablist" aria-label={t('expeditions.mode_label')}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === 'expedition'}
+                  className={mode === 'expedition' ? 'is-active' : ''}
+                  onClick={() => setMode('expedition')}
+                >
+                  {t('expeditions.mode_expedition')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === 'battle'}
+                  className={mode === 'battle' ? 'is-active' : ''}
+                  onClick={() => setMode('battle')}
+                >
+                  {t('expeditions.mode_battle')}
+                </button>
+              </div>
+
+              <div className="exp-section">
+                <div className="exp-section-hd">{t('expeditions.places')}</div>
+                <div className="exp-place-list">
+                  {places.map((place) => {
+                    const isSel = selectedPlace?.id === place.id;
+                    return (
                       <button
                         type="button"
-                        key={h}
-                        className={h === hours ? 'is-active' : ''}
-                        onClick={() => setHours(h)}
+                        key={place.id}
+                        className={`exp-place${isSel ? ' is-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedPlaceId(place.id);
+                          // Rotaciona o globo pro node ficar no centro da câmera
+                          // (e para o giro). O host é reativo ao store agora.
+                          const idx = places.findIndex((p) => p.id === place.id);
+                          worldGlobeStore.set({
+                            selectedIdx: idx >= 0 ? idx : null,
+                            focus: worldPosition(place.x, place.y),
+                            autoSpin: false,
+                          });
+                        }}
                       >
-                        {h}h
+                        <span className="exp-place-check">
+                          <CheckIcon />
+                        </span>
+                        <span className="exp-place-name">{place.name}</span>
+                        <span className="exp-place-sub">
+                          {t('expeditions.danger', { danger: String(place.maxWildLevel) })}
+                        </span>
                       </button>
-                    ))}
+                    );
+                  })}
+                  {places.length === 0 && (
+                    <div className="exp-empty">{t('expeditions.no_places')}</div>
+                  )}
+                </div>
+              </div>
+
+              {mode === 'expedition' ? (
+                <div className="exp-section">
+                  <div className="exp-section-hd">{t('expeditions.time')}</div>
+                  <div className="exp-hours">
+                    <div className="exp-hours-row">
+                      <span className="exp-hours-val">
+                        {t('expeditions.hours', { hours: String(hours) })}
+                      </span>
+                      <div className="exp-presets">
+                        {presetHours.map((h) => (
+                          <button
+                            type="button"
+                            key={h}
+                            className={h === hours ? 'is-active' : ''}
+                            onClick={() => setHours(h)}
+                          >
+                            {h}h
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={config.minHours}
+                      max={config.maxHours}
+                      step="1"
+                      value={hours}
+                      onChange={(e) => setHours(Number(e.target.value))}
+                      aria-label="Expedition length in hours"
+                    />
+                  </div>
+                  <div className="exp-cost">
+                    <div className="exp-cost-row">
+                      <span>{t('expeditions.cost')}</span>
+                      <b className={ensufficientMeat ? '' : 'short'}>{cost.total}</b>
+                      <span className="exp-cost-unit">{t('adventure.meat')}</span>
+                    </div>
+                    <div className="exp-cost-break">
+                      <span>
+                        node × {cost.baseNode} · tempo ×{cost.tempoMult.toFixed(2)} · poder ×
+                        {cost.poderMult.toFixed(2)} · estágio ×{cost.estagioMult.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                <input
-                  type="range"
-                  min={config.minHours}
-                  max={config.maxHours}
-                  step="1"
-                  value={hours}
-                  onChange={(e) => setHours(Number(e.target.value))}
-                  aria-label="Expedition length in hours"
-                />
-              </div>
-              <div className="exp-cost">
-                <div className="exp-cost-row">
-                  <span>{t('expeditions.cost')}</span>
-                  <b className={ensufficientMeat ? '' : 'short'}>{cost.total}</b>
-                  <span className="exp-cost-unit">{t('adventure.meat')}</span>
+              ) : (
+                <div className="exp-section">
+                  <div className="exp-section-hd">{t('expeditions.battle_cost')}</div>
+                  <div className="exp-cost">
+                    <div className="exp-cost-row">
+                      <span>{t('expeditions.cost')}</span>
+                      <b className={ensufficientMeat ? '' : 'short'}>{battleCost}</b>
+                      <span className="exp-cost-unit">{t('adventure.meat')}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="exp-cost-break">
-                  <span>
-                    node × {cost.baseNode} · tempo ×{cost.tempoMult.toFixed(2)} · poder ×
-                    {cost.poderMult.toFixed(2)} · estágio ×{cost.estagioMult.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="exp-section">
-            <div className="exp-section-hd">{t('expeditions.places')}</div>
-            <div className="exp-place-list">
-              {places.map((place) => {
-                const isSel = selectedPlace?.id === place.id;
-                return (
-                  <button
-                    type="button"
-                    key={place.id}
-                    className={`exp-place${isSel ? ' is-selected' : ''}`}
-                    onClick={() => {
-                      setSelectedPlaceId(place.id);
-                      // Rotaciona o globo pro node ficar no centro da câmera
-                      // (e para o giro). O host é reativo ao store agora.
-                      const idx = places.findIndex((p) => p.id === place.id);
-                      worldGlobeStore.set({
-                        selectedIdx: idx >= 0 ? idx : null,
-                        focus: worldPosition(place.x, place.y),
-                        autoSpin: false,
-                      });
-                    }}
-                  >
-                    <span className="exp-place-check">
-                      <CheckIcon />
-                    </span>
-                    <span className="exp-place-name">{place.name}</span>
-                    <span className="exp-place-sub">
-                      {t('expeditions.danger', { danger: String(place.maxWildLevel) })}
-                    </span>
-                  </button>
-                );
-              })}
-              {places.length === 0 && (
-                <div className="exp-empty">{t('expeditions.no_places')}</div>
               )}
-            </div>
-          </div>
 
-          <div className="exp-actions">
-            <span className={`exp-hint${hint.warn ? ' warn' : ''}`}>{hint.node}</span>
-            <button
-              type="button"
-              className="btn primary"
-              disabled={!canSend || (mode === 'battle' ? battleMutation.isPending : startMutation.isPending)}
-              onClick={() => {
-                if (mode === 'battle') {
-                  if (selectedPlace) battleMutation.mutate(selectedPlace.id);
-                  return;
-                }
-                const monIds = (selectedTeam?.monIds ?? []).filter(
-                  (id): id is string => id !== null,
-                );
-                startMutation.mutate(monIds);
-              }}
-            >
-              {mode === 'battle'
-                ? battleMutation.isPending ? t('common.loading') : t('expeditions.start_battle')
-                : startMutation.isPending ? t('common.loading') : t('expeditions.send')}
-            </button>
-          </div>
+              <div className="exp-actions">
+                <span className={`exp-hint${hint.warn ? ' warn' : ''}`}>{hint.node}</span>
+                <button
+                  type="button"
+                  className="btn primary"
+                  disabled={!canSend || (mode === 'battle' ? battleMutation.isPending : startMutation.isPending)}
+                  onClick={() => {
+                    const monIds = (selectedTeam?.monIds ?? []).filter(
+                      (id): id is string => id !== null,
+                    );
+                    if (mode === 'battle') {
+                      if (selectedPlace) battleMutation.mutate({ placeId: selectedPlace.id, monIds });
+                      return;
+                    }
+                    startMutation.mutate(monIds);
+                  }}
+                >
+                  {mode === 'battle'
+                    ? battleMutation.isPending ? t('common.loading') : t('expeditions.enter_battle')
+                    : startMutation.isPending ? t('common.loading') : t('expeditions.send')}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
