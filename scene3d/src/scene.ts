@@ -330,16 +330,14 @@ const ENTRANCE_PAN_START_X = 9;
 
 // ── Combat camera director tuning ─────────────────────────────────────────
 /**
- * Camera framing per phase. `zoomMult` is the INVERSE of the frustum, so
- * smaller = zoomed in:
+ * Camera framing. `zoomMult` is the INVERSE of the frustum, so smaller =
+ * zoomed in:
  *   FOCUS_ZOOM  — on a digimon whose turn it is (zoomed in).
- *   CAST_ZOOM   — when it casts: pulled back "a little" while following.
- *   HOLD_ZOOM   — locked on the receiver while its damage floater plays.
  *   IDLE zoom   — 1 (the default stage framing).
+ *   Casts keep the PRE-ATTACK zoom (no zoom change when attacking) —
+ *   the camera only re-tracks movement.
  */
 const FOCUS_ZOOM = 0.7;
-const CAST_ZOOM = 0.86;
-const HOLD_ZOOM = 0.74;
 /** Melee advance window (attacker walks to face the receiver), seconds. */
 const CAST_CHARGE_S = 0.45;
 /** How long the camera holds on the receiver after impact — ≈ floater (900 ms). */
@@ -368,6 +366,8 @@ type CastCameraSession = {
   readonly holdS: number;
   readonly chargeS: number;
   readonly returnS: number;
+  /** Keep the zoom the camera had before the cast (no zoom change on attack). */
+  readonly zoom: number;
   elapsed: number;
   phase: 'charge' | 'hit' | 'return' | 'done';
   /** Present only for melee — drives the attacker walk-out + walk-back. */
@@ -2155,6 +2155,7 @@ export class SceneManager {
       };
     }
 
+    const ongoingZoom = this.camDirector.target.zoom;
     this.castSession = {
       sourceId,
       targetId,
@@ -2166,14 +2167,16 @@ export class SceneManager {
       holdS: CAST_HOLD_S,
       chargeS: CAST_CHARGE_S,
       returnS: CAST_RETURN_S,
+      zoom: ongoingZoom,
       elapsed: 0,
       phase: 'charge',
       advance,
     };
     this.camMode = 'cast';
-    // Pull in toward the source right away; tickCast fits the rest.
+    // Pull in toward the source right away at the untouched zoom; tickCast
+    // moves the look point only (the zoom stays the pre-attack one).
     this.ensureDirectorSeed();
-    this.camDirector.easeTo(this.frameCam(sourcePos, CAST_ZOOM), 0.24);
+    this.camDirector.easeTo(this.frameCam(sourcePos, ongoingZoom), 0.24);
   }
 
   /** Advance the camera director / cast sequence, then place the camera. */
@@ -2208,9 +2211,10 @@ export class SceneManager {
 
     if (s.phase === 'charge') {
       // Advance to FULL face-to-face contact by the impact moment, camera
-      // tracking the attacker as it charges.
+      // tracking the attacker as it charges (zoom unchanged — stays the
+      // pre-attack one).
       this.stepAdvance(s, s.impactAtS, false);
-      this.camDirector.easeTo(this.frameCam(this.castLook(s), CAST_ZOOM), 0.12);
+      this.camDirector.easeTo(this.frameCam(this.castLook(s), s.zoom), 0.12);
       if (s.elapsed >= s.impactAtS) s.phase = 'return';
       return false;
     }
@@ -2221,7 +2225,7 @@ export class SceneManager {
     // camera stays on the receiver until the floater ends (impact + hold),
     // then resets toward the next turn's framing.
     if (s.advance !== null) this.stepAdvance(s, s.returnS, true);
-    this.camDirector.easeTo(this.frameCam(receiverPos, HOLD_ZOOM), 0.3);
+    this.camDirector.easeTo(this.frameCam(receiverPos, s.zoom), 0.3);
     if (s.elapsed >= s.impactAtS + s.holdS) {
       this.camDirector.easeTo(this.postCastTarget(), 0.3);
       return true;

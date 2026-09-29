@@ -176,6 +176,7 @@ describe("SceneManager combat camera", () => {
     const attacker = manager.getSprite("a:0")!;
     const startX = attacker.worldPosition.x; // ≈ -3 (its slot)
     const startZ = attacker.worldPosition.z;
+    const zoomBefore = (manager as unknown as { zoomMult: number }).zoomMult;
 
     // Fire a basic melee attack from a:0 at b:0.
     manager.playEffect("fire", "a:0", "b:0");
@@ -185,8 +186,8 @@ describe("SceneManager combat camera", () => {
     stepFrames(22);
     const contactX = attacker.worldPosition.x;
     expect(contactX).toBeGreaterThan(startX + 4); // > +1, well past the midline
-    // Camera is zoomed in while tracking the cast.
-    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeLessThan(0.99);
+    // The attack must NOT change zoom — keep the pre-attack (turn) zoom.
+    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeCloseTo(zoomBefore, 2);
 
     // Let the whole cycle finish (charge + walk-back-while-hold + camera reset).
     // Cast ends at impact + hold ≈ 1.3s; camera settles shortly after.
