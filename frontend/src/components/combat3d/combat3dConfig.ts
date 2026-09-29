@@ -3,6 +3,7 @@ import { isAnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
 
 export const ATTACK_PROPAGATION_MS = 700;
+export const TURN_GAP_MS = 3000;
 export const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 export const AUTOBATTLE_DELAY_MS = 400;
 export const FLOATER_DURATION_MS = 900;
