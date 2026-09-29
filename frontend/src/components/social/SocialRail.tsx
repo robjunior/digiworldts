@@ -20,6 +20,9 @@ import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import "../../styles/social-rail.css";
+import { useLocation, useNavigate } from "react-router";
+import { ExpeditionsPanel } from "./ExpeditionsPanel";
+import { useRailExpeditions } from "../../lib/rail-expeditions-store";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 
@@ -34,10 +37,15 @@ export function SocialRail(): JSX.Element {
   const dmOpened = useWsStore((s) => s.dmOpened);
   const consumeDmOpened = useWsStore((s) => s.consumeDmOpened);
 
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const isWorldPage = pathname === "/world";
+  const railIntent = useRailExpeditions();
+
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<
-    "chat" | "friends"
+    "chat" | "friends" | "expeditions"
   >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
@@ -130,6 +138,15 @@ export function SocialRail(): JSX.Element {
     setOpenDms((prev) => prev.filter((d) => d.userId !== userId));
     setActiveChannel((cur) => (cur === `dm:${userId}` ? "general" : cur));
   }, []);
+
+  // "Enviar Expedição" no globo: abre o rail na aba Expedições. O sub-tab
+  // Config/Andamento é resolvido dentro do ExpeditionsPanel, que consome o
+  // request (reset) e pré-seleciona o node.
+  useEffect(() => {
+    if (railIntent.openRequest === null) return;
+    setSocialOpen(true);
+    setSocialTab("expeditions");
+  }, [railIntent.openRequest]);
 
   const onChatSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -265,6 +282,34 @@ export function SocialRail(): JSX.Element {
           {allFriends.length > 0 && (
             <span className="social-counter">{allFriends.length}</span>
           )}
+        </button>
+        <button
+          className={`social-icon-btn${socialOpen && socialTab === "expeditions" ? " active" : ""}`}
+          role="tab"
+          aria-selected={socialOpen && socialTab === "expeditions"}
+          onClick={() => {
+            if (socialOpen && socialTab === "expeditions") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("expeditions");
+            }
+          }}
+          title="Expeditions"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
         </button>
       </div>
 
@@ -626,6 +671,14 @@ export function SocialRail(): JSX.Element {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* EXPEDITIONS PANEL */}
+          <div className="spanel" hidden={socialTab !== "expeditions"}>
+            <ExpeditionsPanel
+              isWorldPage={isWorldPage}
+              goWorld={() => navigate("/world")}
+            />
           </div>
         </>
       )}

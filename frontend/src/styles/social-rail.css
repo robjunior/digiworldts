@@ -1057,3 +1057,192 @@
 .social .quest {
     border-color: color-mix(in oklab, var(--hair) 55%, transparent);
 }
+
+/* ── Expedições (rail) ────────────────────────────────────────────────── */
+.expeditions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    min-height: 0;
+    padding: 10px 12px;
+    overflow: hidden;
+}
+.expeditions-panel .exp-config,
+.expeditions-panel .exp-active,
+.expeditions-panel .exp-history {
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* sub-tabs */
+.exp-tabs {
+    display: flex;
+    gap: 4px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid color-mix(in oklab, var(--hair) 55%, transparent);
+}
+.exp-tabs button {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    padding: 6px 8px;
+    color: var(--muted, #9aa);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+.exp-tabs button:hover { color: var(--text, #eef); }
+.exp-tabs button.is-active {
+    color: var(--gold, #e6c14e);
+    border-color: color-mix(in oklab, var(--gold) 55%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 30%, transparent);
+}
+.exp-tab-count {
+    font-size: 10px;
+    background: color-mix(in oklab, var(--gold) 22%, transparent);
+    color: var(--gold, #e6c14e);
+    border-radius: 99px;
+    padding: 1px 6px;
+}
+.exp-notice {
+    font-size: 11px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--panel2) 55%, transparent);
+    color: var(--text, #eef);
+}
+
+.exp-section { display: flex; flex-direction: column; gap: 6px; }
+.exp-section-hd {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted, #9aa);
+}
+
+/* lista de times */
+.exp-team-list { display: flex; flex-direction: column; gap: 6px; }
+.exp-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    text-align: left;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid color-mix(in oklab, var(--hair) 45%, transparent);
+    cursor: pointer;
+    color: var(--text, #eef);
+}
+.exp-team:hover { background: color-mix(in oklab, var(--panel2) 30%, transparent); }
+.exp-team.is-selected {
+    border-color: color-mix(in oklab, var(--gold) 65%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 28%, transparent);
+}
+.exp-team-pick { color: transparent; flex: 0 0 auto; }
+.exp-team.is-selected .exp-team-pick { color: var(--gold, #e6c14e); }
+.exp-team-pick svg { display: block; }
+.exp-team-mons { display: flex; gap: 4px; flex: 0 0 auto; }
+.exp-team-mon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+}
+.exp-team-spr { width: 26px; height: 26px; }
+.exp-team-lv { font-size: 9px; color: var(--muted, #9aa); }
+.exp-team-info { display: flex; flex-direction: column; gap: 1px; }
+.exp-team-name { font-size: 13px; font-weight: 600; }
+.exp-team-sub { font-size: 10px; color: var(--muted, #9aa); }
+
+/* horas */
+.exp-hours { display: flex; flex-direction: column; gap: 6px; }
+.exp-hours-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.exp-hours-val { font-size: 12px; font-weight: 600; color: var(--text, #eef); }
+.exp-presets { display: flex; gap: 4px; }
+.exp-presets button {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 7px;
+    border: 1px solid color-mix(in oklab, var(--hair) 45%, transparent);
+    background: transparent;
+    color: var(--muted, #9aa);
+    cursor: pointer;
+}
+.exp-presets button.is-active {
+    color: var(--gold, #e6c14e);
+    border-color: color-mix(in oklab, var(--gold) 60%, transparent);
+}
+.exp-hours input[type="range"] { width: 100%; accent-color: var(--gold, #e6c14e); }
+
+/* custo */
+.exp-cost {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: color-mix(in oklab, var(--panel2) 30%, transparent);
+}
+.exp-cost-row { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.exp-cost-row b { font-size: 15px; color: var(--text, #eef); }
+.exp-cost-row b.short { color: #ff6b6b; }
+.exp-cost-unit { font-size: 10px; color: var(--muted, #9aa); }
+.exp-cost-break { font-size: 9px; color: var(--muted, #9aa); }
+
+/* lista de lugares (nodes) */
+.exp-place-list { display: flex; flex-direction: column; gap: 6px; }
+.exp-place {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 10px;
+    border: 1px solid color-mix(in oklab, var(--hair) 45%, transparent);
+    background: transparent;
+    cursor: pointer;
+    color: var(--text, #eef);
+    text-align: left;
+}
+.exp-place:hover { background: color-mix(in oklab, var(--panel2) 30%, transparent); }
+.exp-place.is-selected {
+    border-color: color-mix(in oklab, var(--gold) 65%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--gold) 28%, transparent);
+}
+.exp-place-check { color: transparent; flex: 0 0 auto; }
+.exp-place.is-selected .exp-place-check { color: var(--gold, #e6c14e); }
+.exp-place-check svg { display: block; }
+.exp-place-info { display: flex; flex-direction: column; gap: 1px; }
+.exp-place-name { font-size: 13px; font-weight: 600; }
+.exp-place-sub { font-size: 10px; color: var(--muted, #9aa); }
+
+/* ações */
+.exp-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+.exp-hint { font-size: 10px; color: var(--muted, #9aa); }
+.exp-hint.warn { color: #ff6b6b; }
+.exp-hint b { font-weight: 700; color: var(--text, #eef); }
+
+.exp-empty {
+    font-size: 11px;
+    color: var(--muted, #9aa);
+    padding: 10px 4px;
+    line-height: 1.45;
+}
+.exp-go-world {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+}
