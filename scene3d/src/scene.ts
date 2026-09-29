@@ -11,12 +11,15 @@ import type {
 } from "@digiworld/shared/weather";
 
 import { RUNNERS } from "./attack-runners";
-import { buildPresetRunner } from "./attack-runners/preset";
+import { buildPresetRunner, interpolatePosition } from "./attack-runners/preset";
 import type {
   AnimatedElement,
   AttackEffect3D,
   Runner3D,
 } from "./attack-runners/types";
+import { CameraDirector, clampZoom, framePoint } from "./camera-direction";
+import type { CamVector, CameraTarget } from "./camera-direction";
+import type { SkillVfxAttackType, SkillVfxTrajectory } from "@digiworld/shared/skill-vfx";
 import {
   DEFAULT_EFFECT_DURATION_S,
   ELEMENT_LIGHT_COLOR,
@@ -325,6 +328,58 @@ const ENTRANCE_ZOOM_START = 1.55;
 const ENTRANCE_DURATION_S = 1.2;
 const ENTRANCE_PAN_START_X = 9;
 
+// ── Combat camera director tuning ─────────────────────────────────────────
+/**
+ * Camera framing per phase. `zoomMult` is the INVERSE of the frustum, so
+ * smaller = zoomed in:
+ *   FOCUS_ZOOM  — on a digimon whose turn it is (zoomed in).
+ *   CAST_ZOOM   — when it casts: pulled back "a little" while following.
+ *   HOLD_ZOOM   — locked on the receiver while its damage floater plays.
+ *   IDLE zoom   — 1 (the default stage framing).
+ */
+const FOCUS_ZOOM = 0.7;
+const CAST_ZOOM = 0.86;
+const HOLD_ZOOM = 0.74;
+/** Melee advance window (attacker walks to face the receiver), seconds. */
+const CAST_CHARGE_S = 0.45;
+/** How long the camera holds on the receiver after impact — ≈ floater (900 ms). */
+const CAST_HOLD_S = 0.9;
+/** Window to walk the attacker back to its slot after a melee cast, seconds. */
+const CAST_RETURN_S = 0.45;
+/** Face-to-face contact point = lerp(attacker, receiver, CONTACT_LERP). */
+const CONTACT_LERP = 0.85;
+/** Non-preset effects (element runners / basic fight) impact ~ this far in. */
+const CAST_DEFAULT_IMPACT_S = 0.4;
+
+/**
+ * A single cast's camera + movement sequence, owned by SceneManager while an
+ * effect plays. Melee advances the attacker to a face-to-face contact point
+ * and the camera follows the attacker; ranged keeps the attacker put and the
+ * camera follows the projectile (via the same trajectory the runner uses).
+ */
+type CastCameraSession = {
+  readonly sourceId: string | null;
+  readonly targetId: string;
+  readonly attackType: 'melee' | 'ranged';
+  readonly sourcePos: THREE.Vector3;
+  readonly targetPos: THREE.Vector3;
+  readonly trajectory: SkillVfxTrajectory;
+  readonly impactAtS: number;
+  readonly holdS: number;
+  readonly chargeS: number;
+  readonly returnS: number;
+  elapsed: number;
+  phase: 'charge' | 'hit' | 'return' | 'done';
+  /** Present only for melee — drives the attacker walk-out + walk-back. */
+  readonly advance: {
+    readonly origX: number;
+    readonly origZ: number;
+    readonly contactX: number;
+    readonly contactZ: number;
+    returned: boolean;
+  } | null;
+};
+
 const SKY_COLOR = 0x0f1420;
 const HORIZON_COLOR = 0x1e2a44;
 const GROUND_COLOR = 0x1b2130;
@@ -603,6 +658,10 @@ function easeOutCubic(t: number): number {
   return 1 - c * c * c;
 }
 
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
 function hashRng(seed: number): () => number {
   let s = seed >>> 0;
   return () => {
@@ -723,6 +782,25 @@ export class SceneManager {
   private camLookAtY = CAM_LOOK_AT_Y;
   private cameraLookOffset = new THREE.Vector3(0, 0, 0);
   private camFrustum = FRUSTUM;
+
+  // ── Combat camera director (focus on turn units / follow casts) ──
+  private readonly camDirector: CameraDirector = new CameraDirector({
+    lookX: 0,
+    lookY: CAM_LOOK_AT_Y,
+    lookZ: 0,
+    dist: CAM_DIST,
+    elevDeg: CAM_ELEV_DEG,
+    yawDeg: CAM_YAW_DEG,
+    zoom: 1,
+  });
+  /** Runtime camera mode driven by the director. */
+  private camMode: 'idle' | 'focus' | 'cast' = 'idle';
+  /** Unit the camera frames while focusing (the acting digimon's turn). */
+  private focusUnitId: string | null = null;
+  /** Live cast camera + attacker-advance sequence (null when none). */
+  private castSession: CastCameraSession | null = null;
+  /** Lazily seeded from the configured camera (holds across entrance). */
+  private directorSeeded = false;
   private dust: THREE.Points | null = null;
   private readonly dustBaseY: Float32Array;
   private readonly dustPhase: Float32Array;
@@ -2009,6 +2087,259 @@ export class SceneManager {
     this.updateProjection();
   }
 
+  // ── Combat camera director ─────────────────────────────────────────────
+  /**
+   * Frame a digimon (the one whose turn it is). `null` clears the focus and
+   * returns the camera to the default framing. A running cast is NOT
+   * interrupted — the focus applies once the cast's camera sequence finishes.
+   * React drives this from the active-turn unit id.
+   */
+  focusUnit(unitId: string | null): void {
+    if (this.disposedFlag) return;
+    this.focusUnitId = unitId;
+    if (this.castSession === null) this.camMode = unitId !== null ? 'focus' : 'idle';
+  }
+
+  /** Drop the current turn-focus and abort any live cast (restores movement). */
+  resetCamera(): void {
+    if (this.disposedFlag) return;
+    this.focusUnitId = null;
+    this.abortCast();
+    this.camMode = 'idle';
+  }
+
+  /**
+   * Start the camera + attacker-advance sequence for a cast. Melee advances
+   * the attacker to a face-to-face contact point and the camera follows it;
+   * ranged keeps the attacker put and the camera follows the projectile along
+   * the runner's trajectory. Composed internally from the skill preset (or the
+   * element-runner default for a basic fight).
+   */
+  private beginCastCamera(
+    sourceId: string | null,
+    targetId: string,
+    attackType: SkillVfxAttackType,
+    trajectory: SkillVfxTrajectory,
+    impactAtS: number,
+    _durationS: number,
+  ): void {
+    if (this.disposedFlag) return;
+    const target = this.getSprite(targetId);
+    if (target === undefined) return;
+    const source = sourceId === null ? undefined : this.getSprite(sourceId);
+
+    // A new cast supersedes any lingering one — restore the old attacker first
+    // so units never get left mid-field.
+    this.abortCast();
+
+    const targetPos = target.worldPosition.clone();
+    const sourcePos =
+      source !== undefined
+        ? source.worldPosition.clone()
+        : targetPos.clone().add(new THREE.Vector3(0, UNSOURCED_DROP_HEIGHT, 0));
+
+    let advance: CastCameraSession['advance'] = null;
+    if (attackType === 'melee' && source !== undefined) {
+      const origX = source.worldPosition.x;
+      const origZ = source.worldPosition.z;
+      advance = {
+        origX,
+        origZ,
+        contactX: origX + (targetPos.x - origX) * CONTACT_LERP,
+        contactZ: origZ + (targetPos.z - origZ) * CONTACT_LERP,
+        returned: false,
+      };
+    }
+
+    this.castSession = {
+      sourceId,
+      targetId,
+      attackType,
+      sourcePos,
+      targetPos,
+      trajectory,
+      impactAtS: Math.max(0.05, impactAtS),
+      holdS: CAST_HOLD_S,
+      chargeS: CAST_CHARGE_S,
+      returnS: CAST_RETURN_S,
+      elapsed: 0,
+      phase: 'charge',
+      advance,
+    };
+    this.camMode = 'cast';
+    // Pull in toward the source right away; tickCast fits the rest.
+    this.ensureDirectorSeed();
+    this.camDirector.easeTo(this.frameCam(sourcePos, CAST_ZOOM), 0.24);
+  }
+
+  /** Advance the camera director / cast sequence, then place the camera. */
+  private tickCamera(dtS: number): void {
+    this.ensureDirectorSeed();
+    if (this.entranceActive) return;
+
+    if (this.castSession !== null) {
+      if (this.tickCastSession(this.castSession, dtS)) {
+        this.finishCast();
+      }
+    } else if (this.camMode === 'focus') {
+      const t = this.frameCamForUnit(this.focusUnitId);
+      // If the sprite hasn't been added yet, stay in focus and retry next
+      // frame — do NOT downgrade to idle (the digimon is just loading).
+      if (t !== null) this.camDirector.easeTo(t, 0.28);
+    } else {
+      const idle = this.idleCamTarget();
+      if (!this.camDirector.isSettled(idle)) this.camDirector.easeTo(idle, 0.4);
+    }
+
+    this.camDirector.tick(dtS);
+    this.applyDirectorCamera();
+  }
+
+  /** Returns true when the cast sequence is finished and the session should end. */
+  private tickCastSession(s: CastCameraSession, dtS: number): boolean {
+    s.elapsed += dtS;
+    const receiver = this.getSprite(s.targetId);
+    const receiverPos =
+      receiver !== undefined ? receiver.worldPosition : s.targetPos;
+
+    if (s.phase === 'charge') {
+      this.stepAdvance(s, s.chargeS, false);
+      this.camDirector.easeTo(this.frameCam(this.castLook(s), CAST_ZOOM), 0.12);
+      if (s.elapsed >= s.impactAtS) s.phase = 'hit';
+      return false;
+    }
+    if (s.phase === 'hit') {
+      this.camDirector.easeTo(this.frameCam(receiverPos, HOLD_ZOOM), 0.3);
+      if (s.elapsed >= s.impactAtS + s.holdS) s.phase = 'return';
+      return false;
+    }
+    // return
+    if (s.advance !== null) {
+      if (this.stepAdvance(s, s.returnS, true)) return true;
+    } else if (s.elapsed >= s.impactAtS + s.holdS + s.returnS) {
+      return true;
+    }
+    this.camDirector.easeTo(this.postCastTarget(), 0.3);
+    return false;
+  }
+
+  /**
+   * Move the melee attacker along its advance/return. `goingHome` walks it
+   * back to `orig`; returns true once fully returned.
+   */
+  private stepAdvance(s: CastCameraSession, durS: number, goingHome: boolean): boolean {
+    const adv = s.advance;
+    if (adv === null || s.sourceId === null) return false;
+    const src = this.getSprite(s.sourceId);
+    if (src === undefined) return false;
+    const base = s.elapsed - (goingHome ? s.impactAtS + s.holdS : 0);
+    const t = Math.min(1, base / Math.max(0.001, durS));
+    if (goingHome) {
+      src.setBasePosition(
+        lerp(adv.contactX, adv.origX, t),
+        lerp(adv.contactZ, adv.origZ, t),
+      );
+      if (t >= 1) {
+        adv.returned = true;
+        return true;
+      }
+    } else {
+      src.setBasePosition(
+        lerp(adv.origX, adv.contactX, t),
+        lerp(adv.origZ, adv.contactZ, t),
+      );
+    }
+    return false;
+  }
+
+  /** Look point for the cast camera right now (attacker for melee, projectile for ranged). */
+  private castLook(s: CastCameraSession): CamVector {
+    if (s.attackType === 'melee') {
+      const src = s.sourceId === null ? undefined : this.getSprite(s.sourceId);
+      const p = src !== undefined ? src.worldPosition : s.sourcePos;
+      return { x: p.x, y: p.y, z: p.z };
+    }
+    const t = s.impactAtS > 0 ? Math.min(1, s.elapsed / s.impactAtS) : 1;
+    const pos = new THREE.Vector3();
+    interpolatePosition(s.trajectory, s.sourcePos, s.targetPos, t, pos);
+    return { x: pos.x, y: pos.y, z: pos.z };
+  }
+
+  private postCastTarget(): CameraTarget {
+    if (this.focusUnitId !== null) {
+      return this.frameCamForUnit(this.focusUnitId) ?? this.idleCamTarget();
+    }
+    return this.idleCamTarget();
+  }
+
+  private finishCast(): void {
+    this.restoreCastMovement(this.castSession);
+    this.castSession = null;
+    this.camMode = this.focusUnitId !== null ? 'focus' : 'idle';
+  }
+
+  private abortCast(): void {
+    this.restoreCastMovement(this.castSession);
+    this.castSession = null;
+    if (this.camMode === 'cast') this.camMode = this.focusUnitId !== null ? 'focus' : 'idle';
+  }
+
+  /** Walk a cast's melee attacker back to its slot if it hasn't yet. */
+  private restoreCastMovement(s: CastCameraSession | null): void {
+    if (s === null) return;
+    const adv = s.advance;
+    if (adv === null || adv.returned || s.sourceId === null) return;
+    this.getSprite(s.sourceId)?.setBasePosition(adv.origX, adv.origZ);
+    adv.returned = true;
+  }
+
+  private ensureDirectorSeed(): void {
+    if (this.directorSeeded) return;
+    this.camDirector.snapTo(this.idleCamTarget());
+    this.directorSeeded = true;
+  }
+
+  private idleCamTarget(): CameraTarget {
+    return framePoint(
+      {
+        x: this.cameraLookOffset.x,
+        y: this.camLookAtY + this.cameraLookOffset.y,
+        z: this.cameraLookOffset.z,
+      },
+      1,
+      this.camDist,
+      this.camElevDeg,
+      this.camYawDeg,
+    );
+  }
+
+  private frameCam(v: CamVector, zoom: number): CameraTarget {
+    return framePoint(v, zoom, this.camDist, this.camElevDeg, this.camYawDeg);
+  }
+
+  private frameCamForUnit(unitId: string | null): CameraTarget | null {
+    if (unitId === null) return null;
+    const sprite = this.getSprite(unitId);
+    if (sprite === undefined) return null;
+    return this.frameCam(sprite.worldPosition, FOCUS_ZOOM);
+  }
+
+  /** Place the render camera from the director's current target basis. */
+  private applyDirectorCamera(): void {
+    const t = this.camDirector.target;
+    this.zoomMult = clampZoom(t.zoom);
+    this.updateProjection();
+    const elev = (t.elevDeg * Math.PI) / 180;
+    const yaw = (t.yawDeg * Math.PI) / 180;
+    this.cameraBasePos.set(
+      Math.sin(yaw) * Math.cos(elev) * t.dist,
+      Math.sin(elev) * t.dist,
+      Math.cos(yaw) * Math.cos(elev) * t.dist,
+    );
+    this.camera.position.copy(this.cameraBasePos);
+    this.camera.lookAt(t.lookX, t.lookY, t.lookZ);
+  }
+
   async addSprite(config: SpriteInit): Promise<SpriteRig> {
     const existing = this.sprites.get(config.unitId);
     if (existing !== undefined) return existing;
@@ -2092,6 +2423,31 @@ export class SceneManager {
               );
           })();
     const durationS = options.durationS ?? DEFAULT_EFFECT_DURATION_S;
+
+    // Kick off the combat camera sequence for this cast. A preset's `attackType`
+    // decides melee (attacker advances, camera follows) vs ranged (camera follows
+    // the projectile along the preset trajectory and holds on the receiver).
+    // Basic attacks / element-runner skills (no preset) are treated as melee.
+    let attackType: SkillVfxAttackType = 'melee';
+    let cameraTrajectory: SkillVfxTrajectory = 'straight';
+    let cameraImpactS = CAST_DEFAULT_IMPACT_S;
+    if (options.vfxPresetId !== undefined) {
+      const preset = resolveSkillVfxPreset(options.vfxPresetId);
+      if (preset !== null) {
+        attackType = preset.attackType ?? 'ranged';
+        cameraTrajectory = preset.trajectory;
+        cameraImpactS = preset.impactAtMs / 1000;
+      }
+    }
+    this.beginCastCamera(
+      sourceUnitId,
+      targetUnitId,
+      attackType,
+      cameraTrajectory,
+      cameraImpactS,
+      durationS,
+    );
+
     const id = `fx-${element}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const effect: AttackEffect3D = {
       id,
@@ -2193,7 +2549,10 @@ export class SceneManager {
     if (x === 0 && y === 0) {
       this.shakeActive = false;
       // Re-place the camera cleanly so the offset doesn't stick at a residue.
-      this.placeCameraIso();
+      // During the entrance the loop sets an explicit pan/zoom; otherwise the
+      // combat director has already placed the camera base this frame.
+      if (this.entranceActive) this.placeCameraIso();
+      else this.camera.position.copy(this.cameraBasePos);
       return;
     }
     // Reset to the jitter-free base, then offset: keeps the shake from
@@ -2316,9 +2675,10 @@ export class SceneManager {
         ctx?.runner.dispose();
         this.effects.delete(id);
       }
-      // Apply the one-shot impact screen-shake (if active) just before draw, so
-      // the jolt is visible this frame and recomputed from the camera base next
-      // frame (no accumulation).
+      // Advance the combat camera director (turn-focus / follow casts) before
+      // draw so the shot tracks the action, then apply the one-shot impact
+      // screen-shake (if active) right before render.
+      this.tickCamera(dt);
       this.applyShake(dt);
       this.renderFrame();
       this.sampleHud(dt);

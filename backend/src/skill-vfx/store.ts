@@ -13,6 +13,7 @@ import { dirname, resolve } from 'node:path';
 
 import type { Element } from '@digiworld/shared/digimon';
 import type {
+  SkillVfxAttackType,
   SkillVfxEmitterSlot,
   SkillVfxLight,
   SkillVfxPreset,
@@ -53,6 +54,9 @@ function coerceEntry(raw: unknown): SkillVfxPreset | null {
     id: rec['id'],
     name: rec['name'],
     ...(typeof rec['element'] === 'string' ? { element: rec['element'] as Element } : {}),
+    ...(rec['attackType'] === 'melee' || rec['attackType'] === 'ranged'
+      ? { attackType: rec['attackType'] as SkillVfxAttackType }
+      : {}),
     emitters: rec['emitters'] as readonly SkillVfxEmitterSlot[],
     trajectory: rec['trajectory'] as SkillVfxTrajectory,
     totalDurationMs: rec['totalDurationMs'],
@@ -113,6 +117,7 @@ export async function getSkillVfxPreset(id: string): Promise<SkillVfxPreset | nu
 export type SkillVfxPresetWriteInput = {
   readonly name: string;
   readonly element?: Element | undefined;
+  readonly attackType?: SkillVfxAttackType | undefined;
   readonly emitters: readonly SkillVfxEmitterSlot[];
   readonly trajectory: SkillVfxTrajectory;
   readonly totalDurationMs: number;
@@ -131,6 +136,7 @@ export async function createSkillVfxPreset(input: SkillVfxPresetWriteInput): Pro
     id: newId('svfx'),
     name: input.name.trim(),
     ...(input.element !== undefined ? { element: input.element } : {}),
+    ...(input.attackType !== undefined ? { attackType: input.attackType } : {}),
     emitters: input.emitters.map((slot) => ({
       emitter: { ...slot.emitter, id: newId('emt') },
       startAtMs: slot.startAtMs,
@@ -162,6 +168,11 @@ export async function updateSkillVfxPreset(
       ? { element: patch.element }
       : existing.element !== undefined
         ? { element: existing.element }
+        : {}),
+    ...(patch.attackType !== undefined
+      ? { attackType: patch.attackType }
+      : existing.attackType !== undefined
+        ? { attackType: existing.attackType }
         : {}),
     emitters: patch.emitters !== undefined ? patch.emitters : existing.emitters,
     trajectory: patch.trajectory !== undefined ? patch.trajectory : existing.trajectory,

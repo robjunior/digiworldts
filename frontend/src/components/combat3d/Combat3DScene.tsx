@@ -107,6 +107,10 @@ export type Combat3DSceneHandle = {
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
   getSettings(): SceneSettings | null;
   applySettings(patch: Partial<SceneSettings>): void;
+  /** Frame a digimon (the one whose turn it is). null returns to the default shot. */
+  focusUnit(unitId: UnitId | null): void;
+  /** Clear the turn-focus and abort any live cast camera sequence. */
+  resetCamera(): void;
 };
 
 type SceneProps = {
@@ -530,6 +534,16 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     },
     applySettings(patch) {
       getManager()?.applySettings(patch);
+    },
+    focusUnit(unitId) {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.focusUnit(unitId);
+    },
+    resetCamera() {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.resetCamera();
     },
   }), []);
 

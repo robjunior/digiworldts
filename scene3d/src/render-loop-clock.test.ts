@@ -106,6 +106,13 @@ describe("SceneManager render loop drives THREE.Timer.update()", () => {
     originalGetContext = HTMLCanvasElement.prototype.getContext;
     install2DContextShim();
     installRafStub();
+    // Pin `performance.now()` to a small constant. THREE.Timer's first
+    // `update(ts)` computes `delta = ts - _startTime` where `_startTime` is
+    // `performance.now()` at construction — a run-long worker pushes it past
+    // the test's rAF baseline (1000), flipping the first-frame delta negative
+    // and breaking the "non-zero on the very first frame" assertions. This is
+    // purely a timing artifact, unrelated to the loop's dt behaviour.
+    vi.stubGlobal("performance", { now: () => 200 });
   });
   afterEach(() => {
     HTMLCanvasElement.prototype.getContext =

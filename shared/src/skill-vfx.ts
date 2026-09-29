@@ -25,6 +25,16 @@ import {
 export const SKILL_VFX_TRAJECTORIES = ['instant', 'straight', 'arc', 'homing'] as const;
 export type SkillVfxTrajectory = (typeof SKILL_VFX_TRAJECTORIES)[number];
 
+/**
+ * How the skill is DELIVERED — purely a visual/effect distinction, it never
+ * affects combat mechanics. `melee` makes the caster advance to face the
+ * receiver and the camera follow that movement; `ranged` keeps the caster in
+ * place and the camera follows the projectile/effect instead. Missing on a
+ * stored preset (legacy files) defaults to `ranged` at read time.
+ */
+export const SKILL_VFX_ATTACK_TYPES = ['ranged', 'melee'] as const;
+export type SkillVfxAttackType = (typeof SKILL_VFX_ATTACK_TYPES)[number];
+
 export type SkillVfxLight = {
   readonly color: number;
   readonly intensity: number;
@@ -48,6 +58,9 @@ export type SkillVfxPreset = {
   readonly id: string;
   readonly name: string;
   readonly element?: Element;
+  /** How the effect is delivered — visual only. See `SKILL_VFX_ATTACK_TYPES`.
+   *  Optional for legacy stored presets; `?? 'ranged'` at read time. */
+  readonly attackType?: SkillVfxAttackType;
   readonly emitters: readonly SkillVfxEmitterSlot[];
   readonly trajectory: SkillVfxTrajectory;
   readonly totalDurationMs: number;
@@ -101,6 +114,7 @@ const SkillVfxEmitterSlotZ: z.ZodType<SkillVfxEmitterSlot> = SkillVfxEmitterSlot
 export const SkillVfxPresetWriteZ = z.object({
   name: z.string().trim().min(1).max(120),
   element: z.enum(ELEMENTS).optional(),
+  attackType: z.enum(SKILL_VFX_ATTACK_TYPES).optional(),
   emitters: z.array(SkillVfxEmitterSlotZ).min(1).max(3),
   trajectory: z.enum(SKILL_VFX_TRAJECTORIES),
   totalDurationMs: z.number().int().min(1).max(5_000),

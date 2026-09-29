@@ -115,6 +115,19 @@ export function Combat3DBody(): JSX.Element | null {
     }
   }, [activeBattle, selectedTargetId]);
 
+  // Combat camera: when a digimon's turn comes up, frame that digimon (the
+  // described "zoom in and position on the one whose turn it is"); on end,
+  // release back to the default shot.
+  useEffect(() => {
+    const handle = sceneRef.current;
+    if (handle === null) return;
+    if (activeBattle === null || activeBattle.status !== 'active') {
+      handle.resetCamera();
+      return;
+    }
+    handle.focusUnit(activeBattle.currentTurnUnitId ?? null);
+  }, [activeBattle?.currentTurnUnitId, activeBattle?.status]);
+
   useEffect(() => {
     if (activeBattle?.status !== 'ended') return;
     setEndModalOpen(true);
