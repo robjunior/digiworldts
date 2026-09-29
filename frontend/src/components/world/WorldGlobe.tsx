@@ -147,8 +147,10 @@ export function WorldGlobe({
     rotY: 0,
     camDist: 4.6,
     // Orientacao exata que centraliza o node focado na viewport (quaternio).
-    // Quando selecionado e sem arrastar, o globo trava nela.
+    // focusAnimating = transicao suave ativa; depois libera o controle pro
+    // jogador (arrastar nao destrava/des-seleciona e nao volta pro centro).
     focusQ: null as THREE.Quaternion | null,
+    focusAnimating: false,
     world: world ?? null,
     lighting: lighting ?? null,
     useGlbSettings,
@@ -171,6 +173,7 @@ export function WorldGlobe({
     if (!focusLatLon) {
       popupAnchorStore.set(null);
       stateRef.current.focusQ = null;
+      stateRef.current.focusAnimating = false;
       return;
     }
     // Quaternio exato que leva o node (direcao local) a apontar pra camera
@@ -188,6 +191,7 @@ export function WorldGlobe({
     ).normalize();
     const q = new THREE.Quaternion().setFromUnitVectors(n, d);
     stateRef.current.focusQ = q;
+    stateRef.current.focusAnimating = true;
     // Base p/ o arrasta continuar do centro (aproximacao; o lock exato usa o q).
     const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
     stateRef.current.rotX = e.x;
@@ -530,6 +534,13 @@ export function WorldGlobe({
 
     const onPointerDown = (e: PointerEvent) => {
       stateRef.current.dragging = true;
+      // Arrastar parte da orientacao ATUAL do globo (que pode estar no meio da
+      // animacao de foco) p/ nao dar salto, e cancela a centralizacao pra o
+      // player poder mover livremente SEM des-selecionar/voltar ao centro.
+      const cur = new THREE.Euler().setFromQuaternion(globe.quaternion, 'XYZ');
+      stateRef.current.rotX = cur.x;
+      stateRef.current.rotY = cur.y;
+      stateRef.current.focusAnimating = false;
       stateRef.current.lastX = e.clientX;
       stateRef.current.lastY = e.clientY;
       canvas.classList.add("drag");
@@ -604,14 +615,30 @@ export function WorldGlobe({
       ) {
         stateRef.current.rotY += 0.0016;
       }
-      // Quando um node está focado, giramos o globo SUAVEMENTE até centralizar:
-      // slerp do quaternio atual (globe.quaternion, já sincronizado) pro exato
-      // q (n->camera). Arrasto usa o euler (rotation.x/.y).
-      if (focusActive && !stateRef.current.dragging) {
+      // Ao selecionar, o globo gira SUAVEMENTE ate centralizar (slerp transiente).
+      // Depois de convergir libera o controle: o jogador pode mover livremente,
+      // a selecao/popup permanece (nao des-seleciona). Arrastar cancela a anim.
+      if (
+        focusActive &&
+        stateRef.current.focusAnimating &&
+        !stateRef.current.dragging
+      ) {
         globe.quaternion.slerp(
           stateRef.current.focusQ as THREE.Quaternion,
           1 - Math.exp(-frameDelta * 6),
         );
+        // Sincroniza rotX/rotY com a orientacao slerpada (euler) pra a troca
+        // pro caminho de arraste do frame seguinte nao pular.
+        const fs = new THREE.Euler().setFromQuaternion(globe.quaternion, "XYZ");
+        stateRef.current.rotX = fs.x;
+        stateRef.current.rotY = fs.y;
+        if (
+          globe.quaternion.angleTo(
+            stateRef.current.focusQ as THREE.Quaternion,
+          ) < 0.01
+        ) {
+          stateRef.current.focusAnimating = false;
+        }
       } else {
         globe.rotation.y = stateRef.current.rotY;
         globe.rotation.x = stateRef.current.rotX;

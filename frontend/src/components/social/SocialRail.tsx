@@ -22,6 +22,7 @@ import { useWebSocket } from "../../hooks/useWebSocket";
 import "../../styles/social-rail.css";
 import { useLocation, useNavigate } from "react-router";
 import { ExpeditionsPanel } from "./ExpeditionsPanel";
+import { BattlePanel } from "./BattlePanel";
 import { useRailExpeditions } from "../../lib/rail-expeditions-store";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
@@ -45,7 +46,7 @@ export function SocialRail(): JSX.Element {
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<
-    "chat" | "friends" | "expeditions"
+    "chat" | "friends" | "expeditions" | "battle"
   >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
@@ -139,13 +140,13 @@ export function SocialRail(): JSX.Element {
     setActiveChannel((cur) => (cur === `dm:${userId}` ? "general" : cur));
   }, []);
 
-  // "Enviar Expedição" no globo: abre o rail na aba Expedições. O sub-tab
-  // Config/Andamento é resolvido dentro do ExpeditionsPanel, que consome o
-  // request (reset) e pré-seleciona o node.
+  // Pedido vindo do globo/rota ("Enviar Expedição" / "Battle"): abre o rail na
+  // aba indicada. O reset do openRequest não é necessário (nonce novo a cada
+  // pedido); o painel (Expedições/Battle) é quem consome e limpa targetPlaceId.
   useEffect(() => {
     if (railIntent.openRequest === null) return;
     setSocialOpen(true);
-    setSocialTab("expeditions");
+    setSocialTab(railIntent.openRequest.tab);
   }, [railIntent.openRequest]);
 
   const onChatSubmit = (e: FormEvent) => {
@@ -309,6 +310,38 @@ export function SocialRail(): JSX.Element {
           >
             <circle cx="12" cy="12" r="10" />
             <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          </svg>
+        </button>
+        <button
+          className={`social-icon-btn${socialOpen && socialTab === "battle" ? " active" : ""}`}
+          role="tab"
+          aria-selected={socialOpen && socialTab === "battle"}
+          onClick={() => {
+            if (socialOpen && socialTab === "battle") {
+              setSocialOpen(false);
+            } else {
+              setSocialOpen(true);
+              setSocialTab("battle");
+            }
+          }}
+          title="Battle" data-tip="Battle"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
+            <line x1="13" x2="19" y1="19" y2="13" />
+            <line x1="16" x2="20" y1="16" y2="20" />
+            <line x1="19" x2="21" y1="21" y2="19" />
+            <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
+            <line x1="5" x2="9" y1="14" y2="18" />
           </svg>
         </button>
       </div>
@@ -678,7 +711,13 @@ export function SocialRail(): JSX.Element {
             <ExpeditionsPanel
               isWorldPage={isWorldPage}
               goWorld={() => navigate("/world")}
+              isActive={socialTab === "expeditions"}
             />
+          </div>
+
+          {/* BATTLE PANEL */}
+          <div className="spanel" hidden={socialTab !== "battle"}>
+            <BattlePanel active={socialTab === "battle"} />
           </div>
         </>
       )}

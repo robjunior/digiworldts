@@ -84,9 +84,11 @@ const fallbackConfig: AdventureConfigView = {
 export function ExpeditionsPanel({
   isWorldPage,
   goWorld,
+  isActive,
 }: {
   readonly isWorldPage: boolean;
   readonly goWorld: () => void;
+  readonly isActive: boolean;
 }): JSX.Element {
   const t = useT();
   const queryClient = useQueryClient();
@@ -107,10 +109,10 @@ export function ExpeditionsPanel({
   }, [rail.openRequest]);
 
   useEffect(() => {
-    if (rail.targetPlaceId === null) return;
+    if (!isActive || rail.targetPlaceId === null) return;
     setSelectedPlaceId(rail.targetPlaceId);
     railExpeditionsStore.set({ targetPlaceId: null });
-  }, [rail.targetPlaceId]);
+  }, [rail.targetPlaceId, isActive]);
 
   // Relógio pra contagem regressiva.
   const [now, setNow] = useState<number>(() => Date.now());
