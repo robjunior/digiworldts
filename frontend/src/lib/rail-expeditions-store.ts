@@ -10,12 +10,10 @@ import { useSyncExternalStore } from 'react';
  * pode ser estado local da rota. Usa o mesmo padrão do worldGlobeStore
  * (useSyncExternalStore + módulo singleton).
  */
-export type RailIntentTab = 'expeditions' | 'battle';
-
 export type RailExpeditionsState = {
-  /** Pedido para o rail abrir na aba indicada (nonce ≠ repetição). */
-  readonly openRequest: { readonly nonce: number; readonly tab: RailIntentTab } | null;
-  /** id do lugar (node) a pré-selecionar na aba alvo. */
+  /** Pedido para o rail abrir na aba Expedições (nonce ≠ repetição). */
+  readonly openRequest: { readonly nonce: number } | null;
+  /** id do lugar (node) a pré-selecionar no sub-tab Config. */
   readonly targetPlaceId: string | null;
 };
 
@@ -62,21 +60,12 @@ export function useRailExpeditions(): RailExpeditionsState {
 
 /**
  * Gatilho chamado pelo card/node do globo: abre o rail na aba Expedições →
- * sub-tab Config com `placeId` pré-selecionado (null = sem destino fixo).
+ * sub-tab Config com `placeId` pré-selecionado (null = sem destino fixo). O
+ * sub-tab Config controla tanto expedição quanto batalha (escolha por modo).
  */
 export function requestExpeditionConfig(placeId: string | null): void {
   railExpeditionsStore.set({
-    openRequest: { nonce: Date.now(), tab: 'expeditions' },
-    targetPlaceId: placeId,
-  });
-}
-
-/**
- * Gatilho para abrir o rail na aba Battle com `placeId` pré-selecionado.
- */
-export function requestBattleConfig(placeId: string | null): void {
-  railExpeditionsStore.set({
-    openRequest: { nonce: Date.now(), tab: 'battle' },
+    openRequest: { nonce: Date.now() },
     targetPlaceId: placeId,
   });
 }

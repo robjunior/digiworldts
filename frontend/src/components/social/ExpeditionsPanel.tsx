@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { getRoster, type RosterView } from '../../lib/api';
 import { getFarm, type FarmView } from '../../lib/api-farm';
-import { getTeams, type TeamView } from '../../lib/api-teams';
+import { getTeams } from '../../lib/api-teams';
 import {
   collectAdventure,
   getAdventure,
@@ -11,7 +11,7 @@ import {
   type AdventureConfigView,
   type AdventurePageView,
 } from '../../lib/api-adventure';
-import { getPveWorld } from '../../lib/api-world';
+import { getPveWorld, startPveEncounter } from '../../lib/api-world';
 import { useT } from '../../hooks/useLocale';
 import {
   railExpeditionsStore,
@@ -97,6 +97,8 @@ export function ExpeditionsPanel({
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [hours, setHours] = useState<number>(1);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  // O Config controla expedição (startAdventure) e batalha (startPveEncounter).
+  const [mode, setMode] = useState<'expedition' | 'battle'>('expedition');
   const [notice, setNotice] = useState<string | null>(null);
 
   const rail = useRailExpeditions();
@@ -222,6 +224,23 @@ export function ExpeditionsPanel({
     onError: (error) => setNotice(error instanceof Error ? error.message : 'send failed'),
   });
 
+  // Batalha imediata (startPveEncounter) — mesmo Config, modo "battle".
+  const battleMutation = useMutation({
+    mutationFn: (placeId: string) => startPveEncounter(placeId, 'explore', hours),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADVENTURE_KEY });
+      queryClient.invalidateQueries({ queryKey: ROSTER_KEY });
+      queryClient.invalidateQueries({ queryKey: FARM_KEY });
+      setSelectedTeamId(null);
+      setHours(1);
+      setSelectedPlaceId(null);
+      setMode('expedition');
+      setExpSubTab('andamento');
+      setNotice(t('expeditions.battle_started'));
+    },
+    onError: (error) => setNotice(error instanceof Error ? error.message : 'battle failed'),
+  });
+
   const collectMutation = useMutation({
     mutationFn: (adventureId: string) => collectAdventure(adventureId),
     onSuccess: (result) => {
@@ -312,6 +331,27 @@ export function ExpeditionsPanel({
       {/* ── CONFIG (só no Mundo) ─────────────────────────────────────── */}
       {isWorldPage && visibleTab === 'config' && (
         <div className="exp-config">
+          {/* o Config controla expedição E batalha — escolha pelo modo */}
+          <div className="exp-mode-tabs" role="tablist" aria-label={t('expeditions.mode_label')}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'expedition'}
+              className={mode === 'expedition' ? 'is-active' : ''}
+              onClick={() => setMode('expedition')}
+            >
+              {t('expeditions.mode_expedition')}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'battle'}
+              className={mode === 'battle' ? 'is-active' : ''}
+              onClick={() => setMode('battle')}
+            >
+              {t('expeditions.mode_battle')}
+            </button>
+          </div>
           <div className="exp-section">
             <div className="exp-section-hd">{t('expeditions.team')}</div>
             {completeTeams.length === 0 ? (
@@ -320,6 +360,7 @@ export function ExpeditionsPanel({
               <div className="exp-team-list">
                 {completeTeams.map((team) => {
                   const activeTeam = selectedTeam?.id === team.id;
+                  const ready = team.monIds.filter((id): id is string => id !== null).length;
                   return (
                     <button
                       type="button"
@@ -330,6 +371,15 @@ export function ExpeditionsPanel({
                       <span className="exp-team-pick">
                         <CheckIcon />
                       </span>
+                      <span className="exp-team-info">
+                        <span className="exp-team-name">{team.name}</span>
+                        <span className="exp-team-sub">
+                          {ready}/{config.partySize} ·{' '}
+                          {ready === config.partySize
+                            ? t('expeditions.team_ready')
+                            : t('expeditions.team_incomplete')}
+                        </span>
+                      </span>
                       <span className="exp-team-mons">
                         {team.monIds
                           .filter((id): id is string => id !== null)
@@ -338,17 +388,8 @@ export function ExpeditionsPanel({
                               <span className="exp-team-spr">
                                 <DigimonSprite catalogId={rosterById.get(monId)?.catalogId ?? monId} />
                               </span>
-                              <span className="exp-team-lv">
-                                Lv {rosterById.get(monId)?.level ?? '?'}
-                              </span>
                             </span>
                           ))}
-                      </span>
-                      <span className="exp-team-info">
-                        <span className="exp-team-name">{team.name}</span>
-                        <span className="exp-team-sub">
-                          {t('expeditions.power', { power: String(teamPowerOf(team, rosterById)) })}
-                        </span>
                       </span>
                     </button>
                   );
@@ -447,15 +488,21 @@ export function ExpeditionsPanel({
             <button
               type="button"
               className="btn primary"
-              disabled={!canSend || startMutation.isPending}
+              disabled={!canSend || (mode === 'battle' ? battleMutation.isPending : startMutation.isPending)}
               onClick={() => {
+                if (mode === 'battle') {
+                  if (selectedPlace) battleMutation.mutate(selectedPlace.id);
+                  return;
+                }
                 const monIds = (selectedTeam?.monIds ?? []).filter(
                   (id): id is string => id !== null,
                 );
                 startMutation.mutate(monIds);
               }}
             >
-              {startMutation.isPending ? t('common.loading') : t('expeditions.send')}
+              {mode === 'battle'
+                ? battleMutation.isPending ? t('common.loading') : t('expeditions.start_battle')
+                : startMutation.isPending ? t('common.loading') : t('expeditions.send')}
             </button>
           </div>
         </div>
@@ -508,16 +555,4 @@ function IrWorldButton({ goWorld }: { readonly goWorld: () => void }): JSX.Eleme
       {t('expeditions.go_world')}
     </button>
   );
-}
-
-function teamPowerOf(
-  team: TeamView,
-  rosterById: ReadonlyMap<string, RosterView>,
-): number {
-  let power = 0;
-  for (const monId of team.monIds) {
-    if (monId === null) continue;
-    power += rosterById.get(monId)?.level ?? 1;
-  }
-  return power;
 }

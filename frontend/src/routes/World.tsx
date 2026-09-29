@@ -2,11 +2,11 @@ import { useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getPveWorld } from '../lib/api-world';
-import { requestExpeditionConfig, requestBattleConfig } from '../lib/rail-expeditions-store';
+import { requestExpeditionConfig } from '../lib/rail-expeditions-store';
 import { WorldStrip } from '../components/world/WorldStrip';
 import { WorldHoverTip } from '../components/world/WorldHoverTip';
 import { useWorldGlobeUI, worldGlobeStore, usePopupAnchor, popupAnchorStore } from '../lib/world-globe-store';
-import { ArenaIcon, CloseIcon, WorldIcon } from '../components/common/icons';
+import { CloseIcon, WorldIcon } from '../components/common/icons';
 import '../styles/extensions-world.css';
 
 // A cena 3D (globo + digimons) vive no WorldSceneHost (AppShell), persistente —
@@ -29,11 +29,8 @@ export function World(): JSX.Element {
     worldGlobeStore.set({ selectedIdx: null, focus: null, autoSpin: false });
     popupAnchorStore.set(null);
   }, []);
-  // Battle/Explore abertos no rail: Battle → aba Battle, Explore → aba
-  // Expedições. O node é pré-selecionado em cada aba.
-  const openBattle = useCallback(() => {
-    if (selectedPlace) requestBattleConfig(selectedPlace.id);
-  }, [selectedPlace]);
+  // Explore abre o rail (aba Expedições → Config) com o node pré-selecionado;
+  // o Config controla tanto expedição quanto batalha.
   const openExplore = useCallback(() => {
     if (selectedPlace) requestExpeditionConfig(selectedPlace.id);
   }, [selectedPlace]);
@@ -66,10 +63,6 @@ export function World(): JSX.Element {
           </button>
           <span className="world-place-popup__name">{selectedPlace.name}</span>
           <div className="world-place-popup__actions">
-            <button type="button" className="world-place-popup__act" onClick={openBattle}>
-              <ArenaIcon />
-              <span>Battle</span>
-            </button>
             <button type="button" className="world-place-popup__act" onClick={openExplore}>
               <WorldIcon />
               <span>Explore</span>
