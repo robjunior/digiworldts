@@ -239,10 +239,16 @@ function applyLobbyStage(
   // resolveLobbyFog é a fonte ÚNICA (dá no front LobbyScene3D o MESMO objeto
   // de névoa); o override de cor do weather fica no call-site do preview.
   f.scene.fog = resolveLobbyFog({ ...settings, fogColor: wl?.fogColor ?? settings.fogColor });
-  f.bloomPass.enabled = lobby.bloomEnabled !== false;
-  f.bloomPass.strength = lobby.bloomStrength !== undefined ? Math.min(lobby.bloomStrength, 0.35) : 0.3;
-  f.bloomPass.radius = lobby.bloomRadius !== undefined ? Math.min(lobby.bloomRadius, 0.5) : 0.45;
-  f.bloomPass.threshold = lobby.bloomThreshold !== undefined ? Math.max(lobby.bloomThreshold, 0.85) : 0.9;
+  // Bloom + volumetric sao configuracoes COMUNS (top-level settings) com
+  // fallback pro settings.lobby legado.
+  const bloomEnabled = settings.bloomEnabled ?? lobby.bloomEnabled ?? true;
+  const bloomStrength = settings.bloomStrength ?? lobby.bloomStrength ?? 0.3;
+  const bloomRadius = settings.bloomRadius ?? lobby.bloomRadius ?? 0.45;
+  const bloomThreshold = settings.bloomThreshold ?? lobby.bloomThreshold ?? 0.9;
+  f.bloomPass.enabled = bloomEnabled !== false;
+  f.bloomPass.strength = bloomStrength !== undefined ? Math.min(bloomStrength, 0.35) : 0.3;
+  f.bloomPass.radius = bloomRadius !== undefined ? Math.min(bloomRadius, 0.5) : 0.45;
+  f.bloomPass.threshold = bloomThreshold !== undefined ? Math.max(bloomThreshold, 0.85) : 0.9;
 
   // ── ambient dust opacity ────────────────────────────────────────────
   if (f.dust !== null) {
@@ -256,7 +262,7 @@ function applyLobbyStage(
     h.dispose();
   }
   f.lightShafts = [];
-  const vol = lobby.volumetricIntensity ?? 1;
+  const vol = settings.volumetricIntensity ?? lobby.volumetricIntensity ?? 1;
   if (vol > 0) {
     const sceneFog = f.scene.fog as THREE.Fog | null;
     const fogColor = new THREE.Color(sceneFog?.color ?? 0x1e2a44);
@@ -277,8 +283,8 @@ function applyLobbyStage(
         forward: dir,
         angle,
         length: h,
-        softness: lobby.volumetricSoftness ?? 0.55,
-        distanceBlur: lobby.volumetricDistanceBlur ?? 0.65,
+        softness: settings.volumetricSoftness ?? lobby.volumetricSoftness ?? 0.55,
+        distanceBlur: settings.volumetricDistanceBlur ?? lobby.volumetricDistanceBlur ?? 0.65,
         fogColor,
         fogNear,
         fogFar,
@@ -447,8 +453,8 @@ function mountLobbyPreview(
   f.camera = camera;
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), lobby.bloomStrength ?? 0.85, lobby.bloomRadius ?? 0.55, lobby.bloomThreshold ?? 0.65);
-  bloomPass.enabled = lobby.bloomEnabled !== false;
+  const bloomPass = new UnrealBloomPass(new THREE.Vector2(1, 1), settings.bloomStrength ?? lobby.bloomStrength ?? 0.6, settings.bloomRadius ?? lobby.bloomRadius ?? 0.45, settings.bloomThreshold ?? lobby.bloomThreshold ?? 0.9);
+  bloomPass.enabled = (settings.bloomEnabled ?? lobby.bloomEnabled) !== false;
   composer.addPass(bloomPass);
   f.composer = composer;
   f.bloomPass = bloomPass;

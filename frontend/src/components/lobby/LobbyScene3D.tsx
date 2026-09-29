@@ -177,13 +177,23 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     camera.lookAt(stageCenterX, camCenterY, stageCenterZ);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
+    // Bloom + volumetric sao configuracoes COMUNS: leem do top-level (lighting)
+    // com fallback pro settings.lobby legado (cenas antigas persistiram la).
+    const Ltop = lighting ?? {};
+    const bloomStrength = Ltop.bloomStrength ?? settings.bloomStrength ?? 0.3;
+    const bloomRadius = Ltop.bloomRadius ?? settings.bloomRadius ?? 0.45;
+    const bloomThreshold = Ltop.bloomThreshold ?? settings.bloomThreshold ?? 0.9;
+    const bloomEnabled = Ltop.bloomEnabled ?? settings.bloomEnabled ?? true;
+    const volIntensity = Ltop.volumetricIntensity ?? settings.volumetricIntensity ?? 2;
+    const volSoftness = Ltop.volumetricSoftness ?? settings.volumetricSoftness ?? 0.55;
+    const volDistanceBlur = Ltop.volumetricDistanceBlur ?? settings.volumetricDistanceBlur ?? 0.65;
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(host.clientWidth, host.clientHeight),
-      settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3,
-      settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45,
-      settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9,
+      bloomStrength !== undefined ? Math.min(bloomStrength, 0.35) : 0.3,
+      bloomRadius !== undefined ? Math.min(bloomRadius, 0.5) : 0.45,
+      bloomThreshold !== undefined ? Math.max(bloomThreshold, 0.85) : 0.9,
     );
-    bloomPass.enabled = settings.bloomEnabled !== false;
+    bloomPass.enabled = bloomEnabled !== false;
     composer.addPass(bloomPass);
     //    useGlbSettings e o GLB traz as dele — política do loadArenaModelBare) ─
     const L = lighting ?? {};
@@ -537,7 +547,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
      *  pra ler mesmo sob o low exposure do tonemapping. */
     function rebuildLightShafts(): void {
       clearLightShafts();
-      const vol = settings.volumetricIntensity ?? 1;
+      const vol = volIntensity;
       if (vol <= 0) return;
       const fog = scene.fog as THREE.Fog | null;
       const fogColor = new THREE.Color(fog?.color ?? 0x1e2a44);
@@ -564,8 +574,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
           forward: dir,
           angle,
           length: h,
-          softness: settings.volumetricSoftness ?? 0.55,
-          distanceBlur: settings.volumetricDistanceBlur ?? 0.65,
+          softness: volSoftness,
+          distanceBlur: volDistanceBlur,
           fogColor,
           fogNear,
           fogFar,
@@ -650,10 +660,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       // smooth camera look target around the resolved platter center
       camera.lookAt(stageCenterX + yaw * 1.5, camCenterY + pitch * 2, stageCenterZ);
 
-      bloomPass.enabled = settings.bloomEnabled !== false;
-      bloomPass.strength = settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3;
-      bloomPass.radius = settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45;
-      bloomPass.threshold = settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9;
+      bloomPass.enabled = bloomEnabled !== false;
+      bloomPass.strength = bloomStrength !== undefined ? Math.min(bloomStrength, 0.35) : 0.3;
+      bloomPass.radius = bloomRadius !== undefined ? Math.min(bloomRadius, 0.5) : 0.45;
+      bloomPass.threshold = bloomThreshold !== undefined ? Math.max(bloomThreshold, 0.85) : 0.9;
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
       // mantém o uniforme de câmera dos volumes de luz em sync (drift)

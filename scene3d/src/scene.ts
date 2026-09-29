@@ -1,5 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three-stdlib";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 
 import type {
   ParticleEmitterConfig,
@@ -151,6 +154,18 @@ export type SceneSettings = {
   fillIntensity: number;
   exposure: number;
   dustOpacity: number;
+  /** Visibility of the volumetric light shafts (additive cones from the GLB
+   *  spots + the stage light). 0..6. POST-PROCESSING — common to ALL scenes. */
+  volumetricIntensity: number;
+  /** Soft atmospheric penumbra at the beam edge, 0..1. */
+  volumetricSoftness: number;
+  /** Distance extinction/blur, 0..1. */
+  volumetricDistanceBlur: number;
+  /** Cinematic post-processing bloom controls — common to ALL scenes. */
+  bloomEnabled: boolean;
+  bloomStrength: number;
+  bloomRadius: number;
+  bloomThreshold: number;
   camElevDeg: number;
   camYawDeg: number;
   camDist: number;
@@ -741,6 +756,17 @@ export class SceneManager {
   private readonly heightFogUniforms = { fogHeight: { value: 2.0 } };
   private lastAppliedPatch: Partial<SceneSettings> = {};
   private isApplyingFromAtmosphere = false;
+  // ── common post-processing (bloom) — controlled by settings.bloom*, honored
+  // by combat AND the admin arena preview so bloom lives in EVERY scene. ──
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  private bloomEnabled = true;
+  private bloomStrength = 0.3;
+  private bloomRadius = 0.45;
+  private bloomThreshold = 0.9;
+  private volIntensity = 2;
+  private volSoftness = 0.55;
+  private volDistanceBlur = 0.65;
   /** Reused across ray picks (sprite screen hits, arena floor detection) so we
    *  don't allocate a fresh Raycaster on every call. */
   private readonly raycaster = new THREE.Raycaster();
@@ -1595,6 +1621,13 @@ export class SceneManager {
         this.dust !== null
           ? (this.dust.material as THREE.PointsMaterial).opacity
           : 0,
+      volumetricIntensity: this.volIntensity,
+      volumetricSoftness: this.volSoftness,
+      volumetricDistanceBlur: this.volDistanceBlur,
+      bloomEnabled: this.bloomEnabled,
+      bloomStrength: this.bloomStrength,
+      bloomRadius: this.bloomRadius,
+      bloomThreshold: this.bloomThreshold,
       camElevDeg: this.camElevDeg,
       camYawDeg: this.camYawDeg,
       camDist: this.camDist,
@@ -1674,12 +1707,55 @@ export class SceneManager {
     if (this.disposedFlag) return;
     this.applyLighting(patch);
     this.applyShadows(patch);
+    this.applyPostProcessing(patch);
     this.applyFog(patch);
     this.applyCamera(patch);
     this.applyArena(patch);
     if (!this.isApplyingFromAtmosphere) {
       this.recordPatch(patch);
     }
+  }
+
+  /** Lazy EffectComposer + UnrealBloomPass (settings.bloom*) — created only when
+   *  bloom is enabled so scenes that disable it render straight to the canvas
+   *  (no RT overhead). Shared with the preview arena since it reuses SceneManager. */
+  private applyPostProcessing(patch: Partial<SceneSettings>): void {
+    if (patch.bloomEnabled !== undefined) this.bloomEnabled = patch.bloomEnabled;
+    if (patch.bloomStrength !== undefined) this.bloomStrength = patch.bloomStrength;
+    if (patch.bloomRadius !== undefined) this.bloomRadius = patch.bloomRadius;
+    if (patch.bloomThreshold !== undefined) this.bloomThreshold = patch.bloomThreshold;
+    if (patch.volumetricIntensity !== undefined) this.volIntensity = patch.volumetricIntensity;
+    if (patch.volumetricSoftness !== undefined) this.volSoftness = patch.volumetricSoftness;
+    if (patch.volumetricDistanceBlur !== undefined) this.volDistanceBlur = patch.volumetricDistanceBlur;
+
+    if (this.bloomEnabled) {
+      if (this.composer === null) {
+        this.composer = new EffectComposer(this.renderer);
+        this.composer.addPass(new RenderPass(this.scene, this.camera));
+        this.bloomPass = new UnrealBloomPass(
+          new THREE.Vector2(this.stageWidth, this.stageHeight),
+          this.bloomStrength,
+          this.bloomRadius,
+          this.bloomThreshold,
+        );
+        this.composer.addPass(this.bloomPass);
+      }
+      if (this.bloomPass !== null) {
+        this.bloomPass.enabled = true;
+        this.bloomPass.strength = this.bloomStrength;
+        this.bloomPass.radius = this.bloomRadius;
+        this.bloomPass.threshold = this.bloomThreshold;
+      }
+    } else if (this.composer !== null) {
+      this.bloomPass = null;
+      this.composer.dispose();
+      this.composer = null;
+    }
+  }
+
+  private renderFrame(): void {
+    if (this.composer !== null) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
   }
 
   private applyLighting(patch: Partial<SceneSettings>): void {
@@ -1904,6 +1980,7 @@ export class SceneManager {
     this.stageWidth = width;
     this.stageHeight = height;
     this.renderer.setSize(width, height, false);
+    this.composer?.setSize(width, height);
     this.updateProjection();
   }
 
@@ -2226,7 +2303,7 @@ export class SceneManager {
       // the jolt is visible this frame and recomputed from the camera base next
       // frame (no accumulation).
       this.applyShake(dt);
-      this.renderer.render(this.scene, this.camera);
+      this.renderFrame();
       this.sampleHud(dt);
       this.rafId = requestAnimationFrame(tick);
     };
@@ -2235,7 +2312,7 @@ export class SceneManager {
 
   renderOnce(): void {
     if (this.disposedFlag) return;
-    this.renderer.render(this.scene, this.camera);
+    this.renderFrame();
   }
 
   /**
@@ -2386,6 +2463,7 @@ export class SceneManager {
       this.skyTexture.dispose();
       this.skyTexture = null;
     }
+    this.composer?.dispose();
     this.renderer.dispose();
   }
 }

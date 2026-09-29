@@ -1,6 +1,9 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import type { WorldRegion } from "@digiworld/shared/world";
 import type { WorldObject } from "../../lib/api-world";
 import type { WorldHoverTipData } from "./WorldHoverTip";
@@ -208,6 +211,20 @@ export function WorldGlobe({
     scene.add(rim);
     envLights.push(rim);
     scene.fog = resolveLobbyFog(light ?? {});
+    // Bloom é configuração COMUM (settings.bloom*) — vale pro mundo também.
+    let composer: EffectComposer | null = null;
+    let bloomPass: UnrealBloomPass | null = null;
+    if ((light?.bloomEnabled ?? true) !== false) {
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(w, h),
+        light?.bloomStrength ?? 0.3,
+        light?.bloomRadius ?? 0.45,
+        light?.bloomThreshold ?? 0.9,
+      );
+      composer.addPass(bloomPass);
+    }
     let envRoot: THREE.Group | null = null;
     if (envModelUrl) {
       new GLTFLoader()
@@ -397,6 +414,7 @@ export function WorldGlobe({
       const rw = canvas.clientWidth || 800,
         rh = canvas.clientHeight || 600;
       renderer.setSize(rw, rh, false);
+      composer?.setSize(rw, rh);
       camera.aspect = rw / rh;
       camera.updateProjectionMatrix();
     };
@@ -536,7 +554,8 @@ export function WorldGlobe({
         wk.rig.update(delta, t, camera.quaternion);
       }
 
-      renderer.render(scene, camera);
+      if (composer !== null) composer.render();
+      else renderer.render(scene, camera);
     };
     animate(performance.now());
 
@@ -562,6 +581,7 @@ export function WorldGlobe({
       }
       for (const l of envLights) scene.remove(l);
       for (const wk of walkers) wk.rig.dispose();
+      composer?.dispose();
 
       renderer.dispose();
       globe.traverse((obj) => {

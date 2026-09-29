@@ -55,6 +55,14 @@ const DEFAULT_SETTINGS: SceneSettings = {
   fillIntensity: 0.28,
   exposure: 1.05,
   dustOpacity: 0.2,
+  // Common post-processing / atmosphere — present in EVERY scene kind.
+  volumetricIntensity: 2,
+  volumetricSoftness: 0.55,
+  volumetricDistanceBlur: 0.65,
+  bloomEnabled: true,
+  bloomStrength: 0.6,
+  bloomRadius: 0.45,
+  bloomThreshold: 0.9,
   camElevDeg: 22,
   camYawDeg: 22,
   camDist: 14,
@@ -703,6 +711,20 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Dust opacity" value={effectiveSettings.dustOpacity} min={0} max={1} step={0.02} onChange={(v) => patchSettings({ dustOpacity: v })} />
               </Section>
 
+              <Section title="Post-processing & Atmosfera">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  Configurações COMUNS a toda cena (arena/lobby/world): bloom
+                  e feixes volumétricos valem para qualquer kind, não só o lobby.
+                </p>
+                <ToggleRow label="Bloom" value={effectiveSettings.bloomEnabled} onChange={(v) => patchSettings({ bloomEnabled: v })} />
+                <SliderRow label="Bloom strength" value={effectiveSettings.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchSettings({ bloomStrength: v })} decimals={2} />
+                <SliderRow label="Bloom radius" value={effectiveSettings.bloomRadius} min={0.05} max={1} step={0.05} onChange={(v) => patchSettings({ bloomRadius: v })} decimals={2} />
+                <SliderRow label="Bloom threshold" value={effectiveSettings.bloomThreshold} min={0.5} max={2} step={0.05} onChange={(v) => patchSettings({ bloomThreshold: v })} decimals={2} />
+                <SliderRow label="Feixes volumétricos" value={effectiveSettings.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchSettings({ volumetricIntensity: v })} decimals={1} />
+                <SliderRow label="Suavidade do feixe" value={effectiveSettings.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchSettings({ volumetricSoftness: v })} decimals={2} />
+                <SliderRow label="Blur / queda à distância" value={effectiveSettings.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchSettings({ volumetricDistanceBlur: v })} decimals={2} />
+              </Section>
+
               <Section title="Weather">
                 {draft.weather === null ? (
                   <div className="scene-admin-row">
@@ -812,13 +834,6 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
                 <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
                 <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
-                <SliderRow label="Iluminação volumétrica" value={effectiveLobby.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ volumetricIntensity: v })} />
-                <SliderRow label="Suavidade do feixe" value={effectiveLobby.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricSoftness: v })} decimals={2} />
-                <SliderRow label="Blur / queda à distância" value={effectiveLobby.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricDistanceBlur: v })} decimals={2} />
-                <ToggleRow label="Bloom cinematográfico" value={effectiveLobby.bloomEnabled} onChange={(v) => patchLobby({ bloomEnabled: v })} />
-                <SliderRow label="Bloom strength" value={effectiveLobby.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchLobby({ bloomStrength: v })} decimals={2} />
-                <SliderRow label="Bloom radius" value={effectiveLobby.bloomRadius} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ bloomRadius: v })} decimals={2} />
-                <SliderRow label="Bloom threshold" value={effectiveLobby.bloomThreshold} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ bloomThreshold: v })} decimals={2} />
               </Section>
 
               <Section title="Mundo (globo)">
