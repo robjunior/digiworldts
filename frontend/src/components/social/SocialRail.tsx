@@ -232,7 +232,7 @@ export function SocialRail(): JSX.Element {
               setSocialTab("chat");
             }
           }}
-          title="Chat"
+          title="Chat" data-tip="Chat"
         >
           <svg
             viewBox="0 0 24 24"
@@ -262,7 +262,7 @@ export function SocialRail(): JSX.Element {
               setSocialTab("friends");
             }
           }}
-          title="Friends"
+          title="Friends" data-tip="Friends"
         >
           <svg
             viewBox="0 0 24 24"
@@ -295,7 +295,7 @@ export function SocialRail(): JSX.Element {
               setSocialTab("expeditions");
             }
           }}
-          title="Expeditions"
+          title="Expeditions" data-tip="Expeditions"
         >
           <svg
             viewBox="0 0 24 24"
