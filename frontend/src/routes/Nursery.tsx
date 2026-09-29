@@ -52,6 +52,7 @@ export function Nursery(): JSX.Element {
         <div className="nure-scene" data-od-id="nursery-scene">
           <NurseryPen3D
             penMons={view?.penMons ?? []}
+            pending={pending}
             stageDurations={{ babyMs: view?.babyStageMs ?? 60000, inTrainingMs: view?.inTrainingStageMs ?? 120000 }}
             busyMonId={careMutation.isPending ? careMutation.variables?.mon.id : (graduateMutation.isPending ? graduateMutation.variables : null)}
             canFeed={(view?.meat ?? 0) >= (view?.feedMeatCost ?? 0)}

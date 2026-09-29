@@ -1459,3 +1459,87 @@
     padding: 10px 2px;
 }
 
+
+/* ── Nursery panel (Hatchery / Incubating sub-tabs) ───────────────────── */
+.nursery-panel { display: flex; flex-direction: column; gap: 12px; height: 100%; min-height: 0; }
+.nursery-panel__hd { display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--hair); }
+.nursery-panel__title { font: 800 15px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; }
+.nursery-panel__count { margin-left: auto; font: 700 10px/1 var(--font); color: var(--muted); letter-spacing: .04em; white-space: nowrap; }
+
+.nursery-panel__tabs { display: flex; gap: 6px; padding: 2px; }
+.nursery-panel__tabs button {
+  flex: 1 1 0; padding: 8px 10px; cursor: pointer;
+  background: var(--bg); color: var(--muted); border: 1px solid var(--hair);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  font: 800 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase;
+  transition: .12s; text-align: center;
+}
+.nursery-panel__tabs button:hover { border-color: var(--muted); color: var(--ink); }
+.nursery-panel__tabs button.is-active { background: var(--signal); color: #fff; border-color: var(--signal); }
+
+.nursery-panel__hatch, .nursery-panel__incub { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1 1 auto; }
+
+/* species data list (selection) */
+.nursery-panel .rlist { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; min-height: 0; scrollbar-width: thin; padding: 2px; }
+.nursery-panel .rlist::-webkit-scrollbar { width: 8px; }
+.nursery-panel .rlist::-webkit-scrollbar-thumb { background: var(--hair); }
+.nursery-panel .rempty { color: var(--muted); font-size: 11.5px; padding: 8px 2px; line-height: 1.5; }
+
+.nursery-panel .drow {
+  display: grid; grid-template-columns: 20px 34px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 10px; width: 100%; text-align: left;
+  background: var(--bg); border: 1px solid var(--hair);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  --tc: var(--muted); cursor: pointer; transition: .12s; font: inherit; color: inherit;
+}
+.nursery-panel .drow[data-tier="common"] { --tc: var(--common); }
+.nursery-panel .drow[data-tier="uncommon"] { --tc: var(--uncommon); }
+.nursery-panel .drow[data-tier="rare"] { --tc: var(--rare); }
+.nursery-panel .drow:hover { border-color: var(--muted); }
+.nursery-panel .drow.disabled { opacity: .45; cursor: not-allowed; }
+.nursery-panel .drow.is-selected { border-color: var(--signal); background: color-mix(in oklab, var(--signal) 12%, var(--bg)); }
+.nursery-panel .sel-ic { width: 16px; height: 16px; display: grid; place-items: center; color: var(--signal); font-size: 13px; font-weight: 900; }
+.nursery-panel .dspr { width: 34px; height: 34px; display: grid; place-items: center; }
+.nursery-panel .dspr img { width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; }
+.nursery-panel .dmid { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.nursery-panel .dn { font: 800 12px/1.1 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 7px; }
+.nursery-panel .dn .tier { font: 800 8px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--tc); border: 1px solid var(--tc); clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); padding: 2px 4px; }
+.nursery-panel .dbar { height: 5px; background: var(--panel); border: 1px solid var(--hair); clip-path: polygon(2px 0, 100% 0, 100% 100%, 0 100%); overflow: hidden; }
+.nursery-panel .dbar i { display: block; height: 100%; background: var(--tc); width: 0; }
+.nursery-panel .dmeta { font: 700 9px/1 var(--font); color: var(--muted); text-align: right; white-space: nowrap; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.nursery-panel .dmeta .pc { font: 800 12px/1 var(--font); color: var(--ink); }
+.nursery-panel .dmeta .pc.full { color: var(--good); }
+.nursery-panel .dmeta .kills { font: 700 8px/1 var(--font); letter-spacing: .04em; }
+
+/* generate foot */
+.nursery-panel__gen { flex: 0 0 auto; border-top: 1px solid var(--hair); padding-top: 12px; display: flex; align-items: center; gap: 12px; }
+.nursery-panel__gen-hint { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 10.5px; color: var(--muted); line-height: 1.4; }
+.nursery-panel__gen-hint b { color: var(--ink); font-size: 12px; }
+.nursery-panel__gen-sub { font-size: 9.5px; letter-spacing: .03em; color: var(--muted); }
+.nursery-panel__gen-sub.mystery { color: var(--data); }
+.nursery-panel .btn { padding: 10px 16px; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); font: 800 10px/1 var(--font); letter-spacing: .1em; text-transform: uppercase; border: 1px solid transparent; transition: .12s; white-space: nowrap; }
+.nursery-panel .btn.primary { background: var(--signal); color: #fff; }
+.nursery-panel .btn.primary:hover:not(:disabled) { background: color-mix(in oklab, var(--signal) 86%, var(--ink)); }
+.nursery-panel .btn.primary:disabled { opacity: .4; cursor: not-allowed; }
+
+/* egg row (incubating) */
+.nursery-panel .egg { display: grid; grid-template-columns: 38px 1fr auto; gap: 11px; align-items: center; padding: 9px 10px; background: var(--bg); border: 1px solid var(--hair); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+.nursery-panel .egg .espr { width: 38px; height: 38px; display: grid; place-items: center; position: relative; }
+.nursery-panel .egg .espr img { width: 34px; height: 34px; object-fit: contain; image-rendering: pixelated; }
+.nursery-panel .egg .eespr { width: 34px; height: 34px; color: var(--data); display: grid; place-items: center; }
+.nursery-panel .egg .eespr svg { width: 32px; height: 32px; }
+.nursery-panel .egg.ready .espr { animation: nudgebob 1s ease-in-out infinite; }
+.nursery-panel .egg.mystery { border-color: color-mix(in oklab, var(--data) 45%, var(--hair)); }
+.nursery-panel .egg.mystery.ready { animation: mysterypulse 1.2s ease-in-out infinite; }
+.nursery-panel .emid { min-width: 0; }
+.nursery-panel .en { font: 800 12px/1.1 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nursery-panel .egg.mystery .en { color: var(--data); }
+.nursery-panel .esub { font: 700 9px/1 var(--font); letter-spacing: .06em; color: var(--muted); margin-top: 3px; }
+.nursery-panel .etime { font: 800 13px/1 var(--font); color: var(--muted); white-space: nowrap; }
+.nursery-panel .egg.ready .etime { color: var(--good); }
+.nursery-panel .collectbtn { padding: 7px 11px; background: var(--battle); color: #fff; clip-path: polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px); font: 800 9px/1 var(--font); letter-spacing: .08em; text-transform: uppercase; cursor: pointer; border: none; }
+.nursery-panel .collectbtn:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 88%, var(--ink)); }
+.nursery-panel .collectbtn:disabled { opacity: .45; cursor: not-allowed; }
+
+@keyframes nudgebob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes mysterypulse { 0%, 100% { opacity: 1; } 50% { opacity: .72; } }

@@ -263,9 +263,14 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({ ok: true, pending: result.pending });
   });
 
-  app.post('/api/nursery/hatch/mix', async (req, reply) => {
+  app.post<{ Body: { catalogIds?: string[] } }>('/api/nursery/hatch/mix', async (req, reply) => {
     const user = await requireAuth(req, reply);
-    const result = await startMixHatch(user.id);
+    // Selection-based: only the selected species feed the weighted roll. No
+    // body → legacy all-data mix. A selection ALWAYS yields a mystery egg.
+    const selected = Array.isArray(req.body?.catalogIds) && req.body.catalogIds.length > 0
+      ? req.body.catalogIds
+      : undefined;
+    const result = await startMixHatch(user.id, selected);
     if (!result.ok) {
       const code = result.error === 'no-data' ? 409 : 500;
       return reply.code(code).send({ error: result.error });
@@ -273,8 +278,8 @@ export const nurseryPlugin: FastifyPluginAsync = async (app) => {
     return reply.send({
       ok: true,
       pending: result.pending,
-      rolledCatalogId: result.rolledCatalogId,
       totalWeight: result.totalWeight,
+      hasMystery: result.hasMystery,
     });
   });
 

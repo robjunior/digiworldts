@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { ApiError } from '../../lib/api';
 import {
@@ -13,7 +13,7 @@ import {
   type SpeciesDataEntry,
 } from '../../lib/api-nursery';
 import { railNurseryStore } from '../../lib/rail-nursery-store';
-import { NurseryDigitamaSidebar } from '../nursery/NurseryDigitamaSidebar';
+import { DigitamaPool } from '../nursery/DigitamaPool';
 import { NurseryYard } from '../nursery/NurseryYard';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
@@ -21,20 +21,23 @@ const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
 const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
 const PENDING_POLL_MS = 5_000;
 
+type NurserySubTab = 'hatchery' | 'incubating';
+
 /**
- * Painel "Nursery" do Social Rail — hatchery (species data → hatch/mix) e
- * incubação (collect). Mesmo padrão do ExpeditionsPanel: o rail segue montado
- * no AppShell e a aba é aberta pelo gatilho da rota /nursery via
- * railNurseryStore. Reutiliza os MESMOS query keys da rota Nursery.tsx para o
- * react-query deduplicar (uma única fetch por key, cache compartilhado) e a
- * invalidação da rota refrescar o painel automaticamente.
+ * Painel "Nursery" do Social Rail — duas abas:
+ *  - Hatchery: seleciona species data de qualquer digimon com dado > 0. Se um
+ *    selecionado tiver 100% → choca direto (revela); senão seleciona até 100%
+ *    no total → gera um MYSTERY egg (ponderado pela % dos selecionados) que
+ *    não revela qual digimon vem até ser chocado.
+ *  - Incubating: os ovos incubando (coletar quando prontos).
  */
 export function NurseryPanel(): JSX.Element {
   const queryClient = useQueryClient();
+  const [subTab, setSubTab] = useState<NurserySubTab>('hatchery');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Gatilho vindo da rota (botão "Hatchery" no pill): a aba já foi aberta pelo
-  // SocialRail; este painel é quem consome e reseta o openRequest. Reactivo via
-  // useSyncExternalStore.
+  // SocialRail; este painel é quem consome e reseta o openRequest.
   const openRequest = useRailNurseryOpen();
   useEffect(() => {
     if (openRequest === null) return;
@@ -47,7 +50,6 @@ export function NurseryPanel(): JSX.Element {
 
   const dataEntries: readonly SpeciesDataEntry[] = dataQuery.data?.entries ?? [];
   const pending: readonly PendingHatchEntry[] = pendingQuery.data?.pending ?? [];
-  const totalWeight = dataQuery.data?.totalWeight ?? 0;
   const meat = quarry.data?.meat ?? 0;
   const inCare = quarry.data?.penMons.length ?? 0;
 
@@ -62,12 +64,13 @@ export function NurseryPanel(): JSX.Element {
         queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
       ]);
+      setSelectedIds(new Set());
     },
   });
 
   const mixMutation = useMutation({
-    mutationFn: async () => {
-      const result = await startMixHatch();
+    mutationFn: async (ids: string[]) => {
+      const result = await startMixHatch(ids);
       if (!result.ok) throw new ApiError(mixErrorMessage(result.error), 409);
       return result;
     },
@@ -76,6 +79,9 @@ export function NurseryPanel(): JSX.Element {
         queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
       ]);
+      setSelectedIds(new Set());
+      // Mystery egg chocado → manda o jogador pra Incubating pra ver o misterio.
+      setSubTab('incubating');
     },
   });
 
@@ -94,43 +100,105 @@ export function NurseryPanel(): JSX.Element {
     },
   });
 
+  // ── selection model ────────────────────────────────────────────────────
+  const selected = useMemo(() => {
+    return dataEntries.filter((e) => selectedIds.has(e.catalogId));
+  }, [dataEntries, selectedIds]);
+  const totalSelected = selected.reduce((s, e) => s + e.percent, 0);
+  // "Generate egg" habilitado quando o total selecionado ≥ 100. Se um único
+  // selecionado tem 100% → hatch direto (revela); senão → mystery egg.
+  const canGenerate = totalSelected >= 100;
+  const fullSingle = selected.length === 1 && selected[0]!.percent >= 100;
+
+  const toggleSelect = (entry: SpeciesDataEntry): void => {
+    if (entry.percent <= 0) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(entry.catalogId)) next.delete(entry.catalogId);
+      else next.add(entry.catalogId);
+      return next;
+    });
+  };
+
+  const generate = (): void => {
+    if (!canGenerate) return;
+    if (fullSingle && selected[0] !== undefined) {
+      hatchMutation.mutate(selected[0]);
+      return;
+    }
+    mixMutation.mutate(Array.from(selectedIds));
+  };
+
+  const busy = hatchMutation.isPending || mixMutation.isPending;
+
   return (
     <div className="nursery-panel">
       <div className="nursery-panel__hd">
         <span className="nursery-panel__title">Nursery</span>
-        <span className="nursery-panel__count">
-          {inCare} in care · {meat} meat
-        </span>
+        <span className="nursery-panel__count">{inCare} in care · {meat} meat</span>
       </div>
 
-      <div className="nursery-panel__hatch">
-        <div className="nursery-panel__sect-hd">
-          <span className="nursery-panel__ht">Hatchery</span>
-          <span className="nursery-panel__sub">{dataEntries.length} species tracked</span>
-        </div>
-        <NurseryDigitamaSidebar
-          entries={dataEntries}
-          pending={pending}
-          loading={dataQuery.isPending}
-          totalWeight={totalWeight}
-          busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
-          mixBusy={mixMutation.isPending}
-          onHatch={(entry) => hatchMutation.mutate(entry)}
-          onMix={() => mixMutation.mutate()}
-        />
+      {/* sub-tabs */}
+      <div className="nursery-panel__tabs" role="tablist" aria-label="Nursery sections">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'hatchery'}
+          className={subTab === 'hatchery' ? 'is-active' : ''}
+          onClick={() => setSubTab('hatchery')}
+        >
+          Hatchery
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={subTab === 'incubating'}
+          className={subTab === 'incubating' ? 'is-active' : ''}
+          onClick={() => setSubTab('incubating')}
+        >
+          Incubating{pending.length > 0 ? ` · ${pending.length}` : ''}
+        </button>
       </div>
 
-      <div className="nursery-panel__incub">
-        <div className="nursery-panel__sect-hd">
-          <span className="nursery-panel__ht">Incubating</span>
-          <span className="nursery-panel__sub">{pending.length} egg{pending.length === 1 ? '' : 's'}</span>
+      {subTab === 'hatchery' && (
+        <div className="nursery-panel__hatch">
+          <DigitamaPool
+            entries={dataEntries}
+            loading={dataQuery.isPending}
+            selectedIds={selectedIds}
+            onToggle={toggleSelect}
+          />
+          <div className="nursery-panel__gen">
+            <div className="nursery-panel__gen-hint">
+              <span>Selected <b>{Math.round(totalSelected)}%</b> / 100%</span>
+              {selected.length > 0 && !canGenerate && (
+                <span className="nursery-panel__gen-sub">
+                  keep selecting to reach 100%
+                </span>
+              )}
+              {canGenerate && fullSingle && (
+                <span className="nursery-panel__gen-sub">{selected[0]!.name} · hatch direct</span>
+              )}
+              {canGenerate && !fullSingle && (
+                <span className="nursery-panel__gen-sub mystery">weighted mystery egg</span>
+              )}
+            </div>
+            <button type="button" className="btn primary" disabled={!canGenerate || busy} onClick={generate}>
+              {busy ? '…' : canGenerate && !fullSingle ? 'Generate Mystery Egg' : 'Generate Egg'}
+            </button>
+          </div>
         </div>
-        <NurseryYard
-          pending={pending}
-          busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
-          onCollect={(entry) => collectMutation.mutate(entry)}
-        />
-      </div>
+      )}
+
+      {subTab === 'incubating' && (
+        <div className="nursery-panel__incub">
+          <NurseryYard
+            pending={pending}
+            busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
+            onCollect={(entry) => collectMutation.mutate(entry)}
+          />
+        </div>
+      )}
     </div>
   );
 }

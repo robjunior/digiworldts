@@ -58,7 +58,13 @@ export function startDirectHatch(catalogId: string): Promise<HatchStartResponse>
   return apiFetch<HatchStartResponse>(`/api/nursery/hatch/${encodeURIComponent(catalogId)}`, { method: 'POST' });
 }
 
-export function startMixHatch(): Promise<MixHatchResponse> {
+export function startMixHatch(catalogIds?: readonly string[]): Promise<MixHatchResponse> {
+  if (catalogIds && catalogIds.length > 0) {
+    return apiFetch<MixHatchResponse>('/api/nursery/hatch/mix', {
+      method: 'POST',
+      body: { catalogIds },
+    });
+  }
   return apiFetch<MixHatchResponse>('/api/nursery/hatch/mix', { method: 'POST' });
 }
 
