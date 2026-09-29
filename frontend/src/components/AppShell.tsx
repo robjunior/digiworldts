@@ -14,6 +14,7 @@ import "../styles/topbar.css";
 import { SocialRail } from "./social/SocialRail";
 import "../styles/social-rail.css";
 import { LobbySceneHost } from "./lobby/LobbySceneHost";
+import { WorldSceneHost } from "./world/WorldSceneHost";
 import { useAuth } from "../hooks/useAuth";
 import { useT } from "../hooks/useLocale";
 import { getRoster } from "../lib/api";
@@ -293,6 +294,9 @@ export function AppShell(): JSX.Element {
           apenas no lobby (LobbySceneHost cuida da visibilidade) — trocar de
           página não recarrega o GLB/a party. */}
       <LobbySceneHost />
+      {/* Cena 3D do mundo persistente (mesmo padrão): globo + digimons montados
+          UMA vez, visíveis apenas em /world — sair e voltar não recarrega a cena. */}
+      <WorldSceneHost />
       <div className="body">
         <main className={mainClassName}>
           <Outlet />

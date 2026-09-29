@@ -3,100 +3,52 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRoster } from '../lib/api';
 import { getFarm } from '../lib/api-farm';
 import { getTeams, type TeamView } from '../lib/api-teams';
-import { getPveWorld, savePveParty, startPveEncounter, type WorldObject } from '../lib/api-world';
+import { getPveWorld, savePveParty, startPveEncounter } from '../lib/api-world';
 import type { WorldRegion } from '@digiworld/shared/world';
-import { getWorldSceneEntity } from '../lib/api-scenes';
-import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from '@digiworld/scene3d/arena-urls';
-import type { SceneSettings } from '@digiworld/scene3d/scene';
-import { WorldGlobe } from '../components/world/WorldGlobe';
 import { WorldStrip } from '../components/world/WorldStrip';
-import { WorldHoverTip, type WorldHoverTipData } from '../components/world/WorldHoverTip';
+import { WorldHoverTip } from '../components/world/WorldHoverTip';
+import { useWorldGlobeUI, worldGlobeStore } from '../lib/world-globe-store';
 import '../styles/extensions-world.css';
 import '../styles/world-party-drawer.css';
 
 const PARTY_SIZE = 3;
-const worldPosition = (x: number, y: number): { lat: number; lon: number } => ({ lat: 54 - y * 0.72, lon: x * 3.6 - 180 });
-// Keeps the resolved world-scene model URL referentially stable across renders
-// (mirrors the LobbySceneHost cache) so the globe doesn't rebuild per render.
-let lastResolvedWorldModelUrl: string | null = null;
+// A cena 3D (globo + digimons) vive no WorldSceneHost (AppShell), persistente —
+// esta página só desenha a UI do overlay por cima dela e lê o worldGlobeStore
+// pro estado interativo (seleção, hover, auto-spin, fallback de WebGL).
 
 export function World(): JSX.Element {
   const client = useQueryClient();
   const world = useQuery({ queryKey: ['pve-world'], queryFn: getPveWorld });
+  // same keys do host → react-query deduplica num único fetch.
   const roster = useQuery({ queryKey: ['roster'], queryFn: getRoster });
   const teams = useQuery({ queryKey: ['teams'], queryFn: getTeams });
   const farm = useQuery({ queryKey: ['farm'], queryFn: getFarm });
-  const worldScene = useQuery({ queryKey: ['world-scene-entity'], queryFn: getWorldSceneEntity, staleTime: 30_000 });
-  // The world scene is the 3D backdrop for the centered globe. `world` and
-  // `lighting` come straight off the entity (react-query structural sharing
-  // keeps the references stable across identical refetches) — identical to how
-  // LobbySceneHost feeds LobbyScene3D, so WorldGlobe mounts once per content.
-  const worldEntity = worldScene.data;
-  const worldLighting: Partial<SceneSettings> | null =
-    worldEntity && worldEntity.settings ? (worldEntity.settings as Partial<SceneSettings>) : null;
-  const worldSettings = worldLighting?.world ?? null;
-  const worldGlbSettings = worldEntity?.useGlbSettings === true;
-  const hasWorldModelFile = typeof worldEntity?.settings?.modelFile === 'string' && !!worldEntity.settings.modelFile;
-  const envUrl =
-    worldEntity && hasWorldModelFile
-      ? (resolveSceneModelUrl(worldEntity.settings.modelFile as string, DEFAULT_ARENA_MODEL) ?? null)
-      : (lastResolvedWorldModelUrl ?? resolveSceneModelUrl(undefined, DEFAULT_ARENA_MODEL) ?? null);
-  if (envUrl !== null && hasWorldModelFile) lastResolvedWorldModelUrl = envUrl;
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  const ui = useWorldGlobeUI();
   const [mode, setMode] = useState<'explore' | 'expedition'>('explore');
   const [partyPanelOpen, setPartyPanelOpen] = useState(false);
   const [hours, setHours] = useState(1);
-  const [autoSpin, setAutoSpin] = useState(() => !window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  const [hoveredIdx, setHoveredIdx] = useState(-1);
-  const [focus, setFocus] = useState<{ lat: number; lon: number } | null>(null);
-  const [hoverTip, setHoverTip] = useState<WorldHoverTipData | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [webglFailed, setWebglFailed] = useState(false);
-  // Stable identities so WorldGlobe's mount effect doesn't rebuild the 3D
-  // scene on every World re-render (hover/select/toggle). Inline arrays and
-  // arrows are new each render, which flips the [worldObjects, onFailWebGL]
-  // deps and blanks+re-inits the whole globe on every pointer move — the
-  // opposite of the persistent lobby scene.
-  const worldObjects = useMemo<readonly WorldObject[]>(() => [], []);
-  const onFailWebGL = useCallback(() => setWebglFailed(true), []);
+
   const places = world.data?.places ?? [];
-  const positions = useMemo(() => places.map((place) => worldPosition(place.x, place.y)), [places]);
-  const regions = useMemo<readonly WorldRegion[]>(() => places.map((place, index) => ({
-    id: place.id, label: place.name, description: place.description, element: 'null', biome: 'forest',
-    lat: positions[index]?.lat ?? 0, lon: positions[index]?.lon ?? 0, dungeonId: place.id, levelCap: place.maxWildLevel ?? 99, danger: place.maxWildLevel ?? 1, scouted: true,
-  })), [places, positions]);
-  const selectedPlace = selectedIdx === null ? null : (places[selectedIdx] ?? null);
-  // Digimons de TODOS os times ATIVOS que andam em volta do globo na cena 3d.
-  // Colhidos dos times ativos (monIds) resolvidos no roster, deduplicados, com
-  // a garantia de pelo menos 3 digimons andando (fallback para sprites padrão
-  // quando o player ainda não tem 3 mons em times ativos resolvíveis).
-  const teamWanderers = useMemo(() => {
-    const byId = new Map((roster.data?.roster ?? []).map((m) => [m.id, m]));
-    const allTeams = teams.data?.teams ?? [];
-    // "times ativos" primeiro; se nenhum estiver marcado ativo, usa todos.
-    const activeTeams = allTeams.filter((t) => t.active === true);
-    const source = activeTeams.length > 0 ? activeTeams : allTeams;
-    const seen = new Set<string>();
-    const out: { id: string; catalogId: string; element?: string }[] = [];
-    for (const team of source) {
-      for (const mid of team.monIds) {
-        if (!mid || seen.has(mid)) continue;
-        const mon = byId.get(mid);
-        if (!mon) continue;
-        seen.add(mid);
-        const el = mon.template?.element;
-        out.push(
-          el ? { id: mon.id, catalogId: mon.catalogId, element: el } : { id: mon.id, catalogId: mon.catalogId },
-        );
-      }
-    }
-    // Pelo menos 3 digimons andando — completa com sprites padrão se faltar.
-    const PLACEHOLDER_CATALOG = ['skb-1', 'skb-2', 'skb-3'];
-    for (let i = 0; out.length < 3; i++) {
-      out.push({ id: `wander:ph:${i}`, catalogId: PLACEHOLDER_CATALOG[i % PLACEHOLDER_CATALOG.length] ?? 'skb-1' });
-    }
-    return out;
-  }, [teams.data, roster.data]);
+  const regions = useMemo<readonly WorldRegion[]>(
+    () =>
+      places.map((place) => ({
+        id: place.id,
+        label: place.name,
+        description: place.description,
+        element: 'null',
+        biome: 'forest',
+        lat: 0,
+        lon: 0,
+        dungeonId: place.id,
+        levelCap: place.maxWildLevel ?? 99,
+        danger: place.maxWildLevel ?? 1,
+        scouted: true,
+      })),
+    [places],
+  );
+  const selectedPlace = ui.selectedIdx === null ? null : (places[ui.selectedIdx] ?? null);
   const preferences = world.data?.preferences;
   const saved = mode === 'explore' ? preferences?.exploreParty ?? [] : preferences?.expeditionParty ?? [];
   const available = (roster.data?.roster ?? []).filter((mon) => (mon.status === 'resting' || mon.status === 'party') && !mon.listedAt && (!mon.reviveAt || mon.reviveAt <= Date.now()));
@@ -115,17 +67,14 @@ export function World(): JSX.Element {
     mutationFn: () => startPveEncounter(selectedPlace?.id ?? '', mode, hours),
     onError: (error) => { setNotice(error instanceof Error ? error.message : 'Não foi possível iniciar.'); setPartyPanelOpen(true); },
   });
-  const selectRegion = useCallback((index: number): void => { setSelectedIdx(index); const pos = positions[index]; if (pos) setFocus(pos); }, [positions]);
-  const showTip = useCallback((tip: WorldHoverTipData | null) => setHoverTip(tip), []);
-  const toggleSpin = useCallback(() => setAutoSpin((value) => !value), []);
+  const toggleSpin = useCallback(() => worldGlobeStore.set({ autoSpin: !worldGlobeStore.get().autoSpin }), []);
   const toast = useRef<number | null>(null);
   useEffect(() => () => { if (toast.current !== null) window.clearTimeout(toast.current); }, []);
 
   return <main className="world-page-layout world-legacy">
     <div className="stage" data-od-id="globe-stage">
-      <WorldGlobe regions={regions} worldObjects={worldObjects} focusLatLon={focus} autoSpin={autoSpin} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} onHoverChange={setHoveredIdx} onSelect={selectRegion} onHoverTip={showTip} onFailWebGL={onFailWebGL} world={worldSettings} lighting={worldLighting} envModelUrl={envUrl} useGlbSettings={worldGlbSettings} wanderers={teamWanderers} />
-      {webglFailed ? <div className="stage-fallback show" role="status"><div className="box"><b>Mapa 3D indisponível</b><br />Selecione uma localidade na lista.</div></div> : null}
-      <div className="overlay"><WorldStrip selectedRegion={selectedIdx === null ? null : regions[selectedIdx] ?? null} autoSpin={autoSpin} onToggleAutoSpin={toggleSpin} /><WorldHoverTip tip={hoverTip} /></div>
+      {ui.webglFailed ? <div className="stage-fallback show" role="status"><div className="box"><b>Mapa 3D indisponível</b><br />Selecione uma localidade na lista.</div></div> : null}
+      <div className="overlay"><WorldStrip selectedRegion={ui.selectedIdx === null ? null : regions[ui.selectedIdx] ?? null} autoSpin={ui.autoSpin} onToggleAutoSpin={toggleSpin} /><WorldHoverTip tip={ui.hoverTip} /></div>
     </div>
     {selectedPlace ? <section className="world-place-popup" aria-label={`Localidade ${selectedPlace.name}`}>
       <div className="world-place-popup__route" aria-hidden="true" /><span className="world-place-popup__eyebrow">LOCALIDADE SELECIONADA</span><h2>{selectedPlace.name}</h2><p>{selectedPlace.description || 'Uma localidade do mundo.'}</p>

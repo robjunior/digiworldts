@@ -95,6 +95,9 @@ type WorldGlobeProps = {
   readonly onSelect: (idx: number) => void;
   readonly onHoverTip: (tip: WorldHoverTipData | null) => void;
   readonly onFailWebGL: () => void;
+  /** Quando false (rota /world não ativa), pausa os frames mas mantém a cena
+   *  montada — o host persistente usa isso pra não gastar GPU fora do mundo. */
+  readonly visible?: boolean;
   /** Admin scene of kind 'world': globe knobs (settings.world). */
   readonly world?: WorldSceneSettings | null;
   /** Admin scene common settings (modelFile, lighting, fog, exposure). */
@@ -128,6 +131,7 @@ export function WorldGlobe({
   envModelUrl = null,
   useGlbSettings = false,
   wanderers = [],
+  visible = true,
 }: WorldGlobeProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -145,6 +149,7 @@ export function WorldGlobe({
     lighting: lighting ?? null,
     useGlbSettings,
     wanderers,
+    visible,
   });
 
   useEffect(() => {
@@ -155,7 +160,8 @@ export function WorldGlobe({
     stateRef.current.lighting = lighting ?? null;
     stateRef.current.useGlbSettings = useGlbSettings;
     stateRef.current.wanderers = wanderers;
-  }, [autoSpin, selectedIdx, hoveredIdx, world, lighting, useGlbSettings, wanderers]);
+    stateRef.current.visible = visible;
+  }, [autoSpin, selectedIdx, hoveredIdx, world, lighting, useGlbSettings, wanderers, visible]);
 
   useEffect(() => {
     if (!focusLatLon) return;
@@ -558,6 +564,7 @@ export function WorldGlobe({
       // `THREE.Timer` needs `update()` each frame; otherwise `getElapsed()`
       // stays 0 and the selection-ring pulse below is frozen.
       clock.update(rafTimestamp);
+      if (!stateRef.current.visible) return; // host persistente: pausa fora do /world
       if (stateRef.current.autoSpin && !stateRef.current.dragging) {
         stateRef.current.rotY += 0.0016;
       }
