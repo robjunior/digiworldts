@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { EnvBadge } from './components/EnvBadge';
 import { AdminGuard } from './components/admin/AdminGuard';
 import { Login } from './routes/Login';
+import { AdminWorld } from './routes/AdminWorld';
 
 const Admin = lazy(() => import('./routes/Admin').then((m) => ({ default: m.Admin })));
 const AdminParticleEditor = lazy(() => import('./routes/AdminParticleEditor').then((m) => ({ default: m.AdminParticleEditor })));
@@ -33,6 +34,10 @@ export function App(): JSX.Element {
                 <Admin />
               </AdminGuard>
             }
+          />
+          <Route
+            path="/world"
+            element={<AdminWorld />}
           />
           <Route
             path="/particles"

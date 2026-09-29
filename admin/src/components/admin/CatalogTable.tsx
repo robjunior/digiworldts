@@ -3,7 +3,7 @@ import { ATTRIBUTES, ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-import { createCustomTemplate, deleteTemplate, downloadTemplateAssets, getCatalog, getShopItems, replaceTemplate, publishTemplate, getCatalogHistory, type TemplateDraft, type CatalogHistoryEntry } from '../../lib/api-admin';
+import { createCustomTemplate, deleteTemplate, downloadTemplateAssets, getCatalog, getShopItems, replaceTemplate, publishTemplate, toggleTemplateEnabled, getCatalogHistory, type TemplateDraft, type CatalogHistoryEntry } from '../../lib/api-admin';
 import { AdminMessage, AdminSection, ErrorText, StatusBadge, HistoryModal, type ContentStatus, type HistoryEntry } from './AdminShared';
 import { CatalogEditDialog } from './CatalogEditDialog';
 import { LootEditorDialog } from './LootEditorDialog';
@@ -58,6 +58,15 @@ export function CatalogTable(): JSX.Element {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });
       setMessage('Catalog entry published.');
+    },
+    onError: (mutationError: Error) => setError(mutationError.message),
+  });
+
+  const toggleEnabledMutation = useMutation({
+    mutationFn: toggleTemplateEnabled,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CATALOG_QUERY_KEY });
+      setMessage('Catalog entry availability updated.');
     },
     onError: (mutationError: Error) => setError(mutationError.message),
   });
@@ -194,6 +203,7 @@ export function CatalogTable(): JSX.Element {
             onEditLoot={() => setLootTarget(template)}
             onEdit={() => setDialog({ kind: 'edit', template })}
             onPublish={() => publishTemplateMutation.mutate(template.id)}
+            onToggleEnabled={() => toggleEnabledMutation.mutate(template.id)}
             onHistory={() => loadHistory(template)}
           />
         ))}
@@ -226,7 +236,7 @@ export function CatalogTable(): JSX.Element {
   );
 }
 
-function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, onDownload, onEditLoot, onEdit, onPublish, onHistory }: {
+function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, onDownload, onEditLoot, onEdit, onPublish, onToggleEnabled, onHistory }: {
   readonly template: TemplateDigimon;
   readonly expanded: boolean;
   readonly busy: boolean;
@@ -237,6 +247,7 @@ function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, o
   readonly onEditLoot: () => void;
   readonly onEdit: () => void;
   readonly onPublish: () => void;
+  readonly onToggleEnabled: () => void;
   readonly onHistory: () => void;
 }): JSX.Element {
   const itemNameById = useMemo(() => {
@@ -294,7 +305,10 @@ function CatalogRow({ template, expanded, busy, shopItems, onToggle, onDelete, o
             {(template.status ?? 'draft') === 'draft' ? (
               <button className="btn btn--primary btn--sm" type="button" onClick={onPublish}>Publish</button>
             ) : (
-              <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>Published</span>
+              <>
+                <button className="btn btn--secondary btn--sm" type="button" onClick={onToggleEnabled}>{template.status === 'archived' ? 'Enable' : 'Disable'}</button>
+                <span className="status-published" style={{ fontSize: 11, opacity: 0.7 }}>{template.status === 'archived' ? 'Disabled' : 'Published'}</span>
+              </>
             )}
             <button className="btn btn--secondary btn--sm" type="button" onClick={onHistory}>History</button>
             <button className="btn btn--secondary btn--sm" type="button" disabled={busy} onClick={onEditLoot}>Edit loot</button>

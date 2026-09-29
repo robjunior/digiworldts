@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { ATTRIBUTES, ELEMENTS, STAGES, type Attribute, type Element, type Stage } from '@digiworld/shared/digimon';
 import { ApiError } from '../../lib/api';
-import { getMonSkills, setMonSkills, type LearnedSkillEntry, type CatalogSkillMeta } from '../../lib/api-roster';
+import { getMonSkills, setMonSignature, setMonSkills, type CatalogSkillMeta, type LearnedSkillEntry } from '../../lib/api-roster';
 
 type SkillEditorProps = {
   readonly monId: string;
@@ -87,6 +87,26 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
   const [elementFilter, setElementFilter] = useState<ElementFilter>('all');
   const [attributeFilter, setAttributeFilter] = useState<AttributeFilter>('all');
 
+  // Single active signature (one at a time). `undefined` = not initialised from the server yet.
+  const [activeSignature, setActiveSignature] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (query.data && activeSignature === undefined) setActiveSignature(query.data.activeSignatureId);
+  }, [query.data, activeSignature]);
+
+  const signatureMutation = useMutation({
+    mutationFn: (skillId: string | null) => setMonSignature(monId, skillId),
+    onSuccess: (result) => {
+      setActiveSignature(result.signatureSkillId);
+      setMessage({ tone: 'ok', text: result.signatureSkillId ? 'Signature skill set.' : 'Signature cleared.' });
+      void queryClient.invalidateQueries({ queryKey: skillsKey });
+    },
+    onError: (error: unknown) => {
+      const text = error instanceof ApiError ? `${error.message} (${String(error.code ?? '')})` : error instanceof Error ? error.message : 'signature update failed';
+      setMessage({ tone: 'err', text });
+    },
+  });
+
   useEffect(() => {
     if (query.data && chosen === null) {
       setChosen(new Set(query.data.equipped));
@@ -161,6 +181,51 @@ export function SkillEditor({ monId }: SkillEditorProps): JSX.Element {
 
   return (
     <div className="skill-editor-simple">
+      {/* Signature skill picker: exactly one active at a time, representing an element archetype. */}
+      <div className="skl-signature">
+        <div className="skl-hdr">
+          <span className="skl-title">Signature Skill</span>
+          <span className="skl-slots">one archetype · one slot</span>
+        </div>
+        {data.signatureOptions.length === 0 ? (
+          <div className="skl-empty">This form owns no signature skills yet.</div>
+        ) : (
+          <div className="skl-sig-list" role="radiogroup" aria-label="Signature skill">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={activeSignature === null}
+              className={`skl-sigrow is-none${activeSignature === null ? ' is-active' : ''}`}
+              onClick={() => signatureMutation.mutate(null)}
+              disabled={signatureMutation.isPending}
+            >
+              <span className="skl-sig-name">None</span>
+              <span className="skl-sig-arch">clears the selection</span>
+              <span className="skl-sig-stage">—</span>
+            </button>
+            {data.signatureOptions.map((opt) => {
+              const isActive = activeSignature === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isActive}
+                  className={`skl-sigrow${isActive ? ' is-active' : ''}${opt.archetypeValid ? '' : ' is-locked'}`}
+                  onClick={() => signatureMutation.mutate(opt.id)}
+                  disabled={signatureMutation.isPending || !opt.archetypeValid}
+                  title={opt.description ?? opt.name}
+                >
+                  <span className="skl-sig-name">{opt.name}</span>
+                  <span className="skl-sig-arch">{opt.archetype ?? (opt.archetypeValid ? '—' : 'not a valid archetype')}</span>
+                  <span className="skl-sig-stage">{opt.stage}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       <div className="skl-hdr">
         <span className="skl-title">Skills — Equipped</span>
         <span className={`skl-slots${equippedCount >= maxEquipped ? ' is-full' : ''}`}>

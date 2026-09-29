@@ -27,6 +27,7 @@ import {
   abandonBattle,
   applyAction,
   initBattle,
+  initPveBattle,
   serializeForSide,
   sideForPlayerId,
   validateLoadout,
@@ -119,6 +120,21 @@ async function deleteBattleState(battle: Battle): Promise<void> {
   await cluster.del(K_USER(battle.playerB));
 }
 
+function runPveEnemyTurns(battle: Battle): BattleEvent[] {
+  const events: BattleEvent[] = [];
+  if (battle.mode !== 'pve') return events;
+  for (let aiTurn = 0; aiTurn < 12 && battle.status === 'active'; aiTurn += 1) {
+    const head = battle.turnQueue[battle.turnCursor];
+    if (!head || head.side !== 'b') break;
+    const enemy = battle.units.find((unit) => unit.id === head.unitId && unit.side === 'b' && unit.hp > 0);
+    const target = battle.units.find((unit) => unit.side === 'a' && unit.hp > 0);
+    if (!enemy || !target) break;
+    const result = applyAction(battle, 'b', { type: 'fight', unitId: enemy.id, targetId: target.id });
+    if (!result.ok) break;
+    events.push(...result.events);
+  }
+  return events;
+}
 async function deliverToUser(userId: string, payload: unknown): Promise<void> {
   const cluster = await getCluster();
   await cluster.publish(WSDELIVER(userId), JSON.stringify(payload));
@@ -220,8 +236,23 @@ export async function createBattleForPair(userA: string, userB: string): Promise
   return { ok: true, matchId: battle.id, viewA, viewB, playerA: userA, playerB: userB };
 }
 
-export type DispatchResult =
-  | {
+export async function createPveBattleForUser(
+  userId: string,
+  playerLoadout: Loadout,
+  wildParty: ReadonlyArray<{ member: import('./engine.js').LoadoutMember; wildInfo: import('@digiworld/shared/battle').WildInfo }>,
+  sceneId: string | null = null,
+): Promise<{ ok: true; matchId: string; view: BattleView } | { ok: false; error: string }> {
+  if (await isInMatch(userId)) return { ok: false, error: 'already-in-battle' };
+  const validation = validateLoadout(playerLoadout);
+  if (!validation.ok) return { ok: false, error: validation.reason };
+  const battle = await initPveBattle({ matchId: newId('pve'), playerLoadout, wildParty, damageRate: await getDamageRate(), sceneId });
+  await saveSnapshot(battle);
+  const view = serializeForSide(battle, 'a');
+  await deliverToUser(userId, { type: 'match', matchId: battle.id, view });
+  log.info('battle.pve.start', { matchId: battle.id, userId, wildCount: wildParty.length });
+  return { ok: true, matchId: battle.id, view };
+}
+export type DispatchResult = {
       ok: true;
       matchId: string;
       viewA: BattleView;
@@ -242,6 +273,9 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
     if (!side) return { ok: false, error: 'you are not in this match', code: 'not-your-turn' };
     const result = applyAction(battle, side, action);
     if (!result.ok) return { ok: false, error: result.error, code: result.code };
+    let newEvents = result.events;
+    const enemyEvents = runPveEnemyTurns(battle);
+    newEvents = [...newEvents, ...enemyEvents];
     const viewA = serializeForSide(battle, 'a');
     const viewB = serializeForSide(battle, 'b');
     const ended = battle.status === 'ended';
@@ -260,11 +294,11 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
       // player's turn and they could act forever.
       await saveSnapshot(battle);
     }
-    await deliverToUser(battle.playerA, { type: 'event', matchId: battle.id, events: result.events });
-    await deliverToUser(battle.playerB, { type: 'event', matchId: battle.id, events: result.events });
+    await deliverToUser(battle.playerA, { type: 'event', matchId: battle.id, events: newEvents });
+    await deliverToUser(battle.playerB, { type: 'event', matchId: battle.id, events: newEvents });
     await deliverToUser(battle.playerA, { type: 'battle', matchId: battle.id, view: viewA });
     await deliverToUser(battle.playerB, { type: 'battle', matchId: battle.id, view: viewB });
-    await deliverToSpectators(battle.id, { type: 'event', matchId: battle.id, events: result.events });
+    await deliverToSpectators(battle.id, { type: 'event', matchId: battle.id, events: newEvents });
     await deliverToSpectators(battle.id, { type: 'battle', matchId: battle.id, view: viewA });
     if (ended) {
       await deliverToUser(battle.playerA, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome, rewards: endResult?.rewardsA });
@@ -272,7 +306,7 @@ export async function dispatchAction(userId: string, matchId: string, action: Ac
       await deliverToSpectators(battle.id, { type: 'end', matchId: battle.id, view: viewA, outcome: viewA.outcome });
       await clearSpectators(battle.id);
     }
-    return { ok: true, matchId: battle.id, viewA, viewB, newEvents: result.events, ended };
+    return { ok: true, matchId: battle.id, viewA, viewB, newEvents, ended };
   } finally {
     await cluster.unlock(K_LOCK(matchId), lockToken);
   }
@@ -315,11 +349,22 @@ export async function getMatchView(userId: string): Promise<{ matchId: string; v
   const cluster = await getCluster();
   const matchId = await cluster.get(K_USER(userId));
   if (!matchId) return null;
-  const battle = await loadSnapshot(matchId);
-  if (!battle) return null;
-  const side = sideForPlayerId(battle, userId);
-  if (!side) return null;
-  return { matchId, view: serializeForSide(battle, side) };
+  const lockToken = await cluster.lock(K_LOCK(matchId), LOCK_TTL_SEC);
+  if (!lockToken) return null;
+  try {
+    const battle = await loadSnapshot(matchId);
+    if (!battle) { await cluster.del(K_USER(userId)); return null; }
+    if (battle.mode === 'pve' && battle.status === 'active') {
+      runPveEnemyTurns(battle);
+      if ((battle.status as string) === 'ended') { await persistAndAwardEnd(battle); await deleteBattleState(battle); return null; }
+      await saveSnapshot(battle);
+    }
+    const side = sideForPlayerId(battle, userId);
+    if (!side) return null;
+    return { matchId, view: serializeForSide(battle, side) };
+  } finally {
+    await cluster.unlock(K_LOCK(matchId), lockToken);
+  }
 }
 
 /** Read-only spectator view. Returns null when the match no longer exists.
@@ -333,7 +378,15 @@ export async function getSpectatorView(matchId: string): Promise<{ matchId: stri
 
 export async function isInMatch(userId: string): Promise<boolean> {
   const cluster = await getCluster();
-  return (await cluster.get(K_USER(userId))) !== null;
+  const matchId = await cluster.get(K_USER(userId));
+  if (!matchId) return false;
+  const battle = await loadSnapshot(matchId);
+  if (!battle || battle.status === 'ended') {
+    await cluster.del(K_USER(userId));
+    if (battle?.status === 'ended') await cluster.del(K_SNAP(matchId));
+    return false;
+  }
+  return true;
 }
 
 export async function activeMatchCount(): Promise<number> {
@@ -410,17 +463,12 @@ async function persistAndAwardEnd(battle: Battle): Promise<PersistedEnd | null> 
   let rewardsA: BattleEndRewards = { xpAwards: [] };
   let rewardsB: BattleEndRewards = { xpAwards: [] };
   await tx(async (t) => {
-    await t.run(SQL_INSERT_MATCH, [
-      battle.id,
-      battle.playerA,
-      battle.playerB,
-      winnerUserId,
-      battle.outcome!,
-      battle.round,
-      battle.startedAt,
-      battle.endedAt!,
-      JSON.stringify(rowLog),
-    ]);
+    if (battle.mode === 'pvp') {
+      await t.run(SQL_INSERT_MATCH, [
+        battle.id, battle.playerA, battle.playerB, winnerUserId, battle.outcome!, battle.round,
+        battle.startedAt, battle.endedAt!, JSON.stringify(rowLog),
+      ]);
+    }
     // Quest progress is derived from authoritative battle state and applied in
     // the SAME transaction as the match row, so it can never be lost or double
     // counted relative to the persisted match.
@@ -474,10 +522,10 @@ async function persistAndAwardEnd(battle: Battle): Promise<PersistedEnd | null> 
       if (bits > 0) await t.run(SQL_ADD_BITS, [userId, bits, battle.endedAt!]);
       return { netcore, bits };
     };
-    const [walletA, walletB] = await Promise.all([
-      grantWallet(battle.playerA, summary.aResult),
-      grantWallet(battle.playerB, summary.bResult),
-    ]);
+    const walletA = await grantWallet(battle.playerA, summary.aResult);
+    const walletB = battle.mode === 'pvp'
+      ? await grantWallet(battle.playerB, summary.bResult)
+      : { netcore: 0, bits: 0 };
     rewardsA = { ...rewardsA, netcoreGained: walletA.netcore, bitsGained: walletA.bits };
     rewardsB = { ...rewardsB, netcoreGained: walletB.netcore, bitsGained: walletB.bits };
     if (pvpMmr) {
@@ -561,7 +609,7 @@ async function grantRewardsInTx(
     const mult = xpMultOf(await consumeXpMultBuffs(userId));
     if (mult > 1) xp = Math.round(xp * mult);
   }
-  if (xp <= 0) return { xpAwards: [] };
+  if (xp <= 0 && battle.mode !== 'pve') return { xpAwards: [] };
   // Premium: +50% XP on top of any buff multipler.
   if (await isUserPremium(userId, battle.endedAt!)) {
     xp = Math.round(xp * 1.5);
@@ -587,12 +635,15 @@ async function grantRewardsInTx(
       int: r.int_bonus,
       spd: r.spd_bonus,
     };
+    const defeatedPenalty = battle.mode === 'pve' && isDefeated
+      ? Math.min(Math.max(0, previousXp - xpToReach(previousLevel, stage)), Math.max(1, Math.round(Math.max(1, xp) * 0.1)))
+      : 0;
     const grown = awardXp(
       r.level,
       r.xp,
       currentBonus,
       stage,
-      xp,
+      isDefeated ? 0 : xp,
       template?.baseStats,
       undefined,
       xpRate,
@@ -601,7 +652,7 @@ async function grantRewardsInTx(
     // whose xp sits below its level's floor gets corrected on award and the
     // UI bracket (xpFloor…xpNext) always contains xpAfter.
     const grownFloor = xpToReach(grown.level, stage);
-    const nextXp = Math.max(grownFloor, grown.xp);
+    const nextXp = isDefeated ? Math.max(grownFloor, previousXp - defeatedPenalty) : Math.max(grownFloor, grown.xp);
     await txAdapter.run(SQL_UPDATE_MON, [
       grown.level,
       nextXp,
@@ -614,11 +665,15 @@ async function grantRewardsInTx(
       now,
       r.id,
     ]);
+    if (battle.mode === 'pve' && isDefeated) {
+      const stageMinutes = ({ Baby: 2, 'In-Training': 3, Rookie: 5, Champion: 10, Ultimate: 15, Mega: 20 } satisfies Record<Stage, number>)[stage] ?? 5;
+      await txAdapter.run(`UPDATE player_roster SET current_hp = 0, current_en = 0, revive_at = ?, updated_at = ? WHERE id = ? AND user_id = ?`, [now + stageMinutes * 60_000, now, r.id, userId]);
+    }
     xpAwards.push({
       monId: r.id,
       catalogId: r.catalog_id,
       nickname: r.nickname,
-      delta: scaledXpPerParticipant,
+      delta: isDefeated ? -defeatedPenalty : scaledXpPerParticipant,
       previousLevel,
       newLevel: grown.level,
       gainedLevels: grown.gainedLevels,

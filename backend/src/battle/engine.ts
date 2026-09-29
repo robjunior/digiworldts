@@ -26,7 +26,7 @@ import { affinity, attrAffinity, ATTR_MULT, ATTRS_TRIANGLE_ELIGIBLE, resolveResi
 import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Ailment, type Skill, type TemplateDigimon } from '../digimon/types.js';
 import type { Action as DSLAction } from '../skills/dsl.js';
 import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
-import { buildSkillPoolFromCatalog } from '../skills/pool.js';
+import { buildSkillPoolFromCatalog, resolveCatalogSkills } from '../skills/pool.js';
 import { applyDamageWithBuffs, effectiveDef, executeDSL, flushScheduledActions, rollMiss, tickActorBuffs, tickSkillCooldowns } from './dsl-runtime.js';
 import {
   AILMENT_TURNS_DEFAULT,
@@ -71,6 +71,8 @@ export type LoadoutMember = {
   nickname: string;
   statBonus: { hp: number; en: number; atk: number; def: number; int: number; spd: number };
   equippedSkills?: Skill[];
+  /** Single selected signature skill id (`roster.signature_skill_id`); resolved as one extra identity skill. */
+  signatureSkillId?: string | null;
   downedAtStart?: boolean;
   currentHp?: number | null;
   currentEn?: number | null;
@@ -93,6 +95,12 @@ async function unitFromLoadout(side: BattleSide, slot: SlotIndex, m: LoadoutMemb
     ? rawPool
     : await buildSkillPoolFromCatalog(m.template.id, m.template.element, m.template.stage);
   const skills = pool.map((s) => resolveSkillFromCatalog(s, resolver));
+  // The digimon's single selected signature rides as one extra identity skill,
+  // outside the stage-equip cap. NULL / stale ids resolve to nothing.
+  if (m.signatureSkillId) {
+    const [signatureSkill] = await resolveCatalogSkills([m.signatureSkillId]);
+    if (signatureSkill) skills.push(signatureSkill);
+  }
   for (const s of skills) {
     if (s.energyCost > scaled.en) {
       log.warn('battle.skill.unaffordable', { templateId: m.template.id, monId: m.monId, name: m.nickname, skill: s.name, cost: s.energyCost, enMax: scaled.en });

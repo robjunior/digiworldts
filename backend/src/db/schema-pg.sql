@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
 );
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS evolution_history TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS equipped_skill_ids TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS signature_skill_id TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS stage_pools TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_stage TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_evolve_at BIGINT;

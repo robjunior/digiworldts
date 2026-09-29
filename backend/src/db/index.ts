@@ -131,6 +131,7 @@ export type RosterRow = {
   listed_at: number | null;
   evolution_history: string | null;
   equipped_skill_ids: string | null;
+  signature_skill_id: string | null;
   stage_pools: string | null;
   nursery_stage: string | null;
   nursery_evolve_at: number | null;

@@ -172,6 +172,16 @@ function RecipeRow({
           </>
         )}
       </div>
+      {recipe.requires.length > 0 && (
+        <div className="frags">
+          <span className="flbl">Requires</span>
+          {recipe.requires.map((req) => (
+            <span className="fchip" key={req.itemId} title={req.itemName}>
+              {req.qty}× {req.itemName}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="ract">
         <span className="rhint" hidden={canCraft}>
           {hint}

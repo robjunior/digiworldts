@@ -277,7 +277,7 @@ const SEED_ITEMS: Array<SeedItem> = [
     price: 500,
     currency: 'credits',
     kind: 'evolve',
-    class: 'product',
+    class: 'item',
     payload: JSON.stringify({ stage: 'Champion' }),
   },
   {
@@ -288,7 +288,7 @@ const SEED_ITEMS: Array<SeedItem> = [
     price: 1500,
     currency: 'credits',
     kind: 'evolve',
-    class: 'product',
+    class: 'item',
     payload: JSON.stringify({ stage: 'Ultimate' }),
   },
   {
@@ -299,7 +299,7 @@ const SEED_ITEMS: Array<SeedItem> = [
     price: 4000,
     currency: 'credits',
     kind: 'evolve',
-    class: 'product',
+    class: 'item',
     payload: JSON.stringify({ stage: 'Mega' }),
   },
   // Evolution-key items for the Starter Evolution booster packs (BT-06/07/08).
@@ -580,6 +580,35 @@ function generateChipItems(): SeedItem[] {
   }));
 }
 
+const CHIP_FRAGMENT_STAGES = ['champion', 'ultimate', 'mega'] as const;
+const CHIP_FRAGMENT_PIECES = ['a', 'b', 'c'] as const;
+
+/** Fragment pieces for the craftable evolution chips (assembled at the Chip Factory). */
+function generateChipFragmentItems(): SeedItem[] {
+  const out: SeedItem[] = [];
+  for (const stage of CHIP_FRAGMENT_STAGES) {
+    for (const piece of CHIP_FRAGMENT_PIECES) {
+      const label = titleCase(stage);
+      out.push({
+        id: `itm-chip-frag-${stage}-${piece}`,
+        name: `Digi-Chip Fragment — ${label} (${piece.toUpperCase()})`,
+        description: `A fragment of the ${label} evolution chip. Collect all three pieces to unlock its blueprint at the Chip Factory.`,
+        price_credits: FRAGMENT_BASE_PRICE,
+        price: FRAGMENT_BASE_PRICE,
+        currency: 'credits',
+        shop_category: 'fragment',
+        kind: 'consumable',
+        class: 'item',
+        payload: JSON.stringify({ chip_fragment: stage, piece }),
+        item_type: 'chip_fragment',
+        drop_pool: 'chips',
+        sort_order: 0,
+      });
+    }
+  }
+  return out;
+}
+
 function generateCypherItems(): SeedItem[] {
   const out: SeedItem[] = [];
   for (const family of ELEMENT_FAMILIES) {
@@ -613,7 +642,7 @@ function generateCypherItems(): SeedItem[] {
 /** Called once at server boot. Idempotent (ON CONFLICT DO NOTHING). */
 export async function seedShopItems(): Promise<void> {
   const now = Date.now();
-  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateChipItems(), ...generateCypherItems()];
+  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateChipItems(), ...generateChipFragmentItems(), ...generateCypherItems()];
   await tx(async (t) => {
     for (const item of generated) {
       await t.run(SQL_INSERT_ITEM, [

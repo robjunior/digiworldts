@@ -1,0 +1,25 @@
+import { existsSync, unlinkSync } from 'node:fs';
+import { closeDb, one, run } from '../src/db/index.ts';
+import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
+import { listPvePlaces, readPveWorld, savePvePartyPreferences, upsertPvePlace } from '../src/world/pve.ts';
+import { loadCatalog } from '../src/digimon/xml.ts';
+
+const dbPath = process.env.DB_PATH ?? '/tmp/dw-pve-world-smoke.db';
+for (const suffix of ['', '-wal', '-shm']) if (existsSync(dbPath + suffix)) unlinkSync(dbPath + suffix);
+process.env.DB_PATH = dbPath;
+await getDb();
+const now = Date.now();
+await run('INSERT INTO users (id, username, display_name, password_hash, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)', 'usr_pve_smoke', 'pve-smoke', 'PvE Smoke', 'x', 0, now, now);
+const catalogId = loadCatalog({ publishedOnly: false }).digimons[0]?.id;
+if (!catalogId) throw new Error('catalog fixture is empty');
+const place = await upsertPvePlace({ id: 'green-hill', name: 'Green Hill', description: 'A first test place.', x: 42, y: 35, explorePool: [{ catalogId, weight: 1 }], expeditionPool: [{ catalogId, weight: 1 }] });
+if (place.name !== 'Green Hill') throw new Error('place round-trip failed');
+const prefs = await savePvePartyPreferences('usr_pve_smoke', 'explore', ['mon-a', 'mon-b', 'mon-c']);
+if (prefs.exploreParty.length !== 3 || prefs.expeditionParty.length !== 0) throw new Error('mode party memory failed');
+const world = await readPveWorld('usr_pve_smoke');
+if (world.places.length !== 1 || world.preferences.exploreParty[0] !== 'mon-a') throw new Error('world read failed');
+const migration = await one<{ version: string }>('SELECT version FROM schema_versions WHERE version = ?', '110_pve_world');
+if (!migration) throw new Error('migration ledger missing');
+console.log('pve world smoke: migration, place CRUD and per-mode party memory passed');
+await closeDb();
+await closeDbAdapter();

@@ -384,7 +384,7 @@ export function parseCatalogXml(raw: string, opts?: { publishedOnly?: boolean })
   const arr = Array.isArray(list) ? list : [list];
   let digimons = arr.map(toTemplate);
   if (opts?.publishedOnly) {
-    digimons = digimons.filter((t) => (t.status ?? 'published') !== 'draft');
+    digimons = digimons.filter((t) => (t.status ?? 'published') === 'published');
   }
   return {
     version: check.data.catalog['@_version'],

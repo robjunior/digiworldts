@@ -63,6 +63,7 @@ import { marketPlugin } from './market/routes.js';
 import { coinMarketPlugin } from './market/coins.js';
 import { digdexPlugin } from './dex/routes.js';
 import { adventurePlugin } from './adventure/routes.js';
+import { pveWorldPlugin } from './world/routes.js';
 import { chatPlugin } from './chat/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
@@ -283,6 +284,7 @@ async function main(): Promise<void> {
   await app.register(coinMarketPlugin);
   await app.register(digdexPlugin);
   await app.register(adventurePlugin);
+  await app.register(pveWorldPlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
   await app.register(lobbyPlugin);
@@ -377,3 +379,4 @@ main().catch((err: unknown) => {
   log.error('server.boot.fail', { err: err instanceof Error ? err.stack ?? err.message : String(err) });
   process.exit(1);
 });
+

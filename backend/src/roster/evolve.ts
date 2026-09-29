@@ -24,7 +24,7 @@ import { applyRarityEvolutionBonus } from './rarity-bonus.js';
 import { log } from '../util/log.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
-const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = ?, stage_pools = ?, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
+const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = ?, stage_pools = ?, signature_skill_id = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
 
 function freezeCurrentStagePool(row: RosterRow, currentStage: Stage): StagePools {
   const priorPools = row.stage_pools

@@ -82,6 +82,7 @@
     "seed:export": "tsx src/seed-export/cli.ts",
     "content:deploy": "tsx src/content-deploy/cli.ts",
     "launch:seed": "tsx src/launch/seed.ts",
+    "test:chip-factory": "DATABASE=sqlite DB_PATH=/tmp/dw-chip-factory-smoke.db tsx test/chip-factory-smoke.mts",
     "launch:smoke": "DATABASE=sqlite DB_PATH=/tmp/dw-launch-smoke.db CATALOG_XML=/tmp/dw-launch-catalog.xml tsx test/launch-smoke.mts",
     "content:refresh": "DB_PATH=data/digiworld.db tsx src/content-deploy/extract-local.ts",
     "content:bundle-assets": "tsx scripts/bundle-arena-assets.mts",

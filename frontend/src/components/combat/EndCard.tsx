@@ -10,9 +10,10 @@ type EndCardProps = {
   /** End-of-battle rewards from the WS `end` message — XP awards, NetCore, Bits (and PvE loot, if any). */
   readonly rewards?: BattleEndRewards | null;
   readonly onClose?: () => void;
+  readonly onContinue?: () => void | Promise<void>;
 };
 
-export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, rewards, onClose, onContinue }: EndCardProps): JSX.Element | null {
   useEffect(() => {
     if (!onClose) return;
     const handler = (event: KeyboardEvent): void => {
@@ -65,9 +66,10 @@ export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element
       </div>
       {rewards !== null && rewards !== undefined && rewards.xpAwards.length > 0 ? <PveRewards results={rewards} /> : null}
       <div className="cta-row">
+        {onContinue ? <button type="button" className="btn" onClick={() => { void onContinue(); }} data-od-id="end-card-continue">Continue</button> : null}
         {onClose ? (
-          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-lobby">
-            Back to Lobby
+          <button type="button" className="btn btn--secondary" onClick={onClose} data-od-id="end-card-return-world">
+            {onContinue ? 'Return to World' : 'Back to Lobby'}
           </button>
         ) : (
           <Link className="btn btn--secondary" to="/">Back to Lobby</Link>
@@ -233,7 +235,9 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>
       <div className="pve-xp-actor">
-        <DigimonSprite catalogId={award.catalogId ?? award.monId} className="pve-xp-portrait" />
+        <div className="pve-xp-portrait">
+          <DigimonSprite catalogId={award.catalogId ?? award.monId} />
+        </div>
         <div className="pve-xp-info">
           <b className="pve-xp-nick">{award.nickname ?? award.monId}</b>
           <span className="pve-xp-lvl">Lv <b>{displayLevel}</b></span>

@@ -222,6 +222,10 @@ export function publishTemplate(id: string): Promise<{ readonly template: Templa
   return apiFetch<{ readonly template: TemplateDigimon }>(`/api/admin/catalog/${encodeURIComponent(id)}/publish`, { method: 'POST' });
 }
 
+export function toggleTemplateEnabled(id: string): Promise<{ readonly template: TemplateDigimon }> {
+  return apiFetch<{ readonly template: TemplateDigimon }>(`/api/admin/catalog/${encodeURIComponent(id)}/toggle-enabled`, { method: 'POST' });
+}
+
 export function downloadTemplateAssets(id: string): Promise<{ readonly result: Record<string, unknown> }> {
   return apiFetch<{ readonly result: Record<string, unknown> }>(`/api/admin/assets/${encodeURIComponent(id)}/download`, { method: 'POST' });
 }

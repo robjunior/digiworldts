@@ -26,13 +26,16 @@ import { one, q, run, tx, type RosterRow } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { loadCatalog } from '../digimon/xml.js';
-import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, type Skill, type StagePools, type TemplateDigimon } from '../digimon/types.js';
+import { EQUIPPED_SLOTS_PER_STAGE, PARTY_SIZE, SKILLS_PER_DIGIMON, STAGES, type Skill, type Stage, type StagePools, type TemplateDigimon } from '../digimon/types.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { xpToReach } from '../progression/xp.js';
 import type { Loadout, LoadoutMember } from '../battle/engine.js';
-import { getDefaultEquippedForStage, getLearnedPoolIds, getLearnedPoolMeta, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
+import { getDefaultEquippedForStage, getLearnedPoolIds, getLearnedPoolMeta, getSignatureSkillsForTemplate, isCatalogSkillId, resolveCatalogSkills } from '../skills/pool.js';
+import { signatureRepresentsElementArchetype, slotRoleToArchetype } from '../skills/archetypes.js';
 import { getSkillsCatalogResolver, resolveSkillFromCatalog, type SkillsCatalogResolver } from '../skills/resolve.js';
 import { evolveRoster, getEvolutionOptions } from './evolve.js';
+
+const STAGE_RANK = new Map<string, number>(STAGES.map((s, i) => [s, i] as const));
 
 // ============================================================================
 // SQL
@@ -53,6 +56,7 @@ const SQL_GRANT_STARTER_ITEM = `INSERT INTO player_inventory (user_id, item_id, 
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + excluded.qty, updated_at = excluded.updated_at`;
 const SQL_DECREMENT_INVENTORY = `UPDATE player_inventory SET qty = qty - 1, updated_at = ? WHERE user_id = ? AND item_id = ? AND qty >= 1`;
 const SQL_UPDATE_EQUIPPED_SKILLS = `UPDATE player_roster SET equipped_skill_ids = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
+const SQL_UPDATE_SIGNATURE = `UPDATE player_roster SET signature_skill_id = ?, updated_at = ? WHERE id = ? AND user_id = ?`;
 
 const REVIVE_ITEM_ID = 'itm-digi-revive';
 
@@ -244,17 +248,18 @@ export async function seedStarterRoster(userId: string): Promise<{ seeded: numbe
 // Loadout resolution (used by battle/routes.ts)
 // ============================================================================
 
-export async function loadPartyLoadout(userId: string): Promise<Loadout | { error: string; missing: number[] }> {
-  const rows = await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
+export async function loadPartyLoadout(userId: string, memberIds?: readonly string[]): Promise<Loadout | { error: string; missing: number[] }> {
+  const rows = memberIds && memberIds.length > 0
+    ? await q<RosterRow>('SELECT * FROM player_roster WHERE user_id = ? AND id IN (' + memberIds.map(() => '?').join(',') + ')', userId, ...memberIds)
+    : await q<RosterRow>(SQL_SELECT_PARTY_MEMBERS, userId);
   const catalog = loadCatalog();
   const templateById = new Map<string, TemplateDigimon>();
   for (const t of catalog.digimons) templateById.set(t.id, t);
 
   const bySlot = new Map<number, RosterRow>();
   for (const r of rows) {
-    if (r.slot_index !== null && r.slot_index >= 0 && r.slot_index < PARTY_SIZE) {
-      bySlot.set(r.slot_index, r);
-    }
+    const slot = memberIds && memberIds.length > 0 ? memberIds.indexOf(r.id) : (r.slot_index ?? -1);
+    if (slot >= 0 && slot < PARTY_SIZE) bySlot.set(slot, r);
   }
 
   const members: LoadoutMember[] = [];
@@ -285,6 +290,7 @@ export async function loadPartyLoadout(userId: string): Promise<Loadout | { erro
         int: row.int_bonus,
         spd: row.spd_bonus,
       },
+      signatureSkillId: row.signature_skill_id,
     };
     if (equippedIds.length > 0) {
       const historyIds = parseJsonStringArray(row.evolution_history);
@@ -365,6 +371,11 @@ const MAX_EQUIPPED_SLOTS = Math.max(...Object.values(EQUIPPED_SLOTS_PER_STAGE));
 
 const SkillsSchema = z.object({
   skillIds: z.array(z.string().min(1)).min(1).max(MAX_EQUIPPED_SLOTS),
+});
+
+const SignatureSchema = z.object({
+  /** The signature skill id to select, or null to clear the selection. */
+  skillId: z.string().min(1).nullable(),
 });
 
 export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
@@ -502,6 +513,24 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       ? normalizedEquipped
       : currentTpl.skillPool.slice(0, equipCap).map((s) => skillKey(currentTpl.id, s.id));
     const fromCatalog = catalogPool.map((s) => s.id);
+    const signaturePool = await getSignatureSkillsForTemplate(currentTpl.id);
+    const signatureOptions = signaturePool.map((s) => {
+      const archetype = slotRoleToArchetype(currentTpl.element, s.slot_role);
+      return {
+        id: s.id,
+        name: s.name,
+        name_pt: s.name_pt,
+        description: s.description,
+        description_pt: s.description_pt,
+        element: s.element,
+        energyCost: s.energyCost,
+        cooldown: s.cooldown,
+        stage: s.stage,
+        slot_role: s.slot_role,
+        archetype: archetype?.name ?? null,
+        archetypeValid: archetype !== null,
+      };
+    });
     return reply.send({
       monId: row.id,
       currentCatalogId: row.catalog_id,
@@ -514,6 +543,8 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
       equipped,
       groupings: { fromCurrent, fromHistory, fromCatalog },
       maxEquipped: equipCap,
+      signatureOptions,
+      activeSignatureId: row.signature_skill_id,
     });
   });
 
@@ -548,5 +579,46 @@ export const rosterPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     await run(SQL_UPDATE_EQUIPPED_SKILLS, JSON.stringify(normalized), Date.now(), req.params.monId, user.id);
     log.info('roster.skills.update', { userId: user.id, monId: req.params.monId, skillKeys: normalized });
     return reply.send({ ok: true, equipped: normalized });
+  });
+
+  app.put<{ Params: { monId: string }; Body: unknown }>('/api/roster/:monId/signature', async (req, reply) => {
+    const user = await requireAuth(req, reply);
+    const parsed = SignatureSchema.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: 'invalid input', details: parsed.error.issues });
+    const row = await one<RosterRow>(SQL_SELECT_BY_ID, req.params.monId, user.id);
+    if (!row) return reply.code(404).send({ error: 'mon not found' });
+    const now = Date.now();
+
+    // null clears the selection.
+    if (parsed.data.skillId === null) {
+      await run(SQL_UPDATE_SIGNATURE, null, now, req.params.monId, user.id);
+      log.info('roster.signature.clear', { userId: user.id, monId: req.params.monId });
+      return reply.send({ ok: true, signatureSkillId: null });
+    }
+
+    const catalog = loadCatalog();
+    const currentTpl = catalog.digimons.find((t) => t.id === row.catalog_id);
+    if (!currentTpl) return reply.code(500).send({ error: 'template missing' });
+
+    // The signature must be a real catalog signature owned by THIS template.
+    const sig = await one<{ id: string; owner_template_id: string | null; stage: string | null; slot_role: string | null; enabled: number }>(
+      `SELECT id, owner_template_id, stage, slot_role, enabled FROM skills_catalog WHERE id = ? AND signature = 1`,
+      parsed.data.skillId,
+    );
+    if (!sig || sig.enabled !== 1 || sig.owner_template_id !== currentTpl.id) {
+      return reply.code(400).send({ error: 'signature-not-owned', skillId: parsed.data.skillId });
+    }
+    // Stage gate: a digimon may not equip a signature of a later stage than itself.
+    if (sig.stage === null || (STAGE_RANK.get(sig.stage) ?? -1) > (STAGE_RANK.get(currentTpl.stage) ?? -1)) {
+      return reply.code(409).send({ error: 'signature-stage-too-high', stage: currentTpl.stage });
+    }
+    // Archetype gate: the signature must represent one of the element's archetypes.
+    if (!signatureRepresentsElementArchetype(currentTpl.element, sig.slot_role)) {
+      return reply.code(400).send({ error: 'signature-not-element-archetype', element: currentTpl.element, slotRole: sig.slot_role });
+    }
+
+    await run(SQL_UPDATE_SIGNATURE, parsed.data.skillId, now, req.params.monId, user.id);
+    log.info('roster.signature.set', { userId: user.id, monId: req.params.monId, skillId: parsed.data.skillId, slotRole: sig.slot_role });
+    return reply.send({ ok: true, signatureSkillId: parsed.data.skillId });
   });
 };

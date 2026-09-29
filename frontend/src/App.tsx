@@ -27,6 +27,7 @@ import { Creature } from './routes/Creature';
 import { Shop } from './routes/Shop';
 import { Spectate } from './routes/Spectate';
 import { Training } from './routes/Training';
+import { World } from './routes/World';
 import { useWsStore } from './state/wsStore';
 import './styles/extensions-tutorial.css';
 import './styles/extensions-auth.css';
@@ -62,7 +63,7 @@ function RealtimeBridge(): JSX.Element | null {
   useEffect(() => {
     if (
       activeBattleId !== null &&
-      activeBattleMode === 'pvp' &&
+      activeBattleMode !== null &&
       activeBattleStatus !== 'ended' &&
       location.pathname !== '/combat'
     ) {
@@ -109,7 +110,7 @@ export function App(): JSX.Element {
               <Route path="/market" element={<Market />} />
               <Route path="/nursery" element={<Nursery />} />
               <Route path="/digdex" element={<Digdex />} />
-              <Route path="/world" element={<Navigate to="/" replace />} />
+              <Route path="/world" element={<World />} />
               <Route path="/spectate" element={<Spectate />} />
             </Route>
           </Route>

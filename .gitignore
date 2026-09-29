@@ -99,3 +99,6 @@ tmp/
 # volume in docker; never source.
 frontend/public/assets/arenas/
 backend/seed-export/
+
+backend/data/*.db.bak*
+backend/data/*.bak-*

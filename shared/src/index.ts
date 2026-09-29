@@ -16,3 +16,8 @@ export * from './dialogue-parser.js';
 export * from './npc.js';
 export * from './telemetry.js';
 export * from './item-rarity.js';
+export * from './pve.js';
+export type { WorldRegion, WorldRegionsResponse } from './world.js';
+export * from './dungeon.js';
+export * from './dungeon-zone.js';
+export * from './encounter-pool.js';

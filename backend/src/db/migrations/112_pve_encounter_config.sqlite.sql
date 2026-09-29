@@ -1,0 +1,7 @@
+ALTER TABLE pve_places ADD COLUMN min_wild_stage TEXT NOT NULL DEFAULT 'Rookie';
+ALTER TABLE pve_places ADD COLUMN wild_count_min INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE pve_places ADD COLUMN wild_count_max INTEGER NOT NULL DEFAULT 3;
+ALTER TABLE pve_places ADD COLUMN level_variance_min REAL NOT NULL DEFAULT 0.9;
+ALTER TABLE pve_places ADD COLUMN level_variance_max REAL NOT NULL DEFAULT 1.2;
+ALTER TABLE pve_places ADD COLUMN xp_multiplier REAL NOT NULL DEFAULT 1;
+ALTER TABLE pve_places ADD COLUMN bits_multiplier REAL NOT NULL DEFAULT 1;

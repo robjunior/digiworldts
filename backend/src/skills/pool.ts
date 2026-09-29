@@ -222,27 +222,25 @@ function rowToSkill(row: SkillCatalogRow): Skill {
 
 // ----- Seed-only skill pool (replaces XML/scraper skillPool) --------------------------
 
-/** Build a digimon's skill pool from `skills_catalog` only (the seed source of truth),
+/** Build a digimon's generic skill pool from `skills_catalog` only (the seed source of truth),
  *  never from the XML/scraper `template.skillPool`.
  *
- *  Composition per template:
- *    1. own signature skills (`signature = 1 AND owner_template_id = ?`), ordered by
- *       slot_role — these are exclusive to this digimon and always present.
- *    2. generic element+stage skills (`signature = 0`, same element+stage), then
- *       sliced to fill the remaining slots up to `EQUIPPED_SLOTS_PER_STAGE[stage]`.
+ *  Composition: generic element+stage skills (`signature = 0`, same element+stage),
+ *  sliced to fill the remaining slots up to `EQUIPPED_SLOTS_PER_STAGE[stage]`.
+ *
+ *  Signatures are intentionally NOT auto-added here: a digimon selects exactly ONE
+ *  signature at a time (`roster.signature_skill_id`), resolved separately by the battle
+ *  engine (see battle/engine.ts `unitFromLoadout`). Bundling every owned signature into
+ *  the generic pool would defeat that single-selection design.
  *
  *  This is the seed-based replacement for `m.template.skillPool` (which came from the
  *  XML/scraper path and carried skills that don't belong to the mon).
  */
 export async function buildSkillPoolFromCatalog(
-  templateId: string,
+  _templateId: string,
   element: Element,
   stage: Stage,
 ): Promise<Skill[]> {
-  const signatures = await q<SkillCatalogRow>(
-    `SELECT * FROM skills_catalog WHERE signature = 1 AND owner_template_id = ? AND enabled = 1 ORDER BY slot_role`,
-    templateId,
-  );
   const generic = await q<SkillCatalogRow>(
     `SELECT * FROM skills_catalog WHERE element = ? AND stage = ? AND signature = 0 AND enabled = 1 ORDER BY slot_role`,
     element,
@@ -250,10 +248,6 @@ export async function buildSkillPoolFromCatalog(
   );
   const cap = EQUIPPED_SLOTS_PER_STAGE[stage] ?? SKILLS_PER_DIGIMON;
   const pool: Skill[] = [];
-  for (const row of signatures) {
-    if (pool.length >= cap) break;
-    pool.push(rowToSkill(row));
-  }
   for (const row of generic) {
     if (pool.length >= cap) break;
     pool.push(rowToSkill(row));

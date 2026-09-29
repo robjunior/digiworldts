@@ -1,0 +1,3 @@
+ALTER TABLE pve_places ADD COLUMN min_wild_level INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE pve_places ADD COLUMN max_wild_level INTEGER NOT NULL DEFAULT 99;
+ALTER TABLE pve_places ADD COLUMN max_wild_stage TEXT NOT NULL DEFAULT 'Mega';
