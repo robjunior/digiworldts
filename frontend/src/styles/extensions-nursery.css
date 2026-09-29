@@ -23,7 +23,49 @@
 .nursery-page * { box-sizing: border-box; }
 .nursery-page button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
 
-.nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); position: relative; }
+
+/* ---- Full-page 3D pen ---- */
+.nursery-page .nure-scene { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+.pen3d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pen3d__canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
+
+/* ---- Resource pill over the 3D scene (après the world strip) ---- */
+.nursery-page .nure-overlay { position: absolute; top: 16px; left: 16px; z-index: 40; pointer-events: none; }
+.nursery-page .nure-pill { pointer-events: auto; display: flex; align-items: stretch; gap: 0; background: color-mix(in oklab, var(--panel) 82%, transparent); border: 1px solid var(--hair); clip-path: var(--notch); backdrop-filter: blur(6px); }
+.nursery-page .nure-pill__stat { display: grid; grid-template-columns: 26px auto; gap: 9px; align-items: center; padding: 0 18px; border-right: 1px solid var(--hair); --res: var(--ink); }
+.nursery-page .nure-pill__stat[data-res="meat"] { --res: var(--meat); }
+.nursery-page .nure-pill__stat[data-res="data"] { --res: var(--data); }
+.nursery-page .nure-pill__stat[data-res="mons"] { --res: var(--signal); }
+.nursery-page .nure-pill__ic { width: 26px; height: 26px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); color: var(--res); }
+.nursery-page .nure-pill__ic svg { width: 15px; height: 15px; }
+.nursery-page .nure-pill__col { display: flex; flex-direction: column; }
+.nursery-page .nure-pill__k { font: 700 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.nursery-page .nure-pill__v { font: 800 16px/1.1 var(--font); margin-top: 3px; font-variant-numeric: tabular-nums; color: var(--res); }
+.nursery-page .nure-pill__hatch { display: inline-flex; align-items: center; gap: 7px; padding: 0 16px; font: 800 10px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--signal2); }
+.nursery-page .nure-pill__hatch:hover { color: var(--ink); }
+.nursery-page .nure-pill__hatch svg { width: 15px; height: 15px; }
+
+/* ---- Hatchery + incubating popup ---- */
+.nursery-page .nure-pop { position: absolute; top: 70px; right: 20px; bottom: 20px; z-index: 50; width: min(400px, calc(100% - 32px)); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--signal); clip-path: var(--notch); box-shadow: 0 12px 40px rgba(0,0,0,.6); }
+.nursery-page .nure-pop__close { position: absolute; top: 8px; right: 12px; font: 900 20px/1 var(--font); color: var(--muted); }
+.nursery-page .nure-pop__close:hover { color: var(--ink); }
+.nursery-page .nure-pop__hd { padding: 15px 18px 11px; display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--hair); padding-right: 44px; }
+.nursery-page .nure-pop__title { font: 800 12px/1 var(--font); letter-spacing: .2em; text-transform: uppercase; }
+.nursery-page .nure-pop__count { margin-left: auto; font: 700 10px/1 var(--font); color: var(--muted); letter-spacing: .06em; }
+.nursery-page .nure-pop__incub { flex: 0 0 auto; border-top: 1px solid var(--hair); padding: 12px 16px 8px; }
+.nursery-page .nure-pop__incub-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.nursery-page .nure-pop__incub .rlist { overflow-y: auto; max-height: 170px; display: flex; flex-direction: column; gap: 9px; scrollbar-width: thin; }
+.nursery-page .nure-pop__incub .rlist::-webkit-scrollbar { width: 8px; }
+.nursery-page .nure-pop__incub .rlist::-webkit-scrollbar-thumb { background: var(--hair); }
+
+@media (max-width: 768px) {
+  .nursery-page .nure-overlay { top: 8px; left: 8px; }
+  .nursery-page .nure-pill__stat { padding: 0 10px; grid-template-columns: 20px auto; gap: 7px; }
+  .nursery-page .nure-pill__ic { width: 20px; height: 20px; }
+  .nursery-page .nure-pill__v { font-size: 13px; }
+  .nursery-page .nure-pop { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; }
+}
 
 
 
@@ -132,9 +174,9 @@
   .nursery-page .egg.ready .espr { animation: none; }
 }
 
-.pen3d { position: relative; width: 100%; height: 100%; min-height: 620px; }
-.pen3d__canvas { display: block; width: 100%; height: 100%; clip-path: var(--notch); background: var(--bg); }
-.pen-menu { position: absolute; pointer-events: auto; z-index: 30; min-width: 220px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: var(--ink); }
+.pen3d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pen3d__canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
+.pen-menu { position: absolute; pointer-events: auto; z-index: 60; min-width: 220px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: var(--ink); }
 .pen-menu__hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
 .pen-menu__stage { padding: 2px 6px; clip-path: var(--notch-sm); font-size: 11px; background: var(--panel2); }
 .pen-menu__btns { display: flex; gap: 6px; margin-bottom: 8px; }
