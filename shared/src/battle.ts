@@ -247,9 +247,19 @@ export type ItemDrop = {
   readonly qty: number;
 };
 
+export type SpeciesDataAward = {
+  readonly catalogId: string;
+  readonly name: string;
+  readonly tier: 'common' | 'uncommon' | 'rare';
+  readonly percent: number;
+  readonly kills: number;
+};
+
 export type BattleEndRewards = {
   readonly xpAwards: readonly XpAward[];
   readonly itemDrops?: readonly ItemDrop[];
+  /** Digimon data (player_species_data) granted for defeating wild mons in PvE. */
+  readonly speciesDrops?: readonly SpeciesDataAward[];
   readonly netcoreGained?: number;
   readonly bitsGained?: number;
 };

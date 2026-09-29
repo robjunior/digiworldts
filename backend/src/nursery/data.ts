@@ -34,7 +34,8 @@ const SQL_UPSERT_DATA = `
   INSERT INTO player_species_data (user_id, catalog_id, percent, kills, updated_at)
        VALUES (?, ?, ?, 1, ?)
     ON CONFLICT(user_id, catalog_id) DO UPDATE
-       SET percent = LEAST(100, player_species_data.percent + excluded.percent),
+       SET percent = CASE WHEN player_species_data.percent + excluded.percent > 100 THEN 100
+                          ELSE player_species_data.percent + excluded.percent END,
            kills = player_species_data.kills + 1,
            updated_at = excluded.updated_at
 `;

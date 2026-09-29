@@ -49,6 +49,7 @@ import type { Element } from '@digiworld/shared/digimon';
 import type { BattleEndRewards, XpAward } from '@digiworld/shared/battle';
 import { emit } from '../telemetry/emit.js';
 import { processPvpBattle } from '../pvp-quests/evaluator.js';
+import { awardSpeciesData } from '../nursery/data.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -431,10 +432,41 @@ async function persistAndAwardEnd(battle: Battle): Promise<PersistedEnd | null> 
       }
     }
     rewardsA = await grantRewardsInTx(t, battle, 'a', summary.aResult, templates);
-    rewardsB = await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
+    if (battle.mode === 'pvp') rewardsB = await grantRewardsInTx(t, battle, 'b', summary.bResult, templates);
+    // Digimon data: defeating a wild mon grants species data (Digidex / hatch
+    // meter) on a PvE win. Runs inside the same tx as the match persistence so
+    // the data can never be lost or double-counted on replay.
+    if (battle.mode === 'pve' && summary.aResult === 'win') {
+      // Only real wild mons (which carry wildInfo) award species data — the
+      // phantom slots initPveBattle pads the wild side to 6 with have no
+      // wildInfo and must not register.
+      const defeatedWild = battle.units
+        .filter((u) => u.side !== 'a' && u.wildInfo && u.hp <= 0)
+        .map((u) => ({
+          catalogId: u.wildInfo!.catalogId,
+          stage: templates.get(u.wildInfo!.catalogId)?.stage ?? templates.get(u.templateId)?.stage ?? ('Rookie' as Stage),
+          rare: u.wildInfo!.rare,
+        }));
+      if (defeatedWild.length > 0) {
+        const awards = await awardSpeciesData(battle.playerA, defeatedWild);
+        rewardsA = {
+          ...rewardsA,
+          speciesDrops: awards.map((a) => ({
+            catalogId: a.catalogId,
+            name: templates.get(a.catalogId)?.name ?? a.catalogId,
+            tier: a.tier,
+            percent: a.percent,
+            kills: a.kills,
+          })),
+        };
+      }
+    }
     const grantWallet = async (userId: string, result: typeof summary.aResult): Promise<{ netcore: number; bits: number }> => {
+      const pveBits = battle.mode === 'pve' && result === 'win'
+        ? battle.units.filter((unit) => unit.side !== 'a' && unit.hp <= 0).reduce((sum, unit) => sum + unit.level * 10, 0)
+        : BITS_PER_WIN;
       const [netcore, bits] =
-        result === 'win' ? [CREDITS_PER_WIN, BITS_PER_WIN] :
+        result === 'win' ? [CREDITS_PER_WIN, battle.mode === 'pve' ? pveBits : BITS_PER_WIN] :
         result === 'loss' ? [CREDITS_PER_LOSS, BITS_PER_LOSS] :
         result === 'draw' ? [CREDITS_PER_DRAW, BITS_PER_DRAW] :
         [0, 0];

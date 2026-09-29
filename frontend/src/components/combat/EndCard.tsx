@@ -1,4 +1,4 @@
-import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, XpAward } from '@digiworld/shared/battle';
+import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, SpeciesDataAward, XpAward } from '@digiworld/shared/battle';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
@@ -96,10 +96,12 @@ export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element
 
 function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.Element | null {
   const drops: readonly ItemDrop[] = results.itemDrops ?? [];
+  const species: readonly SpeciesDataAward[] = results.speciesDrops ?? [];
   const hasLoot = drops.length > 0;
+  const hasData = species.length > 0;
   const hasXp = results.xpAwards.length > 0;
   const [activeIdx, setActiveIdx] = useState(0);
-  if (!hasLoot && !hasXp) return null;
+  if (!hasLoot && !hasData && !hasXp) return null;
   return (
     <div className="pve-results" data-od-id="pve-results">
       {hasLoot ? (
@@ -111,6 +113,20 @@ function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.El
                 <span className="pve-loot-dot" aria-hidden="true" />
                 <b>{drop.name}</b>
                 <span className="pve-loot-qty">× {drop.qty}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {hasData ? (
+        <div className="pve-block">
+          <span className="pve-block-k">Digi-Data</span>
+          <div className="pve-loot-list">
+            {species.map((award, index) => (
+              <span key={`${award.catalogId}-${index}`} className="pve-loot-item" title={`${award.percent}% data, ${award.kills} defeated`}>
+                <span className="pve-loot-dot" aria-hidden="true" />
+                <b>{award.name}</b>
+                <span className="pve-loot-qty">+{award.percent}%</span>
               </span>
             ))}
           </div>

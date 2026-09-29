@@ -54,6 +54,7 @@
     "test:quest-flags": "DB_PATH=/tmp/dw-quest-flags-smoke.db tsx test/quest-flags-smoke.mts",
     "test:pvp-quests": "DATABASE=sqlite DB_PATH=/tmp/dw-pvpquest-smoke.db tsx test/pvp-quest-smoke.mts",
     "test:ranked-xp": "DATABASE=sqlite DB_PATH=/tmp/dw-ranked-xp-smoke.db tsx test/ranked-xp-smoke.mts",
+    "test:pve-data": "DATABASE=sqlite DB_PATH=/tmp/dw-pve-data-smoke.db tsx test/pve-species-data-smoke.mts",
     "test:quest-objectives": "DB_PATH=/tmp/dw-quest-objectives-smoke.db tsx test/quest-objectives-smoke.mts",
     "test:items": "DB_PATH=/tmp/dw-items-smoke.db tsx test/items-grant-smoke.mts",
     "test:evolve-item": "DB_PATH=/tmp/dw-evolve-item-smoke.db CATALOG_XML=/tmp/dw-evolve-item-smoke-catalog.xml tsx test/evolve-item-smoke.mts",
