@@ -245,6 +245,7 @@ export function WorldGlobe({
     let bloomPass: UnrealBloomPass | null = null;
     if ((light?.bloomEnabled ?? true) !== false) {
       composer = new EffectComposer(renderer);
+      composer.setSize(w, h); // sem isto o composer fica 1x1 e a cena sai preta
       composer.addPass(new RenderPass(scene, camera));
       bloomPass = new UnrealBloomPass(
         new THREE.Vector2(w, h),
@@ -252,6 +253,7 @@ export function WorldGlobe({
         light?.bloomRadius ?? 0.45,
         light?.bloomThreshold ?? 0.9,
       );
+      bloomPass.setSize(w, h);
       composer.addPass(bloomPass);
     }
     let envRoot: THREE.Group | null = null;
