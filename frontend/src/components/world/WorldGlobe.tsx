@@ -146,6 +146,9 @@ export function WorldGlobe({
     rotX: 0.3,
     rotY: 0,
     camDist: 4.6,
+    // Orientacao exata que centraliza o node focado na viewport (quaternio).
+    // Quando selecionado e sem arrastar, o globo trava nela.
+    focusQ: null as THREE.Quaternion | null,
     world: world ?? null,
     lighting: lighting ?? null,
     useGlbSettings,
@@ -167,18 +170,28 @@ export function WorldGlobe({
   useEffect(() => {
     if (!focusLatLon) {
       popupAnchorStore.set(null);
+      stateRef.current.focusQ = null;
       return;
     }
-    const pos = latLonToVec3(focusLatLon.lat, focusLatLon.lon, 1);
-    // Compensa o yaw da camera do admin de cena: pra o node ficar "bem no
-    // centro", descontamos o azimute configurado (camYawDeg) antes de rodar o
-    // globo. Sem isto, um camYawDeg != 0 deixa o node centrado fora do eixo.
-    const yawComp = (stateRef.current.world?.camYawDeg ?? 0) * (Math.PI / 180);
-    stateRef.current.rotY = -Math.atan2(pos.x, pos.z) - yawComp;
-    stateRef.current.rotX = Math.atan2(
-      pos.y,
-      Math.sqrt(pos.x * pos.x + pos.z * pos.z),
-    );
+    // Quaternio exato que leva o node (direcao local) a apontar pra camera
+    // (d): aplicado ao globo, o node cai EXATAMENTE no centro da viewport,
+    // independente de yaw/elev da camera do admin (sem dependende do euler do
+    // globo, cuja ordem XYZ torna a decomposicao Rx/Ry facil de errar).
+    const n = latLonToVec3(focusLatLon.lat, focusLatLon.lon, 1).normalize();
+    const wk = stateRef.current.world;
+    const yaw = (wk?.camYawDeg ?? 0) * (Math.PI / 180);
+    const elev = (wk?.camElevDeg ?? 0) * (Math.PI / 180);
+    const d = new THREE.Vector3(
+      Math.cos(elev) * Math.sin(yaw),
+      Math.sin(elev),
+      Math.cos(elev) * Math.cos(yaw),
+    ).normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(n, d);
+    stateRef.current.focusQ = q;
+    // Base p/ o arrasta continuar do centro (aproximacao; o lock exato usa o q).
+    const e = new THREE.Euler().setFromQuaternion(q, 'XYZ');
+    stateRef.current.rotX = e.x;
+    stateRef.current.rotY = e.y;
   }, [focusLatLon]);
 
   useEffect(() => {
@@ -579,15 +592,24 @@ export function WorldGlobe({
       }
       // Com um node selecionado o giro para (o user pediu: parar o mundo se
       // estiver movendo) — o node precisa permanecer centralizado na câmera.
+      const focusActive =
+        stateRef.current.focusQ !== null &&
+        stateRef.current.selectedIdx !== null;
       if (
         stateRef.current.autoSpin &&
         !stateRef.current.dragging &&
-        stateRef.current.selectedIdx === null
+        !focusActive
       ) {
         stateRef.current.rotY += 0.0016;
       }
-      globe.rotation.y = stateRef.current.rotY;
-      globe.rotation.x = stateRef.current.rotX;
+      // Quando um node está focado, centralizamos o globo de forma EXATA:
+      // quaternio q (n->camera) aplicado direto no globo. Arrasto usa o euler.
+      if (focusActive && !stateRef.current.dragging) {
+        globe.quaternion.copy(stateRef.current.focusQ as THREE.Quaternion);
+      } else {
+        globe.rotation.y = stateRef.current.rotY;
+        globe.rotation.x = stateRef.current.rotX;
+      }
       positionWorldCamera(
         camera,
         stateRef.current.camDist,

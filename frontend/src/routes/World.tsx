@@ -83,8 +83,7 @@ export function World(): JSX.Element {
           <button type="button" className="world-place-popup__close" onClick={closePopup} aria-label="Fechar localidade">
             <CloseIcon />
           </button>
-          <span className="world-place-popup__eyebrow">LOCALIDADE</span>
-          <h2>{selectedPlace.name}</h2>
+          <span className="world-place-popup__name">{selectedPlace.name}</span>
           <div className="world-place-popup__actions">
             <button type="button" className="world-place-popup__act" onClick={openInRail} aria-label="Configurar party" title="Configurar party no rail">
               <RosterIcon />

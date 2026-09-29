@@ -158,11 +158,11 @@
 .world-place-popup .world-mode-tabs{display:flex;gap:6px;margin-bottom:10px}.world-place-popup .world-mode-tabs button,.world-place-popup .world-action{border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);color:var(--muted);padding:9px 12px;font:800 10px/1 var(--font);text-transform:uppercase;cursor:pointer}.world-place-popup .world-mode-tabs button.is-active{color:var(--ink);border-color:var(--gold);box-shadow:inset 0 -2px var(--gold)}.world-place-popup .world-party-list{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}.world-place-popup .world-party-list button{border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--bg);color:var(--muted);padding:6px 8px;font:700 10px/1 var(--font);cursor:pointer}.world-place-popup .world-party-list button.is-selected{border-color:var(--signal);color:var(--ink);background:color-mix(in oklab,var(--signal) 16%,var(--bg))}.world-place-popup .world-party-list small{color:var(--signal2);font-variant-numeric:tabular-nums}.world-place-popup .world-action{width:100%;background:var(--signal);border-color:var(--signal);color:#fff}.world-place-popup .world-action:disabled{opacity:.45;cursor:not-allowed}.world-place-popup__party,.world-notice{display:block;margin-top:8px;color:var(--muted);font:700 10px/1 var(--font)}
 @media(max-width:768px){.world-place-popup{bottom:10px}.world-place-popup__route{display:none}}
 
-/* Popup compacto: só nome da localidade + ícones (partido/expedição vão pro rail). */
-.world-place-popup{width:min(224px,calc(100% - 32px));padding:12px 14px}
-.world-place-popup h2{font-size:15px;margin:6px 0 10px}
+/* Popup compacto: só nome + ícones (partido/expedição vão pro rail). */
+.world-place-popup{width:min(200px,calc(100% - 24px));padding:8px 10px}
+.world-place-popup__name{display:block;font:900 12px/1 var(--font);color:var(--ink);margin:0 0 8px;padding-right:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .world-place-popup .world-mode-tabs{display:none}
-.world-place-popup__actions{display:flex;gap:6px}
-.world-place-popup__act{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);color:var(--muted);cursor:pointer;padding:0}
-.world-place-popup__act svg{width:17px;height:17px}
+.world-place-popup__actions{display:flex;gap:5px}
+.world-place-popup__act{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);color:var(--muted);cursor:pointer;padding:0}
+.world-place-popup__act svg{width:16px;height:16px}
 .world-place-popup__act:hover{color:var(--ink);border-color:var(--signal)}
