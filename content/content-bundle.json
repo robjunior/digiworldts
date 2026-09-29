@@ -13,7 +13,7 @@
         "name": "Still Waters",
         "description": "The Nursery wants readings from the [[lake]] before sunset.",
         "required_level": 1,
-        "data": "{\"id\":\"qst-basin\",\"name\":\"Still Waters\",\"description\":\"The Nursery wants readings from the [[lake]] before sunset.\",\"requiredLevel\":1,\"introDialogueId\":\"basin-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":90},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"defeat\",\"biome\":\"lake\",\"element\":\"water\",\"count\":3,\"text\":\"Analyse [[lake]] Water-types\"},{\"kind\":\"travel\",\"biome\":\"forest\",\"text\":\"Carry the sample to [[forest]]\"}],\"giver\":\"Nursery\",\"rewardText\":\"260 XP \u00b7 Water Data +20%\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-basin\",\"name\":\"Still Waters\",\"description\":\"The Nursery wants readings from the [[lake]] before sunset.\",\"requiredLevel\":1,\"introDialogueId\":\"basin-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":90},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"defeat\",\"biome\":\"lake\",\"element\":\"water\",\"count\":3,\"text\":\"Analyse [[lake]] Water-types\"},{\"kind\":\"travel\",\"biome\":\"forest\",\"text\":\"Carry the sample to [[forest]]\"}],\"giver\":\"Nursery\",\"rewardText\":\"260 XP · Water Data +20%\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -24,7 +24,7 @@
         "name": "The Long Circuit",
         "description": "Chart a path from Voltcloud to the Rustworks for the Guild.",
         "required_level": 5,
-        "data": "{\"id\":\"qst-circuit\",\"name\":\"The Long Circuit\",\"description\":\"Chart a path from Voltcloud to the Rustworks for the Guild.\",\"requiredLevel\":5,\"introDialogueId\":\"circuit-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":380},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"storm\",\"text\":\"Enter [[storm]] under the thunderhead\"},{\"kind\":\"defeat\",\"biome\":\"storm\",\"element\":\"electricity\",\"count\":6,\"text\":\"Beat 6 Electric-types in [[storm]]\"},{\"kind\":\"travel\",\"biome\":\"foundry\",\"text\":\"Deliver the charge to [[foundry]]\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"560 XP \u00b7 Rare Chip\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-circuit\",\"name\":\"The Long Circuit\",\"description\":\"Chart a path from Voltcloud to the Rustworks for the Guild.\",\"requiredLevel\":5,\"introDialogueId\":\"circuit-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":380},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"storm\",\"text\":\"Enter [[storm]] under the thunderhead\"},{\"kind\":\"defeat\",\"biome\":\"storm\",\"element\":\"electricity\",\"count\":6,\"text\":\"Beat 6 Electric-types in [[storm]]\"},{\"kind\":\"travel\",\"biome\":\"foundry\",\"text\":\"Deliver the charge to [[foundry]]\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"560 XP · Rare Chip\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -35,7 +35,7 @@
         "name": "Embers on the Ridge",
         "description": "Survey the [[desert]] and clear Fire-types stalking the dune line.",
         "required_level": 1,
-        "data": "{\"id\":\"qst-embers\",\"name\":\"Embers on the Ridge\",\"description\":\"Survey the [[desert]] and clear Fire-types stalking the dune line.\",\"requiredLevel\":1,\"introDialogueId\":\"embers-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":140},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"desert\",\"text\":\"Travel to [[desert]] and survey the dune line\"},{\"kind\":\"defeat\",\"biome\":\"desert\",\"element\":\"fire\",\"count\":5,\"text\":\"Defeat [[desert]] Fire-types\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"320 XP \u00b7 140 NetCore\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-embers\",\"name\":\"Embers on the Ridge\",\"description\":\"Survey the [[desert]] and clear Fire-types stalking the dune line.\",\"requiredLevel\":1,\"introDialogueId\":\"embers-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":140},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"desert\",\"text\":\"Travel to [[desert]] and survey the dune line\"},{\"kind\":\"defeat\",\"biome\":\"desert\",\"element\":\"fire\",\"count\":5,\"text\":\"Defeat [[desert]] Fire-types\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"320 XP · 140 NetCore\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -46,7 +46,7 @@
         "name": "First Scout",
         "description": "Every tamer starts with a walk through Solaris Fields.",
         "required_level": 1,
-        "data": "{\"id\":\"qst-firstscout\",\"name\":\"First Scout\",\"description\":\"Every tamer starts with a walk through Solaris Fields.\",\"requiredLevel\":1,\"introDialogueId\":\"firstscout-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":120},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"prairie\",\"text\":\"Scout the calm of [[prairie]]\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"120 XP \u00b7 claimed\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-firstscout\",\"name\":\"First Scout\",\"description\":\"Every tamer starts with a walk through Solaris Fields.\",\"requiredLevel\":1,\"introDialogueId\":\"firstscout-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":120},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"prairie\",\"text\":\"Scout the calm of [[prairie]]\"}],\"giver\":\"Tamer Guild\",\"rewardText\":\"120 XP · claimed\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -55,9 +55,9 @@
       {
         "id": "qst-highwind",
         "name": "Chasing the Highwind",
-        "description": "The Skyshear plateau has stirred \u2014 Wind-types are riding the currents.",
+        "description": "The Skyshear plateau has stirred — Wind-types are riding the currents.",
         "required_level": 3,
-        "data": "{\"id\":\"qst-highwind\",\"name\":\"Chasing the Highwind\",\"description\":\"The Skyshear plateau has stirred \u2014 Wind-types are riding the currents.\",\"requiredLevel\":3,\"introDialogueId\":\"highwind-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":200},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"plateau\",\"text\":\"Reach the currents of [[plateau]]\"},{\"kind\":\"defeat\",\"biome\":\"plateau\",\"element\":\"wind\",\"count\":4,\"text\":\"Down 4 Wind-types over [[plateau]]\"}],\"giver\":\"The World\",\"rewardText\":\"410 XP \u00b7 200 NetCore\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-highwind\",\"name\":\"Chasing the Highwind\",\"description\":\"The Skyshear plateau has stirred — Wind-types are riding the currents.\",\"requiredLevel\":3,\"introDialogueId\":\"highwind-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":200},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"plateau\",\"text\":\"Reach the currents of [[plateau]]\"},{\"kind\":\"defeat\",\"biome\":\"plateau\",\"element\":\"wind\",\"count\":4,\"text\":\"Down 4 Wind-types over [[plateau]]\"}],\"giver\":\"The World\",\"rewardText\":\"410 XP · 200 NetCore\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -68,7 +68,7 @@
         "name": "Into the Static",
         "description": "A tear in the map has opened. Someone brave enough will need to look.",
         "required_level": 30,
-        "data": "{\"id\":\"qst-static\",\"name\":\"Into the Static\",\"description\":\"A tear in the map has opened. Someone brave enough will need to look.\",\"requiredLevel\":30,\"introDialogueId\":\"static-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":1200},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"void\",\"text\":\"Breach [[void]] \u2014 the tear in the map\"}],\"giver\":\"???\",\"rewardText\":\"1200 XP \u00b7 ???\",\"lockHint\":\"Reach Tamer Lv 30 to unlock\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
+        "data": "{\"id\":\"qst-static\",\"name\":\"Into the Static\",\"description\":\"A tear in the map has opened. Someone brave enough will need to look.\",\"requiredLevel\":30,\"introDialogueId\":\"static-root\",\"steps\":[],\"finalReward\":{\"items\":[],\"pickCount\":0,\"guaranteedNetcore\":1200},\"unlocksQuestIds\":[],\"objectives\":[{\"kind\":\"travel\",\"biome\":\"void\",\"text\":\"Breach [[void]] — the tear in the map\"}],\"giver\":\"???\",\"rewardText\":\"1200 XP · ???\",\"lockHint\":\"Reach Tamer Lv 30 to unlock\",\"createdAt\":1786489052873,\"updatedAt\":1786489052873}",
         "created_at": 1786489052873,
         "updated_at": 1786489052873,
         "name_pt": null,
@@ -312,7 +312,7 @@
         "world_object_id": null,
         "quest_id": null,
         "name": "The Static",
-        "description": "A tear in the world. The shards react violently as you approach. This is where the world ends \u2014 or begins again.",
+        "description": "A tear in the world. The shards react violently as you approach. This is where the world ends — or begins again.",
         "biome": "void",
         "width": 20,
         "height": 20,
@@ -825,13 +825,13 @@
     "dialogue_definitions": [
       {
         "dialogue_id": "basin-root",
-        "title": "Still Waters \u2014 Intro",
+        "title": "Still Waters — Intro",
         "source_path": "basin-root.twee",
         "source_hash": "943c684726bb6b1cdd4ad9fd9f5e5b30f2657591ea049f8988c35c9bd83b9d6c",
-        "source_twee": ":: StoryTitle\nStill Waters \u2014 Intro\n\n:: start [start]\n@speaker nursery neutral\n\nHead down to Mirror Basin and take samples of any Water-type.\n\n* [[I'll go.->END]] #accept\n* [[Samples for what?->detail]] #ask\n* [[Later.->END]] #decline\n\n:: detail\n@speaker nursery happy\n\nThe hatchery data. Nothing dangerous \u2014 just tedious, and I cannot leave the eggs.\n\n* [[Fine by me.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nStill Waters — Intro\n\n:: start [start]\n@speaker nursery neutral\n\nHead down to Mirror Basin and take samples of any Water-type.\n\n* [[I'll go.->END]] #accept\n* [[Samples for what?->detail]] #ask\n* [[Later.->END]] #decline\n\n:: detail\n@speaker nursery happy\n\nThe hatchery data. Nothing dangerous — just tedious, and I cannot leave the eggs.\n\n* [[Fine by me.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"nursery\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"basin-root\",\"title\":\"Still Waters \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"nursery\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"nursery\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head down to Mirror Basin and take samples of any Water-type.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'll go.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Samples for what?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Later.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"nursery\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"The hatchery data. Nothing dangerous \u2014 just tedious, and I cannot leave the eggs.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Fine by me.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"basin-root\",\"title\":\"Still Waters — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"nursery\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"nursery\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head down to Mirror Basin and take samples of any Water-type.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'll go.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Samples for what?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Later.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"nursery\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"The hatchery data. Nothing dangerous — just tedious, and I cannot leave the eggs.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Fine by me.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072075,
@@ -839,13 +839,13 @@
       },
       {
         "dialogue_id": "circuit-root",
-        "title": "The Long Circuit \u2014 Intro",
+        "title": "The Long Circuit — Intro",
         "source_path": "circuit-root.twee",
         "source_hash": "8b6161d662fa98527acebf6b00efc5245ed984bf39d29140fbcc0f6c8ad80d69",
-        "source_twee": ":: StoryTitle\nThe Long Circuit \u2014 Intro\n\n:: start [start]\n@speaker tamer_guild concerned\n\nEnter the storm under the thunderhead and see if you can reach the foundry.\n\n* [[I'll try.->END]] #accept\n* [[Has anyone reached it?->detail]] #ask\n* [[That sounds like a bad idea.->END]] #decline\n\n:: detail\n@speaker tamer_guild neutral\n\nThree went in. Two came back, and neither could tell us what they saw.\n\n* [[I'll go anyway.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nThe Long Circuit — Intro\n\n:: start [start]\n@speaker tamer_guild concerned\n\nEnter the storm under the thunderhead and see if you can reach the foundry.\n\n* [[I'll try.->END]] #accept\n* [[Has anyone reached it?->detail]] #ask\n* [[That sounds like a bad idea.->END]] #decline\n\n:: detail\n@speaker tamer_guild neutral\n\nThree went in. Two came back, and neither could tell us what they saw.\n\n* [[I'll go anyway.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"tamer_guild\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"circuit-root\",\"title\":\"The Long Circuit \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Enter the storm under the thunderhead and see if you can reach the foundry.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'll try.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Has anyone reached it?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"That sounds like a bad idea.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Three went in. Two came back, and neither could tell us what they saw.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'll go anyway.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"circuit-root\",\"title\":\"The Long Circuit — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Enter the storm under the thunderhead and see if you can reach the foundry.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'll try.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Has anyone reached it?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"That sounds like a bad idea.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Three went in. Two came back, and neither could tell us what they saw.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'll go anyway.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072075,
@@ -867,13 +867,13 @@
       },
       {
         "dialogue_id": "embers-root",
-        "title": "Embers on the Ridge \u2014 Intro",
+        "title": "Embers on the Ridge — Intro",
         "source_path": "embers-root.twee",
         "source_hash": "24e591662038b86ccfd810507a90c693f1deb232d85f7e207e57e55dfba44c2c",
-        "source_twee": ":: StoryTitle\nEmbers on the Ridge \u2014 Intro\n\n:: start [start]\n@speaker tamer_guild neutral\n\nHead to the Ember Wastes and see what has the caravans spooked.\n\n* [[On my way.->END]] #accept\n* [[What am I looking for?->detail]] #ask\n* [[Not right now.->END]] #decline\n\n:: detail\n@speaker tamer_guild concerned\n\nFire-types along the dune line. More than the season should carry.\n\n* [[Understood.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nEmbers on the Ridge — Intro\n\n:: start [start]\n@speaker tamer_guild neutral\n\nHead to the Ember Wastes and see what has the caravans spooked.\n\n* [[On my way.->END]] #accept\n* [[What am I looking for?->detail]] #ask\n* [[Not right now.->END]] #decline\n\n:: detail\n@speaker tamer_guild concerned\n\nFire-types along the dune line. More than the season should carry.\n\n* [[Understood.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"tamer_guild\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"embers-root\",\"title\":\"Embers on the Ridge \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head to the Ember Wastes and see what has the caravans spooked.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"On my way.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"What am I looking for?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Not right now.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Fire-types along the dune line. More than the season should carry.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Understood.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"embers-root\",\"title\":\"Embers on the Ridge — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head to the Ember Wastes and see what has the caravans spooked.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"On my way.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"What am I looking for?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Not right now.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Fire-types along the dune line. More than the season should carry.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Understood.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072076,
@@ -881,13 +881,13 @@
       },
       {
         "dialogue_id": "firstscout-root",
-        "title": "First Scout \u2014 Intro",
+        "title": "First Scout — Intro",
         "source_path": "firstscout-root.twee",
         "source_hash": "8dbbbebd0dfd0bb16243ddc4977a769098b58708069eb0749a221f4ef50b149c",
-        "source_twee": ":: StoryTitle\nFirst Scout \u2014 Intro\n\n:: start [start]\n@speaker tamer_guild happy\n\nHead down to the prairie and get a feel for the calm end of the map.\n\n* [[Sounds good.->END]] #accept\n* [[Anything I should watch for?->detail]] #ask\n\n:: detail\n@speaker tamer_guild happy\n\nNothing that bites hard. That is rather the point \u2014 start where the map is kind.\n\n* [[Off I go.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nFirst Scout — Intro\n\n:: start [start]\n@speaker tamer_guild happy\n\nHead down to the prairie and get a feel for the calm end of the map.\n\n* [[Sounds good.->END]] #accept\n* [[Anything I should watch for?->detail]] #ask\n\n:: detail\n@speaker tamer_guild happy\n\nNothing that bites hard. That is rather the point — start where the map is kind.\n\n* [[Off I go.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"tamer_guild\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"firstscout-root\",\"title\":\"First Scout \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head down to the prairie and get a feel for the calm end of the map.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"Sounds good.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Anything I should watch for?\",\"target\":\"detail\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Nothing that bites hard. That is rather the point \u2014 start where the map is kind.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Off I go.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"firstscout-root\",\"title\":\"First Scout — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"tamer_guild\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Head down to the prairie and get a feel for the calm end of the map.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"Sounds good.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Anything I should watch for?\",\"target\":\"detail\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"tamer_guild\",\"expression\":\"happy\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Nothing that bites hard. That is rather the point — start where the map is kind.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"Off I go.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072076,
@@ -895,13 +895,13 @@
       },
       {
         "dialogue_id": "highwind-root",
-        "title": "Chasing the Highwind \u2014 Intro",
+        "title": "Chasing the Highwind — Intro",
         "source_path": "highwind-root.twee",
         "source_hash": "0eacfd9ed4cf9f9fa1285b753979aea5e4e8593174bb0c317e1d91a9d4f8231d",
-        "source_twee": ":: StoryTitle\nChasing the Highwind \u2014 Intro\n\n:: start [start]\n@speaker the_world neutral\n\nClimb up to the plateau and thin the Wind-type flocks.\n\n* [[Climbing now.->END]] #accept\n* [[Why thin them?->detail]] #ask\n* [[Not yet.->END]] #decline\n\n:: detail\n@speaker the_world concerned\n\nThey have crowded out everything that nested there. Balance, or what is left of it.\n\n* [[I'll handle it.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nChasing the Highwind — Intro\n\n:: start [start]\n@speaker the_world neutral\n\nClimb up to the plateau and thin the Wind-type flocks.\n\n* [[Climbing now.->END]] #accept\n* [[Why thin them?->detail]] #ask\n* [[Not yet.->END]] #decline\n\n:: detail\n@speaker the_world concerned\n\nThey have crowded out everything that nested there. Balance, or what is left of it.\n\n* [[I'll handle it.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"the_world\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"highwind-root\",\"title\":\"Chasing the Highwind \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"the_world\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"the_world\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Climb up to the plateau and thin the Wind-type flocks.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"Climbing now.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Why thin them?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Not yet.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"the_world\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"They have crowded out everything that nested there. Balance, or what is left of it.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'll handle it.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"highwind-root\",\"title\":\"Chasing the Highwind — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"the_world\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"the_world\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"Climb up to the plateau and thin the Wind-type flocks.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"Climbing now.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Why thin them?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Not yet.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"the_world\",\"expression\":\"concerned\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"They have crowded out everything that nested there. Balance, or what is left of it.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'll handle it.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072076,
@@ -909,13 +909,13 @@
       },
       {
         "dialogue_id": "static-root",
-        "title": "Into the Static \u2014 Intro",
+        "title": "Into the Static — Intro",
         "source_path": "static-root.twee",
         "source_hash": "ea25ac5178907adc72b517b028caf1e7cf63746b2231c9a81e5c3cdfd4a380b2",
-        "source_twee": ":: StoryTitle\nInto the Static \u2014 Intro\n\n:: start [start]\n@speaker unknown neutral\n\nThe Static waits. If you go in, you come out changed or not at all.\n\n* [[I'm going in.->END]] #accept\n* [[Changed how?->detail]] #ask\n* [[Then I'll stay out.->END]] #decline\n\n:: detail\n@speaker unknown neutral\n\nIf I could answer that, it would not be the Static.\n\n* [[I'm still going.->END]] #accept_after_detail\n",
+        "source_twee": ":: StoryTitle\nInto the Static — Intro\n\n:: start [start]\n@speaker unknown neutral\n\nThe Static waits. If you go in, you come out changed or not at all.\n\n* [[I'm going in.->END]] #accept\n* [[Changed how?->detail]] #ask\n* [[Then I'll stay out.->END]] #decline\n\n:: detail\n@speaker unknown neutral\n\nIf I could answer that, it would not be the Static.\n\n* [[I'm still going.->END]] #accept_after_detail\n",
         "start_node_id": "start",
         "npc_ids": "[\"unknown\"]",
-        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"static-root\",\"title\":\"Into the Static \u2014 Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"unknown\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"unknown\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"The Static waits. If you go in, you come out changed or not at all.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'm going in.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Changed how?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Then I'll stay out.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"unknown\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"If I could answer that, it would not be the Static.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'm still going.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
+        "ir_json": "{\"schemaVersion\":2,\"dialogueId\":\"static-root\",\"title\":\"Into the Static — Intro\",\"startNodeId\":\"start\",\"npcIds\":[\"unknown\"],\"requiresServerAdvance\":false,\"nodes\":{\"start\":{\"id\":\"start\",\"tags\":[\"start\"],\"speaker\":{\"npcId\":\"unknown\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"The Static waits. If you go in, you come out changed or not at all.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept\",\"label\":\"I'm going in.\",\"target\":\"END\",\"condition\":null},{\"id\":\"ask\",\"label\":\"Changed how?\",\"target\":\"detail\",\"condition\":null},{\"id\":\"decline\",\"label\":\"Then I'll stay out.\",\"target\":\"END\",\"condition\":null}]},\"detail\":{\"id\":\"detail\",\"tags\":[],\"speaker\":{\"npcId\":\"unknown\",\"expression\":\"neutral\"},\"condition\":null,\"text\":[{\"kind\":\"text\",\"value\":\"If I could answer that, it would not be the Static.\"}],\"entryActions\":[],\"jumps\":[],\"choices\":[{\"id\":\"accept_after_detail\",\"label\":\"I'm still going.\",\"target\":\"END\",\"condition\":null}]}},\"status\":\"draft\"}",
         "node_count": 2,
         "status": "published",
         "imported_at": 1787746072077,
@@ -12166,7 +12166,7 @@
       {
         "id": "itm-evo-angemon",
         "name": "Angemon Evolution Key",
-        "description": "A radiant key that unlocks Patamon\u2019s evolution into Angemon. Consumed on evolution. Available in the Wings of Hope booster pack.",
+        "description": "A radiant key that unlocks Patamon’s evolution into Angemon. Consumed on evolution. Available in the Wings of Hope booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -12190,7 +12190,7 @@
       {
         "id": "itm-evo-devimon",
         "name": "Devimon Evolution Key",
-        "description": "A dark key that unlocks Patamon\u2019s evolution into Devimon. Consumed on evolution. Available in the Wings of Hope booster pack.",
+        "description": "A dark key that unlocks Patamon’s evolution into Devimon. Consumed on evolution. Available in the Wings of Hope booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -12214,7 +12214,7 @@
       {
         "id": "itm-evo-garurumon",
         "name": "Garurumon Evolution Key",
-        "description": "A howling key that unlocks Gabumon\u2019s evolution into Garurumon. Consumed on evolution. Available in the Feral Howl booster pack.",
+        "description": "A howling key that unlocks Gabumon’s evolution into Garurumon. Consumed on evolution. Available in the Feral Howl booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -12238,7 +12238,7 @@
       {
         "id": "itm-evo-greymon",
         "name": "Greymon Evolution Key",
-        "description": "A fire-forged key that unlocks Agumon\u2019s evolution into Greymon. Consumed on evolution. Available in the Courage Ignition booster pack.",
+        "description": "A fire-forged key that unlocks Agumon’s evolution into Greymon. Consumed on evolution. Available in the Courage Ignition booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -12262,7 +12262,7 @@
       {
         "id": "itm-evo-kyubimon",
         "name": "Kyubimon Evolution Key",
-        "description": "A mystical key that unlocks Gabumon\u2019s evolution into Kyubimon. Consumed on evolution. Available in the Feral Howl booster pack.",
+        "description": "A mystical key that unlocks Gabumon’s evolution into Kyubimon. Consumed on evolution. Available in the Feral Howl booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -12286,7 +12286,7 @@
       {
         "id": "itm-evo-tyrannomon",
         "name": "Tyrannomon Evolution Key",
-        "description": "A feral key that unlocks Agumon\u2019s evolution into Tyrannomon. Consumed on evolution. Available in the Courage Ignition booster pack.",
+        "description": "A feral key that unlocks Agumon’s evolution into Tyrannomon. Consumed on evolution. Available in the Courage Ignition booster pack.",
         "price_credits": 2500,
         "kind": "evolve",
         "class": "item",
@@ -14569,7 +14569,7 @@
     "onboarding_config": [
       {
         "id": 1,
-        "intro_dialogue": "A new signal breaks across the network...\n\nYou are a new Tamer, standing at the edge of the Digital World. Three teams of Digimon partners have answered your call \u2014 each with its own philosophy. Choose the team that will fight beside you.",
+        "intro_dialogue": "A new signal breaks across the network...\n\nYou are a new Tamer, standing at the edge of the Digital World. Three teams of Digimon partners have answered your call — each with its own philosophy. Choose the team that will fight beside you.",
         "bg_image": "",
         "updated_at": 1786489052841,
         "intro_dialogue_id": null
@@ -14580,7 +14580,7 @@
         "id": "onb_v764cdy7zv5r1m444mpj0mwq7g",
         "slug": "triad",
         "name": "Triad",
-        "description": "Fire, earth and water \u2014 the classic elemental triangle. Hits harder and holds longer: more raw damage, more area attacks, and both a healer and the game's heaviest buffer. The cost is exposure, because every one of its elements can be countered.",
+        "description": "Fire, earth and water — the classic elemental triangle. Hits harder and holds longer: more raw damage, more area attacks, and both a healer and the game's heaviest buffer. The cost is exposure, because every one of its elements can be countered.",
         "mon_1_catalog_id": "skb-50",
         "mon_2_catalog_id": "skb-595",
         "mon_3_catalog_id": "skb-582",
@@ -14593,7 +14593,7 @@
         "id": "onb_zkz718p6pazqrvdnntxzjtm2rz",
         "slug": "tide",
         "name": "Tide",
-        "description": "Water, ice and lightning \u2014 wins by denying turns rather than trading them. Twice the initiative manipulation and the heaviest status pressure in the roster, at roughly 15% less damage. Punishing if the lock holds, fragile if it does not.",
+        "description": "Water, ice and lightning — wins by denying turns rather than trading them. Twice the initiative manipulation and the heaviest status pressure in the roster, at roughly 15% less damage. Punishing if the lock holds, fragile if it does not.",
         "mon_1_catalog_id": "skb-343",
         "mon_2_catalog_id": "skb-750",
         "mon_3_catalog_id": "skb-389",
@@ -14606,7 +14606,7 @@
         "id": "onb_v2x7k9m3q5w8n4r6c1d0phjsztgf",
         "slug": "equinox",
         "name": "Equinox",
-        "description": "Light, dark and water \u2014 opposites held on one line, and a team that wins by not losing. Salamon banks buffs and recovery, Hagurumon suppresses and corrodes the enemy's momentum, and Lunamon keeps the party from coming apart. No single exploit to hard-counter, but every fight becomes the war of attrition Equinox is built to outlast.",
+        "description": "Light, dark and water — opposites held on one line, and a team that wins by not losing. Salamon banks buffs and recovery, Hagurumon suppresses and corrodes the enemy's momentum, and Lunamon keeps the party from coming apart. No single exploit to hard-counter, but every fight becomes the war of attrition Equinox is built to outlast.",
         "mon_1_catalog_id": "skb-361",
         "mon_2_catalog_id": "skb-2",
         "mon_3_catalog_id": "skb-9",
@@ -15134,7 +15134,7 @@
       {
         "id": "sk-atomic-corona-blaster",
         "name": "Atomic Corona Blaster",
-        "description": "Fires a prolonged barrage of lasers from the Rudriya Darpa\u1e47a .",
+        "description": "Fires a prolonged barrage of lasers from the Rudriya Darpaṇa .",
         "element": "wind",
         "energy_cost": 41,
         "cooldown": 0,
@@ -15340,7 +15340,7 @@
       },
       {
         "id": "sk-b-o-f",
-        "name": "B\u01ceo F\u01d4",
+        "name": "Bǎo Fǔ",
         "description": "Transforms its hands into axe blades and spins to attack with them.",
         "element": "water",
         "energy_cost": 41,
@@ -16077,7 +16077,7 @@
       {
         "id": "sk-bone-strike",
         "name": "Bone Strike",
-        "description": "B\u014dn Sutoraiku",
+        "description": "Bōn Sutoraiku",
         "element": "plant",
         "energy_cost": 41,
         "cooldown": 0,
@@ -16100,7 +16100,7 @@
       {
         "id": "sk-booby-pit",
         "name": "Booby Pit",
-        "description": "B\u016bb\u012b Pitto",
+        "description": "Būbī Pitto",
         "element": "fire",
         "energy_cost": 41,
         "cooldown": 0,
@@ -16835,7 +16835,7 @@
       },
       {
         "id": "sk-cla-omh-solais",
-        "name": "Cla\u00edomh Solais",
+        "name": "Claíomh Solais",
         "description": "Kurau Sorasu",
         "element": "plant",
         "energy_cost": 26,
@@ -17319,7 +17319,7 @@
       {
         "id": "sk-crimson-fanger",
         "name": "Crimson Fanger",
-        "description": "Charges the enemy down with the Rudriya Darpa\u1e47a .",
+        "description": "Charges the enemy down with the Rudriya Darpaṇa .",
         "element": "wind",
         "energy_cost": 26,
         "cooldown": 0,
@@ -17457,7 +17457,7 @@
       {
         "id": "sk-crunch-arm",
         "name": "Crunch Arm",
-        "description": "Kuranchi \u0100mu",
+        "description": "Kuranchi Āmu",
         "element": "fire",
         "energy_cost": 41,
         "cooldown": 0,
@@ -17756,7 +17756,7 @@
       {
         "id": "sk-dark-explosion",
         "name": "Dark Explosion",
-        "description": "[Target: All enemies] Performs Dark physical attack at power 10 x 3\uff5e6 hits.",
+        "description": "[Target: All enemies] Performs Dark physical attack at power 10 x 3～6 hits.",
         "element": "dark",
         "energy_cost": 41,
         "cooldown": 0,
@@ -19389,7 +19389,7 @@
       {
         "id": "sk-end-waltz",
         "name": "End Waltz",
-        "description": "After obtaining Cla\u00edomh Solais and breaking it in half, spins the halves to release a sonic wave.",
+        "description": "After obtaining Claíomh Solais and breaking it in half, spins the halves to release a sonic wave.",
         "element": "water",
         "energy_cost": 41,
         "cooldown": 0,
@@ -19481,7 +19481,7 @@
       {
         "id": "sk-energy-ray",
         "name": "Energy Ray",
-        "description": "Enaj\u012b Rei",
+        "description": "Enajī Rei",
         "element": "water",
         "energy_cost": 41,
         "cooldown": 0,
@@ -20861,7 +20861,7 @@
       {
         "id": "sk-g-shurunen-ii",
         "name": "G Shurunen-II",
-        "description": "Horns heat up as it rampages with laser-heat breath, upon anyone or anything that touches its Gekirin (\u9006\u9c57, reverse scale ).",
+        "description": "Horns heat up as it rampages with laser-heat breath, upon anyone or anything that touches its Gekirin (逆鱗, reverse scale ).",
         "element": "fire",
         "energy_cost": 26,
         "cooldown": 0,
@@ -20976,7 +20976,7 @@
       {
         "id": "sk-galactic-flare",
         "name": "Galactic Flare",
-        "description": "[Target: All enemies] Performs Earth physical attack at power 15 x 3\uff5e6 hits.",
+        "description": "[Target: All enemies] Performs Earth physical attack at power 15 x 3～6 hits.",
         "element": "earth",
         "energy_cost": 41,
         "cooldown": 0,
@@ -21274,7 +21274,7 @@
       },
       {
         "id": "sk-gewalt-schw-rmer",
-        "name": "Gewalt Schw\u00e4rmer",
+        "name": "Gewalt Schwärmer",
         "description": "[Target: All enemies] Performs Steel physical attack at power 35 x 4 hits. The lower the user's SP, the lower the damage. Consumes all SP. Immobilized next turn. Increased damage to targets with Machine Trait.",
         "element": "steel",
         "energy_cost": 41,
@@ -21827,7 +21827,7 @@
       {
         "id": "sk-guardian-bomb",
         "name": "Guardian Bomb",
-        "description": "G\u0101dian Bomu",
+        "description": "Gādian Bomu",
         "element": "fire",
         "energy_cost": 26,
         "cooldown": 0,
@@ -23988,7 +23988,7 @@
       },
       {
         "id": "sk-j-ouha",
-        "name": "J\u016bouha",
+        "name": "Jūouha",
         "description": "Attacks with a blast of energy from its fist.",
         "element": "plant",
         "energy_cost": 41,
@@ -24011,7 +24011,7 @@
       },
       {
         "id": "sk-j-ouken",
-        "name": "J\u016bouken",
+        "name": "Jūouken",
         "description": "Gathers energy in its right hand and shoots a wave of energy in the shape of a lion's head from it.",
         "element": "plant",
         "energy_cost": 41,
@@ -24218,7 +24218,7 @@
       },
       {
         "id": "sk-k-ch-blazing-ice",
-        "name": "K\u016bch\u016b Blazing Ice",
+        "name": "Kūchū Blazing Ice",
         "description": "Uses Blazing Ice in midair.",
         "element": "ice",
         "energy_cost": 41,
@@ -24241,7 +24241,7 @@
       },
       {
         "id": "sk-k-ch-fireball",
-        "name": "K\u016bch\u016b Fireball",
+        "name": "Kūchū Fireball",
         "description": "Unleashes Fireball while airborne.",
         "element": "fire",
         "energy_cost": 26,
@@ -24264,7 +24264,7 @@
       },
       {
         "id": "sk-k-ch-petit-twister-shot",
-        "name": "K\u016bch\u016b Petit Twister Shot",
+        "name": "Kūchū Petit Twister Shot",
         "description": "Spins in midair to sling a small twister.",
         "element": "plant",
         "energy_cost": 41,
@@ -24448,7 +24448,7 @@
       },
       {
         "id": "sk-koenry",
-        "name": "Koenry\u016b",
+        "name": "Koenryū",
         "description": "Creates a burning dragon out of blue flames from its tails and incinerates the enemy.",
         "element": "water",
         "energy_cost": 16,
@@ -24494,7 +24494,7 @@
       },
       {
         "id": "sk-kosh-geki",
-        "name": "Kosh\u016bgeki",
+        "name": "Koshūgeki",
         "description": "Attacks with a fiery headbutt.",
         "element": "water",
         "energy_cost": 26,
@@ -24586,7 +24586,7 @@
       },
       {
         "id": "sk-ku-ng-zh-n-zh-c-i",
-        "name": "Ku\u00e1ng Zh\u01cen Zh\u00ecc\u00e1i",
+        "name": "Kuáng Zhǎn Zhìcái",
         "description": "Slashing Sanctions",
         "element": "electricity",
         "energy_cost": 41,
@@ -24724,7 +24724,7 @@
       },
       {
         "id": "sk-ky-kyoku-senjin-oury-ken",
-        "name": "Ky\u016bkyoku Senjin Oury\u016bken",
+        "name": "Kyūkyoku Senjin Ouryūken",
         "description": "Attacks with the Ouryuken .",
         "element": "plant",
         "energy_cost": 41,
@@ -24747,7 +24747,7 @@
       },
       {
         "id": "sk-ky-ush",
-        "name": "Ky\u014dush\u016b",
+        "name": "Kyōushū",
         "description": "Attacks fiercely from the sky.",
         "element": "wind",
         "energy_cost": 41,
@@ -24931,7 +24931,7 @@
       },
       {
         "id": "sk-licht-sieger",
-        "name": "Licht Sieger \u03b2",
+        "name": "Licht Sieger β",
         "description": "Attacks with its Licht Schwert .",
         "element": "wind",
         "energy_cost": 41,
@@ -25483,7 +25483,7 @@
       },
       {
         "id": "sk-m-shu-p-ngzh-ng",
-        "name": "M\u00f2shu\u01d0 P\u00edngzh\u00e0ng",
+        "name": "Mòshuǐ Píngzhàng",
         "description": "Ink Barrier",
         "element": "fire",
         "energy_cost": 41,
@@ -25599,7 +25599,7 @@
       {
         "id": "sk-mach-wing",
         "name": "Mach Wing",
-        "description": "A more powerful version of Kyoush\u016b .",
+        "description": "A more powerful version of Kyoushū .",
         "element": "plant",
         "energy_cost": 41,
         "cooldown": 0,
@@ -26243,7 +26243,7 @@
       {
         "id": "sk-meteor-shower",
         "name": "Meteor Shower",
-        "description": "[Target: All enemies] Performs Earth physical attack at power 10 x 2\uff5e5 hits.",
+        "description": "[Target: All enemies] Performs Earth physical attack at power 10 x 2～5 hits.",
         "element": "earth",
         "energy_cost": 41,
         "cooldown": 0,
@@ -26266,7 +26266,7 @@
       {
         "id": "sk-meteor-squall",
         "name": "Meteor Squall",
-        "description": "Meteo Suk\u014dru",
+        "description": "Meteo Sukōru",
         "element": "plant",
         "energy_cost": 41,
         "cooldown": 0,
@@ -26403,7 +26403,7 @@
       },
       {
         "id": "sk-mj-lnir-thunder",
-        "name": "Mj\u00f6lnir Thunder",
+        "name": "Mjölnir Thunder",
         "description": "[Target: 1 enemy] Performs Electricity magic attack at power 90. Increased damage to targets with Machine Trait.",
         "element": "electricity",
         "energy_cost": 41,
@@ -27208,7 +27208,7 @@
       },
       {
         "id": "sk-o",
-        "name": "O\u1e43",
+        "name": "Oṃ",
         "description": "Creates a large hemispherical shield atop a yin-yang sign that Taomon can move at will. It can also be used to electrocute an enemy caught in it.",
         "element": "water",
         "energy_cost": 41,
@@ -27438,7 +27438,7 @@
       },
       {
         "id": "sk-p-nm",
-        "name": "P\u0113nm\u00f2",
+        "name": "Pēnmò",
         "description": "Spits a glob of ink from the mouth on its underside.",
         "element": "fire",
         "energy_cost": 26,
@@ -28911,7 +28911,7 @@
       {
         "id": "sk-rowdy-rocker",
         "name": "Rowdy Rocker",
-        "description": "Lets it wield the mic as in b\u014djutsu .",
+        "description": "Lets it wield the mic as in bōjutsu .",
         "element": "water",
         "energy_cost": 26,
         "cooldown": 0,
@@ -29025,7 +29025,7 @@
       },
       {
         "id": "sk-ry-sei-giri",
-        "name": "Ry\u016bsei-giri",
+        "name": "Ryūsei-giri",
         "description": "An overhead slash that hits multiple places simultaneously.",
         "element": "water",
         "energy_cost": 26,
@@ -29393,7 +29393,7 @@
       },
       {
         "id": "sk-sh-da",
-        "name": "Sh\u014dda",
+        "name": "Shōda",
         "description": "Attacks with a strong hand strike.",
         "element": "water",
         "energy_cost": 41,
@@ -31326,7 +31326,7 @@
       {
         "id": "sk-strong-maul",
         "name": "Strong Maul",
-        "description": "Sutorongu M\u014dru",
+        "description": "Sutorongu Mōru",
         "element": "fire",
         "energy_cost": 41,
         "cooldown": 0,
@@ -31808,7 +31808,7 @@
       },
       {
         "id": "sk-t-hakken",
-        "name": "T\u014dhakken",
+        "name": "Tōhakken",
         "description": "1 2 Ignites its hands and feet in blue fire and attacks the enemy with them. Hits the enemy with a powerful hand strike.",
         "element": "fire",
         "energy_cost": 26,
@@ -33442,7 +33442,7 @@
       {
         "id": "sk-un-pour-tous",
         "name": "Un Pour Tous",
-        "description": "Fires a beam of energy from a triangular shield formed by \" Atho \", \" Ren\u00e9 \", and \" Por \".",
+        "description": "Fires a beam of energy from a triangular shield formed by \" Atho \", \" René \", and \" Por \".",
         "element": "light",
         "energy_cost": 41,
         "cooldown": 0,
@@ -34316,7 +34316,7 @@
       {
         "id": "sk-water-shot",
         "name": "Water Shot",
-        "description": "U\u014dt\u0101 Shotto",
+        "description": "Uōtā Shotto",
         "element": "water",
         "energy_cost": 41,
         "cooldown": 0,
@@ -34982,7 +34982,7 @@
       },
       {
         "id": "sk-zwei-gl-nze",
-        "name": "Zwei Gl\u00e4nze",
+        "name": "Zwei Glänze",
         "description": "[Target: 1 enemy] Performs Steel physical attack at power 90. 20% CRT Rate. Increased damage to targets with Knight Trait.",
         "element": "steel",
         "energy_cost": 41,
@@ -35028,7 +35028,7 @@
       },
       {
         "id": "sk-zweih-nder",
-        "name": "Zweih\u00e4nder",
+        "name": "Zweihänder",
         "description": "[Target: 1 enemy] Performs Light physical attack at power 90. If target has yet to act: 25% CRT Rate. Increased damage to targets with Evil Trait.",
         "element": "light",
         "energy_cost": 41,
@@ -35987,16 +35987,6 @@
       "rel": "scenes/scenes.json",
       "bytes": 7589,
       "sha256": "df76d83cea75d233289f885259ef34115b0c8e4ea817464be15993084508b565"
-    },
-    {
-      "rel": "scenes/skill-vfx-presets.json",
-      "bytes": 24430,
-      "sha256": "9ef769b84220393c93267f6fe9b4a74c0f82a89e77988cb39ad9d2314a9bdf54"
-    },
-    {
-      "rel": "scenes/particle-presets.json",
-      "bytes": 35,
-      "sha256": "121c1856b6ce7706a28eeee282d17b8f70b2ae4d7c3b4d04772ba531727af398"
     }
   ]
 }

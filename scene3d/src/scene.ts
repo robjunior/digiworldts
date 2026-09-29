@@ -19,7 +19,7 @@ import type {
 } from "./attack-runners/types";
 import { CameraDirector, clampZoom, framePoint } from "./camera-direction";
 import type { CamVector, CameraTarget } from "./camera-direction";
-import type { SkillVfxAttackType, SkillVfxTrajectory } from "@digiworld/shared/skill-vfx";
+import type { SkillVfxAttackType, SkillVfxNamedEffect, SkillVfxTrajectory } from "@digiworld/shared/skill-vfx";
 import {
   DEFAULT_EFFECT_DURATION_S,
   ELEMENT_LIGHT_COLOR,
@@ -46,6 +46,7 @@ const IMPACT_HEIGHT_RATIO = 0.08;
 /** Fallback when no source unit is known: the effect falls from overhead. */
 const UNSOURCED_DROP_HEIGHT = 4;
 import { resolveSkillVfxPreset } from "./skill-vfx-resolver";
+import { namedEffectDuration, tryBuildNamedRunner } from "./attack-runners/named";
 import {
   FORMATION_SIDE_X,
   FORMATION_SLOT_Z_SPACING,
@@ -2490,6 +2491,19 @@ export class SceneManager {
     };
 
     if (options.vfxPresetId !== undefined) {
+      // A named code effect (faithful port of a reference FX) takes priority:
+      // falls back to the stored particle preset, then the element runner.
+      const namedBuild = tryBuildNamedRunner(this.scene, wrappedEffect, options.vfxPresetId);
+      if (namedBuild !== null) {
+        const namedId = options.vfxPresetId;
+        const runner = createDeferredRunner(namedBuild);
+        this.effects.set(id, {
+          runner,
+          elapsed: 0,
+          duration: namedId !== undefined ? namedEffectDuration(namedId as SkillVfxNamedEffect) : durationS,
+        });
+        return id;
+      }
       const preset = resolveSkillVfxPreset(options.vfxPresetId);
       if (preset !== null) {
         // Defer the (allocating) runner construction off the input/click frame.

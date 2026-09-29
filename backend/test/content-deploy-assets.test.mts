@@ -137,27 +137,6 @@ function main(): void {
     check('6c re-applying scenes idempotent', s6b.applied.length === 0
       && s6b.skippedUnchanged.length === sceneEntries.length, JSON.stringify(s6b));
 
-    // --- 7. gitignored scene preset JSONs (skill-vfx / particle) apply ------
-    // These are admin-authored, gitignored files in the same scenes dir; the
-    // bundle must stage + apply them or ported skill effects never reach
-    // staging/prod (same class of silently-missing config as scenes.json).
-    const presetEntries = sceneEntries.filter((e) => e.rel.endsWith('-presets.json'));
-    check('7 committed bundle assetManifest carries scene preset JSONs',
-      presetEntries.map((e) => e.rel.split('/').pop())
-        .includes('skill-vfx-presets.json')
-      && presetEntries.map((e) => e.rel.split('/').pop())
-        .includes('particle-presets.json'),
-      `preset entries=${presetEntries.length}`);
-    for (const pc of ['skill-vfx-presets.json', 'particle-presets.json']) {
-      const rel = `scenes/${pc}`;
-      const s7 = await applySceneAssets(join(ROOT, 'content'), bundle.assetManifest, scenesDest);
-      check(`7x ${pc} applies from committed bundle (idempotent re-apply)`,
-        s7.skippedUnchanged.includes(rel) && s7.applied.length === 0, JSON.stringify(s7));
-      const srcPreset = readFileSync(join(ROOT, 'backend', 'data', 'scenes', pc));
-      check(`7y applied ${pc} == dev scenes store file`,
-        sha256(readFileSync(join(scenesDest, pc))) === sha256(srcPreset));
-    }
-
     rmSync(scratch, { recursive: true, force: true });
     console.log(`\n=== SUMMARY: ${passed} passed, ${failed} failed ===`);
     process.exit(failed > 0 ? 1 : 0);

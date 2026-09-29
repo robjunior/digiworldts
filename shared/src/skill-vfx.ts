@@ -26,6 +26,23 @@ export const SKILL_VFX_TRAJECTORIES = ['instant', 'straight', 'arc', 'homing'] a
 export type SkillVfxTrajectory = (typeof SKILL_VFX_TRAJECTORIES)[number];
 
 /**
+ * Named, code-built skill effects (faithful ports of the reference HTML FX).
+ * A skill's `vfxPresetId` may reference one of these instead of a stored
+ * particle preset: the runtime first tries the named code runner, then the
+ * stored-data preset, then falls back to the per-element runner. Kept here so
+ * backend skill validation and the scene3d runner registry agree on the ids
+ * and the admin editor can offer them as choices.
+ */
+export const SKILL_VFX_NAMED_EFFECTS = [
+  'fireball',
+  'frost-spikes',
+  'ice-lance',
+  'tornado',
+  'lightning',
+] as const;
+export type SkillVfxNamedEffect = (typeof SKILL_VFX_NAMED_EFFECTS)[number];
+
+/**
  * How the skill is DELIVERED — purely a visual/effect distinction, it never
  * affects combat mechanics. `melee` makes the caster advance to face the
  * receiver and the camera follow that movement; `ranged` keeps the caster in

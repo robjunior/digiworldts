@@ -28,3 +28,10 @@ export {
 export type { SpriteInit, SceneSettings } from './scene';
 export { unitSpriteSheetUrl, unitSpriteStaticUrl, unitDotUrl } from './sprite-rig';
 export { prewarmParticleMaterials } from './particles/shaders';
+export {
+  NAMED_RUNNERS,
+  isNamedEffect,
+  namedEffectDuration,
+  tryBuildNamedRunner,
+} from './attack-runners/named';
+export type { SkillVfxNamedEffect } from '@digiworld/shared/skill-vfx';
