@@ -962,7 +962,7 @@ body:has(.combat3d-shell) {
      GUARD 0.5 ; CRIT 1.5 ; MISS ; EN regen per round ; Analyse.
    HP green / EN gold bar hues are color-mix off Ink — no new surface hex.
    =================================================================== */
-:root{
+html.is-combat{
   --bg:#0a0a0c; --panel:#141418; --ink:#f4f1ea; --muted:#8a877f;
   --hair:#2a2a30; --signal:#e6001f; --battle:#e6001f;
   --font:'Inter',system-ui,-apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif;
@@ -978,7 +978,7 @@ body:has(.combat3d-shell) {
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden}
+html.is-combat body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden}
 .win{height:auto;display:flex;flex-direction:column;overflow:hidden}
 .titlebar{flex:0 0 auto;height:38px;display:flex;align-items:center;gap:14px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--hair);z-index:30}
 .lights{display:flex;gap:7px}
