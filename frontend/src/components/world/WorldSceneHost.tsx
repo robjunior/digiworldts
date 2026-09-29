@@ -26,7 +26,7 @@ import { getRoster } from '../../lib/api';
 import { getTeams } from '../../lib/api-teams';
 import { getPveWorld, type WorldObject } from '../../lib/api-world';
 import { getWorldSceneEntity } from '../../lib/api-scenes';
-import { worldGlobeStore } from '../../lib/world-globe-store';
+import { worldGlobeStore, useWorldGlobeUI } from '../../lib/world-globe-store';
 import { WorldGlobe } from './WorldGlobe';
 import type { WorldHoverTipData } from './WorldHoverTip';
 import '../../styles/extensions-world.css';
@@ -125,15 +125,21 @@ export function WorldSceneHost(): JSX.Element {
   const onSelect = useCallback(
     (index: number) => {
       const pos = positions[index] ?? null;
-      worldGlobeStore.set({ selectedIdx: pos ? index : null, focus: pos });
+      worldGlobeStore.set({
+        selectedIdx: pos ? index : null,
+        focus: pos,
+        // Parar o giro automático: o node focando precisa permanecer centralizado.
+        autoSpin: false,
+      });
     },
     [positions],
   );
 
-  // Estado do globo: snapshot atual (o hook de assinatura ficaria barato, mas
-  // o WorldGlobe lê via stateRef efeito 146-158; para o host reagir a mudanças
-  // externas, lemos o snapshot a cada render — o store é imutável e barato).
-  const ui = worldGlobeStore.get();
+  // Estado do globo: assinamos REATIVAMENTE (hook, não snapshot) pra o host
+  // re-renderizar quando o store mudar de fora (clique no globo, seleção no
+  // rail) — sem isso o WorldGlobe só veria o foco/seleção no próximo render
+  // por outro motivo e nada acontecia ao clicar num node.
+  const ui = useWorldGlobeUI();
 
   return (
     <div

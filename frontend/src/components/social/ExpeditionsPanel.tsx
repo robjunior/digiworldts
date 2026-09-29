@@ -17,6 +17,7 @@ import {
   railExpeditionsStore,
   useRailExpeditions,
 } from '../../lib/rail-expeditions-store';
+import { worldGlobeStore } from '../../lib/world-globe-store';
 import { DigimonSprite } from '../common/DigimonSprite';
 import { CheckIcon } from '../common/icons';
 import { ActiveExpCard } from '../adventure/ActiveExpCard';
@@ -40,6 +41,14 @@ const STAGE_RANK: Readonly<Record<string, number>> = {
   Mega: 5,
   Ultra: 6,
 };
+
+// Mesma conversão grid→lat/lon do WorldSceneHost: selecionar um lugar no rail
+// aponta o globo pra ele (worldGlobeStore.set focus), então precisa das MESMAS
+// coordenadas que o host usa pros nodes.
+const worldPosition = (x: number, y: number): { lat: number; lon: number } => ({
+  lat: 54 - y * 0.72,
+  lon: x * 3.6 - 180,
+});
 
 const emptyFarm: FarmView = {
   balances: { Meat: 0, Bits: 0, Data: 0 },
@@ -403,7 +412,17 @@ export function ExpeditionsPanel({
                     type="button"
                     key={place.id}
                     className={`exp-place${isSel ? ' is-selected' : ''}`}
-                    onClick={() => setSelectedPlaceId(place.id)}
+                    onClick={() => {
+                      setSelectedPlaceId(place.id);
+                      // Rotaciona o globo pro node ficar no centro da câmera
+                      // (e para o giro). O host é reativo ao store agora.
+                      const idx = places.findIndex((p) => p.id === place.id);
+                      worldGlobeStore.set({
+                        selectedIdx: idx >= 0 ? idx : null,
+                        focus: worldPosition(place.x, place.y),
+                        autoSpin: false,
+                      });
+                    }}
                   >
                     <span className="exp-place-check">
                       <CheckIcon />

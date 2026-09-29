@@ -8,7 +8,7 @@ import type { WorldRegion } from '@digiworld/shared/world';
 import { requestExpeditionConfig } from '../lib/rail-expeditions-store';
 import { WorldStrip } from '../components/world/WorldStrip';
 import { WorldHoverTip } from '../components/world/WorldHoverTip';
-import { useWorldGlobeUI, worldGlobeStore } from '../lib/world-globe-store';
+import { useWorldGlobeUI, worldGlobeStore, usePopupAnchor, popupAnchorStore } from '../lib/world-globe-store';
 import '../styles/extensions-world.css';
 import '../styles/world-party-drawer.css';
 
@@ -26,6 +26,7 @@ export function World(): JSX.Element {
   const farm = useQuery({ queryKey: ['farm'], queryFn: getFarm });
 
   const ui = useWorldGlobeUI();
+  const popupAnchor = usePopupAnchor();
   const [mode, setMode] = useState<'explore' | 'expedition'>('explore');
   const [partyPanelOpen, setPartyPanelOpen] = useState(false);
   const [hours, setHours] = useState(1);
@@ -69,6 +70,11 @@ export function World(): JSX.Element {
     onError: (error) => { setNotice(error instanceof Error ? error.message : 'Não foi possível iniciar.'); setPartyPanelOpen(true); },
   });
   const toggleSpin = useCallback(() => worldGlobeStore.set({ autoSpin: !worldGlobeStore.get().autoSpin }), []);
+  // Fecha o popup: limpa seleção/foco, solta a âncora e retoma o giro.
+  const closePopup = useCallback(() => {
+    worldGlobeStore.set({ selectedIdx: null, focus: null, autoSpin: true });
+    popupAnchorStore.set(null);
+  }, []);
   const toast = useRef<number | null>(null);
   useEffect(() => () => { if (toast.current !== null) window.clearTimeout(toast.current); }, []);
 
@@ -77,8 +83,8 @@ export function World(): JSX.Element {
       {ui.webglFailed ? <div className="stage-fallback show" role="status"><div className="box"><b>Mapa 3D indisponível</b><br />Selecione uma localidade na lista.</div></div> : null}
       <div className="overlay"><WorldStrip selectedRegion={ui.selectedIdx === null ? null : regions[ui.selectedIdx] ?? null} autoSpin={ui.autoSpin} onToggleAutoSpin={toggleSpin} /><WorldHoverTip tip={ui.hoverTip} /></div>
     </div>
-    {selectedPlace ? <section className="world-place-popup" aria-label={`Localidade ${selectedPlace.name}`}>
-      <div className="world-place-popup__route" aria-hidden="true" /><span className="world-place-popup__eyebrow">LOCALIDADE SELECIONADA</span><h2>{selectedPlace.name}</h2><p>{selectedPlace.description || 'Uma localidade do mundo.'}</p>
+    {selectedPlace ? <section className="world-place-popup" aria-label={`Localidade ${selectedPlace.name}`} style={popupAnchor ? { position: 'fixed', left: popupAnchor.x, top: popupAnchor.y - 14, transform: 'translate(-50%, -100%)', zIndex: 50, margin: 0 } : undefined}>
+      <div className="world-place-popup__route" aria-hidden="true" /><button type="button" className="world-place-popup__close" onClick={closePopup} aria-label="Fechar localidade">×</button><span className="world-place-popup__eyebrow">LOCALIDADE SELECIONADA</span><h2>{selectedPlace.name}</h2><p>{selectedPlace.description || 'Uma localidade do mundo.'}</p>
       <div className="world-mode-tabs"><button type="button" className={mode === 'explore' ? 'is-active' : ''} onClick={() => { setMode('explore'); setPartyPanelOpen(true); }}>Explorar</button><button type="button" className={mode === 'expedition' ? 'is-active' : ''} onClick={() => { setMode('expedition'); setPartyPanelOpen(true); }}>Expedição</button></div>
       <button type="button" className="world-action" onClick={() => setPartyPanelOpen(true)}>Configurar party</button>
       <button type="button" className="world-action" onClick={() => requestExpeditionConfig(selectedPlace.id)}>Enviar Expedição</button>

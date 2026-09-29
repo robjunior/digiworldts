@@ -10,6 +10,7 @@ import type { WorldHoverTipData } from "./WorldHoverTip";
 import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/arena-urls";
 import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from "@digiworld/scene3d/lobby-settings";
 import { SpriteRig } from "@digiworld/scene3d/sprite-rig";
+import { popupAnchorStore } from "../../lib/world-globe-store";
 import type { WorldSceneSettings, SceneSettings } from "@digiworld/scene3d/scene";
 import { GLOBE_CLEARANCE_R_MIN } from "@digiworld/scene3d/scene";
 import { unitSpriteSheetUrl } from "../../lib/asset-preload";
@@ -164,9 +165,16 @@ export function WorldGlobe({
   }, [autoSpin, selectedIdx, hoveredIdx, world, lighting, useGlbSettings, wanderers, visible]);
 
   useEffect(() => {
-    if (!focusLatLon) return;
+    if (!focusLatLon) {
+      popupAnchorStore.set(null);
+      return;
+    }
     const pos = latLonToVec3(focusLatLon.lat, focusLatLon.lon, 1);
-    stateRef.current.rotY = -Math.atan2(pos.x, pos.z);
+    // Compensa o yaw da camera do admin de cena: pra o node ficar "bem no
+    // centro", descontamos o azimute configurado (camYawDeg) antes de rodar o
+    // globo. Sem isto, um camYawDeg != 0 deixa o node centrado fora do eixo.
+    const yawComp = (stateRef.current.world?.camYawDeg ?? 0) * (Math.PI / 180);
+    stateRef.current.rotY = -Math.atan2(pos.x, pos.z) - yawComp;
     stateRef.current.rotX = Math.atan2(
       pos.y,
       Math.sqrt(pos.x * pos.x + pos.z * pos.z),
@@ -214,6 +222,7 @@ export function WorldGlobe({
     positionWorldCamera(camera, stateRef.current.camDist, initGlobeY, initW?.camYawDeg ?? 0, initW?.camElevDeg ?? 0);
     const clock = new THREE.Timer();
     const raycaster = new THREE.Raycaster();
+    const tmpV = new THREE.Vector3();
 
     // ── cena 3d do admin de cena (kind 'world') — environment backdrop─────
     // Aplica lighting/fog/exposure do SceneEntity 'world' + o GLB do modelFile
@@ -564,8 +573,17 @@ export function WorldGlobe({
       // `THREE.Timer` needs `update()` each frame; otherwise `getElapsed()`
       // stays 0 and the selection-ring pulse below is frozen.
       clock.update(rafTimestamp);
-      if (!stateRef.current.visible) return; // host persistente: pausa fora do /world
-      if (stateRef.current.autoSpin && !stateRef.current.dragging) {
+      if (!stateRef.current.visible) {
+        popupAnchorStore.set(null);
+        return; // host persistente: pausa fora do /world
+      }
+      // Com um node selecionado o giro para (o user pediu: parar o mundo se
+      // estiver movendo) — o node precisa permanecer centralizado na câmera.
+      if (
+        stateRef.current.autoSpin &&
+        !stateRef.current.dragging &&
+        stateRef.current.selectedIdx === null
+      ) {
         stateRef.current.rotY += 0.0016;
       }
       globe.rotation.y = stateRef.current.rotY;
@@ -577,6 +595,27 @@ export function WorldGlobe({
         stateRef.current.world?.camYawDeg ?? 0,
         stateRef.current.world?.camElevDeg ?? 0,
       );
+
+      // Ancora o popup no node selecionado: projeta o node pra tela (px viewport)
+      // e publica no popupAnchorStore (o popup da rota se posiciona pertinho).
+      const selIdx = stateRef.current.selectedIdx;
+      if (selIdx !== null && selIdx >= 0 && selIdx < nodeMeshes.length) {
+        const selNode = nodeMeshes[selIdx];
+        if (selNode) {
+          const vp = selNode.mesh.getWorldPosition(tmpV).project(camera);
+          if (vp.z < 1 && vp.z > -1) {
+            const r = canvas.getBoundingClientRect();
+            popupAnchorStore.set({
+              x: Math.max(10, Math.min(r.width - 10, r.left + (vp.x * 0.5 + 0.5) * r.width)),
+              y: Math.max(10, Math.min(r.height - 10, r.top + (-vp.y * 0.5 + 0.5) * r.height)),
+            });
+          } else {
+            popupAnchorStore.set(null);
+          }
+        }
+      } else {
+        popupAnchorStore.set(null);
+      }
 
       const t = clock.getElapsed();
       nodeMeshes.forEach((n, i) => {
