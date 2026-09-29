@@ -20,6 +20,7 @@
  */
 import { loadCatalog, saveCatalog, type ContentStatus, type TemplateDigimon } from '../digimon/xml.js';
 import { getDb, closeDbAdapter } from '../db/adapter.js';
+import { run, tx } from '../db/index.js';
 import { deletePvePlace, listPvePlaces, upsertPvePlace } from '../world/pve.js';
 import { LAUNCH_PLACES, rosterUniverse } from './roster.js';
 import { applyLaunchEvolutionKeys } from './evolution.js';
@@ -27,6 +28,8 @@ import type { PvePoolEntry } from '@digiworld/shared/pve';
 
 export async function seedLaunchMeta(): Promise<{
   places: number;
+  worldNodes: number;
+  worldNodeIds: string[];
   published: number;
   drafted: number;
   rosterSpecies: number;
@@ -101,16 +104,55 @@ export async function seedLaunchMeta(): Promise<{
     if (!LAUNCH_PLACES.some((lp) => lp.id === p.id)) await deletePvePlace(p.id);
   }
 
+  // 4. Drop a world node for each launch place so the map/globe renders them.
+  await seedLaunchWorldNodes();
+
   await closeDbAdapter();
   return {
     places: LAUNCH_PLACES.length,
+    worldNodes: LAUNCH_PLACES.length,
     published,
     drafted,
     rosterSpecies: rosterIds.size,
     unknownNames,
     evolutionAssigned: evo.assigned,
     evolutionSkipped: evo.skipped,
+    worldNodeIds: LAUNCH_PLACES.map((p) => `wob-launch-${p.id}`),
   };
+}
+
+/** World-globe mesh kind per launch place (progression of scenery). */
+const PLACE_NODE_KIND: Readonly<Record<string, string>> = {
+  'campo-iniciantes': 'grove',
+  'bosque-novatos': 'grove',
+  'varzea-ventos': 'archway',
+  'mata-tropical': 'ruin',
+  'caverna-gelo': 'crystal',
+  'lago-abissal': 'spring',
+  'floresta-aco': 'tower',
+  'pantano-sombrio': 'obelisk',
+  'cume-relampago': 'mountain',
+  'pico-fim-de-jogo': 'city',
+};
+
+/** Idempotent upsert of a world_objects node per launch place (tied to the place by id). */
+export async function seedLaunchWorldNodes(): Promise<void> {
+  const now = Date.now();
+  await tx(async (t) => {
+    for (const place of LAUNCH_PLACES) {
+      const id = `wob-launch-${place.id}`;
+      await t.run(
+        `INSERT INTO world_objects
+          (id, x, y, lat, lon, kind, scale, tint, quest_id, passable, label, created_at, updated_at, dungeon_id, elements, min_level, max_level, hidden_until_flag)
+         VALUES (?, ?, ?, ?, ?, ?, 1.0, NULL, NULL, 1, ?, ?, ?, NULL, NULL, ?, ?, NULL)
+         ON CONFLICT(id) DO UPDATE SET
+          x = excluded.x, y = excluded.y, lat = excluded.lat, lon = excluded.lon,
+          kind = excluded.kind, label = excluded.label, passable = excluded.passable,
+          min_level = excluded.min_level, max_level = excluded.max_level, updated_at = excluded.updated_at`,
+        [id, place.x, place.y, place.x, place.y, PLACE_NODE_KIND[place.id] ?? 'grove', place.name, now, now, place.minLevel, place.maxLevel],
+      );
+    }
+  });
 }
 
 // CLI entry — run with `tsx src/launch/seed.ts`.

@@ -100,6 +100,23 @@ for (const p of places) {
 check('no pool references a draft/non-roster species',
   [...allPoolIds].every((id) => rosterIds.has(id)));
 
+console.log('\n=== World nodes (world_objects per place) ===');
+const nodeRows = await q<{ id: string; x: number; y: number; kind: string; label: string }>(
+  `SELECT id, x, y, kind, label FROM world_objects`,
+);
+const launchNodes = nodeRows.filter((n) => n.id.startsWith('wob-launch-'));
+check('10 world nodes seeded', launchNodes.length === LAUNCH_PLACES.length, `${launchNodes.length}`);
+for (const place of LAUNCH_PLACES) {
+  const node = launchNodes.find((n) => n.id === `wob-launch-${place.id}`);
+  check(`node ${place.id} exists`, node !== undefined);
+  if (node) {
+    check(`node ${place.id} coords match place`, node.x === place.x && node.y === place.y, `${node.x},${node.y}`);
+    check(`node ${place.id} has a mesh kind`, typeof node.kind === 'string' && node.kind.length > 0, node.kind);
+    check(`node ${place.id} labeled`, node.label === place.name, node.label ?? '');
+  }
+}
+check('no orphan/non-launch launch-prefixed nodes', launchNodes.length === nodeRows.filter((n) => n.id.startsWith('wob-launch-')).length);
+
 console.log('\n=== Idempotency ===');
 const publishedBefore = published.map((t) => t.id).sort();
 const draftedBefore = drafted.map((t) => t.id).sort();
