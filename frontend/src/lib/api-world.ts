@@ -16,6 +16,9 @@ export type PartyRating = { readonly rating: number; readonly memberCount: numbe
 export type WorldEncounter = { readonly kind: 'none' } | { readonly kind: 'item'; readonly item: { readonly itemId: string; readonly name: string; readonly qty: number } };
 
 export function getPveWorld(): Promise<PveWorldResponse> { return apiFetch<PveWorldResponse>('/api/world'); }
+export function getWorldObjects(): Promise<{ objects: readonly WorldObject[] }> {
+  return apiFetch<{ objects: readonly WorldObject[] }>('/api/world/objects');
+}
 export function savePveParty(mode: 'explore' | 'expedition', party: readonly string[]): Promise<{ preferences: PvePartyPreferences }> {
   return apiFetch<{ preferences: PvePartyPreferences }>('/api/world/party', { method: 'PUT', body: { mode, party } });
 }

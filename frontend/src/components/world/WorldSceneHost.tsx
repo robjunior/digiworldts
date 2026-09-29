@@ -24,7 +24,7 @@ import type { SceneSettings } from '@digiworld/scene3d/scene';
 
 import { getRoster } from '../../lib/api';
 import { getTeams } from '../../lib/api-teams';
-import { getPveWorld, type WorldObject } from '../../lib/api-world';
+import { getPveWorld, getWorldObjects, type WorldObject } from '../../lib/api-world';
 import { getWorldSceneEntity } from '../../lib/api-scenes';
 import { worldGlobeStore, useWorldGlobeUI } from '../../lib/world-globe-store';
 import { WorldGlobe } from './WorldGlobe';
@@ -45,6 +45,11 @@ export function WorldSceneHost(): JSX.Element {
   const isWorld = pathname === '/world';
 
   const world = useQuery({ queryKey: ['pve-world'] as const, queryFn: getPveWorld });
+  const worldObjectsQuery = useQuery({
+    queryKey: ['world-objects'] as const,
+    queryFn: getWorldObjects,
+    staleTime: 30_000,
+  });
   const roster = useQuery({ queryKey: ['roster'] as const, queryFn: getRoster });
   const teams = useQuery({ queryKey: ['teams'] as const, queryFn: getTeams });
   const worldScene = useQuery({
@@ -85,8 +90,18 @@ export function WorldSceneHost(): JSX.Element {
       })),
     [places, positions],
   );
-  // Identidade estável — inline array derruba a cena 3D a cada render do host.
-  const worldObjects = useMemo<readonly WorldObject[]>(() => [], []);
+  // Nodes do mundo (world_objects): o globo as posiciona por lat/lon, então
+  // re-mapeia x/y com o MESMO worldPosition dos regions — os marcadores caem
+  // exatamente nas localidades. Identidade estável (useMemo) para não derrubar
+  // a cena 3D a cada render.
+  const worldObjects = useMemo<readonly WorldObject[]>(
+    () =>
+      (worldObjectsQuery.data?.objects ?? []).map((o) => {
+        const pos = worldPosition(o.x, o.y);
+        return { ...o, lat: pos.lat, lon: pos.lon };
+      }),
+    [worldObjectsQuery.data?.objects],
+  );
 
   // Digimons de TODOS os times ATIVOS andando em volta do globo (>=3 garantidos).
   const teamWanderers = useMemo(() => {
