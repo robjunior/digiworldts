@@ -19,7 +19,7 @@ export function getPveWorld(): Promise<PveWorldResponse> { return apiFetch<PveWo
 export function savePveParty(mode: 'explore' | 'expedition', party: readonly string[]): Promise<{ preferences: PvePartyPreferences }> {
   return apiFetch<{ preferences: PvePartyPreferences }>('/api/world/party', { method: 'PUT', body: { mode, party } });
 }
-export function startPveEncounter(placeId: string, mode: 'explore' | 'expedition', hours = 1): Promise<{ ok: true; matchId: string }> {
-  return apiFetch<{ ok: true; matchId: string }>('/api/world/pve/start', { method: 'POST', body: { placeId, mode, hours } });
+export function startPveEncounter(placeId: string, mode: 'explore' | 'expedition', hours = 1, exclude?: readonly string[]): Promise<{ ok: true; matchId: string }> {
+  return apiFetch<{ ok: true; matchId: string }>('/api/world/pve/start', { method: 'POST', body: { placeId, mode, hours, ...(exclude && exclude.length > 0 ? { exclude } : {}) } });
 }
 

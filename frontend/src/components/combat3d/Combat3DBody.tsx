@@ -305,7 +305,10 @@ export function Combat3DBody(): JSX.Element | null {
               // em branco. Se a nova batalha falhar (ex.: meat insuficiente),
               // volta ao globo em vez de prender o jogador na cena.
               setEndModalOpen(false);
-              const next = await startPveEncounter(activeBattle.sceneId!, 'explore');
+              // Novo combate com digimons DIFERENTES: exclui as espécies que
+              // acabaram de ser enfrentadas do próximo sorteio do pool.
+              const justFought = activeBattle.enemy.map((e) => e.templateId);
+              const next = await startPveEncounter(activeBattle.sceneId!, 'explore', 1, justFought);
               if (!next.ok) {
                 clearActiveBattle();
                 navigate('/world', { replace: true });
