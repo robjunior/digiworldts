@@ -9,7 +9,7 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 
 import { ARENA_MODEL_BY_KEY, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
-import { SceneManager, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
+import { SceneManager, type LobbySceneSettings, type SceneSettings, type WorldSceneSettings } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
 import { clampLobbyExposure, lobbyHdrCompensation, lobbyPartyGround, resolveLobbyFog, resolveStageLightIntensity } from '@digiworld/scene3d/lobby-settings';
@@ -23,6 +23,10 @@ type ScenePreviewProps = {
    *  party on pedestals) applying the lobby knobs live — mirror of the front
    *  LobbyScene3D so admin edits are visible in the scene preview. */
   readonly lobby?: LobbySceneSettings | null;
+  /** When set, the preview renders the WORLD globe (floating centrepiece +
+   *  digimons orbiting, no region nodes) applying the world knobs live — mirror
+   *  of the front WorldGlobe so the admin edits the floating globe + walkers. */
+  readonly world?: WorldSceneSettings | null;
   /** GLB-driven mode (the editor's "Use GLB embedded lighting"): load the arena
    *  bare so the GLB drives lighting, falling back to the arena-keyed
    *  atmosphere when the GLB ships no punctual lights. Mirrors what combat
@@ -540,15 +544,274 @@ function mountLobbyPreview(
   };
 }
 
-export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, useGlbSettings }: ScenePreviewProps): JSX.Element {
+/* ── world preview: globo flutuante (sem os nós de localidade) + digimons ── */
+// Espelha o WorldGlobe da tela do mundo: globo centralizado flutuando em
+// GLOBE_Y, digimons (SpriteRig) orbitando num anel no piso, sem os nós das
+// localidades (o user pediu "só um preview" do centro).
+const WORLD_GLOBE_Y = 1.35;
+const WORLD_RING_RADIUS = 3.0;
+const WORLD_UNIT_IDS = ['skb-1', 'skb-2', 'skb-3'];
+
+function worldCirclePts(radius: number, segments: number, plane: 'xz' | 'xy'): THREE.Vector3[] {
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i < segments; i++) {
+    const a = (i / segments) * Math.PI * 2;
+    if (plane === 'xz') pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius));
+    else pts.push(new THREE.Vector3(Math.cos(a) * radius, Math.sin(a) * radius, 0));
+  }
+  return pts;
+}
+
+type WorldRefs = {
+  renderer: THREE.WebGLRenderer;
+  scene: THREE.Scene;
+  composer: EffectComposer;
+  bloomPass: UnrealBloomPass;
+  camera: THREE.PerspectiveCamera;
+  envRoot: THREE.Group | null;
+  globe: THREE.Group;
+  grid: THREE.LineSegments;
+  glow: THREE.Mesh;
+  walkers: { angle: number; speed: number; radius: number; rig: SpriteRig }[];
+  camDist: number;
+  envLoadVersion: number;
+};
+
+/** Reapply world knobs live (globe opacity, camera clamps, bloom, exposure,
+ *  walker brightness) — mirror of WorldGlobe. */
+function applyWorldStage(f: WorldRefs, settings: SceneSettings, world: WorldSceneSettings): void {
+  const s = world;
+  const exposure = clampLobbyExposure(settings.exposure);
+  f.renderer.toneMappingExposure = exposure;
+  (f.grid.material as THREE.LineBasicMaterial).opacity = s.graticuleOpacity ?? 0.34;
+  (f.glow.material as THREE.MeshBasicMaterial).opacity = s.glowOpacity ?? 0.05;
+  const min = s.camDistMin ?? 2.5;
+  const max = s.camDistMax ?? 7;
+  f.camDist = Math.max(min, Math.min(max, f.camDist));
+  f.bloomPass.enabled = (settings.bloomEnabled ?? true) !== false;
+  f.bloomPass.strength = Math.min(settings.bloomStrength ?? 0.3, 0.35);
+  f.bloomPass.radius = Math.min(settings.bloomRadius ?? 0.45, 0.5);
+  f.bloomPass.threshold = Math.max(settings.bloomThreshold ?? 0.9, 0.85);
+  const hdrComp = lobbyHdrCompensation(exposure);
+  for (const wk of f.walkers) {
+    (wk.rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(1.5 * hdrComp);
+  }
+}
+
+async function loadWorldGlb(f: WorldRefs, modelUrl: string | undefined, settings: SceneSettings): Promise<void> {
+  if (modelUrl === undefined) return;
+  const version = ++f.envLoadVersion;
+  let gltf: Awaited<ReturnType<InstanceType<typeof GLTFLoader>['loadAsync']>>;
+  try {
+    gltf = await new GLTFLoader().loadAsync(modelUrl);
+  } catch {
+    return;
+  }
+  if (version !== f.envLoadVersion) return;
+  if (f.envRoot !== null) {
+    f.scene.remove(f.envRoot);
+    f.envRoot = null;
+  }
+  const root = gltf.scene;
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  const span = Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).z, 0.001);
+  const k = (settings.arenaSpan ?? 34) / span;
+  root.scale.setScalar(k);
+  root.position.set(
+    -(box.getCenter(new THREE.Vector3()).x * k),
+    -box.min.y * k,
+    -(box.getCenter(new THREE.Vector3()).z * k),
+  );
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if ((m as unknown as { isMesh?: boolean }).isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
+  f.scene.add(root);
+  f.envRoot = root;
+}
+
+function mountWorldPreview(
+  canvas: HTMLCanvasElement,
+  f: WorldRefs,
+  settings: SceneSettings,
+  world: WorldSceneSettings,
+  modelUrl: string | undefined,
+): () => void {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  // câmera inicial clampada aos limites da cena (espelha o WorldGlobe)
+  const min = world.camDistMin ?? 2.5;
+  const max = world.camDistMax ?? 7;
+  const initialDist = Math.max(min, Math.min(max, 4.6));
+  const initialW = Math.max(1, canvas.clientWidth || canvas.parentElement?.clientWidth || 1);
+  const initialH = Math.max(1, canvas.clientHeight || canvas.parentElement?.clientHeight || 1);
+  renderer.setSize(initialW, initialH, false);
+  f.renderer = renderer;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x0a0e1a);
+  f.scene = scene;
+  const camera = new THREE.PerspectiveCamera(42, initialW / initialH, 0.1, 400);
+  camera.position.set(0, WORLD_GLOBE_Y, initialDist);
+  camera.lookAt(0, WORLD_GLOBE_Y, 0);
+  f.camera = camera;
+  f.camDist = initialDist;
+
+  const envLights: THREE.Light[] = [];
+  const hemi = new THREE.HemisphereLight(
+    settings.hemiSkyColor ?? 0x88a8d0,
+    settings.hemiGroundColor ?? 0x0e1220,
+    settings.hemiIntensity ?? 0.55,
+  );
+  scene.add(hemi);
+  envLights.push(hemi);
+  const key = new THREE.DirectionalLight(settings.sunColor ?? 0xfff2d0, settings.sunIntensity ?? 1.1);
+  key.position.set(settings.sunPosX ?? -6, settings.sunPosY ?? 12, settings.sunPosZ ?? 6);
+  scene.add(key);
+  envLights.push(key);
+  const rim = new THREE.DirectionalLight(settings.rimColor ?? 0x2c74ff, settings.rimIntensity ?? 0.5);
+  rim.position.set(8, 6, -8);
+  scene.add(rim);
+  envLights.push(rim);
+  scene.fog = resolveLobbyFog(settings);
+
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(initialW, initialH),
+    settings.bloomStrength ?? 0.3,
+    settings.bloomRadius ?? 0.45,
+    settings.bloomThreshold ?? 0.9,
+  );
+  composer.addPass(bloomPass);
+  f.composer = composer;
+  f.bloomPass = bloomPass;
+
+  // ── globo no centro, flutuando ──
+  const globe = new THREE.Group();
+  globe.position.y = WORLD_GLOBE_Y;
+  scene.add(globe);
+  f.globe = globe;
+  const core = new THREE.Mesh(new THREE.SphereGeometry(0.985, 48, 32), new THREE.MeshBasicMaterial({ color: 0x0a0a0c }));
+  globe.add(core);
+  const grid = new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.SphereGeometry(1, 36, 24)),
+    new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: world.graticuleOpacity ?? 0.34 }),
+  );
+  globe.add(grid);
+  f.grid = grid;
+  const ringMat = new THREE.LineBasicMaterial({ color: 0xe6001f, transparent: true, opacity: 0.7 });
+  globe.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(worldCirclePts(1.001, 64, 'xz')), ringMat));
+  globe.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(worldCirclePts(1.001, 64, 'xy')), ringMat));
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(1.08, 32, 24),
+    new THREE.MeshBasicMaterial({ color: 0xe6001f, transparent: true, opacity: world.glowOpacity ?? 0.05, side: THREE.BackSide }),
+  );
+  globe.add(glow);
+  f.glow = glow;
+
+  // ── digimons orbitando num anel no piso (espelha o WorldGlobe) ──
+  f.walkers = [];
+  for (let i = 0; i < WORLD_UNIT_IDS.length; i++) {
+    try {
+      const rig = new SpriteRig(scene, {
+        unitId: `preview:world:${i}`,
+        side: 'you',
+        slotIndex: 0,
+        textureUrl: unitSpriteSheetUrl(WORLD_UNIT_IDS[i] ?? 'skb-1'),
+        isSpritesheet: true,
+        idleAnimated: true,
+        initiallyDowned: false,
+        onClick: undefined,
+      });
+      rig.setArenaBaselineY(0);
+      rig.update(0, 0, camera.quaternion);
+      f.walkers.push({
+        angle: (i / WORLD_UNIT_IDS.length) * Math.PI * 2,
+        speed: 0.55 + (i % 3) * 0.18,
+        radius: WORLD_RING_RADIUS + (i % 3) * 0.34,
+        rig,
+      });
+    } catch {
+      // sem sprite no preview não é fatal
+    }
+  }
+
+  applyWorldStage(f, settings, world);
+
+  let raf = 0;
+  let disposed = false;
+  const clock = new THREE.Clock();
+  const loop = (): void => {
+    if (disposed) return;
+    const dt = Math.min(clock.getDelta(), 0.05);
+    const elapsed = clock.elapsedTime;
+    // rotação idle do globo
+    if (world.autoSpin !== false) globe.rotation.y += 0.0016;
+    // digimons orbitando
+    for (const wk of f.walkers) {
+      wk.angle += wk.speed * dt;
+      const x = Math.cos(wk.angle) * wk.radius;
+      const z = Math.sin(wk.angle) * wk.radius;
+      wk.rig.setBasePosition(x, z);
+      wk.rig.update(dt, elapsed, camera.quaternion);
+    }
+    camera.position.set(0, WORLD_GLOBE_Y, f.camDist);
+    camera.lookAt(0, WORLD_GLOBE_Y, 0);
+    f.composer.render();
+    raf = requestAnimationFrame(loop);
+  };
+  f.composer.render();
+  raf = requestAnimationFrame(loop);
+
+  // GLB do ambiente por trás do globo
+  void loadWorldGlb(f, modelUrl, settings).catch(() => {});
+
+  return () => {
+    disposed = true;
+    cancelAnimationFrame(raf);
+    for (const wk of f.walkers) wk.rig.dispose();
+    f.walkers = [];
+    for (const l of envLights) scene.remove(l);
+    if (f.envRoot !== null) {
+      scene.remove(f.envRoot);
+      f.envRoot = null;
+    }
+    f.glow.geometry.dispose();
+    (f.glow.material as THREE.Material).dispose();
+    f.grid.geometry.dispose();
+    (f.grid.material as THREE.Material).dispose();
+    globe.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if ((m as unknown as { isMesh?: boolean }).isMesh) {
+        if (m.geometry) m.geometry.dispose();
+        if (Array.isArray(m.material)) m.material.forEach((mat) => mat.dispose());
+        else if (m.material) m.material.dispose();
+      }
+    });
+    composer.dispose();
+    renderer.dispose();
+  };
+}
+
+export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, useGlbSettings, world }: ScenePreviewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const managerRef = useRef<SceneManager | null>(null);
   const lobbyRef = useRef<LobbyRefs | null>(null);
+  const worldRef = useRef<WorldRefs | null>(null);
   const isLobby = lobby !== null && lobby !== undefined;
+  const isWorld = world !== null && world !== undefined;
+  const mode: 'combat' | 'lobby' | 'world' = isLobby ? 'lobby' : isWorld ? 'world' : 'combat';
 
-  /* Single controlled mount: switching arena <-> lobby tears down the old
-   preview and builds the new one — deps on isLobby, not a stale first render. */
+  /* Single controlled mount: switching combat <-> lobby <-> world tears down
+   the old preview and builds the new one — deps on mode, not a stale render. */
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -604,6 +867,41 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       };
     }
 
+    if (isWorld) {
+      const fr: WorldRefs = {
+        renderer: null as never,
+        scene: null as never,
+        composer: null as never,
+        bloomPass: null as never,
+        camera: null as never,
+        envRoot: null,
+        globe: null as never,
+        grid: null as never,
+        glow: null as never,
+        walkers: [],
+        camDist: 4.6,
+        envLoadVersion: 0,
+      };
+      worldRef.current = fr;
+      const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
+      const off = mountWorldPreview(canvas, fr, settings, world as WorldSceneSettings, url);
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          fr.renderer.setSize(width, height, false);
+          fr.composer.setSize(width, height);
+          fr.camera.aspect = width / Math.max(height, 1);
+          fr.camera.updateProjectionMatrix();
+        }
+      });
+      ro.observe(container);
+      return () => {
+        ro.disconnect();
+        off();
+        worldRef.current = null;
+      };
+    }
+
     let manager: SceneManager | null = null;
     try {
       manager = new SceneManager(canvas);
@@ -633,7 +931,7 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
       managerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLobby]);
+  }, [mode]);
 
   /* reapply lobby knobs live (settings + lobby) */
   useEffect(() => {
@@ -642,7 +940,14 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
     applyLobbyStage(fr, settings, lobby as LobbySceneSettings, weather ?? null, timeOfDay ?? null);
   }, [settings, lobby, weather, timeOfDay, isLobby]);
 
-  /* reload GLB when model/arena changes */
+  /* reapply world knobs live (settings + world) */
+  useEffect(() => {
+    const fr = worldRef.current;
+    if (fr === null || !isWorld) return;
+    applyWorldStage(fr, settings, world as WorldSceneSettings);
+  }, [settings, world, isWorld]);
+
+  /* reload lobby GLB when model/arena changes */
   useEffect(() => {
     const fr = lobbyRef.current;
     if (fr === null) return;
@@ -657,9 +962,18 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
         // eslint-disable-next-line react-hooks/exhaustive-deps
       }, [settings.modelFile, arenaKey, isLobby]);
 
+      /* reload world env GLB when model/arena changes */
+      useEffect(() => {
+        const fr = worldRef.current;
+        if (fr === null || !isWorld) return;
+        const url = resolveSceneModelUrl(settings.modelFile, ARENA_MODEL_BY_KEY[arenaKey]);
+        void loadWorldGlb(fr, url, settings).catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [settings.modelFile, arenaKey, isWorld]);
+
       /* reload combat GLB when model/arena changes */
       useEffect(() => {
-        if (isLobby) return;
+        if (isLobby || isWorld) return;
         const manager = managerRef.current;
         if (manager === null) return;
         manager.clearArenaModel();
@@ -669,23 +983,23 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
           ? manager.loadArenaModelBare(url, arenaKey)
           : manager.loadArenaModelWithAtmosphere(url, arenaKey)
         ).catch(() => {});
-      }, [arenaKey, settings.modelFile, isLobby, useGlbSettings]);
+      }, [arenaKey, settings.modelFile, isLobby, isWorld, useGlbSettings]);
 
       /* combat scene settings / weather / time */
   useEffect(() => {
-    if (isLobby || useGlbSettings === true) return;
+    if (isLobby || isWorld || useGlbSettings === true) return;
     managerRef.current?.applySettings(settings);
-  }, [settings, isLobby, useGlbSettings]);
+  }, [settings, isLobby, isWorld, useGlbSettings]);
 
   useEffect(() => {
-    if (isLobby) return;
+    if (isLobby || isWorld) return;
     managerRef.current?.setWeather(weather ?? null);
-  }, [weather, isLobby]);
+  }, [weather, isLobby, isWorld]);
 
   useEffect(() => {
-    if (isLobby) return;
+    if (isLobby || isWorld) return;
     managerRef.current?.setTimeOfDay(timeOfDay ?? null);
-  }, [timeOfDay, isLobby]);
+  }, [timeOfDay, isLobby, isWorld]);
 
   return (
     <div ref={containerRef} className="scene-admin-preview">

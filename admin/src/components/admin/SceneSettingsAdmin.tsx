@@ -506,6 +506,7 @@ export function SceneSettingsAdmin(): JSX.Element {
               timeOfDay={draft.timeOfDay}
               useGlbSettings={draft.useGlbSettings}
               lobby={selectedScene !== null && isLobbyScene(selectedScene) ? effectiveLobby : null}
+              world={selectedScene !== null && isWorldScene(selectedScene) ? effectiveWorld : null}
             />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
@@ -699,12 +700,14 @@ export function SceneSettingsAdmin(): JSX.Element {
                   : <SliderRow label="Frustum" value={effectiveSettings.camFrustum} min={1} max={12} step={0.1} onChange={(v) => patchSettings({ camFrustum: v })} />}
               </Section>
 
+              {(draft?.kind ?? 'arena') !== 'lobby' && (
               <Section title="Arena position">
                 <SliderRow label="Scene size" value={effectiveSettings.arenaSpan} min={5} max={200} step={1} onChange={(v) => patchSettings({ arenaSpan: v })} decimals={0} />
                 <SliderRow label="Offset X (←→)" value={effectiveSettings.arenaOffsetX} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetX: v })} decimals={1} />
                 <SliderRow label="Offset Y (↑↓)" value={effectiveSettings.arenaOffsetY} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetY: v })} decimals={1} />
                 <SliderRow label="Offset Z (fwd/back)" value={effectiveSettings.arenaOffsetZ} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetZ: v })} decimals={1} />
               </Section>
+            )}
 
               <Section title="Effects">
                 <SliderRow label="Exposure" value={effectiveSettings.exposure} min={0.2} max={2.5} step={0.02} onChange={(v) => patchSettings({ exposure: v })} />
@@ -816,6 +819,7 @@ export function SceneSettingsAdmin(): JSX.Element {
                 )}
               </Section>
 
+              {draft?.kind === 'lobby' && (
               <Section title="Lobby (palco da party)">
                 <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
                   O cenário do lobby vem SEMPRE do GLB em "GLB model file" (o
@@ -835,7 +839,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
                 <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
               </Section>
+            )}
 
+            {draft?.kind === 'world' && (
               <Section title="Mundo (globo)">
                 <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
                   Configura o globo 3D da tela do mundo: o GLB do
@@ -852,6 +858,7 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Zoom mínimo (distância da câmera)" value={effectiveWorld.camDistMin} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMin: v })} decimals={1} />
                 <SliderRow label="Zoom máximo (distância da câmera)" value={effectiveWorld.camDistMax} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMax: v })} decimals={1} />
               </Section>
+            )}
             </fieldset>
           </aside>
         </>
