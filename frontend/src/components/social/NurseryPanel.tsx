@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { ApiError } from '../../lib/api';
 import {
   collectPendingHatch,
-  getNursery,
   getPendingHatches,
   getSpeciesData,
   startDirectHatch,
@@ -16,6 +15,7 @@ import { railNurseryStore } from '../../lib/rail-nursery-store';
 import { DigitamaPool } from '../nursery/DigitamaPool';
 import { NurseryYard } from '../nursery/NurseryYard';
 
+// Reused pela rota /nursery (pill in-care/meat) — coletar refresca os dois.
 const NURSERY_QUERY_KEY = ['nursery'] as const;
 const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
 const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
@@ -44,14 +44,11 @@ export function NurseryPanel(): JSX.Element {
     railNurseryStore.set({ openRequest: null });
   }, [openRequest]);
 
-  const quarry = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
   const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
   const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
 
   const dataEntries: readonly SpeciesDataEntry[] = dataQuery.data?.entries ?? [];
   const pending: readonly PendingHatchEntry[] = pendingQuery.data?.pending ?? [];
-  const meat = quarry.data?.meat ?? 0;
-  const inCare = quarry.data?.penMons.length ?? 0;
 
   const hatchMutation = useMutation({
     mutationFn: async (entry: SpeciesDataEntry) => {
@@ -133,11 +130,6 @@ export function NurseryPanel(): JSX.Element {
 
   return (
     <div className="nursery-panel">
-      <div className="nursery-panel__hd">
-        <span className="nursery-panel__title">Nursery</span>
-        <span className="nursery-panel__count">{inCare} in care · {meat} meat</span>
-      </div>
-
       {/* sub-tabs */}
       <div className="nursery-panel__tabs" role="tablist" aria-label="Nursery sections">
         <button

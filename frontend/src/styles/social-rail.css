@@ -1462,19 +1462,11 @@
 
 /* ── Nursery panel (Hatchery / Incubating sub-tabs) ─────────────────────
    Re-scope do painel pra bater com os demais tabs do rail (Expedições):
-   mesmo padding interno, mesmo header subdued, mesmos sub-tabs notch+gold. */
+   mesmo padding interno, mesmos sub-tabs notch+gold. */
 .nursery-panel {
-  display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0;
+  display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0;
   padding: 10px 12px; overflow: hidden;
 }
-
-/* header: minúsculo e muted, como .friends-section-hd — não um título grande */
-.nursery-panel__hd {
-  display: flex; align-items: baseline; gap: 10px; padding-bottom: 8px;
-  border-bottom: 1px solid var(--hair);
-}
-.nursery-panel__title { font: 800 10px/1 var(--font); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
-.nursery-panel__count { margin-left: auto; font: 700 10px/1 var(--font); color: var(--signal2); letter-spacing: .04em; white-space: nowrap; }
 
 /* sub-tabs iguais aos do painel Expedições (.exp-tabs) */
 .nursery-panel__tabs { display: flex; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--hair); }
