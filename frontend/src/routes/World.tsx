@@ -66,23 +66,34 @@ export function World(): JSX.Element {
     lat: positions[index]?.lat ?? 0, lon: positions[index]?.lon ?? 0, dungeonId: place.id, levelCap: place.maxWildLevel ?? 99, danger: place.maxWildLevel ?? 1, scouted: true,
   })), [places, positions]);
   const selectedPlace = selectedIdx === null ? null : (places[selectedIdx] ?? null);
-  // Digimons de TODOS os times que andam em volta do globo na cena 3d. Colhidos
-  // dos times (monIds) resolvidos no roster, deduplicados, ref estaveis.
+  // Digimons de TODOS os times ATIVOS que andam em volta do globo na cena 3d.
+  // Colhidos dos times ativos (monIds) resolvidos no roster, deduplicados, com
+  // a garantia de pelo menos 3 digimons andando (fallback para sprites padrão
+  // quando o player ainda não tem 3 mons em times ativos resolvíveis).
   const teamWanderers = useMemo(() => {
     const byId = new Map((roster.data?.roster ?? []).map((m) => [m.id, m]));
+    const allTeams = teams.data?.teams ?? [];
+    // "times ativos" primeiro; se nenhum estiver marcado ativo, usa todos.
+    const activeTeams = allTeams.filter((t) => t.active === true);
+    const source = activeTeams.length > 0 ? activeTeams : allTeams;
     const seen = new Set<string>();
     const out: { id: string; catalogId: string; element?: string }[] = [];
-    for (const team of teams.data?.teams ?? []) {
+    for (const team of source) {
       for (const mid of team.monIds) {
         if (!mid || seen.has(mid)) continue;
-        seen.add(mid);
         const mon = byId.get(mid);
         if (!mon) continue;
+        seen.add(mid);
         const el = mon.template?.element;
         out.push(
           el ? { id: mon.id, catalogId: mon.catalogId, element: el } : { id: mon.id, catalogId: mon.catalogId },
         );
       }
+    }
+    // Pelo menos 3 digimons andando — completa com sprites padrão se faltar.
+    const PLACEHOLDER_CATALOG = ['skb-1', 'skb-2', 'skb-3'];
+    for (let i = 0; out.length < 3; i++) {
+      out.push({ id: `wander:ph:${i}`, catalogId: PLACEHOLDER_CATALOG[i % PLACEHOLDER_CATALOG.length] ?? 'skb-1' });
     }
     return out;
   }, [teams.data, roster.data]);
