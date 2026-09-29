@@ -154,17 +154,16 @@ describe("SceneManager combat camera", () => {
     return manager;
   }
 
-  it("focusUnit pulls the camera in on its turn (zoomMult < 1)", async () => {
+  it("focusUnit does NOT zoom — camera holds the fixed stage zoom", async () => {
     const manager = await buildScene();
-    const defaultZoom = manager.getSettings().camFrustum; // unused snapshot
-    void defaultZoom;
-    // Seed a default shot first.
+    void manager.getSettings().camFrustum;
     stepFrames(3);
     const idleZoom = (manager as unknown as { zoomMult: number }).zoomMult;
     manager.focusUnit("a:0");
     stepFrames(60);
-    expect(clampZoom((manager as unknown as { zoomMult: number }).zoomMult)).toBeLessThan(1);
-    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeLessThan(idleZoom);
+    // The scene deliberately never zooms — the camera only re-tracks position.
+    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeCloseTo(idleZoom, 2);
+    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeCloseTo(clampZoom(idleZoom), 2);
     manager.dispose();
   });
 
@@ -195,10 +194,10 @@ describe("SceneManager combat camera", () => {
     // The attacker MUST be back at its exact slot (x and z).
     expect(attacker.worldPosition.x).toBeCloseTo(startX, 0.5);
     expect(attacker.worldPosition.z).toBeCloseTo(startZ, 0.5);
-    // Camera reset toward the next turn's framing (still focused on a:0).
+    // Camera reset toward the next turn's framing at the same fixed stage zoom.
     const endZoom = (manager as unknown as { zoomMult: number }).zoomMult;
-    expect(endZoom).toBeLessThan(1);
-    expect(endZoom).toBeGreaterThan(0.5);
+    expect(endZoom).toBeCloseTo(1, 2);
+    expect(endZoom).toBeCloseTo(zoomBefore, 2);
     manager.dispose();
   });
 });

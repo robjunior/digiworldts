@@ -162,7 +162,8 @@ function glyphFor(event: BattleEvent): JSX.Element {
 export function BattleFeed({ events, battle }: { readonly events: readonly BattleEvent[]; readonly battle: BattleView }): JSX.Element {
   const logBodyRef = useRef<HTMLDivElement | null>(null);
   // 'turn' is bookkeeping only: the actor already names itself in the action line that follows it.
-  const shown = events.filter((event) => event.type !== 'turn').slice(-30);
+  // Show only the latest 3 events — the feed is a compact always-on strip.
+  const shown = events.filter((event) => event.type !== 'turn').slice(-3);
 
   useEffect(() => {
     const el = logBodyRef.current;

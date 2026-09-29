@@ -41,7 +41,6 @@ export function Combat3DBody(): JSX.Element | null {
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater3D[]>([]);
   const [endModalOpen, setEndModalOpen] = useState(false);
-  const [feedOpen, setFeedOpen] = useState(false);
   const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const [hoveredTargetId, setHoveredTargetId] = useState<UnitId | null>(null);
@@ -237,12 +236,10 @@ export function Combat3DBody(): JSX.Element | null {
       <BuffBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
 
         <div className="overlay">
-          <div className={`battle-utility ${feedOpen ? 'open' : ''}`}>
-            <div className="battle-feed-header" role="button" tabIndex={0} aria-expanded={feedOpen} onClick={() => setFeedOpen(!feedOpen)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setFeedOpen(!feedOpen); }}>
-            <span>Battle feed</span><span className="battle-feed-chevron" aria-hidden="true">{feedOpen ? '⌃' : '⌄'}</span>
-          </div>
-          <div className={`battle-feed-body ${feedOpen ? 'is-open' : ''}`}>
-            <BattleFeed events={displayEvents} battle={activeBattle} />
+          <div className="battle-utility open">
+            <div className="battle-feed-body is-open">
+              <BattleFeed events={displayEvents} battle={activeBattle} />
+            </div>
           </div>
         </div>
 
@@ -300,7 +297,6 @@ export function Combat3DBody(): JSX.Element | null {
         </div>
 
         <Floaters floaters={floaters} />
-      </div>
 
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard

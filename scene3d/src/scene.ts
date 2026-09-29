@@ -331,13 +331,11 @@ const ENTRANCE_PAN_START_X = 9;
 // ── Combat camera director tuning ─────────────────────────────────────────
 /**
  * Camera framing. `zoomMult` is the INVERSE of the frustum, so smaller =
- * zoomed in:
- *   FOCUS_ZOOM  — on a digimon whose turn it is (zoomed in).
- *   IDLE zoom   — 1 (the default stage framing).
- *   Casts keep the PRE-ATTACK zoom (no zoom change when attacking) —
- *   the camera only re-tracks movement.
+ * zoomed in. We deliberately DO NOT zoom in this scene: the camera sits at a
+ * fixed STAGE_ZOOM and only re-tracks position — framing the acting digimon
+ * and smoothly following the attacker / receiver during a cast.
  */
-const FOCUS_ZOOM = 0.7;
+const STAGE_ZOOM = 1;
 /** Melee advance window (attacker walks to face the receiver), seconds. */
 const CAST_CHARGE_S = 0.45;
 /** How long the camera holds on the receiver after impact — ≈ floater (900 ms). */
@@ -2331,7 +2329,7 @@ export class SceneManager {
     if (unitId === null) return null;
     const sprite = this.getSprite(unitId);
     if (sprite === undefined) return null;
-    return this.frameCam(sprite.worldPosition, FOCUS_ZOOM);
+    return this.frameCam(sprite.worldPosition, STAGE_ZOOM);
   }
 
   /** Place the render camera from the director's current target basis. */
