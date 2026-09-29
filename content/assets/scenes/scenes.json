@@ -244,6 +244,48 @@
       "timeOfDay": null,
       "createdAt": 1790105708125,
       "updatedAt": 1790459261343
+    },
+    {
+      "id": "scn_world0000000000000000001",
+      "name": "World",
+      "kind": "world",
+      "elements": [],
+      "useGlbSettings": false,
+      "weather": null,
+      "timeOfDay": null,
+      "createdAt": 1790200000000,
+      "updatedAt": 1790200000000,
+      "settings": {
+        "modelFile": "arena.glb",
+        "arenaSpan": 40,
+        "exposure": 0.35,
+        "fogEnabled": true,
+        "fogMode": "linear",
+        "fogColor": 658970,
+        "fogNear": 6,
+        "fogFar": 26,
+        "fogDensity": 0.001,
+        "fogHeight": 0,
+        "hemiSkyColor": 8956112,
+        "hemiGroundColor": 922144,
+        "hemiIntensity": 0.55,
+        "sunColor": 16773840,
+        "sunIntensity": 1.1,
+        "sunPosX": -6,
+        "sunPosY": 12,
+        "sunPosZ": 6,
+        "rimColor": 2913535,
+        "rimIntensity": 0.5,
+        "world": {
+          "autoSpin": true,
+          "nodeScale": 0.03,
+          "ringScale": 0.055,
+          "graticuleOpacity": 0.3,
+          "glowOpacity": 0.05,
+          "camDistMin": 1.8,
+          "camDistMax": 4.5
+        }
+      }
     }
   ]
 }

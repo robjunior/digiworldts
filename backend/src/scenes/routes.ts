@@ -12,11 +12,13 @@ import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
 import { LobbySceneSettingsZ } from './lobby-schema.js';
+import { WorldSceneSettingsZ } from './world-schema.js';
 import { config } from '../config.js';
 import { writeSceneRevision, MAX_SCENE_GLB_BYTES, MAX_SCENE_PROJECT_BYTES } from './assets.js';
 import { resolve } from 'node:path';
 
 export { LobbySceneSettingsZ } from './lobby-schema.js';
+export { WorldSceneSettingsZ } from './world-schema.js';
 
 import {
   copySceneEntry,
@@ -26,6 +28,7 @@ import {
   listScenes,
   LobbySceneAlreadyAssignedError,
   updateSceneEntry,
+  WorldSceneAlreadyAssignedError,
 } from './store.js';
 
 const SCENES_CHANNEL = 'scene:scenes:updated';
@@ -103,12 +106,13 @@ export const ArenaSettingsZ = z.object({
   modelFile: SceneAssetUrlZ.optional(),
   editorProjectFile: SceneProjectUrlZ.optional(),
   lobby: LobbySceneSettingsZ.optional(),
+  world: WorldSceneSettingsZ.optional(),
 }).strict();
 
 const SceneCreateZ = z.object({
   name: z.string().trim().min(1).max(120),
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
-  kind: z.enum(['arena', 'lobby']).optional(),
+  kind: z.enum(['arena', 'lobby', 'world']).optional(),
   settings: ArenaSettingsZ,
   useGlbSettings: z.boolean().optional(),
   weather: WeatherConfigZ.nullish(),
@@ -211,6 +215,9 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
       if (err instanceof LobbySceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
+      if (err instanceof WorldSceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
       throw err;
     }
     await broadcastScenesUpdated();
@@ -227,7 +234,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const patch: {
       name?: string;
       elements?: readonly Element[];
-      kind?: 'arena' | 'lobby';
+      kind?: 'arena' | 'lobby' | 'world';
       settings?: Readonly<Record<string, unknown>>;
       useGlbSettings?: boolean;
       weather?: WeatherConfig | null;
@@ -245,6 +252,9 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
       scene = await updateSceneEntry(req.params.id, patch);
     } catch (err) {
       if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      if (err instanceof WorldSceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
       throw err;

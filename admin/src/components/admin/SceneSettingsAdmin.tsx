@@ -10,7 +10,7 @@ import { WEATHER_EMITTER_PRESETS } from '@digiworld/scene3d/particles/presets';
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
-import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, DEFAULT_WORLD_SCENE, WORLD_SCENE_NAME, type LobbySceneSettings, type WorldSceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
 import { ScenePreview } from './ScenePreview';
 import { ThreeEditorFrame } from './ThreeEditorFrame';
 
@@ -71,7 +71,7 @@ const DEFAULT_SETTINGS: SceneSettings = {
 type SceneDraft = {
   readonly name: string;
   readonly elements: readonly Element[];
-  readonly kind?: 'arena' | 'lobby';
+  readonly kind?: 'arena' | 'lobby' | 'world';
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
   readonly weather: WeatherConfig | null;
@@ -83,6 +83,13 @@ type SceneDraft = {
 function isLobbyScene(scene: SceneEntity): boolean {
   return scene.kind === 'lobby'
     || (scene.kind === undefined && scene.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+}
+
+/** Resolves exactly like the frontend world lookup: kind:'world' first, then the
+ *  legacy name. Scenes matching this get the "world" badge in the list. */
+function isWorldScene(scene: SceneEntity): boolean {
+  return scene.kind === 'world'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === WORLD_SCENE_NAME.toLowerCase());
 }
 
 function draftFromScene(scene: SceneEntity): SceneDraft {
@@ -210,7 +217,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
-  const setKind = (kind: 'arena' | 'lobby'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
+  const setKind = (kind: 'arena' | 'lobby' | 'world'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
   /* lobby backdrop knobs (nested under settings.lobby) */
@@ -234,6 +241,55 @@ export function SceneSettingsAdmin(): JSX.Element {
         } as unknown as Partial<SceneSettings>,
       };
     });
+  };
+
+  /* world globe knobs (nested under settings.world) */
+  const effectiveWorld: WorldSceneSettings = {
+    ...DEFAULT_WORLD_SCENE,
+    ...(draft?.settings.world as Partial<WorldSceneSettings> | undefined),
+  };
+
+  const patchWorld = (change: Partial<WorldSceneSettings>): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const base = {
+        ...DEFAULT_WORLD_SCENE,
+        ...(prev.settings.world as Partial<WorldSceneSettings> | undefined),
+      };
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          world: { ...base, ...change },
+        } as unknown as Partial<SceneSettings>,
+      };
+    });
+  };
+
+  const handleCreateWorld = async (): Promise<void> => {
+    const existing = scenes.find(isWorldScene);
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: WORLD_SCENE_NAME,
+        elements: [],
+        kind: 'world',
+        settings: { world: DEFAULT_WORLD_SCENE } as unknown as Record<string, unknown>,
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleCreateLobby = async (): Promise<void> => {
@@ -353,6 +409,12 @@ export function SceneSettingsAdmin(): JSX.Element {
           ...(settings.lobby as Partial<LobbySceneSettings> | undefined),
         };
       }
+      if (settings.world !== undefined) {
+        settings.world = {
+          ...DEFAULT_WORLD_SCENE,
+          ...(settings.world as Partial<WorldSceneSettings> | undefined),
+        };
+      }
       const res = await updateScene(selectedId, {
         name: draft.name,
         elements: draft.elements,
@@ -382,6 +444,9 @@ export function SceneSettingsAdmin(): JSX.Element {
             <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" (kind: lobby) — o fundo 3D da tela inicial`}>
               {busy === 'create' ? 'Creating…' : 'Lobby'}
             </button>
+            <button type="button" onClick={() => { void handleCreateWorld(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${WORLD_SCENE_NAME}" (kind: world) — o globo 3D da tela do mundo`}>
+              {busy === 'create' ? 'Creating…' : 'World'}
+            </button>
             <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
               {busy === 'create' ? 'Creating…' : 'New scene'}
             </button>
@@ -403,6 +468,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                     {s.name}
                     {isLobbyScene(s) && (
                       <span className="scene-admin-list-lobby" title="Cena usada pelo lobby" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--signal, #3b82f6)', color: '#fff', borderRadius: 3 }}>lobby</span>
+                    )}
+                    {isWorldScene(s) && (
+                      <span className="scene-admin-list-world" title="Cena usada pelo mundo (globo)" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#e11837', color: '#fff', borderRadius: 3 }}>world</span>
                     )}
                   </span>
                   <span className="scene-admin-list-meta">
@@ -547,17 +615,20 @@ export function SceneSettingsAdmin(): JSX.Element {
                 options={[
                   { label: 'Arena (combate)', value: 'arena' },
                   { label: 'Lobby (tela inicial)', value: 'lobby' },
+                  { label: 'World (globo)', value: 'world' },
                 ]}
-                onChange={(v) => setKind(v as 'arena' | 'lobby')}
+                onChange={(v) => setKind(v as 'arena' | 'lobby' | 'world')}
               />
               <span className="scene-admin-note" style={{ margin: 0 }}>
                 {draft.kind === 'lobby'
                   ? 'Renderizada pelo lobby: pedestais da party, chão, partículas e drift de câmera.'
-                  : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
+                  : draft.kind === 'world'
+                    ? 'Renderizada pelo mundo: cena 3d de fundo atrás do globo (itens em "Mundo (globo)").'
+                    : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
               </span>
             </div>
 
-            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby'}>
+            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby' && draft.kind !== 'world'}>
               <Section title="Sun (key light)">
                 <ColorRow label="Color" value={effectiveSettings.sunColor} onChange={(v) => patchSettings({ sunColor: v })} />
                 <SliderRow label="Intensity" value={effectiveSettings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patchSettings({ sunIntensity: v })} />
@@ -748,6 +819,23 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Bloom strength" value={effectiveLobby.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchLobby({ bloomStrength: v })} decimals={2} />
                 <SliderRow label="Bloom radius" value={effectiveLobby.bloomRadius} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ bloomRadius: v })} decimals={2} />
                 <SliderRow label="Bloom threshold" value={effectiveLobby.bloomThreshold} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ bloomThreshold: v })} decimals={2} />
+              </Section>
+
+              <Section title="Mundo (globo)">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  Configura o globo 3D da tela do mundo: o GLB do
+                  "GLB model file" vira o ambiente de fundo atrás do globo, e
+                  estes knobs ajustam a aparência/interação do próprio globo.
+                  Cena com kind "world" (botão World na lista) renderiza o globo
+                  centralizado por cima dessa cena 3d.
+                </p>
+                <ToggleRow label="Auto-rotacionar (idle)" value={effectiveWorld.autoSpin} onChange={(v) => patchWorld({ autoSpin: v })} />
+                <SliderRow label="Tamanho dos nós das localidades" value={effectiveWorld.nodeScale} min={0.005} max={0.2} step={0.001} onChange={(v) => patchWorld({ nodeScale: v })} decimals={3} />
+                <SliderRow label="Tamanho do anel de seleção" value={effectiveWorld.ringScale} min={0.01} max={0.4} step={0.005} onChange={(v) => patchWorld({ ringScale: v })} decimals={3} />
+                <SliderRow label="Opacidade da grade (graticule)" value={effectiveWorld.graticuleOpacity} min={0} max={1} step={0.01} onChange={(v) => patchWorld({ graticuleOpacity: v })} decimals={2} />
+                <SliderRow label="Opacidade do brilho ao redor" value={effectiveWorld.glowOpacity} min={0} max={1} step={0.01} onChange={(v) => patchWorld({ glowOpacity: v })} decimals={2} />
+                <SliderRow label="Zoom mínimo (distância da câmera)" value={effectiveWorld.camDistMin} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMin: v })} decimals={1} />
+                <SliderRow label="Zoom máximo (distância da câmera)" value={effectiveWorld.camDistMax} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMax: v })} decimals={1} />
               </Section>
             </fieldset>
           </aside>

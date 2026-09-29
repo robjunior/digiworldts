@@ -5,16 +5,20 @@ import { getFarm } from '../lib/api-farm';
 import { getTeams, type TeamView } from '../lib/api-teams';
 import { getPveWorld, savePveParty, startPveEncounter, type WorldObject } from '../lib/api-world';
 import type { WorldRegion } from '@digiworld/shared/world';
-import { getQuests } from '../lib/api-quests';
+import { getWorldSceneEntity } from '../lib/api-scenes';
+import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from '@digiworld/scene3d/arena-urls';
+import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { WorldGlobe } from '../components/world/WorldGlobe';
 import { WorldStrip } from '../components/world/WorldStrip';
 import { WorldHoverTip, type WorldHoverTipData } from '../components/world/WorldHoverTip';
-import { RegionRail } from '../components/world/RegionRail';
 import '../styles/extensions-world.css';
 import '../styles/world-party-drawer.css';
 
 const PARTY_SIZE = 3;
 const worldPosition = (x: number, y: number): { lat: number; lon: number } => ({ lat: 54 - y * 0.72, lon: x * 3.6 - 180 });
+// Keeps the resolved world-scene model URL referentially stable across renders
+// (mirrors the LobbySceneHost cache) so the globe doesn't rebuild per render.
+let lastResolvedWorldModelUrl: string | null = null;
 
 export function World(): JSX.Element {
   const client = useQueryClient();
@@ -22,7 +26,22 @@ export function World(): JSX.Element {
   const roster = useQuery({ queryKey: ['roster'], queryFn: getRoster });
   const teams = useQuery({ queryKey: ['teams'], queryFn: getTeams });
   const farm = useQuery({ queryKey: ['farm'], queryFn: getFarm });
-  const quests = useQuery({ queryKey: ['world-quests'], queryFn: getQuests });
+  const worldScene = useQuery({ queryKey: ['world-scene-entity'], queryFn: getWorldSceneEntity, staleTime: 30_000 });
+  // The world scene is the 3D backdrop for the centered globe. `world` and
+  // `lighting` come straight off the entity (react-query structural sharing
+  // keeps the references stable across identical refetches) — identical to how
+  // LobbySceneHost feeds LobbyScene3D, so WorldGlobe mounts once per content.
+  const worldEntity = worldScene.data;
+  const worldLighting: Partial<SceneSettings> | null =
+    worldEntity && worldEntity.settings ? (worldEntity.settings as Partial<SceneSettings>) : null;
+  const worldSettings = worldLighting?.world ?? null;
+  const worldGlbSettings = worldEntity?.useGlbSettings === true;
+  const hasWorldModelFile = typeof worldEntity?.settings?.modelFile === 'string' && !!worldEntity.settings.modelFile;
+  const envUrl =
+    worldEntity && hasWorldModelFile
+      ? (resolveSceneModelUrl(worldEntity.settings.modelFile as string, DEFAULT_ARENA_MODEL) ?? null)
+      : (lastResolvedWorldModelUrl ?? resolveSceneModelUrl(undefined, DEFAULT_ARENA_MODEL) ?? null);
+  if (envUrl !== null && hasWorldModelFile) lastResolvedWorldModelUrl = envUrl;
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [mode, setMode] = useState<'explore' | 'expedition'>('explore');
   const [partyPanelOpen, setPartyPanelOpen] = useState(false);
@@ -33,7 +52,6 @@ export function World(): JSX.Element {
   const [hoverTip, setHoverTip] = useState<WorldHoverTipData | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [webglFailed, setWebglFailed] = useState(false);
-  const [pending] = useState<ReadonlySet<string>>(() => new Set());
   // Stable identities so WorldGlobe's mount effect doesn't rebuild the 3D
   // scene on every World re-render (hover/select/toggle). Inline arrays and
   // arrows are new each render, which flips the [worldObjects, onFailWebGL]
@@ -68,18 +86,16 @@ export function World(): JSX.Element {
   });
   const selectRegion = useCallback((index: number): void => { setSelectedIdx(index); const pos = positions[index]; if (pos) setFocus(pos); }, [positions]);
   const showTip = useCallback((tip: WorldHoverTipData | null) => setHoverTip(tip), []);
-  const enterPlace = useCallback((id: string): void => { const index = regions.findIndex((region) => region.id === id); if (index >= 0) selectRegion(index); }, [regions, selectRegion]);
   const toggleSpin = useCallback(() => setAutoSpin((value) => !value), []);
   const toast = useRef<number | null>(null);
   useEffect(() => () => { if (toast.current !== null) window.clearTimeout(toast.current); }, []);
 
   return <main className="world-page-layout world-legacy">
     <div className="stage" data-od-id="globe-stage">
-      <WorldGlobe regions={regions} worldObjects={worldObjects} focusLatLon={focus} autoSpin={autoSpin} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} onHoverChange={setHoveredIdx} onSelect={selectRegion} onHoverTip={showTip} onFailWebGL={onFailWebGL} />
+      <WorldGlobe regions={regions} worldObjects={worldObjects} focusLatLon={focus} autoSpin={autoSpin} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} onHoverChange={setHoveredIdx} onSelect={selectRegion} onHoverTip={showTip} onFailWebGL={onFailWebGL} world={worldSettings} lighting={worldLighting} envModelUrl={envUrl} useGlbSettings={worldGlbSettings} />
       {webglFailed ? <div className="stage-fallback show" role="status"><div className="box"><b>Mapa 3D indisponível</b><br />Selecione uma localidade na lista.</div></div> : null}
       <div className="overlay"><WorldStrip selectedRegion={selectedIdx === null ? null : regions[selectedIdx] ?? null} autoSpin={autoSpin} onToggleAutoSpin={toggleSpin} /><WorldHoverTip tip={hoverTip} /></div>
     </div>
-    <RegionRail regions={regions} worldObjects={[]} quests={quests.data ?? []} selectedIdx={selectedIdx} selectedLandmarkId={null} tab="regions" pendingQuestIds={pending} loadingQuests={quests.isPending} onTabChange={() => undefined} onSelectIdx={selectRegion} onSelectLandmark={() => undefined} onEnterDungeon={enterPlace} onSelectBiome={() => undefined} onAcceptQuest={() => undefined} onClaimQuest={() => undefined} />
     {selectedPlace ? <section className="world-place-popup" aria-label={`Localidade ${selectedPlace.name}`}>
       <div className="world-place-popup__route" aria-hidden="true" /><span className="world-place-popup__eyebrow">LOCALIDADE SELECIONADA</span><h2>{selectedPlace.name}</h2><p>{selectedPlace.description || 'Uma localidade do mundo.'}</p>
       <div className="world-mode-tabs"><button type="button" className={mode === 'explore' ? 'is-active' : ''} onClick={() => { setMode('explore'); setPartyPanelOpen(true); }}>Explorar</button><button type="button" className={mode === 'expedition' ? 'is-active' : ''} onClick={() => { setMode('expedition'); setPartyPanelOpen(true); }}>Expedição</button></div>

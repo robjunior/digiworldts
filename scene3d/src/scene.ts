@@ -165,6 +165,9 @@ export type SceneSettings = {
    *  home/lobby screen). Defined here so the admin scene editor can persist it
    *  in the same SceneEntity, but ignored entirely by the combat SceneManager. */
   lobby?: LobbySceneSettings;
+  /** Optional configuration for the WORLD scene (the globe page's 3D backdrop).
+   *  Persisted in the same SceneEntity, ignored by combat and the lobby. */
+  world?: WorldSceneSettings;
 };
 
 /**
@@ -223,6 +226,44 @@ export type LobbySceneSettings = {
 
 /** SceneEntity.name the Lobby screen looks up when no scene has kind 'lobby'. */
 export const LOBBY_SCENE_NAME = "Lobby";
+
+/** SceneEntity.name the World screen looks up when no scene has kind 'world'. */
+export const WORLD_SCENE_NAME = "World";
+
+/**
+ * Knobs for the world/globe page's 3D scene, edited in the admin scene editor
+ * under a scene of `kind: 'world'`. The world's ENVIRONMENT (backdrop) comes
+ * from the scene's `modelFile` GLB — the same rule as the lobby; the navigable
+ * globe is the centerpiece sitting on that backdrop. These settings only shape
+ * the globe + its camera/interaction, mirroring how `settings.lobby` shapes
+ * the lobby's party stage.
+ */
+export type WorldSceneSettings = {
+  /** idle auto-rotation of the globe (true) */
+  autoSpin: boolean;
+  /** region-node sphere radius in globe units (0.032) */
+  nodeScale: number;
+  /** selection/hover ring radius in globe units (0.058) */
+  ringScale: number;
+  /** graticule (wireframe) opacity 0..1 (0.34) */
+  graticuleOpacity: number;
+  /** outer glow shell opacity 0..1 (0.05) */
+  glowOpacity: number;
+  /** camera distance zoom clamp min (1.8) */
+  camDistMin: number;
+  /** camera distance zoom clamp max (5) */
+  camDistMax: number;
+};
+
+export const DEFAULT_WORLD_SCENE: WorldSceneSettings = {
+  autoSpin: true,
+  nodeScale: 0.032,
+  ringScale: 0.058,
+  graticuleOpacity: 0.34,
+  glowOpacity: 0.05,
+  camDistMin: 1.8,
+  camDistMax: 5,
+};
 
 export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
   pedestalSpacing: 256,
