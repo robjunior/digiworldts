@@ -27,7 +27,14 @@ const ARENAS_SRC = resolve(ROOT, 'scene3d', 'assets', 'arenas');
 const STAGE_DIR = resolve(ROOT, 'content', 'assets', 'arenas');
 // Scene presets (the admin-authored scenes.json) ship with the bundle so the
 // staging/prod lobby resolves the configured scene instead of the default.
+// The skill-vfx / particle preset JSONs are gitignored admin-authored files in
+// the same scenes dir, so they must ALSO ship via the manifest or the ported
+// skill effects never reach staging/prod (same class as scenes.json).
 const SCENES_SRC = resolve(ROOT, 'backend', 'data', 'scenes', 'scenes.json');
+const SCENES_PRESET_SRCS = [
+  'skill-vfx-presets.json',
+  'particle-presets.json',
+].map((f) => ({ file: f, src: resolve(ROOT, 'backend', 'data', 'scenes', f) }));
 const STAGE_SCENES_DIR = resolve(ROOT, 'content', 'assets', 'scenes');
 
 type AssetEntry = { rel: string; bytes: number; sha256: string };
@@ -53,7 +60,7 @@ for (const file of glbFiles) {
   entries.push({ rel: `arenas/${file}`, bytes: st.size, sha256: sha256File(resolve(STAGE_DIR, file)) });
 }
 
-// --- Stage the scene presets (scenes.json) alongside the arenas -------------
+// --- Stage the scene presets (scenes.json + preset JSONs) ----------------
 mkdirSync(STAGE_SCENES_DIR, { recursive: true });
 if (existsSync(SCENES_SRC)) {
   copyFileSync(SCENES_SRC, resolve(STAGE_SCENES_DIR, 'scenes.json'));
@@ -62,11 +69,21 @@ if (existsSync(SCENES_SRC)) {
 } else {
   console.warn('scenes.json not found at backend/data/scenes — skipping scene preset staging');
 }
+for (const { file, src } of SCENES_PRESET_SRCS) {
+  if (existsSync(src)) {
+    copyFileSync(src, resolve(STAGE_SCENES_DIR, file));
+    const st = statSync(resolve(STAGE_SCENES_DIR, file));
+    entries.push({ rel: `scenes/${file}`, bytes: st.size, sha256: sha256File(resolve(STAGE_SCENES_DIR, file)) });
+  } else {
+    console.warn(`${file} not found at backend/data/scenes — skipping`);
+  }
+}
 
 // Preserve any already-committed non-arena manifest entries, except the ones
-// we re-build below (scenes/scenes.json is always re-staged from dev data).
+// we re-build below (scenes/* JSONs are always re-staged from dev data).
 const prior = Array.isArray(bundle.assetManifest) ? bundle.assetManifest : [];
-const nonArena = prior.filter((e: AssetEntry) => !e.rel.startsWith('arenas/') && e.rel !== 'scenes/scenes.json');
+const REBUILT_SCENES = new Set(['scenes/scenes.json', ...SCENES_PRESET_SRCS.map((s) => `scenes/${s.file}`)]);
+const nonArena = prior.filter((e: AssetEntry) => !e.rel.startsWith('arenas/') && !REBUILT_SCENES.has(e.rel));
 const newManifest = [...nonArena, ...entries];
 
 // --- Assert tables byte-identical (minimal-diff rule) ---

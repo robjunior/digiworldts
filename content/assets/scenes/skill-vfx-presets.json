@@ -1,0 +1,1072 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "svfx_hp7wyfe97m9550b5zb00xkz3vq",
+      "name": "electricity \u2014 shock burst",
+      "element": "electricity",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "emt_zvpy95yfvva9sz6gcd3rdhq2a1",
+            "name": "electric sparks trail",
+            "kind": "instanced",
+            "geometry": "streak",
+            "shader": "wetSpark",
+            "emissionRate": 60,
+            "maxParticles": 80,
+            "lifetimeMs": [
+              200,
+              400
+            ],
+            "startSize": [
+              0.15,
+              0.25
+            ],
+            "endSize": [
+              0.02,
+              0.05
+            ],
+            "startColor": 16773256,
+            "endColor": 65535,
+            "startOpacity": 1,
+            "endOpacity": 0,
+            "velocity": {
+              "base": [
+                0,
+                0,
+                0
+              ],
+              "variance": [
+                1.5,
+                1.5,
+                1.5
+              ]
+            },
+            "gravity": [
+              0,
+              0,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.1,
+            "spawn": {
+              "shape": "point",
+              "size": [
+                0,
+                0,
+                0
+              ],
+              "center": [
+                0,
+                0,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "continuous",
+            "totalLifetimeMs": 500
+          },
+          "startAtMs": 0,
+          "followTrajectory": true
+        },
+        {
+          "emitter": {
+            "id": "emt_qtny8s81pyg6tzrk4430tk70hp",
+            "name": "impact spark burst",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "thunderCore",
+            "emissionRate": 0,
+            "maxParticles": 40,
+            "lifetimeMs": [
+              200,
+              350
+            ],
+            "startSize": [
+              0.4,
+              0.6
+            ],
+            "endSize": [
+              0.05,
+              0.1
+            ],
+            "startColor": 16773256,
+            "endColor": 8734463,
+            "startOpacity": 1,
+            "endOpacity": 0,
+            "velocity": {
+              "base": [
+                0,
+                0.5,
+                0
+              ],
+              "variance": [
+                3,
+                2,
+                3
+              ]
+            },
+            "gravity": [
+              0,
+              -3,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.1,
+            "spawn": {
+              "shape": "sphere",
+              "size": [
+                0.3,
+                0.3,
+                0.3
+              ],
+              "center": [
+                0,
+                0.5,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "burst",
+            "burstCount": 40
+          },
+          "startAtMs": 500,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "straight",
+      "totalDurationMs": 900,
+      "impactAtMs": 500,
+      "light": {
+        "color": 16773256,
+        "intensity": 5.5,
+        "distance": 7,
+        "decayMs": 700
+      },
+      "createdAt": 1785958411771,
+      "updatedAt": 1785958411771
+    },
+    {
+      "id": "svfx-fireball",
+      "name": "fireball",
+      "element": "fire",
+      "attackType": "ranged",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "e1",
+            "name": "fireball core",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "wetSpark",
+            "emissionRate": 250,
+            "maxParticles": 220,
+            "lifetimeMs": [
+              250,
+              420
+            ],
+            "startSize": [
+              0.3,
+              0.42
+            ],
+            "endSize": [
+              0.05,
+              0.1
+            ],
+            "startColor": 16769146,
+            "endColor": 16738832,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                1.2,
+                0
+              ],
+              "variance": [
+                1.2,
+                1.8,
+                1.2
+              ]
+            },
+            "gravity": [
+              0,
+              3,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 2.0,
+            "spawn": {
+              "shape": "point",
+              "size": [
+                0,
+                0,
+                0
+              ],
+              "center": [
+                0,
+                0,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "continuous"
+          },
+          "startAtMs": 0,
+          "followTrajectory": true
+        },
+        {
+          "emitter": {
+            "id": "e2",
+            "name": "fire trail sparks",
+            "kind": "instanced",
+            "geometry": "streak",
+            "shader": "wetSpark",
+            "emissionRate": 180,
+            "maxParticles": 200,
+            "lifetimeMs": [
+              200,
+              360
+            ],
+            "startSize": [
+              0.16,
+              0.24
+            ],
+            "endSize": [
+              0.03,
+              0.06
+            ],
+            "startColor": 16777215,
+            "endColor": 16747050,
+            "startOpacity": 0.9,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                0.3,
+                0
+              ],
+              "variance": [
+                1.6,
+                1.2,
+                1.6
+              ]
+            },
+            "gravity": [
+              0,
+              1.5,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 1.5,
+            "spawn": {
+              "shape": "point",
+              "size": [
+                0,
+                0,
+                0
+              ],
+              "center": [
+                0,
+                0,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "continuous"
+          },
+          "startAtMs": 0,
+          "followTrajectory": true
+        },
+        {
+          "emitter": {
+            "id": "e3",
+            "name": "fireball explosion",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "thunderCore",
+            "emissionRate": 0,
+            "maxParticles": 90,
+            "lifetimeMs": [
+              450,
+              750
+            ],
+            "startSize": [
+              0.45,
+              0.7
+            ],
+            "endSize": [
+              0.08,
+              0.2
+            ],
+            "startColor": 16769146,
+            "endColor": 7999488,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                1.5,
+                0
+              ],
+              "variance": [
+                4.5,
+                3.5,
+                4.5
+              ]
+            },
+            "gravity": [
+              0,
+              -3,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.6,
+            "spawn": {
+              "shape": "sphere",
+              "size": [
+                0.6,
+                0.6,
+                0.6
+              ],
+              "center": [
+                0,
+                0.4,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 90,
+            "totalLifetimeMs": 800
+          },
+          "startAtMs": 450,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "arc",
+      "totalDurationMs": 950,
+      "impactAtMs": 550,
+      "createdAt": 1790710096414,
+      "updatedAt": 1790710096414,
+      "light": {
+        "color": 16747056,
+        "intensity": 6.0,
+        "distance": 8,
+        "decayMs": 520
+      }
+    },
+    {
+      "id": "svfx-frost-spikes",
+      "name": "frost spikes",
+      "element": "ice",
+      "attackType": "ranged",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "e1",
+            "name": "frost spike eruption",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "snowFlake",
+            "emissionRate": 0,
+            "maxParticles": 70,
+            "lifetimeMs": [
+              600,
+              900
+            ],
+            "startSize": [
+              0.3,
+              0.5
+            ],
+            "endSize": [
+              0.06,
+              0.14
+            ],
+            "startColor": 16777215,
+            "endColor": 2788607,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                6.5,
+                0
+              ],
+              "variance": [
+                1.6,
+                2.6,
+                1.6
+              ]
+            },
+            "gravity": [
+              0,
+              -4,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.3,
+            "spawn": {
+              "shape": "disc",
+              "size": [
+                0.9,
+                0.9,
+                0
+              ],
+              "center": [
+                0,
+                0.1,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 70,
+            "totalLifetimeMs": 900
+          },
+          "startAtMs": 160,
+          "followTrajectory": false
+        },
+        {
+          "emitter": {
+            "id": "e2",
+            "name": "ice shard burst",
+            "kind": "instanced",
+            "geometry": "streak",
+            "shader": "default",
+            "emissionRate": 0,
+            "maxParticles": 50,
+            "lifetimeMs": [
+              500,
+              800
+            ],
+            "startSize": [
+              0.18,
+              0.26
+            ],
+            "endSize": [
+              0.03,
+              0.08
+            ],
+            "startColor": 12447999,
+            "endColor": 2788607,
+            "startOpacity": 0.9,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                2.5,
+                0
+              ],
+              "variance": [
+                3.5,
+                4.5,
+                3.5
+              ]
+            },
+            "gravity": [
+              0,
+              -9,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.4,
+            "spawn": {
+              "shape": "disc",
+              "size": [
+                0.7,
+                0.7,
+                0
+              ],
+              "center": [
+                0,
+                0,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 50,
+            "totalLifetimeMs": 800
+          },
+          "startAtMs": 160,
+          "followTrajectory": false
+        },
+        {
+          "emitter": {
+            "id": "e3",
+            "name": "frost mist settle",
+            "kind": "instanced",
+            "geometry": "plane",
+            "shader": "sandHaze",
+            "emissionRate": 60,
+            "maxParticles": 120,
+            "lifetimeMs": [
+              900,
+              1500
+            ],
+            "startSize": [
+              0.35,
+              0.55
+            ],
+            "endSize": [
+              0.6,
+              0.9
+            ],
+            "startColor": 3829653,
+            "endColor": 2050667,
+            "startOpacity": 0.5,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                0.3,
+                0
+              ],
+              "variance": [
+                0.6,
+                0.5,
+                0.6
+              ]
+            },
+            "gravity": [
+              0,
+              -0.3,
+              0
+            ],
+            "wind": [
+              1.5,
+              0,
+              0.8
+            ],
+            "drag": 3.0,
+            "spawn": {
+              "shape": "disc",
+              "size": [
+                1.1,
+                1.1,
+                0
+              ],
+              "center": [
+                0,
+                0.1,
+                0
+              ]
+            },
+            "blending": "multiply",
+            "emissionMode": "continuous"
+          },
+          "startAtMs": 300,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "instant",
+      "totalDurationMs": 1650,
+      "impactAtMs": 180,
+      "createdAt": 1790710096414,
+      "updatedAt": 1790710096414,
+      "light": {
+        "color": 6737151,
+        "intensity": 4.0,
+        "distance": 6,
+        "decayMs": 650
+      }
+    },
+    {
+      "id": "svfx-ice-lance",
+      "name": "ice lance",
+      "element": "ice",
+      "attackType": "ranged",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "e1",
+            "name": "lance icy trail",
+            "kind": "instanced",
+            "geometry": "streak",
+            "shader": "wetSpark",
+            "emissionRate": 220,
+            "maxParticles": 200,
+            "lifetimeMs": [
+              220,
+              380
+            ],
+            "startSize": [
+              0.2,
+              0.3
+            ],
+            "endSize": [
+              0.03,
+              0.06
+            ],
+            "startColor": 16777215,
+            "endColor": 2788607,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                0.3,
+                0
+              ],
+              "variance": [
+                1.2,
+                1.0,
+                1.2
+              ]
+            },
+            "gravity": [
+              0,
+              1,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 2.0,
+            "spawn": {
+              "shape": "point",
+              "size": [
+                0,
+                0,
+                0
+              ],
+              "center": [
+                0,
+                0,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "continuous"
+          },
+          "startAtMs": 0,
+          "followTrajectory": true
+        },
+        {
+          "emitter": {
+            "id": "e2",
+            "name": "freeze crystal burst",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "thunderCore",
+            "emissionRate": 0,
+            "maxParticles": 60,
+            "lifetimeMs": [
+              600,
+              1000
+            ],
+            "startSize": [
+              0.5,
+              0.8
+            ],
+            "endSize": [
+              0.1,
+              0.25
+            ],
+            "startColor": 13628671,
+            "endColor": 2788607,
+            "startOpacity": 0.9,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                2.5,
+                0
+              ],
+              "variance": [
+                2.5,
+                3.5,
+                2.5
+              ]
+            },
+            "gravity": [
+              0,
+              -2,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.5,
+            "spawn": {
+              "shape": "sphere",
+              "size": [
+                0.8,
+                1.0,
+                0.8
+              ],
+              "center": [
+                0,
+                0.6,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 60,
+            "totalLifetimeMs": 1000
+          },
+          "startAtMs": 480,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "straight",
+      "totalDurationMs": 1150,
+      "impactAtMs": 550,
+      "createdAt": 1790710096414,
+      "updatedAt": 1790710096414,
+      "light": {
+        "color": 10083839,
+        "intensity": 5.0,
+        "distance": 7,
+        "decayMs": 600
+      }
+    },
+    {
+      "id": "svfx-tornado",
+      "name": "tornado",
+      "element": "wind",
+      "attackType": "ranged",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "e1",
+            "name": "tornado vortex",
+            "kind": "instanced",
+            "geometry": "plane",
+            "shader": "wetSpark",
+            "emissionRate": 180,
+            "maxParticles": 220,
+            "lifetimeMs": [
+              600,
+              1200
+            ],
+            "startSize": [
+              0.5,
+              0.7
+            ],
+            "endSize": [
+              0.1,
+              0.2
+            ],
+            "startColor": 14221296,
+            "endColor": 4165496,
+            "startOpacity": 0.9,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                2.5,
+                3.5,
+                2.5
+              ],
+              "variance": [
+                2.5,
+                2.0,
+                2.5
+              ]
+            },
+            "gravity": [
+              0,
+              0.5,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 1.2,
+            "spawn": {
+              "shape": "cone",
+              "size": [
+                0.9,
+                2.2,
+                0.9
+              ],
+              "center": [
+                0,
+                1.1,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "continuous"
+          },
+          "startAtMs": 0,
+          "followTrajectory": false
+        },
+        {
+          "emitter": {
+            "id": "e2",
+            "name": "wind gust ring",
+            "kind": "instanced",
+            "geometry": "plane",
+            "shader": "default",
+            "emissionRate": 0,
+            "maxParticles": 60,
+            "lifetimeMs": [
+              500,
+              800
+            ],
+            "startSize": [
+              0.5,
+              0.7
+            ],
+            "endSize": [
+              0.7,
+              1.0
+            ],
+            "startColor": 8257480,
+            "endColor": 4165496,
+            "startOpacity": 0.8,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                0,
+                0
+              ],
+              "variance": [
+                4.5,
+                0.5,
+                4.5
+              ]
+            },
+            "gravity": [
+              0,
+              1,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.4,
+            "spawn": {
+              "shape": "disc",
+              "size": [
+                1.0,
+                1.0,
+                0
+              ],
+              "center": [
+                0,
+                0.1,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 60,
+            "totalLifetimeMs": 800
+          },
+          "startAtMs": 200,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "straight",
+      "totalDurationMs": 1500,
+      "impactAtMs": 250,
+      "createdAt": 1790710096414,
+      "updatedAt": 1790710096414,
+      "light": {
+        "color": 8978380,
+        "intensity": 3.5,
+        "distance": 6,
+        "decayMs": 700
+      }
+    },
+    {
+      "id": "svfx-lightning",
+      "name": "lightning bolt",
+      "element": "electricity",
+      "attackType": "ranged",
+      "emitters": [
+        {
+          "emitter": {
+            "id": "e1",
+            "name": "bolt descent",
+            "kind": "instanced",
+            "geometry": "streak",
+            "shader": "thunderCore",
+            "emissionRate": 0,
+            "maxParticles": 90,
+            "lifetimeMs": [
+              250,
+              450
+            ],
+            "startSize": [
+              0.22,
+              0.3
+            ],
+            "endSize": [
+              0.05,
+              0.1
+            ],
+            "startColor": 16777215,
+            "endColor": 2764799,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                -6,
+                0
+              ],
+              "variance": [
+                2.0,
+                1.5,
+                2.0
+              ]
+            },
+            "gravity": [
+              0,
+              0,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.1,
+            "spawn": {
+              "shape": "box",
+              "size": [
+                1.5,
+                1.2,
+                1.5
+              ],
+              "center": [
+                0,
+                3,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 90,
+            "totalLifetimeMs": 450
+          },
+          "startAtMs": 240,
+          "followTrajectory": false
+        },
+        {
+          "emitter": {
+            "id": "e2",
+            "name": "electric impact sparks",
+            "kind": "instanced",
+            "geometry": "quad",
+            "shader": "thunderCore",
+            "emissionRate": 0,
+            "maxParticles": 60,
+            "lifetimeMs": [
+              400,
+              650
+            ],
+            "startSize": [
+              0.35,
+              0.5
+            ],
+            "endSize": [
+              0.05,
+              0.12
+            ],
+            "startColor": 16774832,
+            "endColor": 2764799,
+            "startOpacity": 1.0,
+            "endOpacity": 0.0,
+            "velocity": {
+              "base": [
+                0,
+                2.2,
+                0
+              ],
+              "variance": [
+                5.0,
+                3.5,
+                5.0
+              ]
+            },
+            "gravity": [
+              0,
+              -4,
+              0
+            ],
+            "wind": [
+              0,
+              0,
+              0
+            ],
+            "drag": 0.5,
+            "spawn": {
+              "shape": "sphere",
+              "size": [
+                0.7,
+                0.7,
+                0.7
+              ],
+              "center": [
+                0,
+                0.6,
+                0
+              ]
+            },
+            "blending": "additive",
+            "emissionMode": "oneshot",
+            "burstCount": 60,
+            "totalLifetimeMs": 700
+          },
+          "startAtMs": 260,
+          "followTrajectory": false
+        }
+      ],
+      "trajectory": "straight",
+      "totalDurationMs": 1200,
+      "impactAtMs": 300,
+      "createdAt": 1790710096414,
+      "updatedAt": 1790710096414,
+      "light": {
+        "color": 11191551,
+        "intensity": 8.0,
+        "distance": 9,
+        "decayMs": 400
+      }
+    }
+  ]
+}
