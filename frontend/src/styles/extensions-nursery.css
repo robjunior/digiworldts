@@ -32,17 +32,17 @@
 
 /* ---- Resource pill over the 3D scene (après the world strip) ---- */
 .nursery-page .nure-overlay { position: absolute; top: 16px; left: 16px; z-index: 40; pointer-events: none; }
-.nursery-page .nure-pill { pointer-events: auto; display: flex; align-items: stretch; gap: 0; background: color-mix(in oklab, var(--panel) 82%, transparent); border: 1px solid var(--hair); clip-path: var(--notch); backdrop-filter: blur(6px); }
-.nursery-page .nure-pill__stat { display: grid; grid-template-columns: 26px auto; gap: 9px; align-items: center; padding: 0 18px; border-right: 1px solid var(--hair); --res: var(--ink); }
+.nursery-page .nure-pill { pointer-events: auto; display: flex; align-items: stretch; gap: 0; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip); }
+.nursery-page .nure-pill__stat { display: grid; grid-template-columns: 26px auto; gap: 9px; align-items: center; padding: 11px 14px; border-right: 1px solid var(--hair); --res: var(--ink); }
 .nursery-page .nure-pill__stat[data-res="meat"] { --res: var(--meat); }
 .nursery-page .nure-pill__stat[data-res="data"] { --res: var(--data); }
 .nursery-page .nure-pill__stat[data-res="mons"] { --res: var(--signal); }
-.nursery-page .nure-pill__ic { width: 26px; height: 26px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm); color: var(--res); }
+.nursery-page .nure-pill__ic { width: 26px; height: 26px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip); color: var(--res); }
 .nursery-page .nure-pill__ic svg { width: 15px; height: 15px; }
 .nursery-page .nure-pill__col { display: flex; flex-direction: column; }
-.nursery-page .nure-pill__k { font: 700 8px/1 var(--font); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.nursery-page .nure-pill__k { font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .nursery-page .nure-pill__v { font: 800 16px/1.1 var(--font); margin-top: 3px; font-variant-numeric: tabular-nums; color: var(--res); }
-.nursery-page .nure-pill__hatch { display: inline-flex; align-items: center; gap: 7px; padding: 0 16px; font: 800 10px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--signal2); }
+.nursery-page .nure-pill__hatch { display: inline-flex; align-items: center; gap: 7px; padding: 11px 14px; font: 800 10px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--signal2); }
 .nursery-page .nure-pill__hatch:hover { color: var(--ink); }
 .nursery-page .nure-pill__hatch svg { width: 15px; height: 15px; }
 
@@ -50,9 +50,10 @@
 
 @media (max-width: 768px) {
   .nursery-page .nure-overlay { top: 8px; left: 8px; }
-  .nursery-page .nure-pill__stat { padding: 0 10px; grid-template-columns: 20px auto; gap: 7px; }
+  .nursery-page .nure-pill__stat { padding: 8px 10px; grid-template-columns: 20px auto; gap: 7px; }
   .nursery-page .nure-pill__ic { width: 20px; height: 20px; }
   .nursery-page .nure-pill__v { font-size: 13px; }
+  .nursery-page .nure-pill__hatch { padding: 8px 10px; }
 }
 
 
