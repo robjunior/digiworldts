@@ -69,18 +69,24 @@ function install2DContextShim(): void {
 
 let rafCallbacks: Array<(t: number) => void> = [];
 let rafIdSeq = 1;
+let nowMs = 1000;
 function installRafStub(): void {
   rafCallbacks = [];
   rafIdSeq = 1;
+  nowMs = 1000;
   vi.stubGlobal("requestAnimationFrame", (cb: (t: number) => void) => {
     rafCallbacks.push(cb);
     return rafIdSeq++;
   });
   vi.stubGlobal("cancelAnimationFrame", () => {});
 }
-function stepFrames(count: number, startMs = 1000, stepMs = 16.7): void {
+// Monotonically increasing rAF timestamps — THREE.Timer computes delta from
+// consecutive timestamps, so resetting the base each call would go backward
+// and yield negative/zero dt (a false read on the cast timeline).
+function stepFrames(count: number, stepMs = 16.7): void {
   for (let i = 0; i < count; i += 1) {
-    const ts = startMs + i * stepMs;
+    const ts = nowMs;
+    nowMs += stepMs;
     const cbs = rafCallbacks;
     rafCallbacks = [];
     for (const cb of cbs) cb(ts);
@@ -162,31 +168,33 @@ describe("SceneManager combat camera", () => {
     manager.dispose();
   });
 
-  it("melee cast advances the attacker face-to-face and walks it back", async () => {
+  it("melee cast advances face-to-face then walks the attacker back to its slot", async () => {
     const manager = await buildScene();
     manager.focusUnit("a:0");
-    stepFrames(30);
+    stepFrames(20);
 
     const attacker = manager.getSprite("a:0")!;
-    const startX = attacker.worldPosition.x;
+    const startX = attacker.worldPosition.x; // ≈ -3 (its slot)
+    const startZ = attacker.worldPosition.z;
 
     // Fire a basic melee attack from a:0 at b:0.
     manager.playEffect("fire", "a:0", "b:0");
-    // ~0.6s in: charge (0.45s) done -> attacker is at/near contact, camera zoomed in.
-    stepFrames(40); // ~0.67s
-    const midX = attacker.worldPosition.x;
-    const zoomMult = (manager as unknown as { zoomMult: number }).zoomMult;
 
-    // Attacker crossed toward the enemy side (target x ≈ +3) — face to face.
-    expect(midX).toBeGreaterThan(startX + 2);
-    // Camera is zoomed in while following the cast.
-    expect(zoomMult).toBeLessThan(1);
+    // ~0.37s in: charge reaches full face-to-face contact (target x ≈ +3,
+    // contact ≈ +2.1). Assert it crossed deep into the enemy half.
+    stepFrames(22);
+    const contactX = attacker.worldPosition.x;
+    expect(contactX).toBeGreaterThan(startX + 4); // > +1, well past the midline
+    // Camera is zoomed in while tracking the cast.
+    expect((manager as unknown as { zoomMult: number }).zoomMult).toBeLessThan(0.99);
 
-    // Let the whole cycle finish (charge + hold + return ≈ 1.8s).
-    stepFrames(140); // ~2.3s more
-    const endX = attacker.worldPosition.x;
-    expect(endX).toBeCloseTo(startX, 0.5);
-    // Camera settled back on the focused digimon (a:0) at the FOCUS zoom.
+    // Let the whole cycle finish (charge + walk-back-while-hold + camera reset).
+    // Cast ends at impact + hold ≈ 1.3s; camera settles shortly after.
+    stepFrames(140);
+    // The attacker MUST be back at its exact slot (x and z).
+    expect(attacker.worldPosition.x).toBeCloseTo(startX, 0.5);
+    expect(attacker.worldPosition.z).toBeCloseTo(startZ, 0.5);
+    // Camera reset toward the next turn's framing (still focused on a:0).
     const endZoom = (manager as unknown as { zoomMult: number }).zoomMult;
     expect(endZoom).toBeLessThan(1);
     expect(endZoom).toBeGreaterThan(0.5);

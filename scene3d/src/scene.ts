@@ -2140,8 +2140,12 @@ export class SceneManager {
 
     let advance: CastCameraSession['advance'] = null;
     if (attackType === 'melee' && source !== undefined) {
-      const origX = source.worldPosition.x;
-      const origZ = source.worldPosition.z;
+      // Pin the "home" to the attacker's true slot (not its transient world
+      // position), so an interrupted or completed return always lands it
+      // exactly back where it belongs.
+      const home = slotWorldPosition(source.side, source.slotIndex);
+      const origX = home.x;
+      const origZ = home.z;
       advance = {
         origX,
         origZ,
@@ -2203,23 +2207,25 @@ export class SceneManager {
       receiver !== undefined ? receiver.worldPosition : s.targetPos;
 
     if (s.phase === 'charge') {
-      this.stepAdvance(s, s.chargeS, false);
+      // Advance to FULL face-to-face contact by the impact moment, camera
+      // tracking the attacker as it charges.
+      this.stepAdvance(s, s.impactAtS, false);
       this.camDirector.easeTo(this.frameCam(this.castLook(s), CAST_ZOOM), 0.12);
-      if (s.elapsed >= s.impactAtS) s.phase = 'hit';
+      if (s.elapsed >= s.impactAtS) s.phase = 'return';
       return false;
     }
-    if (s.phase === 'hit') {
-      this.camDirector.easeTo(this.frameCam(receiverPos, HOLD_ZOOM), 0.3);
-      if (s.elapsed >= s.impactAtS + s.holdS) s.phase = 'return';
-      return false;
-    }
-    // return
-    if (s.advance !== null) {
-      if (this.stepAdvance(s, s.returnS, true)) return true;
-    } else if (s.elapsed >= s.impactAtS + s.holdS + s.returnS) {
+
+    // 'return' — for melee the attacker walks back to its slot WHILE the
+    // camera holds the receiver (the damage floater plays). Ranged has no
+    // attacker to move; the camera just holds the receiver. Either way the
+    // camera stays on the receiver until the floater ends (impact + hold),
+    // then resets toward the next turn's framing.
+    if (s.advance !== null) this.stepAdvance(s, s.returnS, true);
+    this.camDirector.easeTo(this.frameCam(receiverPos, HOLD_ZOOM), 0.3);
+    if (s.elapsed >= s.impactAtS + s.holdS) {
+      this.camDirector.easeTo(this.postCastTarget(), 0.3);
       return true;
     }
-    this.camDirector.easeTo(this.postCastTarget(), 0.3);
     return false;
   }
 
@@ -2232,7 +2238,7 @@ export class SceneManager {
     if (adv === null || s.sourceId === null) return false;
     const src = this.getSprite(s.sourceId);
     if (src === undefined) return false;
-    const base = s.elapsed - (goingHome ? s.impactAtS + s.holdS : 0);
+    const base = s.elapsed - (goingHome ? s.impactAtS : 0);
     const t = Math.min(1, base / Math.max(0.001, durS));
     if (goingHome) {
       src.setBasePosition(
