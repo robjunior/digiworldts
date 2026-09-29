@@ -66,6 +66,26 @@ export function World(): JSX.Element {
     lat: positions[index]?.lat ?? 0, lon: positions[index]?.lon ?? 0, dungeonId: place.id, levelCap: place.maxWildLevel ?? 99, danger: place.maxWildLevel ?? 1, scouted: true,
   })), [places, positions]);
   const selectedPlace = selectedIdx === null ? null : (places[selectedIdx] ?? null);
+  // Digimons de TODOS os times que andam em volta do globo na cena 3d. Colhidos
+  // dos times (monIds) resolvidos no roster, deduplicados, ref estaveis.
+  const teamWanderers = useMemo(() => {
+    const byId = new Map((roster.data?.roster ?? []).map((m) => [m.id, m]));
+    const seen = new Set<string>();
+    const out: { id: string; catalogId: string; element?: string }[] = [];
+    for (const team of teams.data?.teams ?? []) {
+      for (const mid of team.monIds) {
+        if (!mid || seen.has(mid)) continue;
+        seen.add(mid);
+        const mon = byId.get(mid);
+        if (!mon) continue;
+        const el = mon.template?.element;
+        out.push(
+          el ? { id: mon.id, catalogId: mon.catalogId, element: el } : { id: mon.id, catalogId: mon.catalogId },
+        );
+      }
+    }
+    return out;
+  }, [teams.data, roster.data]);
   const preferences = world.data?.preferences;
   const saved = mode === 'explore' ? preferences?.exploreParty ?? [] : preferences?.expeditionParty ?? [];
   const available = (roster.data?.roster ?? []).filter((mon) => (mon.status === 'resting' || mon.status === 'party') && !mon.listedAt && (!mon.reviveAt || mon.reviveAt <= Date.now()));
@@ -92,7 +112,7 @@ export function World(): JSX.Element {
 
   return <main className="world-page-layout world-legacy">
     <div className="stage" data-od-id="globe-stage">
-      <WorldGlobe regions={regions} worldObjects={worldObjects} focusLatLon={focus} autoSpin={autoSpin} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} onHoverChange={setHoveredIdx} onSelect={selectRegion} onHoverTip={showTip} onFailWebGL={onFailWebGL} world={worldSettings} lighting={worldLighting} envModelUrl={envUrl} useGlbSettings={worldGlbSettings} />
+      <WorldGlobe regions={regions} worldObjects={worldObjects} focusLatLon={focus} autoSpin={autoSpin} selectedIdx={selectedIdx} hoveredIdx={hoveredIdx} onHoverChange={setHoveredIdx} onSelect={selectRegion} onHoverTip={showTip} onFailWebGL={onFailWebGL} world={worldSettings} lighting={worldLighting} envModelUrl={envUrl} useGlbSettings={worldGlbSettings} wanderers={teamWanderers} />
       {webglFailed ? <div className="stage-fallback show" role="status"><div className="box"><b>Mapa 3D indisponível</b><br />Selecione uma localidade na lista.</div></div> : null}
       <div className="overlay"><WorldStrip selectedRegion={selectedIdx === null ? null : regions[selectedIdx] ?? null} autoSpin={autoSpin} onToggleAutoSpin={toggleSpin} /><WorldHoverTip tip={hoverTip} /></div>
     </div>

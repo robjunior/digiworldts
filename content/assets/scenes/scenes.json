@@ -282,8 +282,8 @@
           "ringScale": 0.055,
           "graticuleOpacity": 0.3,
           "glowOpacity": 0.05,
-          "camDistMin": 1.8,
-          "camDistMax": 4.5
+          "camDistMin": 2.5,
+          "camDistMax": 7.0
         }
       }
     }

@@ -6,7 +6,16 @@ import type { WorldObject } from "../../lib/api-world";
 import type { WorldHoverTipData } from "./WorldHoverTip";
 import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/arena-urls";
 import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from "@digiworld/scene3d/lobby-settings";
+import { SpriteRig } from "@digiworld/scene3d/sprite-rig";
 import type { WorldSceneSettings, SceneSettings } from "@digiworld/scene3d/scene";
+import { unitSpriteSheetUrl } from "../../lib/asset-preload";
+
+// Altura (mundo) em que o globo flutua acima do piso da cena: o centro do globo
+// fica bem no meio do ENVELOPE (camera olha pra ele), com os digimons girando
+// em volta no chao (y=0) — "flutuando exatamente no centro da cena".
+const GLOBE_Y = 1.35;
+// Raio do anel onde os digimons de todos os times andam em volta do globo.
+const RING_RADIUS = 3.0;
 
 const ELHEX: Record<string, number> = {
   fire: 0xe6001f,
@@ -63,6 +72,14 @@ type WorldGlobeProps = {
   /** Resolved environment GLB URL (the world scene's modelFile). */
   readonly envModelUrl?: string | null;
   readonly useGlbSettings?: boolean;
+  /** Digimons (de todos os times) que andam em volta do globo na cena. */
+  readonly wanderers?: readonly Wanderer[];
+};
+
+type Wanderer = {
+  readonly id: string;
+  readonly catalogId: string;
+  readonly element?: string;
 };
 
 export function WorldGlobe({
@@ -80,6 +97,7 @@ export function WorldGlobe({
   lighting = null,
   envModelUrl = null,
   useGlbSettings = false,
+  wanderers = [],
 }: WorldGlobeProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -92,10 +110,11 @@ export function WorldGlobe({
     lastY: 0,
     rotX: 0.3,
     rotY: 0,
-    camDist: 3.1,
+    camDist: 4.6,
     world: world ?? null,
     lighting: lighting ?? null,
     useGlbSettings,
+    wanderers,
   });
 
   useEffect(() => {
@@ -105,7 +124,8 @@ export function WorldGlobe({
     stateRef.current.world = world ?? null;
     stateRef.current.lighting = lighting ?? null;
     stateRef.current.useGlbSettings = useGlbSettings;
-  }, [autoSpin, selectedIdx, hoveredIdx, world, lighting, useGlbSettings]);
+    stateRef.current.wanderers = wanderers;
+  }, [autoSpin, selectedIdx, hoveredIdx, world, lighting, useGlbSettings, wanderers]);
 
   useEffect(() => {
     if (!focusLatLon) return;
@@ -145,19 +165,28 @@ export function WorldGlobe({
     renderer.setSize(w, h, false);
 
     const scene = new THREE.Scene();
+    // Ajusta a distancia inicial da camera aos clamps da cena (admin world).
+    const initWorld = stateRef.current.world;
+    stateRef.current.camDist = Math.max(
+      initWorld?.camDistMin ?? 2.5,
+      Math.min(initWorld?.camDistMax ?? 7, stateRef.current.camDist),
+    );
     const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 400);
-    camera.position.set(0, 0, stateRef.current.camDist);
+    camera.position.set(0, GLOBE_Y, stateRef.current.camDist);
+    camera.lookAt(0, GLOBE_Y, 0);
     const clock = new THREE.Timer();
     const raycaster = new THREE.Raycaster();
 
     // ── cena 3d do admin de cena (kind 'world') — environment backdrop─────
     // Aplica lighting/fog/exposure do SceneEntity 'world' + o GLB do modelFile
-    // como ambiente, deixando o GLOBO como protagonista centralizado na frente.
+    // como ambiente, deixando o GLOBO flutuando exatamente no centro (GLOBE_Y).
     const s = stateRef.current.world;
     const light = stateRef.current.lighting;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = clampLobbyExposure(light?.exposure);
+    const exposure = clampLobbyExposure(light?.exposure);
+    renderer.toneMappingExposure = exposure;
+    const hdrComp = lobbyHdrCompensation(exposure);
     scene.background = new THREE.Color(0x0a0e1a);
     const envLights: THREE.Light[] = [];
     const hemi = new THREE.HemisphereLight(
@@ -211,6 +240,8 @@ export function WorldGlobe({
 
     const globe = new THREE.Group();
     scene.add(globe);
+    // Flutua o globo acima do piso (y=0 dos digimons) — centro da cena.
+    globe.position.y = GLOBE_Y;
 
     const core = new THREE.Mesh(
       new THREE.SphereGeometry(0.985, 48, 32),
@@ -327,6 +358,40 @@ export function WorldGlobe({
       nodeGroup.add(ring);
     });
 
+    // ── digimons de TODOS os times andando em volta do globo ────────────
+    // SpriteRig (mesmo rig de combate/lobby) por membro, orbitando o centro
+    // num anel no piso; o idleAnimated boba o ciclo de caminhada e a posicao
+    // avanca em circulo a cada frame = "andando em volta da cena".
+    type Walker = { angle: number; speed: number; radius: number; rig: SpriteRig };
+    const walkers: Walker[] = [];
+    const wanderList = stateRef.current.wanderers;
+    wanderList.forEach((w, i) => {
+      try {
+        const rig = new SpriteRig(scene, {
+          unitId: w.id,
+          side: 'you',
+          slotIndex: 0,
+          textureUrl: unitSpriteSheetUrl(w.catalogId),
+          isSpritesheet: true,
+          idleAnimated: true,
+          initiallyDowned: false,
+          onClick: undefined,
+        });
+        rig.setArenaBaselineY(0.02);
+        // Legiveis sob o tonemapping ACES (como os Digimon do lobby).
+        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(
+          Math.max(1.5 * hdrComp, 0.4),
+        );
+        const stagger = i % 4;
+        const radius = RING_RADIUS + stagger * 0.34;
+        const speed = 0.5 + (i % 5) * 0.1;
+        const angle = (i / Math.max(1, wanderList.length)) * Math.PI * 2 + stagger * 0.5;
+        walkers.push({ angle, speed, radius, rig });
+      } catch (err) {
+        console.warn('[WorldGlobe] wanderer sprite create failed', w.id, err);
+      }
+    });
+
     const resizeGlobe = () => {
       if (!canvas) return;
       const rw = canvas.clientWidth || 800,
@@ -421,8 +486,8 @@ export function WorldGlobe({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const s2 = stateRef.current.world;
-      const min = s2?.camDistMin ?? 1.8;
-      const max = s2?.camDistMax ?? 5;
+      const min = s2?.camDistMin ?? 2.5;
+      const max = s2?.camDistMax ?? 7;
       stateRef.current.camDist = Math.max(min, Math.min(max, stateRef.current.camDist + e.deltaY * 0.0016));
     };
     const onClick = () => {
@@ -450,6 +515,7 @@ export function WorldGlobe({
       globe.rotation.y = stateRef.current.rotY;
       globe.rotation.x = stateRef.current.rotX;
       camera.position.z = stateRef.current.camDist;
+      camera.lookAt(0, GLOBE_Y, 0);
 
       const t = clock.getElapsed();
       nodeMeshes.forEach((n, i) => {
@@ -460,6 +526,15 @@ export function WorldGlobe({
         n.ring.scale.setScalar(s);
         (n.ring.material as THREE.MeshBasicMaterial).opacity = isSel ? 1 : 0.7;
       });
+
+      const delta = Math.min(clock.getDelta(), 0.05);
+      for (const wk of walkers) {
+        wk.angle += wk.speed * delta;
+        const x = Math.cos(wk.angle) * wk.radius;
+        const z = Math.sin(wk.angle) * wk.radius;
+        wk.rig.setBasePosition(x, z);
+        wk.rig.update(delta, t, camera.quaternion);
+      }
 
       renderer.render(scene, camera);
     };
@@ -486,6 +561,7 @@ export function WorldGlobe({
         });
       }
       for (const l of envLights) scene.remove(l);
+      for (const wk of walkers) wk.rig.dispose();
 
       renderer.dispose();
       globe.traverse((obj) => {
@@ -502,7 +578,7 @@ export function WorldGlobe({
         }
       });
     };
-  }, [regions, worldObjects, onFailWebGL, onHoverChange, onHoverTip, onSelect, envModelUrl, world, lighting]);
+  }, [regions, worldObjects, onFailWebGL, onHoverChange, onHoverTip, onSelect, envModelUrl, world, lighting, wanderers]);
 
   return (
     <canvas

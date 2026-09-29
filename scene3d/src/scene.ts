@@ -249,9 +249,9 @@ export type WorldSceneSettings = {
   graticuleOpacity: number;
   /** outer glow shell opacity 0..1 (0.05) */
   glowOpacity: number;
-  /** camera distance zoom clamp min (1.8) */
+  /** camera distance zoom clamp min (2.5) */
   camDistMin: number;
-  /** camera distance zoom clamp max (5) */
+  /** camera distance zoom clamp max (7) — frames the globe + digimon ring */
   camDistMax: number;
 };
 
@@ -261,8 +261,8 @@ export const DEFAULT_WORLD_SCENE: WorldSceneSettings = {
   ringScale: 0.058,
   graticuleOpacity: 0.34,
   glowOpacity: 0.05,
-  camDistMin: 1.8,
-  camDistMax: 5,
+  camDistMin: 2.5,
+  camDistMax: 7,
 };
 
 export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {
