@@ -268,7 +268,20 @@ export type WorldSceneSettings = {
   camDistMin: number;
   /** camera distance zoom clamp max (7) — frames the globe + digimon ring */
   camDistMax: number;
+  /** height (Y) of the globe's CENTRE above the digimon floor — floats it (1.35) */
+  globeY: number;
+  /** camera azimuth (yaw) around the globe, deg (0) */
+  camYawDeg: number;
+  /** camera elevation (pitch) above horizontal, deg (0 = level with globe) */
+  camElevDeg: number;
+  /** base orbit radius of the digimon ring on the floor (3.0) — floored to
+   *  GLOBE_CLEARANCE_R_MIN so walkers never overlap the globe */
+  ringRadius: number;
 };
+
+/** Hard floor for the digimon orbit radius (globe visual r ≈1.08 + walker
+ *  width ≈0.7 + margin ≈0.6): walkers must never clip into the floating globe. */
+export const GLOBE_CLEARANCE_R_MIN = 2.4;
 
 export const DEFAULT_WORLD_SCENE: WorldSceneSettings = {
   autoSpin: true,
@@ -278,6 +291,10 @@ export const DEFAULT_WORLD_SCENE: WorldSceneSettings = {
   glowOpacity: 0.05,
   camDistMin: 2.5,
   camDistMax: 7,
+  globeY: 1.35,
+  camYawDeg: 0,
+  camElevDeg: 0,
+  ringRadius: 3.0,
 };
 
 export const DEFAULT_LOBBY_SCENE: LobbySceneSettings = {

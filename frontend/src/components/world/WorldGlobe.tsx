@@ -11,6 +11,7 @@ import { resolveSceneModelUrl, DEFAULT_ARENA_MODEL } from "@digiworld/scene3d/ar
 import { clampLobbyExposure, lobbyHdrCompensation, resolveLobbyFog } from "@digiworld/scene3d/lobby-settings";
 import { SpriteRig } from "@digiworld/scene3d/sprite-rig";
 import type { WorldSceneSettings, SceneSettings } from "@digiworld/scene3d/scene";
+import { GLOBE_CLEARANCE_R_MIN } from "@digiworld/scene3d/scene";
 import { unitSpriteSheetUrl } from "../../lib/asset-preload";
 
 // Altura (mundo) em que o globo flutua acima do piso da cena: o centro do globo
@@ -55,6 +56,32 @@ function circlePts(r: number, seg: number, plane: "xy" | "xz") {
     else pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0));
   }
   return pts;
+}
+
+/** Positiona a camera orbitando o GLOBO (centro 0,globeY,0) a distancia camDist,
+ *  com yaw (azimute) e elev (pitch) em graus configurados no admin de cena. */
+function positionWorldCamera(
+  camera: THREE.PerspectiveCamera,
+  camDist: number,
+  globeY: number,
+  camYawDeg: number,
+  camElevDeg: number,
+): void {
+  const deg = Math.PI / 180;
+  const yaw = camYawDeg * deg;
+  const elev = camElevDeg * deg;
+  const cosE = Math.cos(elev);
+  camera.position.set(
+    camDist * cosE * Math.sin(yaw),
+    globeY + camDist * Math.sin(elev),
+    camDist * cosE * Math.cos(yaw),
+  );
+  camera.lookAt(0, globeY, 0);
+}
+
+/** Raio orbital minimo dos digimons: nunca dentro do globo (margem + sprite). */
+function resolveRingRadius(r: number | undefined): number {
+  return Math.max(r ?? RING_RADIUS, GLOBE_CLEARANCE_R_MIN);
 }
 
 type WorldGlobeProps = {
@@ -175,8 +202,10 @@ export function WorldGlobe({
       Math.min(initWorld?.camDistMax ?? 7, stateRef.current.camDist),
     );
     const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 400);
-    camera.position.set(0, GLOBE_Y, stateRef.current.camDist);
-    camera.lookAt(0, GLOBE_Y, 0);
+    const initW = initWorld ?? null;
+    const initGlobeY = initW?.globeY ?? GLOBE_Y;
+    const initRing = resolveRingRadius(initW?.ringRadius);
+    positionWorldCamera(camera, stateRef.current.camDist, initGlobeY, initW?.camYawDeg ?? 0, initW?.camElevDeg ?? 0);
     const clock = new THREE.Timer();
     const raycaster = new THREE.Raycaster();
 
@@ -258,7 +287,7 @@ export function WorldGlobe({
     const globe = new THREE.Group();
     scene.add(globe);
     // Flutua o globo acima do piso (y=0 dos digimons) — centro da cena.
-    globe.position.y = GLOBE_Y;
+    globe.position.y = initGlobeY;
 
     const core = new THREE.Mesh(
       new THREE.SphereGeometry(0.985, 48, 32),
@@ -400,7 +429,7 @@ export function WorldGlobe({
           Math.max(1.5 * hdrComp, 0.4),
         );
         const stagger = i % 4;
-        const radius = RING_RADIUS + stagger * 0.34;
+        const radius = initRing + stagger * 0.34;
         const speed = 0.5 + (i % 5) * 0.1;
         const angle = (i / Math.max(1, wanderList.length)) * Math.PI * 2 + stagger * 0.5;
         walkers.push({ angle, speed, radius, rig });
@@ -532,8 +561,13 @@ export function WorldGlobe({
       }
       globe.rotation.y = stateRef.current.rotY;
       globe.rotation.x = stateRef.current.rotX;
-      camera.position.z = stateRef.current.camDist;
-      camera.lookAt(0, GLOBE_Y, 0);
+      positionWorldCamera(
+        camera,
+        stateRef.current.camDist,
+        stateRef.current.world?.globeY ?? GLOBE_Y,
+        stateRef.current.world?.camYawDeg ?? 0,
+        stateRef.current.world?.camElevDeg ?? 0,
+      );
 
       const t = clock.getElapsed();
       nodeMeshes.forEach((n, i) => {

@@ -857,6 +857,10 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Opacidade do brilho ao redor" value={effectiveWorld.glowOpacity} min={0} max={1} step={0.01} onChange={(v) => patchWorld({ glowOpacity: v })} decimals={2} />
                 <SliderRow label="Zoom mínimo (distância da câmera)" value={effectiveWorld.camDistMin} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMin: v })} decimals={1} />
                 <SliderRow label="Zoom máximo (distância da câmera)" value={effectiveWorld.camDistMax} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMax: v })} decimals={1} />
+                <SliderRow label="Altura do globo (Y do centro)" value={effectiveWorld.globeY} min={0} max={5} step={0.05} onChange={(v) => patchWorld({ globeY: v })} decimals={2} />
+                <SliderRow label="Ângulo da câmera (rotação, °)" value={effectiveWorld.camYawDeg} min={-180} max={180} step={1} onChange={(v) => patchWorld({ camYawDeg: v })} decimals={0} />
+                <SliderRow label="Inclinação da câmera (°, 0 = nível com o globo)" value={effectiveWorld.camElevDeg} min={-80} max={80} step={1} onChange={(v) => patchWorld({ camElevDeg: v })} decimals={0} />
+                <SliderRow label="Raio da órbita dos digimons (margem do globo)" value={effectiveWorld.ringRadius} min={2.4} max={20} step={0.1} onChange={(v) => patchWorld({ ringRadius: v })} decimals={1} />
               </Section>
             )}
             </fieldset>

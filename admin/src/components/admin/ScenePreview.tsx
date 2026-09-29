@@ -10,6 +10,7 @@ import type { TimeOfDayConfig, WeatherConfig } from '@digiworld/shared/weather';
 import { ARENA_MODEL_BY_KEY, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
 import { SceneManager, type LobbySceneSettings, type SceneSettings, type WorldSceneSettings } from '@digiworld/scene3d/scene';
+import { GLOBE_CLEARANCE_R_MIN } from '@digiworld/scene3d/scene';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
 import { clampLobbyExposure, lobbyHdrCompensation, lobbyPartyGround, resolveLobbyFog, resolveStageLightIntensity } from '@digiworld/scene3d/lobby-settings';
@@ -546,9 +547,8 @@ function mountLobbyPreview(
 
 /* ── world preview: globo flutuante (sem os nós de localidade) + digimons ── */
 // Espelha o WorldGlobe da tela do mundo: globo centralizado flutuando em
-// GLOBE_Y, digimons (SpriteRig) orbitando num anel no piso, sem os nós das
-// localidades (o user pediu "só um preview" do centro).
-const WORLD_GLOBE_Y = 1.35;
+// globeY (knob do admin, default 1.35), digimons (SpriteRig) orbitando num
+// anel no piso, sem os nós das localidades (só o preview).
 const WORLD_RING_RADIUS = 3.0;
 const WORLD_UNIT_IDS = ['skb-1', 'skb-2', 'skb-3'];
 
@@ -572,10 +572,39 @@ type WorldRefs = {
   globe: THREE.Group;
   grid: THREE.LineSegments;
   glow: THREE.Mesh;
-  walkers: { angle: number; speed: number; radius: number; rig: SpriteRig }[];
+  walkers: { angle: number; speed: number; stagger: number; radius: number; rig: SpriteRig }[];
   camDist: number;
+  globeY: number;
+  autoSpin: boolean;
+  camYawDeg: number;
+  camElevDeg: number;
   envLoadVersion: number;
 };
+
+/** Positiona a camera orbitando o globo (centro 0,globeY,0) — espelha o WorldGlobe. */
+function positionWorldCamera(
+  camera: THREE.PerspectiveCamera,
+  camDist: number,
+  globeY: number,
+  camYawDeg: number,
+  camElevDeg: number,
+): void {
+  const deg = Math.PI / 180;
+  const yaw = camYawDeg * deg;
+  const elev = camElevDeg * deg;
+  const cosE = Math.cos(elev);
+  camera.position.set(
+    camDist * cosE * Math.sin(yaw),
+    globeY + camDist * Math.sin(elev),
+    camDist * cosE * Math.cos(yaw),
+  );
+  camera.lookAt(0, globeY, 0);
+}
+
+/** Raio orbital minimo: digimons nunca dentro do globo (margem + sprite). */
+function resolveRingRadius(r: number | undefined): number {
+  return Math.max(r ?? WORLD_RING_RADIUS, GLOBE_CLEARANCE_R_MIN);
+}
 
 /** Reapply world knobs live (globe opacity, camera clamps, bloom, exposure,
  *  walker brightness) — mirror of WorldGlobe. */
@@ -588,14 +617,22 @@ function applyWorldStage(f: WorldRefs, settings: SceneSettings, world: WorldScen
   const min = s.camDistMin ?? 2.5;
   const max = s.camDistMax ?? 7;
   f.camDist = Math.max(min, Math.min(max, f.camDist));
+  f.globeY = s.globeY ?? 1.35;
+  f.autoSpin = s.autoSpin !== false;
+  f.camYawDeg = s.camYawDeg ?? 0;
+  f.camElevDeg = s.camElevDeg ?? 0;
+  f.globe.position.y = f.globeY;
+  // digimons mantem margem aceitavel fora do globo (nao orbitam por cima dele)
+  const ring = resolveRingRadius(s.ringRadius);
+  for (const wk of f.walkers) {
+    wk.radius = ring + wk.stagger * 0.34;
+    (wk.rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(1.5 * lobbyHdrCompensation(exposure));
+  }
+  positionWorldCamera(f.camera, f.camDist, f.globeY, s.camYawDeg ?? 0, s.camElevDeg ?? 0);
   f.bloomPass.enabled = (settings.bloomEnabled ?? true) !== false;
   f.bloomPass.strength = Math.min(settings.bloomStrength ?? 0.3, 0.35);
   f.bloomPass.radius = Math.min(settings.bloomRadius ?? 0.45, 0.5);
   f.bloomPass.threshold = Math.max(settings.bloomThreshold ?? 0.9, 0.85);
-  const hdrComp = lobbyHdrCompensation(exposure);
-  for (const wk of f.walkers) {
-    (wk.rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(1.5 * hdrComp);
-  }
 }
 
 async function loadWorldGlb(f: WorldRefs, modelUrl: string | undefined, settings: SceneSettings): Promise<void> {
@@ -658,8 +695,11 @@ function mountWorldPreview(
   scene.background = new THREE.Color(0x0a0e1a);
   f.scene = scene;
   const camera = new THREE.PerspectiveCamera(42, initialW / initialH, 0.1, 400);
-  camera.position.set(0, WORLD_GLOBE_Y, initialDist);
-  camera.lookAt(0, WORLD_GLOBE_Y, 0);
+  f.globeY = world.globeY ?? 1.35;
+  f.autoSpin = world.autoSpin !== false;
+  f.camYawDeg = world.camYawDeg ?? 0;
+  f.camElevDeg = world.camElevDeg ?? 0;
+  positionWorldCamera(camera, initialDist, f.globeY, f.camYawDeg, f.camElevDeg);
   f.camera = camera;
   f.camDist = initialDist;
 
@@ -695,7 +735,7 @@ function mountWorldPreview(
 
   // ── globo no centro, flutuando ──
   const globe = new THREE.Group();
-  globe.position.y = WORLD_GLOBE_Y;
+  globe.position.y = f.globeY;
   scene.add(globe);
   f.globe = globe;
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.985, 48, 32), new THREE.MeshBasicMaterial({ color: 0x0a0a0c }));
@@ -732,10 +772,12 @@ function mountWorldPreview(
       });
       rig.setArenaBaselineY(0);
       rig.update(0, 0, camera.quaternion);
+      const stagger = i % 3;
       f.walkers.push({
         angle: (i / WORLD_UNIT_IDS.length) * Math.PI * 2,
         speed: 0.55 + (i % 3) * 0.18,
-        radius: WORLD_RING_RADIUS + (i % 3) * 0.34,
+        stagger,
+        radius: resolveRingRadius(world.ringRadius) + stagger * 0.34,
         rig,
       });
     } catch {
@@ -753,7 +795,7 @@ function mountWorldPreview(
     const dt = Math.min(clock.getDelta(), 0.05);
     const elapsed = clock.elapsedTime;
     // rotação idle do globo
-    if (world.autoSpin !== false) globe.rotation.y += 0.0016;
+    if (f.autoSpin) globe.rotation.y += 0.0016;
     // digimons orbitando
     for (const wk of f.walkers) {
       wk.angle += wk.speed * dt;
@@ -762,8 +804,7 @@ function mountWorldPreview(
       wk.rig.setBasePosition(x, z);
       wk.rig.update(dt, elapsed, camera.quaternion);
     }
-    camera.position.set(0, WORLD_GLOBE_Y, f.camDist);
-    camera.lookAt(0, WORLD_GLOBE_Y, 0);
+    positionWorldCamera(camera, f.camDist, f.globeY, f.camYawDeg, f.camElevDeg);
     f.composer.render();
     raf = requestAnimationFrame(loop);
   };
@@ -880,6 +921,10 @@ export function ScenePreview({ arenaKey, settings, weather, timeOfDay, lobby, us
         glow: null as never,
         walkers: [],
         camDist: 4.6,
+        globeY: 1.35,
+        autoSpin: true,
+        camYawDeg: 0,
+        camElevDeg: 0,
         envLoadVersion: 0,
       };
       worldRef.current = fr;
