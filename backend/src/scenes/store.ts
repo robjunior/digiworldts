@@ -12,6 +12,7 @@ import { sanitizeLobbySettings } from './lobby-schema.js';
 import { sanitizeWorldSettings, DEFAULT_WORLD_SCENE } from './world-schema.js';
 import { newId } from '../util/ids.js';
 import { WORLD_SCENE_NAME } from '@digiworld/shared/scene';
+import { NURSERY_SCENE_NAME } from '@digiworld/shared/scene';
 
 const SCENES_PATH = resolve(config.paths.dataDir, 'scenes', 'scenes.json');
 const LEGACY_DEFAULTS_PATH = resolve(config.paths.dataDir, 'scenes', 'scene-defaults.json');
@@ -71,6 +72,16 @@ export class WorldSceneAlreadyAssignedError extends Error {
   }
 }
 
+/** The nursery is a role too: only one scene may be `kind: 'nursery'`. */
+export class NurserySceneAlreadyAssignedError extends Error {
+  readonly code = 'nursery-already-assigned';
+
+  constructor(readonly existingSceneId: string) {
+    super('A nursery scene is already assigned');
+    this.name = 'NurserySceneAlreadyAssignedError';
+  }
+}
+
 function isLobbyScene(scene: SceneEntity): boolean {
   return scene.kind === 'lobby'
     || (scene.kind === undefined && scene.name.trim().toLowerCase() === 'lobby');
@@ -79,6 +90,11 @@ function isLobbyScene(scene: SceneEntity): boolean {
 function isWorldScene(scene: SceneEntity): boolean {
   return scene.kind === 'world'
     || (scene.kind === undefined && scene.name.trim().toLowerCase() === 'world');
+}
+
+function isNurseryScene(scene: SceneEntity): boolean {
+  return scene.kind === 'nursery'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === 'nursery');
 }
 
 function assertLobbyAvailable(scenes: readonly SceneEntity[], kind: SceneEntity['kind'], exceptId?: string): void {
@@ -91,6 +107,12 @@ function assertWorldAvailable(scenes: readonly SceneEntity[], kind: SceneEntity[
   if (kind !== 'world') return;
   const existing = scenes.find((scene) => scene.id !== exceptId && isWorldScene(scene));
   if (existing !== undefined) throw new WorldSceneAlreadyAssignedError(existing.id);
+}
+
+function assertNurseryAvailable(scenes: readonly SceneEntity[], kind: SceneEntity['kind'], exceptId?: string): void {
+  if (kind !== 'nursery') return;
+  const existing = scenes.find((scene) => scene.id !== exceptId && isNurseryScene(scene));
+  if (existing !== undefined) throw new NurserySceneAlreadyAssignedError(existing.id);
 }
 
 function isElement(value: unknown): value is Element {
@@ -125,14 +147,16 @@ function coerceScene(raw: unknown): SceneEntity | null {
   // kind legado: cena nomeada "Lobby"/"World" sem kind explícito conta como
   // lobby/world na leitura (o frontend resolve kind:'lobby'/'world' primeiro,
   // depois o nome).
-  const kind: 'arena' | 'lobby' | 'world' | undefined =
-    rec['kind'] === 'lobby' || rec['kind'] === 'arena' || rec['kind'] === 'world'
+  const kind: 'arena' | 'lobby' | 'world' | 'nursery' | undefined =
+    rec['kind'] === 'lobby' || rec['kind'] === 'arena' || rec['kind'] === 'world' || rec['kind'] === 'nursery'
       ? rec['kind']
       : typeof rec['name'] === 'string' && rec['name'].trim().toLowerCase() === 'lobby'
         ? 'lobby'
         : typeof rec['name'] === 'string' && rec['name'].trim().toLowerCase() === 'world'
           ? 'world'
-          : undefined;
+          : typeof rec['name'] === 'string' && rec['name'].trim().toLowerCase() === 'nursery'
+            ? 'nursery'
+            : undefined;
   const weather = coerceNullableObject<WeatherConfig>(rec['weather']);
   const timeOfDay = coerceNullableObject<TimeOfDayConfig>(rec['timeOfDay']);
   const created = typeof rec['createdAt'] === 'number' ? rec['createdAt'] : Date.now();
@@ -216,6 +240,28 @@ function seedDefaultWorldScene(scenes: readonly SceneEntity[]): readonly SceneEn
   ];
 }
 
+/** Ensure a `kind: 'nursery'` scene exists on a fresh seed (the nursery pen's
+ *  3D backdrop). Like lobby/world it is a role: one scene owns it. */
+function seedDefaultNurseryScene(scenes: readonly SceneEntity[]): readonly SceneEntity[] {
+  if (scenes.some(isNurseryScene)) return scenes;
+  const now = Date.now();
+  return [
+    ...scenes,
+    {
+      id: newId('scn'),
+      name: NURSERY_SCENE_NAME,
+      elements: [],
+      settings: { modelFile: 'forest_biome.glb' },
+      kind: 'nursery',
+      useGlbSettings: false,
+      weather: null,
+      timeOfDay: null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  ];
+}
+
 async function readEnvelope(): Promise<readonly SceneEntity[]> {
   // Re-stat the file every read instead of trusting a one-shot module cache:
   // content-deploy --apply (and hand edits) write scenes.json outside the
@@ -227,7 +273,7 @@ async function readEnvelope(): Promise<readonly SceneEntity[]> {
   }
   if (stamp === null) {
     if (cache !== null) return cache; // file removed externally — keep last known
-    const seeded = seedDefaultWorldScene(await seedFromLegacyDefaults());
+    const seeded = seedDefaultNurseryScene(seedDefaultWorldScene(await seedFromLegacyDefaults()));
     await writeEnvelope(seeded);
     const seededStamp = await fileStamp();
     cacheStamp = seededStamp;
@@ -278,7 +324,7 @@ export type SceneWriteInput = {
   readonly name: string;
   readonly elements: readonly Element[];
   readonly settings: Readonly<Record<string, unknown>>;
-  readonly kind?: 'arena' | 'lobby' | 'world';
+  readonly kind?: 'arena' | 'lobby' | 'world' | 'nursery';
   readonly useGlbSettings?: boolean;
   readonly weather?: WeatherConfig | null;
   readonly timeOfDay?: TimeOfDayConfig | null;
@@ -289,6 +335,7 @@ export async function createSceneEntry(input: SceneWriteInput): Promise<SceneEnt
     const all = await readEnvelope();
     assertLobbyAvailable(all, input.kind);
     assertWorldAvailable(all, input.kind);
+    assertNurseryAvailable(all, input.kind);
     const now = Date.now();
   const scene: SceneEntity = {
     id: newId('scn'),
@@ -316,13 +363,14 @@ export async function updateSceneEntry(id: string, patch: Partial<SceneWriteInpu
   const nextKind = patch.kind ?? existing.kind;
   assertLobbyAvailable(all, nextKind, existing.id);
   assertWorldAvailable(all, nextKind, existing.id);
+  assertNurseryAvailable(all, nextKind, existing.id);
   const next: SceneEntity = {
     id: existing.id,
     name: patch.name !== undefined ? patch.name.trim() : existing.name,
     elements: patch.elements !== undefined ? [...patch.elements] : existing.elements,
     settings: patch.settings !== undefined ? { ...patch.settings } : existing.settings,
     ...(patch.kind !== undefined || existing.kind !== undefined
-      ? { kind: (patch.kind ?? existing.kind) as 'arena' | 'lobby' | 'world' }
+      ? { kind: (patch.kind ?? existing.kind) as 'arena' | 'lobby' | 'world' | 'nursery' }
       : {}),
     useGlbSettings: patch.useGlbSettings !== undefined ? patch.useGlbSettings === true : (existing.useGlbSettings ?? false),
     weather: patch.weather !== undefined ? patch.weather : (existing.weather ?? null),
@@ -343,7 +391,7 @@ export async function copySceneEntry(id: string): Promise<SceneEntity | null> {
   return createSceneEntry({
     name: `${source.name} (copy)`,
     elements: source.elements,
-    ...(source.kind !== undefined ? { kind: source.kind === 'lobby' || source.kind === 'world' ? 'arena' : source.kind } : {}),
+    ...(source.kind !== undefined ? { kind: source.kind === 'lobby' || source.kind === 'world' || source.kind === 'nursery' ? 'arena' : source.kind } : {}),
     settings: source.settings,
     useGlbSettings: source.useGlbSettings === true,
     weather: source.weather ?? null,

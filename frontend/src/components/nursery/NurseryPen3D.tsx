@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PenSpriteRig } from '@digiworld/scene3d/pen-sprite';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
-import { SceneManager } from '@digiworld/scene3d/scene';
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
+import { SceneManager, type SceneSettings } from '@digiworld/scene3d/scene';
+import { ARENA_MODEL_BY_KEY, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import type { NurseryPenMon, NurseryPenStage, PendingHatchEntry } from '../../lib/api-nursery';
 import { PenMonMenu } from './PenMonMenu';
 
@@ -95,6 +95,12 @@ export type NurseryPen3DProps = {
   readonly busyMonId: string | null;
   readonly canFeed: boolean;
   readonly feedCost: number;
+  /** Resolved backdrop GLB URL (undefined → default arena). */
+  readonly envModelUrl?: string | undefined;
+  /** Top-level scene settings (lighting/arena/fog) — applied unless useGlbSettings. */
+  readonly settings?: Partial<SceneSettings> | undefined;
+  /** When true, the GLB defines the look (settings ignored). */
+  readonly useGlbSettings?: boolean;
 };
 
 export function NurseryPen3D({
@@ -106,6 +112,9 @@ export function NurseryPen3D({
   busyMonId,
   canFeed,
   feedCost,
+  envModelUrl,
+  settings,
+  useGlbSettings,
 }: NurseryPen3DProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -132,6 +141,14 @@ export function NurseryPen3D({
 
   const activeMonId = selectedMonId ?? hoveredMonId;
 
+  // Content fingerprint for the backdrop: rebuild the WebGL scene only when the
+  // env actually changed (never on object identity / every refetch).
+  const envContentKey = JSON.stringify({
+    envModelUrl: envModelUrl ?? null,
+    settings: settings ?? null,
+    useGlbSettings: useGlbSettings ?? false,
+  });
+
   // Init Scene
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -146,11 +163,20 @@ export function NurseryPen3D({
     });
     resizeObs.observe(containerRef.current);
 
-    const arenaUrl = getArenaUrl('forest_biome.glb')
-      ?? ARENA_MODEL_BY_KEY['plant']
-      ?? ARENA_MODEL_BY_KEY['field'];
-    if (arenaUrl !== undefined) {
-      sm.loadArenaModelWithAtmosphere(arenaUrl, 'field');
+    if (settings !== undefined && useGlbSettings !== true) {
+      const patch: Record<string, unknown> = { ...settings };
+      delete patch['modelFile'];
+      sm.applySettings(patch as Partial<SceneSettings>);
+    }
+
+    const modelUrl = envModelUrl
+      ?? resolveSceneModelUrl(settings?.modelFile)
+      ?? ARENA_MODEL_BY_KEY['field']
+      ?? ARENA_MODEL_BY_KEY['plant'];
+    if (modelUrl !== undefined) {
+      void (useGlbSettings === true
+        ? sm.loadArenaModelBare(modelUrl, 'field')
+        : sm.loadArenaModelWithAtmosphere(modelUrl, 'field'));
     }
     sm.startLoop();
 
@@ -163,7 +189,8 @@ export function NurseryPen3D({
       sm.dispose();
       sceneManagerRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envContentKey]);
 
   // Sync Mons -> Rigs
   useEffect(() => {

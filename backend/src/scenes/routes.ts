@@ -27,6 +27,7 @@ import {
   getScene,
   listScenes,
   LobbySceneAlreadyAssignedError,
+  NurserySceneAlreadyAssignedError,
   updateSceneEntry,
   WorldSceneAlreadyAssignedError,
 } from './store.js';
@@ -120,7 +121,7 @@ export const ArenaSettingsZ = z.object({
 const SceneCreateZ = z.object({
   name: z.string().trim().min(1).max(120),
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
-  kind: z.enum(['arena', 'lobby', 'world']).optional(),
+  kind: z.enum(['arena', 'lobby', 'world', 'nursery']).optional(),
   settings: ArenaSettingsZ,
   useGlbSettings: z.boolean().optional(),
   weather: WeatherConfigZ.nullish(),
@@ -226,6 +227,9 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
       if (err instanceof WorldSceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
+      if (err instanceof NurserySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
       throw err;
     }
     await broadcastScenesUpdated();
@@ -242,7 +246,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const patch: {
       name?: string;
       elements?: readonly Element[];
-      kind?: 'arena' | 'lobby' | 'world';
+      kind?: 'arena' | 'lobby' | 'world' | 'nursery';
       settings?: Readonly<Record<string, unknown>>;
       useGlbSettings?: boolean;
       weather?: WeatherConfig | null;
@@ -263,6 +267,9 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
       if (err instanceof WorldSceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      if (err instanceof NurserySceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
       throw err;

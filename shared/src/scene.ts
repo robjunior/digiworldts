@@ -13,10 +13,13 @@ import type { TimeOfDayConfig, WeatherConfig } from './weather.js';
     * validator is the source of truth for allowed keys. Rendering code casts
     * this to `Partial<SceneSettings>` on the frontend after fetch.
     */
-export type SceneKind = 'arena' | 'lobby' | 'world';
+export type SceneKind = 'arena' | 'lobby' | 'world' | 'nursery';
 
 /** SceneEntity.name the World screen looks up when no scene has kind 'world'. */
 export const WORLD_SCENE_NAME = 'World';
+
+/** SceneEntity.name the Nursery page looks up when no scene has kind 'nursery'. */
+export const NURSERY_SCENE_NAME = 'Nursery';
 
 export type SceneEntity = {
    readonly id: string;

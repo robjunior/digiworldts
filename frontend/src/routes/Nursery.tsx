@@ -6,12 +6,16 @@ import { NurseryChrome } from '../components/nursery/NurseryChrome';
 import { NurseryPen3D } from '../components/nursery/NurseryPen3D';
 import { ApiError } from '../lib/api';
 import { getNursery, getSpeciesData, getPendingHatches, petNurseryMon, feedNurseryMon, graduatePenMon, type NurseryPenMon, type NurseryView } from '../lib/api-nursery';
+import { getNurserySceneEntity } from '../lib/api-scenes';
+import { resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
+import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { requestNursery } from '../lib/rail-nursery-store';
 import '../styles/extensions-nursery.css';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
 const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
 const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
+const NURSERY_SCENE_QUERY_KEY = ['nursery-scene-entity'] as const;
 const PENDING_POLL_MS = 5_000;
 
 export function Nursery(): JSX.Element {
@@ -20,6 +24,8 @@ export function Nursery(): JSX.Element {
   const nurseryQuery = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
   const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
   const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
+  // The nursery pen's backdrop comes from the scene editor (kind 'nursery').
+  const sceneEntityQuery = useQuery({ queryKey: NURSERY_SCENE_QUERY_KEY, queryFn: getNurserySceneEntity });
 
   const careMutation = useMutation({
     mutationFn: runCareAction,
@@ -46,6 +52,16 @@ export function Nursery(): JSX.Element {
   const pending = pendingQuery.data?.pending ?? [];
   const error = queryError(nurseryQuery.error, careMutation.error, graduateMutation.error, dataQuery.error, pendingQuery.error);
 
+  // Backdrop environment driven by the scene editor's kind:'nursery' scene
+  // (or named "Nursery"). Falls back to the default arena model.
+  const sceneEntity = sceneEntityQuery.data ?? null;
+  const sceneSettings = sceneEntity?.settings as Partial<SceneSettings> | undefined;
+  const sceneModelFile = typeof sceneSettings?.modelFile === 'string' && sceneSettings.modelFile !== ''
+    ? sceneSettings.modelFile
+    : undefined;
+  const envModelUrl = resolveSceneModelUrl(sceneModelFile);
+  const useGlbSettings = sceneEntity?.useGlbSettings === true;
+
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
       <>
@@ -53,6 +69,9 @@ export function Nursery(): JSX.Element {
           <NurseryPen3D
             penMons={view?.penMons ?? []}
             pending={pending}
+            envModelUrl={envModelUrl ?? undefined}
+            settings={sceneSettings ?? undefined}
+            useGlbSettings={useGlbSettings}
             stageDurations={{ babyMs: view?.babyStageMs ?? 60000, inTrainingMs: view?.inTrainingStageMs ?? 120000 }}
             busyMonId={careMutation.isPending ? careMutation.variables?.mon.id : (graduateMutation.isPending ? graduateMutation.variables : null)}
             canFeed={(view?.meat ?? 0) >= (view?.feedMeatCost ?? 0)}

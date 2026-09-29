@@ -11,6 +11,7 @@ import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, 
 import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
 import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, DEFAULT_WORLD_SCENE, WORLD_SCENE_NAME, type LobbySceneSettings, type WorldSceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
+import { NURSERY_SCENE_NAME } from '@digiworld/shared/scene';
 import { ScenePreview } from './ScenePreview';
 import { ThreeEditorFrame } from './ThreeEditorFrame';
 
@@ -79,7 +80,7 @@ const DEFAULT_SETTINGS: SceneSettings = {
 type SceneDraft = {
   readonly name: string;
   readonly elements: readonly Element[];
-  readonly kind?: 'arena' | 'lobby' | 'world';
+  readonly kind?: 'arena' | 'lobby' | 'world' | 'nursery';
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
   readonly weather: WeatherConfig | null;
@@ -98,6 +99,12 @@ function isLobbyScene(scene: SceneEntity): boolean {
 function isWorldScene(scene: SceneEntity): boolean {
   return scene.kind === 'world'
     || (scene.kind === undefined && scene.name.trim().toLowerCase() === WORLD_SCENE_NAME.toLowerCase());
+}
+
+/** Resolves like the frontend nursery lookup: kind:'nursery' first, then the name. */
+function isNurseryScene(scene: SceneEntity): boolean {
+  return scene.kind === 'nursery'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === NURSERY_SCENE_NAME.toLowerCase());
 }
 
 function draftFromScene(scene: SceneEntity): SceneDraft {
@@ -225,7 +232,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
-  const setKind = (kind: 'arena' | 'lobby' | 'world'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
+  const setKind = (kind: 'arena' | 'lobby' | 'world' | 'nursery'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
   /* lobby backdrop knobs (nested under settings.lobby) */
@@ -287,6 +294,32 @@ export function SceneSettingsAdmin(): JSX.Element {
         elements: [],
         kind: 'world',
         settings: { world: DEFAULT_WORLD_SCENE } as unknown as Record<string, unknown>,
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCreateNursery = async (): Promise<void> => {
+    const existing = scenes.find(isNurseryScene);
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: NURSERY_SCENE_NAME,
+        elements: [],
+        kind: 'nursery',
+        settings: { modelFile: 'forest_biome.glb' },
       });
       const list = await getScenes(true);
       setScenes(list);
@@ -455,6 +488,9 @@ export function SceneSettingsAdmin(): JSX.Element {
             <button type="button" onClick={() => { void handleCreateWorld(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${WORLD_SCENE_NAME}" (kind: world) — o globo 3D da tela do mundo`}>
               {busy === 'create' ? 'Creating…' : 'World'}
             </button>
+            <button type="button" onClick={() => { void handleCreateNursery(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${NURSERY_SCENE_NAME}" (kind: nursery) — o fundo 3D da tela do nursery`}>
+              {busy === 'create' ? 'Creating…' : 'Nursery'}
+            </button>
             <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
               {busy === 'create' ? 'Creating…' : 'New scene'}
             </button>
@@ -479,6 +515,9 @@ export function SceneSettingsAdmin(): JSX.Element {
                     )}
                     {isWorldScene(s) && (
                       <span className="scene-admin-list-world" title="Cena usada pelo mundo (globo)" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#e11837', color: '#fff', borderRadius: 3 }}>world</span>
+                    )}
+                    {isNurseryScene(s) && (
+                      <span className="scene-admin-list-nursery" title="Cena usada pelo nursery (pens 3D)" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#7c3aed', color: '#fff', borderRadius: 3 }}>nursery</span>
                     )}
                   </span>
                   <span className="scene-admin-list-meta">
@@ -625,15 +664,18 @@ export function SceneSettingsAdmin(): JSX.Element {
                   { label: 'Arena (combate)', value: 'arena' },
                   { label: 'Lobby (tela inicial)', value: 'lobby' },
                   { label: 'World (globo)', value: 'world' },
+                  { label: 'Nursery (pens)', value: 'nursery' },
                 ]}
-                onChange={(v) => setKind(v as 'arena' | 'lobby' | 'world')}
+                onChange={(v) => setKind(v as 'arena' | 'lobby' | 'world' | 'nursery')}
               />
               <span className="scene-admin-note" style={{ margin: 0 }}>
                 {draft.kind === 'lobby'
                   ? 'Renderizada pelo lobby: pedestais da party, chão, partículas e drift de câmera.'
                   : draft.kind === 'world'
                     ? 'Renderizada pelo mundo: cena 3d de fundo atrás do globo (itens em "Mundo (globo)").'
-                    : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
+                    : draft.kind === 'nursery'
+                      ? 'Renderizada pelo nursery: cena 3d de fundo do pens (lighting/arena edita o cenário).'
+                      : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
               </span>
             </div>
 
