@@ -22,8 +22,9 @@ import { useWebSocket } from "../../hooks/useWebSocket";
 import "../../styles/social-rail.css";
 import { useLocation, useNavigate } from "react-router";
 import { ExpeditionsPanel } from "./ExpeditionsPanel";
-import { BattlePanel } from "./BattlePanel";
 import { useRailExpeditions } from "../../lib/rail-expeditions-store";
+import { NurseryPanel } from "./NurseryPanel";
+import { useRailNursery } from "../../lib/rail-nursery-store";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
 
@@ -42,11 +43,12 @@ export function SocialRail(): JSX.Element {
   const navigate = useNavigate();
   const isWorldPage = pathname === "/world";
   const railIntent = useRailExpeditions();
+  const nurseryIntent = useRailNursery();
 
   // ── local UI state ────────────────────────────────────────────
   const [socialOpen, setSocialOpen] = useState(false);
   const [socialTab, setSocialTab] = useState<
-    "chat" | "friends" | "expeditions" | "battle"
+    "chat" | "friends" | "expeditions" | "nursery"
   >("chat");
   const [chatInput, setChatInput] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
@@ -146,8 +148,16 @@ export function SocialRail(): JSX.Element {
   useEffect(() => {
     if (railIntent.openRequest === null) return;
     setSocialOpen(true);
-    setSocialTab(railIntent.openRequest.tab);
+    setSocialTab("expeditions");
   }, [railIntent.openRequest]);
+
+  // Gatilho vindo da rota /nursery ("Hatchery" no pill): abre o rail na aba
+  // Nursery. O reset do openRequest fica com o painel (NurseryPanel).
+  useEffect(() => {
+    if (nurseryIntent.openRequest === null) return;
+    setSocialOpen(true);
+    setSocialTab("nursery");
+  }, [nurseryIntent.openRequest]);
 
   const onChatSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -313,18 +323,18 @@ export function SocialRail(): JSX.Element {
           </svg>
         </button>
         <button
-          className={`social-icon-btn${socialOpen && socialTab === "battle" ? " active" : ""}`}
+          className={`social-icon-btn${socialOpen && socialTab === "nursery" ? " active" : ""}`}
           role="tab"
-          aria-selected={socialOpen && socialTab === "battle"}
+          aria-selected={socialOpen && socialTab === "nursery"}
           onClick={() => {
-            if (socialOpen && socialTab === "battle") {
+            if (socialOpen && socialTab === "nursery") {
               setSocialOpen(false);
             } else {
               setSocialOpen(true);
-              setSocialTab("battle");
+              setSocialTab("nursery");
             }
           }}
-          title="Battle" data-tip="Battle"
+          title="Nursery" data-tip="Nursery"
         >
           <svg
             viewBox="0 0 24 24"
@@ -336,12 +346,8 @@ export function SocialRail(): JSX.Element {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5" />
-            <line x1="13" x2="19" y1="19" y2="13" />
-            <line x1="16" x2="20" y1="16" y2="20" />
-            <line x1="19" x2="21" y1="21" y2="19" />
-            <polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5" />
-            <line x1="5" x2="9" y1="14" y2="18" />
+            <path d="M12 3c4 0 7 3 7 7 0 4.5-3.5 8-7 11-3.5-3-7-6.5-7-11 0-4 3-7 7-7z" />
+            <path d="M10 13a2 2 0 0 0 4 0" />
           </svg>
         </button>
       </div>
@@ -715,9 +721,9 @@ export function SocialRail(): JSX.Element {
             />
           </div>
 
-          {/* BATTLE PANEL */}
-          <div className="spanel" hidden={socialTab !== "battle"}>
-            <BattlePanel active={socialTab === "battle"} />
+          {/* NURSERY PANEL */}
+          <div className="spanel" hidden={socialTab !== "nursery"}>
+            <NurseryPanel />
           </div>
         </>
       )}

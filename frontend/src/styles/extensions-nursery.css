@@ -46,25 +46,13 @@
 .nursery-page .nure-pill__hatch:hover { color: var(--ink); }
 .nursery-page .nure-pill__hatch svg { width: 15px; height: 15px; }
 
-/* ---- Hatchery + incubating popup ---- */
-.nursery-page .nure-pop { position: absolute; top: 70px; right: 20px; bottom: 20px; z-index: 50; width: min(400px, calc(100% - 32px)); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--signal); clip-path: var(--notch); box-shadow: 0 12px 40px rgba(0,0,0,.6); }
-.nursery-page .nure-pop__close { position: absolute; top: 8px; right: 12px; font: 900 20px/1 var(--font); color: var(--muted); }
-.nursery-page .nure-pop__close:hover { color: var(--ink); }
-.nursery-page .nure-pop__hd { padding: 15px 18px 11px; display: flex; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--hair); padding-right: 44px; }
-.nursery-page .nure-pop__title { font: 800 12px/1 var(--font); letter-spacing: .2em; text-transform: uppercase; }
-.nursery-page .nure-pop__count { margin-left: auto; font: 700 10px/1 var(--font); color: var(--muted); letter-spacing: .06em; }
-.nursery-page .nure-pop__incub { flex: 0 0 auto; border-top: 1px solid var(--hair); padding: 12px 16px 8px; }
-.nursery-page .nure-pop__incub-hd { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-.nursery-page .nure-pop__incub .rlist { overflow-y: auto; max-height: 170px; display: flex; flex-direction: column; gap: 9px; scrollbar-width: thin; }
-.nursery-page .nure-pop__incub .rlist::-webkit-scrollbar { width: 8px; }
-.nursery-page .nure-pop__incub .rlist::-webkit-scrollbar-thumb { background: var(--hair); }
+/* ---- Hatchery + incubating were moved to the Social Rail (NurseryPanel). ---- */
 
 @media (max-width: 768px) {
   .nursery-page .nure-overlay { top: 8px; left: 8px; }
   .nursery-page .nure-pill__stat { padding: 0 10px; grid-template-columns: 20px auto; gap: 7px; }
   .nursery-page .nure-pill__ic { width: 20px; height: 20px; }
   .nursery-page .nure-pill__v { font-size: 13px; }
-  .nursery-page .nure-pop { top: auto; right: 8px; left: 8px; bottom: 8px; width: auto; }
 }
 
 

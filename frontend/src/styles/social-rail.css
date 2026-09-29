@@ -1198,10 +1198,9 @@
 .exp-team-mons { display: flex; gap: 2px; flex: 0 0 auto; }
 .exp-team-mon {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 2px;
-    width: 28px;
+    justify-content: center;
+    width: 26px;
 }
 .exp-team-spr {
     width: 26px;
@@ -1211,10 +1210,26 @@
     clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
     padding: 1px;
 }
-.exp-team-lv { font: 700 8px/1 var(--font); color: var(--muted); }
-.exp-team-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.exp-team-info { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
 .exp-team-name { font: 700 12px/1.1 var(--font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .exp-team-sub { font: 700 9px/1 var(--font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+/* modo (expedição / batalha) — o Config controla ambos */
+.exp-mode-tabs { display: flex; gap: 6px; }
+.exp-mode-tabs button {
+    flex: 1;
+    border: 1px solid var(--hair);
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    background: var(--bg);
+    color: var(--muted);
+    padding: 9px;
+    font: 800 10px/1 var(--font);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+.exp-mode-tabs button:hover { border-color: var(--signal); }
+.exp-mode-tabs button.is-active { color: var(--ink); border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
 
 /* horas */
 .exp-hours { display: flex; flex-direction: column; gap: 8px; }
@@ -1444,34 +1459,3 @@
     padding: 10px 2px;
 }
 
-/* ══ BATTLE PANEL (rail) ════════════════════════════════════════════════════ */
-.battle-panel{display:flex;flex-direction:column;gap:12px;padding:12px 12px;color:var(--ink)}
-.battle-panel :is(input,button){font-family:var(--font)}
-.battle-notice{border:1px solid var(--gold);clip-path:var(--notch-sm-clip);background:color-mix(in oklab,var(--gold) 12%,transparent);color:var(--gold);padding:8px 10px;font:700 10px/1.4 var(--font)}
-.battle-section{display:flex;flex-direction:column;gap:6px}
-.battle-section-hd{font:800 9px/1 var(--font);letter-spacing:.16em;text-transform:uppercase;color:var(--gold)}
-.battle-hint{font:500 10px/1.4 var(--font);color:var(--muted);margin:0}
-.battle-empty{color:var(--muted);font:700 10px/1 var(--font);padding:6px 0}
-.battle-place-list,.battle-team-list{display:flex;flex-direction:column;gap:6px;max-height:148px;overflow:auto}
-.battle-place{display:flex;align-items:center;gap:8px;text-align:left;padding:7px 10px;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);cursor:pointer;font:700 11px/1 var(--font)}
-.battle-place.is-selected{border-color:var(--gold);color:var(--ink);box-shadow:inset 0 -2px var(--gold)}
-.battle-place-check{width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);color:transparent;font-size:9px}
-.battle-place.is-selected .battle-place-check{color:var(--gold);border-color:var(--gold)}
-.battle-place-name{flex:1;color:var(--ink);font-weight:800}
-.battle-place-sub{font:700 9px/1 var(--font);color:var(--muted)}
-.battle-team{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:8px 10px;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);cursor:pointer}
-.battle-team strong{color:var(--ink);font:800 11px/1 var(--font)}
-.battle-team small{color:var(--muted);font:700 9px/1 var(--font)}
-.battle-team.is-selected{border-color:var(--gold);box-shadow:inset 0 -2px var(--gold)}
-.battle-team:disabled{opacity:.5;cursor:not-allowed}
-.battle-mode-tabs{display:flex;gap:6px}
-.battle-mode-tabs button{flex:1;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel2);color:var(--muted);padding:9px;font:800 10px/1 var(--font);text-transform:uppercase;cursor:pointer}
-.battle-mode-tabs button.is-active{color:var(--ink);border-color:var(--gold);box-shadow:inset 0 -2px var(--gold)}
-.battle-hours{display:flex;align-items:center;gap:8px;font:700 10px/1 var(--font);color:var(--muted)}
-.battle-hours input{flex:1;accent-color:var(--gold)}
-.battle-meat-card{display:flex;align-items:center;gap:8px;border:1px solid var(--hair);clip-path:var(--notch-sm-clip);background:var(--panel);padding:8px 10px}
-.battle-meat-card span{color:var(--muted);font:700 9px/1 var(--font);text-transform:uppercase;flex:1}
-.battle-meat-card strong{color:var(--gold);font:900 16px/1 var(--font)}
-.battle-meat-card small{color:var(--muted);font:700 9px/1 var(--font)}
-.battle-action{width:100%;border:1px solid var(--signal);clip-path:var(--notch-sm-clip);background:var(--signal);color:#fff;padding:11px;font:800 11px/1 var(--font);text-transform:uppercase;cursor:pointer}
-.battle-action:disabled{opacity:.45;cursor:not-allowed}
