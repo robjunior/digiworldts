@@ -11,9 +11,13 @@ type DigitamaPoolProps = {
 };
 
 export function DigitamaPool({ entries, loading, selectedIds, onToggle }: DigitamaPoolProps): JSX.Element {
-  const list = [...entries].sort((a, b) => b.percent - a.percent || b.kills - a.kills);
+  // Hatchery only lists species the player actually has data for (percent > 0),
+  // keeping the component from getting cluttered with zero-data entries.
+  const list = [...entries]
+    .filter((e) => e.percent > 0)
+    .sort((a, b) => b.percent - a.percent || b.kills - a.kills);
 
-  if (loading && entries.length === 0) {
+  if (loading && list.length === 0) {
     return <div className="rlist" id="datalist"><div className="rempty">Loading…</div></div>;
   }
 
