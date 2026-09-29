@@ -1,6 +1,7 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 import { skillTargetScope } from '@digiworld/shared/battle';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useNavigate } from 'react-router';
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
@@ -26,9 +27,11 @@ import { usePveDispatch } from './usePveDispatch';
 import { useActionDispatch } from './useActionDispatch';
 import { BattleStatusMessage } from './BattleStatusMessage';
 import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
+import { startPveEncounter } from '../../lib/api-world';
 
 export function Combat3DBody(): JSX.Element | null {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { send } = useWebSocket();
   const activeBattle = useWsStore((state) => state.activeBattle);
   const battleEvents = useWsStore((state) => state.battleEvents);
@@ -113,8 +116,12 @@ export function Combat3DBody(): JSX.Element | null {
   }, [activeBattle, selectedTargetId]);
 
   useEffect(() => {
-    if (activeBattle?.status === 'ended') setEndModalOpen(true);
-  }, [activeBattle?.status]);
+    if (activeBattle?.status !== 'ended') return;
+    setEndModalOpen(true);
+    void queryClient.invalidateQueries({ queryKey: ['roster'] });
+    void queryClient.invalidateQueries({ queryKey: ['items'] });
+    void queryClient.invalidateQueries({ queryKey: ['farm'] });
+  }, [activeBattle?.status, queryClient]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -289,9 +296,22 @@ export function Combat3DBody(): JSX.Element | null {
           onClose={() => {
             setEndModalOpen(false);
             clearActiveBattle();
-            navigate('/', { replace: true });
+            navigate(activeBattle.mode === 'pve' ? '/world' : '/', { replace: true });
           }}
-        />
+          {...(activeBattle.mode === 'pve' && activeBattle.sceneId ? {
+            onContinue: async () => {
+              // Fecha o card primeiro; o próximo match chega via WS (caso
+              // 'match') e substitui a cena — sem limpar antes, evitando tela
+              // em branco. Se a nova batalha falhar (ex.: meat insuficiente),
+              // volta ao globo em vez de prender o jogador na cena.
+              setEndModalOpen(false);
+              const next = await startPveEncounter(activeBattle.sceneId!, 'explore');
+              if (!next.ok) {
+                clearActiveBattle();
+                navigate('/world', { replace: true });
+              }
+            },
+          } : {})}        />
       ) : null}
 
       <BattleStatusMessage error={loadError} />

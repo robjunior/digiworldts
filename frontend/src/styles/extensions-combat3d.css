@@ -1975,3 +1975,13 @@ html.is-combat body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--fo
 .overlay { z-index: 20; }
 @media (max-width: 900px) { .turn-order-rail { top: 10px; right: 10px; transform: none; } }
 .command-overlay { background: color-mix(in oklab, var(--bg) 94%, transparent); }
+
+/* Pós-combate AZUL (não o vermelho Persona da cena): html.is-combat redefiniu
+   --signal/--battle para #e6001f, o que deixava o end-card e os resultados PvE
+   vermelhos. Re-escopamos o acento da UI base (azul) para o card de resultado. */
+html.is-combat .end-modal-content,
+html.is-combat .pve-results {
+  --signal: #3b82f6;
+  --signal2: #60a5fa;
+  --battle: #f59e0b;
+}
