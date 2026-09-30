@@ -615,14 +615,29 @@ export function validateXref(
 export type ApplySummary = {
   tables: Record<string, { rows: number; versions: number }>;
   totalVersions: number;
+  /** Rows purged when `reconcile` is enabled, keyed by table name. */
+  purged?: Record<string, number>;
 };
 
 /**
  * Deploy a validated seed artifact into the target DB — one transaction.
  * For every artifact table: UPSERT each row into the content table, record an
  * immutable content_versions snapshot, and point active_versions at it.
+ *
+ * When `opts.reconcile` is true, the same transaction ALSO deletes rows that
+ * content-deploy itself previously deployed (they carry an `active_versions`
+ * pointer for the domain) but are absent from the incoming bundle — so the
+ * bundle-managed subset of each content table becomes an exact mirror of the
+ * artifact ("only clean content"). Boot-seeded rows that content-deploy never
+ * wrote (they have no version pointer) are deliberately left untouched, so a
+ * stale bundle can never delete content the server depends on. Reconcile runs
+ * in reverse CONTENT_TABLES order so FK dependents are deleted before their
+ * parents.
  */
-export async function applySeed(env: { tables: Record<string, Row[]> }): Promise<ApplySummary> {
+export async function applySeed(
+  env: { tables: Record<string, Row[]> },
+  opts?: { reconcile?: boolean },
+): Promise<ApplySummary> {
   // The xref gate is enforced here (not just in the CLI) so apply can never be
   // reached with a broken artifact, regardless of entry point.
   const xrefErrors = validateXref(env);
@@ -634,6 +649,7 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
   const now = Date.now();
   return tx(async (t) => {
     const tables: ApplySummary['tables'] = {};
+    const purged: Record<string, number> = {};
     let totalVersions = 0;
 
     // Iterate in CONTENT_TABLES order to respect FK dependencies
@@ -677,8 +693,60 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
       totalVersions += rows.length;
     }
 
-    return { tables, totalVersions };
+    // Reconcile pass — purge bundle-managed orphan rows (see docstring for the
+    // safety model). Reverse order so FK dependents go first.
+    if (opts?.reconcile) {
+      for (const { name } of [...CONTENT_TABLES].reverse()) {
+        const rows = env.tables[name] ?? [];
+        const pk = pkColumnsOf(name);
+        const bundleKeys = new Set(rows.map((r) => rowKey(r, pk)));
+        const deployed = await t.query<{ ref_id: string }>(
+          `SELECT ref_id FROM active_versions WHERE domain = ?`,
+          [name],
+        );
+        let deleted = 0;
+        for (const a of deployed) {
+          if (bundleKeys.has(a.ref_id)) continue;
+          const values = parseRefId(a.ref_id, pk);
+          if (values === null) continue;
+          const where = pk.map((c) => `${qid(c)} = ?`).join(' AND ');
+          await t.run(`DELETE FROM ${qid(name)} WHERE ${where}`, values);
+          // Drop the version pointer + history so the ledger matches content reality.
+          await t.run(`DELETE FROM active_versions WHERE domain = ? AND ref_id = ?`, [name, a.ref_id]);
+          await t.run(`DELETE FROM content_versions WHERE domain = ? AND ref_id = ?`, [name, a.ref_id]);
+          deleted += 1;
+        }
+        if (deleted > 0) purged[name] = deleted;
+      }
+    }
+
+    const result: ApplySummary = { tables, totalVersions };
+    if (opts?.reconcile) result.purged = purged;
+    return result;
   });
+}
+
+/** Decode a version-ledger ref_id (JSON array of PK values) back into row values. */
+function parseRefId(refId: string, pk: readonly string[]): unknown[] | null {
+  if (pk.length === 1) {
+    // Single-column keys are stored as a 1-element JSON array too ([value]).
+  }
+  try {
+    const v = JSON.parse(refId) as unknown;
+    if (Array.isArray(v) && v.length === pk.length) return v;
+  } catch {
+    return null;
+  }
+  // Legacy tolerance: a bare scalar where a scalar PK is expected.
+  if (pk.length === 1) {
+    try {
+      const asJson = JSON.parse(refId);
+      return [asJson];
+    } catch {
+      return [refId];
+    }
+  }
+  return null;
 }
 
 /** INSERT a content_versions snapshot + UPSERT the active_versions pointer. */

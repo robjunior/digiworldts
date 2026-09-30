@@ -66,6 +66,8 @@
     "test:dialogue-runtime-b": "DB_PATH=/tmp/dw-dlg-b.db tsx test/dialogue-runtime-b-smoke.mts",
     "test:content-deploy-lifecycle": "DATABASE=sqlite DB_PATH=/tmp/dw-lifecycle-test.db tsx test/content-deploy-lifecycle.test.ts",
     "test:content-deploy-slug-key": "DATABASE=sqlite DB_PATH=/tmp/dw-slug-key-test.db tsx test/content-deploy-slug-key.test.ts",
+    "test:content-deploy-reconcile": "DATABASE=sqlite DB_PATH=/tmp/dw-reconcile-test.db tsx test/content-deploy-reconcile.test.mts",
+    "test:prune-roster": "DATABASE=sqlite DB_PATH=/tmp/dw-prune-roster.db CATALOG_XML=/tmp/dw-prune-catalog.xml tsx test/prune-roster-smoke.mts",
     "test:content-deploy-assets": "DATABASE=sqlite DB_PATH=/tmp/dw-assets-test.db tsx test/content-deploy-assets.test.mts",
     "test:xref-integrity": "DATABASE=sqlite DB_PATH=/tmp/dw-xref-test.db tsx test/xref-integrity.test.ts",
     "test:starter-teams": "DATABASE=sqlite DATABASE_URL= DB_PATH=/tmp/dw-starter-teams.db tsx test/starter-teams.mts",
@@ -90,6 +92,7 @@
     "content:validate": "tsx src/content-deploy/cli.ts --validate content/content-bundle.json",
     "content:diff": "tsx src/content-deploy/cli.ts --diff content/content-bundle.json",
     "content:xref": "tsx src/content-deploy/xref.ts content/content-bundle.json",
+    "content:prune-roster": "tsx src/content-deploy/cli.ts --prune-roster",
  "booster:validate": "tsx src/boosters/cli.ts validate",
  "booster:compile": "tsx src/boosters/cli.ts compile",
  "test:boosters": "DATABASE=sqlite DB_PATH=/tmp/dw-boosters-test.db tsx test/boosters.test.ts"
