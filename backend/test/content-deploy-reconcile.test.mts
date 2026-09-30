@@ -135,28 +135,38 @@ async function main(): Promise<void> {
   check('version ledger reconciled (1 pointer left)', (remainingPointers[0]?.c ?? 0) === 1, `got ${remainingPointers[0]?.c}`);
 
   // --- SELF-REFERENTIAL FK: booster_digimon_nodes parent_node_id ---
-  // Prior bundle shipped a parent + child node (child.parent_node_id = parent id).
-  // The NEW bundle ships NEITHER, so reconcile must purge BOTH — and must delete
-  // the child BEFORE the parent or the self-FK trips (the deploy failure).
+  // Prior bundle shipped a 3-node chain (grandparent→parent→child, each
+  // child.parent_node_id = its parent). The NEW bundle ships NONE of them, so
+  // reconcile must purge all three — deleting grandparent before its child
+  // would trip the self-FK. A 3-node chain is the case a naive "peel leaves
+  // once" misses (after removing the leaf, its parent is still listed as a
+  // parent and the cycle guard fires a DELETE on a parent first).
   if (!('booster_digimon_nodes' in bundle.tables) || !('boosters' in bundle.tables)) {
     check('booster tables present for self-FK scenario', false, 'bundle missing booster tables');
   } else {
     check('booster tables present for self-FK scenario', true);
     const booster = (bundle.tables['boosters'] ?? [])[0];
-    const parentRow = { id: 'bt-prune:parent', booster_id: booster?.id ?? 'bt-x', ref: 'parent', digimon_id: 'skb-1', rarity: 'rare', weight: 1, order: 0 };
-    const childRow = { ...parentRow, id: 'bt-prune:child', ref: 'child', parent_node_id: 'bt-prune:parent', order: 1 };
-    const envFor = (tables: Record<string, Row[]>) => ({ tables });
-    await applySeed(envFor({
-      boosters: [booster].filter((b): b is Row => !!b),
-      booster_digimon_nodes: [parentRow, childRow],
+    // Grandparent (root), parent (child of gp), child (child of parent).
+    const chain = [
+      { id: 'bt-chain:gp', parent_node_id: null, order: 0 },
+      { id: 'bt-chain:p', parent_node_id: 'bt-chain:gp', order: 1 },
+      { id: 'bt-chain:c', parent_node_id: 'bt-chain:p', order: 2 },
+    ];
+    const chainRows = chain.map((n) => ({
+      id: n.id, booster_id: booster?.id ?? 'bt-x', ref: n.id.split(':')[1]!,
+      digimon_id: 'skb-1', rarity: 'rare', weight: 1, parent_node_id: n.parent_node_id, order: n.order,
     }));
-    // The bundle now ships neither node → both are orphans to purge.
-    const summary2 = await applySeed(envFor({
-      boosters: [booster].filter((b): b is Row => !!b),
-      booster_digimon_nodes: [],
-    }), { reconcile: true });
-    check('reconcile purged both booster nodes (child before parent, self-FK safe)',
-      (summary2.purged?.['booster_digimon_nodes'] ?? 0) === 2,
+    const envFor = (nodes: Row[]) => ({
+      tables: {
+        boosters: [booster].filter((b): b is Row => !!b),
+        booster_digimon_nodes: nodes,
+      },
+    });
+    await applySeed(envFor(chainRows));
+    // The bundle now ships none of the chain → all three are orphans to purge.
+    const summary2 = await applySeed(envFor([]), { reconcile: true });
+    check('reconcile purged all 3 booster chain nodes (leaf-first, self-FK safe)',
+      (summary2.purged?.['booster_digimon_nodes'] ?? 0) === 3,
       `purged=${summary2.purged?.['booster_digimon_nodes']}`);
     const nodes = await adapter.query<{ id: string }>('SELECT id FROM booster_digimon_nodes ORDER BY id');
     check('booster_digimon_nodes empty after purge', nodes.length === 0, `got ${nodes.length}`);

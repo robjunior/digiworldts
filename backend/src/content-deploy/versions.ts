@@ -800,37 +800,46 @@ async function selfFkDeleteOrder(
   }
   if (ids.size === 0) return [...refIds];
   const pk0 = qid(pk[0] ?? 'id');
-  // Build a set of ids that appear as a (kept-or-to-be-deleted) parent, so we
-  // can recognize parent relationships among the delete set without touching rows
-  // the bundle keeps.
+  // Build a parent -> children map, counting ONLY children that are themselves
+  // in the delete set (rows the bundle keeps never block a purge).
+  // parentChildren.get(P) = ids of P's children that are DERIVED to-be-deleted.
+  const parentChildren = new Map<string, Set<string>>();
   const parentRows = await t.query<Record<string, unknown>>(
-    `SELECT ${pk0} AS id, ${qid(fkCol)} AS parent FROM ${qid(table)} WHERE ${qid(fkCol)} IS NOT NULL`,
+    `SELECT ${qid(fkCol)} AS parent, ${pk0} AS child FROM ${qid(table)} WHERE ${qid(fkCol)} IS NOT NULL`,
   );
-  const parentId = new Set<string>();
   for (const r of parentRows) {
-    const p = String(r['parent']);
-    if (ids.has(p)) parentId.add(p);
+    const parent = String(r['parent']);
+    const child = String(r['child']);
+    if (!ids.has(parent) || !ids.has(child)) continue; // only both-to-be-deleted
+    let s = parentChildren.get(parent);
+    if (!s) { s = new Set(); parentChildren.set(parent, s); }
+    s.add(child);
   }
-  // Iteratively peel leaves: ids (candidates) that are not referenced as a
-  // parent of any earlier-returned... simplest: repeatedly emit a candidate whose
-  // id is not listed as a parent in the remaining set.
+  // Iteratively delete nodes that have NO to-be-deleted children still pending.
+  // A child is consumed as soon as IT is emitted; only then does its parent
+  // become a leaf — so 3+ node chains (grandparent→parent→child) are safe.
   const remaining = new Set(ids);
   const out: string[] = [];
   while (remaining.size > 0) {
-    const leaves = [...remaining].filter((id) => !parentId.has(id));
+    const leaves = [...remaining].filter((id) => {
+      const kids = parentChildren.get(id);
+      if (!kids || kids.size === 0) return true;
+      // only pending children block a parent
+      return [...kids].every((k) => !remaining.has(k));
+    });
+    // Cycle guard (shouldn't happen for a tree/DAG): break arbitrarily — pick a
+    // node and drop its dependency edge so we make progress.
     if (leaves.length === 0) {
-      // Cycle guard (shouldn't happen for a tree/DAG): break arbitrarily.
       leaves.push([...remaining][0]!);
     }
     for (const leaf of leaves) {
       out.push(idToRef.get(leaf)!);
       remaining.delete(leaf);
+      // The leaf is no longer a pending child of anyone → release its parent.
+      for (const [, kids] of parentChildren) kids.delete(leaf);
     }
-    // After peeling a leaf, it can no longer be others' parent dependency, so
-    // drop its id from the parent set.
-    for (const leaf of leaves) parentId.delete(leaf);
   }
-  return out;
+  return [...new Set(out)];
 }
 
 /** INSERT a content_versions snapshot + UPSERT the active_versions pointer. */
