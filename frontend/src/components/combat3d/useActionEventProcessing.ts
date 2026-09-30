@@ -36,11 +36,16 @@ export function useActionEventProcessing(
 
       const isMiss = cue === 'miss';
       if (playVfx && !actorIsFriendly && isAnimatedElement(skillElement) && !isMiss) {
+        const attackKind: 'basic' | 'skill' =
+          event.action !== undefined && event.action.type === 'fight' ? 'basic' : 'skill';
         sceneRef.current?.playEffect(
           skillElement as AnimatedElement,
           eventActor,
           targetId,
-          vfxPresetId !== undefined ? { vfxPresetId } : undefined,
+          {
+            attackKind,
+            ...(vfxPresetId !== undefined ? { vfxPresetId } : {}),
+          },
         );
       }
     },

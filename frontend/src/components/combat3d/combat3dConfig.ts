@@ -22,6 +22,9 @@ export type PlayerVfx = {
   readonly targetId: UnitId;
   readonly element: AnimatedElement;
   readonly vfxPresetId?: string;
+  /** `basic` = melee dash/slash; `skill` = ranged cast. Derived from the action
+   *  type so the scene routes the effect to the right runner family. */
+  readonly attackKind: 'basic' | 'skill';
 };
 
 export function readAutobattlePref(): boolean {
@@ -63,13 +66,19 @@ export function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action)
         sourceId: actor.id,
         targetId: action.targetId,
         element: skill.element,
+        attackKind: 'skill',
         ...(skill.vfxPresetId !== undefined ? { vfxPresetId: skill.vfxPresetId } : {}),
       };
     }
     return null;
   }
   if (action.type === 'fight' && isAnimatedElement(actor.element)) {
-    return { sourceId: actor.id, targetId: action.targetId, element: actor.element };
+    return {
+      sourceId: actor.id,
+      targetId: action.targetId,
+      element: actor.element,
+      attackKind: 'basic',
+    };
   }
   return null;
 }

@@ -33,7 +33,10 @@ export function useActionDispatch(
           vfx.element,
           vfx.sourceId,
           vfx.targetId,
-          vfx.vfxPresetId !== undefined ? { vfxPresetId: vfx.vfxPresetId } : undefined,
+          {
+            attackKind: vfx.attackKind,
+            ...(vfx.vfxPresetId !== undefined ? { vfxPresetId: vfx.vfxPresetId } : {}),
+          },
         );
         setCommandMode('menu');
         window.setTimeout(() => {

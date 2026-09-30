@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
 
 import { ELEMENTS } from '@digiworld/shared/digimon';
-import { SKILL_VFX_NAMED_EFFECTS } from '@digiworld/shared/skill-vfx';
+import { SKILL_VFX_MELEE_EFFECTS, SKILL_VFX_RANGED_EFFECTS } from '@digiworld/shared/skill-vfx';
 import { useLocale } from '../../hooks/useLocale';
 import { localizedName, localizedDescription } from '../../lib/locale';
 import { createSkill, deleteSkill, getCatalogSkills, getSkills, updateSkill, type SkillElement, type SkillInput, type SkillView, type CatalogSkillMeta } from '../../lib/api-admin';
@@ -131,8 +131,13 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
         <Field label="Visual effect (optional)">
           <select className="input" name="vfxPresetId" defaultValue={skill?.vfxPresetId ?? ''}>
             <option value="">Element default ({skill?.element ?? 'element'} runner)</option>
-            <optgroup label="Named code effects">
-              {SKILL_VFX_NAMED_EFFECTS.map((id) => (
+            <optgroup label="Ranged skill effects">
+              {SKILL_VFX_RANGED_EFFECTS.map((id) => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Melee basic-attack effects">
+              {SKILL_VFX_MELEE_EFFECTS.map((id) => (
                 <option key={id} value={id}>{id}</option>
               ))}
             </optgroup>
@@ -146,10 +151,10 @@ function SkillForm({ skill, busy, onCancel, onSubmit }: { readonly skill: SkillV
           </select>
           <p className="admin-hint">
             Plays from the attacking Digimon onto each unit the skill hits. Leave on
-            “Element default” to keep the built-in per-element effect. Named code effects
-            are faithful ports of the reference FX (fireball, frost-spikes, ice-lance,
-            tornado, lightning); editor presets are particle-based and tunable in the
-            Skill VFX editor.
+            “Element default” to keep the built-in per-element effect — or pick a
+            named code effect (ranged = the reference skill FX; melee = the dash +
+            slash basic-attack FX). Editor presets are particle-based and tunable in
+            the Skill VFX editor.
           </p>
         </Field>
         <Field label="Actions JSON (array, 1-20 items)"><textarea className="input mono" name="actions" rows={12} defaultValue={initialActions} spellCheck={false} required /></Field>

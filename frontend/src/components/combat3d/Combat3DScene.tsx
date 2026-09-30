@@ -103,7 +103,11 @@ type SceneResolution = {
 };
 
 export type Combat3DSceneHandle = {
-  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: { readonly onImpact?: () => void; readonly vfxPresetId?: string }): void;
+  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: {
+    readonly onImpact?: () => void;
+    readonly vfxPresetId?: string;
+    readonly attackKind?: 'basic' | 'skill';
+  }): void;
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
   getSettings(): SceneSettings | null;
   applySettings(patch: Partial<SceneSettings>): void;

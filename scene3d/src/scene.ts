@@ -19,7 +19,7 @@ import type {
 } from "./attack-runners/types";
 import { CameraDirector, clampZoom, framePoint } from "./camera-direction";
 import type { CamVector, CameraTarget } from "./camera-direction";
-import type { SkillVfxAttackType, SkillVfxNamedEffect, SkillVfxTrajectory } from "@digiworld/shared/skill-vfx";
+import type { SkillVfxAttackType, SkillVfxRangedEffect, SkillVfxTrajectory } from "@digiworld/shared/skill-vfx";
 import {
   DEFAULT_EFFECT_DURATION_S,
   ELEMENT_LIGHT_COLOR,
@@ -47,6 +47,7 @@ const IMPACT_HEIGHT_RATIO = 0.08;
 const UNSOURCED_DROP_HEIGHT = 4;
 import { resolveSkillVfxPreset } from "./skill-vfx-resolver";
 import { namedEffectDuration, tryBuildNamedRunner } from "./attack-runners/named";
+import { MELEE_RUNNERS } from "./attack-runners/melee";
 import {
   FORMATION_SIDE_X,
   FORMATION_SLOT_Z_SPACING,
@@ -2390,6 +2391,9 @@ export class SceneManager {
       readonly durationS?: number;
       readonly onImpact?: () => void;
       readonly vfxPresetId?: string;
+      /** `basic` = a fight action's melee dash/slash; `skill` = a ranged cast.
+       *  Defaults to `skill` when a vfxPresetId is present, else `basic`. */
+      readonly attackKind?: 'basic' | 'skill';
     } = {},
   ): string | null {
     const target = this.sprites.get(targetUnitId);
@@ -2436,8 +2440,10 @@ export class SceneManager {
     // Kick off the combat camera sequence for this cast. A preset's `attackType`
     // decides melee (attacker advances, camera follows) vs ranged (camera follows
     // the projectile along the preset trajectory and holds on the receiver).
-    // Basic attacks / element-runner skills (no preset) are treated as melee.
-    let attackType: SkillVfxAttackType = 'melee';
+    // Basic attacks are always melee; skills are ranged unless a stored preset
+    // overrides the delivery.
+    const attackKind: 'basic' | 'skill' = options.attackKind ?? (options.vfxPresetId !== undefined ? 'skill' : 'basic');
+    let attackType: SkillVfxAttackType = attackKind === 'basic' ? 'melee' : 'ranged';
     let cameraTrajectory: SkillVfxTrajectory = 'straight';
     let cameraImpactS = CAST_DEFAULT_IMPACT_S;
     if (options.vfxPresetId !== undefined) {
@@ -2490,6 +2496,16 @@ export class SceneManager {
       },
     };
 
+    // Basic attacks (fight) are ALWAYS melee: a dash-into-slash per element.
+    // Skills are ranged, resolved via a named code effect → stored preset →
+    // the element runner fallback. A basic attack never carries a vfxPresetId.
+    if (attackKind === 'basic') {
+      const meleeBuild = MELEE_RUNNERS[element];
+      const runner = createDeferredRunner(() => meleeBuild(this.scene, wrappedEffect));
+      this.effects.set(id, { runner, elapsed: 0, duration: durationS });
+      return id;
+    }
+
     if (options.vfxPresetId !== undefined) {
       // A named code effect (faithful port of a reference FX) takes priority:
       // falls back to the stored particle preset, then the element runner.
@@ -2500,7 +2516,7 @@ export class SceneManager {
         this.effects.set(id, {
           runner,
           elapsed: 0,
-          duration: namedId !== undefined ? namedEffectDuration(namedId as SkillVfxNamedEffect) : durationS,
+          duration: namedId !== undefined ? namedEffectDuration(namedId as SkillVfxRangedEffect) : durationS,
         });
         return id;
       }

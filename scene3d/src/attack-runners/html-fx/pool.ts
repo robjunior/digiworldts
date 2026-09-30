@@ -30,7 +30,7 @@ export class Pool {
   private readonly dragArr: Float32Array;
   private k = 0;
 
-  constructor(scene: THREE.Scene, max = 9000) {
+  constructor(scene: THREE.Scene, max = 9000, blend: THREE.Blending = THREE.AdditiveBlending) {
     this.max = max;
     const f = (m = 1) => new Float32Array(max * m);
     this.pos = f(3);
@@ -56,7 +56,7 @@ export class Pool {
     this.material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: blend,
       uniforms: { scale: { value: 600 } },
       vertexShader: `
         attribute float size;
@@ -167,6 +167,22 @@ export const C = {
   el: rgb(0x6f9bff), el2: rgb(0x2a2fff), spark: rgb(0xfff6b0),
 } as const;
 
+/** Extra reference palette used by the melee / holy / water / null effects. */
+export const C2 = {
+  gd: rgb(0xffd870), gd2: rgb(0xff9a30),
+  wt0: rgb(0x9fe0ff), wt1: rgb(0x1f6fe0),
+  gr0: rgb(0x9dff5a), gr1: rgb(0x1a6a20), pk: rgb(0xff9ac8),
+  pur: rgb(0xb060ff), pur2: rgb(0x4a10a0), dks: rgb(0x1a0028),
+  st0: rgb(0xdde6f2), st1: rgb(0x445064),
+  nl0: rgb(0xf2f4fa), nl1: rgb(0x5a5f70),
+  rk: [0.5, 0.42, 0.33] as [number, number, number],
+  rk1: [0.16, 0.14, 0.12] as [number, number, number],
+  rd0: [0.7, 0.6, 0.45] as [number, number, number],
+  rd1: [0.3, 0.25, 0.2] as [number, number, number],
+  bk: [0, 0, 0] as [number, number, number],
+  wh: [1, 1, 1] as [number, number, number],
+} as const;
+
 /** Spherical burst of n particles from a point — `burst()` from the HTML. */
 export function burst(
   pool: Pool,
@@ -179,5 +195,75 @@ export function burst(
   for (let i = 0; i < n; i++) {
     const v = V(rnd(), rnd(), rnd()).normalize().multiplyScalar(rand(0.3, 1) * spd);
     pool.emit(x, y, z, v.x, v.y + up, v.z, rand(0.6, 1) * ml, s0, s1, c0, c1, grav, drag);
+  }
+}
+
+/** Horizontal ring of particles radiating outward — `ringOut()` from the HTML.
+ *  `ml` is the max life, `s0` the start size; end size = s0*0.25 (as authored). */
+export function ringOut(
+  pool: Pool,
+  q: THREE.Vector3, y: number, n: number, sp: number, ml: number, s0: number,
+  c0: readonly [number, number, number], c1: readonly [number, number, number],
+): void {
+  for (let j = 0; j < n; j++) {
+    const an = (j / n) * 6.28;
+    pool.emit(
+      q.x, y, q.z,
+      Math.cos(an) * sp, rand(-0.3, 0.5), Math.sin(an) * sp,
+      ml, s0, s0 * 0.25, c0, c1, 0, 2,
+    );
+  }
+}
+
+/** Diagonal slash arc of particles on the receiver — `slash()` from the HTML. */
+export function slash(
+  pool: Pool,
+  x: number, c0: readonly [number, number, number], c1: readonly [number, number, number],
+  width = 1.5, yBase = 1.5, z = 0.5,
+): void {
+  for (let j = 0; j <= 26; j++) {
+    const u = j / 26 - 0.5;
+    pool.emit(
+      x - 0.9 + u * width,
+      yBase - u * 2.2 + 0.3 * (1 - 4 * u * u),
+      z,
+      0, 0, 0, 0.2, 0.26, 0.03, c0, c1,
+    );
+  }
+}
+
+/** Jagged path from a → b with per-segment jitter — `makePath()` from the HTML. */
+export function makePath(
+  a: THREE.Vector3, b: THREE.Vector3, segs: number, jit: number,
+): THREE.Vector3[] {
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i <= segs; i++) {
+    const u = i / segs;
+    const p = a.clone().lerp(b, u);
+    const amp = jit * Math.sin(Math.PI * u) + (i > 0 && i < segs ? 0.05 : 0);
+    if (i > 0 && i < segs) {
+      p.x += rnd() * amp;
+      p.z += rnd() * amp;
+      p.y += rnd() * amp * 0.3;
+    }
+    pts.push(p);
+  }
+  return pts;
+}
+
+/** Emit a particle-drawn line along a path — `draw()` from the HTML. */
+export function draw(
+  pool: Pool,
+  pts: readonly THREE.Vector3[], size: number, life: number,
+  c0: readonly [number, number, number], c1: readonly [number, number, number],
+): void {
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i]!;
+    const bb = pts[i + 1]!;
+    const n = Math.max(1, Math.ceil(a.distanceTo(bb) / 0.14));
+    for (let k = 0; k < n; k++) {
+      const p = a.clone().lerp(bb, k / n);
+      pool.emit(p.x, p.y, p.z, 0, 0, 0, life, size, size * 0.3, c0, c1);
+    }
   }
 }

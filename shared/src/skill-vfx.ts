@@ -33,12 +33,49 @@ export type SkillVfxTrajectory = (typeof SKILL_VFX_TRAJECTORIES)[number];
  * backend skill validation and the scene3d runner registry agree on the ids
  * and the admin editor can offer them as choices.
  */
-export const SKILL_VFX_NAMED_EFFECTS = [
+export const SKILL_VFX_RANGED_EFFECTS = [
   'fireball',
   'frost-spikes',
   'ice-lance',
   'tornado',
   'lightning',
+  'shadow-void',
+  'holy-smite',
+  'tidal-surge',
+  'blade-storm',
+  'stone-fall',
+  'null-pulse',
+  'vine-lash',
+] as const;
+export type SkillVfxRangedEffect = (typeof SKILL_VFX_RANGED_EFFECTS)[number];
+
+/**
+ * Melee basic-attack effects — one per element, routed automatically for
+ * `fight` actions (no vfxPresetId needed).
+ */
+export const SKILL_VFX_MELEE_EFFECTS = [
+  'melee-fire',
+  'melee-water',
+  'melee-plant',
+  'melee-ice',
+  'melee-electricity',
+  'melee-earth',
+  'melee-steel',
+  'melee-wind',
+  'melee-light',
+  'melee-dark',
+  'melee-null',
+] as const;
+export type SkillVfxMeleeEffect = (typeof SKILL_VFX_MELEE_EFFECTS)[number];
+
+/**
+ * All named code effects, ranged + melee combined. A skill's `vfxPresetId` may
+ * reference a ranged effect; melee effects are routed automatically for `fight`
+ * actions (kept in the union so one helper handles every named id).
+ */
+export const SKILL_VFX_NAMED_EFFECTS = [
+  ...SKILL_VFX_RANGED_EFFECTS,
+  ...SKILL_VFX_MELEE_EFFECTS,
 ] as const;
 export type SkillVfxNamedEffect = (typeof SKILL_VFX_NAMED_EFFECTS)[number];
 
