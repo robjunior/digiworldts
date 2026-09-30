@@ -213,6 +213,7 @@ export function Combat3DBody(): JSX.Element | null {
       }
     >
       <Combat3DScene
+        key={activeBattle.id}
         ref={sceneRef}
         battle={activeBattle}
         onEnemyClick={(unitId) => {
@@ -331,10 +332,16 @@ export function Combat3DBody(): JSX.Element | null {
           }}
           {...(activeBattle.mode === 'pve' && activeBattle.sceneId ? {
             onContinue: async () => {
-              // Fecha o card primeiro; o próximo match chega via WS (caso
-              // 'match') e substitui a cena — sem limpar antes, evitando tela
-              // em branco. Se a nova batalha falhar (ex.: meat insuficiente),
-              // volta ao globo em vez de prender o jogador na cena.
+              // Fecha o card primeiro. O próximo match chega via WS (caso
+              // 'match') e substitui a cena — mas o combate 3D NÃO recarrega
+              // se continuarmos montados no /combat (o mesmo SceneManager fica
+              // reutilizado com arena/sprites obsoletos). Pra recarregar de
+              // verdade, saímos de /combat e voltamos pelo loading que fizemos
+              // (rota /loading → lazy route + splash "Wild Encounter"): isso
+              // desmonta a cena atual e, no retorno, a rota lazy remonta o
+              // SceneManager do zero pro novo match. Se a nova batalha falhar
+              // (ex.: meat insuficiente), volta ao globo em vez de prender o
+              // jogador na cena.
               setEndModalOpen(false);
               // Novo combate com digimons DIFERENTES: exclui as espécies que
               // acabaram de ser enfrentadas do próximo sorteio do pool.
@@ -343,7 +350,14 @@ export function Combat3DBody(): JSX.Element | null {
               if (!next.ok) {
                 clearActiveBattle();
                 navigate('/world', { replace: true });
+                return;
               }
+              // Recarrega o combate 3D roteando pelo /loading: desmonta o
+              // /combat (cena descartada) e re-entra via lazy route. Quando o
+              // match já estiver no store, o RealtimeBridge (App) redireciona
+              // o /loading de volta pra /combat imediatamente, remontando a
+              // cena do zero.
+              navigate('/loading', { state: { battle: activeBattle, returnTo: '/combat' } });
             },
           } : {})}        />
       ) : null}
