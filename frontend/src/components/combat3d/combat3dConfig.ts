@@ -1,9 +1,13 @@
-import type { Action, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
-import { isAnimatedElement } from '@digiworld/scene3d/attack-runners/types';
+import type { BattleEvent, Action, BattleView, EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import { isAnimatedElement, DEFAULT_EFFECT_DURATION_S } from '@digiworld/scene3d/attack-runners/types';
 import type { AnimatedElement } from '@digiworld/scene3d/attack-runners/types';
+import { isRangedEffect, namedEffectDuration } from '@digiworld/scene3d/attack-runners/named';
 
 export const ATTACK_PROPAGATION_MS = 700;
 export const TURN_GAP_MS = 3000;
+/** Small breathing pause appended AFTER a visual effect completes, so the impact
+ *  reads and the next turn doesn't snap in mid-settle. */
+export const EFFECT_TAIL_MS = 250;
 export const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 export const AUTOBATTLE_DELAY_MS = 400;
 export const FLOATER_DURATION_MS = 900;
@@ -81,4 +85,37 @@ export function extractPlayerVfx(actor: FriendlyUnitView | null, action: Action)
     };
   }
   return null;
+}
+
+/**
+ * How long a single attack's visual effect runs, mirroring `scene.playEffect`'s
+ * duration resolution exactly: a named ranged skill effect keeps its registered
+ * duration; every other playable case (melee basic, unresolved/stored preset,
+ * element fallback) uses the default effect length. Returns the attack
+ * propagation delay when no VFX plays (a no-element or no-action event).
+ */
+function vfxDurationMs(namedPresetId: string | undefined | null, attackKind: 'basic' | 'skill'): number {
+  if (attackKind === 'skill' && namedPresetId !== undefined && isRangedEffect(namedPresetId)) {
+    return Math.round(namedEffectDuration(namedPresetId) * 1000);
+  }
+  return Math.round(DEFAULT_EFFECT_DURATION_S * 1000);
+}
+
+/** Duration of the player's own action effect — gates sending the action to the
+ *  server until the cast's VFX has fully played. */
+export function playerEffectDurationMs(actor: FriendlyUnitView | null, action: Action): number {
+  const vfx = extractPlayerVfx(actor, action);
+  if (vfx === null) return ATTACK_PROPAGATION_MS;
+  return vfxDurationMs(vfx.vfxPresetId, vfx.attackKind);
+}
+
+/** Duration an enemy cast's VFX runs, from its battle event. `playVfx === false`
+ *  marks a same-cast follow-up event (second floater), which only needs the
+ *  short propagation gap. */
+export function effectDurationMs(event: BattleEvent, playVfx: boolean): number {
+  if (!playVfx || event.type !== 'action') return ATTACK_PROPAGATION_MS;
+  const { skillElement, vfxPresetId, action } = event;
+  if (!isAnimatedElement(skillElement)) return ATTACK_PROPAGATION_MS;
+  const attackKind: 'basic' | 'skill' = action.type === 'fight' ? 'basic' : 'skill';
+  return vfxDurationMs(vfxPresetId, attackKind);
 }

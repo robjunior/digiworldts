@@ -4,12 +4,13 @@ import type { CommandMode } from '../combat/CommandPanel';
 import type { WSClientMessage } from '@digiworld/shared/ws';
 import type { RefObject } from 'react';
 import type { Combat3DSceneHandle } from './Combat3DScene';
-import { ATTACK_PROPAGATION_MS, extractPlayerVfx } from './combat3dConfig';
+import { EFFECT_TAIL_MS, extractPlayerVfx, playerEffectDurationMs } from './combat3dConfig';
 
 /**
  * Player-action entry point. Plays the actor's impact effect first (when the
- * action has one), waits `ATTACK_PROPAGATION_MS`, then sends to the server —
- * PvE via the world-battle endpoint, PvP via the websocket. Guards against
+ * action has one), waits for that effect to FULLY finish, then sends to the
+ * server — PvE via the world-battle endpoint, PvP via the websocket. The turn
+ * never resolves while the cast's visual is still on screen. Guards against
  * re-entrancy while a cast is in flight and always resets the command menu.
  */
 export function useActionDispatch(
@@ -46,7 +47,7 @@ export function useActionDispatch(
             onWsSend({ type: 'act', matchId: activeBattle.id, action } satisfies WSClientMessage);
           }
           dispatchPendingRef.current = false;
-        }, ATTACK_PROPAGATION_MS);
+        }, playerEffectDurationMs(actor, action) + EFFECT_TAIL_MS);
         return;
       }
 
