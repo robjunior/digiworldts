@@ -101,6 +101,15 @@ const BREATHE_HZ = 0.5;          // breaths per second
 const BREATHE_SCALE_AMP = 0.03;   // ±3% height
 const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 
+// Render-time white-balance for mostly-white digimons. The rig draws sprites
+// with an UNLIT MeshBasicMaterial at color white, so a pale/white sprite
+// renders at pure 255 brightness while colored sprites read naturally darker.
+// applyBrightnessTint normalizes the material color so very-bright sprites
+// match their colored peers' perceived brightness instead of blowing out.
+const BRIGHTNESS_TINT_THRESHOLD = 0.72;  // avg luminance above this → "too bright"
+const BRIGHTNESS_TINT_TARGET = 0.5;      // pull the mean luminance toward this
+const BRIGHTNESS_DIM_FLOOR = 0.5;        // never dim below 50% (keep it readable)
+
 // Spritesheet layout is resolved from the sheet's actual pixel dimensions via
 // `resolveSheetLayout` (shared with the 2D component) — square = legacy 2×2,
 // non-square = new 3×4 twelve-frame layout. No hardcoded cell size here.
@@ -499,7 +508,9 @@ export class SpriteRig implements SpriteRigApi {
       // layout is known (cycles12 → death cycle stays visible; legacy → hidden).
       if (this._downed) this.setDowned(true);
       try {
-        this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
+        const imageData = ctx.getImageData(0, 0, cellW, cellH);
+        this.applyAlphaBboxFromImageData(imageData);
+        this.applyBrightnessTint(imageData);
       } catch {
         /* bbox analysis is best-effort */
       }
@@ -667,10 +678,48 @@ export class SpriteRig implements SpriteRigApi {
     if (ctx === null) return;
     try {
       ctx.drawImage(image as CanvasImageSource, 0, 0);
-      this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, w, h));
+      const imageData = ctx.getImageData(0, 0, w, h);
+      this.applyAlphaBboxFromImageData(imageData);
+      this.applyBrightnessTint(imageData);
     } catch {
       return;
     }
+  }
+
+  /**
+   * Render-time brightness normalization for mostly-white digimons.
+   *
+   * The rig draws sprites with an UNLIT MeshBasicMaterial at color white, so a
+   * texture that is mostly white/pale renders at pure 255 while colored sprites
+   * read naturally darker — white digimons look blown out in combat. We measure
+   * the average luminance of the opaque pixels and, when it exceeds a "very
+   * bright" threshold, dim the material to pull the sprite's mean luminance
+   * back toward TARGET so it visually matches its colored peers. Never
+   * brightens (dark sprites are untouched) and never tints toward a hue —
+   * only a neutral gray multiplier, so colors stay true.
+   */
+  private applyBrightnessTint(imageData: ImageData): void {
+    const { data, width, height } = imageData;
+    let lumSum = 0;
+    let count = 0;
+    for (let y = 0; y < height; y += 1) {
+      const row = y * width * 4;
+      for (let x = 0; x < width; x += 1) {
+        const i = row + x * 4;
+        if ((data[i + 3] ?? 0) <= ALPHA_THRESHOLD) continue;
+        const r = (data[i] ?? 0) / 255;
+        const g = (data[i + 1] ?? 0) / 255;
+        const b = (data[i + 2] ?? 0) / 255;
+        lumSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        count += 1;
+      }
+    }
+    if (count === 0) return;
+    const avg = lumSum / count;
+    if (avg <= BRIGHTNESS_TINT_THRESHOLD) return; // not overly bright — leave it
+    const factor = Math.max(BRIGHTNESS_DIM_FLOOR, BRIGHTNESS_TINT_TARGET / avg);
+    this.baseColor.setScalar(factor);
+    if (this.illumination === null) this.mat.color.copy(this.baseColor);
   }
 
   private applyAlphaBboxFromImageData(imageData: ImageData): void {
@@ -717,11 +766,13 @@ export class SpriteRig implements SpriteRigApi {
           gif.texture.needsUpdate = true;
           if (!gif.bboxAnalyzed) {
             try {
-              this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
-              gif.bboxAnalyzed = true;
+              const imageData = gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height);
+              this.applyAlphaBboxFromImageData(imageData);
+              this.applyBrightnessTint(imageData);
             } catch {
-              gif.bboxAnalyzed = true;
+              /* best-effort */
             }
+            gif.bboxAnalyzed = true;
           }
         }
       } else if (gif.fallbackImg !== null && !gif.bboxAnalyzed) {
@@ -729,7 +780,9 @@ export class SpriteRig implements SpriteRigApi {
         gif.ctx.drawImage(gif.fallbackImg, 0, 0);
         gif.texture.needsUpdate = true;
         try {
-          this.applyAlphaBboxFromImageData(gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height));
+          const imageData = gif.ctx.getImageData(0, 0, gif.canvas.width, gif.canvas.height);
+          this.applyAlphaBboxFromImageData(imageData);
+          this.applyBrightnessTint(imageData);
         } catch {}
         gif.bboxAnalyzed = true;
       }
