@@ -694,7 +694,9 @@ export async function applySeed(
     }
 
     // Reconcile pass — purge bundle-managed orphan rows (see docstring for the
-    // safety model). Reverse order so FK dependents go first.
+    // safety model). Reverse order so cross-table FK dependents go first; for
+    // tables with a self-referential FK column, delete child rows (leaves)
+    // before their parents so the parent_node_id / similar links never dangle.
     if (opts?.reconcile) {
       for (const { name } of [...CONTENT_TABLES].reverse()) {
         const rows = env.tables[name] ?? [];
@@ -704,19 +706,28 @@ export async function applySeed(
           `SELECT ref_id FROM active_versions WHERE domain = ?`,
           [name],
         );
-        let deleted = 0;
-        for (const a of deployed) {
-          if (bundleKeys.has(a.ref_id)) continue;
-          const values = parseRefId(a.ref_id, pk);
-          if (values === null) continue;
+        // Collect the orphan ref_ids we must delete (pointer exists, absent from bundle).
+        const orphans = deployed
+          .map((a) => ({ refId: a.ref_id, values: parseRefId(a.ref_id, pk) }))
+          .filter((o) => o.values !== null && !bundleKeys.has(o.refId));
+        if (orphans.length === 0) continue;
+
+        const selfFk = SELF_FK_COLUMN[name];
+        const order = selfFk
+          ? await selfFkDeleteOrder(t, name, selfFk, orphans.map((o) => o.refId), pk)
+          : orphans.map((o) => o.refId);
+
+        const deletedIds = new Set(order);
+        for (const refId of order) {
+          const match = orphans.find((o) => o.refId === refId);
+          if (!match || match.values === null) continue;
           const where = pk.map((c) => `${qid(c)} = ?`).join(' AND ');
-          await t.run(`DELETE FROM ${qid(name)} WHERE ${where}`, values);
+          await t.run(`DELETE FROM ${qid(name)} WHERE ${where}`, match.values);
           // Drop the version pointer + history so the ledger matches content reality.
-          await t.run(`DELETE FROM active_versions WHERE domain = ? AND ref_id = ?`, [name, a.ref_id]);
-          await t.run(`DELETE FROM content_versions WHERE domain = ? AND ref_id = ?`, [name, a.ref_id]);
-          deleted += 1;
+          await t.run(`DELETE FROM active_versions WHERE domain = ? AND ref_id = ?`, [name, refId]);
+          await t.run(`DELETE FROM content_versions WHERE domain = ? AND ref_id = ?`, [name, refId]);
         }
-        if (deleted > 0) purged[name] = deleted;
+        purged[name] = deletedIds.size;
       }
     }
 
@@ -747,6 +758,79 @@ function parseRefId(refId: string, pk: readonly string[]): unknown[] | null {
     }
   }
   return null;
+}
+
+/**
+ * Content tables with a self-referential FK column (a row in the table
+ * references ANOTHER row in the SAME table). During reconcile, a parent row may
+ * itself be purged, so children must be deleted before their parents to avoid
+ * dangling self-FK violations (this is what bit the deploy on
+ * booster_digimon_nodes.parent_node_id when reverse-table order alone was used).
+ *
+ * Tables whose FK points to a DIFFERENT table (dungeon_kits←dungeon_kit_items,
+ * shop_bundles←shop_bundle_items, boosters←booster_*) are intentionally NOT
+ * here — reverse CONTENT_TABLES order already deletes the child table first.
+ */
+const SELF_FK_COLUMN: Readonly<Record<string, string>> = {
+  booster_digimon_nodes: 'parent_node_id',
+};
+
+/**
+ * Order self-referential rows to delete leaves (children) before parents so a
+ * purge never trips the table's own FK. `refIds` are the intersection survivors:
+ * those absent from the bundle. Returns a delete order. A row appears AFTER any
+ * surviving (kept) row is irrelevant — we only ever delete members of `refIds`.
+ */
+async function selfFkDeleteOrder(
+  t: DbAdapter,
+  table: string,
+  fkCol: string,
+  refIds: readonly string[],
+  pk: readonly string[],
+): Promise<string[]> {
+  // Decode each ref_id back into its PK value(s) in a STABLE way for matching.
+  const idToRef = new Map<string, string>();
+  const ids = new Set<string>();
+  for (const ref of refIds) {
+    const values = parseRefId(ref, pk);
+    if (values === null) continue;
+    const key = values.map((v) => String(v)).join('\u0000');
+    idToRef.set(key, ref);
+    ids.add(key);
+  }
+  if (ids.size === 0) return [...refIds];
+  const pk0 = qid(pk[0] ?? 'id');
+  // Build a set of ids that appear as a (kept-or-to-be-deleted) parent, so we
+  // can recognize parent relationships among the delete set without touching rows
+  // the bundle keeps.
+  const parentRows = await t.query<Record<string, unknown>>(
+    `SELECT ${pk0} AS id, ${qid(fkCol)} AS parent FROM ${qid(table)} WHERE ${qid(fkCol)} IS NOT NULL`,
+  );
+  const parentId = new Set<string>();
+  for (const r of parentRows) {
+    const p = String(r['parent']);
+    if (ids.has(p)) parentId.add(p);
+  }
+  // Iteratively peel leaves: ids (candidates) that are not referenced as a
+  // parent of any earlier-returned... simplest: repeatedly emit a candidate whose
+  // id is not listed as a parent in the remaining set.
+  const remaining = new Set(ids);
+  const out: string[] = [];
+  while (remaining.size > 0) {
+    const leaves = [...remaining].filter((id) => !parentId.has(id));
+    if (leaves.length === 0) {
+      // Cycle guard (shouldn't happen for a tree/DAG): break arbitrarily.
+      leaves.push([...remaining][0]!);
+    }
+    for (const leaf of leaves) {
+      out.push(idToRef.get(leaf)!);
+      remaining.delete(leaf);
+    }
+    // After peeling a leaf, it can no longer be others' parent dependency, so
+    // drop its id from the parent set.
+    for (const leaf of leaves) parentId.delete(leaf);
+  }
+  return out;
 }
 
 /** INSERT a content_versions snapshot + UPSERT the active_versions pointer. */

@@ -134,6 +134,34 @@ async function main(): Promise<void> {
   );
   check('version ledger reconciled (1 pointer left)', (remainingPointers[0]?.c ?? 0) === 1, `got ${remainingPointers[0]?.c}`);
 
+  // --- SELF-REFERENTIAL FK: booster_digimon_nodes parent_node_id ---
+  // Prior bundle shipped a parent + child node (child.parent_node_id = parent id).
+  // The NEW bundle ships NEITHER, so reconcile must purge BOTH — and must delete
+  // the child BEFORE the parent or the self-FK trips (the deploy failure).
+  if (!('booster_digimon_nodes' in bundle.tables) || !('boosters' in bundle.tables)) {
+    check('booster tables present for self-FK scenario', false, 'bundle missing booster tables');
+  } else {
+    check('booster tables present for self-FK scenario', true);
+    const booster = (bundle.tables['boosters'] ?? [])[0];
+    const parentRow = { id: 'bt-prune:parent', booster_id: booster?.id ?? 'bt-x', ref: 'parent', digimon_id: 'skb-1', rarity: 'rare', weight: 1, order: 0 };
+    const childRow = { ...parentRow, id: 'bt-prune:child', ref: 'child', parent_node_id: 'bt-prune:parent', order: 1 };
+    const envFor = (tables: Record<string, Row[]>) => ({ tables });
+    await applySeed(envFor({
+      boosters: [booster].filter((b): b is Row => !!b),
+      booster_digimon_nodes: [parentRow, childRow],
+    }));
+    // The bundle now ships neither node → both are orphans to purge.
+    const summary2 = await applySeed(envFor({
+      boosters: [booster].filter((b): b is Row => !!b),
+      booster_digimon_nodes: [],
+    }), { reconcile: true });
+    check('reconcile purged both booster nodes (child before parent, self-FK safe)',
+      (summary2.purged?.['booster_digimon_nodes'] ?? 0) === 2,
+      `purged=${summary2.purged?.['booster_digimon_nodes']}`);
+    const nodes = await adapter.query<{ id: string }>('SELECT id FROM booster_digimon_nodes ORDER BY id');
+    check('booster_digimon_nodes empty after purge', nodes.length === 0, `got ${nodes.length}`);
+  }
+
   await adapter.close();
   cleanupDb();
   console.log(`\n=== SUMMARY: ${passed} passed, ${failed} failed ===`);
