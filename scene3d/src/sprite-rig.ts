@@ -106,8 +106,16 @@ const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 // renders at pure 255 brightness while colored sprites read naturally darker.
 // applyBrightnessTint normalizes the material color so very-bright sprites
 // match their colored peers' perceived brightness instead of blowing out.
-const BRIGHTNESS_TINT_THRESHOLD = 0.72;  // avg luminance above this → "too bright"
-const BRIGHTNESS_TINT_TARGET = 0.5;      // pull the mean luminance toward this
+//
+// Metric: the mean luminance of ALL opaque pixels is misleading — a white body
+// with dark outlines + translucent edges averages low (the brightest real sheet
+// is ~0.68) and never trips a mean-based trigger. What identifies a white
+// digimon is the FRACTION of opaque pixels that are near-white (the bulk white
+// body at ~255). Trigger on that; dim so the near-white body's luminance lands
+// near the perceived brightness of colored sprites.
+const BRIGHTNESS_NEAR_WHITE_LUM = 0.8; // a pixel counts as "near-white"
+const BRIGHTNESS_NEAR_WHITE_FRAC = 0.30; // ≥30% near-white opaque px → "mostly white"
+const BRIGHTNESS_TINT_TARGET = 0.5;      // pull the white body's luminance toward this
 const BRIGHTNESS_DIM_FLOOR = 0.5;        // never dim below 50% (keep it readable)
 
 // Spritesheet layout is resolved from the sheet's actual pixel dimensions via
@@ -692,16 +700,17 @@ export class SpriteRig implements SpriteRigApi {
    * The rig draws sprites with an UNLIT MeshBasicMaterial at color white, so a
    * texture that is mostly white/pale renders at pure 255 while colored sprites
    * read naturally darker — white digimons look blown out in combat. We measure
-   * the average luminance of the opaque pixels and, when it exceeds a "very
-   * bright" threshold, dim the material to pull the sprite's mean luminance
-   * back toward TARGET so it visually matches its colored peers. Never
-   * brightens (dark sprites are untouched) and never tints toward a hue —
-   * only a neutral gray multiplier, so colors stay true.
+   * the fraction of opaque pixels that are near-white (the bulk white body).
+   * When that crosses the "mostly white" threshold, dim the material so the
+   * white body's luminance lands near TARGET, matching colored peers' perceived
+   * brightness. Never brightens (dark sprites are untouched) and never tints
+   * toward a hue — only a neutral gray multiplier, so colors stay true.
    */
   private applyBrightnessTint(imageData: ImageData): void {
     const { data, width, height } = imageData;
-    let lumSum = 0;
-    let count = 0;
+    let opaque = 0;
+    let nearWhite = 0;
+    let nearWhiteLumSum = 0;
     for (let y = 0; y < height; y += 1) {
       const row = y * width * 4;
       for (let x = 0; x < width; x += 1) {
@@ -710,14 +719,25 @@ export class SpriteRig implements SpriteRigApi {
         const r = (data[i] ?? 0) / 255;
         const g = (data[i + 1] ?? 0) / 255;
         const b = (data[i + 2] ?? 0) / 255;
-        lumSum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
-        count += 1;
+        opaque += 1;
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if (lum > BRIGHTNESS_NEAR_WHITE_LUM) {
+          nearWhite += 1;
+          nearWhiteLumSum += lum;
+        }
       }
     }
-    if (count === 0) return;
-    const avg = lumSum / count;
-    if (avg <= BRIGHTNESS_TINT_THRESHOLD) return; // not overly bright — leave it
-    const factor = Math.max(BRIGHTNESS_DIM_FLOOR, BRIGHTNESS_TINT_TARGET / avg);
+    if (opaque === 0) return;
+    const nearWhiteFrac = nearWhite / opaque;
+    // Not predominantly white — leave the sprite at full unlit brightness (the
+    // mean-luminance approach never fired: white bodies with dark outlines and
+    // translucent edges average well below the trigger; the bulk-white-body
+    // fraction is the discriminator).
+    if (nearWhiteFrac < BRIGHTNESS_NEAR_WHITE_FRAC) return;
+    const bodyLum = nearWhiteLumSum / nearWhite;
+    // Bring the white body's luminance down toward TARGET (e.g. a 0.92 body →
+    // factor ≈ 0.54), floored so it stays readable.
+    const factor = Math.max(BRIGHTNESS_DIM_FLOOR, BRIGHTNESS_TINT_TARGET / bodyLum);
     this.baseColor.setScalar(factor);
     if (this.illumination === null) this.mat.color.copy(this.baseColor);
   }
