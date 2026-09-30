@@ -29,6 +29,8 @@ import { BattleStatusMessage } from './BattleStatusMessage';
 import { useAilmentSync } from './useAilmentSync';
 import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
 import { startPveEncounter } from '../../lib/api-world';
+import { ensureSfx } from '../../lib/sfx-bootstrap';
+import { playBattleEvents } from '../../lib/sfx-combat';
 
 export function Combat3DBody(): JSX.Element | null {
   const navigate = useNavigate();
@@ -108,6 +110,11 @@ export function Combat3DBody(): JSX.Element | null {
 
   useResizeObserverCSSVar(cmdRef, '--c3d-cmd-live-h', 'height');
 
+  // Boot the audio engine once combat mounts (SFX ready for UI + battle cues).
+  useEffect(() => {
+    ensureSfx();
+  }, []);
+
   useEffect(() => {
     if (!activeBattle) return;
     const first = activeBattle.enemy.find((e) => !e.down && e.hp > 0);
@@ -165,6 +172,19 @@ export function Combat3DBody(): JSX.Element | null {
         vfxSeen.add(signature);
         enqueueEnemyAction({ event, playVfx });
       }
+    }
+    // Translate the new battle events into SFX (spatialized to the scene).
+    if (nextEvents.length > 0) {
+      const viewport = document.querySelector('.c3d-canvas-host')?.getBoundingClientRect();
+      playBattleEvents(
+        nextEvents,
+        (unitId) => {
+          const p = sceneRef.current?.screenPositionOf(unitId);
+          if (p === null || p === undefined) return null;
+          return { x: p.x, y: p.y, viewportW: viewport?.width ?? window.innerWidth };
+        },
+        viewport?.width ?? window.innerWidth,
+      );
     }
   }, [battleEvents, activeBattle?.yourSide, playActionEvent, enqueueEnemyAction]);
 

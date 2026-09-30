@@ -57,3 +57,5 @@ export { buildStoneFallRunner } from './attack-runners/stone-fall';
 export { buildNullPulseRunner } from './attack-runners/null-pulse';
 export { buildVineLashRunner } from './attack-runners/vine-lash';
 export type { SkillVfxNamedEffect, SkillVfxRangedEffect, SkillVfxMeleeEffect } from '@digiworld/shared/skill-vfx';
+// Audio/SFX subsystem (engine + manifest + spatialization + cue router).
+export * from './sfx';
