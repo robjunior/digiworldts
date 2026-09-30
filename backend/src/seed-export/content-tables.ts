@@ -28,6 +28,7 @@
 export const CONTENT_TABLES: ReadonlyArray<{ name: string; orderBy: readonly string[] }> = [
   { name: 'quests', orderBy: ['id'] },
   { name: 'world_objects', orderBy: ['id'] },
+  { name: 'pve_places', orderBy: ['id'] },
   { name: 'dialogue_definitions', orderBy: ['dialogue_id'] },
   { name: 'npcs', orderBy: ['id'] },
   { name: 'shop_items', orderBy: ['id'] },

@@ -529,6 +529,22 @@ export function validateXref(
     }
   }
 
+  // --- pve_places: explore_pool / expedition_pool catalogId → digimon ---
+  const pvePlaces = env.tables['pve_places'] ?? [];
+  for (const pp of pvePlaces) {
+    const pid = String(pp['id']);
+    for (const poolCol of ['explore_pool', 'expedition_pool'] as const) {
+      const raw = pp[poolCol];
+      const entries = parseJsonArray<{ catalogId?: unknown }>(raw);
+      for (const e of entries) {
+        const catId = e?.catalogId;
+        if (typeof catId === 'string' && digimon && !digimon.ids.has(catId)) {
+          push('pve_places', pid, `pve_places ${pid}: ${poolCol} references unknown digimon "${catId}"`);
+        }
+      }
+    }
+  }
+
   // --- skills_catalog: upgrade_of → skills_catalog, owner_template_id → digimon ---
   for (const s of skillsCatalog) {
     const sid = String(s['id']);
