@@ -349,6 +349,34 @@ function generateCypherRecipes(): ReadonlyArray<{
   return out;
 }
 
+/**
+ * Evolution-key recipes: 5× a Champion's evolution fragment → 1× its Evolution Key.
+ * Gives excess fragments a destination (craft → key → evolve or sell) and an
+ * alternative to buying keys with credits. Rare Factory only.
+ */
+function generateEvolutionKeyRecipes(): ReadonlyArray<{
+  id: string;
+  item_id: string;
+  meat: number;
+  bits: number;
+  data: number;
+  craft_time_ms: number;
+  category: FactoryTypeId;
+  requires_items: string;
+}> {
+  const champions = ['greymon', 'tyrannomon', 'garurumon', 'kyubimon', 'angemon', 'devimon'];
+  return champions.map((champ) => ({
+    id: `rcp-evo-key-${champ}`,
+    item_id: `itm-evo-${champ}`,
+    meat: 150,
+    bits: 150,
+    data: 75,
+    craft_time_ms: 3_600_000,
+    category: 'rare',
+    requires_items: JSON.stringify([{ itemId: `itm-evo-frag-${champ}`, qty: 5 }]),
+  }));
+}
+
 const SEED_RECIPES: ReadonlyArray<{
   id: string;
   item_id: string;
@@ -371,6 +399,7 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
   ...generateCypherRecipes(),
+  ...generateEvolutionKeyRecipes(),
 ];
 
 export async function seedFarmRecipes(): Promise<void> {
