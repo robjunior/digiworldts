@@ -108,6 +108,12 @@ export type Combat3DSceneHandle = {
     readonly vfxPresetId?: string;
     readonly attackKind?: 'basic' | 'skill';
   }): void;
+  /** Reconcile the persistent 3D status/ailment effects on a unit to match its
+   *  current ailment set. Effects attach to the unit and persist until the
+   *  matching ailment disappears. Pass the unit's current ailments (by kind). */
+  syncAilments(unitId: UnitId, ailments: readonly { readonly kind: string; readonly turnsLeft: number }[]): void;
+  /** Halt all status effects on a unit (downed/removed). */
+  clearAilments(unitId: UnitId): void;
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
   getSettings(): SceneSettings | null;
   applySettings(patch: Partial<SceneSettings>): void;
@@ -525,6 +531,16 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
       const manager = getManager();
       if (manager === null) return;
       manager.playEffect(element, sourceId, targetId, opts ?? {});
+    },
+    syncAilments(unitId, ailments) {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.syncAilments(unitId, ailments);
+    },
+    clearAilments(unitId) {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.clearAilments(unitId);
     },
     screenPositionOf(unitId) {
       const manager = getManager();

@@ -36,6 +36,19 @@ export {
   tryBuildNamedRunner,
 } from './attack-runners/named';
 export { MELEE_RUNNERS, buildMeleeRunner } from './attack-runners/melee';
+export {
+  StatusFxController,
+  createStatusPools,
+  type StatusFxTarget,
+  type AilmentKind,
+} from './attack-runners/status-controller';
+export {
+  buildStatusEffect,
+  cleanseStatuses,
+  STATUS_IMAGES,
+  type StatusEffect,
+  type StatusFxEnv,
+} from './attack-runners/status-fx';
 export { buildDarkVoidRunner } from './attack-runners/dark-void';
 export { buildHolySmiteRunner } from './attack-runners/holy-smite';
 export { buildTidalSurgeRunner } from './attack-runners/tidal-surge';

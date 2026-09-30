@@ -26,6 +26,7 @@ import { useActionEventProcessing } from './useActionEventProcessing';
 import { usePveDispatch } from './usePveDispatch';
 import { useActionDispatch } from './useActionDispatch';
 import { BattleStatusMessage } from './BattleStatusMessage';
+import { useAilmentSync } from './useAilmentSync';
 import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
 import { startPveEncounter } from '../../lib/api-world';
 
@@ -48,6 +49,7 @@ export function Combat3DBody(): JSX.Element | null {
   const sceneRef = useRef<Combat3DSceneHandle | null>(null);
   const cmdRef = useRef<HTMLDivElement | null>(null);
   const seenEventCountRef = useRef(0);
+  useAilmentSync(sceneRef, activeBattle);
 
   // End-of-battle rewards (XP awards, NetCore, Bits) arrive with the WS `end`
   // message; the old PvE world-battle HTTP flow was removed with the world

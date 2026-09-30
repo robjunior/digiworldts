@@ -30,6 +30,12 @@ import {
   nextShakeOffset,
   IMPACT_SHAKE_DURATION_S,
 } from "./attack-runners/impact";
+import {
+  createStatusPools,
+  StatusFxController,
+  type StatusFxTarget,
+} from "./attack-runners/status-controller";
+import type { Pool } from "./attack-runners/html-fx/pool";
 
 /**
  * Where a skill effect leaves the attacker and where it lands on the receiver,
@@ -765,6 +771,14 @@ export class SceneManager {
     string,
     { runner: Runner3D; elapsed: number; duration: number }
   > = new Map();
+  /**
+   * Persistent per-unit status-effect controllers (burn/freeze/poison/... FX
+   * that attach to a unit and remain while its matching ailment is active).
+   * Created on demand for a unit, disposed when the unit leaves or the scene
+   * tears down.
+   */
+  private readonly statusFx: Map<string, StatusFxController> = new Map();
+  private statusPools: [Pool, Pool] | null = null;
   private rafId = 0;
   private disposedFlag = false;
   private stageWidth = 1;
@@ -2366,6 +2380,11 @@ export class SceneManager {
     if (sprite === undefined) return;
     sprite.dispose();
     this.sprites.delete(unitId);
+    const ctrl = this.statusFx.get(unitId);
+    if (ctrl !== undefined) {
+      ctrl.dispose();
+      this.statusFx.delete(unitId);
+    }
     // Caster removed: rebuild the shadow map once next frame.
     this.requestShadowRefresh();
   }
@@ -2381,6 +2400,52 @@ export class SceneManager {
   clearSprites(): void {
     for (const sprite of this.sprites.values()) sprite.dispose();
     this.sprites.clear();
+    for (const ctrl of this.statusFx.values()) ctrl.dispose();
+    this.statusFx.clear();
+  }
+
+  /**
+   * Reconcile a unit's persistent 3D status-effect visuals to its current
+   * ailment set. Effects anchor to the unit's live foot position and remain
+   * until the matching ailment is removed (at which point `end()` fires —
+   * freeze shatter, curse ring removal).
+   */
+  syncAilments(
+    unitId: string,
+    ailments: readonly { kind: string; turnsLeft: number }[],
+  ): void {
+    const sprite = this.getSprite(unitId);
+    if (sprite === undefined) return;
+    let ctrl = this.statusFx.get(unitId);
+    if (ctrl === undefined) {
+      if (this.statusPools === null) {
+        this.statusPools = createStatusPools(this.scene);
+      }
+      ctrl = new StatusFxController(
+        this.scene,
+        this.statusPools[0],
+        this.statusPools[1],
+        sprite,
+        () => {
+          if (typeof document === "undefined") return null;
+          return document.createElement("canvas").getContext("2d");
+        },
+        this.statusFxTarget(),
+      );
+      this.statusFx.set(unitId, ctrl);
+    }
+    ctrl.sync(ailments.map((a) => a.kind));
+  }
+
+  /** Halt + clear all status effects on a unit (downed / removed). */
+  clearAilments(unitId: string): void {
+    const ctrl = this.statusFx.get(unitId);
+    if (ctrl === undefined) return;
+    ctrl.clearAll();
+  }
+
+  private statusFxTarget(): StatusFxTarget {
+    return { shake: (s) => this.triggerShake(s) };
   }
 
   playEffect(
@@ -2713,6 +2778,10 @@ export class SceneManager {
         ctx?.runner.dispose();
         this.effects.delete(id);
       }
+      for (const ctrl of this.statusFx.values()) {
+        ctrl.tick(dt);
+        ctrl.tickIcons();
+      }
       // Advance the combat camera director (turn-focus / follow casts) before
       // draw so the shot tracks the action, then apply the one-shot impact
       // screen-shake (if active) right before render.
@@ -2864,6 +2933,13 @@ export class SceneManager {
     }
     for (const ctx of this.effects.values()) ctx.runner.dispose();
     this.effects.clear();
+    for (const ctrl of this.statusFx.values()) ctrl.dispose();
+    this.statusFx.clear();
+    if (this.statusPools !== null) {
+      this.statusPools[0].dispose();
+      this.statusPools[1].dispose();
+      this.statusPools = null;
+    }
     for (const sprite of this.sprites.values()) sprite.dispose();
     this.sprites.clear();
     this.scene.traverse((obj) => {
