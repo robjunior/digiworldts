@@ -309,53 +309,10 @@ const CYPHER_RECIPE_ELEMENTS = ['fire', 'water', 'plant', 'ice', 'electricity', 
 const CYPHER_RECIPE_TIERS = [1, 2, 3] as const;
 const EVOLUTION_CRAFTING_FLAG_CONDITION = JSON.stringify({ kind: 'flag', flag: 'evolution-crafting' });
 
-const CHIP_RECIPE_STAGES: ReadonlyArray<{
-  readonly stage: string;
-  readonly item_id: string;
-  readonly craft_time_ms: number;
-  readonly meat: number;
-  readonly bits: number;
-  readonly data: number;
-}> = [
-  { stage: 'champion', item_id: 'itm-digi-chip-champion', craft_time_ms: 1_800_000, meat: 60, bits: 90, data: 40 },
-  { stage: 'ultimate', item_id: 'itm-digi-chip-ultimate', craft_time_ms: 4_200_000, meat: 180, bits: 260, data: 130 },
-  { stage: 'mega', item_id: 'itm-digi-chip-mega', craft_time_ms: 8_400_000, meat: 440, bits: 620, data: 340 },
-];
-const CHIP_FRAGMENT_PIECES = ['a', 'b', 'c'] as const;
-
 /**
- * Chip Factory recipes for the craftable evolution chips. Each chip is assembled
- * from its own three fragment pieces. The recipe is ONLY revealed (unlock_condition
- * `has-items`) once the player holds all three fragments — an "assemble the
- * blueprint" gate, distinct from the flag-gated Cypher recipes.
+ * Cypher recipes are gateable by a flag. They exist at the Rare Factory; evolution is
+ * now gated by digimon-specific fragments (itm-evo-frag-*), NOT crafted chips.
  */
-function generateChipRecipes(): ReadonlyArray<{
-  id: string;
-  item_id: string;
-  meat: number;
-  bits: number;
-  data: number;
-  craft_time_ms: number;
-  category: FactoryTypeId;
-  requires_items: string;
-  unlock_condition: string;
-}> {
-  return CHIP_RECIPE_STAGES.map((c) => {
-    const frags = CHIP_FRAGMENT_PIECES.map((p) => ({ itemId: `itm-chip-frag-${c.stage}-${p}`, qty: 1 }));
-    return {
-      id: `rcp-chip-${c.stage}`,
-      item_id: c.item_id,
-      meat: c.meat,
-      bits: c.bits,
-      data: c.data,
-      craft_time_ms: c.craft_time_ms,
-      category: 'chip' as FactoryTypeId,
-      requires_items: JSON.stringify(frags),
-      unlock_condition: JSON.stringify({ kind: 'has-items', items: frags }),
-    };
-  });
-}
-
 function generateCypherRecipes(): ReadonlyArray<{
   id: string;
   item_id: string;
@@ -413,7 +370,6 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
   { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
-  ...generateChipRecipes(),
   ...generateCypherRecipes(),
 ];
 

@@ -14,6 +14,8 @@ import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import { one, q, run, tx, type InventoryRow, type RosterRow, type ShopItemRow, type WalletRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
+import { buildEvolutionFragmentItems } from '../launch/evolution.js';
+import { rosterUniverse } from '../launch/roster.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -29,6 +31,8 @@ const SQL_SELECT_PRODUCTS = `SELECT * FROM shop_items WHERE enabled = 1 AND stat
 const SQL_SELECT_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND status = 'published'`;
 const SQL_INSERT_ITEM = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, drop_pool, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
+const SQL_INSERT_ITEM_DROPLESS = `INSERT INTO shop_items (id, name, description, price_credits, price, currency, shop_category, featured, quick_offer, one_time, sort_order, kind, class, payload, enabled, rarity, item_type, drop_pool, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING`;
 const SQL_SELECT_INVENTORY = `SELECT i.user_id, i.item_id, i.qty, i.updated_at, s.name, s.description, s.rarity
      FROM player_inventory i JOIN shop_items s ON s.id = i.item_id
      WHERE i.user_id = ? ORDER BY s.name`;
@@ -269,39 +273,6 @@ const SEED_ITEMS: Array<SeedItem> = [
     class: 'product',
     payload: JSON.stringify({ badge: 'gold' }),
   },
-  {
-    id: 'itm-digi-chip-champion',
-    name: 'Champion Chip',
-    description: 'Digivolve a Rookie into a Champion. Requires level 20.',
-    price_credits: 500,
-    price: 500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ stage: 'Champion' }),
-  },
-  {
-    id: 'itm-digi-chip-ultimate',
-    name: 'Ultimate Chip',
-    description: 'Digivolve a Champion into an Ultimate. Requires level 40.',
-    price_credits: 1500,
-    price: 1500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ stage: 'Ultimate' }),
-  },
-  {
-    id: 'itm-digi-chip-mega',
-    name: 'Mega Chip',
-    description: 'Digivolve an Ultimate into a Mega. Requires level 60.',
-    price_credits: 4000,
-    price: 4000,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ stage: 'Mega' }),
-  },
   // Evolution-key items for the Starter Evolution booster packs (BT-06/07/08).
   // These are the exact items each evolution edge consumes (requiredItemId) —
   // the content-delivery lever: a digimon's evolution path is blocked until its
@@ -522,7 +493,6 @@ const RARITY_RANKS = [0, 1, 2, 3, 4] as const;
 const RARITY_LABELS: Record<number, string> = { 0: 'Common', 1: 'Uncommon', 2: 'Rare', 3: 'Epic', 4: 'Legendary' };
 const TIER_ROMAN: Record<number, string> = { 1: 'I', 2: 'II', 3: 'III' };
 const FRAGMENT_BASE_PRICE = 40;
-const CHIP_BASE_PRICE = 500;
 const CYPHER_BASE_PRICE = 800;
 
 function titleCase(value: string): string {
@@ -557,57 +527,9 @@ function generateFragmentItems(): SeedItem[] {
   return out;
 }
 
-function generateChipItems(): SeedItem[] {
-  const chips: readonly { readonly grade: string; readonly stage: string; readonly level: number; readonly price: number }[] = [
-    { grade: 'A', stage: 'Champion', level: 20, price: CHIP_BASE_PRICE },
-    { grade: 'B', stage: 'Ultimate', level: 40, price: CHIP_BASE_PRICE * 3 },
-    { grade: 'C', stage: 'Mega', level: 60, price: CHIP_BASE_PRICE * 8 },
-  ];
-  return chips.map((chip) => ({
-    id: `itm-chip-${chip.grade.toLowerCase()}`,
-    name: `${chip.grade}-Class Digi-Chip`,
-    description: `A universal Digi-Chip. Combines with an element-tuned Cypher at the Rare Factory to digivolve a Digimon into ${chip.stage} (requires level ${chip.level}).`,
-    price_credits: chip.price,
-    price: chip.price,
-    currency: 'credits',
-    shop_category: 'chip',
-    kind: 'consumable',
-    class: 'item',
-    payload: JSON.stringify({ chip_grade: chip.grade, target_stage: chip.stage }),
-    item_type: 'chip',
-    drop_pool: 'chips',
-    sort_order: chip.grade === 'A' ? 0 : chip.grade === 'B' ? 1 : 2,
-  }));
-}
-
-const CHIP_FRAGMENT_STAGES = ['champion', 'ultimate', 'mega'] as const;
-const CHIP_FRAGMENT_PIECES = ['a', 'b', 'c'] as const;
-
-/** Fragment pieces for the craftable evolution chips (assembled at the Chip Factory). */
-function generateChipFragmentItems(): SeedItem[] {
-  const out: SeedItem[] = [];
-  for (const stage of CHIP_FRAGMENT_STAGES) {
-    for (const piece of CHIP_FRAGMENT_PIECES) {
-      const label = titleCase(stage);
-      out.push({
-        id: `itm-chip-frag-${stage}-${piece}`,
-        name: `Digi-Chip Fragment — ${label} (${piece.toUpperCase()})`,
-        description: `A fragment of the ${label} evolution chip. Collect all three pieces to unlock its blueprint at the Chip Factory.`,
-        price_credits: FRAGMENT_BASE_PRICE,
-        price: FRAGMENT_BASE_PRICE,
-        currency: 'credits',
-        shop_category: 'fragment',
-        kind: 'consumable',
-        class: 'item',
-        payload: JSON.stringify({ chip_fragment: stage, piece }),
-        item_type: 'chip_fragment',
-        drop_pool: 'chips',
-        sort_order: 0,
-      });
-    }
-  }
-  return out;
-}
+// Evolution is gated by digimon-specific fragments (itm-evo-frag-*), seeded as
+// drop-only shop items in seedShopItems (buildEvolutionFragmentItems). The legacy
+// generic A/B/C chips, digi-chips, and chip fragments were removed.
 
 function generateCypherItems(): SeedItem[] {
   const out: SeedItem[] = [];
@@ -642,7 +564,10 @@ function generateCypherItems(): SeedItem[] {
 /** Called once at server boot. Idempotent (ON CONFLICT DO NOTHING). */
 export async function seedShopItems(): Promise<void> {
   const now = Date.now();
-  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateChipItems(), ...generateChipFragmentItems(), ...generateCypherItems()];
+  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateCypherItems()];
+  // Digimon-specific evolution fragments — drop-only shop rows (enabled=0) so they
+  // exist for inventory/evolution/loot but are NOT purchasable (grind-only).
+  const fragmentItems = buildEvolutionFragmentItems(loadCatalog().digimons, rosterUniverse());
   await tx(async (t) => {
     for (const item of generated) {
       await t.run(SQL_INSERT_ITEM, [
@@ -655,8 +580,13 @@ export async function seedShopItems(): Promise<void> {
         now,
       ]);
     }
+    for (const f of fragmentItems) {
+      await t.run(SQL_INSERT_ITEM_DROPLESS, [
+        f.id, f.name, f.description, 0, 0, 'credits', 'evolve', 0, 0, 0, f.sortOrder, 'evolve', 'item', f.payload, 0, 'evolution_fragment', null, now,
+      ]);
+    }
   });
-  log.info('shop.seed.ok', { items: generated.length });
+  log.info('shop.seed.ok', { items: generated.length, fragments: fragmentItems.length });
 }
 
 /** Custom item creation for the admin (kept internal — no HTTP route yet). */

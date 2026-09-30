@@ -1,25 +1,27 @@
 /**
- * Canonical evolution assignment — the content-delivery lever for the launch roster.
+ * Canonical evolution assignment — evolution gated by digimon-specific fragments.
  *
  * Every evolution edge in the catalog is item-gated (`no-item-assigned` blocks an
- * edge with no `requiredItemId`). So to make a Rookie→Champion path actually
- * evolvable, the canonical edge must carry an item. This module assigns the existing
- * generic Champion evolution chip (`itm-digi-chip-champion`, see social/shop.ts
- * SEED_ITEMS) to the ONE curated canonical Rookie→Champion edge per roster family,
- * leaving every other edge of that Rookie item-less (still blocked).
+ * edge with no `requiredItemId`). To make a Rookie→Champion path evolvable the edge
+ * must carry an item. This module replaces the old generic evolution chips
+ * (`itm-digi-chip-*`) with PER-DIGIMON fragments (`itm-evo-frag-<species>`): a Rookie
+ * needs EVO_FRAGMENTS_PER_EVOLUTION of its target Champion's fragment to evolve.
  *
- * Cost scales with the champion's rarity tier (epic costs 3 chips) — the effort axis
- * for the launch economy. Rarity-tuned chips (rare/epic `itm-digi-chip-*`) that would
- * also drive the evolution rarity-bonus are a documented follow-up.
+ * Fragments are drop-only gamble rewards from the wild (see adventure/engine.ts): a
+ * Champion drops its own fragment, and a canonical Rookie antecessor drops its
+ * canonical Champion's fragment, both at a low rate — the "grind" of the launch
+ * economy.
  */
 import type { TemplateDigimon } from '../digimon/xml.js';
 import type { RosterSpecies } from './roster.js';
 
-export const EVO_CHIP_CHAMPION = 'itm-digi-chip-champion';
+/** Flat fragment cost to digivolve a Rookie → Champion (the whole item = 5 fragments). */
+export const EVO_FRAGMENTS_PER_EVOLUTION = 5;
 
-/** Curated canonical Rookie -> champion (by species name). Both must exist and the
- *  edge must be real in the catalog, or the pair is skipped (family evolves via
- *  wild/hatch only). */
+/** Low per-encounter drop rate (percent, <100) for an evolution fragment. */
+export const EVO_FRAGMENT_DROP_PCT = 10;
+
+/** Curated canonical Rookie -> champion (resolved to real catalog ids at seed time). */
 export const CANONICAL_ROOKIE_TO_CHAMPION: Readonly<Record<string, string>> = {
   agumon: 'Greymon',
   gabumon: 'Garurumon',
@@ -43,16 +45,107 @@ export const CANONICAL_ROOKIE_TO_CHAMPION: Readonly<Record<string, string>> = {
   bearmon: 'Grizzlymon',
 };
 
-export function chipQtyForTier(tier: RosterSpecies['tier']): number {
-  return tier === 'epic' ? 3 : tier === 'rare' ? 2 : 1;
+/** The digimon-specific fragment item id for a species (e.g. Greymon → `itm-evo-frag-greymon`). */
+export function fragmentItemIdFor(name: string): string {
+  return `itm-evo-frag-${name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+}
+
+/** Display name of a species' evolution fragment. */
+export function fragmentItemNameFor(name: string): string {
+  return `${name} Evolution Fragment`;
+}
+
+/** A roster Champion's drop-only fragment shop-item definition (enabled=0 → not in shop, grind only). */
+export type EvolutionFragmentItem = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly payload: string;
+  readonly sortOrder: number;
+};
+
+/**
+ * One fragment shop-item per roster Champion species. These exist so inventory, the
+ * evolution gate, and loot grants reference a real shop_items row; they are NOT
+ * purchasable (drop-only).
+ */
+export function buildEvolutionFragmentItems(
+  digimons: readonly TemplateDigimon[],
+  speciesByShortName: ReadonlyMap<string, RosterSpecies>,
+): EvolutionFragmentItem[] {
+  const seen = new Set<string>();
+  const out: EvolutionFragmentItem[] = [];
+  for (const t of digimons) {
+    if (t.stage !== 'Champion' || !speciesByShortName.has(t.name)) continue;
+    const id = fragmentItemIdFor(t.name);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: fragmentItemNameFor(t.name),
+      description: `A fragment of ${t.name}. Collect ${EVO_FRAGMENTS_PER_EVOLUTION} to digivolve a Rookie into this Champion. Drops at a low rate from wild ${t.name} and its rookie pre-evolution.`,
+      payload: JSON.stringify({ evolution_fragment: t.name }),
+      sortOrder: 0,
+    });
+  }
+  return out;
+}
+
+/** One evolution-fragment loot entry (per dropper species). */
+export type EvolutionFragmentLoot = {
+  readonly id: string;
+  readonly catalogId: string;
+  readonly itemId: string;
+  readonly dropPct: number;
+  readonly qtyMin: number;
+  readonly qtyMax: number;
+};
+
+/**
+ * catalog_loot_entries for the fragment drop economy. Two dropper classes, both at a
+ * low rate:
+ *   - the Champion itself drops its own fragment ("o próprio digimon pode dropar seu fragmento");
+ *   - a canonical Rookie antecessor drops its canonical Champion's fragment.
+ */
+export function buildEvolutionFragmentLoot(
+  digimons: readonly TemplateDigimon[],
+  speciesByShortName: ReadonlyMap<string, RosterSpecies>,
+): EvolutionFragmentLoot[] {
+  const byName = new Map<string, TemplateDigimon>();
+  for (const t of digimons) byName.set(t.name, t);
+  const out: EvolutionFragmentLoot[] = [];
+  const add = (dropperName: string, fragSpecies: string): void => {
+    const dropper = byName.get(dropperName);
+    const champion = byName.get(fragSpecies);
+    if (!dropper || !champion) return;
+    const itemId = fragmentItemIdFor(fragSpecies);
+    out.push({
+      id: `cle-frag-${dropper.id}-${itemId}`,
+      catalogId: dropper.id,
+      itemId,
+      dropPct: EVO_FRAGMENT_DROP_PCT,
+      qtyMin: 1,
+      qtyMax: 1,
+    });
+  };
+  // Antecessores: each canonical Rookie drops its canonical Champion's fragment.
+  for (const [rookieName, champName] of Object.entries(CANONICAL_ROOKIE_TO_CHAMPION)) {
+    add(rookieName, champName);
+  }
+  // Self-drops: every roster Champion drops its own fragment.
+  for (const [name] of speciesByShortName) {
+    const sp = byName.get(name);
+    if (!sp || sp.stage !== 'Champion') continue;
+    add(name, name);
+  }
+  return out;
 }
 
 /**
  * Returns a NEW digimons array with EVERY launch-roster Rookie→Champion edge assigned
- * the Champion evolution chip — neither the Rookie nor the Champion path is locked.
- * An edge is gated (item-less, `no-item-assigned`) ONLY when its target is not a
- * roster Champion (Ultimate/Mega/off-roster are unreachable in the champion-cap meta
- * anyway). Cost scales with the target champion's rarity tier (epic costs 3 chips).
+ * the target Champion's evolution fragment (qty EVO_FRAGMENTS_PER_EVOLUTION). Booster-key
+ * edges (`itm-evo-<name>`, the separate booster content-delivery lever) are preserved
+ * untouched. Idempotent — an edge already carrying exactly its fragment is skipped.
  */
 export function applyLaunchEvolutionKeys(
   digimons: readonly TemplateDigimon[],
@@ -66,16 +159,23 @@ export function applyLaunchEvolutionKeys(
     if (t.stage !== 'Rookie' || !t.evolvesInto || t.evolvesInto.length === 0) return t;
     let changed = false;
     const evolvesInto = t.evolvesInto.map((e) => {
-      if (e.requiredItemId !== undefined) return e; // already item-gated (idempotent)
       const target = idToInfo.get(e.targetId);
       if (!target) return e;
       const species = speciesByShortName.get(target.name);
       // Only Rookie→Champion within the launch roster is a live path.
       if (!species || target.stage !== 'Champion') return e;
-      const qty = chipQtyForTier(species.tier);
+      // Preserve booster-key edges (separate content-delivery lever), never clobber them.
+      if (
+        e.requiredItemId !== undefined && e.requiredItemId !== null &&
+        e.requiredItemId.startsWith('itm-evo-') && !e.requiredItemId.startsWith('itm-evo-frag-')
+      ) {
+        return e;
+      }
+      const fragId = fragmentItemIdFor(target.name);
+      if (e.requiredItemId === fragId && e.requiredItemQty === EVO_FRAGMENTS_PER_EVOLUTION) return e; // idempotent
       changed = true;
-      assigned.push(`${t.name}→${target.name} (${species.tier}, ×${qty})`);
-      return { ...e, requiredItemId: EVO_CHIP_CHAMPION, requiredItemQty: qty };
+      assigned.push(`${t.name}→${target.name} (${fragId}, ×${EVO_FRAGMENTS_PER_EVOLUTION})`);
+      return { ...e, requiredItemId: fragId, requiredItemQty: EVO_FRAGMENTS_PER_EVOLUTION };
     });
     return changed ? { ...t, evolvesInto } : t;
   });

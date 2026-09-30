@@ -23,7 +23,7 @@ import { getDb, closeDbAdapter } from '../db/adapter.js';
 import { run, tx } from '../db/index.js';
 import { deletePvePlace, listPvePlaces, upsertPvePlace } from '../world/pve.js';
 import { LAUNCH_PLACES, rosterUniverse } from './roster.js';
-import { applyLaunchEvolutionKeys } from './evolution.js';
+import { applyLaunchEvolutionKeys, buildEvolutionFragmentLoot } from './evolution.js';
 import type { PvePoolEntry } from '@digiworld/shared/pve';
 
 export async function seedLaunchMeta(): Promise<{
@@ -36,9 +36,11 @@ export async function seedLaunchMeta(): Promise<{
   unknownNames: string[];
   evolutionAssigned: string[];
   evolutionSkipped: string[];
+  evolutionFragments: number;
 }> {
   await getDb();
   const catalog = loadCatalog();
+  const now = Date.now();
   const universe = rosterUniverse();
   const index = new Map<string, TemplateDigimon>();
   for (const t of catalog.digimons) index.set(t.name, t);
@@ -104,6 +106,24 @@ export async function seedLaunchMeta(): Promise<{
     if (!LAUNCH_PLACES.some((lp) => lp.id === p.id)) await deletePvePlace(p.id);
   }
 
+  // 3b. Seed the digimon-specific evolution-fragment drop table (catalog_loot_entries):
+  //     each canonical Rookie antecessor and every roster Champion drops its Champion's
+  //     fragment at a low rate (the grind source). Requires the fragment shop_items to
+  //     exist — seedShopItems (boot) provides them.
+  const fragmentLoot = buildEvolutionFragmentLoot(evo.digimons, universe);
+  await tx(async (t) => {
+    for (const entry of fragmentLoot) {
+      await t.run(
+        `INSERT INTO catalog_loot_entries (id, catalog_id, item_id, drop_pct, qty_min, qty_max, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           catalog_id = excluded.catalog_id, item_id = excluded.item_id, drop_pct = excluded.drop_pct,
+           qty_min = excluded.qty_min, qty_max = excluded.qty_max, updated_at = excluded.updated_at`,
+        [entry.id, entry.catalogId, entry.itemId, entry.dropPct, entry.qtyMin, entry.qtyMax, now],
+      );
+    }
+  });
+
   // 4. Drop a world node for each launch place so the map/globe renders them.
   await seedLaunchWorldNodes();
 
@@ -117,6 +137,7 @@ export async function seedLaunchMeta(): Promise<{
     unknownNames,
     evolutionAssigned: evo.assigned,
     evolutionSkipped: evo.skipped,
+    evolutionFragments: fragmentLoot.length,
     worldNodeIds: LAUNCH_PLACES.map((p) => `wob-launch-${p.id}`),
   };
 }

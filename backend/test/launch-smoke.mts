@@ -19,7 +19,8 @@ import { getDb, closeDbAdapter } from '../src/db/adapter.ts';
 import { q } from '../src/db/index.ts';
 import { loadCatalog } from '../src/digimon/xml.ts';
 import { LAUNCH_PLACES, rosterUniverse } from '../src/launch/roster.ts';
-import { EVO_CHIP_CHAMPION, chipQtyForTier } from '../src/launch/evolution.ts';
+import { EVO_FRAGMENTS_PER_EVOLUTION, fragmentItemIdFor } from '../src/launch/evolution.ts';
+import { seedShopItems } from '../src/social/shop.ts';
 
 const DB_PATH = process.env.DB_PATH!;
 const CATALOG_XML = process.env.CATALOG_XML!;
@@ -41,6 +42,8 @@ function check(name: string, ok: boolean, detail?: string): void {
 }
 
 console.log('\n=== Run 1 ===');
+await getDb();
+await seedShopItems(); // fragment shop_items must exist for the catalog_loot_entries FK
 const r1 = await seedLaunchMeta();
 const catalog = loadCatalog();
 const published = catalog.digimons.filter((t) => (t.status ?? 'published') === 'published');
@@ -61,8 +64,9 @@ check('everything else drafted', drafted.length === catalog.digimons.length - r1
 check('roster names all exist in catalog',
   [...universe.keys()].every((n) => catalog.digimons.some((t) => t.name === n)));
 
-console.log('\n=== Evolution items (every roster Rookie→Champion edge item-gated) ===');
+console.log('\n=== Evolution fragments (every roster Rookie→Champion edge digimon-specific) ===');
 let evoPairs = 0;
+let preservedBooster = 0;
 const evoEdgesBefore = new Map<string, string>();
 for (const rookie of catalog.digimons) {
   if (rookie.stage !== 'Rookie' || !rookie.evolvesInto) continue;
@@ -72,16 +76,24 @@ for (const rookie of catalog.digimons) {
     if (!target || target.stage !== 'Champion') continue;
     const champSpecies = [...universe.values()].find((s) => s.name === target.name);
     if (!champSpecies) continue; // champion not on the launch roster -> gated (farmed via wild/hatch)
-    const expectQty = chipQtyForTier(champSpecies.tier);
-    check(`evo ${rookie.name}→${target.name}: evolution item assigned`, Boolean(edge.requiredItemId && edge.requiredItemId.length > 0), edge.requiredItemId ?? 'none');
-    if (edge.requiredItemId === EVO_CHIP_CHAMPION) {
-      check(`evo ${rookie.name}→${target.name}: champion-chip qty ×${expectQty}`, edge.requiredItemQty === expectQty, `${edge.requiredItemQty ?? 'none'}`);
-    }
     evoPairs++;
+    const isPreservedBooster =
+      edge.requiredItemId !== undefined && edge.requiredItemId !== null &&
+      edge.requiredItemId.startsWith('itm-evo-') && !edge.requiredItemId.startsWith('itm-evo-frag-');
+    if (isPreservedBooster) {
+      preservedBooster++;
+      check(`evo ${rookie.name}→${target.name}: booster-key edge preserved untouched`, true, edge.requiredItemId);
+      evoEdgesBefore.set(`${rookie.name}->${target.name}`, `${edge.requiredItemId ?? ''}:${edge.requiredItemQty ?? ''}`);
+      continue;
+    }
+    const fragId = fragmentItemIdFor(target.name);
+    check(`evo ${rookie.name}→${target.name}: fragment assigned`, edge.requiredItemId === fragId, edge.requiredItemId ?? 'none');
+    check(`evo ${rookie.name}→${target.name}: qty ×${EVO_FRAGMENTS_PER_EVOLUTION}`, edge.requiredItemQty === EVO_FRAGMENTS_PER_EVOLUTION, `${edge.requiredItemQty ?? 'none'}`);
     evoEdgesBefore.set(`${rookie.name}->${target.name}`, `${edge.requiredItemId ?? ''}:${edge.requiredItemQty ?? ''}`);
   }
 }
-check('at least one roster Rookie→Champion evolution item-gated', evoPairs > 0, `${evoPairs} paths`);
+check('at least one roster Rookie→Champion evolution fragment-gated', evoPairs > preservedBooster, `${evoPairs - preservedBooster} fragment paths, ${preservedBooster} booster preserved`);
+check('fragment shop items + loot entries seeded', r1.evolutionFragments > 0, `${r1.evolutionFragments} fragment loot entries`);
 
 console.log('\n=== Places in DB ===');
 await getDb();
@@ -103,6 +115,9 @@ for (const p of places) {
 }
 check('no pool references a draft/non-roster species',
   [...allPoolIds].every((id) => rosterIds.has(id)));
+
+const lootRows = await q<{ n: number }>('SELECT COUNT(*) AS n FROM catalog_loot_entries');
+check('catalog_loot_entries seeded for fragment drops', (lootRows[0]?.n ?? 0) > 0, `${lootRows[0]?.n}`);
 
 console.log('\n=== World nodes (world_objects per place) ===');
 const nodeRows = await q<{ id: string; x: number; y: number; kind: string; label: string }>(

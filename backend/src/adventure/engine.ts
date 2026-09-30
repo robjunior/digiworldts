@@ -32,7 +32,7 @@
  *
  * Async by construction — routes through the DbAdapter (SQLite or Postgres).
  */
-import { one, q, run, tx, type AdventureRow, type RosterRow } from '../db/index.js';
+import { one, q, run, tx, type AdventureRow, type CatalogLootRow, type RosterRow } from '../db/index.js';
 import { loadCatalog } from '../digimon/xml.js';
 import type { Catalog, Element, Stage, StagePools } from '../digimon/types.js';
 import { awardXp } from '../progression/xp.js';
@@ -40,6 +40,7 @@ import { getXpRate } from '../settings/engine.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import { applyPremiumBonus, isUserPremium } from '../premium/index.js';
+import { grantItem } from '../items/grant.js';
 
 const MS_PER_HOUR = 3_600_000;
 export const ADVENTURE_MIN_HOURS = 1;
@@ -94,11 +95,25 @@ const SQL_UPSERT_SPECIES = `INSERT INTO player_species_data (user_id, catalog_id
      VALUES (?, ?, ?, 1, ?)
   ON CONFLICT(user_id, catalog_id) DO UPDATE
      SET percent = CASE
-            WHEN player_species_data.percent + excluded.percent > 100 THEN 100
-            ELSE player_species_data.percent + excluded.percent
-          END,
+           WHEN player_species_data.percent + excluded.percent > 100 THEN 100
+           ELSE player_species_data.percent + excluded.percent
+         END,
          kills = player_species_data.kills + 1,
          updated_at = excluded.updated_at`;
+
+// Per-species drop table: every wild mon's catalog_loot_entries are rolled on a win.
+const SQL_SELECT_CATALOG_LOOT = `SELECT id, catalog_id, item_id, drop_pct, qty_min, qty_max FROM catalog_loot_entries ORDER BY catalog_id, drop_pct DESC, item_id`;
+
+export type AdventureDrop = {
+  readonly itemId: string;
+  readonly qty: number;
+};
+
+export type AdventureItemDrop = {
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly qty: number;
+};
 
 export type AdventureMemberView = {
   readonly monId: string;
@@ -124,6 +139,8 @@ export type AdventureEncounter = {
   readonly netcore: number;
   readonly xpPerMon: number;
   readonly koMonId: string | null;
+  /** Loot from the defeated wild's catalog_loot_entries (empty on loss/none). */
+  readonly drops: readonly AdventureDrop[];
 };
 
 export type AdventureXpDelta = {
@@ -152,6 +169,8 @@ export type AdventureReport = {
   readonly koedMonIds: readonly string[];
   /** Unique wild species encountered, first-seen order. */
   readonly foundDigimons: readonly AdventureFoundDigimon[];
+  /** Aggregated loot dropped across winning encounters (per unique itemId). */
+  readonly itemDrops: readonly AdventureItemDrop[];
   /** Premium activation at collect time — when true, totals/xp include the +50% bonus. */
   readonly premium: boolean;
   /**
@@ -493,11 +512,30 @@ function pickWildDigimon(
   return { catalogId: last.id, name: last.name, stage: last.stage, element: last.element };
 }
 
+/** Roll a wild's catalog_loot_entries on a win (deterministic — uses the seeded rng). */
+function rollLootForWild(
+  rng: () => number,
+  catalogId: string,
+  lootByCatalog: ReadonlyMap<string, readonly CatalogLootRow[]>,
+): AdventureDrop[] {
+  const entries = lootByCatalog.get(catalogId);
+  if (!entries) return [];
+  const drops: AdventureDrop[] = [];
+  for (const e of entries) {
+    if (rng() * 100 < e.drop_pct) {
+      const qty = e.qty_min === e.qty_max ? e.qty_min : e.qty_min + Math.floor(rng() * (e.qty_max - e.qty_min + 1));
+      if (qty > 0) drops.push({ itemId: e.item_id, qty });
+    }
+  }
+  return drops;
+}
+
 function rollEncounters(
   seed: number,
   hours: number,
   monRows: readonly RosterRow[],
   catalog: Catalog,
+  lootByCatalog: ReadonlyMap<string, readonly CatalogLootRow[]>,
 ): { encounters: AdventureEncounter[]; koedMonIds: string[] } {
   const rng = mulberry32(seed);
   const n = encounterCount(hours);
@@ -516,6 +554,7 @@ function rollEncounters(
 
     let meat = 0, bits = 0, data = 0, netcore = 0, xpPerMon = 0;
     let koMonId: string | null = null;
+    let drops: AdventureDrop[] = [];
 
     if (outcome === 'win') {
       meat = Math.floor(1 + hours + rng() * 4);
@@ -523,6 +562,7 @@ function rollEncounters(
       data = wildLevel >= 4 ? Math.floor(rng() * 3) : 0;
       netcore = Math.floor(3 + wildLevel * 1.5 + hours);
       xpPerMon = Math.floor(6 + wildLevel * 2 + hours);
+      drops = rollLootForWild(rng, wild.catalogId, lootByCatalog);
     } else {
       netcore = Math.floor(1 + hours * 0.5);
       xpPerMon = Math.floor(2 + hours);
@@ -551,6 +591,7 @@ function rollEncounters(
       netcore,
       xpPerMon,
       koMonId,
+      drops,
     });
   }
 
@@ -599,7 +640,16 @@ export async function collectAdventure(
   const monRows = await loadPartyRows(userId, monIds);
   const catalog = loadCatalog();
 
-  const { encounters, koedMonIds } = rollEncounters(active.seed, hours, monRows, catalog);
+  // Per-species drop tables — rolled on every winning encounter (grind source).
+  const lootRows = await q<CatalogLootRow>(SQL_SELECT_CATALOG_LOOT);
+  const lootByCatalog = new Map<string, readonly CatalogLootRow[]>();
+  for (const r of lootRows) {
+    const arr = lootByCatalog.get(r.catalog_id);
+    if (arr) (arr as CatalogLootRow[]).push(r);
+    else lootByCatalog.set(r.catalog_id, [r]);
+  }
+
+  const { encounters, koedMonIds } = rollEncounters(active.seed, hours, monRows, catalog, lootByCatalog);
   const wins = encounters.filter((e) => e.outcome === 'win').length;
   const losses = encounters.length - wins;
   const premium = await isUserPremium(userId, now);
@@ -633,6 +683,24 @@ export async function collectAdventure(
     }
   }
   const foundDigimons = collectFoundDigimons(encounters);
+
+  // Aggregate loot by item + resolve names for the report.
+  const itemQty = new Map<string, number>();
+  for (const e of encounters) {
+    for (const d of e.drops) itemQty.set(d.itemId, (itemQty.get(d.itemId) ?? 0) + d.qty);
+  }
+  const itemNames = new Map<string, string>();
+  if (itemQty.size > 0) {
+    const ids = [...itemQty.keys()];
+    const placeholders = ids.map(() => '?').join(', ');
+    const rows = await q<{ id: string; name: string }>(`SELECT id, name FROM shop_items WHERE id IN (${placeholders})`, ...ids);
+    for (const r of rows) itemNames.set(r.id, r.name);
+  }
+  const itemDrops: AdventureItemDrop[] = [...itemQty.entries()].map(([itemId, qty]) => ({
+    itemId,
+    itemName: itemNames.get(itemId) ?? itemId,
+    qty,
+  }));
 
   const xpRate = await getXpRate();
   const xpDeltas: AdventureXpDelta[] = [];
@@ -673,6 +741,10 @@ export async function collectAdventure(
     if (totals.bits > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, 'Bits', totals.bits, now]);
     if (totals.data > 0) await t.run(SQL_UPSERT_RESOURCE, [userId, 'Data', totals.data, now]);
     if (totals.netcore > 0) await t.run(SQL_ADD_NETCORE, [userId, totals.netcore, now]);
+    // Grant dropped loot (evolution fragments / per-mon tables) atomically.
+    for (const [itemId, qty] of itemQty) {
+      await grantItem(userId, itemId, qty, now, t);
+    }
     // Register found species in the Digidex (met + kills + percent fill).
     for (const f of foundDigimons) {
       if (f.catalogId === 'wild-unknown') continue;
@@ -680,7 +752,7 @@ export async function collectAdventure(
     }
 
     const report: AdventureReport = {
-      encounters, wins, losses, totals, xpDeltas, koedMonIds, foundDigimons,
+      encounters, wins, losses, totals, xpDeltas, koedMonIds, foundDigimons, itemDrops,
       premium,
       premiumBonus: { ...premiumBonus, xp: totalXpBonus },
     };
