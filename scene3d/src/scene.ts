@@ -10,7 +10,6 @@ import type {
   WeatherConfig,
 } from "@digiworld/shared/weather";
 
-import { RUNNERS } from "./attack-runners";
 import { buildPresetRunner, interpolatePosition } from "./attack-runners/preset";
 import type {
   AnimatedElement,
@@ -2604,9 +2603,13 @@ export class SceneManager {
       }
     }
 
-    const builder = RUNNERS[element];
+    // No named effect, stored preset, or the preset id was empty/unresolvable:
+    // fall back to the new melee dash/slash for this element so no action plays
+    // visual-less. (The legacy element runners were removed — every skill/action
+    // now resolves through a named ranged effect, a stored preset, or melee.)
+    const meleeBuild = MELEE_RUNNERS[element];
     const runner = createDeferredRunner(() =>
-      builder(this.scene, wrappedEffect),
+      meleeBuild(this.scene, wrappedEffect),
     );
     this.effects.set(id, { runner, elapsed: 0, duration: durationS });
     return id;
