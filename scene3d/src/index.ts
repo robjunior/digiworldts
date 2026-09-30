@@ -27,6 +27,18 @@ export {
 } from './skill-vfx-resolver';
 export type { SpriteInit, SceneSettings } from './scene';
 export { unitSpriteSheetUrl, unitSpriteStaticUrl, unitDotUrl } from './sprite-rig';
+export {
+  cycleCells,
+  cellRect,
+  resolveSheetLayout,
+  CYCLES12_COLS,
+  CYCLES12_ROWS,
+  CYCLES12_CYCLE_CELLS,
+  DEFAULT_IDLE_CELL,
+  type SheetLayout,
+  type SheetVersion,
+  type SpriteCycle,
+} from './sheet-layout';
 export { prewarmParticleMaterials } from './particles/shaders';
 export {
   NAMED_RUNNERS,

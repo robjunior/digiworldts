@@ -2422,6 +2422,10 @@ export class SceneManager {
   ): void {
     const sprite = this.getSprite(unitId);
     if (sprite === undefined) return;
+    // A negative status puts the digimon in the sad cycle (until it clears).
+    // Downed units are skipped before this call (see useAilmentSync), so the
+    // death cycle handles them independently via setDowned.
+    sprite.setSad(ailments.length > 0);
     let ctrl = this.statusFx.get(unitId);
     if (ctrl === undefined) {
       if (this.statusPools === null) {

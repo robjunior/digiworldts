@@ -1,5 +1,13 @@
 import * as THREE from 'three';
 
+import {
+  cellRect,
+  cycleCells,
+  resolveSheetLayout,
+  type SheetLayout,
+  type SpriteCycle,
+} from './sheet-layout';
+
 export type SpriteSide = 'you' | 'opp';
 
 export type SpriteRigConfig = {
@@ -50,6 +58,10 @@ export type SpriteRigApi = {
   update(dt: number, elapsedS: number, cameraQuat: THREE.Quaternion): void;
   playAttack(): void;
   playHit(): void;
+  /** Drive the sad (negative-status) cycle on new-layout sheets. */
+  setSad(sad: boolean): void;
+  /** Mark the rig as moving so the walk cycle plays on new-layout sheets. */
+  setMoving(moving: boolean): void;
   illuminate(color: THREE.Color | number, intensity: number, decayPerSec?: number): void;
   setDowned(down: boolean): void;
   setTextureUrl(url: string): void;
@@ -75,6 +87,13 @@ const ALPHA_THRESHOLD = 24;
 const WALK_FRAME_MS = 320;
 const HIT_FRAME_MS = 160;
 
+// Transient single-cycle reaction windows for the new 12-frame sheets.
+const MOOD_FRAME_MS = 220;
+
+// Legacy frame indices (2×2 layout): 3 = attack (bottom-right), 2 = take-hit.
+const ATTACK_FRAME_INDEX = 3;
+const TAKE_HIT_FRAME_INDEX = 2;
+
 // Subtle "alive" breathing for combat units (idleAnimated: false). No frame
 // swap and no horizontal hop — just a gentle vertical scale + lift so a unit
 // standing still between actions doesn't read as frozen / broken.
@@ -82,13 +101,9 @@ const BREATHE_HZ = 0.5;          // breaths per second
 const BREATHE_SCALE_AMP = 0.03;   // ±3% height
 const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 
-// Spritesheet layout: 2 columns × 2 rows of 32×32 frames (a 64×64 image).
-// Frame 1=top-left, 2=top-right, 3=bottom-left, 4=bottom-right.
-const SHEET_COLS = 2;
-const SHEET_ROWS = 2;
-// Indices into the flattened cell array (row * cols + col).
-const ATTACK_FRAME_INDEX = 3;               // bottom-right = giving hit / attacking
-const TAKE_HIT_FRAME_INDEX = 2;             // bottom-left = taking hit / recoil
+// Spritesheet layout is resolved from the sheet's actual pixel dimensions via
+// `resolveSheetLayout` (shared with the 2D component) — square = legacy 2×2,
+// non-square = new 3×4 twelve-frame layout. No hardcoded cell size here.
 
 export const FORMATION_SIDE_X = 3.0;
 export const FORMATION_SLOT_Z_SPACING = 2.4;
@@ -220,22 +235,36 @@ export function unitDotUrl(templateId: string): string {
 }
 
 /**
- * Spritesheet playback state. The source image is a 2×2 grid of 32×32 cells.
- * `walk` loops continuously; `hitActive` triggers a single-frame pose (TAKE_HIT on
- * playHit, ATTACK on playAttack) for HIT_FRAME_MS then returns to walking.
+ * Spritesheet playback state. The source image grid (legacy 2×2, or the new
+ * 3×4 twelve-frame layout) is resolved from the sheet's real dimensions.
+ *
+ * Playback is cycle-driven:
+ *  - legacy sheets keep the old contract (walk loop + single-frame hit/attack),
+ *  - 12-frame sheets run a persistent cycle (happy = default, walk, sad, death)
+ *    that a transient reaction (attack → angry) overrides, then returns to.
  */
 type SheetState = {
   readonly canvas: HTMLCanvasElement;
   readonly ctx: CanvasRenderingContext2D;
   readonly texture: THREE.CanvasTexture;
   readonly image: HTMLImageElement;
-  walkIndex: number;
-  walkElapsed: number;
-  hitActive: boolean;
-  hitElapsed: number;
-  /** Walk cycle frames for THIS sheet: top row [0,1] for 64×64 real digimon,
-   *  all four [0,1,2,3] for 32×32 "4 colors per frame" user sheets. */
-  readonly walkIndices: readonly number[];
+  readonly layout: SheetLayout;
+  /** Persistent cycle driving this sheet (happy/walk/sad/death). */
+  cycle: SpriteCycle;
+  /** Index into `cycleCells` for the current cell (or legacy frame index). */
+  step: number;
+  /** ms elapsed in the current frame. */
+  elapsed: number;
+  /** True while a transient reaction (attack) overrides the persistent cycle. */
+  reaction: 'attack' | 'hit' | null;
+  /** Index into the reaction's cycle cells; legacy uses a single frame. */
+  reactionStep: number;
+  /** ms elapsed in the current reaction. */
+  reactionElapsed: number;
+  /** Sad state (affected by a negative status). Drives cycle → 'sad'. */
+  sad: boolean;
+  /** Walk state (moved this frame). Drives cycle → 'walk' when not sad/dead. */
+  moved: boolean;
 };
 
 export class SpriteRig implements SpriteRigApi {
@@ -420,11 +449,12 @@ export class SpriteRig implements SpriteRigApi {
       }
       const w = img.naturalWidth || 64;
       const h = img.naturalHeight || 64;
-      // Cell size is derived from the SOURCE sheet, independent of the canvas.
-      const cellW = Math.max(1, Math.floor(w / SHEET_COLS));
-      const cellH = Math.max(1, Math.floor(h / SHEET_ROWS));
-      // The texture holds exactly ONE cell (1:1, no upscale). Stretching a 16px
-      // cell into a 64px canvas and using that as the texture is what made
+      // Layout + cell size are derived from the SOURCE sheet, independent of the
+      // canvas: square → legacy 2×2, non-square → new 3×4 twelve-frame layout.
+      const layout = resolveSheetLayout(w, h);
+      const { cellW, cellH } = layout;
+      // The texture holds exactly ONE cell (1:1, no upscale). Stretching a small
+      // cell into a bigger canvas and using that as the texture is what made
       // frames look chunky/cropped through alphaTest.
       const canvas = document.createElement('canvas');
       canvas.width = cellW;
@@ -447,20 +477,27 @@ export class SpriteRig implements SpriteRigApi {
       this.syncDepthMap();
       previous?.dispose();
       this.applyAspect(cellW, cellH);
-      const walkIndices = cellW <= 16 ? [0, 1, 2, 3] : [0, 1];
       const sheet: SheetState = {
         canvas,
         ctx,
         texture,
         image: img,
-        walkIndex: 0,
-        walkElapsed: 0,
-        hitActive: false,
-        hitElapsed: 0,
-        walkIndices,
+        layout,
+        // Legacy walk starts at frame 0; new layout defaults to happy (idle).
+        cycle: layout.version === 'cycles12' ? 'happy' : 'walk',
+        step: 0,
+        elapsed: 0,
+        reaction: null,
+        reactionStep: 0,
+        reactionElapsed: 0,
+        sad: false,
+        moved: false,
       };
       this.sheet = sheet;
-      this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
+      this.drawCurrentSheetFrame(sheet);
+      // If the unit started downed, resolve its persistence now that the sheet
+      // layout is known (cycles12 → death cycle stays visible; legacy → hidden).
+      if (this._downed) this.setDowned(true);
       try {
         this.applyAlphaBboxFromImageData(ctx.getImageData(0, 0, cellW, cellH));
       } catch {
@@ -474,18 +511,53 @@ export class SpriteRig implements SpriteRigApi {
     img.src = url;
   }
 
-  /** Draw one cell of the sheet (cell = row * cols + col) into the canvas at 1:1. */
-  private drawSheetFrame(sheet: SheetState, cell: number): void {
-    const imgW = sheet.image.naturalWidth || 64;
-    const imgH = sheet.image.naturalHeight || 64;
-    const cellW = Math.max(1, Math.floor(imgW / SHEET_COLS));
-    const cellH = Math.max(1, Math.floor(imgH / SHEET_ROWS));
-    const col = cell % SHEET_COLS;
-    const row = Math.floor(cell / SHEET_COLS);
-    const sx = col * cellW;
-    const sy = row * cellH;
+  /** Draw the sheet's current cycle cell (or reaction cell) into the canvas at 1:1. */
+  private drawCurrentSheetFrame(sheet: SheetState): void {
+    const cells =
+      sheet.reaction !== null
+        ? this.reactionCells(sheet)
+        : cycleCells(sheet.layout, sheet.cycle);
+    const cell = sheet.reaction !== null
+      ? cells[sheet.reactionStep] ?? cells[0] ?? 0
+      : cells[sheet.step] ?? cells[0] ?? 0;
+    this.drawSheetCell(sheet, cell);
+  }
+
+  /** The single-frame or transient-cycle cells for the active reaction. */
+  private reactionCells(sheet: SheetState): readonly number[] {
+    if (sheet.reaction === 'attack') {
+      // Legacy: attack is the single bottom-right frame (cell 3). New layout:
+      // attack = angry cycle (all three angry cells).
+      return sheet.layout.version === 'cycles12'
+        ? cycleCells(sheet.layout, 'angry')
+        : [ATTACK_FRAME_INDEX];
+    }
+    if (sheet.reaction === 'hit') {
+      // Legacy: hit is the single bottom-left frame (cell 2). The new layout has
+      // no dedicated take-hit frame; use the sad cycle (the "status hit" state)
+      // so a damage reaction still visibly changes pose.
+      return sheet.layout.version === 'cycles12'
+        ? cycleCells(sheet.layout, 'sad')
+        : [TAKE_HIT_FRAME_INDEX];
+    }
+    return [0];
+  }
+
+  /** Draw one cell of the sheet into the canvas at 1:1 using the shared layout. */
+  private drawSheetCell(sheet: SheetState, cell: number): void {
+    const rect = cellRect(sheet.layout, cell);
     sheet.ctx.clearRect(0, 0, sheet.canvas.width, sheet.canvas.height);
-    sheet.ctx.drawImage(sheet.image, sx, sy, cellW, cellH, 0, 0, cellW, cellH);
+    sheet.ctx.drawImage(
+      sheet.image,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      0,
+      0,
+      rect.w,
+      rect.h,
+    );
     sheet.texture.needsUpdate = true;
   }
 
@@ -715,49 +787,130 @@ export class SpriteRig implements SpriteRigApi {
     void elapsedS;
   }
 
-  /** Advance spritesheet playback (walk loop, or the hit cycle while active). */
+  /**
+   * Advance spritesheet playback (cycle loop, or a transient reaction while
+   * one is active). Empties into whichever persistent cycle is current once
+   * the reaction finishes.
+   */
   private updateSheet(sheet: SheetState, dt: number): void {
-    if (sheet.hitActive) {
-      sheet.hitElapsed += dt * 1000;
-      if (sheet.hitElapsed >= HIT_FRAME_MS) {
-        sheet.hitElapsed -= HIT_FRAME_MS;
-        // Single-frame hit pose (TAKE_HIT = frame 2). Just hold it; on timeout revert to walk.
-        sheet.hitActive = false;
-        sheet.walkIndex = 0;
-        sheet.walkElapsed = 0;
-        this.drawSheetFrame(sheet, sheet.walkIndices[0]!);
+    // Active reaction: advance through its frames, then return to the cycle.
+    if (sheet.reaction !== null) {
+      sheet.reactionElapsed += dt * 1000;
+      const cells = this.reactionCells(sheet);
+      const perFrame = sheet.layout.version === 'cycles12' ? MOOD_FRAME_MS : HIT_FRAME_MS;
+      if (sheet.reactionElapsed >= perFrame) {
+        sheet.reactionElapsed -= perFrame;
+        sheet.reactionStep += 1;
+        if (sheet.reactionStep >= cells.length) {
+          // Reaction done — clear it and settle on the first frame of the
+          // persistent cycle (so the pose snaps back, not mid-anim).
+          sheet.reaction = null;
+          sheet.step = 0;
+          sheet.elapsed = 0;
+          this.drawCurrentSheetFrame(sheet);
+        } else {
+          this.drawCurrentSheetFrame(sheet);
+        }
       }
       return;
     }
-    if (!this.idleAnimated) return; // combat units stand still on frame 0
-    sheet.walkElapsed += dt * 1000;
-    if (sheet.walkElapsed >= WALK_FRAME_MS) {
-      sheet.walkElapsed -= WALK_FRAME_MS;
-      sheet.walkIndex = (sheet.walkIndex + 1) % sheet.walkIndices.length;
-      this.drawSheetFrame(sheet, sheet.walkIndices[sheet.walkIndex]!);
+
+    // New 12-frame layout: drive the persistent cycle from rig state.
+    if (sheet.layout.version === 'cycles12') {
+      this.updateCycle12(sheet, dt);
+      return;
+    }
+
+    // Legacy: walk loop while idleAnimated; combat units stand still on frame 0.
+    if (!this.idleAnimated) return;
+    sheet.elapsed += dt * 1000;
+    if (sheet.elapsed >= WALK_FRAME_MS) {
+      sheet.elapsed -= WALK_FRAME_MS;
+      const walk = cycleCells(sheet.layout, 'walk');
+      sheet.step = (sheet.step + 1) % walk.length;
+      this.drawCurrentSheetFrame(sheet);
+    }
+  }
+
+  /** Persistent-cycle playback for the new 3×4 twelve-frame layout. */
+  private updateCycle12(sheet: SheetState, dt: number): void {
+    // Death overrides everything and persists: a dead digimon stays in the
+    // death cycle (loops its two frames so it reads as a lingering corpse).
+    // Sad comes before walk; walk before happy. Priority handled below.
+    let target: SpriteCycle = 'happy';
+    if (this._downed) target = 'death';
+    else if (sheet.sad) target = 'sad';
+    else if (sheet.moved) target = 'walk';
+
+    // Combat passes idleAnimated:false → the idle happy pose holds static
+    // (frame 0) unless the unit is moving/sad/dead, which must keep animating.
+    const shouldAnimate = this.idleAnimated || target === 'walk' || target === 'death';
+
+    if (sheet.cycle !== target) {
+      sheet.cycle = target;
+      sheet.step = 0;
+      sheet.elapsed = 0;
+      this.drawCurrentSheetFrame(sheet);
+      return;
+    }
+    const cells = cycleCells(sheet.layout, target);
+    if (cells.length < 1) return;
+    if (!shouldAnimate && cells.length > 1) {
+      // Static resting pose on frame 0.
+      if (sheet.step !== 0) {
+        sheet.step = 0;
+        this.drawCurrentSheetFrame(sheet);
+      }
+      return;
+    }
+    sheet.elapsed += dt * 1000;
+    if (sheet.elapsed >= WALK_FRAME_MS) {
+      sheet.elapsed -= WALK_FRAME_MS;
+      sheet.step = (sheet.step + 1) % cells.length;
+      this.drawCurrentSheetFrame(sheet);
     }
   }
 
   playAttack(): void {
     if (this.disposedFlag) return;
-    // Lunge transform (kept for spatial weight) + the sheet's ATTACK frame (frame 3).
+    // Lunge transform (kept for spatial weight) + the sheet's attack reaction:
+    // legacy → single ATTACK frame (3); new layout → angry cycle.
     this.anim = { type: 'attack', t: 0, dur: ATTACK_ANIM_S };
     if (this.sheet !== null) {
-      this.sheet.hitActive = true;
-      this.sheet.hitElapsed = 0;
-      this.drawSheetFrame(this.sheet, ATTACK_FRAME_INDEX);
+      this.sheet.reaction = 'attack';
+      this.sheet.reactionStep = 0;
+      this.sheet.reactionElapsed = 0;
+      this.drawCurrentSheetFrame(this.sheet);
     }
   }
 
   playHit(): void {
     if (this.disposedFlag) return;
-    // Shake-on-take-damage (spatial) + sheet's TAKE_HIT frame (frame 2).
+    // Shake-on-take-damage (spatial) + the sheet's hit reaction:
+    // legacy → single TAKE_HIT frame (2); new layout → sad (status-hit) cycle.
     this.anim = { type: 'hit', t: 0, dur: HIT_ANIM_S };
     if (this.sheet !== null) {
-      this.sheet.hitActive = true;
-      this.sheet.hitElapsed = 0;
-      this.drawSheetFrame(this.sheet, TAKE_HIT_FRAME_INDEX);
+      this.sheet.reaction = 'hit';
+      this.sheet.reactionStep = 0;
+      this.sheet.reactionElapsed = 0;
+      this.drawCurrentSheetFrame(this.sheet);
     }
+  }
+
+  /** Drive the sad (negative-status) cycle for new-layout sheets. No-op on legacy. */
+  setSad(sad: boolean): void {
+    if (this.disposedFlag || this.sheet === null) return;
+    this.sheet.sad = sad;
+    // Re-derive the persistent cycle immediately (clearing sad snaps back to
+    // whatever the unit should be showing — happy, or walk/death if engaged).
+    this.updateCycle12(this.sheet, 0);
+  }
+
+  /** Mark the rig as moving (drives the walk cycle on new-layout sheets). */
+  setMoving(moving: boolean): void {
+    if (this.disposedFlag || this.sheet === null) return;
+    this.sheet.moved = moving;
+    this.updateCycle12(this.sheet, 0);
   }
 
   illuminate(color: THREE.Color | number, intensity: number, decayPerSec = 4): void {
@@ -773,6 +926,18 @@ export class SpriteRig implements SpriteRigApi {
   setDowned(down: boolean): void {
     if (this.disposedFlag) return;
     this._downed = down;
+    if (this.sheet !== null && this.sheet.layout.version === 'cycles12') {
+      // New layout: a dead digimon persists in the death cycle (visible), so an
+      // ally revive can pull it back. Keep the mesh + shadow on stage.
+      this.mesh.visible = true;
+      this.shadow.visible = true;
+      this.sheet.cycle = down ? 'death' : 'happy';
+      this.sheet.step = 0;
+      this.sheet.elapsed = 0;
+      this.drawCurrentSheetFrame(this.sheet);
+      return;
+    }
+    // Legacy fallback: downed units are removed from the stage entirely.
     this.mesh.visible = !down;
     this.shadow.visible = !down;
   }
