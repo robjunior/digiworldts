@@ -48,9 +48,11 @@ export function chipQtyForTier(tier: RosterSpecies['tier']): number {
 }
 
 /**
- * Returns a NEW digimons array with the canonical Rookie→Champion edges assigned the
- * Champion evolution chip. Pairs with no real edge (or a champion not on the roster)
- * are skipped and reported. Roster species/tier map ensures the champion exists.
+ * Returns a NEW digimons array with EVERY launch-roster Rookie→Champion edge assigned
+ * the Champion evolution chip — neither the Rookie nor the Champion path is locked.
+ * An edge is gated (item-less, `no-item-assigned`) ONLY when its target is not a
+ * roster Champion (Ultimate/Mega/off-roster are unreachable in the champion-cap meta
+ * anyway). Cost scales with the target champion's rarity tier (epic costs 3 chips).
  */
 export function applyLaunchEvolutionKeys(
   digimons: readonly TemplateDigimon[],
@@ -58,26 +60,24 @@ export function applyLaunchEvolutionKeys(
 ): { digimons: TemplateDigimon[]; assigned: string[]; skipped: string[] } {
   const assigned: string[] = [];
   const skipped: string[] = [];
+  const idToInfo = new Map<string, { name: string; stage: string }>();
+  for (const t of digimons) idToInfo.set(t.id, { name: t.name, stage: t.stage });
   const next = digimons.map((t) => {
-    const targetName = t.stage === 'Rookie' ? CANONICAL_ROOKIE_TO_CHAMPION[t.name.toLowerCase()] : undefined;
-    if (!targetName || !t.evolvesInto || t.evolvesInto.length === 0) return t;
-    const targetSpecies = speciesByShortName.get(targetName);
-    if (!targetSpecies) return t; // canonical champion not on the launch roster — family farms it via wild/hatch
-    const targetId = digimons.find((x) => x.name === targetName)?.id;
-    if (!targetId) return t;
-    const edge = t.evolvesInto.find((e) => e.targetId === targetId);
-    if (!edge) {
-      skipped.push(`${t.name}→${targetName} (no edge)`);
-      return t;
-    }
-    const qty = chipQtyForTier(targetSpecies.tier);
-    assigned.push(`${t.name}→${targetName} (${targetSpecies.tier}, ×${qty})`);
-    return {
-      ...t,
-      evolvesInto: t.evolvesInto.map((e) =>
-        e === edge ? { ...e, requiredItemId: EVO_CHIP_CHAMPION, requiredItemQty: qty } : e,
-      ),
-    };
+    if (t.stage !== 'Rookie' || !t.evolvesInto || t.evolvesInto.length === 0) return t;
+    let changed = false;
+    const evolvesInto = t.evolvesInto.map((e) => {
+      if (e.requiredItemId !== undefined) return e; // already item-gated (idempotent)
+      const target = idToInfo.get(e.targetId);
+      if (!target) return e;
+      const species = speciesByShortName.get(target.name);
+      // Only Rookie→Champion within the launch roster is a live path.
+      if (!species || target.stage !== 'Champion') return e;
+      const qty = chipQtyForTier(species.tier);
+      changed = true;
+      assigned.push(`${t.name}→${target.name} (${species.tier}, ×${qty})`);
+      return { ...e, requiredItemId: EVO_CHIP_CHAMPION, requiredItemQty: qty };
+    });
+    return changed ? { ...t, evolvesInto } : t;
   });
   return { digimons: next, assigned, skipped };
 }

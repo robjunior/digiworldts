@@ -32,11 +32,11 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-3" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-12"></evolve>
-      <evolve targetId="skb-370"></evolve>
-      <evolve targetId="skb-580"></evolve>
+      <evolve targetId="skb-12" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-370" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-580" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-755"></evolve>
-      <evolve targetId="skb-758"></evolve>
+      <evolve targetId="skb-758" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -115,8 +115,8 @@
       <skill id="s3" name="Surudoi Tsume" element="plant" cost="41" power="380" description="Attacks with its claws."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-25"></evolve>
-      <evolve targetId="skb-54"></evolve>
+      <evolve targetId="skb-25" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-54" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-70"></evolve>
       <evolve targetId="skb-326" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-363" requiredItemId="itm-evo-tyrannomon" requiredItemQty="1"></evolve>
@@ -142,8 +142,8 @@
       <evolve targetId="skb-463"></evolve>
       <evolve targetId="skb-456"></evolve>
       <evolve targetId="skb-590"></evolve>
-      <evolve targetId="skb-621"></evolve>
-      <evolve targetId="skb-710"></evolve>
+      <evolve targetId="skb-621" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-710" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="water" mult="0.5"></r>
@@ -183,9 +183,9 @@
       <skill id="s3" name="Fire Rock Breaker" element="fire" cost="41" power="380" description="A burning version of Rock Breaker ."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-54"></evolve>
+      <evolve targetId="skb-54" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-78" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-365"></evolve>
+      <evolve targetId="skb-365" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-363"></evolve>
       <evolve targetId="skb-712"></evolve>
     </evolutions>
@@ -207,10 +207,10 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-137" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-10"></evolve>
-      <evolve targetId="skb-78"></evolve>
+      <evolve targetId="skb-10" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-78" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-115"></evolve>
-      <evolve targetId="skb-308"></evolve>
+      <evolve targetId="skb-308" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-676"></evolve>
     </evolutions>
     <resistances>
@@ -230,10 +230,10 @@
       <skill id="s3" name="Surfer Dive" element="wind" cost="41" power="380" description="Jumps into the air to body slam the enemy."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-371"></evolve>
+      <evolve targetId="skb-371" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-344" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-370"></evolve>
-      <evolve targetId="skb-580"></evolve>
+      <evolve targetId="skb-370" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-580" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-730"></evolve>
     </evolutions>
     <resistances>
@@ -253,10 +253,10 @@
       <skill id="s3" name="Root Stretch" element="plant" cost="41" power="380" description="Slashes a foe with its claws."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-371"></evolve>
-      <evolve targetId="skb-314"></evolve>
+      <evolve targetId="skb-371" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-314" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-349" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-393"></evolve>
+      <evolve targetId="skb-393" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-630"></evolve>
       <evolve targetId="skb-752"></evolve>
     </evolutions>
@@ -278,10 +278,10 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-304" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
-      <evolve targetId="skb-58"></evolve>
-      <evolve targetId="skb-367"></evolve>
+      <evolve targetId="skb-58" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-367" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-454"></evolve>
-      <evolve targetId="skb-597"></evolve>
+      <evolve targetId="skb-597" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -300,9 +300,9 @@
       <skill id="s3" name="Kūchū Petit Twister Shot" element="plant" cost="41" power="380" description="Spins in midair to sling a small twister."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-371"></evolve>
-      <evolve targetId="skb-3"></evolve>
-      <evolve targetId="skb-51"></evolve>
+      <evolve targetId="skb-371" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-3" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-51" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-710" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-751"></evolve>
     </evolutions>
@@ -324,8 +324,8 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-12" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-344"></evolve>
-      <evolve targetId="skb-373"></evolve>
+      <evolve targetId="skb-344" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-373" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-395" requiredItemId="itm-evo-kyubimon" requiredItemQty="1"></evolve>
       <evolve targetId="skb-729"></evolve>
     </evolutions>
@@ -4399,8 +4399,8 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-398"></evolve>
-      <evolve targetId="skb-615"></evolve>
-      <evolve targetId="skb-621"></evolve>
+      <evolve targetId="skb-615" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-621" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-341" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-463"></evolve>
     </evolutions>
@@ -4557,7 +4557,7 @@
     <evolutions>
       <evolve targetId="skb-43"></evolve>
       <evolve targetId="skb-313"></evolve>
-      <evolve targetId="skb-92"></evolve>
+      <evolve targetId="skb-92" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-399"></evolve>
       <evolve targetId="skb-729"></evolve>
       <evolve targetId="skb-752"></evolve>
@@ -4643,7 +4643,7 @@
       <evolve targetId="skb-592"></evolve>
       <evolve targetId="skb-91"></evolve>
       <evolve targetId="skb-113"></evolve>
-      <evolve targetId="skb-304"></evolve>
+      <evolve targetId="skb-304" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -4704,7 +4704,7 @@
       <skill id="s3" name="Koura Attack" element="water" cost="41" power="380" description="Headbutts an enemy with its helmet."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-51"></evolve>
+      <evolve targetId="skb-51" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-240"></evolve>
       <evolve targetId="skb-368"></evolve>
       <evolve targetId="skb-455"></evolve>
@@ -4728,9 +4728,9 @@
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-11"></evolve>
+      <evolve targetId="skb-11" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-77"></evolve>
-      <evolve targetId="skb-87"></evolve>
+      <evolve targetId="skb-87" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-191"></evolve>
       <evolve targetId="skb-680"></evolve>
       <evolve targetId="skb-755"></evolve>
@@ -4752,9 +4752,9 @@
       <skill id="s3" name="Wild Echo" element="water" cost="41" power="380" description="A battle cry shockwave attack."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-16"></evolve>
+      <evolve targetId="skb-16" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-68" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-72"></evolve>
+      <evolve targetId="skb-72" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-375"></evolve>
       <evolve targetId="skb-102"></evolve>
     </evolutions>
@@ -4776,7 +4776,7 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-58" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
-      <evolve targetId="skb-349"></evolve>
+      <evolve targetId="skb-349" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-456"></evolve>
       <evolve targetId="skb-759"></evolve>
       <evolve targetId="skb-102"></evolve>
@@ -4885,11 +4885,11 @@
       <skill id="s3" name="Kuuchuu Night of Fire" element="fire" cost="41" power="380" description="Shoots flames of darkness while jumping through the air."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-13"></evolve>
+      <evolve targetId="skb-13" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-377"></evolve>
       <evolve targetId="skb-398"></evolve>
-      <evolve targetId="skb-30"></evolve>
-      <evolve targetId="skb-93"></evolve>
+      <evolve targetId="skb-30" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-93" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-601"></evolve>
     </evolutions>
     <resistances>
@@ -5087,7 +5087,7 @@
       <skill id="s3" name="Bat Flutter" element="fire" cost="41" power="380" description="1 2 Slashes the enemy with its wings. Shoots a stream of tiny bats at the enemy."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-13"></evolve>
+      <evolve targetId="skb-13" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-730"></evolve>
       <evolve targetId="skb-93" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-394"></evolve>
@@ -5174,11 +5174,11 @@
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-51"></evolve>
+      <evolve targetId="skb-51" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-240"></evolve>
       <evolve targetId="skb-368"></evolve>
       <evolve targetId="skb-590"></evolve>
-      <evolve targetId="skb-597"></evolve>
+      <evolve targetId="skb-597" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-130"></evolve>
     </evolutions>
     <resistances>
@@ -5199,7 +5199,7 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-5"></evolve>
-      <evolve targetId="skb-100"></evolve>
+      <evolve targetId="skb-100" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-228"></evolve>
       <evolve targetId="skb-598"></evolve>
       <evolve targetId="skb-394"></evolve>
@@ -5221,11 +5221,11 @@
       <skill id="s3" name="Metal Shoot" element="steel" cost="41" power="380" description="Emits a small blast from the mouth."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-25"></evolve>
-      <evolve targetId="skb-11"></evolve>
-      <evolve targetId="skb-30"></evolve>
-      <evolve targetId="skb-365"></evolve>
-      <evolve targetId="skb-373"></evolve>
+      <evolve targetId="skb-25" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-11" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
+      <evolve targetId="skb-30" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-365" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
+      <evolve targetId="skb-373" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-396" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
@@ -5267,7 +5267,7 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-365" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
-      <evolve targetId="skb-397"></evolve>
+      <evolve targetId="skb-397" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-139"></evolve>
       <evolve targetId="skb-382"></evolve>
       <evolve targetId="skb-716"></evolve>
@@ -5397,9 +5397,9 @@
       <skill id="s3" name="Mach Jab" element="fire" cost="41" power="380" description="Dashes forward, stabbing with its claws covered in green flame."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-16"></evolve>
+      <evolve targetId="skb-16" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-598"></evolve>
-      <evolve targetId="skb-93"></evolve>
+      <evolve targetId="skb-93" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-218"></evolve>
       <evolve targetId="skb-712"></evolve>
     </evolutions>
@@ -5700,7 +5700,7 @@
       <evolve targetId="skb-77"></evolve>
       <evolve targetId="skb-130"></evolve>
       <evolve targetId="skb-191"></evolve>
-      <evolve targetId="skb-326"></evolve>
+      <evolve targetId="skb-326" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-369"></evolve>
     </evolutions>
     <resistances>
@@ -5764,7 +5764,7 @@
       <evolve targetId="skb-209"></evolve>
       <evolve targetId="skb-218"></evolve>
       <evolve targetId="skb-228"></evolve>
-      <evolve targetId="skb-397"></evolve>
+      <evolve targetId="skb-397" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-347"></evolve>
       <evolve targetId="skb-363"></evolve>
     </evolutions>
@@ -5939,11 +5939,11 @@
       <skill id="s3" name="Holy Shoot" element="light" cost="41" power="380" description="Hōrī Shūto"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-10"></evolve>
-      <evolve targetId="skb-12"></evolve>
-      <evolve targetId="skb-13"></evolve>
+      <evolve targetId="skb-10" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-12" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-13" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-548"></evolve>
-      <evolve targetId="skb-395"></evolve>
+      <evolve targetId="skb-395" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -5983,9 +5983,9 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-235" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
-      <evolve targetId="skb-68"></evolve>
-      <evolve targetId="skb-371"></evolve>
-      <evolve targetId="skb-72"></evolve>
+      <evolve targetId="skb-68" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-371" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-72" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-714"></evolve>
     </evolutions>
     <resistances>
@@ -6114,7 +6114,7 @@
       <skill id="s3" name="Katai Kuchibashi" element="plant" cost="41" power="380" description="Pecks the foe with its beak."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-15"></evolve>
+      <evolve targetId="skb-15" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-308" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-548"></evolve>
       <evolve targetId="skb-377"></evolve>
@@ -6364,12 +6364,12 @@
       <skill id="s3" name="Sledge Dash" element="plant" cost="41" power="380" description="Runs ahead and tackles the enemy with a headbutt."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-92"></evolve>
-      <evolve targetId="skb-30"></evolve>
+      <evolve targetId="skb-92" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
+      <evolve targetId="skb-30" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-222"></evolve>
-      <evolve targetId="skb-344"></evolve>
-      <evolve targetId="skb-397"></evolve>
-      <evolve targetId="skb-373"></evolve>
+      <evolve targetId="skb-344" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-397" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-373" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -6585,9 +6585,9 @@
     <evolutions>
       <evolve targetId="skb-347"></evolve>
       <evolve targetId="skb-130"></evolve>
-      <evolve targetId="skb-93"></evolve>
+      <evolve targetId="skb-93" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-70"></evolve>
-      <evolve targetId="skb-314"></evolve>
+      <evolve targetId="skb-314" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-598"></evolve>
     </evolutions>
     <resistances>
@@ -6624,8 +6624,8 @@
       <skill id="s3" name="Shōda" element="water" cost="41" power="380" description="Attacks with a strong hand strike."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-3"></evolve>
-      <evolve targetId="skb-58"></evolve>
+      <evolve targetId="skb-3" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-58" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-77"></evolve>
       <evolve targetId="skb-395" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-714"></evolve>
@@ -6649,7 +6649,7 @@
     <evolutions>
       <evolve targetId="skb-91"></evolve>
       <evolve targetId="skb-592"></evolve>
-      <evolve targetId="skb-597"></evolve>
+      <evolve targetId="skb-597" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -6935,7 +6935,7 @@
       <skill id="s3" name="Overdrive" element="fire" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-30"></evolve>
+      <evolve targetId="skb-30" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-313"></evolve>
       <evolve targetId="skb-377"></evolve>
       <evolve targetId="skb-14"></evolve>
@@ -6957,8 +6957,8 @@
       <skill id="s3" name="Overdrive" element="plant" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-16"></evolve>
-      <evolve targetId="skb-25"></evolve>
+      <evolve targetId="skb-16" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-25" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-228"></evolve>
       <evolve targetId="skb-630"></evolve>
       <evolve targetId="skb-452"></evolve>
@@ -7168,7 +7168,7 @@
       <evolve targetId="skb-183"></evolve>
       <evolve targetId="skb-347"></evolve>
       <evolve targetId="skb-548"></evolve>
-      <evolve targetId="skb-367"></evolve>
+      <evolve targetId="skb-367" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-399"></evolve>
     </evolutions>
     <resistances>
@@ -7212,12 +7212,12 @@
       <skill id="s3" name="Booby Pit" element="fire" cost="41" power="380" description="Būbī Pitto"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-30"></evolve>
+      <evolve targetId="skb-30" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-43"></evolve>
-      <evolve targetId="skb-68"></evolve>
+      <evolve targetId="skb-68" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-115"></evolve>
       <evolve targetId="skb-222"></evolve>
-      <evolve targetId="skb-396"></evolve>
+      <evolve targetId="skb-396" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -7237,7 +7237,7 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-702"></evolve>
-      <evolve targetId="skb-308"></evolve>
+      <evolve targetId="skb-308" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-474"></evolve>
       <evolve targetId="skb-574"></evolve>
     </evolutions>
@@ -7344,12 +7344,12 @@
       <skill id="s3" name="Snow Claw" element="ice" cost="41" power="380" description="Slashes the enemy with claws of freezing air."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-92"></evolve>
+      <evolve targetId="skb-92" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-369"></evolve>
-      <evolve targetId="skb-370"></evolve>
-      <evolve targetId="skb-580"></evolve>
+      <evolve targetId="skb-370" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-580" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-730"></evolve>
-      <evolve targetId="skb-758"></evolve>
+      <evolve targetId="skb-758" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="2"></r>
@@ -7481,10 +7481,10 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-14"></evolve>
-      <evolve targetId="skb-341"></evolve>
+      <evolve targetId="skb-341" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-5"></evolve>
       <evolve targetId="skb-369"></evolve>
-      <evolve targetId="skb-758"></evolve>
+      <evolve targetId="skb-758" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-759"></evolve>
     </evolutions>
     <resistances>
@@ -7564,7 +7564,7 @@
     <evolutions>
       <evolve targetId="skb-313"></evolve>
       <evolve targetId="skb-375"></evolve>
-      <evolve targetId="skb-393"></evolve>
+      <evolve targetId="skb-393" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-586"></evolve>
     </evolutions>
     <resistances>
@@ -7585,10 +7585,10 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-372"></evolve>
-      <evolve targetId="skb-367"></evolve>
+      <evolve targetId="skb-367" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-398"></evolve>
       <evolve targetId="skb-454"></evolve>
-      <evolve targetId="skb-615"></evolve>
+      <evolve targetId="skb-615" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="water" mult="1.5"></r>
@@ -7629,10 +7629,10 @@
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-314"></evolve>
-      <evolve targetId="skb-349"></evolve>
-      <evolve targetId="skb-393"></evolve>
-      <evolve targetId="skb-58"></evolve>
+      <evolve targetId="skb-314" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-349" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-393" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-58" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-610"></evolve>
     </evolutions>
     <resistances>
@@ -7692,7 +7692,7 @@
       <evolve targetId="skb-702"></evolve>
       <evolve targetId="skb-574"></evolve>
       <evolve targetId="skb-610"></evolve>
-      <evolve targetId="skb-15"></evolve>
+      <evolve targetId="skb-15" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -7711,9 +7711,9 @@
       <skill id="s3" name="Counter Binta" element="water" cost="41" power="380" description="Repeatedly slaps its enemy."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-11"></evolve>
+      <evolve targetId="skb-11" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-702"></evolve>
-      <evolve targetId="skb-308"></evolve>
+      <evolve targetId="skb-308" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-579"></evolve>
     </evolutions>
     <resistances>
@@ -7734,9 +7734,9 @@
     </skills>
     <evolutions>
       <evolve targetId="skb-592"></evolve>
-      <evolve targetId="skb-100"></evolve>
+      <evolve targetId="skb-100" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-240"></evolve>
-      <evolve targetId="skb-615"></evolve>
+      <evolve targetId="skb-615" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-630"></evolve>
     </evolutions>
     <resistances>
@@ -7970,7 +7970,7 @@
     <evolutions>
       <evolve targetId="skb-683"></evolve>
       <evolve targetId="skb-698"></evolve>
-      <evolve targetId="skb-710"></evolve>
+      <evolve targetId="skb-710" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-760"></evolve>
     </evolutions>
     <resistances>
@@ -8011,11 +8011,11 @@
       <skill id="s3" name="Overdrive" element="water" cost="38" power="380"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-92"></evolve>
-      <evolve targetId="skb-54"></evolve>
-      <evolve targetId="skb-78"></evolve>
+      <evolve targetId="skb-92" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
+      <evolve targetId="skb-54" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
+      <evolve targetId="skb-78" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-115"></evolve>
-      <evolve targetId="skb-326"></evolve>
+      <evolve targetId="skb-326" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="0.5"></r>
@@ -8036,7 +8036,7 @@
     <evolutions>
       <evolve targetId="skb-220"></evolve>
       <evolve targetId="skb-574"></evolve>
-      <evolve targetId="skb-621"></evolve>
+      <evolve targetId="skb-621" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-698"></evolve>
       <evolve targetId="skb-711"></evolve>
       <evolve targetId="skb-760"></evolve>
@@ -8159,10 +8159,10 @@
       <skill id="s3" name="Kuchibashi Attack" element="electricity" cost="41" power="380" description="Beak Attack"></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-137"></evolve>
+      <evolve targetId="skb-137" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-141"></evolve>
       <evolve targetId="skb-142"></evolve>
-      <evolve targetId="skb-15"></evolve>
+      <evolve targetId="skb-15" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
     </evolutions>
     <resistances>
       <r element="fire" mult="1.5"></r>
@@ -8262,7 +8262,7 @@
       <evolve targetId="skb-17"></evolve>
       <evolve targetId="skb-43"></evolve>
       <evolve targetId="skb-222"></evolve>
-      <evolve targetId="skb-396"></evolve>
+      <evolve targetId="skb-396" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-579"></evolve>
       <evolve targetId="skb-714"></evolve>
     </evolutions>
@@ -8460,7 +8460,7 @@
     <evolutions>
       <evolve targetId="skb-14"></evolve>
       <evolve targetId="skb-113"></evolve>
-      <evolve targetId="skb-10"></evolve>
+      <evolve targetId="skb-10" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-760"></evolve>
     </evolutions>
     <resistances>
@@ -8581,9 +8581,9 @@
       <skill id="s3" name="Kūchū Blazing Ice" element="ice" cost="41" power="380" description="Uses Blazing Ice in midair."></skill>
     </skills>
     <evolutions>
-      <evolve targetId="skb-235"></evolve>
+      <evolve targetId="skb-235" requiredItemId="itm-digi-chip-champion" requiredItemQty="3"></evolve>
       <evolve targetId="skb-17"></evolve>
-      <evolve targetId="skb-72"></evolve>
+      <evolve targetId="skb-72" requiredItemId="itm-digi-chip-champion" requiredItemQty="1"></evolve>
       <evolve targetId="skb-102"></evolve>
       <evolve targetId="skb-100" requiredItemId="itm-digi-chip-champion" requiredItemQty="2"></evolve>
       <evolve targetId="skb-759"></evolve>
