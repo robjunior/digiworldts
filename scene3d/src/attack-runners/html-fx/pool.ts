@@ -1,6 +1,22 @@
 import * as THREE from 'three';
 
 /**
+ * Current ortho pixels-per-world-unit factor pushed by the scene. The reference
+ * hardcoded `scale: 600` in the shader for its fixed perspective camera; DigiWorld
+ * renders ortho (FRUSTUM×zoomMult, resizable canvas, DPR), so the scene pushes the
+ * live factor here and every Pool syncs it during update(). Default keeps the
+ * reference constant until the scene drives it, so standalone use still renders.
+ */
+let pointScale = 600;
+/** Scene sets this every frame to keep particle size in true world units. */
+export function setWorldPointScale(value: number): void {
+  pointScale = value;
+}
+export function getWorldPointScale(): number {
+  return pointScale;
+}
+
+/**
  * Faithful port of the reference skill-FX particle pool from the RPG Skill
  * Effects HTML (THREE.js r128). A single additive THREE.Points cloud whose
  * per-particle buffers (pos/vel/color/size/alpha/life) are updated on the CPU
@@ -29,6 +45,7 @@ export class Pool {
   private readonly grav: Float32Array;
   private readonly dragArr: Float32Array;
   private k = 0;
+  private lastAppliedScale = -1;
 
   constructor(scene: THREE.Scene, max = 9000, blend: THREE.Blending = THREE.AdditiveBlending) {
     this.max = max;
@@ -68,7 +85,12 @@ export class Pool {
         void main(){
           vC=pcolor; vA=alpha;
           vec4 mv=modelViewMatrix*vec4(position,1.);
-          gl_PointSize=size*scale/-mv.z;
+          // World-unit size: the scene pushes the ortho pixels-per-world-unit
+          // factor into the scale uniform every frame. The reference hardcoded
+          // 600 for a fixed perspective camera; ortho needs the live frustum
+          // factor so particles track the same world scale as the slash /
+          // freeze / ring meshes (gl_PointSize is in device pixels).
+          gl_PointSize=max(1.0,size*scale);
           gl_Position=projectionMatrix*mv;
         }`,
       fragmentShader: `
@@ -108,6 +130,14 @@ export class Pool {
   }
 
   update(dt: number): void {
+    // Live world-unit sync: the scene pushes the ortho pixels-per-world-unit
+    // factor here every frame, so particles track the same world scale as the
+    // slash / freeze / ring meshes (this replaces the reference's fixed 600
+    // perspective constant). Per-instance overrides via setPointScale still win.
+    if (pointScale !== this.lastAppliedScale) {
+      this.setPointScale(pointScale);
+      this.lastAppliedScale = pointScale;
+    }
     for (let i = 0; i < this.max; i++) {
       if ((this.life[i] ?? 0) <= 0) { this.size[i] = 0; this.alpha[i] = 0; continue; }
       this.life[i] = (this.life[i] ?? 0) - dt;

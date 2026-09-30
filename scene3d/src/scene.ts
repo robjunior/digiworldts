@@ -35,6 +35,7 @@ import {
   type StatusFxTarget,
 } from "./attack-runners/status-controller";
 import type { Pool } from "./attack-runners/html-fx/pool";
+import { setWorldPointScale } from "./attack-runners/html-fx/pool";
 
 /**
  * Where a skill effect leaves the attacker and where it lands on the receiver,
@@ -1126,6 +1127,12 @@ export class SceneManager {
       this.camera.top = f;
       this.camera.bottom = -f;
       this.camera.updateProjectionMatrix();
+      // Ortho: size particles in true world units. A world unit spans
+      // stageHeight*dpr device pixels across the frustum's full height
+      // (2·f), so push px-per-world into every Pool. The current camera is
+      // ortho in combat, matching the reference effect sizes to the world.
+      const dpr = (this.renderer as { getPixelRatio?: () => number }).getPixelRatio?.() ?? 1;
+      setWorldPointScale((this.stageHeight * dpr) / (2 * f));
     }
   }
 
