@@ -4174,6 +4174,48 @@ button {
     overflow: hidden;
 }
 
+/* ---- summary strip (modeled on Training .tbar) ------------------------- */
+.roster2-summary {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--panel);
+}
+.roster2-stat {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 0 18px;
+    border-right: 1px solid var(--hair);
+}
+.roster2-stat:first-child { padding-left: 0; }
+.roster2-stat .k {
+    font: 700 9px/1 var(--font);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.roster2-stat .v {
+    font: 800 18px/1 var(--font);
+    font-variant-numeric: tabular-nums;
+}
+.roster2-strip-title { margin-left: auto; text-align: right; }
+.roster2-strip-title .k {
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--signal);
+}
+.roster2-strip-title .s {
+    font: 600 12px/1 var(--font);
+    color: var(--muted);
+    margin-top: 5px;
+}
+
 .roster2-cols {
     flex: 1 1 auto;
     display: flex;
@@ -4645,6 +4687,13 @@ button {
     overflow: hidden;
 }
 .mon-card[data-el] .mc-mug { border-color: color-mix(in oklab, var(--el) 50%, var(--hair)); }
+.mc-el {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    pointer-events: none;
+}
 
 .mc-name {
     margin-top: 6px;
@@ -4702,4 +4751,7 @@ button {
 @media (max-width: 860px) {
     .roster2-cols { flex-direction: column; }
     .roster2-teams { flex: 0 0 auto; max-width: none; max-height: 42%; border-right: 0; border-bottom: 1px solid var(--hair); }
+    .roster2-summary { flex-wrap: wrap; gap: 8px; }
+    .roster2-stat { padding: 0 12px; }
+    .roster2-strip-title { margin-left: 0; width: 100%; text-align: left; }
 }

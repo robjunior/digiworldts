@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router';
 import { ELEMENTS, STAGES } from '@digiworld/shared/digimon';
 
 import { DigimonSprite } from '../components/common/DigimonSprite';
+import { ElementIcon } from '../components/common/ElementIcon';
 import { isDowned } from '../components/roster/types';
 import { useT } from '../hooks/useLocale';
 import { getRoster, type RosterView } from '../lib/api';
@@ -224,8 +225,22 @@ export function Roster(): JSX.Element {
   ];
   const filterActive = q.trim().length > 0 || element !== 'all' || stage !== 'all';
 
+  const partyCount = roster.filter((mon) => typeof mon.slot === 'number').length;
+  const downedCount = roster.filter((mon) => isDowned(mon, now)).length;
+  const avgLevel = roster.length > 0 ? Math.round(roster.reduce((sum, mon) => sum + mon.level, 0) / roster.length) : 0;
+
   return (
     <section className="detail roster2" data-od-id="roster-teams">
+      <div className="roster2-summary">
+        <div className="roster2-stat"><span className="k">Total</span><span className="v">{roster.length}</span></div>
+        <div className="roster2-stat"><span className="k">In Party</span><span className="v">{partyCount}</span></div>
+        <div className="roster2-stat"><span className="k">Avg Level</span><span className="v">{avgLevel}</span></div>
+        <div className="roster2-stat"><span className="k">Downed</span><span className="v">{downedCount}</span></div>
+        <div className="roster2-strip-title">
+          <div className="k">{t('roster.title')}</div>
+          <div className="s">{roster.length} Digimon</div>
+        </div>
+      </div>
       <div className="roster2-cols">
         {/* ===================== LEFT: teams ===================== */}
         <aside className="roster2-teams" data-od-id="roster-teams-list">
@@ -593,6 +608,7 @@ function MonCard({ mon, now, t, picking, assignedToPickingTeam, onPick }: MonCar
       onClick={onPick}
     >
       <span className="mc-mug"><DigimonSprite catalogId={mon.catalogId} alt="" /></span>
+      <span className="mc-el"><ElementIcon element={element} size="xs" variant="badge" /></span>
       {assignedToPickingTeam ? <span className="mc-check" aria-hidden="true">✓</span> : null}
       <span className="mc-name">{mon.nickname}</span>
       <span className="mc-species">{template?.name ?? mon.catalogId}</span>
