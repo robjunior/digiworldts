@@ -49,12 +49,24 @@ if (!offRoster) {
 const offId = offRoster.id;
 check('found an off-roster species to prune', onRoster !== offId, `on=${onRoster} off=${offId}`);
 
-// Seed two players each with one on-roster + one off-roster digimon.
+// A starter species: granted at /intro (obtainable legitimately) yet OFF the
+// launch roster — like Equinox's Salamon skb-361. It MUST survive the prune.
+// Pick an off-roster species distinct from offId so pruning the drafted spec
+// still exercises the NOT IN list.
+let starterId = catalog.digimons.find((t) => !rosterIdSet.has(t.id) && t.id !== offId)?.id ?? offId;
+check('starter species chosen is off the roster and distinct from pruned spec',
+  !rosterIdSet.has(starterId) && starterId !== offId, starterId);
+
+// Seed two players each with one on-roster + one off-roster digimon, plus a
+// player holding the starter species. Also seed an enabled onboarding team
+// whose mon_1 is the starter (the fresh DB has no teams row yet).
 const now = Date.now();
 await run(`INSERT INTO users (id, username, display_name, password_hash, created_at, updated_at)
   VALUES ('u-a', 'alice', 'Alice', 'x', ${now}, ${now})`);
 await run(`INSERT INTO users (id, username, display_name, password_hash, created_at, updated_at)
   VALUES ('u-b', 'bob', 'Bob', 'x', ${now}, ${now})`);
+await run(`INSERT INTO onboarding_teams (id, slug, name, description, mon_1_catalog_id, mon_2_catalog_id, mon_3_catalog_id, sort_order, enabled, created_at, updated_at)
+  VALUES ('onb-test', 'test', 'Test', 'x', '${starterId}', '${starterId}', '${starterId}', 9, 1, ${now}, ${now})`);
 await run(`INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, created_at, updated_at)
   VALUES ('r-a-on', 'u-a', '${onRoster}', 'A-on', 5, 0, ${now}, ${now})`);
 await run(`INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, created_at, updated_at)
@@ -63,19 +75,23 @@ await run(`INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, 
   VALUES ('r-b-on', 'u-b', '${onRoster}', 'B-on', 5, 0, ${now}, ${now})`);
 await run(`INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, created_at, updated_at)
   VALUES ('r-b-off', 'u-b', '${offId}', 'B-off', 5, 0, ${now}, ${now})`);
+await run(`INSERT INTO player_roster (id, user_id, catalog_id, nickname, level, xp, created_at, updated_at)
+  VALUES ('r-a-starter', 'u-a', '${starterId}', 'A-starter', 5, 0, ${now}, ${now})`);
 
 const before = await q<{ n: number }>('SELECT COUNT(*) AS n FROM player_roster');
-check('4 player digimons before prune', (before[0]?.n ?? 0) === 4, `got ${before[0]?.n}`);
+check('5 player digimons before prune', (before[0]?.n ?? 0) === 5, `got ${before[0]?.n}`);
 
 const s1 = await seedLaunchRosterPrune();
 check('prune deleted exactly the off-roster digimons', s1.deleted === 2, `deleted=${s1.deleted}`);
-check('roster ids resolved', s1.rosterIds === rosterIdSet.size, `rosterIds=${s1.rosterIds} vs ${rosterIdSet.size}`);
-check('kept count accounts for survivors', s1.kept === 2, `kept=${s1.kept}`);
+check('keep set = roster + starter species', s1.rosterIds === rosterIdSet.size + 1,
+  `rosterIds=${s1.rosterIds} vs ${rosterIdSet.size} + 1 starter`);
+check('kept count accounts for survivors', s1.kept === 3, `kept=${s1.kept}`);
 
 const after = await q<{ id: string }>('SELECT id FROM player_roster ORDER BY id');
 const afterIds = after.map((r) => r.id);
 check('on-roster digimons survive', afterIds.includes('r-a-on') && afterIds.includes('r-b-on'), afterIds.join(', '));
 check('off-roster digimons removed', !afterIds.includes('r-a-off') && !afterIds.includes('r-b-off'));
+check('starter species survives despite being off the roster', afterIds.includes('r-a-starter'));
 
 const s2 = await seedLaunchRosterPrune();
 check('idempotent — second prune deletes nothing', s2.deleted === 0, `deleted=${s2.deleted}`);

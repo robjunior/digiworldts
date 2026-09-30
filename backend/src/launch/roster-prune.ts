@@ -48,18 +48,34 @@ export async function seedLaunchRosterPrune(): Promise<RosterPruneSummary> {
     throw new Error('prune-roster: active roster resolved to zero catalog ids — refusing to delete all player digimons');
   }
 
+  // Starter protection: a player's onboarding team mons are granted at /intro
+  // (DEFAULT_TEAMS -> onboarding_teams table) and may NOT appear on the launch
+  // roster — e.g. Equinox seeds skb-361 (Salamon), which is drafted/not in any
+  // place pool. Those starters are legitimately obtainable, so they must never
+  // be pruned. Union every enabled onboarding team's three mon ids into the
+  // keep-set (NOT IN lists are built from the full set below).
+  const teamRows = await q<{ mon_1_catalog_id: string; mon_2_catalog_id: string; mon_3_catalog_id: string }>(
+    `SELECT mon_1_catalog_id, mon_2_catalog_id, mon_3_catalog_id FROM onboarding_teams WHERE enabled = 1`,
+  );
+  for (const row of teamRows) {
+    rosterIds.add(row.mon_1_catalog_id);
+    rosterIds.add(row.mon_2_catalog_id);
+    rosterIds.add(row.mon_3_catalog_id);
+  }
+  const allIds = [...rosterIds];
+
   const total = await q<{ n: number }>('SELECT COUNT(*) AS n FROM player_roster');
   const before = total[0]?.n ?? 0;
 
   // Portable NOT IN over a parameter list (json_each is SQLite-only; PG needs its
   // own json functions — placeholders work identically on both backends).
-  const placeholders = ids.map(() => '?').join(', ');
+  const placeholders = allIds.map(() => '?').join(', ');
   const deleted = await tx(async (t) => {
     const info = await t.run(
       `DELETE FROM player_roster WHERE catalog_id NOT IN (${placeholders})`,
-      ids,
+      allIds,
     );
     return info.changes;
   });
-  return { deleted, kept: before - deleted, rosterIds: ids.length };
+  return { deleted, kept: before - deleted, rosterIds: allIds.length };
 }
