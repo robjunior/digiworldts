@@ -112,8 +112,8 @@ const SEASON_REWARDS: Record<number, { itemId: string; qty: number; description:
 };
 
 const EXCLUSIVE_ITEMS: Record<string, { itemId: string; qty: number; description: string }> = {
-  'evo-fragment': { itemId: 'itm-cypher-fire-t1-r0', qty: 1, description: 'Evolution Cypher (Fire)' },
-  'cypher': { itemId: 'itm-cypher-water-t1-r0', qty: 1, description: 'Evolution Cypher (Water)' },
+  'evo-fragment': { itemId: 'itm-essence-fire', qty: 1, description: 'Fire Essence' },
+  'cypher': { itemId: 'itm-core-rare', qty: 1, description: 'Rare Core' },
   'premium-3d': { itemId: 'itm-premium-7d', qty: 1, description: 'Premium 7 days' },
   'gold-badge': { itemId: 'itm-cos-badge-gold', qty: 1, description: 'Gold Badge' },
   'premium-7d': { itemId: 'itm-premium-7d', qty: 1, description: 'Premium 7 days' },

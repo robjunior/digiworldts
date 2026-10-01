@@ -23,7 +23,8 @@ import { getDb, closeDbAdapter } from '../db/adapter.js';
 import { run, tx } from '../db/index.js';
 import { deletePvePlace, listPvePlaces, upsertPvePlace } from '../world/pve.js';
 import { LAUNCH_PLACES, rosterUniverse } from './roster.js';
-import { applyLaunchEvolutionKeys, buildEvolutionFragmentLoot } from './evolution.js';
+import { applyLaunchEvolutionKeys } from './evolution.js';
+import { buildFragmentDrops, buildSigilDrops } from '../evolution/items.js';
 import type { PvePoolEntry } from '@digiworld/shared/pve';
 
 export async function seedLaunchMeta(): Promise<{
@@ -106,13 +107,15 @@ export async function seedLaunchMeta(): Promise<{
     if (!LAUNCH_PLACES.some((lp) => lp.id === p.id)) await deletePvePlace(p.id);
   }
 
-  // 3b. Seed the digimon-specific evolution-fragment drop table (catalog_loot_entries):
-  //     each canonical Rookie antecessor and every roster Champion drops its Champion's
-  //     fragment at a low rate (the grind source). Requires the fragment shop_items to
-  //     exist — seedShopItems (boot) provides them.
-  const fragmentLoot = buildEvolutionFragmentLoot(evo.digimons, universe);
+  // 3b. Seed the evolution item drop tables (catalog_loot_entries):
+  //     - Elemental fragments: each digimon drops its own element's fragment (10%),
+  //       and previous-stage antecessors drop the next stage's fragment (5%).
+  //     - Archetype sigils: ultra-rare drops — 0.02% from the target digimon,
+  //       0.01% from its previous-stage antecessor.
+  const fragmentDrops = buildFragmentDrops(evo.digimons);
+  const sigilDrops = buildSigilDrops(evo.digimons);
   await tx(async (t) => {
-    for (const entry of fragmentLoot) {
+    for (const entry of [...fragmentDrops, ...sigilDrops]) {
       await t.run(
         `INSERT INTO catalog_loot_entries (id, catalog_id, item_id, drop_pct, qty_min, qty_max, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -137,7 +140,7 @@ export async function seedLaunchMeta(): Promise<{
     unknownNames,
     evolutionAssigned: evo.assigned,
     evolutionSkipped: evo.skipped,
-    evolutionFragments: fragmentLoot.length,
+    evolutionFragments: fragmentDrops.length + sigilDrops.length,
     worldNodeIds: LAUNCH_PLACES.map((p) => `wob-launch-${p.id}`),
   };
 }

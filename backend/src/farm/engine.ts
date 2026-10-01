@@ -47,8 +47,6 @@ import { countItem } from '../items/grant.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
 import { hasFlag } from '../flags/repo.js';
 import { isUserPremium, PREMIUM_BONUS, premiumMult } from '../premium/index.js';
-import { loadCatalog } from '../digimon/xml.js';
-import { rosterUniverse } from '../launch/roster.js';
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -101,7 +99,7 @@ const SQL_DECREMENT_INVENTORY_QTY = `UPDATE player_inventory SET qty = qty - ?, 
 const SQL_SELECT_INVENTORY_BY_FAMILY = `SELECT i.item_id AS item_id, i.qty AS qty, s.rarity AS rarity FROM player_inventory i JOIN shop_items s ON s.id = i.item_id WHERE i.user_id = ? AND i.item_id LIKE ? AND i.qty > 0 ORDER BY s.rarity DESC, i.item_id ASC`;
 const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
-const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
+const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND class = 'item'`;
 const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE user_id = ?`;
 
 const SQL_SELECT_FACTORIES_USER = `SELECT * FROM player_factories WHERE user_id = ? ORDER BY created_at`;
@@ -311,53 +309,13 @@ const CYPHER_RECIPE_ELEMENTS = ['fire', 'water', 'plant', 'ice', 'electricity', 
 const CYPHER_RECIPE_TIERS = [1, 2, 3] as const;
 const EVOLUTION_CRAFTING_FLAG_CONDITION = JSON.stringify({ kind: 'flag', flag: 'evolution-crafting' });
 
-/**
- * Cypher recipes are gateable by a flag. They exist at the Rare Factory; evolution is
- * now gated by digimon-specific fragments (itm-evo-frag-*), NOT crafted chips.
- */
-function generateCypherRecipes(): ReadonlyArray<{
-  id: string;
-  item_id: string;
-  meat: number;
-  bits: number;
-  data: number;
-  craft_time_ms: number;
-  category: FactoryTypeId;
-  requires_items: string;
-  inherit_rarity_from: string;
-  unlock_condition: string;
-}> {
-  const out: ReturnType<typeof generateCypherRecipes>[number][] = [];
-  for (const element of CYPHER_RECIPE_ELEMENTS) {
-    for (const tier of CYPHER_RECIPE_TIERS) {
-      const shardCount = 3 + tier;
-      const requires = JSON.stringify([
-        { itemId: `itm-shard-${element}-r0`, qty: shardCount },
-      ]);
-      out.push({
-        id: `rcp-cypher-${element}-t${tier}`,
-        item_id: `itm-cypher-${element}-t${tier}-r0`,
-        meat: 100 * tier,
-        bits: 200 * tier,
-        data: 150 * tier,
-        craft_time_ms: 1_800_000 * tier,
-        category: 'rare',
-        requires_items: requires,
-        inherit_rarity_from: 'fragment',
-        unlock_condition: EVOLUTION_CRAFTING_FLAG_CONDITION,
-      });
-    }
-  }
-  return out;
-}
+// Cypher recipes removed — replaced by elemental essence recipes (see generateEssenceRecipes).
 
 /**
- * Evolution-key recipes: 5× a Champion's evolution fragment → 1× its Evolution Key.
- * Gives excess fragments a destination (craft → key → evolve or sell) and an
- * alternative to buying keys with credits. Rare Factory only.
- * Generated dynamically from the catalog — one recipe per published roster Champion.
+ * Elemental essence recipes: 5× an element's fragment → 1× that element's Essence.
+ * Fragments drop from wild digimons of the previous stage. Rare Factory only.
  */
-function generateEvolutionKeyRecipes(): ReadonlyArray<{
+function generateEssenceRecipes(): ReadonlyArray<{
   id: string;
   item_id: string;
   meat: number;
@@ -367,37 +325,17 @@ function generateEvolutionKeyRecipes(): ReadonlyArray<{
   category: FactoryTypeId;
   requires_items: string;
 }> {
-  const catalog = loadCatalog();
-  const species = rosterUniverse();
-  const out: {
-    id: string;
-    item_id: string;
-    meat: number;
-    bits: number;
-    data: number;
-    craft_time_ms: number;
-    category: FactoryTypeId;
-    requires_items: string;
-  }[] = [];
-  const seen = new Set<string>();
-  for (const t of catalog.digimons) {
-    if (t.stage !== 'Champion' || !species.has(t.name)) continue;
-    const slug = t.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const id = `rcp-evo-key-${slug}`;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    out.push({
-      id,
-      item_id: `itm-evo-${slug}`,
-      meat: 150,
-      bits: 150,
-      data: 75,
-      craft_time_ms: 3_600_000,
-      category: 'rare',
-      requires_items: JSON.stringify([{ itemId: `itm-evo-frag-${slug}`, qty: 5 }]),
-    });
-  }
-  return out;
+  const elements = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'];
+  return elements.map((element) => ({
+    id: `rcp-essence-${element}`,
+    item_id: `itm-essence-${element}`,
+    meat: 100,
+    bits: 100,
+    data: 50,
+    craft_time_ms: 1_800_000,
+    category: 'rare',
+    requires_items: JSON.stringify([{ itemId: `itm-frag-${element}`, qty: 5 }]),
+  }));
 }
 
 const SEED_RECIPES: ReadonlyArray<{
@@ -421,8 +359,7 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
   { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
-  ...generateCypherRecipes(),
-  ...generateEvolutionKeyRecipes(),
+  ...generateEssenceRecipes(),
 ];
 
 export async function seedFarmRecipes(): Promise<void> {

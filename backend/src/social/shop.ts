@@ -14,8 +14,7 @@ import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import { one, q, run, tx, type InventoryRow, type RosterRow, type ShopItemRow, type WalletRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
-import { buildEvolutionFragmentItems, buildEvolutionKeyItems } from '../launch/evolution.js';
-import { rosterUniverse } from '../launch/roster.js';
+import { buildElementalEssences, buildRarityCores, buildArchetypeSigils } from '../evolution/items.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
@@ -273,106 +272,8 @@ const SEED_ITEMS: Array<SeedItem> = [
     class: 'product',
     payload: JSON.stringify({ badge: 'gold' }),
   },
-  // Evolution-key items for the Starter Evolution booster packs (BT-06/07/08).
-  // These are the exact items each evolution edge consumes (requiredItemId) —
-  // the content-delivery lever: a digimon's evolution path is blocked until its
-  // key item exists and is assigned to the edge in the catalog XML.
-  {
-    id: 'itm-evo-greymon',
-    name: 'Greymon Evolution Key',
-    description: 'A fire-forged key that unlocks Agumon’s evolution into Greymon. Consumed on evolution. Available in the Courage Ignition booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'greymon', target: 'skb-326' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 300,
-  },
-  {
-    id: 'itm-evo-tyrannomon',
-    name: 'Tyrannomon Evolution Key',
-    description: 'A feral key that unlocks Agumon’s evolution into Tyrannomon. Consumed on evolution. Available in the Courage Ignition booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'tyrannomon', target: 'skb-363' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 301,
-  },
-  {
-    id: 'itm-evo-garurumon',
-    name: 'Garurumon Evolution Key',
-    description: 'A howling key that unlocks Gabumon’s evolution into Garurumon. Consumed on evolution. Available in the Feral Howl booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'garurumon', target: 'skb-12' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 302,
-  },
-  {
-    id: 'itm-evo-kyubimon',
-    name: 'Kyubimon Evolution Key',
-    description: 'A mystical key that unlocks Gabumon’s evolution into Kyubimon. Consumed on evolution. Available in the Feral Howl booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'kyubimon', target: 'skb-395' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 303,
-  },
-  {
-    id: 'itm-evo-angemon',
-    name: 'Angemon Evolution Key',
-    description: 'A radiant key that unlocks Patamon’s evolution into Angemon. Consumed on evolution. Available in the Wings of Hope booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'angemon', target: 'skb-87' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 304,
-  },
-  {
-    id: 'itm-evo-devimon',
-    name: 'Devimon Evolution Key',
-    description: 'A dark key that unlocks Patamon’s evolution into Devimon. Consumed on evolution. Available in the Wings of Hope booster pack.',
-    price_credits: 2500,
-    price: 2500,
-    currency: 'credits',
-    kind: 'evolve',
-    class: 'item',
-    payload: JSON.stringify({ evolution_key: 'devimon', target: 'skb-93' }),
-    rarity: 1,
-    item_type: 'evolution_key',
-    shop_category: 'evolve',
-    drop_pool: 'booster-items',
-    sort_order: 305,
-  },
+  // Evolution items (itm-evo-*) removed — replaced by the 3-item system:
+  // elemental essences, rarity cores, and archetype sigils (see evolution/items.ts).
   {
     id: 'itm-training-station',
     name: 'Training Station',
@@ -527,47 +428,13 @@ function generateFragmentItems(): SeedItem[] {
   return out;
 }
 
-// Evolution is gated by digimon-specific fragments (itm-evo-frag-*), seeded as
-// drop-only shop items in seedShopItems (buildEvolutionFragmentItems). The legacy
-// generic A/B/C chips, digi-chips, and chip fragments were removed.
-
-function generateCypherItems(): SeedItem[] {
-  const out: SeedItem[] = [];
-  for (const family of ELEMENT_FAMILIES) {
-    for (const tier of CYPHER_TIERS) {
-      for (const rarity of RARITY_RANKS) {
-        const label = titleCase(family);
-        const rlabel = RARITY_LABELS[rarity]!;
-        const priceScale = 1 + rarity * 2;
-        out.push({
-          id: `itm-cypher-${family}-t${tier}-r${rarity}`,
-          name: `${rlabel} ${label} Cypher ${TIER_ROMAN[tier]}`,
-          description: `A ${rlabel.toLowerCase()} evolution key tuned to ${label}, tier ${TIER_ROMAN[tier]}. Consume during evolution to grant an element-affinity bonus.`,
-          price_credits: CYPHER_BASE_PRICE * priceScale * tier,
-          price: CYPHER_BASE_PRICE * priceScale * tier,
-          currency: 'credits',
-          shop_category: 'cypher',
-          kind: 'evolve',
-          class: 'item',
-          payload: JSON.stringify({ cypher: family, tier, rarity }),
-          rarity,
-          item_type: 'evolution_key',
-          drop_pool: 'cyphers',
-          sort_order: tier * 1000 + rarity * 100,
-        });
-      }
-    }
-  }
-  return out;
-}
+// Evolution items (itm-cypher-*) removed — replaced by the 3-item system:
+// elemental essences, rarity cores, and archetype sigils (see evolution/items.ts).
 
 /** Called once at server boot. Idempotent (ON CONFLICT DO NOTHING). */
 export async function seedShopItems(): Promise<void> {
   const now = Date.now();
-  const generated = [...SEED_ITEMS, ...generateFragmentItems(), ...generateCypherItems()];
-  // Digimon-specific evolution fragments — drop-only shop rows (enabled=0) so they
-  // exist for inventory/evolution/loot but are NOT purchasable (grind-only).
-  const fragmentItems = buildEvolutionFragmentItems(loadCatalog().digimons, rosterUniverse());
+  const generated = [...SEED_ITEMS, ...generateFragmentItems()];
   await tx(async (t) => {
     for (const item of generated) {
       await t.run(SQL_INSERT_ITEM, [
@@ -580,19 +447,41 @@ export async function seedShopItems(): Promise<void> {
         now,
       ]);
     }
-    for (const f of fragmentItems) {
+    // Elemental fragments — drop-only, used to craft essences at Rare Factory
+    const fragments = buildElementalEssences().map((e) => ({
+      id: `itm-frag-${e.element}`,
+      name: `${e.element.charAt(0).toUpperCase() + e.element.slice(1)} Fragment`,
+      description: `A ${e.element} fragment dropped by wild Digimon. Collect 5 to craft a ${e.element} Essence at the Rare Factory.`,
+      element: e.element,
+    }));
+    for (const f of fragments) {
       await t.run(SQL_INSERT_ITEM_DROPLESS, [
-        f.id, f.name, f.description, 0, 0, 'credits', 'evolve', 0, 0, 0, f.sortOrder, 'evolve', 'item', f.payload, 0, 'evolution_fragment', null, now,
+        f.id, f.name, f.description, 0, 0, 'credits', 'evolve', 0, 0, 0, 0, 'evolve', 'item', JSON.stringify({ fragment: f.element }), 0, 'elemental_fragment', null, now,
       ]);
     }
-    const keyItems = buildEvolutionKeyItems(loadCatalog().digimons, rosterUniverse());
-    for (const k of keyItems) {
+    // Elemental essences — drop-only, craftable at Rare Factory from fragments
+    const essences = buildElementalEssences();
+    for (const e of essences) {
       await t.run(SQL_INSERT_ITEM_DROPLESS, [
-        k.id, k.name, k.description, 0, 0, 'credits', 'evolve', 0, 0, 0, k.sortOrder, 'evolve', 'item', k.payload, 0, 'evolution_key', null, now,
+        e.id, e.name, e.description, 0, 0, 'credits', 'evolve', 0, 0, 0, e.sortOrder, 'evolve', 'item', JSON.stringify({ essence: e.element }), 0, 'elemental_essence', null, now,
+      ]);
+    }
+    // Rarity cores — purchasable for netcore
+    const cores = buildRarityCores();
+    for (const c of cores) {
+      await t.run(SQL_INSERT_ITEM, [
+        c.id, c.name, c.description, 0, c.priceNetcore, 'netcore', 'evolve', 0, 0, 0, c.sortOrder, 'evolve', 'item', JSON.stringify({ core: c.rarity }), 0, 'rarity_core', null, now,
+      ]);
+    }
+    // Archetype sigils — purchasable for netcore + ultra-rare drop
+    const sigils = buildArchetypeSigils(loadCatalog().digimons);
+    for (const s of sigils) {
+      await t.run(SQL_INSERT_ITEM, [
+        s.id, s.name, s.description, 0, s.priceNetcore, 'netcore', 'evolve', 0, 0, 0, s.sortOrder, 'evolve', 'item', JSON.stringify({ sigil: s.archetype }), 0, 'archetype_sigil', null, now,
       ]);
     }
   });
-  log.info('shop.seed.ok', { items: generated.length, fragments: fragmentItems.length });
+  log.info('shop.seed.ok', { items: generated.length });
 }
 
 /** Custom item creation for the admin (kept internal — no HTTP route yet). */

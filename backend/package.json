@@ -36,6 +36,7 @@
     "test:flags": "DB_PATH=/tmp/dw-flags-smoke.db tsx test/flags-smoke.mts",
     "test:rarity": "DATABASE=sqlite DB_PATH=/tmp/dw-rarity-smoke.db tsx test/rarity-column-smoke.mts",
     "test:shop-publish": "DATABASE=sqlite DB_PATH=/tmp/dw-shop-publish.db tsx test/shop-publish-smoke.mts",
+    "test:evo-items": "DATABASE=sqlite DB_PATH=/tmp/dw-evo-items-smoke.db tsx test/evo-items-smoke.mts",
     "test:evo-key-recipes": "DATABASE=sqlite DB_PATH=/tmp/dw-evo-key-recipes-smoke.db tsx test/evo-key-recipes-smoke.mts",
     "test:evolution-crafting-foundation": "DATABASE=sqlite DB_PATH=/tmp/dw-evolution-crafting-foundation-smoke.db tsx test/evolution-crafting-foundation-smoke.mts",
     "test:dungeon-extraction": "DATABASE=sqlite DB_PATH=/tmp/dw-dungeon-extraction-smoke.db tsx test/dungeon-extraction-smoke.mts",
