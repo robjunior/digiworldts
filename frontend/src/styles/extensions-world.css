@@ -36,6 +36,16 @@
 .world-page-layout .whint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:3;font:600 10px/1 var(--font);letter-spacing:.08em;color:color-mix(in oklab,var(--muted) 70%,var(--bg));background:color-mix(in oklab,var(--panel) 70%,transparent);border:1px solid var(--hair);clip-path:var(--notch-sm-clip);padding:8px 14px;backdrop-filter:blur(3px)}
 .world-page-layout .whint b{color:var(--ink)}
 
+/* ── canto inferior esquerdo: painel Expedições (substitui o rail) ──────── */
+.world-page-layout .world-corner{position:absolute;left:22px;bottom:112px;z-index:30;pointer-events:none;width:min(360px,40vw)}
+.world-corner>*{pointer-events:auto}
+.world-page-layout .world-corner .expeditions-panel{
+  background:color-mix(in oklab,var(--panel) 70%,transparent);
+  backdrop-filter:blur(14px) saturate(1.1);-webkit-backdrop-filter:blur(14px) saturate(1.1);
+  border:1px solid var(--hair);clip-path:var(--notch-clip);
+  height:min(58vh,520px);
+}
+
 /* region tooltip that tracks the hovered node (screen-projected) */
 .world-page-layout .rtip{position:absolute;transform:translate(-50%,-130%);z-index:4;pointer-events:none;background:var(--panel);border:1px solid var(--el,var(--signal));clip-path:var(--notch-sm-clip);padding:6px 10px;font:800 10px/1 var(--font);letter-spacing:.04em;white-space:nowrap;display:none}
 .world-page-layout .rtip.show{display:block;pointer-events:auto;}

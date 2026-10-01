@@ -2,13 +2,12 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * railExpeditionsStore — ponte entre a página /world (que dispara o gatilho
- * "Enviar Expedição" num node do globo) e o SocialRail (que abre a aba
- * Expedições → Config com esse node pré-selecionado).
+ * "Enviar Expedição" num node do globo) e o painel Expedições (canto inferior
+ * esquerdo da /world), que abre o sub-tab Config com esse node pré-selecionado.
  *
- * O rail vive no AppShell (persistente entre rotas), enquanto a página /world
- * é montada/desmontada a cada navegação — por isso o "abrir com o node X" não
- * pode ser estado local da rota. Usa o mesmo padrão do worldGlobeStore
- * (useSyncExternalStore + módulo singleton).
+ * O painel Expedições é montado na rota /world a partir do clique no node, por
+ * isso o "abrir com o node X" não pode ser estado local perdido a cada remonta.
+ * Usa o mesmo padrão do worldGlobeStore (useSyncExternalStore + singleton).
  */
 export type RailExpeditionsState = {
   /** Pedido para o rail abrir na aba Expedições (nonce ≠ repetição). */
@@ -49,7 +48,7 @@ export const railExpeditionsStore = {
   },
 };
 
-/** Hook reativo para ler o estado (usado pelo SocialRail e pelo painel de Expedições). */
+/** Hook reativo para ler o estado (usado pelo painel de Expedições). */
 export function useRailExpeditions(): RailExpeditionsState {
   return useSyncExternalStore(
     railExpeditionsStore.subscribe,
@@ -59,9 +58,9 @@ export function useRailExpeditions(): RailExpeditionsState {
 }
 
 /**
- * Gatilho chamado pelo card/node do globo: abre o rail na aba Expedições →
- * sub-tab Config com `placeId` pré-selecionado (null = sem destino fixo). O
- * sub-tab Config controla tanto expedição quanto batalha (escolha por modo).
+ * Gatilho chamado pelo card/node do globo: abre o painel Expedições (canto de
+ * /world) no sub-tab Config com `placeId` pré-selecionado (null = sem destino
+ * fixo). O sub-tab Config controla tanto expedição quanto batalha (modo).
  */
 export function requestExpeditionConfig(placeId: string | null): void {
   railExpeditionsStore.set({

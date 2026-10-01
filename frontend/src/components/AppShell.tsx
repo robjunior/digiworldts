@@ -11,8 +11,6 @@ import { Link, Outlet, useLocation } from "react-router";
 import { ArenaIcon, BackIcon, ShopIcon } from "./common/icons";
 import { TopBar } from "./topbar/TopBar";
 import "../styles/topbar.css";
-import { SocialRail } from "./social/SocialRail";
-import "../styles/social-rail.css";
 import { LobbySceneHost } from "./lobby/LobbySceneHost";
 import { WorldSceneHost } from "./world/WorldSceneHost";
 import { useAuth } from "../hooks/useAuth";
@@ -301,7 +299,6 @@ export function AppShell(): JSX.Element {
         <main className={mainClassName}>
           <Outlet />
         </main>
-        <SocialRail />
       </div>
     </div>
   );

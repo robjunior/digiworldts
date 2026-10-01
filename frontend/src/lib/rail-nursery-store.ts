@@ -2,11 +2,10 @@ import { useSyncExternalStore } from 'react';
 
 /**
  * railNurseryStore — ponte entre a página /nursery (que dispara o gatilho
- * "Hatchery" no pill) e o SocialRail (que abre a aba Nursery com o painel de
- * hatchery/incubando). Mesmo padrão do railExpeditionsStore / worldGlobeStore
- * (useSyncExternalStore + módulo singleton): o rail vive no AppShell e a rota
- * é montada/desmontada a cada navegação, então "abrir a aba" não pode ser
- * estado local da rota.
+ * "Hatchery" no pill) e o painel Nursery (canto inferior esquerdo da /nursery,
+ * abas hatchery/incubando). Mesmo padrão do railExpeditionsStore /
+ * worldGlobeStore (useSyncExternalStore + módulo singleton): o painel é
+ * montado na rota a partir de um clique e precisa receber o "abrir".
  */
 export type RailNurseryState = {
   /** Pedido pro rail abrir na aba Nursery (nonce ≠ repetição). */
@@ -38,7 +37,7 @@ export const railNurseryStore = {
   },
 };
 
-/** Hook reativo pro SocialRail ler o pedido de abrir a aba Nursery. */
+/** Hook reativo pra ler o pedido de abrir o painel Nursery. */
 export function useRailNursery(): RailNurseryState {
   return useSyncExternalStore(
     railNurseryStore.subscribe,

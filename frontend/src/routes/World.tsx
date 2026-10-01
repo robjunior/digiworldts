@@ -5,15 +5,18 @@ import { getPveWorld } from '../lib/api-world';
 import { requestExpeditionConfig } from '../lib/rail-expeditions-store';
 import { WorldStrip } from '../components/world/WorldStrip';
 import { WorldHoverTip } from '../components/world/WorldHoverTip';
+import { ExpeditionsPanel } from '../components/social/ExpeditionsPanel';
 import { useWorldGlobeUI, worldGlobeStore, usePopupAnchor, popupAnchorStore } from '../lib/world-globe-store';
 import { CloseIcon, WorldIcon } from '../components/common/icons';
 import '../styles/extensions-world.css';
+import '../styles/social-rail.css';
 
 // A cena 3D (globo + digimons) vive no WorldSceneHost (AppShell), persistente —
-// esta página só desenha a UI do overlay por cima dela e lê o worldGlobeStore
-// pro estado interativo (seleção, hover, fallback de WebGL). A configuração de
-// party/batalha/expedição mora no RAIL (Expedições → Config), então o popup
-// aqui é compacto: nome da localidade + botões (ícone+texto) que abrem o rail.
+// esta página só desenha o overlay por cima dela e lê o worldGlobeStore pro
+// estado interativo (seleção, hover, fallback de WebGL). A configuração de
+// party/batalha/expedição mora neste canto inferior esquerdo (mesma área que o
+// lobby tem pra missões/atalhos), então o popup aqui é compacto: nome da
+// localidade + botão "Explore" que preseleciona o node no painel Expedições.
 // O globo NÃO gira sozinho — só a rotação do jogador (arraste).
 export function World(): JSX.Element {
   const world = useQuery({ queryKey: ['pve-world'], queryFn: getPveWorld });
@@ -29,8 +32,8 @@ export function World(): JSX.Element {
     worldGlobeStore.set({ selectedIdx: null, focus: null, autoSpin: false });
     popupAnchorStore.set(null);
   }, []);
-  // Explore abre o rail (aba Expedições → Config) com o node pré-selecionado;
-  // o Config controla tanto expedição quanto batalha.
+  // Explore abre o painel Expedições (canto inferior esquerdo) com o node
+  // pré-selecionado; o Config controla tanto expedição quanto batalha.
   const openExplore = useCallback(() => {
     if (selectedPlace) requestExpeditionConfig(selectedPlace.id);
   }, [selectedPlace]);
@@ -70,6 +73,14 @@ export function World(): JSX.Element {
           </div>
         </section>
       ) : null}
+      {/* painel Expedições no canto inferior esquerdo — o rail não existe mais */}
+      <div className="world-corner" data-od-id="world-expeditions-corner">
+        <ExpeditionsPanel
+          isWorldPage
+          goWorld={() => undefined}
+          isActive
+        />
+      </div>
     </main>
   );
 }

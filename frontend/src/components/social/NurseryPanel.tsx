@@ -37,7 +37,7 @@ export function NurseryPanel(): JSX.Element {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Gatilho vindo da rota (botão "Hatchery" no pill): a aba já foi aberta pelo
-  // SocialRail; este painel é quem consome e reseta o openRequest.
+  // O painel (NurseryPanel) é quem consome e reseta o openRequest.
   const openRequest = useRailNurseryOpen();
   useEffect(() => {
     if (openRequest === null) return;

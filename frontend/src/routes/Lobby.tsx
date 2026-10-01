@@ -19,9 +19,9 @@ import { getPvpQuests } from "../lib/api-pvp-quests";
 import { getShop } from "../lib/api-shop";
 import { useWsStore } from "../state/wsStore";
 import { LobbyQuestBar } from "../components/lobby/LobbyQuestBar";
+import { LobbySocialBar } from "../components/lobby/LobbySocialBar";
 import "../styles/topbar.css";
 import "../styles/extensions-lobby.css";
-import "../styles/social-rail.css";
 
 const ROSTER_QUERY_KEY = ["roster"] as const;
 const LAST_MATCH_QUERY_KEY = ["last-match"] as const;
@@ -192,13 +192,17 @@ export function Lobby(): JSX.Element {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
 
+  // exclusividade de menus: apenas um overlay aberto por vez
+  const [openMenu, setOpenMenu] = useState<"quest" | "presence" | null>(null);
+  const questOpen = openMenu === "quest";
+  const presenceOpen = openMenu === "presence";
+
   const liveMatches: readonly LiveMatchSummary[] = liveMatchesQuery.data ?? [];
   const queue = useWsStore((state) => state.queue);
   const isQueued = queue.status === "waiting" || queue.status === "matched";
-  const presence = useWsStore((state) => state.presence);
   const daily: DailyResponse | undefined = dailyQuery.data;
   const today = daily
-    ? (daily.cycle[daily.streakDay] ?? daily.cycle[daily.cycle.length - 1])
+    ? (daily.cycle[daily.cycleDay - 1] ?? daily.cycle[daily.cycle.length - 1])
     : null;
   const canClaim = daily?.canClaim ?? false;
 
@@ -321,7 +325,7 @@ export function Lobby(): JSX.Element {
           : "Draw";
   return (
     <div className="lobby-shell" data-od-id="lobby-shell">
-      {/* O AppShell (pai) fornece o TopBar + SocialRail do padrão do site.
+      {/* O AppShell (pai) fornece o TopBar do padrão do site.
           A cena 3D de fundo é o LobbySceneHost — persistente, montada fora
           das rotas; esta página desenha apenas a UI por cima dela. */}
 
@@ -342,7 +346,7 @@ export function Lobby(): JSX.Element {
 
         {/* canto inferior esquerdo: quests (topo) + missões diárias + atalhos */}
         <div className="ui-bl" data-od-id="lobby-corner-left">
-          <LobbyQuestBar />
+          <LobbyQuestBar open={questOpen} onOpenChange={(o) => setOpenMenu(o ? "quest" : null)} />
 
           <div className="daily-mini" data-od-id="daily-mini">
             <div className="dm-ico">
@@ -350,7 +354,7 @@ export function Lobby(): JSX.Element {
             </div>
             <div className="dm-tx">
               <div className="dm-day">
-                {daily ? `Dia ${daily.streakDay + 1} de ${daily.cycle.length}` : "Missões diárias"}
+                {daily ? `Dia ${daily.cycleDay} de ${daily.cycle.length}` : "Missões diárias"}
               </div>
               <div className="dm-rew">
                 {today
@@ -368,7 +372,7 @@ export function Lobby(): JSX.Element {
               {(daily?.cycle ?? []).map((_, i) => (
                 <span
                   key={i}
-                  className={`dm-pip${i === daily?.streakDay ? " today" : i < (daily?.streakDay ?? 0) ? " claimed" : ""}`}
+                  className={`dm-pip${i + 1 === daily?.cycleDay ? " today" : i < (daily?.streakDay ?? 0) ? " claimed" : ""}`}
                 >
                   {i + 1}
                 </span>
@@ -399,6 +403,11 @@ export function Lobby(): JSX.Element {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* canto inferior direito: social (Online | Chat | Amigos) */}
+        <div className="ui-br" data-od-id="lobby-corner-right">
+          <LobbySocialBar open={presenceOpen} onOpenChange={(o) => setOpenMenu(o ? "presence" : null)} />
         </div>
       </div>
 

@@ -153,6 +153,16 @@
 .nursery-page .collectbtn:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 88%, var(--ink)); }
 .nursery-page .rempty { color: var(--muted); font-size: 11.5px; padding: 8px 2px; line-height: 1.5; }
 
+/* ── canto inferior esquerdo: painel Hatchery/Incubação (substitui o rail) ─ */
+.nursery-page .nursery-corner{position:absolute;left:22px;bottom:112px;z-index:50;pointer-events:none;width:min(360px,40vw)}
+.nursery-page .nursery-corner>*{pointer-events:auto}
+.nursery-page .nursery-corner .nursery-panel{
+  background:color-mix(in oklab,var(--panel) 70%,transparent);
+  backdrop-filter:blur(14px) saturate(1.1);-webkit-backdrop-filter:blur(14px) saturate(1.1);
+  border:1px solid var(--hair);clip-path:var(--notch);
+  height:min(56vh,500px);
+}
+
 /* Toast */
 .nursery-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 11px 18px; clip-path: var(--notch-sm); font: 700 12px/1 var(--font); letter-spacing: .02em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; }
 .nursery-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }

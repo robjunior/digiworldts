@@ -10,7 +10,9 @@ import { getNurserySceneEntity } from '../lib/api-scenes';
 import { resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { requestNursery } from '../lib/rail-nursery-store';
+import { NurseryPanel } from '../components/social/NurseryPanel';
 import '../styles/extensions-nursery.css';
+import '../styles/social-rail.css';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
 const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
@@ -99,6 +101,10 @@ export function Nursery(): JSX.Element {
         </div>
       </>
       <NurseryStatus message={error ?? notice} error={error !== null} onDismiss={() => setNotice(null)} />
+      {/* Painel Hatchery/Incubação no canto inferior esquerdo — o rail não existe mais */}
+      <div className="nursery-corner" data-od-id="nursery-panel-corner">
+        <NurseryPanel />
+      </div>
     </NurseryChrome>
   );
 }

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { PvpQuestPeriod, PvpQuestWithProgress } from "@digiworld/shared/pvp-quest";
 
 import { claimPvpQuest, formatPvpQuestReward, getPvpQuests } from "../../lib/api-pvp-quests";
@@ -9,9 +9,20 @@ import { useWsStore } from "../../state/wsStore";
  * Barra de quests do lobby (canto inferior esquerdo, acima do daily streak).
  * Colapsada é uma barra única; clicar expande PARA CIMA revelando as quests e
  * as abas Diária / Semanal / Mensal.
+ * Controlada de fora via `open`/`onOpenChange` para que o Lobby possa
+ * garantir exclusividade (um menu aberto fecha os demais).
  */
-export function LobbyQuestBar(): JSX.Element {
-  const [open, setOpen] = useState(false);
+export type LobbyQuestBarProps = {
+  readonly open?: boolean;
+  readonly onOpenChange?: (open: boolean) => void;
+};
+
+export function LobbyQuestBar({
+  open,
+  onOpenChange,
+}: LobbyQuestBarProps = {}): JSX.Element {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = open ?? internalOpen;
   const [selectedPeriod, setSelectedPeriod] = useState<PvpQuestPeriod>("DAILY");
   const [claiming, setClaiming] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -65,25 +76,36 @@ export function LobbyQuestBar(): JSX.Element {
     }
   };
 
+  const toggle = useCallback(() => {
+    const next = !isOpen;
+    if (onOpenChange) onOpenChange(next);
+    else setInternalOpen(next);
+  }, [isOpen, onOpenChange]);
+
+  const close = useCallback(() => {
+    if (onOpenChange) onOpenChange(false);
+    else setInternalOpen(false);
+  }, [onOpenChange]);
+
   // fecha ao clicar fora
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     const onDown = (e: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) close();
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [open]);
+  }, [isOpen, close]);
 
   return (
-    <div className={`quest-bar${open ? " open" : ""}`} ref={rootRef} data-od-id="quest-bar">
+    <div className={`quest-bar${isOpen ? " open" : ""}`} ref={rootRef} data-od-id="quest-bar">
       {/* barra-colapsada: o trigger */}
       <button
         type="button"
         className="qb-trigger"
-        aria-expanded={open}
+        aria-expanded={isOpen}
         aria-label={`Quests — ${claimableCount} prontas para resgatar`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
       >
         <span className="qb-ico">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -103,7 +125,7 @@ export function LobbyQuestBar(): JSX.Element {
             {claimableCount}
           </span>
         )}
-        <span className={`qb-caret${open ? " open" : ""}`}>
+        <span className={`qb-caret${isOpen ? " open" : ""}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 8l6 6-6 6-6-6z" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -111,7 +133,7 @@ export function LobbyQuestBar(): JSX.Element {
       </button>
 
       {/* painel expansível (para cima) */}
-      <div className="qb-panel" aria-hidden={!open}>
+      <div className="qb-panel" aria-hidden={!isOpen}>
         <div className="qb-periods" role="tablist" aria-label="Período de quests">
           {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((period) => {
             const win = periods.find((w) => w.period === period);
