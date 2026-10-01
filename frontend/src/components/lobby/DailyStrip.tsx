@@ -9,6 +9,8 @@ export type DailyStripProps = {
   readonly daily: DailyResponse | null;
 };
 
+const CYCLE_LENGTH = 30;
+
 export function DailyStrip({ daily }: DailyStripProps): JSX.Element {
   const queryClient = useQueryClient();
   const claimMutation = useMutation({
@@ -21,7 +23,7 @@ export function DailyStrip({ daily }: DailyStripProps): JSX.Element {
   const canClaim = daily?.canClaim ?? false;
   return (
     <>
-      <div className="daily-strip" role="list" aria-label="7-day streak">
+      <div className="daily-strip" role="list" aria-label="30-day streak">
         {(daily?.cycle ?? []).map((reward) => (
           <DailyPip key={reward.day} reward={reward} status={rewardStatus(reward.day, daily)} />
         ))}
@@ -61,7 +63,7 @@ function rewardStatus(day: number, daily: DailyResponse | null): 'done' | 'next'
   if (daily.canClaim && day === daily.wouldGrantDay) {
     return 'next';
   }
-  if (!daily.canClaim && day === (daily.streakDay >= 7 ? 1 : daily.streakDay + 1)) {
+  if (!daily.canClaim && day === (daily.streakDay >= CYCLE_LENGTH ? 1 : daily.streakDay + 1)) {
     return 'next';
   }
   return day <= daily.streakDay ? 'done' : 'todo';
@@ -75,19 +77,23 @@ function dailyStatus(daily: DailyResponse | null): string {
     const reward = daily.cycle.find((item) => item.day === daily.wouldGrantDay);
     return `Day ${daily.wouldGrantDay} ready — ${reward === undefined ? 'reward' : rewardLabel(reward)}`;
   }
-  return `Next claim in ${formatSeconds(daily.secondsUntilNext)}`;
+  return `Next claim in ${formatSeconds(daily.secondsUntilNext)} · Longest streak: ${daily.longestStreak}d · Season ${daily.season} · Cycle ${daily.totalCycles + 1}`;
 }
 
 function updateDailyAfterClaim(current: DailyResponse | undefined, claim: DailyClaimResponse): DailyResponse {
-  const nextDay = claim.streakDay >= 7 ? 1 : claim.streakDay + 1;
+  const nextDay = claim.streakDay >= CYCLE_LENGTH ? 1 : claim.streakDay + 1;
   return {
     streakDay: claim.streakDay,
+    cycleDay: nextDay,
+    longestStreak: claim.longestStreak,
     canClaim: false,
     wouldGrantDay: nextDay,
     wouldReset: false,
     secondsUntilNext: 86_400,
     lastClaimAt: Date.now(),
     cycle: current?.cycle ?? [claim.granted],
+    season: claim.season,
+    totalCycles: claim.totalCycles,
   };
 }
 
@@ -96,10 +102,16 @@ function rewardLabel(reward: DayReward): string {
 }
 
 function rewardAmount(reward: DayReward): number {
-  return reward.meat ?? reward.bits ?? reward.data ?? reward.netcore ?? 0;
+  return reward.netcore ?? reward.meat ?? reward.bits ?? reward.data ?? reward.credits ?? 0;
 }
 
 function rewardKind(reward: DayReward): string {
+  if (reward.exclusiveItem) {
+    return 'Exclusive';
+  }
+  if (reward.netcore !== undefined) {
+    return 'NetCore';
+  }
   if (reward.meat !== undefined) {
     return 'Meat';
   }
@@ -109,7 +121,10 @@ function rewardKind(reward: DayReward): string {
   if (reward.data !== undefined) {
     return 'Data';
   }
-  return 'NetCore';
+  if (reward.credits !== undefined) {
+    return 'Credits';
+  }
+  return 'Reward';
 }
 
 function formatSeconds(seconds: number): string {

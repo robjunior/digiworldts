@@ -164,8 +164,11 @@ export type WalletRow = {
   netcore: number;
   streak_day: number;
   last_claim_at: number | null;
+  longest_streak: number;
   premium_until: number | null;
   extra_team_slots: number;
+  total_cycles: number;
+  season: number;
   updated_at: number;
 };
 

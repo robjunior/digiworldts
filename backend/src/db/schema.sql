@@ -159,9 +159,12 @@ CREATE TABLE IF NOT EXISTS resources (
 CREATE TABLE IF NOT EXISTS player_wallet (
   user_id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   credits           INTEGER NOT NULL DEFAULT 0 CHECK (credits >= 0),
-  streak_day        INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 7),
+  streak_day        INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 30),
   last_claim_at     INTEGER,                             -- last daily reward claim (ms)
+  longest_streak    INTEGER NOT NULL DEFAULT 0,           -- longest daily streak ever
   premium_until     INTEGER,                             -- ms epoch or NULL
+  total_cycles      INTEGER NOT NULL DEFAULT 0,           -- completed 30-day cycles
+  season            INTEGER NOT NULL DEFAULT 1,           -- current season (90-day periods)
   updated_at        INTEGER NOT NULL
 );
 
