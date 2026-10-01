@@ -91,6 +91,44 @@ export function buildEvolutionFragmentItems(
   return out;
 }
 
+/** One evolution-key shop-item definition for a roster Champion. */
+export type EvolutionKeyItem = {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly payload: string;
+  readonly target: string;
+  readonly sortOrder: number;
+};
+
+/**
+ * One evolution-key shop-item per roster Champion species. These are the items
+ * consumed by evolution edges (requiredItemId) and crafted at the Rare Factory
+ * from 5× the matching fragment.
+ */
+export function buildEvolutionKeyItems(
+  digimons: readonly TemplateDigimon[],
+  speciesByShortName: ReadonlyMap<string, RosterSpecies>,
+): EvolutionKeyItem[] {
+  const seen = new Set<string>();
+  const out: EvolutionKeyItem[] = [];
+  for (const t of digimons) {
+    if (t.stage !== 'Champion' || !speciesByShortName.has(t.name)) continue;
+    const id = `itm-evo-${t.name.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: `${t.name} Evolution Key`,
+      description: `A key that unlocks evolution into ${t.name}. Consumed on evolution. Craft 5× ${t.name} Evolution Fragment at the Rare Factory.`,
+      payload: JSON.stringify({ evolution_key: t.name.toLowerCase().replace(/[^a-z0-9]/g, ''), target: t.id }),
+      target: t.id,
+      sortOrder: 0,
+    });
+  }
+  return out;
+}
+
 /** One evolution-fragment loot entry (per dropper species). */
 export type EvolutionFragmentLoot = {
   readonly id: string;

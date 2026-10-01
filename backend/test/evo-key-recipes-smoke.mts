@@ -71,11 +71,25 @@ async function main(): Promise<void> {
   if (!rareFactory.ok) return;
   const factoryId = rareFactory.factory.id;
 
-  console.log('== 6 evo-key recipes seeded ==');
+  console.log('== evo-key recipes seeded for all roster Champions ==');
   const { readFactoryPage } = await import('../src/farm/engine.ts');
   const page = await readFactoryPage(USER);
   const recipes = page.recipes.filter((r) => r.id.startsWith('rcp-evo-key-'));
-  assert(recipes.length === 6, `6 evo-key recipes visible (got ${recipes.length})`);
+  // Dynamically generated: one recipe per published roster Champion (43 in current catalog)
+  assert(recipes.length >= 40, `at least 40 evo-key recipes visible (got ${recipes.length})`);
+  // Every recipe must require exactly 5 of the matching fragment
+  for (const r of recipes) {
+    const slug = r.id.replace('rcp-evo-key-', '');
+    const fragId = `itm-evo-frag-${slug}`;
+    const keyId = `itm-evo-${slug}`;
+    if (r.requires.length !== 1 || r.requires[0]?.itemId !== fragId || r.requires[0]?.qty !== 5) {
+      throw new Error(`recipe ${r.id} has wrong requires: ${JSON.stringify(r.requires)}`);
+    }
+    if (r.itemId !== keyId) {
+      throw new Error(`recipe ${r.id} outputs ${r.itemId}, expected ${keyId}`);
+    }
+  }
+  console.log(`  ok  all ${recipes.length} recipes have correct fragment→key mapping`);
 
   const greymonRecipe = recipes.find((r) => r.id === 'rcp-evo-key-greymon');
   assert(greymonRecipe !== undefined, 'rcp-evo-key-greymon exists');

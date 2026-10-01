@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { requireAuth } from '../auth/routes.js';
 import { one, q, run, tx, type InventoryRow, type RosterRow, type ShopItemRow, type WalletRow } from '../db/index.js';
 import { findTemplate, loadCatalog } from '../digimon/xml.js';
-import { buildEvolutionFragmentItems } from '../launch/evolution.js';
+import { buildEvolutionFragmentItems, buildEvolutionKeyItems } from '../launch/evolution.js';
 import { rosterUniverse } from '../launch/roster.js';
 import { scaleStatsForLevel } from '../digimon/element.js';
 import { newId } from '../util/ids.js';
@@ -583,6 +583,12 @@ export async function seedShopItems(): Promise<void> {
     for (const f of fragmentItems) {
       await t.run(SQL_INSERT_ITEM_DROPLESS, [
         f.id, f.name, f.description, 0, 0, 'credits', 'evolve', 0, 0, 0, f.sortOrder, 'evolve', 'item', f.payload, 0, 'evolution_fragment', null, now,
+      ]);
+    }
+    const keyItems = buildEvolutionKeyItems(loadCatalog().digimons, rosterUniverse());
+    for (const k of keyItems) {
+      await t.run(SQL_INSERT_ITEM_DROPLESS, [
+        k.id, k.name, k.description, 0, 0, 'credits', 'evolve', 0, 0, 0, k.sortOrder, 'evolve', 'item', k.payload, 0, 'evolution_key', null, now,
       ]);
     }
   });

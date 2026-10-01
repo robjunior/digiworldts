@@ -47,6 +47,8 @@ import { countItem } from '../items/grant.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
 import { hasFlag } from '../flags/repo.js';
 import { isUserPremium, PREMIUM_BONUS, premiumMult } from '../premium/index.js';
+import { loadCatalog } from '../digimon/xml.js';
+import { rosterUniverse } from '../launch/roster.js';
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -88,7 +90,7 @@ const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, u
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 const SQL_SELECT_RECIPES = `SELECT r.*, s.name AS item_name, s.description AS item_description
      FROM farm_recipes r JOIN shop_items s ON s.id = r.item_id
-     WHERE r.enabled = 1 AND s.enabled = 1 AND s.class = 'item'
+     WHERE r.enabled = 1 AND s.class = 'item'
      ORDER BY r.meat_cost + r.bits_cost + r.data_cost ASC`;
 const SQL_SELECT_RECIPE = `SELECT * FROM farm_recipes WHERE id = ? AND enabled = 1`;
 const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, craft_time_ms, category, requires_items, inherit_rarity_from, unlock_condition, enabled, created_at)
@@ -353,6 +355,7 @@ function generateCypherRecipes(): ReadonlyArray<{
  * Evolution-key recipes: 5× a Champion's evolution fragment → 1× its Evolution Key.
  * Gives excess fragments a destination (craft → key → evolve or sell) and an
  * alternative to buying keys with credits. Rare Factory only.
+ * Generated dynamically from the catalog — one recipe per published roster Champion.
  */
 function generateEvolutionKeyRecipes(): ReadonlyArray<{
   id: string;
@@ -364,17 +367,37 @@ function generateEvolutionKeyRecipes(): ReadonlyArray<{
   category: FactoryTypeId;
   requires_items: string;
 }> {
-  const champions = ['greymon', 'tyrannomon', 'garurumon', 'kyubimon', 'angemon', 'devimon'];
-  return champions.map((champ) => ({
-    id: `rcp-evo-key-${champ}`,
-    item_id: `itm-evo-${champ}`,
-    meat: 150,
-    bits: 150,
-    data: 75,
-    craft_time_ms: 3_600_000,
-    category: 'rare',
-    requires_items: JSON.stringify([{ itemId: `itm-evo-frag-${champ}`, qty: 5 }]),
-  }));
+  const catalog = loadCatalog();
+  const species = rosterUniverse();
+  const out: {
+    id: string;
+    item_id: string;
+    meat: number;
+    bits: number;
+    data: number;
+    craft_time_ms: number;
+    category: FactoryTypeId;
+    requires_items: string;
+  }[] = [];
+  const seen = new Set<string>();
+  for (const t of catalog.digimons) {
+    if (t.stage !== 'Champion' || !species.has(t.name)) continue;
+    const slug = t.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const id = `rcp-evo-key-${slug}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      item_id: `itm-evo-${slug}`,
+      meat: 150,
+      bits: 150,
+      data: 75,
+      craft_time_ms: 3_600_000,
+      category: 'rare',
+      requires_items: JSON.stringify([{ itemId: `itm-evo-frag-${slug}`, qty: 5 }]),
+    });
+  }
+  return out;
 }
 
 const SEED_RECIPES: ReadonlyArray<{
