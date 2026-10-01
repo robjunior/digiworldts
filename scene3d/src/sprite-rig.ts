@@ -115,8 +115,8 @@ const BREATHE_LIFT = 0.012;       // ±lift as a fraction of sprite height
 // near the perceived brightness of colored sprites.
 const BRIGHTNESS_NEAR_WHITE_LUM = 0.8; // a pixel counts as "near-white"
 const BRIGHTNESS_NEAR_WHITE_FRAC = 0.30; // ≥30% near-white opaque px → "mostly white"
-const BRIGHTNESS_TINT_TARGET = 0.5;      // pull the white body's luminance toward this
-const BRIGHTNESS_DIM_FLOOR = 0.5;        // never dim below 50% (keep it readable)
+const BRIGHTNESS_TINT_TARGET = 0.78;     // pull the white body's luminance toward this (matches yellow perceived brightness)
+const BRIGHTNESS_DIM_FLOOR = 0.78;       // never dim below this (keep it readable, comparable to yellow)
 
 // Spritesheet layout is resolved from the sheet's actual pixel dimensions via
 // `resolveSheetLayout` (shared with the 2D component) — square = legacy 2×2,
