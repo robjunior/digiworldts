@@ -10,7 +10,6 @@ export const TURN_GAP_MS = 3000;
 export const EFFECT_TAIL_MS = 250;
 export const AUTOBATTLE_STORAGE_KEY = 'digiworld.autobattle';
 export const AUTOBATTLE_DELAY_MS = 400;
-export const FLOATER_DURATION_MS = 900;
 export const FLOATER_Y_OFFSET = 20;
 
 /** One entry in the enemy playback queue. `playVfx` is decided per cast so a

@@ -27,7 +27,7 @@ import { usePveDispatch } from './usePveDispatch';
 import { useActionDispatch } from './useActionDispatch';
 import { BattleStatusMessage } from './BattleStatusMessage';
 import { useAilmentSync } from './useAilmentSync';
-import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
+import { FLOATER_Y_OFFSET } from './combat3dConfig';
 import { startPveEncounter } from '../../lib/api-world';
 import { ensureSfx } from '../../lib/sfx-bootstrap';
 import { playBattleEvents } from '../../lib/sfx-combat';
@@ -88,14 +88,13 @@ export function Combat3DBody(): JSX.Element | null {
     [activeBattle],
   );
 
-  const spawnFloater = (targetId: UnitId, text: string, kind: Floater3D['kind']): void => {
+  const spawnFloater = (targetId: UnitId, text: string, kind: Floater3D['kind'], opts?: { color?: string; sub?: string }): void => {
     const handle = sceneRef.current;
     if (handle === null) return;
     const pos = handle.screenPositionOf(targetId);
     if (pos === null) return;
     const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: pos.y - FLOATER_Y_OFFSET }]);
-    window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), FLOATER_DURATION_MS);
+    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: pos.y - FLOATER_Y_OFFSET, ...opts }]);
   };
 
   const { playActionEvent } = useActionEventProcessing(sceneRef, activeBattle?.yourSide ?? 'a', spawnFloater);
@@ -319,7 +318,7 @@ export function Combat3DBody(): JSX.Element | null {
           />
         </div>
 
-        <Floaters floaters={floaters} />
+        <Floaters floaters={floaters} onDone={(id) => setFloaters((items) => items.filter((f) => f.id !== id))} />
 
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
