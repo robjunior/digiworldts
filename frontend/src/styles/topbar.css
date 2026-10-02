@@ -4,8 +4,8 @@
    ========================================================================= */
 
 /* ── top bar ──────────────────────────────────────────────────────── */
-.topbar{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
-.tnav{display:flex;align-items:center;height:100%;gap:2px}
+.topbar{height:52px;flex:0 0 auto;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:0;padding:0 14px;background:linear-gradient(180deg,#0f1626 0%,#0a0e1a 100%);border-bottom:1px solid var(--hair);user-select:none;z-index:10;position:relative}
+.tnav{display:flex;align-items:center;justify-content:center;height:100%;gap:2px;justify-self:center}
 .tnav-btn{position:relative;height:100%;display:flex;align-items:center;padding:0 16px;font:700 11px/1 var(--font);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);background:none;border:0;cursor:pointer;transition:color .12s}
 .tnav-btn:hover{color:var(--ink)}
 .tnav-btn[aria-current="page"]{color:var(--gold)}
@@ -13,7 +13,7 @@
 .tnav-wrap{position:relative;height:100%;display:flex;align-items:center}
 .tnav-caret{flex:none;width:5px;height:5px;margin-left:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(45deg)}
 .tnav-wrap.is-open .tnav-btn{color:var(--gold)}
-.topright{margin-left:auto;display:flex;align-items:center;gap:8px;position:relative}
+.topright{justify-self:end;display:flex;align-items:center;gap:8px;position:relative}
 .wallet{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;background:var(--panel);border:1px solid var(--hair);clip-path:var(--notch-sm-clip)}
 .wc{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--font);color:var(--ink)}
 .wc svg{width:14px;height:14px;flex:none;stroke-width:1.7}
@@ -58,7 +58,7 @@
 @keyframes ttoastIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
 /* ── JOGAR play menu (replaces the logo) ───────────────────────────── */
-.playmenu{position:relative;flex:none;display:flex;align-self:stretch;align-items:stretch;margin-left:-14px;padding:0;border-right:1px solid var(--hair)}
+.playmenu{position:relative;flex:none;justify-self:start;display:flex;align-self:stretch;align-items:stretch;margin-left:-14px;padding:0;border-right:1px solid var(--hair)}
 .play-btn{position:relative;display:flex;align-items:center;gap:8px;padding:0 20px;font:900 12px/1 var(--font);letter-spacing:.18em;text-transform:uppercase;color:#08101f;background:linear-gradient(135deg,#fbbf24,#f59e0b 55%,#d97706);border:0;clip-path:polygon(0 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%);cursor:pointer;transition:filter .15s,transform .1s}
 .play-btn:hover{filter:brightness(1.08)}
 .play-btn:active{transform:scale(.97)}
@@ -83,7 +83,7 @@
 }
 
 @media (max-width: 820px) {
-  .topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .topbar { grid-template-columns: 1fr auto 1fr; }
   .tnav { min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .tnav::-webkit-scrollbar { display: none; }
   .tnav-btn { flex: 0 0 auto; padding-inline: 9px; }
