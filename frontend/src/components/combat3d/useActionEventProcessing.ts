@@ -48,9 +48,11 @@ export function useActionEventProcessing(
         let kind: Floater3D['kind'] = 'dmg';
         let text = String(damage);
         let color: string | undefined;
+        let sub: string | undefined;
 
         if (cue === 'crit') {
           kind = 'crit';
+          sub = 'CRITICAL';
         } else if (cue === 'miss') {
           kind = 'miss';
           text = 'MISS';
@@ -62,9 +64,10 @@ export function useActionEventProcessing(
           text = 'IMMUNE';
         } else if (cue === 'weak') {
           kind = 'dmg';
-          color = '#5df2ff';
+          color = 'var(--gold-bright)';
         } else if (cue === 'attr-advantage') {
           kind = 'crit';
+          sub = 'ADVANTAGE';
         } else if (cue === 'attr-disadvantage') {
           kind = 'resist';
         } else if (cue === 'item-heal') {
@@ -73,7 +76,7 @@ export function useActionEventProcessing(
         } else if (cue === 'item-en') {
           kind = 'status';
           text = 'EN';
-          color = '#5df2ff';
+          color = 'var(--signal2)';
         } else if (cue === 'item-cure') {
           kind = 'status';
           text = 'CURE';
@@ -81,14 +84,14 @@ export function useActionEventProcessing(
         } else if (cue === 'item-buff') {
           kind = 'status';
           text = 'BUFF';
-          color = '#ffe14d';
+          color = 'var(--gold-bright)';
         } else if (cue === 'item-revive') {
           kind = 'level';
           text = 'REVIVE';
         } else if (cue === 'capture-hit') {
           kind = 'status';
           text = 'CAPTURED';
-          color = '#ff4df0';
+          color = 'var(--signal2)';
         } else if (cue === 'capture-miss') {
           kind = 'miss';
           text = 'MISS';
@@ -99,6 +102,7 @@ export function useActionEventProcessing(
 
         const opts: { color?: string; sub?: string } = {};
         if (color !== undefined) opts.color = color;
+        if (sub !== undefined) opts.sub = sub;
         spawnFloater(targetId, text, kind, opts);
       };
 
