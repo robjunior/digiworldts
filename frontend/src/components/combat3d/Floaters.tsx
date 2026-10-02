@@ -82,7 +82,7 @@ export function Floaters({
   readonly onDone?: (id: string) => void;
 }): JSX.Element {
   return (
-    <div className="c3d-floaters" aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
+    <div className="c3d-floaters" aria-hidden="true" style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 10 }}>
       {floaters.map((f) => {
         const decode = f.kind !== 'status';
         return (

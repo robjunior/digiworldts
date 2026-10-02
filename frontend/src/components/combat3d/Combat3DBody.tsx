@@ -93,8 +93,15 @@ export function Combat3DBody(): JSX.Element | null {
     if (handle === null) return;
     const pos = handle.screenPositionOf(targetId);
     if (pos === null) return;
+    // `screenPositionOf` is relative to the canvas (`.c3d-canvas-host`), while
+    // the floater layer is `position:fixed` over the viewport — add the host's
+    // offset so the number lands on the digimon wherever the stage sits.
+    const host = document.getElementById('c3d-canvas-host')?.getBoundingClientRect();
     const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: pos.y - FLOATER_Y_OFFSET, ...opts }]);
+    setFloaters((items) => [
+      ...items,
+      { id, text, kind, x: pos.x + (host?.left ?? 0), y: pos.y + (host?.top ?? 0) - FLOATER_Y_OFFSET, ...opts },
+    ]);
   };
 
   const { playActionEvent } = useActionEventProcessing(sceneRef, activeBattle?.yourSide ?? 'a', spawnFloater);
@@ -122,18 +129,8 @@ export function Combat3DBody(): JSX.Element | null {
     }
   }, [activeBattle, selectedTargetId]);
 
-  // Combat camera: when a digimon's turn comes up, frame that digimon (the
-  // described "zoom in and position on the one whose turn it is"); on end,
-  // release back to the default shot.
-  useEffect(() => {
-    const handle = sceneRef.current;
-    if (handle === null) return;
-    if (activeBattle === null || activeBattle.status !== 'active') {
-      handle.resetCamera();
-      return;
-    }
-    handle.focusUnit(activeBattle.currentTurnUnitId ?? null);
-  }, [activeBattle?.currentTurnUnitId, activeBattle?.status]);
+  // Combat camera: focus/reset removed — camera stays on idle framing.
+  // The user rejected automatic camera movement during combat.
 
   useEffect(() => {
     if (activeBattle?.status !== 'ended') return;

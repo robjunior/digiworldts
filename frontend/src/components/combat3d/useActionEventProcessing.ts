@@ -6,19 +6,36 @@ import type { Combat3DSceneHandle } from './Combat3DScene';
 import type { Floater3D } from './Floaters';
 
 /**
- * Renders a single `action` battle event: spawns its damage/miss/resist/heal/
- * status floater and, for enemy (non-friendly) animated hits, fires the 3D
- * impact effect. Support/debuff skills report `damage: 0` or negative (heal),
- * so the floater gate is on `damage !== undefined`, not `damage > 0`; misses
- * stay silent so the impact callback doesn't read as a landed hit.
+ * Renders a single `action` battle event: fires its 3D impact effect (for enemy
+ * hits) and spawns the damage floater AT THE MOMENT OF IMPACT.
+ *
+ * The floater is anchored to the hit, not to the cast: `playEffect` accepts an
+ * `onImpact` callback that every runner fires at its real hit frame (0.2s for
+ * `tornado`, ~1s for `stone-fall`, 2.3s for `vine-lash`), so the number appears
+ * when the blow lands. When no visual plays — or the scene rejects the effect
+ * (target sprite missing) — the floater spawns immediately so damage is never
+ * silently dropped.
+ *
+ * `notifyImpact` reports the same moment back to the caller so the battle's
+ * turn clock can be anchored to it too.
+ *
+ * Support/debuff skills report `damage: 0` or negative (heal), so the floater
+ * gate is on `damage !== undefined`, not `damage > 0`; misses stay silent so
+ * the impact callback doesn't read as a landed hit.
  */
 export function useActionEventProcessing(
   sceneRef: RefObject<Combat3DSceneHandle | null>,
   yourSide: BattleSide,
   spawnFloater: (targetId: UnitId, text: string, kind: Floater3D['kind'], opts?: { color?: string; sub?: string }) => void,
-): { playActionEvent: (event: BattleView['log'][number], playVfx?: boolean) => void } {
+): {
+  playActionEvent: (
+    event: BattleView['log'][number],
+    playVfx?: boolean,
+    notifyImpact?: () => void,
+  ) => void;
+} {
   const playActionEvent = useCallback(
-    (event: BattleView['log'][number], playVfx = true): void => {
+    (event: BattleView['log'][number], playVfx = true, notifyImpact?: () => void): void => {
       if (event.type !== 'action') return;
 
       const { targetId, damage, cue, skillElement, actor: eventActor, vfxPresetId } = event;
@@ -26,11 +43,11 @@ export function useActionEventProcessing(
 
       const actorIsFriendly = eventActor !== null && eventActor.startsWith(`${yourSide}:`);
 
-      if (damage !== undefined) {
+      const spawnDamageFloater = (): void => {
+        if (damage === undefined) return;
         let kind: Floater3D['kind'] = 'dmg';
         let text = String(damage);
         let color: string | undefined;
-        let sub: string | undefined;
 
         if (cue === 'crit') {
           kind = 'crit';
@@ -82,24 +99,45 @@ export function useActionEventProcessing(
 
         const opts: { color?: string; sub?: string } = {};
         if (color !== undefined) opts.color = color;
-        if (sub !== undefined) opts.sub = sub;
         spawnFloater(targetId, text, kind, opts);
-      }
+      };
 
       const isMiss = cue === 'miss' || cue === 'capture-miss';
-      if (playVfx && !actorIsFriendly && isAnimatedElement(skillElement) && !isMiss) {
-        const attackKind: 'basic' | 'skill' =
-          event.action !== undefined && event.action.type === 'fight' ? 'basic' : 'skill';
-        sceneRef.current?.playEffect(
-          skillElement as AnimatedElement,
-          eventActor,
-          targetId,
-          {
-            attackKind,
-            ...(vfxPresetId !== undefined ? { vfxPresetId } : {}),
-          },
-        );
+      const playVisual = playVfx && !actorIsFriendly && isAnimatedElement(skillElement) && !isMiss;
+      const scene = sceneRef.current;
+
+      if (!playVisual || scene === null) {
+        // Nothing will play on screen: the hit reads immediately.
+        spawnDamageFloater();
+        notifyImpact?.();
+        return;
       }
+
+      let landed = false;
+      const onImpact = (): void => {
+        if (landed) return;
+        landed = true;
+        spawnDamageFloater();
+        notifyImpact?.();
+      };
+
+      const attackKind: 'basic' | 'skill' =
+        event.action !== undefined && event.action.type === 'fight' ? 'basic' : 'skill';
+      const effectId = scene.playEffect(
+        skillElement as AnimatedElement,
+        eventActor,
+        targetId,
+        {
+          attackKind,
+          onImpact,
+          ...(vfxPresetId !== undefined ? { vfxPresetId } : {}),
+        },
+      );
+
+      // `playEffect` returns null when the cast is rejected (target sprite
+      // missing), so the callback would never fire — land the hit now instead
+      // of dropping the damage silently.
+      if (effectId === null) onImpact();
     },
     [sceneRef, yourSide, spawnFloater],
   );

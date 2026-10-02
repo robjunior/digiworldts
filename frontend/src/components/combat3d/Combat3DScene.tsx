@@ -103,11 +103,13 @@ type SceneResolution = {
 };
 
 export type Combat3DSceneHandle = {
+  /** Returns the effect id, or `null` when the scene rejected the cast (e.g.
+   *  the target sprite is missing) — in that case `onImpact` never fires. */
   playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: {
     readonly onImpact?: () => void;
     readonly vfxPresetId?: string;
     readonly attackKind?: 'basic' | 'skill';
-  }): void;
+  }): string | null;
   /** Reconcile the persistent 3D status/ailment effects on a unit to match its
    *  current ailment set. Effects attach to the unit and persist until the
    *  matching ailment disappears. Pass the unit's current ailments (by kind). */
@@ -529,8 +531,8 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   useImperativeHandle(ref, () => ({
     playEffect(element, sourceId, targetId, opts) {
       const manager = getManager();
-      if (manager === null) return;
-      manager.playEffect(element, sourceId, targetId, opts ?? {});
+      if (manager === null) return null;
+      return manager.playEffect(element, sourceId, targetId, opts ?? {});
     },
     syncAilments(unitId, ailments) {
       const manager = getManager();
@@ -568,7 +570,7 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   }), []);
 
   return (
-    <div className="c3d-canvas-host" ref={containerRef}>
+    <div className="c3d-canvas-host" id="c3d-canvas-host" ref={containerRef}>
       <canvas className="c3d-canvas" ref={canvasRef} aria-hidden="true" />
     </div>
   );
