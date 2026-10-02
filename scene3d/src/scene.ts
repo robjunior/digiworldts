@@ -826,6 +826,9 @@ export class SceneManager {
   private currentArenaOffsetX = 0;
   private currentArenaOffsetY = 0;
   private currentArenaOffsetZ = 0;
+  /** Span original do GLB (antes de qualquer escala) — usado para recalcular
+   *  o scale do zero a cada mudança de arenaSpan, evitando acúmulo de erro. */
+  private baseArenaSpan: number | null = null;
   private currentCameraType: "ortho" | "perspective" = "ortho";
   private currentCamFov = 45;
 
@@ -1624,6 +1627,9 @@ export class SceneManager {
     const targetSpan = this.currentArenaSpan;
     const currentSpan = Math.max(size.x, size.z, 0.001);
     const scale = targetSpan / currentSpan;
+    // Guarda o span original (antes de qualquer escala) para que applyArena
+    // possa recalcular o scale do zero a cada mudança de arenaSpan.
+    this.baseArenaSpan = currentSpan;
     root.scale.setScalar(scale);
     root.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
     root.updateMatrixWorld(true);
@@ -2031,12 +2037,23 @@ export class SceneManager {
       this.updateShadowCameraBounds();
       const root = this.arenaRoot;
       if (root !== null) {
-        const box = new THREE.Box3().setFromObject(root);
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        const worldSpan = Math.max(size.x, size.z, 0.001);
-        const factor = this.currentArenaSpan / worldSpan;
-        root.scale.multiplyScalar(factor);
+        // Recalcula o scale do ZERO a partir do span original do GLB.
+        // O antigo multiplyScalar(fator) compunha o scale a cada mudança,
+        // acumulando erro de ponto flutuante e fazendo a arena "não responder"
+        // a edições repetidas de arenaSpan.
+        const baseSpan = this.baseArenaSpan;
+        if (baseSpan !== null && baseSpan > 0) {
+          const scale = this.currentArenaSpan / baseSpan;
+          root.scale.setScalar(scale);
+        } else {
+          // Fallback: mede o box atual (já escalado) e ajusta proporcionalmente.
+          const box = new THREE.Box3().setFromObject(root);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+          const worldSpan = Math.max(size.x, size.z, 0.001);
+          const factor = this.currentArenaSpan / worldSpan;
+          root.scale.multiplyScalar(factor);
+        }
       }
     }
     if (patch.arenaOffsetX !== undefined)
