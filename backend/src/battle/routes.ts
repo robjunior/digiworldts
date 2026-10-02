@@ -51,6 +51,8 @@ import type { BattleEndRewards, XpAward } from '@digiworld/shared/battle';
 import { emit } from '../telemetry/emit.js';
 import { processPvpBattle } from '../pvp-quests/evaluator.js';
 import { awardSpeciesData } from '../nursery/data.js';
+import { grantItem } from '../items/grant.js';
+import type { CatalogLootRow } from '../db/index.js';
 
 const SNAPSHOT_TTL_SEC = 30 * 60;
 const LOCK_TTL_SEC = 3;
@@ -505,6 +507,45 @@ async function persistAndAwardEnd(battle: Battle): Promise<PersistedEnd | null> 
             tier: a.tier,
             percent: a.percent,
             kills: a.kills,
+          })),
+        };
+      }
+      // Item drops: roll each defeated wild's catalog_loot_entries and grant
+      // the items atomically. Aggregated per unique itemId for the EndCard.
+      const lootRows = await q<CatalogLootRow>(`SELECT id, catalog_id, item_id, drop_pct, qty_min, qty_max FROM catalog_loot_entries ORDER BY catalog_id, drop_pct DESC, item_id`);
+      const lootByCatalog = new Map<string, readonly CatalogLootRow[]>();
+      for (const r of lootRows) {
+        const arr = lootByCatalog.get(r.catalog_id);
+        if (arr) (arr as CatalogLootRow[]).push(r);
+        else lootByCatalog.set(r.catalog_id, [r]);
+      }
+      const itemQty = new Map<string, number>();
+      for (const u of battle.units) {
+        if (u.side === 'a' || !u.wildInfo || u.hp > 0) continue;
+        const entries = lootByCatalog.get(u.wildInfo.catalogId);
+        if (!entries) continue;
+        for (const e of entries) {
+          if (Math.random() * 100 < e.drop_pct) {
+            const qty = e.qty_min === e.qty_max ? e.qty_min : e.qty_min + Math.floor(Math.random() * (e.qty_max - e.qty_min + 1));
+            if (qty > 0) itemQty.set(e.item_id, (itemQty.get(e.item_id) ?? 0) + qty);
+          }
+        }
+      }
+      if (itemQty.size > 0) {
+        const ids = [...itemQty.keys()];
+        const placeholders = ids.map(() => '?').join(',');
+        const itemRows = await q<{ id: string; name: string }>(`SELECT id, name FROM shop_items WHERE id IN (${placeholders})`, ...ids);
+        const itemNames = new Map<string, string>();
+        for (const r of itemRows) itemNames.set(r.id, r.name);
+        for (const [itemId, qty] of itemQty) {
+          await grantItem(battle.playerA, itemId, qty, battle.endedAt!, t);
+        }
+        rewardsA = {
+          ...rewardsA,
+          itemDrops: [...itemQty.entries()].map(([itemId, qty]) => ({
+            itemId,
+            name: itemNames.get(itemId) ?? itemId,
+            qty,
           })),
         };
       }

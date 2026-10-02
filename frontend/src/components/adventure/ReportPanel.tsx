@@ -35,6 +35,7 @@ export function ReportPanel({
     premium = false,
     premiumBonus = { meat: 0, bits: 0, data: 0, netcore: 0, xp: 0 },
     foundDigimons = [],
+    itemDrops = [],
     xpDeltas = [],
     koedMonIds = [],
   } = report;
@@ -118,6 +119,20 @@ export function ReportPanel({
                 <span className="fn">{f.name}</span>
                 <span className="fst">{f.stage}</span>
                 {f.count > 1 && <span className="fcnt">×{f.count}</span>}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+      {itemDrops.length > 0 && (
+        <>
+          <div className="rlabel">Items looted</div>
+          <div className="loot">
+            {itemDrops.map((d) => (
+              <span className="lchip" key={d.itemId} data-od-id={`adventure-drop-${d.itemId}`}>
+                <span className="cd" />
+                <b>{d.itemName}</b>
+                <span className="u">× {d.qty}</span>
               </span>
             ))}
           </div>
