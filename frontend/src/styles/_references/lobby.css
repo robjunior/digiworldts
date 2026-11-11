@@ -1,6 +1,6 @@
 /* ============================================================
    DigiWorld — Design tokens
-   Copied verbatim from /mnt/sdc/digiworld/public/assets/css/tokens.css.
+   Copied verbatim from public/assets/css/tokens.css.
    Palette is closed: use ONLY these color literals across the app.
    ============================================================ */
 
@@ -148,7 +148,7 @@ a:hover { color: var(--signal); }
 
 /* ============================================================
    DigiWorld — Applied UI Kit components
-   Copied verbatim from /mnt/sdc/digiworld/public/assets/css/components.css.
+   Copied verbatim from public/assets/css/components.css.
    Depends on ./tokens.css. Kept CLOSED — no ad-hoc styles in HTML.
    ============================================================ */
 

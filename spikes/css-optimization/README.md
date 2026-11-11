@@ -71,7 +71,7 @@ Convertendo `App.tsx` pra `lazy()` em todas as rotas, o CSS por rota vira chunk 
 ## Como reproduzir
 
 ```bash
-cd /mnt/sdc/digiworld
+cd "$(git rev-parse --show-toplevel)"
 pnpm --filter @digiworld/frontend build          # baseline
 node spikes/css-optimization/measure.mjs <arquivo>.css "label"
 # minificadores:

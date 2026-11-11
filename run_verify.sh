@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -u
-cd /mnt/sdc/digiworld/backend
+cd "$(dirname "$0")/backend"
 
 # kill any prior server
 pkill -9 -f "tsx watch src/server.ts" 2>/dev/null
@@ -19,7 +19,7 @@ for i in $(seq 1 40); do
 done
 if [ "$up" = "0" ]; then echo "SERVER NEVER CAME UP"; tail -15 /tmp/dw-backend.log; pkill -9 -f "src/server.ts" 2>/dev/null; exit 1; fi
 
-NODE_PATH=/mnt/sdc/digiworld/backend/node_modules node /mnt/sdc/digiworld/verify_ws_move.cjs
+NODE_PATH="$(dirname "$0")/backend/node_modules" node "$(dirname "$0")/verify_ws_move.cjs"
 RC=$?
 echo "verify rc=$RC"
 

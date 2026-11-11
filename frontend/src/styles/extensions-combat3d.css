@@ -956,7 +956,7 @@ body:has(.combat3d-shell) {
    Ref: image-4.png (domed checkered arena, party LEFT / enemies RIGHT,
    ground rings, top turn-queue, party HP cards bottom-left, enemy rail
    right, command menu bottom-right, battle feed top-left, AUTO toggle).
-   Grounded in /mnt/sdc/digiworld/backend/src/battle/* :
+   Grounded in backend/src/battle/* :
      initiative = spd + level*2 + jitter ; WEAK 1.5 / RESIST 0.5 wheel ;
      attr advantage 1.35 / disadvantage 0.75 ; EN-gated skills ;
      GUARD 0.5 ; CRIT 1.5 ; MISS ; EN regen per round ; Analyse.

@@ -1,5 +1,6 @@
+from pathlib import Path
 from PIL import Image
-im = Image.open("/mnt/sdc/digiworld/spikes/water-layering/colored.png").convert("RGB")
+im = Image.open(str(Path(__file__).resolve().parent / "colored.png").convert("RGB")
 px=im.load(); W,H=im.size; tw=32
 def samp(tx,ty):
     x0,y0=tx*tw,ty*tw

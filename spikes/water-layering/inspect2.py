@@ -1,5 +1,6 @@
+from pathlib import Path
 from PIL import Image
-im = Image.open("/mnt/sdc/digiworld/spikes/water-layering/colored.png").convert("RGBA")
+im = Image.open(str(Path(__file__).resolve().parent / "colored.png").convert("RGBA")
 px=im.load(); tw,th=32,32; cols=26
 def dom(t):
     tx=t%cols; ty=t//cols; x0,y0=tx*tw,ty*th
