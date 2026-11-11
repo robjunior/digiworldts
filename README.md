@@ -12,6 +12,13 @@ DigiWorld is a Digimon-inspired 3v3 real-time MMO built with Node.js and TypeScr
   <img src="docs/screenshots/digiworld-preview-03.png" alt="DigiWorld gameplay preview 3" width="49%" />
   <img src="docs/screenshots/digiworld-preview-04.png" alt="DigiWorld gameplay preview 4" width="49%" />
 </p>
+<p align="center">
+  <img src="docs/screenshots/digiworld-preview-05.png" alt="DigiWorld gameplay preview 5" width="49%" />
+  <img src="docs/screenshots/digiworld-preview-06.png" alt="DigiWorld gameplay preview 6" width="49%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/digiworld-preview-07.png" alt="DigiWorld gameplay preview 7" width="49%" />
+</p>
 
 ## Overview
 
