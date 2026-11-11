@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 
 import {
@@ -18,34 +19,61 @@ import {
 import { useWsStore } from "../../state/wsStore";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
+import { CornerBar } from "../common/CornerBar";
+import "../../styles/social-bar.css";
 
 const FRIENDS_QUERY_KEY = ["friends"] as const;
+
+const SOCIAL_ICON = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
 
 type DmSession = { readonly userId: string; readonly name: string };
 export type LobbySocialTab = "online" | "chat" | "friends";
 
 export type LobbySocialBarProps = {
-  readonly open?: boolean;
-  readonly onOpenChange?: (open: boolean) => void;
+  readonly open?: boolean | undefined;
+  readonly onOpenChange?: ((open: boolean) => void) | undefined;
+  /**
+   * Rótulo do gatilho colapsado. Cada página dá o seu (lobby "Social", world
+   * "Social", nursery "Social") para o canto não repetir texto genérico.
+   */
+  readonly title?: string;
+  /** Linha secundária do gatilho; default = contagem de online. */
+  readonly subtitle?: string;
+  /** Ícone do gatilho; default = duas pessoas. */
+  readonly icon?: ReactNode;
+  /** Injeta a navegação ao clicar no gatilho, mantendo o painel aberto. */
+  readonly onTriggerClick?: () => void;
 };
 
 /**
- * Barra social do lobby (canto inferior direito) — funde presença + chat +
- * amigos num painel único com três abas: Online | Chat | Amigos.
- * Colapsada é um trigger único (mostra "N online"); clicar expande PARA CIMA
- * revelando o painel com as abas. Mantém a exclusividade de menus via
- * open/onOpenChange (um overlay aberto fecha os demais).
+ * Barra social (canto inferior direito) — funde presença + chat + amigos num
+ * painel único com três abas: Online | Chat | Amigos. Colapsada é um trigger
+ * único; clicar expande PARA CIMA revelando o painel. Mantém a exclusividade
+ * de menus via open/onOpenChange (um overlay aberto fecha os demais).
+ *
+ * Compartilhada: mora no lobby, no world e no nursery. O rótulo/ícone do
+ * gatilho é props (cada canto dá o seu), e o painel em si é idêntico.
  */
 export function LobbySocialBar({
   open,
   onOpenChange,
+  title = "Social",
+  subtitle,
+  icon,
+  onTriggerClick,
 }: LobbySocialBarProps = {}): JSX.Element {
   const { user } = useAuth();
   const { send } = useWebSocket();
 
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = open ?? internalOpen;
-  const rootRef = useRef<HTMLDivElement>(null);
 
   const presence = useWsStore((s) => s.presence);
   const chat = useWsStore((s) => s.chat);
@@ -84,27 +112,22 @@ export function LobbySocialBar({
     : chat;
 
   const onlineCount = presence.length;
+  const subLine =
+    subtitle ?? (onlineCount === 0 ? "Ninguém online" : `${onlineCount} online`);
 
-  const toggle = useCallback(() => {
-    const next = !isOpen;
-    if (onOpenChange) onOpenChange(next);
-    else setInternalOpen(next);
-  }, [isOpen, onOpenChange]);
+  // O gatilho é do CornerBar; só o gancho de navegação fica aqui.
+  const handleTrigger = useCallback(() => {
+    onTriggerClick?.();
+  }, [onTriggerClick]);
 
-  const close = useCallback(() => {
-    if (onOpenChange) onOpenChange(false);
-    else setInternalOpen(false);
-  }, [onOpenChange]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onDown = (e: MouseEvent): void => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node))
-        close();
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [isOpen, close]);
+  const setOpen = useCallback(
+    (next: boolean): void => {
+      if (onOpenChange) onOpenChange(next);
+      else setInternalOpen(next);
+    },
+    [onOpenChange],
+  );
+  const close = useCallback((): void => setOpen(false), [setOpen]);
 
   // auto-scroll chat
   useEffect(() => {
@@ -117,8 +140,7 @@ export function LobbySocialBar({
     if (isOpen && tab === t) {
       close();
     } else {
-      if (onOpenChange) onOpenChange(true);
-      else setInternalOpen(true);
+      setOpen(true);
       setTab(t);
     }
   };
@@ -132,11 +154,10 @@ export function LobbySocialBar({
       );
       setActiveChannel(`dm:${userId}`);
       setTab("chat");
-      if (onOpenChange) onOpenChange(true);
-      else setInternalOpen(true);
+      setOpen(true);
       send({ type: "dm:opened", toUserId: userId });
     },
-    [send, onOpenChange],
+    [send, setOpen],
   );
 
   useEffect(() => {
@@ -157,12 +178,11 @@ export function LobbySocialBar({
       if (first !== undefined) {
         setActiveChannel(`dm:${first.fromUserId}`);
         setTab("chat");
-        if (onOpenChange) onOpenChange(true);
-        else setInternalOpen(true);
+        setOpen(true);
       }
     }
     consumeDmOpened();
-  }, [dmOpened, openDms, consumeDmOpened, onOpenChange]);
+  }, [dmOpened, openDms, consumeDmOpened, setOpen]);
 
   const closeDm = useCallback((userId: string) => {
     setOpenDms((prev) => prev.filter((d) => d.userId !== userId));
@@ -217,70 +237,42 @@ export function LobbySocialBar({
   );
 
   return (
-    <div
-      className={`lsoc${isOpen ? " open" : ""}`}
-      ref={rootRef}
-      data-od-id="lobby-social"
+    <CornerBar
+      className="lsoc"
+      dataOdId="lobby-social"
+      icon={icon ?? SOCIAL_ICON}
+      title={title}
+      subtitle={subLine}
+      badge={onlineCount}
+      badgeTone="signal"
+      open={isOpen}
+      onOpenChange={setOpen}
+      onTriggerClick={handleTrigger}
     >
-      {/* trigger colapsado: mostra presença */}
-      <button
-        type="button"
-        className="lsoc-trigger"
-        aria-expanded={isOpen}
-        aria-label={`Social — ${onlineCount} online`}
-        onClick={toggle}
-      >
-        <span className="lsoc-ico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        </span>
-        <span className="lsoc-tx">
-          <span className="lsoc-nm">Social</span>
-          <span className="lsoc-sub">
-            {onlineCount === 0 ? "Ninguém online" : `${onlineCount} online`}
-          </span>
-        </span>
-        {onlineCount > 0 && (
-          <span className="lsoc-badge" data-od-id="social-badge">
-            {onlineCount}
-          </span>
-        )}
-        <span className={`lsoc-caret${isOpen ? " open" : ""}`}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 8l6 6-6 6-6-6z" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </span>
-      </button>
+      <div className="lsoc-tabs" role="tablist" aria-label="Social seções">
+        {(
+          [
+            ["online", `Online · ${onlineCount}`],
+            ["chat", "Chat"],
+            ["friends", "Amigos"],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={tab === id}
+            className={`lsoc-tab${tab === id ? " active" : ""}`}
+            onClick={() => openTab(id)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <div className="lsoc-panel" aria-hidden={!isOpen}>
-        {/* tabs */}
-        <div className="lsoc-tabs" role="tablist" aria-label="Social seções">
-          {(
-            [
-              ["online", `Online · ${onlineCount}`],
-              ["chat", "Chat"],
-              ["friends", "Amigos"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={tab === id}
-              className={`lsoc-tab${tab === id ? " active" : ""}`}
-              onClick={() => openTab(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* presença (Online) */}
-        {tab === "online" && (
+      {/* presença (Online) */}
+      {tab === "online" && (
+        <div className="lsoc-pane" key="online" data-od-id="lsoc-pane-online">
           <div className="lsoc-online">
             {presence.length === 0 ? (
               <div className="lsoc-empty">
@@ -296,10 +288,13 @@ export function LobbySocialBar({
               ))
             )}
           </div>
-        )}
+        </div>
+      )}
+
 
         {/* chat */}
         {tab === "chat" && (
+        <div className="lsoc-pane" key="chat" data-od-id="lsoc-pane-chat">
           <div className="lsoc-chat">
             <div className="lsoc-channels" role="tablist" aria-label="Canais">
               <button
@@ -383,10 +378,12 @@ export function LobbySocialBar({
               </button>
             </form>
           </div>
+        </div>
         )}
 
         {/* amigos */}
         {tab === "friends" && (
+        <div className="lsoc-pane" key="friends" data-od-id="lsoc-pane-friends">
           <div className="lsoc-friends">
             <div className="lsoc-friends-toolbar">
               <input
@@ -580,8 +577,8 @@ export function LobbySocialBar({
               </div>
             </div>
           </div>
+        </div>
         )}
-      </div>
-    </div>
+    </CornerBar>
   );
 }

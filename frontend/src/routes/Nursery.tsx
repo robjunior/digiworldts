@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
 import { ResourceIcon, type ResourceKind } from '../components/common/ResourceIcon';
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
@@ -11,6 +11,9 @@ import { resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
 import type { SceneSettings } from '@digiworld/scene3d/scene';
 import { requestNursery } from '../lib/rail-nursery-store';
 import { NurseryPanel } from '../components/social/NurseryPanel';
+import { LobbySocialBar } from '../components/lobby/LobbySocialBar';
+import { CornerBar } from '../components/common/CornerBar';
+import { NurseryIcon } from '../components/common/icons';
 import '../styles/extensions-nursery.css';
 import '../styles/social-rail.css';
 
@@ -20,9 +23,13 @@ const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
 const NURSERY_SCENE_QUERY_KEY = ['nursery-scene-entity'] as const;
 const PENDING_POLL_MS = 5_000;
 
+type NurseryCorner = 'hatchery' | 'social' | null;
+
 export function Nursery(): JSX.Element {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
+  // exclusividade de menus: apenas um canto aberto por vez (mesma regra do lobby)
+  const [openCorner, setOpenCorner] = useState<NurseryCorner>(null);
   const nurseryQuery = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
   const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
   const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
@@ -48,6 +55,13 @@ export function Nursery(): JSX.Element {
       await queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY });
     },
   });
+
+  // O botão "Hatchery" do pill abre o canto: avisa o painel (via store) E
+  // garante a exclusividade com o canto social.
+  const openHatchery = useCallback((): void => {
+    requestNursery();
+    setOpenCorner('hatchery');
+  }, []);
 
   const view = nurseryQuery.data ?? null;
   const dataEntries = dataQuery.data?.entries ?? [];
@@ -89,7 +103,7 @@ export function Nursery(): JSX.Element {
               <PillStat resource="meat" label="Meat" value={view?.meat ?? '—'} />
               <PillStat resource="dataspecies" label="Data" value={dataEntries.length} />
               <PillStat resource="mons" label="In care" value={view?.penMons.length ?? 0} />
-              <button type="button" className="nure-pill__hatch" onClick={requestNursery}>
+              <button type="button" className="nure-pill__hatch" onClick={openHatchery}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
                   <path d="M12 3c4 0 7 3 7 7 0 4.5-3.5 8-7 11-3.5-3-7-6.5-7-11 0-4 3-7 7-7z" />
                   <path d="M9.5 13a2.5 2.5 0 0 0 5 0" />
@@ -101,9 +115,33 @@ export function Nursery(): JSX.Element {
         </div>
       </>
       <NurseryStatus message={error ?? notice} error={error !== null} onDismiss={() => setNotice(null)} />
-      {/* Painel Hatchery/Incubação no canto inferior esquerdo — o rail não existe mais */}
+      {/* canto inferior esquerdo: hatchery/incubação (mesma chrome da quest bar) */}
       <div className="nursery-corner" data-od-id="nursery-panel-corner">
-        <NurseryPanel />
+        <CornerBar
+          className="nursery-hatch-bar"
+          dataOdId="nursery-hatchery"
+          icon={<NurseryIcon />}
+          title="Hatchery"
+          subtitle={
+            pending.length > 0
+              ? `${pending.length} ovo${pending.length > 1 ? 's' : ''} incubando`
+              : 'Incubar e chocar'
+          }
+          badge={pending.length}
+          badgeTone="signal"
+          open={openCorner === 'hatchery'}
+          onOpenChange={(o) => setOpenCorner(o ? 'hatchery' : null)}
+          panelLabel="Chocadeira e incubação"
+        >
+          <NurseryPanel />
+        </CornerBar>
+      </div>
+      {/* canto inferior direito: social (Online | Chat | Amigos) */}
+      <div className="nursery-corner nursery-corner--right" data-od-id="nursery-social-corner">
+        <LobbySocialBar
+          open={openCorner === 'social'}
+          onOpenChange={(o) => setOpenCorner(o ? 'social' : null)}
+        />
       </div>
     </NurseryChrome>
   );

@@ -14,9 +14,11 @@
  * content:refresh, which pulls unrelated drift).
  */
 import { readFile, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
-const REPO = '/mnt/sdc/digiworld';
+const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const csv = execFileSync('docker', [
   'exec', 'digiworld-db-1', 'psql', '-U', 'digiworld', '-d', 'digiworld',
   '-A', '-F', '\u0001', '-t', '-c',

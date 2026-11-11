@@ -1,0 +1,141 @@
+/* ════════════════════════════════════════════════════════════════════════
+   CORNER BAR — chrome padrão dos cantos colapsáveis do DigiWorld.
+   Extraído do quest bar do lobby (.quest-bar/.qb-*) para que os quatro
+   cantos (quest, expedições, hatchery, social) sejam literalmente a mesma
+   coisa: a página dona só passa título/subtítulo/badge e o conteúdo.
+
+   - Largura: 100% do canto hospedeiro. O lobby/world/nursery fixam 336px
+     (mesma medida do quest bar) na classe do canto, então os quatro ficam
+     alinhados sem cada um repetir o número.
+   - `--font` fixado na raiz: fora do lobby o token global é 'Russo One'.
+   - clip-path usa --notch-clip / --notch-sm-clip (polígonos globais);
+     --notch/--notch-sm são NÚMEROS em tokens.css e renderizariam um
+     clip-path inválido fora do escopo html.is-lobby.
+   ════════════════════════════════════════════════════════════════════════ */
+.cbar {
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: color-mix(in srgb, var(--panel) 70%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 0 0 1px var(--hair);
+    clip-path: var(--notch-clip);
+}
+
+/* ── trigger colapsado ──────────────────────────────────────────────── */
+.cbar-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    width: 100%;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    text-align: left;
+    color: var(--ink);
+    font: inherit;
+}
+.cbar-trigger:hover { background: color-mix(in srgb, var(--panel2) 55%, transparent); }
+
+.cbar-ico {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    color: var(--signal2);
+    border: 1px solid var(--signal);
+    clip-path: var(--notch-sm-clip);
+    transition: color 0.12s, border-color 0.12s;
+}
+.cbar-trigger:hover .cbar-ico { color: var(--signal); border-color: var(--signal2); }
+.cbar-ico svg { width: 20px; height: 20px; }
+
+.cbar-tx { flex: 1; min-width: 0; }
+
+.cbar-nm {
+    display: block;
+    font: 800 11px/1 var(--font);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink);
+}
+
+.cbar-sub {
+    display: block;
+    margin-top: 3px;
+    font: 500 10px/1 var(--font), system-ui, sans-serif;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cbar-badge {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    color: #0a0a0a;
+    font: 800 11px/1 var(--font);
+    font-variant-numeric: tabular-nums;
+    clip-path: var(--notch-sm-clip);
+}
+.cbar-badge.t-gold { background: var(--gold); }
+.cbar-badge.t-signal { background: var(--signal); color: #fff; }
+
+.cbar-caret {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    transition: transform 0.18s ease;
+}
+.cbar-caret svg { width: 14px; height: 14px; }
+.cbar-caret.open { transform: rotate(180deg); color: var(--signal2); }
+
+/* ── painel expansível (sobe pra cima) ───────────────────────────────── */
+.cbar-panel {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transition: max-height 0.22s ease, opacity 0.18s ease;
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--hair);
+}
+.cbar.open .cbar-panel {
+    opacity: 1;
+    pointer-events: auto;
+    /* O painel NÃO rola: quem rola é o conteúdo (`.cbar-scroll`) ou o próprio
+       filho, senão um `min-height` grande cria uma barra de rolagem fantasma
+       sobre conteúdo curto. Quem decide o scroll é a página dona. */
+    overflow: hidden;
+    scrollbar-width: thin;
+}
+.cbar.open .cbar-panel::-webkit-scrollbar { width: 6px; }
+.cbar.open .cbar-panel::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 3px; }
+
+/* A transição precisa partir de um max-height EXPLÍCITO pra animar; o inline
+   style só entra quando aberto, então o estado fechado usa 0. */
+.cbar:not(.open) .cbar-panel { max-height: 0; }
+
+/* ── rolagem do conteúdo ────────────────────────────────────────────────
+   Para cantos cujo conteúdo é maior que a altura do painel (a barra social,
+   o quest bar). O pane cresce, a lista dentro dele é que rola. */
+.cbar-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.cbar-scroll::-webkit-scrollbar { width: 6px; }
+.cbar-scroll::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 3px; }

@@ -35,7 +35,8 @@ const WAIT_MS = Number(waitMsArg) || 3500;
 
 const CHROME =
   process.env.DW_CHROME ||
-  '/home/rob/.cache/ms-playwright/chromium-1228/chrome-linux64/chrome';
+  process.env.CHROME_PATH ||
+  'chromium';
 const PORT = 9222 + Math.floor(Math.random() * 800);
 const UDIR = `/tmp/dw-cdp-${process.pid}-${Date.now()}`;
 
