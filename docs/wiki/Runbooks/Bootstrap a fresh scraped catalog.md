@@ -124,7 +124,7 @@ partial catalog automatically. Boot log:
 
 If `irreparable` is non-empty, those IDs' upstream URLs are down (skullbot
 removed them or wikimon renamed the page). Investigate manually via
-[`data/catalog/digimons.xml`](../../mnt/sdc/digiworld/data/catalog/digimons.xml).
+[`data/catalog/digimons.xml`](../../../data/catalog/digimons.xml).
 
 ## Verify
 

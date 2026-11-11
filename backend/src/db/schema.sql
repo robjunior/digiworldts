@@ -106,6 +106,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
   listed_at     INTEGER,                                 -- unix ms; when NOT NULL the mon is on the player market and hidden from party/nursery/etc.
   evolution_history TEXT,                                -- JSON string[]: prior catalog_ids in evolution order (null = no history)
   equipped_skill_ids TEXT,                               -- JSON string[4]: chosen skill IDs from the learned pool; null = fallback to current template's top 4
+  signature_skill_id TEXT,                               -- single selected signature skill id (owner-template exclusive); NULL = none
   stage_pools   TEXT,                                    -- JSON Partial<Record<Stage,{combat,hpen}>>: per-stage bonus spent, locks on evolution
   nursery_stage TEXT,                                    -- Baby | In-Training | Rookie while status='nursery'
   nursery_evolve_at INTEGER,                             -- unix ms for next nursery stage; 0 when Rookie is ready to graduate
@@ -158,9 +159,12 @@ CREATE TABLE IF NOT EXISTS resources (
 CREATE TABLE IF NOT EXISTS player_wallet (
   user_id           TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   credits           INTEGER NOT NULL DEFAULT 0 CHECK (credits >= 0),
-  streak_day        INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 7),
+  streak_day        INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 30),
   last_claim_at     INTEGER,                             -- last daily reward claim (ms)
+  longest_streak    INTEGER NOT NULL DEFAULT 0,           -- longest daily streak ever
   premium_until     INTEGER,                             -- ms epoch or NULL
+  total_cycles      INTEGER NOT NULL DEFAULT 0,           -- completed 30-day cycles
+  season            INTEGER NOT NULL DEFAULT 1,           -- current season (90-day periods)
   updated_at        INTEGER NOT NULL
 );
 

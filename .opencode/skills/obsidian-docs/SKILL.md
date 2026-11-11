@@ -115,7 +115,7 @@ For code references (which live outside the vault) use standard markdown
 links to repo paths:
 
 ```markdown
-See [`server.ts`](../../mnt/sdc/digiworld/backend/src/server.ts) or, safer,
+See [`server.ts`](../../../backend/src/server.ts) or, safer,
 the repo-relative reference: `backend/src/server.ts:198-260`.
 ```
 

@@ -10,7 +10,8 @@ import { WEATHER_EMITTER_PRESETS } from '@digiworld/scene3d/particles/presets';
 import { copyScene, createScene, deleteScene, getScenes, invalidateScenesCache, updateScene } from '../../lib/api-scenes';
 import { apiFetch } from '../../lib/api';
 import { ARENA_FILE_LIST } from '@digiworld/scene3d/arena-urls';
-import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, DEFAULT_WORLD_SCENE, WORLD_SCENE_NAME, type LobbySceneSettings, type WorldSceneSettings, type SceneSettings } from '@digiworld/scene3d/scene';
+import { NURSERY_SCENE_NAME } from '@digiworld/shared/scene';
 import { ScenePreview } from './ScenePreview';
 import { ThreeEditorFrame } from './ThreeEditorFrame';
 
@@ -55,6 +56,14 @@ const DEFAULT_SETTINGS: SceneSettings = {
   fillIntensity: 0.28,
   exposure: 1.05,
   dustOpacity: 0.2,
+  // Common post-processing / atmosphere — present in EVERY scene kind.
+  volumetricIntensity: 2,
+  volumetricSoftness: 0.55,
+  volumetricDistanceBlur: 0.65,
+  bloomEnabled: true,
+  bloomStrength: 0.6,
+  bloomRadius: 0.45,
+  bloomThreshold: 0.9,
   camElevDeg: 22,
   camYawDeg: 22,
   camDist: 14,
@@ -71,7 +80,7 @@ const DEFAULT_SETTINGS: SceneSettings = {
 type SceneDraft = {
   readonly name: string;
   readonly elements: readonly Element[];
-  readonly kind?: 'arena' | 'lobby';
+  readonly kind?: 'arena' | 'lobby' | 'world' | 'nursery';
   readonly useGlbSettings: boolean;
   readonly settings: Partial<SceneSettings>;
   readonly weather: WeatherConfig | null;
@@ -83,6 +92,19 @@ type SceneDraft = {
 function isLobbyScene(scene: SceneEntity): boolean {
   return scene.kind === 'lobby'
     || (scene.kind === undefined && scene.name.trim().toLowerCase() === LOBBY_SCENE_NAME.toLowerCase());
+}
+
+/** Resolves exactly like the frontend world lookup: kind:'world' first, then the
+ *  legacy name. Scenes matching this get the "world" badge in the list. */
+function isWorldScene(scene: SceneEntity): boolean {
+  return scene.kind === 'world'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === WORLD_SCENE_NAME.toLowerCase());
+}
+
+/** Resolves like the frontend nursery lookup: kind:'nursery' first, then the name. */
+function isNurseryScene(scene: SceneEntity): boolean {
+  return scene.kind === 'nursery'
+    || (scene.kind === undefined && scene.name.trim().toLowerCase() === NURSERY_SCENE_NAME.toLowerCase());
 }
 
 function draftFromScene(scene: SceneEntity): SceneDraft {
@@ -210,7 +232,7 @@ export function SceneSettingsAdmin(): JSX.Element {
   };
 
   const setName = (name: string): void => setDraft((prev) => (prev === null ? prev : { ...prev, name }));
-  const setKind = (kind: 'arena' | 'lobby'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
+  const setKind = (kind: 'arena' | 'lobby' | 'world' | 'nursery'): void => setDraft((prev) => (prev === null ? prev : { ...prev, kind }));
   const setUseGlbSettings = (useGlb: boolean): void => setDraft((prev) => (prev === null ? prev : { ...prev, useGlbSettings: useGlb }));
 
   /* lobby backdrop knobs (nested under settings.lobby) */
@@ -234,6 +256,81 @@ export function SceneSettingsAdmin(): JSX.Element {
         } as unknown as Partial<SceneSettings>,
       };
     });
+  };
+
+  /* world globe knobs (nested under settings.world) */
+  const effectiveWorld: WorldSceneSettings = {
+    ...DEFAULT_WORLD_SCENE,
+    ...(draft?.settings.world as Partial<WorldSceneSettings> | undefined),
+  };
+
+  const patchWorld = (change: Partial<WorldSceneSettings>): void => {
+    setDraft((prev) => {
+      if (prev === null) return prev;
+      const base = {
+        ...DEFAULT_WORLD_SCENE,
+        ...(prev.settings.world as Partial<WorldSceneSettings> | undefined),
+      };
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          world: { ...base, ...change },
+        } as unknown as Partial<SceneSettings>,
+      };
+    });
+  };
+
+  const handleCreateWorld = async (): Promise<void> => {
+    const existing = scenes.find(isWorldScene);
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: WORLD_SCENE_NAME,
+        elements: [],
+        kind: 'world',
+        settings: { world: DEFAULT_WORLD_SCENE } as unknown as Record<string, unknown>,
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleCreateNursery = async (): Promise<void> => {
+    const existing = scenes.find(isNurseryScene);
+    if (existing !== undefined) {
+      selectScene(existing.id);
+      return;
+    }
+    setBusy('create');
+    try {
+      const res = await createScene({
+        name: NURSERY_SCENE_NAME,
+        elements: [],
+        kind: 'nursery',
+        settings: { modelFile: 'forest_biome.glb' },
+      });
+      const list = await getScenes(true);
+      setScenes(list);
+      setSelectedId(res.scene.id);
+      setDraft(draftFromScene(res.scene));
+      setSaveStatus('idle');
+    } catch {
+      setSaveStatus('error');
+    } finally {
+      setBusy(null);
+    }
   };
 
   const handleCreateLobby = async (): Promise<void> => {
@@ -353,6 +450,12 @@ export function SceneSettingsAdmin(): JSX.Element {
           ...(settings.lobby as Partial<LobbySceneSettings> | undefined),
         };
       }
+      if (settings.world !== undefined) {
+        settings.world = {
+          ...DEFAULT_WORLD_SCENE,
+          ...(settings.world as Partial<WorldSceneSettings> | undefined),
+        };
+      }
       const res = await updateScene(selectedId, {
         name: draft.name,
         elements: draft.elements,
@@ -382,6 +485,12 @@ export function SceneSettingsAdmin(): JSX.Element {
             <button type="button" onClick={() => { void handleCreateLobby(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${LOBBY_SCENE_NAME}" (kind: lobby) — o fundo 3D da tela inicial`}>
               {busy === 'create' ? 'Creating…' : 'Lobby'}
             </button>
+            <button type="button" onClick={() => { void handleCreateWorld(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${WORLD_SCENE_NAME}" (kind: world) — o globo 3D da tela do mundo`}>
+              {busy === 'create' ? 'Creating…' : 'World'}
+            </button>
+            <button type="button" onClick={() => { void handleCreateNursery(); }} disabled={busy !== null} title={`Cria ou seleciona a cena "${NURSERY_SCENE_NAME}" (kind: nursery) — o fundo 3D da tela do nursery`}>
+              {busy === 'create' ? 'Creating…' : 'Nursery'}
+            </button>
             <button type="button" onClick={() => { void handleNew(); }} disabled={busy !== null}>
               {busy === 'create' ? 'Creating…' : 'New scene'}
             </button>
@@ -403,6 +512,12 @@ export function SceneSettingsAdmin(): JSX.Element {
                     {s.name}
                     {isLobbyScene(s) && (
                       <span className="scene-admin-list-lobby" title="Cena usada pelo lobby" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'var(--signal, #3b82f6)', color: '#fff', borderRadius: 3 }}>lobby</span>
+                    )}
+                    {isWorldScene(s) && (
+                      <span className="scene-admin-list-world" title="Cena usada pelo mundo (globo)" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#e11837', color: '#fff', borderRadius: 3 }}>world</span>
+                    )}
+                    {isNurseryScene(s) && (
+                      <span className="scene-admin-list-nursery" title="Cena usada pelo nursery (pens 3D)" style={{ marginLeft: 6, padding: '0 6px', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', background: '#7c3aed', color: '#fff', borderRadius: 3 }}>nursery</span>
                     )}
                   </span>
                   <span className="scene-admin-list-meta">
@@ -430,6 +545,7 @@ export function SceneSettingsAdmin(): JSX.Element {
               timeOfDay={draft.timeOfDay}
               useGlbSettings={draft.useGlbSettings}
               lobby={selectedScene !== null && isLobbyScene(selectedScene) ? effectiveLobby : null}
+              world={selectedScene !== null && isWorldScene(selectedScene) ? effectiveWorld : null}
             />
           </section>
           <aside className="scene-admin-controls-panel" aria-label="Scene controls">
@@ -547,17 +663,23 @@ export function SceneSettingsAdmin(): JSX.Element {
                 options={[
                   { label: 'Arena (combate)', value: 'arena' },
                   { label: 'Lobby (tela inicial)', value: 'lobby' },
+                  { label: 'World (globo)', value: 'world' },
+                  { label: 'Nursery (pens)', value: 'nursery' },
                 ]}
-                onChange={(v) => setKind(v as 'arena' | 'lobby')}
+                onChange={(v) => setKind(v as 'arena' | 'lobby' | 'world' | 'nursery')}
               />
               <span className="scene-admin-note" style={{ margin: 0 }}>
                 {draft.kind === 'lobby'
                   ? 'Renderizada pelo lobby: pedestais da party, chão, partículas e drift de câmera.'
-                  : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
+                  : draft.kind === 'world'
+                    ? 'Renderizada pelo mundo: cena 3d de fundo atrás do globo (itens em "Mundo (globo)").'
+                    : draft.kind === 'nursery'
+                      ? 'Renderizada pelo nursery: cena 3d de fundo do pens (lighting/arena edita o cenário).'
+                      : 'Renderizada pelo combate: luz, névoa, câmera e arena.'}
               </span>
             </div>
 
-            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby'}>
+            <fieldset className="scene-admin-grid" disabled={draft.useGlbSettings && draft.kind !== 'lobby' && draft.kind !== 'world'}>
               <Section title="Sun (key light)">
                 <ColorRow label="Color" value={effectiveSettings.sunColor} onChange={(v) => patchSettings({ sunColor: v })} />
                 <SliderRow label="Intensity" value={effectiveSettings.sunIntensity} min={0} max={3} step={0.02} onChange={(v) => patchSettings({ sunIntensity: v })} />
@@ -620,16 +742,32 @@ export function SceneSettingsAdmin(): JSX.Element {
                   : <SliderRow label="Frustum" value={effectiveSettings.camFrustum} min={1} max={12} step={0.1} onChange={(v) => patchSettings({ camFrustum: v })} />}
               </Section>
 
+              {(draft?.kind ?? 'arena') !== 'lobby' && (
               <Section title="Arena position">
                 <SliderRow label="Scene size" value={effectiveSettings.arenaSpan} min={5} max={200} step={1} onChange={(v) => patchSettings({ arenaSpan: v })} decimals={0} />
                 <SliderRow label="Offset X (←→)" value={effectiveSettings.arenaOffsetX} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetX: v })} decimals={1} />
                 <SliderRow label="Offset Y (↑↓)" value={effectiveSettings.arenaOffsetY} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetY: v })} decimals={1} />
                 <SliderRow label="Offset Z (fwd/back)" value={effectiveSettings.arenaOffsetZ} min={-50} max={50} step={0.2} onChange={(v) => patchSettings({ arenaOffsetZ: v })} decimals={1} />
               </Section>
+            )}
 
               <Section title="Effects">
                 <SliderRow label="Exposure" value={effectiveSettings.exposure} min={0.2} max={2.5} step={0.02} onChange={(v) => patchSettings({ exposure: v })} />
                 <SliderRow label="Dust opacity" value={effectiveSettings.dustOpacity} min={0} max={1} step={0.02} onChange={(v) => patchSettings({ dustOpacity: v })} />
+              </Section>
+
+              <Section title="Post-processing & Atmosfera">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  Configurações COMUNS a toda cena (arena/lobby/world): bloom
+                  e feixes volumétricos valem para qualquer kind, não só o lobby.
+                </p>
+                <ToggleRow label="Bloom" value={effectiveSettings.bloomEnabled} onChange={(v) => patchSettings({ bloomEnabled: v })} />
+                <SliderRow label="Bloom strength" value={effectiveSettings.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchSettings({ bloomStrength: v })} decimals={2} />
+                <SliderRow label="Bloom radius" value={effectiveSettings.bloomRadius} min={0.05} max={1} step={0.05} onChange={(v) => patchSettings({ bloomRadius: v })} decimals={2} />
+                <SliderRow label="Bloom threshold" value={effectiveSettings.bloomThreshold} min={0.5} max={2} step={0.05} onChange={(v) => patchSettings({ bloomThreshold: v })} decimals={2} />
+                <SliderRow label="Feixes volumétricos" value={effectiveSettings.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchSettings({ volumetricIntensity: v })} decimals={1} />
+                <SliderRow label="Suavidade do feixe" value={effectiveSettings.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchSettings({ volumetricSoftness: v })} decimals={2} />
+                <SliderRow label="Blur / queda à distância" value={effectiveSettings.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchSettings({ volumetricDistanceBlur: v })} decimals={2} />
               </Section>
 
               <Section title="Weather">
@@ -723,6 +861,7 @@ export function SceneSettingsAdmin(): JSX.Element {
                 )}
               </Section>
 
+              {draft?.kind === 'lobby' && (
               <Section title="Lobby (palco da party)">
                 <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
                   O cenário do lobby vem SEMPRE do GLB em "GLB model file" (o
@@ -741,14 +880,31 @@ export function SceneSettingsAdmin(): JSX.Element {
                 <SliderRow label="Drift de câmera" value={effectiveLobby.driftIntensity} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ driftIntensity: v })} />
                 <SliderRow label="Brilho dos digimons (Octopath)" value={effectiveLobby.digimonBrightness} min={0.3} max={8} step={0.1} onChange={(v) => patchLobby({ digimonBrightness: v })} />
                 <SliderRow label="Luz de palco (pool + sombra)" value={effectiveLobby.stageLightIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ stageLightIntensity: v })} />
-                <SliderRow label="Iluminação volumétrica" value={effectiveLobby.volumetricIntensity} min={0} max={6} step={0.1} onChange={(v) => patchLobby({ volumetricIntensity: v })} />
-                <SliderRow label="Suavidade do feixe" value={effectiveLobby.volumetricSoftness} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricSoftness: v })} decimals={2} />
-                <SliderRow label="Blur / queda à distância" value={effectiveLobby.volumetricDistanceBlur} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ volumetricDistanceBlur: v })} decimals={2} />
-                <ToggleRow label="Bloom cinematográfico" value={effectiveLobby.bloomEnabled} onChange={(v) => patchLobby({ bloomEnabled: v })} />
-                <SliderRow label="Bloom strength" value={effectiveLobby.bloomStrength} min={0} max={3} step={0.05} onChange={(v) => patchLobby({ bloomStrength: v })} decimals={2} />
-                <SliderRow label="Bloom radius" value={effectiveLobby.bloomRadius} min={0} max={1} step={0.05} onChange={(v) => patchLobby({ bloomRadius: v })} decimals={2} />
-                <SliderRow label="Bloom threshold" value={effectiveLobby.bloomThreshold} min={0} max={2} step={0.05} onChange={(v) => patchLobby({ bloomThreshold: v })} decimals={2} />
               </Section>
+            )}
+
+            {draft?.kind === 'world' && (
+              <Section title="Mundo (globo)">
+                <p className="scene-admin-note" style={{ margin: '8px 16px 0' }}>
+                  Configura o globo 3D da tela do mundo: o GLB do
+                  "GLB model file" vira o ambiente de fundo atrás do globo, e
+                  estes knobs ajustam a aparência/interação do próprio globo.
+                  Cena com kind "world" (botão World na lista) renderiza o globo
+                  centralizado por cima dessa cena 3d.
+                </p>
+                <ToggleRow label="Auto-rotacionar (idle)" value={effectiveWorld.autoSpin} onChange={(v) => patchWorld({ autoSpin: v })} />
+                <SliderRow label="Tamanho dos nós das localidades" value={effectiveWorld.nodeScale} min={0.005} max={0.2} step={0.001} onChange={(v) => patchWorld({ nodeScale: v })} decimals={3} />
+                <SliderRow label="Tamanho do anel de seleção" value={effectiveWorld.ringScale} min={0.01} max={0.4} step={0.005} onChange={(v) => patchWorld({ ringScale: v })} decimals={3} />
+                <SliderRow label="Opacidade da grade (graticule)" value={effectiveWorld.graticuleOpacity} min={0} max={1} step={0.01} onChange={(v) => patchWorld({ graticuleOpacity: v })} decimals={2} />
+                <SliderRow label="Opacidade do brilho ao redor" value={effectiveWorld.glowOpacity} min={0} max={1} step={0.01} onChange={(v) => patchWorld({ glowOpacity: v })} decimals={2} />
+                <SliderRow label="Zoom mínimo (distância da câmera)" value={effectiveWorld.camDistMin} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMin: v })} decimals={1} />
+                <SliderRow label="Zoom máximo (distância da câmera)" value={effectiveWorld.camDistMax} min={0.5} max={20} step={0.1} onChange={(v) => patchWorld({ camDistMax: v })} decimals={1} />
+                <SliderRow label="Altura do globo (Y do centro)" value={effectiveWorld.globeY} min={0} max={5} step={0.05} onChange={(v) => patchWorld({ globeY: v })} decimals={2} />
+                <SliderRow label="Ângulo da câmera (rotação, °)" value={effectiveWorld.camYawDeg} min={-180} max={180} step={1} onChange={(v) => patchWorld({ camYawDeg: v })} decimals={0} />
+                <SliderRow label="Inclinação da câmera (°, 0 = nível com o globo)" value={effectiveWorld.camElevDeg} min={-80} max={80} step={1} onChange={(v) => patchWorld({ camElevDeg: v })} decimals={0} />
+                <SliderRow label="Raio da órbita dos digimons (margem do globo)" value={effectiveWorld.ringRadius} min={2.4} max={20} step={0.1} onChange={(v) => patchWorld({ ringRadius: v })} decimals={1} />
+              </Section>
+            )}
             </fieldset>
           </aside>
         </>

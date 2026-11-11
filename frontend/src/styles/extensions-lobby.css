@@ -80,6 +80,11 @@ html.is-lobby body {
    Canvas layer is pointer-transparent; only the figure labels are clickable.
    ========================================================================= */
 .lobby-scene3d{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;background:var(--bg)}
+/* Host persistente (AppShell, LobbySceneHost): a cena 3D vive uma vez por
+   sessão e é escondida fora do lobby — z-index 5 fica acima do fundo do
+   .lobby-shell (z auto) e abaixo de toda a UI do lobby (z 30+). */
+.lobby-scene3d-host{position:fixed;inset:0;z-index:5;visibility:hidden;pointer-events:none}
+.lobby-scene3d-host.is-visible{visibility:visible}
 .lobby-scene3d canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .lobby-scene3d-fallback{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%);font:600 11px/1.5 var(--font),system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:center;padding:14px 22px;background:color-mix(in srgb,var(--panel) 70%,transparent);border:1px solid var(--hair);clip-path:var(--notch)}
 .lob-fig-label{position:absolute;transform:translate(-50%,0);pointer-events:auto;z-index:5;display:inline-flex;align-items:center;gap:8px;padding:7px 12px 8px;background:color-mix(in srgb,var(--panel) 84%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid color-mix(in srgb,var(--dm,#60a5fa) 55%,var(--hair));clip-path:var(--notch-sm);cursor:pointer;transition:border-color .12s,background .12s,transform .12s,filter .12s;font:900 12px/1 var(--font),system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);white-space:nowrap}
@@ -301,263 +306,6 @@ html.is-lobby body {
 
 .daily-mini .dm-claim:disabled { filter: saturate(0); opacity: 0.4; cursor: default; }
 
-/* ── quest bar (lobby, acima do daily streak) ──────────────────────── */
-.quest-bar {
-    display: flex;
-    flex-direction: column;
-    background: color-mix(in srgb, var(--panel) 70%, transparent);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 0 0 1px var(--hair);
-    clip-path: var(--notch);
-}
-
-.quest-bar .qb-trigger {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    width: 100%;
-    background: none;
-    border: 0;
-    cursor: pointer;
-    text-align: left;
-    color: var(--ink);
-    font: inherit;
-}
-
-.quest-bar .qb-trigger:hover { background: color-mix(in srgb, var(--panel2) 55%, transparent); }
-
-.quest-bar .qb-ico {
-    width: 34px;
-    height: 34px;
-    flex: none;
-    display: grid;
-    place-items: center;
-    color: var(--signal2);
-    border: 1px solid var(--signal);
-    clip-path: var(--notch-sm);
-    transition: color 0.12s, border-color 0.12s;
-}
-
-.quest-bar .qb-trigger:hover .qb-ico { color: var(--signal); border-color: var(--signal2); }
-
-.quest-bar .qb-ico svg { width: 20px; height: 20px; }
-
-.quest-bar .qb-tx { flex: 1; min-width: 0; }
-
-.quest-bar .qb-nm {
-    display: block;
-    font: 800 11px/1 var(--font), system-ui, sans-serif;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--ink);
-}
-
-.quest-bar .qb-sub {
-    display: block;
-    margin-top: 3px;
-    font: 500 10px/1 var(--font), system-ui, sans-serif;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.quest-bar .qb-badge {
-    min-width: 22px;
-    height: 22px;
-    padding: 0 7px;
-    flex: none;
-    display: inline-grid;
-    place-items: center;
-    background: var(--gold);
-    color: #0a0a0a;
-    font: 800 11px/1 var(--font), system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    clip-path: var(--notch-sm);
-}
-
-.quest-bar .qb-caret {
-    flex: none;
-    width: 18px;
-    height: 18px;
-    color: var(--muted);
-    display: grid;
-    place-items: center;
-    transition: transform 0.18s ease;
-}
-
-.quest-bar .qb-caret svg { width: 14px; height: 14px; }
-
-.quest-bar .qb-caret.open { transform: rotate(180deg); color: var(--signal2); }
-
-/* painel expansível — sobe acima da barra */
-.quest-bar .qb-panel {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-    transition: max-height 0.22s ease, opacity 0.18s ease;
-    display: flex;
-    flex-direction: column;
-}
-
-.quest-bar.open .qb-panel {
-    max-height: 360px;
-    opacity: 1;
-    pointer-events: auto;
-    overflow-y: auto;
-}
-
-.quest-bar .qb-panel::-webkit-scrollbar, .quest-bar .qb-list::-webkit-scrollbar { width: 6px; }
-.quest-bar .qb-panel::-webkit-scrollbar-thumb, .quest-bar .qb-list::-webkit-scrollbar-thumb { background: var(--hair); border-radius: 3px; }
-
-.quest-bar .qb-periods {
-    display: flex;
-    gap: 0;
-    border-bottom: 1px solid var(--hair);
-    padding: 0 6px;
-}
-
-.quest-bar .qb-period {
-    flex: 1;
-    padding: 10px 6px;
-    background: none;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    font: 800 10px/1 var(--font), system-ui, sans-serif;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-}
-
-.quest-bar .qb-period:hover { color: var(--signal2); }
-.quest-bar .qb-period.active { color: var(--gold-bright); border-bottom-color: var(--gold); }
-
-.quest-bar .qb-pcount {
-    min-width: 18px;
-    height: 15px;
-    padding: 0 5px;
-    display: inline-grid;
-    place-items: center;
-    background: var(--bg);
-    border: 1px solid var(--hair);
-    color: var(--muted);
-    font: 800 9px/1 var(--font), system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    clip-path: var(--notch-sm);
-}
-
-.quest-bar .qb-period.active .qb-pcount { background: var(--gold); border-color: var(--gold); color: #0a0a0a; }
-
-.quest-bar .qb-list { padding: 8px 8px 10px; }
-
-.quest-bar .qb-empty {
-    padding: 18px 10px;
-    text-align: center;
-    font: 500 11px/1.5 var(--font), system-ui, sans-serif;
-    color: var(--muted);
-}
-
-.quest-bar .qb-quest {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    background: var(--panel2);
-    border: 1px solid var(--hair);
-    clip-path: var(--notch-sm);
-    margin-bottom: 6px;
-    transition: border-color 0.12s;
-}
-
-.quest-bar .qb-quest:last-child { margin-bottom: 0; }
-.quest-bar .qb-quest:hover { border-color: var(--signal); }
-
-.quest-bar .qb-star {
-    width: 26px;
-    height: 26px;
-    flex: none;
-    display: grid;
-    place-items: center;
-    color: var(--signal);
-}
-
-.quest-bar .qb-star.done { color: var(--gold); }
-
-.quest-bar .qb-star svg { width: 18px; height: 18px; }
-
-.quest-bar .qb-qt { flex: 1; min-width: 0; }
-
-.quest-bar .qb-qn {
-    font: 800 12px/1.2 var(--font), system-ui, sans-serif;
-    color: var(--ink);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.quest-bar .qb-qd {
-    margin-top: 3px;
-    font: 600 10px/1.2 var(--font), system-ui, sans-serif;
-    color: var(--gold-bright);
-}
-
-.quest-bar .qb-prog {
-    margin-top: 6px;
-    height: 4px;
-    background: var(--bg);
-    clip-path: var(--notch-sm);
-    overflow: hidden;
-}
-
-.quest-bar .qb-prog .fill {
-    display: block;
-    height: 100%;
-    background: var(--signal);
-    transition: width 0.3s ease;
-}
-
-.quest-bar .qb-prog .fill { background: linear-gradient(90deg, var(--signal), var(--signal2)); }
-
-.quest-bar .qb-count {
-    flex: none;
-    font: 700 10px/1 var(--font), system-ui, sans-serif;
-    font-variant-numeric: tabular-nums;
-    color: var(--muted);
-}
-
-.quest-bar .qb-count.done { color: var(--gold-bright); }
-
-.quest-bar .qb-claim {
-    flex: none;
-    padding: 6px 10px;
-    background: var(--signal);
-    color: #fff;
-    border: 0;
-    font: 800 10px/1 var(--font), system-ui, sans-serif;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    clip-path: var(--notch-sm);
-    cursor: pointer;
-    transition: background 0.12s;
-}
-
-.quest-bar .qb-claim:hover { background: var(--signal2); }
-.quest-bar .qb-claim:disabled { filter: saturate(0); opacity: 0.5; cursor: default; }
-
-.quest-bar .qb-claim.done {
-    background: color-mix(in srgb, var(--panel2) 60%, transparent);
-    border: 1px solid var(--hair);
-    color: var(--muted);
-    cursor: default;
-}
 
 .qa-mini {
     padding: 10px;
@@ -610,6 +358,7 @@ html.is-lobby body {
     color: var(--ink);
 }
 
+
 /* ── Home / inicio dashboard (unscoped — Home.tsx uses these without .qa-mini) ── */
 .content-grid{display:flex;flex-direction:column;gap:16px}
 .qgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -633,11 +382,13 @@ html.is-lobby body {
 @media (max-width:900px){.qgrid{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:640px){.qgrid{grid-template-columns:repeat(2,1fr)}}
 
-/* bottom-right: ações sociais */
+/* bottom-right: barra social — largura FIXA igual à do quest bar (.ui-bl),
+   para os dois cantos ficarem visualmente alinhados. */
 .ui-br {
     position: absolute;
     right: 22px;
     bottom: 112px;
+    width: 336px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -829,20 +580,6 @@ html.is-lobby body {
 }
 
 .lob-p-link:hover { border-color: var(--signal); color: var(--ink); }
-
-/* SocialRail inside the right panel */
-.lob-social-psect { padding: 0; }
-
-.lob-social-psect .social {
-    width: auto;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    backdrop-filter: none;
-}
 
 /* party rows (espelham a cena) */
 .party-slots { display: flex; flex-direction: column; gap: 10px; }
@@ -1441,7 +1178,11 @@ a.sf-item:hover { border-color: var(--signal); }
         bottom: 86px;
         width: min(336px, calc(100vw - 24px));
     }
-    .ui-br { display: none; }
+    .ui-br {
+        right: 12px;
+        bottom: 86px;
+        width: min(336px, calc(100vw - 24px));
+    }
     .plaque { max-width: min(60vw, 520px); }
     .dock { gap: 6px; padding: 8px; }
     .dock-btn { padding: 10px 14px; }
@@ -1454,6 +1195,7 @@ a.sf-item:hover { border-color: var(--signal); }
     .plaque .pl-names { max-width: 42vw; }
     .plaque .pl-q { display: none; }
     .ui-bl { left: 8px; bottom: 80px; width: calc(100vw - 16px); }
+    .ui-br { right: 8px; bottom: 80px; width: calc(100vw - 16px); }
     .daily-mini { padding: 9px 10px; gap: 8px; }
     .daily-mini .dm-pips { display: none; }
     .qa-mini { padding: 6px; }

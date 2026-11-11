@@ -343,6 +343,29 @@ export const adminPlugin: FastifyPluginAsync = async (app): Promise<void> => {
     return reply.send(catalog);
   });
 
+  app.post<{ Params: { id: string } }>('/api/admin/catalog/:id/publish', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const catalog = loadCatalog({ publishedOnly: false });
+    const template = findTemplate(catalog, req.params.id);
+    if (!template) return reply.code(404).send({ error: 'not-found' });
+    const updated = { ...template, status: 'published' as const };
+    saveCatalog(upsertTemplate(catalog, updated));
+    log.info('admin.catalog.publish', { adminId: admin.id, id: template.id });
+    return reply.send({ template: updated });
+  });
+
+  app.post<{ Params: { id: string } }>('/api/admin/catalog/:id/toggle-enabled', async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    const catalog = loadCatalog({ publishedOnly: false });
+    const template = findTemplate(catalog, req.params.id);
+    if (!template) return reply.code(404).send({ error: 'not-found' });
+    const status = (template.status ?? 'published') === 'archived' ? 'published' : 'archived';
+    const updated = { ...template, status: status as 'published' | 'archived' };
+    saveCatalog(upsertTemplate(catalog, updated));
+    log.info('admin.catalog.toggle-enabled', { adminId: admin.id, id: template.id, enabled: status === 'published' });
+    return reply.send({ template: updated });
+  });
+
   // -------- ADMIN: scraped list browser -------------------------------------
   app.get<{
     Querystring: { search?: string; stage?: string; attribute?: string; limit?: string; offset?: string };

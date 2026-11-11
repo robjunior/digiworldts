@@ -1,42 +1,40 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 
-import { BalBar, ResourceBal } from '../components/common/BalBar';
-import { SectionHead } from '../components/common/SectionHead';
+import { ResourceIcon, type ResourceKind } from '../components/common/ResourceIcon';
 import { NurseryChrome } from '../components/nursery/NurseryChrome';
-import { NurseryDigitamaSidebar } from '../components/nursery/NurseryDigitamaSidebar';
 import { NurseryPen3D } from '../components/nursery/NurseryPen3D';
-import { NurseryYard } from '../components/nursery/NurseryYard';
 import { ApiError } from '../lib/api';
-import {
-  collectPendingHatch,
-  getNursery,
-  getPendingHatches,
-  getSpeciesData,
-  petNurseryMon,
-  feedNurseryMon,
-  graduatePenMon,
-  startDirectHatch,
-  startMixHatch,
-  type NurseryPenMon,
-  type NurseryView,
-  type PendingHatchEntry,
-  type SpeciesDataEntry,
-} from '../lib/api-nursery';
+import { getNursery, getSpeciesData, getPendingHatches, petNurseryMon, feedNurseryMon, graduatePenMon, type NurseryPenMon, type NurseryView } from '../lib/api-nursery';
+import { getNurserySceneEntity } from '../lib/api-scenes';
+import { resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
+import type { SceneSettings } from '@digiworld/scene3d/scene';
+import { requestNursery } from '../lib/rail-nursery-store';
+import { NurseryPanel } from '../components/social/NurseryPanel';
+import { LobbySocialBar } from '../components/lobby/LobbySocialBar';
+import { CornerBar } from '../components/common/CornerBar';
+import { NurseryIcon } from '../components/common/icons';
 import '../styles/extensions-nursery.css';
-import '../styles/balbar.css';
+import '../styles/social-rail.css';
 
 const NURSERY_QUERY_KEY = ['nursery'] as const;
 const SPECIES_DATA_QUERY_KEY = ['nursery', 'data'] as const;
 const PENDING_HATCHES_QUERY_KEY = ['nursery', 'pending'] as const;
+const NURSERY_SCENE_QUERY_KEY = ['nursery-scene-entity'] as const;
 const PENDING_POLL_MS = 5_000;
+
+type NurseryCorner = 'hatchery' | 'social' | null;
 
 export function Nursery(): JSX.Element {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
+  // exclusividade de menus: apenas um canto aberto por vez (mesma regra do lobby)
+  const [openCorner, setOpenCorner] = useState<NurseryCorner>(null);
   const nurseryQuery = useQuery({ queryKey: NURSERY_QUERY_KEY, queryFn: getNursery });
   const dataQuery = useQuery({ queryKey: SPECIES_DATA_QUERY_KEY, queryFn: getSpeciesData });
   const pendingQuery = useQuery({ queryKey: PENDING_HATCHES_QUERY_KEY, queryFn: getPendingHatches, refetchInterval: PENDING_POLL_MS });
+  // The nursery pen's backdrop comes from the scene editor (kind 'nursery').
+  const sceneEntityQuery = useQuery({ queryKey: NURSERY_SCENE_QUERY_KEY, queryFn: getNurserySceneEntity });
 
   const careMutation = useMutation({
     mutationFn: runCareAction,
@@ -58,130 +56,119 @@ export function Nursery(): JSX.Element {
     },
   });
 
-  const hatchMutation = useMutation({
-    mutationFn: async (entry: SpeciesDataEntry) => {
-      const result = await startDirectHatch(entry.catalogId);
-      if (!result.ok) throw new ApiError(hatchErrorMessage(result.error), 409);
-      return { pending: result.pending, targetName: entry.name };
-    },
-    onSuccess: async (result) => {
-      setNotice(`Egg placed — ${result.targetName} lineage. Ready in 3:00.`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
-      ]);
-    },
-  });
-
-  const mixMutation = useMutation({
-    mutationFn: async () => {
-      const result = await startMixHatch();
-      if (!result.ok) throw new ApiError(mixErrorMessage(result.error), 409);
-      return { pending: result.pending, rolledCatalogId: result.rolledCatalogId, totalWeight: result.totalWeight };
-    },
-    onSuccess: async (result) => {
-      const entries = dataQuery.data?.entries ?? [];
-      const rolled = entries.find((e) => e.catalogId === result.rolledCatalogId)?.name ?? result.rolledCatalogId;
-      setNotice(`Mix hatched → ${rolled} (weight ${result.totalWeight}). Ready in 3:00.`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: SPECIES_DATA_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
-      ]);
-    },
-  });
-
-  const collectMutation = useMutation({
-    mutationFn: async (entry: PendingHatchEntry) => {
-      const result = await collectPendingHatch(entry.id);
-      if (!result.ok) throw new ApiError(collectErrorMessage(result.error), 409);
-      return { nickname: result.nickname };
-    },
-    onSuccess: async (result) => {
-      setNotice(`${result.nickname} hatched into your roster!`);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: PENDING_HATCHES_QUERY_KEY }),
-        queryClient.invalidateQueries({ queryKey: NURSERY_QUERY_KEY }),
-      ]);
-    },
-  });
+  // O botão "Hatchery" do pill abre o canto: avisa o painel (via store) E
+  // garante a exclusividade com o canto social.
+  const openHatchery = useCallback((): void => {
+    requestNursery();
+    setOpenCorner('hatchery');
+  }, []);
 
   const view = nurseryQuery.data ?? null;
   const dataEntries = dataQuery.data?.entries ?? [];
   const pending = pendingQuery.data?.pending ?? [];
-  const totalWeight = dataQuery.data?.totalWeight ?? 0;
-  const error = queryError(nurseryQuery.error, careMutation.error, hatchMutation.error, mixMutation.error, collectMutation.error, dataQuery.error, pendingQuery.error);
+  const error = queryError(nurseryQuery.error, careMutation.error, graduateMutation.error, dataQuery.error, pendingQuery.error);
 
-  const rookiesCount = view ? view.penMons.filter((m) => m.stage === 'Rookie').length : 0;
-  const needyCount = view ? view.penMons.filter((m) => m.mood < 35).length : 0;
-
-  let nurserySubtitle = '—';
-  if (view) {
-    if (rookiesCount > 0) nurserySubtitle = `${rookiesCount} ready to graduate`;
-    else if (needyCount > 0) nurserySubtitle = `${needyCount} need attention`;
-    else nurserySubtitle = 'all content';
-  }
+  // Backdrop environment driven by the scene editor's kind:'nursery' scene
+  // (or named "Nursery"). Falls back to the default arena model.
+  const sceneEntity = sceneEntityQuery.data ?? null;
+  const sceneSettings = sceneEntity?.settings as Partial<SceneSettings> | undefined;
+  const sceneModelFile = typeof sceneSettings?.modelFile === 'string' && sceneSettings.modelFile !== ''
+    ? sceneSettings.modelFile
+    : undefined;
+  const envModelUrl = resolveSceneModelUrl(sceneModelFile);
+  const useGlbSettings = sceneEntity?.useGlbSettings === true;
 
   return (
     <NurseryChrome meat={view?.meat ?? 0}>
       <>
-        <BalBar title="Nursery" subtitle={nurserySubtitle} odId="resource-balance">
-          <ResourceBal resource="meat" label="Meat" value={view?.meat ?? '—'} />
-          <ResourceBal resource="dataspecies" label="Data species" value={dataEntries.length} />
-          <ResourceBal resource="mons" label="In care" value={view?.penMons.length ?? 0} />
-        </BalBar>
+        <div className="nure-scene" data-od-id="nursery-scene">
+          <NurseryPen3D
+            penMons={view?.penMons ?? []}
+            pending={pending}
+            envModelUrl={envModelUrl ?? undefined}
+            settings={sceneSettings ?? undefined}
+            useGlbSettings={useGlbSettings}
+            stageDurations={{ babyMs: view?.babyStageMs ?? 60000, inTrainingMs: view?.inTrainingStageMs ?? 120000 }}
+            busyMonId={careMutation.isPending ? careMutation.variables?.mon.id : (graduateMutation.isPending ? graduateMutation.variables : null)}
+            canFeed={(view?.meat ?? 0) >= (view?.feedMeatCost ?? 0)}
+            feedCost={view?.feedMeatCost ?? 0}
+            onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
+            onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
+            onGraduate={(mon) => { graduateMutation.mutate(mon.id); }}
+          />
 
-        <div className="scroll">
-          <div className="col left pen-col">
-            <SectionHead title="Care" count={view?.penMons ? `${view.penMons.length} in care` : '—'} />
-            <NurseryPen3D
-              penMons={view?.penMons ?? []}
-              stageDurations={{ babyMs: view?.babyStageMs ?? 60000, inTrainingMs: view?.inTrainingStageMs ?? 120000 }}
-              busyMonId={careMutation.isPending ? careMutation.variables?.mon.id : (graduateMutation.isPending ? graduateMutation.variables : null)}
-              canFeed={(view?.meat ?? 0) >= (view?.feedMeatCost ?? 0)}
-              feedCost={view?.feedMeatCost ?? 0}
-              onPet={(mon) => { if (view !== null) careMutation.mutate({ kind: 'pet', mon, view }); }}
-              onFeed={(mon) => { if (view !== null) careMutation.mutate({ kind: 'feed', mon, view }); }}
-              onGraduate={(mon) => { graduateMutation.mutate(mon.id); }}
-            />
-          </div>
-
-          <div className="col right">
-            <SectionHead title="Hatchery" />
-            <div className="rstack">
-              <div className="rbox hatchery" data-od-id="hatchery">
-                <div className="rh">
-                  <span className="rt">Species Data</span>
-                  <span className="rc" id="data-count">{dataEntries.length} tracked</span>
-                </div>
-                <NurseryDigitamaSidebar
-                  entries={dataEntries}
-                  pending={pending}
-                  loading={dataQuery.isPending}
-                  totalWeight={totalWeight}
-                  busyCatalogId={hatchMutation.isPending ? hatchMutation.variables?.catalogId ?? null : null}
-                  mixBusy={mixMutation.isPending}
-                  onHatch={(entry) => hatchMutation.mutate(entry)}
-                  onMix={() => mixMutation.mutate()}
-                />
-              </div>
-              <div className="rbox pending" data-od-id="pending-hatches">
-                <div className="rh">
-                  <span className="rt">Incubating</span>
-                  <span className="rc" id="pending-count">{pending.length} egg{pending.length === 1 ? '' : 's'}</span>
-                </div>
-                <NurseryYard
-                  pending={pending}
-                  busyHatchId={collectMutation.isPending ? collectMutation.variables?.id ?? null : null}
-                  onCollect={(entry) => collectMutation.mutate(entry)}
-                />
-              </div>
+          {/* Pill over the 3D scene — meat / data / in care */}
+          <div className="nure-overlay">
+            <div className="nure-pill" data-od-id="resource-balance">
+              <PillStat resource="meat" label="Meat" value={view?.meat ?? '—'} />
+              <PillStat resource="dataspecies" label="Data" value={dataEntries.length} />
+              <PillStat resource="mons" label="In care" value={view?.penMons.length ?? 0} />
+              <button type="button" className="nure-pill__hatch" onClick={openHatchery}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                  <path d="M12 3c4 0 7 3 7 7 0 4.5-3.5 8-7 11-3.5-3-7-6.5-7-11 0-4 3-7 7-7z" />
+                  <path d="M9.5 13a2.5 2.5 0 0 0 5 0" />
+                </svg>
+                <span>Hatchery{pending.length > 0 ? ` · ${pending.length}` : ''}</span>
+              </button>
             </div>
           </div>
         </div>
       </>
       <NurseryStatus message={error ?? notice} error={error !== null} onDismiss={() => setNotice(null)} />
+      {/* canto inferior esquerdo: hatchery/incubação (mesma chrome da quest bar) */}
+      <div className="nursery-corner" data-od-id="nursery-panel-corner">
+        <CornerBar
+          className="nursery-hatch-bar"
+          dataOdId="nursery-hatchery"
+          icon={<NurseryIcon />}
+          title="Hatchery"
+          subtitle={
+            pending.length > 0
+              ? `${pending.length} ovo${pending.length > 1 ? 's' : ''} incubando`
+              : 'Incubar e chocar'
+          }
+          badge={pending.length}
+          badgeTone="signal"
+          open={openCorner === 'hatchery'}
+          onOpenChange={(o) => setOpenCorner(o ? 'hatchery' : null)}
+          panelLabel="Chocadeira e incubação"
+        >
+          <NurseryPanel />
+        </CornerBar>
+      </div>
+      {/* canto inferior direito: social (Online | Chat | Amigos) */}
+      <div className="nursery-corner nursery-corner--right" data-od-id="nursery-social-corner">
+        <LobbySocialBar
+          open={openCorner === 'social'}
+          onOpenChange={(o) => setOpenCorner(o ? 'social' : null)}
+        />
+      </div>
     </NurseryChrome>
   );
+}
+
+function PillStat({ resource, label, value, format = defaultFormat }: {
+  readonly resource: ResourceKind;
+  readonly label: string;
+  readonly value: number | string;
+  readonly format?: (v: number) => string;
+}): JSX.Element {
+  const displayed = typeof value === 'number' ? format(value) : value;
+  return (
+    <div className="nure-pill__stat" data-res={resource === 'dataspecies' ? 'data' : resource === 'mons' ? 'mons' : resource}>
+      <span className="nure-pill__ic" aria-hidden="true">
+        <ResourceIcon kind={resource} />
+      </span>
+      <span className="nure-pill__col">
+        <span className="nure-pill__k">{label}</span>
+        <span className="nure-pill__v">{displayed}</span>
+      </span>
+    </div>
+  );
+}
+
+function defaultFormat(value: number): string {
+  return Math.floor(value).toLocaleString('en-US');
 }
 
 type CareAction =
@@ -204,27 +191,6 @@ async function runCareAction(action: CareAction): Promise<CareResult> {
       const result = await feedNurseryMon(action.mon.id);
       return { monId: action.mon.id, kind: 'feed', message: `Fed! +${action.view.feedMoodDelta} mood · Meat ${result.meat}` };
     }
-  }
-}
-
-function hatchErrorMessage(code: 'not-enough-data' | 'template-missing' | 'no-path' | 'unknown'): string {
-  switch (code) {
-    case 'not-enough-data': return 'Species data must be 100% to hatch.';
-    case 'no-path': return 'No Rookie predecessor found for this species.';
-    case 'template-missing': return 'That Digimon is not in the catalog.';
-    case 'unknown': return 'Hatch failed. Try again.';
-  }
-}
-
-function mixErrorMessage(code: 'no-data' | 'no-path'): string {
-  return code === 'no-data' ? 'No species data collected yet.' : 'No Rookie predecessor found for the rolled species.';
-}
-
-function collectErrorMessage(code: 'not-found' | 'not-ready' | 'template-missing'): string {
-  switch (code) {
-    case 'not-found': return 'That egg is gone.';
-    case 'not-ready': return 'Egg is still incubating.';
-    case 'template-missing': return 'Rookie template is missing from the catalog.';
   }
 }
 

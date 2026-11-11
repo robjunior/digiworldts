@@ -2,9 +2,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { PenSpriteRig } from '@digiworld/scene3d/pen-sprite';
 import { unitSpriteSheetUrl } from '@digiworld/scene3d';
-import { SceneManager } from '@digiworld/scene3d/scene';
-import { ARENA_MODEL_BY_KEY, getArenaUrl } from '@digiworld/scene3d/arena-urls';
-import type { NurseryPenMon, NurseryPenStage } from '../../lib/api-nursery';
+import { SceneManager, type SceneSettings } from '@digiworld/scene3d/scene';
+import { ARENA_MODEL_BY_KEY, resolveSceneModelUrl } from '@digiworld/scene3d/arena-urls';
+import type { NurseryPenMon, NurseryPenStage, PendingHatchEntry } from '../../lib/api-nursery';
 import { PenMonMenu } from './PenMonMenu';
 
 const PEN_BOUNDS = { minX: -4, maxX: 4, minZ: -3, maxZ: 3 };
@@ -16,8 +16,78 @@ function easeOutCubic(x: number): number {
   return 1 - Math.pow(1 - x, 3);
 }
 
+/** A hatching egg visible in the 3D pen. Procedural mesh (no asset needed):
+ *  a squashed, slightly elongated sphere that gently bobs; when the egg is
+ *  ready to hatch it pulses with a glowing highlight. */
+class EggRig {
+  private readonly group: THREE.Group;
+  private readonly shell: THREE.Mesh;
+  private readonly glow: THREE.Mesh;
+  private ready = false;
+
+  constructor(
+    private readonly scene: THREE.Scene,
+    private readonly entry: PendingHatchEntry,
+    x: number,
+    z: number,
+    bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
+  ) {
+    this.group = new THREE.Group();
+
+    const shellGeo = new THREE.SphereGeometry(0.55, 24, 18);
+    shellGeo.scale(1, 1.18, 1);
+    const shellMat = new THREE.MeshStandardMaterial({
+      color: entry.mystery ? 0xcfc6ff : 0xf7f0e0,
+      roughness: 0.55,
+      metalness: 0.05,
+    });
+    this.shell = new THREE.Mesh(shellGeo, shellMat);
+
+    const glowGeo = new THREE.SphereGeometry(0.68, 20, 16);
+    glowGeo.scale(1, 1.18, 1);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: 0xffe9a8,
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.glow = new THREE.Mesh(glowGeo, glowMat);
+
+    this.group.add(this.shell, this.glow);
+    this.group.position.set(x, 0.4, z);
+    this.group.rotation.y = Math.random() * Math.PI * 2;
+    const cx = THREE.MathUtils.clamp(x, bounds.minX, bounds.maxX);
+    const cz = THREE.MathUtils.clamp(z, bounds.minZ, bounds.maxZ);
+    this.group.position.set(cx, 0.4, cz);
+    scene.add(this.group);
+  }
+
+  setReady(ready: boolean): void {
+    this.ready = ready;
+  }
+
+  update(elapsedS: number): void {
+    this.group.position.y = 0.34 + Math.sin(elapsedS * 1.4 + this.group.position.x) * 0.06;
+    this.group.rotation.y += 0.004;
+    // Ready eggs pulse with a soft glow.
+    const targetOpacity = this.ready ? 0.5 + Math.sin(elapsedS * 3) * 0.2 : 0;
+    const glowMat = this.glow.material as THREE.MeshBasicMaterial;
+    glowMat.opacity = THREE.MathUtils.lerp(glowMat.opacity, targetOpacity, 0.08);
+  }
+
+  dispose(): void {
+    this.scene.remove(this.group);
+    this.shell.geometry.dispose();
+    (this.shell.material as THREE.Material).dispose();
+    this.glow.geometry.dispose();
+    (this.glow.material as THREE.Material).dispose();
+  }
+}
+
 export type NurseryPen3DProps = {
   readonly penMons: readonly NurseryPenMon[];
+  readonly pending: readonly PendingHatchEntry[];
   readonly stageDurations: { readonly babyMs: number; readonly inTrainingMs: number };
   readonly onPet: (mon: NurseryPenMon) => void;
   readonly onFeed: (mon: NurseryPenMon) => void;
@@ -25,21 +95,32 @@ export type NurseryPen3DProps = {
   readonly busyMonId: string | null;
   readonly canFeed: boolean;
   readonly feedCost: number;
+  /** Resolved backdrop GLB URL (undefined → default arena). */
+  readonly envModelUrl?: string | undefined;
+  /** Top-level scene settings (lighting/arena/fog) — applied unless useGlbSettings. */
+  readonly settings?: Partial<SceneSettings> | undefined;
+  /** When true, the GLB defines the look (settings ignored). */
+  readonly useGlbSettings?: boolean;
 };
 
 export function NurseryPen3D({
   penMons,
+  pending,
   onPet,
   onFeed,
   onGraduate,
   busyMonId,
   canFeed,
   feedCost,
+  envModelUrl,
+  settings,
+  useGlbSettings,
 }: NurseryPen3DProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneManagerRef = useRef<SceneManager | null>(null);
   const rigsRef = useRef<Map<string, PenSpriteRig>>(new Map());
+  const eggRigsRef = useRef<Map<string, EggRig>>(new Map());
   const prevStageByMonIdRef = useRef<Map<string, NurseryPenStage>>(new Map());
   const exitedRef = useRef<Set<string>>(new Set());
   const penMonsRef = useRef<readonly NurseryPenMon[]>(penMons);
@@ -60,6 +141,14 @@ export function NurseryPen3D({
 
   const activeMonId = selectedMonId ?? hoveredMonId;
 
+  // Content fingerprint for the backdrop: rebuild the WebGL scene only when the
+  // env actually changed (never on object identity / every refetch).
+  const envContentKey = JSON.stringify({
+    envModelUrl: envModelUrl ?? null,
+    settings: settings ?? null,
+    useGlbSettings: useGlbSettings ?? false,
+  });
+
   // Init Scene
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
@@ -74,20 +163,34 @@ export function NurseryPen3D({
     });
     resizeObs.observe(containerRef.current);
 
-    const arenaUrl = getArenaUrl('forest_biome.glb')
-      ?? ARENA_MODEL_BY_KEY['plant']
-      ?? ARENA_MODEL_BY_KEY['field'];
-    if (arenaUrl !== undefined) {
-      sm.loadArenaModelWithAtmosphere(arenaUrl, 'field');
+    if (settings !== undefined && useGlbSettings !== true) {
+      const patch: Record<string, unknown> = { ...settings };
+      delete patch['modelFile'];
+      sm.applySettings(patch as Partial<SceneSettings>);
+    }
+
+    const modelUrl = envModelUrl
+      ?? resolveSceneModelUrl(settings?.modelFile)
+      ?? ARENA_MODEL_BY_KEY['field']
+      ?? ARENA_MODEL_BY_KEY['plant'];
+    if (modelUrl !== undefined) {
+      void (useGlbSettings === true
+        ? sm.loadArenaModelBare(modelUrl, 'field')
+        : sm.loadArenaModelWithAtmosphere(modelUrl, 'field'));
     }
     sm.startLoop();
 
     return () => {
       resizeObs.disconnect();
+      for (const eggRig of eggRigsRef.current.values()) {
+        eggRig.dispose();
+      }
+      eggRigsRef.current.clear();
       sm.dispose();
       sceneManagerRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envContentKey]);
 
   // Sync Mons -> Rigs
   useEffect(() => {
@@ -133,6 +236,34 @@ export function NurseryPen3D({
     }
   }, [penMons]);
 
+  // Sync Eggs -> meshes (hatching eggs shown in the 3D pen)
+  useEffect(() => {
+    const sm = sceneManagerRef.current;
+    if (!sm) return;
+
+    const currentEggRigs = eggRigsRef.current;
+    const incomingIds = new Set(pending.map((p) => p.id));
+
+    for (const [id, eggRig] of currentEggRigs.entries()) {
+      if (!incomingIds.has(id)) {
+        eggRig.dispose();
+        currentEggRigs.delete(id);
+      }
+    }
+
+    for (const entry of pending) {
+      let eggRig = currentEggRigs.get(entry.id);
+      if (!eggRig) {
+        const x = PEN_BOUNDS.minX + Math.random() * (PEN_BOUNDS.maxX - PEN_BOUNDS.minX);
+        const z = PEN_BOUNDS.minZ + Math.random() * (PEN_BOUNDS.maxZ - PEN_BOUNDS.minZ);
+        eggRig = new EggRig(sm.scene, entry, x, z, PEN_BOUNDS);
+        currentEggRigs.set(entry.id, eggRig);
+      } else {
+        eggRig.setReady(entry.ready);
+      }
+    }
+  }, [pending]);
+
   // Main Loop (custom physics + camera tracking)
   useEffect(() => {
     const loop = (time: number) => {
@@ -148,6 +279,11 @@ export function NurseryPen3D({
       // Update Rigs
       for (const rig of rigs) {
         rig.update(dt, elapsedS, sm.camera.quaternion);
+      }
+
+      // Update hatching eggs
+      for (const eggRig of eggRigsRef.current.values()) {
+        eggRig.update(elapsedS);
       }
 
       // Auto-graduate Rookies that walked off-screen

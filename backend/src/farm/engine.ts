@@ -43,6 +43,7 @@ import {
 } from '../db/index.js';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
+import { countItem } from '../items/grant.js';
 import { starterBlueprintsFor } from '../admin/blueprints.js';
 import { hasFlag } from '../flags/repo.js';
 import { isUserPremium, PREMIUM_BONUS, premiumMult } from '../premium/index.js';
@@ -87,7 +88,7 @@ const SQL_UPSERT_RESOURCE = `INSERT INTO resources (user_id, resource, amount, u
      ON CONFLICT(user_id, resource) DO UPDATE SET amount = resources.amount + excluded.amount, updated_at = excluded.updated_at`;
 const SQL_SELECT_RECIPES = `SELECT r.*, s.name AS item_name, s.description AS item_description
      FROM farm_recipes r JOIN shop_items s ON s.id = r.item_id
-     WHERE r.enabled = 1 AND s.enabled = 1 AND s.class = 'item'
+     WHERE r.enabled = 1 AND s.class = 'item'
      ORDER BY r.meat_cost + r.bits_cost + r.data_cost ASC`;
 const SQL_SELECT_RECIPE = `SELECT * FROM farm_recipes WHERE id = ? AND enabled = 1`;
 const SQL_INSERT_RECIPE = `INSERT INTO farm_recipes (id, item_id, meat_cost, bits_cost, data_cost, craft_time_ms, category, requires_items, inherit_rarity_from, unlock_condition, enabled, created_at)
@@ -98,7 +99,7 @@ const SQL_DECREMENT_INVENTORY_QTY = `UPDATE player_inventory SET qty = qty - ?, 
 const SQL_SELECT_INVENTORY_BY_FAMILY = `SELECT i.item_id AS item_id, i.qty AS qty, s.rarity AS rarity FROM player_inventory i JOIN shop_items s ON s.id = i.item_id WHERE i.user_id = ? AND i.item_id LIKE ? AND i.qty > 0 ORDER BY s.rarity DESC, i.item_id ASC`;
 const SQL_UPSERT_INVENTORY_ITEM = `INSERT INTO player_inventory (user_id, item_id, qty, updated_at) VALUES (?, ?, 1, ?)
      ON CONFLICT(user_id, item_id) DO UPDATE SET qty = player_inventory.qty + 1, updated_at = excluded.updated_at`;
-const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND enabled = 1 AND class = 'item'`;
+const SQL_SELECT_SHOP_ITEM = `SELECT * FROM shop_items WHERE id = ? AND class = 'item'`;
 const SQL_SELECT_WALLET_PREMIUM = `SELECT premium_until FROM player_wallet WHERE user_id = ?`;
 
 const SQL_SELECT_FACTORIES_USER = `SELECT * FROM player_factories WHERE user_id = ? ORDER BY created_at`;
@@ -308,7 +309,13 @@ const CYPHER_RECIPE_ELEMENTS = ['fire', 'water', 'plant', 'ice', 'electricity', 
 const CYPHER_RECIPE_TIERS = [1, 2, 3] as const;
 const EVOLUTION_CRAFTING_FLAG_CONDITION = JSON.stringify({ kind: 'flag', flag: 'evolution-crafting' });
 
-function generateCypherRecipes(): ReadonlyArray<{
+// Cypher recipes removed — replaced by elemental essence recipes (see generateEssenceRecipes).
+
+/**
+ * Elemental essence recipes: 5× an element's fragment → 1× that element's Essence.
+ * Fragments drop from wild digimons of the previous stage. Rare Factory only.
+ */
+function generateEssenceRecipes(): ReadonlyArray<{
   id: string;
   item_id: string;
   meat: number;
@@ -317,31 +324,18 @@ function generateCypherRecipes(): ReadonlyArray<{
   craft_time_ms: number;
   category: FactoryTypeId;
   requires_items: string;
-  inherit_rarity_from: string;
-  unlock_condition: string;
 }> {
-  const out: ReturnType<typeof generateCypherRecipes>[number][] = [];
-  for (const element of CYPHER_RECIPE_ELEMENTS) {
-    for (const tier of CYPHER_RECIPE_TIERS) {
-      const shardCount = 3 + tier;
-      const requires = JSON.stringify([
-        { itemId: `itm-shard-${element}-r0`, qty: shardCount },
-      ]);
-      out.push({
-        id: `rcp-cypher-${element}-t${tier}`,
-        item_id: `itm-cypher-${element}-t${tier}-r0`,
-        meat: 100 * tier,
-        bits: 200 * tier,
-        data: 150 * tier,
-        craft_time_ms: 1_800_000 * tier,
-        category: 'rare',
-        requires_items: requires,
-        inherit_rarity_from: 'fragment',
-        unlock_condition: EVOLUTION_CRAFTING_FLAG_CONDITION,
-      });
-    }
-  }
-  return out;
+  const elements = ['fire', 'water', 'plant', 'ice', 'electricity', 'earth', 'steel', 'wind', 'light', 'dark', 'null'];
+  return elements.map((element) => ({
+    id: `rcp-essence-${element}`,
+    item_id: `itm-essence-${element}`,
+    meat: 100,
+    bits: 100,
+    data: 50,
+    craft_time_ms: 1_800_000,
+    category: 'rare',
+    requires_items: JSON.stringify([{ itemId: `itm-frag-${element}`, qty: 5 }]),
+  }));
 }
 
 const SEED_RECIPES: ReadonlyArray<{
@@ -365,7 +359,7 @@ const SEED_RECIPES: ReadonlyArray<{
   { id: 'rcp-digi-revive', item_id: 'itm-digi-revive', meat: 30, bits: 30, data: 30, craft_time_ms: 600_000, category: 'rare' },
   { id: 'rcp-extraction-scroll', item_id: 'itm-extraction-scroll', meat: 500, bits: 800, data: 1000, craft_time_ms: 6 * 3600_000, category: 'rare' },
   { id: 'rcp-provision', item_id: 'itm-provision', meat: 2, bits: 1, data: 0, craft_time_ms: 600_000, category: 'pantry' },
-  ...generateCypherRecipes(),
+  ...generateEssenceRecipes(),
 ];
 
 export async function seedFarmRecipes(): Promise<void> {
@@ -429,6 +423,7 @@ export type RecipeView = {
   readonly dataCost: number;
   readonly craftTimeMs: number;
   readonly category: FactoryTypeId | null;
+  readonly requires: readonly { readonly itemId: string; readonly itemName: string; readonly qty: number }[];
   readonly canCraft: boolean;
 };
 
@@ -829,6 +824,25 @@ export async function queueItem(
 
     let maxFragmentRarity = 0;
     for (const req of requires) {
+      // Exact named-piece fragments (chip pieces `...-a/-b/-c`) are consumed
+      // verbatim; only `-r<rarity>` shard families use the rarity-wildcard path.
+      if (!/-r\d+$/.test(req.itemId)) {
+        const row = await t.query<{ readonly qty: number }>(
+          `SELECT qty FROM player_inventory WHERE user_id = ? AND item_id = ? AND qty > 0`,
+          [userId, req.itemId],
+        );
+        const have = row[0]?.qty ?? 0;
+        if (have < req.qty) {
+          itemDeficit = req.itemId;
+          throw new Error('craft-race');
+        }
+        const info = await t.run(SQL_DECREMENT_INVENTORY_QTY, [req.qty, now, userId, req.itemId, req.qty]);
+        if (info.changes === 0) {
+          itemDeficit = req.itemId;
+          throw new Error('craft-race');
+        }
+        continue;
+      }
       const familyPrefix = fragmentFamilyPrefix(req.itemId);
       const rows = await t.query<{ readonly item_id: string; readonly qty: number; readonly rarity: number }>(
         SQL_SELECT_INVENTORY_BY_FAMILY,
@@ -996,17 +1010,43 @@ async function filterRecipesByUnlockCondition<T extends { readonly unlock_condit
       out.push(row);
       continue;
     }
-    let condition: { kind?: unknown; flag?: unknown } = {};
-    try { const raw: unknown = JSON.parse(row.unlock_condition); if (raw && typeof raw === 'object' && !Array.isArray(raw)) condition = raw as typeof condition; }
-    catch { out.push(row); continue; }
-    if (condition.kind !== 'flag' || typeof condition.flag !== 'string') { out.push(row); continue; }
-    const flagName = condition.flag;
-    let on = flagCache.get(flagName);
-    if (on === undefined) {
-      on = await hasFlag(userId, flagName);
-      flagCache.set(flagName, on);
+    let condition: Record<string, unknown> = {};
+    try {
+      const raw: unknown = JSON.parse(row.unlock_condition);
+      if (raw && typeof raw === 'object' && !Array.isArray(raw)) condition = raw as Record<string, unknown>;
+    } catch {
+      out.push(row);
+      continue;
     }
-    if (on) out.push(row);
+    const kind = condition.kind;
+    // flag-gated: recipe visible while the feature flag is on.
+    if (kind === 'flag' && typeof condition.flag === 'string') {
+      let on = flagCache.get(condition.flag);
+      if (on === undefined) {
+        on = await hasFlag(userId, condition.flag);
+        flagCache.set(condition.flag, on);
+      }
+      if (on) out.push(row);
+      continue;
+    }
+    // has-items: recipe visible only when the player holds every listed fragment.
+    if (kind === 'has-items' && Array.isArray(condition.items)) {
+      let all = true;
+      for (const it of condition.items) {
+        if (!it || typeof it !== 'object' || Array.isArray(it)) continue;
+        const rec = it as Record<string, unknown>;
+        if (typeof rec.itemId !== 'string') continue;
+        const qty = typeof rec.qty === 'number' && rec.qty >= 1 ? Math.floor(rec.qty) : 1;
+        const have = await countItem(userId, rec.itemId);
+        if (have < qty) {
+          all = false;
+          break;
+        }
+      }
+      if (all) out.push(row);
+      continue;
+    }
+    out.push(row); // unknown condition kinds are treated as visible (permissive default)
   }
   return out;
 }
@@ -1019,6 +1059,22 @@ export async function readFactoryPage(userId: string): Promise<FactoryPageView> 
   type RecipeJoinRow = FarmRecipeRow & { item_name: string; item_description: string };
   const recipeRows = await q<RecipeJoinRow>(SQL_SELECT_RECIPES);
   const visibleRows = await filterRecipesByUnlockCondition(userId, recipeRows);
+
+  // Resolve required-ingredient names (fragments) for the visible recipes.
+  const requiredIds = new Set<string>();
+  for (const row of visibleRows) {
+    for (const req of parseRequiresItemsSafe(row.requires_items)) requiredIds.add(req.itemId);
+  }
+  const itemIdToName = new Map<string, string>();
+  if (requiredIds.size > 0) {
+    const ids = Array.from(requiredIds);
+    const nameRows = await q<{ id: string; name: string }>(
+      `SELECT id, name FROM shop_items WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ...ids,
+    );
+    for (const r of nameRows) itemIdToName.set(r.id, r.name);
+  }
+
   const recipes: RecipeView[] = visibleRows.map((row) => ({
     id: row.id,
     itemId: row.item_id,
@@ -1029,6 +1085,11 @@ export async function readFactoryPage(userId: string): Promise<FactoryPageView> 
     dataCost: row.data_cost,
     craftTimeMs: row.craft_time_ms,
     category: row.category,
+    requires: parseRequiresItemsSafe(row.requires_items).map((e) => ({
+      itemId: e.itemId,
+      itemName: itemIdToName.get(e.itemId) ?? e.itemId,
+      qty: e.qty,
+    })),
     canCraft: balances.Meat >= row.meat_cost && balances.Bits >= row.bits_cost && balances.Data >= row.data_cost,
   }));
 

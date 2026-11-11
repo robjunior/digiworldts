@@ -816,6 +816,12 @@ button {
     width: 19px;
     height: 19px;
 }
+/* element glyphs render ~30% larger than the shared attribute-icon size; scoped so
+   neighboring attribute tiles keep their 19px geometry (50px tile, 28px ic slot unchanged) */
+.rmtile .ic .element-icon .element-icon__glyph svg {
+    width: 25px;
+    height: 25px;
+}
 .rmtile .rl {
     width: 100%;
     text-align: center;
@@ -2319,6 +2325,73 @@ button {
     flex-direction: column;
     gap: 8px;
 }
+.skl-signature {
+    margin-bottom: 18px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--hair);
+}
+
+.skl-signature .skl-slots {
+    color: var(--accent);
+    font: 600 10px/1 var(--font);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.skl-sig-list {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.skl-sigrow {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.4fr) auto;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 12px;
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    cursor: pointer;
+    text-align: left;
+    color: var(--ink);
+    font: 500 12px/1.3 var(--font);
+    transition:
+        border-color 0.15s var(--ease),
+        background 0.15s var(--ease);
+}
+
+.skl-sigrow.is-active {
+    background: var(--accent-soft, color-mix(in srgb, var(--accent) 18%, transparent));
+    border-color: var(--accent);
+}
+
+.skl-sigrow.is-locked {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.skl-sig-name {
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.skl-sig-arch {
+    color: var(--muted);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.skl-sig-stage {
+    color: var(--muted);
+    font: 650 10px/1 var(--font);
+    text-transform: uppercase;
+}
+
 .skl-empty {
     padding: 24px 12px;
     color: var(--muted);
@@ -4086,4 +4159,599 @@ button {
         margin-left: auto;
         margin-top: 0;
     }
+}
+
+/* =========================================================================
+   ROSTER v2 — Teams (two-column: saved teams | digimon grid)
+   Left column: team list (compact name + 3 icons, expand for details).
+   Right column (2/3): filter bar + full digimon grid, hidden scrollbar,
+   lazy-loaded rows via IntersectionObserver sentinel.
+   ========================================================================= */
+
+.roster2 {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ---- summary strip (modeled on Training .tbar) ------------------------- */
+.roster2-summary {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--panel);
+}
+.roster2-stat {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 10px;
+    align-items: baseline;
+    padding: 0 18px;
+    border-right: 1px solid var(--hair);
+}
+.roster2-stat:first-child { padding-left: 0; }
+.roster2-stat .k {
+    font: 700 9px/1 var(--font);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+.roster2-stat .v {
+    font: 800 18px/1 var(--font);
+    font-variant-numeric: tabular-nums;
+}
+.roster2-strip-title { margin-left: auto; text-align: right; }
+.roster2-strip-title .k {
+    font: 800 10px/1 var(--font);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--signal);
+}
+.roster2-strip-title .s {
+    font: 600 12px/1 var(--font);
+    color: var(--muted);
+    margin-top: 5px;
+}
+
+.roster2-cols {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+}
+
+/* ---- element tints for the v2 surfaces (extend the legacy partial map) --- */
+.roster2 [data-el="ice"]        { --el: color-mix(in oklab, var(--signal) 55%, var(--ink)); }
+.roster2 [data-el="earth"]      { --el: color-mix(in oklab, var(--gold) 45%, var(--ink)); }
+.roster2 [data-el="steel"]      { --el: color-mix(in oklab, var(--muted) 70%, var(--ink)); }
+.roster2 [data-el="light"]      { --el: color-mix(in oklab, var(--gold-bright) 75%, var(--ink)); }
+.roster2 [data-el="dark"]       { --el: color-mix(in oklab, var(--signal) 45%, var(--bg)); }
+.roster2 [data-el="null"]       { --el: var(--muted); }
+
+/* =========================================================================
+   LEFT COLUMN — teams
+   ========================================================================= */
+.roster2-teams {
+    flex: 0 0 340px;
+    max-width: 42%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--hair);
+    background: var(--bg);
+}
+
+.roster2-teams-head {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--panel);
+}
+.roster2-teams-head .kick {
+    position: absolute;
+    top: 10px;
+    left: 16px;
+    font: 800 9px/1 var(--font);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--signal);
+}
+.roster2-teams-head h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 0;
+    font: 800 20px/1 var(--font);
+    letter-spacing: -0.01em;
+}
+.roster2-teams-head h2 .cnt {
+    font: 700 11px/1 var(--font);
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 3px 8px;
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    font-variant-numeric: tabular-nums;
+}
+.roster2-teams-head .btn-primary {
+    margin-left: auto;
+}
+
+.roster2-notice {
+    flex: 0 0 auto;
+    margin: 10px 16px 0;
+    padding: 7px 10px;
+    background: color-mix(in oklab, var(--signal) 14%, var(--panel));
+    border: 1px solid color-mix(in oklab, var(--signal) 45%, var(--hair));
+    clip-path: var(--notch-sm);
+    font: 600 11px/1.4 var(--font);
+    color: var(--signal2);
+    cursor: pointer;
+}
+
+.roster2-teams-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scrollbar-width: none;
+}
+.roster2-teams-scroll::-webkit-scrollbar { display: none; }
+
+/* ---- team card ---- */
+.team-card {
+    flex: 0 0 auto;
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch);
+    transition: border-color 0.12s;
+}
+.team-card:hover { border-color: var(--muted); }
+.team-card--active {
+    border-color: color-mix(in oklab, var(--gold) 55%, var(--hair));
+    box-shadow: inset 2px 0 0 0 var(--gold);
+}
+.team-card--open { border-color: var(--signal2); }
+
+.team-row {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    text-align: left;
+}
+.team-row-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.team-name {
+    font: 800 13px/1.2 var(--font);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.team-active {
+    align-self: flex-start;
+    font: 800 8px/1 var(--font);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    border: 1px solid color-mix(in oklab, var(--gold) 50%, transparent);
+    background: color-mix(in oklab, var(--gold) 12%, transparent);
+    padding: 3px 7px;
+    clip-path: var(--notch-sm);
+}
+.team-avatars {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 4px;
+}
+.team-avatar {
+    width: 34px;
+    height: 34px;
+    display: block;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    overflow: hidden;
+}
+.team-avatar[data-el] { border-color: color-mix(in oklab, var(--el) 55%, var(--hair)); }
+.team-avatar--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 800 13px/1 var(--font);
+    color: var(--muted);
+    border-style: dashed;
+}
+.team-caret {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    color: var(--muted);
+    transition: transform 0.15s;
+}
+.team-card--open .team-caret { transform: rotate(180deg); color: var(--signal2); }
+
+/* ---- expanded detail ---- */
+.team-detail {
+    border-top: 1px solid var(--hair);
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.team-slots { display: flex; flex-direction: column; gap: 6px; }
+
+.team-slot {
+    display: grid;
+    grid-template-columns: 42px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 7px;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+}
+.team-slot--empty { border-style: dashed; }
+.team-slot--picking {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 0 18px color-mix(in oklab, var(--gold) 25%, transparent);
+}
+.ts-mug {
+    width: 42px;
+    height: 42px;
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    overflow: hidden;
+}
+.ts-q {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font: 800 14px/1 var(--font);
+    color: var(--muted);
+}
+.ts-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.ts-info b {
+    font: 800 12px/1.3 var(--font);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ts-info > span {
+    font: 500 10px/1.4 var(--font);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ts-meta {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+.ts-warn {
+    align-self: flex-start;
+    margin-top: 2px;
+    font: 700 8px/1 var(--font);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    background: color-mix(in oklab, var(--gold) 14%, transparent);
+    border: 1px solid color-mix(in oklab, var(--gold) 45%, transparent);
+    padding: 2px 6px;
+    clip-path: var(--notch-sm);
+}
+.ts-change.is-picking {
+    border-color: var(--gold);
+    color: var(--gold-bright);
+}
+
+.team-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.team-rename {
+    flex: 1 1 180px;
+    display: flex;
+    gap: 6px;
+    min-width: 0;
+}
+.team-rename input {
+    flex: 1 1 auto;
+    min-width: 0;
+    height: 30px;
+    padding: 0 10px;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    font: 500 12px/1 var(--font);
+    outline: none;
+}
+.team-rename input:focus { border-color: var(--signal); }
+
+/* ---- shared buttons (scoped to the roster v2 screen) ---- */
+.roster2 .btn-primary,
+.roster2 .btn-ghost,
+.roster2 .btn-danger,
+.roster2 .btn-buy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    clip-path: var(--notch-sm);
+    font: 700 10px/1 var(--font);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: 0.12s;
+}
+.roster2 .btn-primary {
+    background: var(--signal);
+    color: #fff;
+    border: 1px solid var(--signal);
+}
+.roster2 .btn-primary:hover:not(:disabled) { background: var(--signal2); border-color: var(--signal2); }
+.roster2 .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+.roster2 .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--hair);
+}
+.roster2 .btn-ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--signal2); }
+.roster2 .btn-ghost:disabled { opacity: 0.4; cursor: not-allowed; }
+.roster2 .btn-danger {
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid color-mix(in oklab, var(--gold) 45%, var(--hair));
+}
+.roster2 .btn-danger:hover:not(:disabled) { color: #fff; background: var(--gold); border-color: var(--gold); }
+.roster2 .btn-danger.is-armed {
+    color: #fff;
+    background: var(--gold);
+    border-color: var(--gold);
+    animation: r2-pulse 0.8s infinite alternate;
+}
+.roster2 .btn-buy {
+    background: transparent;
+    color: var(--gold-bright);
+    border: 1px solid var(--gold);
+    height: 32px;
+}
+.roster2 .btn-buy:hover:not(:disabled) { background: var(--gold); color: #fff; }
+.roster2 .btn-buy:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@keyframes r2-pulse {
+    from { box-shadow: 0 0 0 0 color-mix(in oklab, var(--gold) 40%, transparent); }
+    to   { box-shadow: 0 0 12px 2px color-mix(in oklab, var(--gold) 30%, transparent); }
+}
+
+/* ---- empty / upsell ---- */
+.roster2-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+}
+.roster2-empty .em { font: 800 14px/1.4 var(--font); color: var(--ink); }
+.roster2-empty .sub { font: 500 11px/1.5 var(--font); max-width: 260px; }
+.roster2-empty .btn-primary,
+.roster2-empty .btn-ghost { margin-top: 4px; }
+
+.roster2-slot-upsell {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--hair);
+    background: var(--panel);
+}
+.usc-icon {
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 800 18px/1 var(--font);
+    color: var(--gold-bright);
+    border: 1px solid var(--gold);
+    clip-path: var(--notch-sm);
+}
+.usc-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+.usc-body b { font: 800 11px/1.3 var(--font); }
+.usc-body span { font: 500 9px/1.4 var(--font); color: var(--muted); }
+
+/* =========================================================================
+   RIGHT COLUMN — filter bar + digimon grid
+   ========================================================================= */
+.roster2-panel {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background: var(--bg);
+}
+
+.roster2-filters {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--hair);
+    background: var(--panel);
+}
+.roster2-filters .search { width: 100%; }
+.roster2-filters .filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.roster2-filters .filters::-webkit-scrollbar { display: none; }
+.roster2-filters .chip { flex: 0 0 auto; }
+.roster2-filters .clearf { margin-left: auto; flex: 0 0 auto; }
+
+.roster2-pickbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    background: color-mix(in oklab, var(--gold) 10%, var(--panel));
+    border-bottom: 1px solid color-mix(in oklab, var(--gold) 40%, var(--hair));
+    font: 700 11px/1.3 var(--font);
+    letter-spacing: 0.06em;
+    color: var(--gold-bright);
+}
+
+.roster2-grid-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    scrollbar-width: none;
+}
+.roster2-grid-scroll::-webkit-scrollbar { display: none; }
+
+.roster2-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 10px;
+}
+
+.mon-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    transition: 0.12s;
+}
+.mon-card:hover {
+    background: var(--panel2);
+    border-color: var(--muted);
+    transform: translateY(-1px);
+}
+.mon-card--pickable { border-color: color-mix(in oklab, var(--signal) 45%, var(--hair)); }
+.mon-card--pickable:hover { border-color: var(--signal); box-shadow: 0 0 14px color-mix(in oklab, var(--signal) 22%, transparent); }
+.mon-card--blocked { opacity: 0.55; }
+.mon-card--in-team { border-color: color-mix(in oklab, var(--gold) 55%, var(--hair)); }
+
+.mc-mug {
+    width: 100%;
+    height: 56px;
+    display: block;
+    background: var(--panel2);
+    border: 1px solid var(--hair);
+    clip-path: var(--notch-sm);
+    overflow: hidden;
+}
+.mon-card[data-el] .mc-mug { border-color: color-mix(in oklab, var(--el) 50%, var(--hair)); }
+.mc-el {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.mc-name {
+    margin-top: 6px;
+    font: 800 12px/1.3 var(--font);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mc-species {
+    font: 500 10px/1.3 var(--font);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mc-meta {
+    font: 700 8px/1.4 var(--font);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+}
+.mc-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    font: 700 7px/1 var(--font);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-bright);
+    background: color-mix(in oklab, var(--gold) 14%, var(--panel));
+    border: 1px solid color-mix(in oklab, var(--gold) 45%, transparent);
+    padding: 3px 5px;
+    clip-path: var(--notch-sm);
+}
+.mc-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 800 10px/1 var(--font);
+    color: var(--gold-bright);
+    background: color-mix(in oklab, var(--gold) 14%, var(--panel));
+    border: 1px solid var(--gold);
+    clip-path: var(--notch-sm);
+}
+
+.roster2-grid-sentinel { height: 1px; width: 100%; }
+
+/* ---- narrow window: stack the columns ---- */
+@media (max-width: 860px) {
+    .roster2-cols { flex-direction: column; }
+    .roster2-teams { flex: 0 0 auto; max-width: none; max-height: 42%; border-right: 0; border-bottom: 1px solid var(--hair); }
+    .roster2-summary { flex-wrap: wrap; gap: 8px; }
+    .roster2-stat { padding: 0 12px; }
+    .roster2-strip-title { margin-left: 0; width: 100%; text-align: left; }
 }

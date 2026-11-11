@@ -9,6 +9,28 @@
     position: relative;
 }
 
+/* digimon art: fully flush to the right edge of the hero, no left fade —
+   solid right-aligned panel that bleeds into the canvas at the bottom */
+.creature-detail .hero .splash {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: auto;
+    width: 60%;
+}
+.creature-detail .hero .splash img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    object-position: right center;
+    -webkit-mask-image:
+        linear-gradient(180deg, #000 0, #000 62%, transparent 100%);
+    mask-image:
+        linear-gradient(180deg, #000 0, #000 62%, transparent 100%);
+}
+
 /* back row above the hero */
 .cr-back {
     flex: 0 0 auto;
@@ -92,21 +114,62 @@
     position: absolute;
 }
 
-/* slim XP bar inside the hero */
+/* XP bar inside the hero — tall enough to hold the numeric readout + level badge */
 .cr-xp {
-    height: 8px;
+    position: relative;
+    height: 32px;
     max-width: 420px;
     margin: 12px 0 0;
     background: var(--bg);
     border: 1px solid var(--hair);
-    clip-path: polygon(3px 0, 100% 0, 100% 100%, 0 100%);
+    clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
     overflow: hidden;
+    display: flex;
+    align-items: center;
 }
 .cr-xp .xp-fill {
     display: block;
     height: 100%;
     background: linear-gradient(90deg, var(--signal), var(--signal-2, var(--signal)));
     transition: width 0.4s ease;
+}
+/* eye-catching level tag pinned to the left of the bar */
+.cr-xp .xp-level {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 14px;
+    background: linear-gradient(180deg, var(--gold-bright, var(--gold)), var(--gold));
+    color: var(--bg);
+    font: 900 13px/1 var(--font);
+    letter-spacing: 0.06em;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 0 100%);
+    box-shadow: 8px 0 14px -4px rgba(0, 0, 0, 0.5);
+}
+/* keep the numeric readout clear of the level tag */
+.cr-xp .xp-num {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font: 800 11px/1 var(--font);
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    background: linear-gradient(90deg, color-mix(in oklab, var(--bg) 65%, transparent), transparent 45%);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+    pointer-events: none;
+}
+.cr-xp .xp-num i {
+    font-style: normal;
+    color: var(--muted);
 }
 
 /* info tab — two stacked stat blocks */

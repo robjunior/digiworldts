@@ -4,13 +4,17 @@ import type { CommandMode } from '../combat/CommandPanel';
 import type { WSClientMessage } from '@digiworld/shared/ws';
 import type { RefObject } from 'react';
 import type { Combat3DSceneHandle } from './Combat3DScene';
-import { ATTACK_PROPAGATION_MS, extractPlayerVfx } from './combat3dConfig';
+import { extractPlayerVfx, playerEffectDurationMs, TURN_ADVANCE_DELAY_MS } from './combat3dConfig';
 
 /**
  * Player-action entry point. Plays the actor's impact effect first (when the
- * action has one), waits `ATTACK_PROPAGATION_MS`, then sends to the server —
- * PvE via the world-battle endpoint, PvP via the websocket. Guards against
- * re-entrancy while a cast is in flight and always resets the command menu.
+ * action has one) and sends the action to the server once the hit LANDS —
+ * anchored to the effect's `onImpact`, plus `TURN_ADVANCE_DELAY_MS` of
+ * breathing room. PvE via the world-battle endpoint, PvP via the websocket.
+ * Waiting on the impact (not the particle effect's tail) keeps a long trailing
+ * visual from delaying the turn after the damage has already been dealt.
+ * Guards against re-entrancy while a cast is in flight and always resets the
+ * command menu.
  */
 export function useActionDispatch(
   sceneRef: RefObject<Combat3DSceneHandle | null>,
@@ -29,21 +33,44 @@ export function useActionDispatch(
       const vfx = extractPlayerVfx(actor, action);
       if (vfx !== null && sceneRef.current !== null) {
         dispatchPendingRef.current = true;
-        sceneRef.current.playEffect(
-          vfx.element,
-          vfx.sourceId,
-          vfx.targetId,
-          vfx.vfxPresetId !== undefined ? { vfxPresetId: vfx.vfxPresetId } : undefined,
-        );
-        setCommandMode('menu');
-        window.setTimeout(() => {
+        const sendAction = (): void => {
           if (activeBattle.mode === 'pve') {
             void onPveDispatch(action);
           } else {
             onWsSend({ type: 'act', matchId: activeBattle.id, action } satisfies WSClientMessage);
           }
           dispatchPendingRef.current = false;
-        }, ATTACK_PROPAGATION_MS);
+        };
+        // Send once the hit LANDS plus the post-hit pause — not when the
+        // particle effect finishes, so a long trailing effect never delays the
+        // turn (the damage is already on screen at that point).
+        let sent = false;
+        let fallbackId: number | null = null;
+        const onImpact = (): void => {
+          if (sent) return;
+          sent = true;
+          if (fallbackId !== null) window.clearTimeout(fallbackId);
+          window.setTimeout(sendAction, TURN_ADVANCE_DELAY_MS);
+        };
+        const effectId = sceneRef.current.playEffect(
+          vfx.element,
+          vfx.sourceId,
+          vfx.targetId,
+          {
+            attackKind: vfx.attackKind,
+            onImpact,
+            ...(vfx.vfxPresetId !== undefined ? { vfxPresetId: vfx.vfxPresetId } : {}),
+          },
+        );
+        setCommandMode('menu');
+        if (effectId === null) {
+          // Rejected cast (target sprite missing): `onImpact` will never fire.
+          onImpact();
+        } else {
+          // Safety bound: if the runner somehow never reports its hit, the turn
+          // still advances after the effect's own duration.
+          fallbackId = window.setTimeout(onImpact, playerEffectDurationMs(actor, action) + TURN_ADVANCE_DELAY_MS);
+        }
         return;
       }
 

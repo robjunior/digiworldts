@@ -138,6 +138,21 @@ export type CatalogSkillMeta = {
   readonly upgrade_of: string | null;
 };
 
+export type SignatureOption = {
+  readonly id: string;
+  readonly name: string;
+  readonly name_pt: string;
+  readonly description: string | null;
+  readonly description_pt: string | null;
+  readonly element: Element;
+  readonly energyCost: number;
+  readonly cooldown: number;
+  readonly stage: Stage;
+  readonly slot_role: string | null;
+  readonly archetype: string | null;
+  readonly archetypeValid: boolean;
+};
+
 export type MonSkillsResponse = {
   readonly monId: string;
   readonly currentCatalogId: string;
@@ -154,6 +169,13 @@ export type MonSkillsResponse = {
     readonly fromCatalog: readonly string[];
   };
   readonly maxEquipped: number;
+  readonly signatureOptions: readonly SignatureOption[];
+  readonly activeSignatureId: string | null;
+};
+
+export type SetSignatureResponse = {
+  readonly ok: true;
+  readonly signatureSkillId: string | null;
 };
 
 export type SetMonSkillsResponse = {
@@ -171,4 +193,9 @@ export function getMonSkills(monId: string): Promise<MonSkillsResponse> {
 
 export function setMonSkills(monId: string, skillKeys: readonly string[]): Promise<SetMonSkillsResponse> {
   return apiFetch<SetMonSkillsResponse>(`/api/roster/${encodeURIComponent(monId)}/skills`, { method: 'PUT', body: { skillIds: skillKeys } });
+}
+
+/** Select (skillId) or clear (null) the digimon's single active signature. */
+export function setMonSignature(monId: string, skillId: string | null): Promise<SetSignatureResponse> {
+  return apiFetch<SetSignatureResponse>(`/api/roster/${encodeURIComponent(monId)}/signature`, { method: 'PUT', body: { skillId } });
 }

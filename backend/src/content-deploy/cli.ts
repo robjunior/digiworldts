@@ -21,7 +21,7 @@
  * `friendships`, `coin_offers`, `sessions`, `resources`, `login_attempts`).
  */
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { CONTENT_TABLES } from '../seed-export/content-tables.js';
@@ -54,9 +54,10 @@ function isForbiddenTable(name: string): boolean {
 }
 
 type CliOptions = {
-  mode: 'help' | 'validate' | 'diff' | 'apply' | 'rollback';
+  mode: 'help' | 'validate' | 'diff' | 'apply' | 'rollback' | 'prune-roster';
   seedPath: string;
   tables: readonly string[];
+  reconcile: boolean;
 };
 
 function parseCliArgs(argv: string[]): CliOptions {
@@ -67,17 +68,20 @@ function parseCliArgs(argv: string[]): CliOptions {
       diff: { type: 'boolean', default: false },
       apply: { type: 'boolean', default: false },
       rollback: { type: 'boolean', default: false },
+      'prune-roster': { type: 'boolean', default: false },
+      reconcile: { type: 'boolean', default: false },
       tables: { type: 'string', short: 't' },
       help: { type: 'boolean', default: false },
     },
     allowPositionals: true,
   });
 
-  if (values.help) return { mode: 'help', seedPath: '', tables: [] };
+  if (values.help) return { mode: 'help', seedPath: '', tables: [], reconcile: false };
 
-  const modes = (['validate', 'diff', 'apply', 'rollback'] as const).filter((m) => values[m] === true);
+  const modes = (['validate', 'diff', 'apply', 'rollback', 'prune-roster'] as const)
+    .filter((m) => values[m] === true);
   if (modes.length === 0) {
-    throw new Error('Missing subcommand: --validate, --diff, --apply or --rollback (see --help)');
+    throw new Error('Missing subcommand: --validate, --diff, --apply, --rollback or --prune-roster (see --help)');
   }
   if (modes.length > 1) {
     throw new Error(`Conflicting subcommands: ${modes.join(', ')} (pick exactly one)`);
@@ -88,14 +92,18 @@ function parseCliArgs(argv: string[]): CliOptions {
     throw new Error(`Unexpected positional arguments: ${positionals.slice(1).join(' ')}`);
   }
   const seedPath = positionals[0] ?? '';
-  if (mode === 'validate' || mode === 'diff' || mode === 'apply') {
-    if (!seedPath) throw new Error(`--${mode} requires a seed.json path`);
+  if ((mode === 'validate' || mode === 'diff' || mode === 'apply') && !seedPath) {
+    throw new Error(`--${mode} requires a seed.json path`);
+  }
+  if (mode !== 'apply' && values.reconcile) {
+    throw new Error(`--reconcile only applies to --apply`);
   }
 
   return {
     mode,
     seedPath,
     tables: values.tables ? values.tables.split(',').map((t) => t.trim()).filter(Boolean) : [],
+    reconcile: values.reconcile === true,
   };
 }
 
@@ -106,8 +114,9 @@ function printHelp(): void {
 Usage:
   pnpm content:deploy --validate <seed.json>                 read-only artifact check
   pnpm content:deploy --diff [--tables <csv>] <seed.json>    read-only diff vs target DB
-  pnpm content:deploy --apply <seed.json>                    deploy artifact (transactional)
+  pnpm content:deploy --apply [--reconcile] <seed.json>      deploy artifact (transactional)
   pnpm content:deploy --rollback                             restore previous version (transactional)
+  pnpm content:deploy --prune-roster                         remove player digimons off the active roster
   pnpm content:deploy --help
 
 Subcommands:
@@ -118,8 +127,17 @@ Subcommands:
   --apply               Validate cross-domain refs, then in ONE transaction:
                         upsert content rows, record immutable content_versions
                         snapshots, and swap active_versions pointers.
+  --reconcile           (with --apply) ALSO purge, in the same transaction, the
+                        content rows content-deploy previously deployed (they have
+                        an active_versions pointer) that are absent from the
+                        bundle — the bundle-managed subset becomes an exact mirror
+                        of the artifact. Boot-seeded rows content-deploy never
+                        wrote are left untouched. Never deletes player state.
   --rollback            In ONE transaction: restore every active content row
                         from its previous snapshot and re-point active_versions.
+  --prune-roster        Delete player-owned digimons whose species is off the
+                        active (launch) roster. Idempotent; player-state mutation
+                        that is deliberately separate from the content apply path.
 
 Options:
   -t, --tables <csv>    Restrict --diff to a subset of content tables.
@@ -254,25 +272,65 @@ async function runDiff(seedPath: string, requested: readonly string[]): Promise<
   }
 }
 
-async function runApply(seedPath: string): Promise<void> {
+async function runApply(seedPath: string, reconcile: boolean): Promise<void> {
   const env = await loadSeed(seedPath);
   const forbidden = forbiddenTablesIn(env);
   if (forbidden.length > 0) {
     throw new Error(`seed artifact contains player-state tables: ${forbidden.join(', ')}`);
   }
 
-  const [{ closeDbAdapter }] = await Promise.all([
+  const [{ closeDbAdapter }, { config }, { applyArenaAssets, applySceneAssets }] = await Promise.all([
     import('../db/index.js'),
+    import('../config.js'),
+    import('./assets.js'),
   ]);
 
+  // Resolve the bundle directory (parent of the seed JSON that holds staged assets/).
+  const bundleDir = resolve(process.cwd(), dirname(seedPath));
+
   try {
-    const summary = await applySeed(env);
+    const summary = await applySeed(env, { reconcile });
     // eslint-disable-next-line no-console
     console.log(`content-deploy: applied ${Object.keys(summary.tables).length} table(s), ${summary.totalVersions} version(s) in one transaction`);
     for (const [name, t] of Object.entries(summary.tables)) {
       // eslint-disable-next-line no-console
       console.log(`  ${name}: ${t.rows} row(s) -> ${t.versions} version(s)`);
     }
+    if (summary.purged && Object.keys(summary.purged).length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`content-deploy: reconcile purged ${Object.values(summary.purged).reduce((a, b) => a + b, 0)} orphaned content row(s)`);
+      for (const [name, n] of Object.entries(summary.purged)) {
+        // eslint-disable-next-line no-console
+        console.log(`  - ${name}: ${n} row(s)`);
+      }
+    }
+
+    // File-backed assets (arena GLBs) travel with the bundle too, into the
+    // shared arendata volume (config.paths.arenasDir → served at /assets/arenas/).
+    if ((env.assetManifest ?? []).length > 0) {
+      const assets = await applyArenaAssets(bundleDir, env.assetManifest ?? [], config.paths.arenasDir);
+      const wrote = assets.applied.length;
+      const same = assets.skippedUnchanged.length;
+      const missing = assets.missing.length;
+      // eslint-disable-next-line no-console
+      console.log(`content-deploy: assets applied=${wrote} unchanged=${same} missing=${missing} -> ${config.paths.arenasDir}`);
+      for (const rel of assets.applied) console.log(`  + ${rel}`);
+      for (const rel of assets.skippedUnchanged) console.log(`  = ${rel} (unchanged)`);
+      for (const rel of assets.missing) console.warn(`  ! ${rel} (staged file missing)`);
+    }
+
+    // Scene presets (scenes.json) land in the scenes data dir, which the scenes
+    // store reads — so the admin-authored lobby/scene config ships to stage too.
+    const scenesDest = resolve(config.paths.dataDir, 'scenes');
+    const sceneAssets = await applySceneAssets(bundleDir, env.assetManifest ?? [], scenesDest);
+    const sWrote = sceneAssets.applied.length;
+    const sSame = sceneAssets.skippedUnchanged.length;
+    const sMissing = sceneAssets.missing.length;
+    // eslint-disable-next-line no-console
+    console.log(`content-deploy: scene assets applied=${sWrote} unchanged=${sSame} missing=${sMissing} -> ${scenesDest}`);
+    for (const rel of sceneAssets.applied) console.log(`  + ${rel}`);
+    for (const rel of sceneAssets.skippedUnchanged) console.log(`  = ${rel} (unchanged)`);
+    for (const rel of sceneAssets.missing) console.warn(`  ! ${rel} (staged file missing)`);
   } finally {
     await closeDbAdapter();
   }
@@ -312,10 +370,37 @@ async function main(): Promise<void> {
     }
     case 'apply': {
       const seedPath = await resolveSeedPath(opts.seedPath);
-      await runApply(seedPath);
+      await runApply(seedPath, opts.reconcile);
       return;
     }
     case 'rollback': await runRollback(); return;
+    case 'prune-roster': await runPruneRoster(); return;
+  }
+}
+
+/**
+ * Delete player-owned digimons — including their fight/team memberships — whose
+ * species is NOT on the active (launch) roster. After a launch roster changes,
+ * players may hold Ultimate/Mega or drafted species that were removed from the
+ * obtainable pool; this step removes them so the live roster only shows
+ * obtainable digimons. Idempotent and safe to re-run. This is a PLAYER-STATE
+ * mutation and therefore deliberately lives OUTSIDE the content apply path
+ * (content-deploy must never touch player_* tables).
+ */
+async function runPruneRoster(): Promise<void> {
+  const [{ closeDbAdapter }, { seedLaunchRosterPrune }] = await Promise.all([
+    import('../db/index.js'),
+    import('../launch/roster-prune.js'),
+  ]);
+
+  try {
+    const summary = await seedLaunchRosterPrune();
+    // eslint-disable-next-line no-console
+    console.log(
+      `content-deploy: prune-roster: ${summary.deleted} player digimon(s) removed (${summary.kept} kept, ${summary.rosterIds} active roster ids)`,
+    );
+  } finally {
+    await closeDbAdapter();
   }
 }
 

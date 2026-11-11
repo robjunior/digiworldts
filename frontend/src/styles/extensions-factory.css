@@ -116,6 +116,9 @@
 .factory-page .cchip[data-res="bits"], .factory-drawer .cchip[data-res="bits"] { --cc:var(--bits) }
 .factory-page .cchip[data-res="data"], .factory-drawer .cchip[data-res="data"] { --cc:var(--data) }
 .factory-page .cchip.short, .factory-drawer .cchip.short { border-color:var(--battle); color:var(--battle) }
+.factory-drawer .recipe .frags { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:8px }
+.factory-drawer .recipe .frags .flbl { font:700 10px/1 var(--font); color:var(--muted); text-transform:uppercase; letter-spacing:.06em }
+.factory-drawer .recipe .frags .fchip { display:inline-flex; align-items:center; padding:3px 8px; background:var(--bg); border:1px dashed var(--hair); clip-path:var(--notch-sm); font:600 10px/1 var(--font); color:var(--fg) }
 .factory-drawer .recipe .ract { display:grid; grid-template-columns:1fr auto auto; gap:10px; align-items:center }
 .factory-drawer .recipe .rhint { font-size:11px; color:var(--battle); min-height:13px }
 .factory-drawer .recipe .rhint[hidden] { display:none }

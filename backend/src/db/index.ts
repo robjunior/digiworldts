@@ -131,6 +131,7 @@ export type RosterRow = {
   listed_at: number | null;
   evolution_history: string | null;
   equipped_skill_ids: string | null;
+  signature_skill_id: string | null;
   stage_pools: string | null;
   nursery_stage: string | null;
   nursery_evolve_at: number | null;
@@ -163,7 +164,11 @@ export type WalletRow = {
   netcore: number;
   streak_day: number;
   last_claim_at: number | null;
+  longest_streak: number;
   premium_until: number | null;
+  extra_team_slots: number;
+  total_cycles: number;
+  season: number;
   updated_at: number;
 };
 

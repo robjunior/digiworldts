@@ -14,7 +14,20 @@ export const BIOMES: readonly Biome[] = [
   'mountain',
 ] as const;
 
-export type BiomeColorMap = Partial<Readonly<Record<Biome, string>>>;
+export type WorldRegion = {
+  readonly id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly element: string;
+  readonly biome: Biome;
+  readonly lat: number;
+  readonly lon: number;
+  readonly dungeonId: string | null;
+  readonly levelCap: number;
+  readonly danger: number;
+  readonly scouted: boolean;
+};
+
 
 export type BiomeCoordsMap = Readonly<Record<Biome, { lat: number; lon: number }>>;
 
@@ -29,6 +42,14 @@ export function biomeAt(seed: number, x: number, y: number): Biome {
   const biomes = BIOMES as readonly string[];
   return biomes[n % biomes.length] as Biome;
 }
+
+export type WorldRegionsResponse = { readonly regions: readonly WorldRegion[] };
+
+export type BiomeColorMap = Partial<Readonly<Record<Biome, string>>>;
+
+export const BIOME_ELEMENT: Readonly<Record<Biome, string>> = {
+  forest: 'plant', lake: 'water', desert: 'earth', storm: 'electricity', foundry: 'steel', prairie: 'wind', void: 'dark', tundra: 'ice', plateau: 'earth', swamp: 'plant', mountain: 'earth',
+};
 
 export const BIOME_COLOR: BiomeColorMap = {};
 

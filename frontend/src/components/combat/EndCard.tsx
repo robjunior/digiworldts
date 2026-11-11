@@ -1,4 +1,4 @@
-import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, XpAward } from '@digiworld/shared/battle';
+import type { BattleEndRewards, BattleOutcome, BattleView, ItemDrop, SpeciesDataAward, XpAward } from '@digiworld/shared/battle';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router';
@@ -10,9 +10,10 @@ type EndCardProps = {
   /** End-of-battle rewards from the WS `end` message — XP awards, NetCore, Bits (and PvE loot, if any). */
   readonly rewards?: BattleEndRewards | null;
   readonly onClose?: () => void;
+  readonly onContinue?: () => void | Promise<void>;
 };
 
-export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element | null {
+export function EndCard({ battle, rewards, onClose, onContinue }: EndCardProps): JSX.Element | null {
   useEffect(() => {
     if (!onClose) return;
     const handler = (event: KeyboardEvent): void => {
@@ -65,9 +66,10 @@ export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element
       </div>
       {rewards !== null && rewards !== undefined && rewards.xpAwards.length > 0 ? <PveRewards results={rewards} /> : null}
       <div className="cta-row">
+        {onContinue ? <button type="button" className="btn" onClick={() => { void onContinue(); }} data-od-id="end-card-continue">Continue</button> : null}
         {onClose ? (
-          <button type="button" className="btn" onClick={onClose} data-od-id="end-card-return-lobby">
-            Back to Lobby
+          <button type="button" className="btn btn--secondary" onClick={onClose} data-od-id="end-card-return-world">
+            {onContinue ? 'Return to World' : 'Back to Lobby'}
           </button>
         ) : (
           <Link className="btn btn--secondary" to="/">Back to Lobby</Link>
@@ -96,10 +98,12 @@ export function EndCard({ battle, rewards, onClose }: EndCardProps): JSX.Element
 
 function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.Element | null {
   const drops: readonly ItemDrop[] = results.itemDrops ?? [];
+  const species: readonly SpeciesDataAward[] = results.speciesDrops ?? [];
   const hasLoot = drops.length > 0;
+  const hasData = species.length > 0;
   const hasXp = results.xpAwards.length > 0;
   const [activeIdx, setActiveIdx] = useState(0);
-  if (!hasLoot && !hasXp) return null;
+  if (!hasLoot && !hasData && !hasXp) return null;
   return (
     <div className="pve-results" data-od-id="pve-results">
       {hasLoot ? (
@@ -111,6 +115,20 @@ function PveRewards({ results }: { readonly results: BattleEndRewards }): JSX.El
                 <span className="pve-loot-dot" aria-hidden="true" />
                 <b>{drop.name}</b>
                 <span className="pve-loot-qty">× {drop.qty}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {hasData ? (
+        <div className="pve-block">
+          <span className="pve-block-k">Digi-Data</span>
+          <div className="pve-loot-list">
+            {species.map((award, index) => (
+              <span key={`${award.catalogId}-${index}`} className="pve-loot-item" title={`${award.percent}% data, ${award.kills} defeated`}>
+                <span className="pve-loot-dot" aria-hidden="true" />
+                <b>{award.name}</b>
+                <span className="pve-loot-qty">+{award.percent}%</span>
               </span>
             ))}
           </div>
@@ -217,7 +235,9 @@ function PveXpRow({ award, active, onDone }: { readonly award: XpAward; readonly
   return (
     <div className={rowClass} data-od-id={`pve-xp-${award.monId}`}>
       <div className="pve-xp-actor">
-        <DigimonSprite catalogId={award.catalogId ?? award.monId} className="pve-xp-portrait" />
+        <div className="pve-xp-portrait">
+          <DigimonSprite catalogId={award.catalogId ?? award.monId} />
+        </div>
         <div className="pve-xp-info">
           <b className="pve-xp-nick">{award.nickname ?? award.monId}</b>
           <span className="pve-xp-lvl">Lv <b>{displayLevel}</b></span>

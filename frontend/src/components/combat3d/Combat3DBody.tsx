@@ -1,5 +1,7 @@
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
+import { skillTargetScope } from '@digiworld/shared/battle';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useNavigate } from 'react-router';
 import { Combat3DScene, type Combat3DSceneHandle } from './Combat3DScene';
@@ -24,10 +26,15 @@ import { useActionEventProcessing } from './useActionEventProcessing';
 import { usePveDispatch } from './usePveDispatch';
 import { useActionDispatch } from './useActionDispatch';
 import { BattleStatusMessage } from './BattleStatusMessage';
-import { FLOATER_DURATION_MS, FLOATER_Y_OFFSET } from './combat3dConfig';
+import { useAilmentSync } from './useAilmentSync';
+import { FLOATER_Y_OFFSET } from './combat3dConfig';
+import { startPveEncounter } from '../../lib/api-world';
+import { ensureSfx } from '../../lib/sfx-bootstrap';
+import { playBattleEvents } from '../../lib/sfx-combat';
 
 export function Combat3DBody(): JSX.Element | null {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { send } = useWebSocket();
   const activeBattle = useWsStore((state) => state.activeBattle);
   const battleEvents = useWsStore((state) => state.battleEvents);
@@ -37,7 +44,6 @@ export function Combat3DBody(): JSX.Element | null {
   const [selectedTargetId, setSelectedTargetId] = useState<UnitId | null>(null);
   const [floaters, setFloaters] = useState<readonly Floater3D[]>([]);
   const [endModalOpen, setEndModalOpen] = useState(false);
-  const [feedOpen, setFeedOpen] = useState(false);
   const [pendingSkillId, setPendingSkillId] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<string | null>(null);
   const [hoveredTargetId, setHoveredTargetId] = useState<UnitId | null>(null);
@@ -45,6 +51,7 @@ export function Combat3DBody(): JSX.Element | null {
   const sceneRef = useRef<Combat3DSceneHandle | null>(null);
   const cmdRef = useRef<HTMLDivElement | null>(null);
   const seenEventCountRef = useRef(0);
+  useAilmentSync(sceneRef, activeBattle);
 
   // End-of-battle rewards (XP awards, NetCore, Bits) arrive with the WS `end`
   // message; the old PvE world-battle HTTP flow was removed with the world
@@ -68,19 +75,33 @@ export function Combat3DBody(): JSX.Element | null {
     return activeBattle.enemy.find((e) => !e.down && e.hp > 0) ?? null;
   }, [activeBattle, selectedTargetId]);
 
+  // Party-only manual skills (no enemy-side pattern in their actions) let the
+  // player click one of their own digimon as the target.
+  const pendingSkillScope = useMemo<'auto' | 'enemy' | 'any' | null>(() => {
+    if (pendingSkillId === null || actor === null) return null;
+    const skill = actor.skills.find((s) => s.id === pendingSkillId);
+    return skill ? skillTargetScope(skill) : null;
+  }, [pendingSkillId, actor]);
+
   const aliveEnemies = useMemo<readonly EnemyUnitView[]>(
     () => (activeBattle ? activeBattle.enemy.filter((e) => !e.down) : []),
     [activeBattle],
   );
 
-  const spawnFloater = (targetId: UnitId, text: string, kind: Floater3D['kind']): void => {
+  const spawnFloater = (targetId: UnitId, text: string, kind: Floater3D['kind'], opts?: { color?: string; sub?: string }): void => {
     const handle = sceneRef.current;
     if (handle === null) return;
     const pos = handle.screenPositionOf(targetId);
     if (pos === null) return;
+    // `screenPositionOf` is relative to the canvas (`.c3d-canvas-host`), while
+    // the floater layer is `position:fixed` over the viewport — add the host's
+    // offset so the number lands on the digimon wherever the stage sits.
+    const host = document.getElementById('c3d-canvas-host')?.getBoundingClientRect();
     const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    setFloaters((items) => [...items, { id, text, kind, x: pos.x, y: pos.y - FLOATER_Y_OFFSET }]);
-    window.setTimeout(() => setFloaters((items) => items.filter((f) => f.id !== id)), FLOATER_DURATION_MS);
+    setFloaters((items) => [
+      ...items,
+      { id, text, kind, x: pos.x + (host?.left ?? 0), y: pos.y + (host?.top ?? 0) - FLOATER_Y_OFFSET, ...opts },
+    ]);
   };
 
   const { playActionEvent } = useActionEventProcessing(sceneRef, activeBattle?.yourSide ?? 'a', spawnFloater);
@@ -95,6 +116,11 @@ export function Combat3DBody(): JSX.Element | null {
 
   useResizeObserverCSSVar(cmdRef, '--c3d-cmd-live-h', 'height');
 
+  // Boot the audio engine once combat mounts (SFX ready for UI + battle cues).
+  useEffect(() => {
+    ensureSfx();
+  }, []);
+
   useEffect(() => {
     if (!activeBattle) return;
     const first = activeBattle.enemy.find((e) => !e.down && e.hp > 0);
@@ -103,9 +129,16 @@ export function Combat3DBody(): JSX.Element | null {
     }
   }, [activeBattle, selectedTargetId]);
 
+  // Combat camera: focus/reset removed — camera stays on idle framing.
+  // The user rejected automatic camera movement during combat.
+
   useEffect(() => {
-    if (activeBattle?.status === 'ended') setEndModalOpen(true);
-  }, [activeBattle?.status]);
+    if (activeBattle?.status !== 'ended') return;
+    setEndModalOpen(true);
+    void queryClient.invalidateQueries({ queryKey: ['roster'] });
+    void queryClient.invalidateQueries({ queryKey: ['items'] });
+    void queryClient.invalidateQueries({ queryKey: ['farm'] });
+  }, [activeBattle?.status, queryClient]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -136,6 +169,19 @@ export function Combat3DBody(): JSX.Element | null {
         enqueueEnemyAction({ event, playVfx });
       }
     }
+    // Translate the new battle events into SFX (spatialized to the scene).
+    if (nextEvents.length > 0) {
+      const viewport = document.querySelector('.c3d-canvas-host')?.getBoundingClientRect();
+      playBattleEvents(
+        nextEvents,
+        (unitId) => {
+          const p = sceneRef.current?.screenPositionOf(unitId);
+          if (p === null || p === undefined) return null;
+          return { x: p.x, y: p.y, viewportW: viewport?.width ?? window.innerWidth };
+        },
+        viewport?.width ?? window.innerWidth,
+      );
+    }
   }, [battleEvents, activeBattle?.yourSide, playActionEvent, enqueueEnemyAction]);
 
   if (activeBattle === null) return null;
@@ -154,9 +200,16 @@ export function Combat3DBody(): JSX.Element | null {
       data-targeting={
         commandMode === 'target-fight' || commandMode === 'target-skill' || commandMode === 'items'
       }
-      data-target-side={commandMode === 'items' ? 'ally' : 'enemy'}
+      data-target-side={
+        commandMode === 'items'
+          ? 'ally'
+          : commandMode === 'target-skill' && pendingSkillScope === 'any'
+            ? 'both'
+            : 'enemy'
+      }
     >
       <Combat3DScene
+        key={activeBattle.id}
         ref={sceneRef}
         battle={activeBattle}
         onEnemyClick={(unitId) => {
@@ -175,10 +228,17 @@ export function Combat3DBody(): JSX.Element | null {
         }}
         onEnemyHover={setHoveredTargetId}
         onFriendlyClick={(unitId) => {
-          if (commandMode !== 'items' || !canAct || pendingItemId === null || actor === null) return;
-          dispatch({ type: 'use_item', unitId: actor.id, targetId: unitId, itemId: pendingItemId });
-          setPendingItemId(null);
-          setCommandMode('menu');
+          if (!canAct || actor === null) return;
+          if (commandMode === 'items' && pendingItemId !== null) {
+            dispatch({ type: 'use_item', unitId: actor.id, targetId: unitId, itemId: pendingItemId });
+            setPendingItemId(null);
+            setCommandMode('menu');
+          } else if (commandMode === 'target-skill' && pendingSkillId !== null && pendingSkillScope === 'any') {
+            // Party-only manual skill — the friendly digimon is a valid target.
+            dispatch({ type: 'skill', unitId: actor.id, skillId: pendingSkillId, targetId: unitId });
+            setPendingSkillId(null);
+            setCommandMode('menu');
+          }
         }}
       />
 
@@ -195,12 +255,10 @@ export function Combat3DBody(): JSX.Element | null {
       <BuffBadgesLayer battle={activeBattle} sceneRef={sceneRef} />
 
         <div className="overlay">
-          <div className={`battle-utility ${feedOpen ? 'open' : ''}`}>
-            <div className="battle-feed-header" role="button" tabIndex={0} aria-expanded={feedOpen} onClick={() => setFeedOpen(!feedOpen)} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') setFeedOpen(!feedOpen); }}>
-            <span>Battle feed</span><span className="battle-feed-chevron" aria-hidden="true">{feedOpen ? '⌃' : '⌄'}</span>
-          </div>
-          <div className={`battle-feed-body ${feedOpen ? 'is-open' : ''}`}>
-            <BattleFeed events={displayEvents} battle={activeBattle} />
+          <div className="battle-utility open">
+            <div className="battle-feed-body is-open">
+              <BattleFeed events={displayEvents} battle={activeBattle} />
+            </div>
           </div>
         </div>
 
@@ -257,8 +315,7 @@ export function Combat3DBody(): JSX.Element | null {
           />
         </div>
 
-        <Floaters floaters={floaters} />
-      </div>
+        <Floaters floaters={floaters} onDone={(id) => setFloaters((items) => items.filter((f) => f.id !== id))} />
 
       {activeBattle.status === 'ended' && endModalOpen ? (
         <EndCard
@@ -267,9 +324,38 @@ export function Combat3DBody(): JSX.Element | null {
           onClose={() => {
             setEndModalOpen(false);
             clearActiveBattle();
-            navigate('/', { replace: true });
+            navigate(activeBattle.mode === 'pve' ? '/world' : '/', { replace: true });
           }}
-        />
+          {...(activeBattle.mode === 'pve' && activeBattle.sceneId ? {
+            onContinue: async () => {
+              // Fecha o card primeiro. O próximo match chega via WS (caso
+              // 'match') e substitui a cena — mas o combate 3D NÃO recarrega
+              // se continuarmos montados no /combat (o mesmo SceneManager fica
+              // reutilizado com arena/sprites obsoletos). Pra recarregar de
+              // verdade, saímos de /combat e voltamos pelo loading que fizemos
+              // (rota /loading → lazy route + splash "Wild Encounter"): isso
+              // desmonta a cena atual e, no retorno, a rota lazy remonta o
+              // SceneManager do zero pro novo match. Se a nova batalha falhar
+              // (ex.: meat insuficiente), volta ao globo em vez de prender o
+              // jogador na cena.
+              setEndModalOpen(false);
+              // Novo combate com digimons DIFERENTES: exclui as espécies que
+              // acabaram de ser enfrentadas do próximo sorteio do pool.
+              const justFought = activeBattle.enemy.map((e) => e.templateId);
+              const next = await startPveEncounter(activeBattle.sceneId!, 'explore', 1, justFought);
+              if (!next.ok) {
+                clearActiveBattle();
+                navigate('/world', { replace: true });
+                return;
+              }
+              // Recarrega o combate 3D roteando pelo /loading: desmonta o
+              // /combat (cena descartada) e re-entra via lazy route. Quando o
+              // match já estiver no store, o RealtimeBridge (App) redireciona
+              // o /loading de volta pra /combat imediatamente, remontando a
+              // cena do zero.
+              navigate('/loading', { state: { battle: activeBattle, returnTo: '/combat' } });
+            },
+          } : {})}        />
       ) : null}
 
       <BattleStatusMessage error={loadError} />

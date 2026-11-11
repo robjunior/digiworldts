@@ -1,53 +1,74 @@
-import type { PendingHatchEntry, SpeciesDataEntry } from '../../lib/api-nursery';
+import type { SpeciesDataEntry } from '../../lib/api-nursery';
 import { DigimonSprite } from '../common/DigimonSprite';
 
 type DigitamaPoolProps = {
   readonly entries: readonly SpeciesDataEntry[];
-  readonly pending?: readonly PendingHatchEntry[];
   readonly loading: boolean;
-  readonly totalWeight?: number;
-  readonly busyCatalogId: string | null;
-  readonly mixBusy?: boolean;
-  readonly onHatch: (entry: SpeciesDataEntry) => void;
-  readonly onMix?: () => void;
+  /** Set of selected catalog ids (clicking a row toggles selection). */
+  readonly selectedIds: ReadonlySet<string>;
+  /** Toggle selection for a species with data > 0. */
+  readonly onToggle: (entry: SpeciesDataEntry) => void;
 };
 
-export function DigitamaPool({ entries, loading, busyCatalogId, onHatch }: DigitamaPoolProps): JSX.Element {
-  const list = [...entries].sort((a, b) => b.percent - a.percent || b.kills - a.kills);
+export function DigitamaPool({ entries, loading, selectedIds, onToggle }: DigitamaPoolProps): JSX.Element {
+  // Hatchery only lists species the player actually has data for (percent > 0),
+  // keeping the component from getting cluttered with zero-data entries.
+  const list = [...entries]
+    .filter((e) => e.percent > 0)
+    .sort((a, b) => b.percent - a.percent || b.kills - a.kills);
 
-  if (loading && entries.length === 0) {
+  if (loading && list.length === 0) {
     return <div className="rlist" id="datalist"><div className="rempty">Loading…</div></div>;
   }
 
   return (
     <div className="rlist" id="datalist">
       {list.length > 0 ? (
-        list.map((entry) => <DigitamaRow key={entry.catalogId} entry={entry} busy={busyCatalogId === entry.catalogId} onHatch={onHatch} />)
+        list.map((entry) => (
+          <DigitamaRow
+            key={entry.catalogId}
+            entry={entry}
+            selected={selectedIds.has(entry.catalogId)}
+            onToggle={onToggle}
+          />
+        ))
       ) : (
-        <div className="rempty">No species data yet. Defeat wild Digimon in Adventure to collect their data — 100% lets you hatch that exact species.</div>
+        <div className="rempty">No species data yet. Defeat wild Digimon in Adventure to collect their data — reach 100% to hatch that exact species.</div>
       )}
     </div>
   );
 }
 
-function DigitamaRow({ entry, busy, onHatch }: { readonly entry: SpeciesDataEntry; readonly busy: boolean; readonly onHatch: (entry: SpeciesDataEntry) => void }): JSX.Element {
+function DigitamaRow({ entry, selected, onToggle }: {
+  readonly entry: SpeciesDataEntry;
+  readonly selected: boolean;
+  readonly onToggle: (entry: SpeciesDataEntry) => void;
+}): JSX.Element {
   const full = entry.percent >= 100;
+  const selectable = entry.percent > 0;
   const tier = (entry as Record<string, unknown>).tier as string | undefined ?? 'common';
   return (
-    <div className="drow" data-tier={tier} data-cat={entry.catalogId}>
+    <button
+      type="button"
+      className={`drow sel${selected ? ' is-selected' : ''}${!selectable ? ' disabled' : ''}`}
+      data-tier={tier}
+      data-cat={entry.catalogId}
+      onClick={() => onToggle(entry)}
+      disabled={!selectable}
+      aria-pressed={selected}
+    >
+      <span className="sel-ic" aria-hidden="true">{selected ? '✓' : ''}</span>
       <span className="dspr">
         <DigimonSprite catalogId={entry.catalogId} />
       </span>
-      <div className="dmid">
-        <div className="dn">{entry.name} <span className="tier">{tier}</span></div>
-        <div className="dbar"><i style={{ width: `${Math.min(100, entry.percent)}%` }} /></div>
-      </div>
-      <div className="dmeta">
+      <span className="dmid">
+        <span className="dn">{entry.name} <span className="tier">{tier}</span></span>
+        <span className="dbar"><i style={{ width: `${Math.min(100, entry.percent)}%` }} /></span>
+      </span>
+      <span className="dmeta">
         <span className={`pc ${full ? 'full' : ''}`}>{Math.round(entry.percent)}%</span>
-        <button type="button" className="hatchbtn" disabled={!full || busy} title={full ? 'Hatch this species' : 'Needs 100% data'} onClick={() => onHatch(entry)}>
-          {full ? 'Hatch' : `${entry.kills} kills`}
-        </button>
-      </div>
-    </div>
+        <span className="kills">{entry.kills} kill{entry.kills === 1 ? '' : 's'}</span>
+      </span>
+    </button>
   );
 }

@@ -5,7 +5,7 @@
 .lights i{width:12px;height:12px;display:block;background:var(--hair);clip-path:polygon(3px 0,100% 0,100% calc(100% - 3px),calc(100% - 3px) 100%,0 100%,0 3px)}
 .win-meta{margin-left:auto;font:600 11px/1 var(--font);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 
-.body{flex:1 1 auto;display:grid;grid-template-columns:1fr;min-height:0;position:relative;padding-right:48px}
+.body{flex:1 1 auto;display:grid;grid-template-columns:1fr;min-height:0;position:relative}
 
 /* ---- sidebar (matches roster) ------------------------------------------ */
 .side{background:var(--panel);border-right:1px solid var(--hair);display:flex;flex-direction:column;padding:18px 14px 0;gap:4px;min-height:0}
@@ -72,5 +72,4 @@
   .sidebar-backdrop{display:block}
   .win.has-sidebar-open .sidebar-backdrop{opacity:1;pointer-events:auto}
   .win-meta{display:none}
-  .body:has(.social){grid-template-columns:1fr}
 }

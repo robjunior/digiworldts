@@ -56,22 +56,33 @@ export type DayReward = {
   readonly bits?: number;
   readonly data?: number;
   readonly netcore?: number;
+  readonly credits?: number;
+  readonly exclusiveItem?: string;
+  readonly exclusiveItem2?: string;
 };
 
 export type DailyResponse = {
   readonly streakDay: number;
+  readonly cycleDay: number;
+  readonly longestStreak: number;
   readonly canClaim: boolean;
   readonly wouldGrantDay: number;
   readonly wouldReset: boolean;
   readonly secondsUntilNext: number;
   readonly lastClaimAt: number | null;
   readonly cycle: readonly DayReward[];
+  readonly season: number;
+  readonly totalCycles: number;
 };
 
 export type DailyClaimResponse = {
   readonly streakDay: number;
   readonly reset: boolean;
+  readonly longestStreak: number;
   readonly granted: DayReward;
+  readonly itemsGranted?: ReadonlyArray<{ itemId: string; qty: number; description: string }>;
+  readonly season: number;
+  readonly totalCycles: number;
 };
 
 // PHASE 6 CANDIDATE: add a backend match-summary route and shared response type.

@@ -63,6 +63,7 @@ export type RecipeView = {
   readonly dataCost: number;
   readonly craftTimeMs: number;
   readonly category: FactoryTypeId | null;
+  readonly requires: readonly { readonly itemId: string; readonly itemName: string; readonly qty: number }[];
   readonly canCraft: boolean;
 };
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router';
 
 import { Combat3DBody } from '../components/combat3d/Combat3DBody';
@@ -8,6 +9,21 @@ export function Combat(): JSX.Element {
   const activeBattle = useWsStore((state) => state.activeBattle);
   const location = useLocation();
   const returnTo = (location.state as { readonly returnTo?: string } | null)?.returnTo ?? '/';
+
+  /* Scope the combat palette to this screen only. extensions-combat3d.css
+     declares a global :root/body Persona 5 red redefinition, and because
+     Combat is the only lazy-loaded route, that CSS is injected into <head>
+     only when entering a battle — a global :root override then resets the
+     WHOLE app to red until a full reload. Toggling html.is-combat (Lobby's
+     html.is-lobby pattern) keeps the red on this screen only. */
+  useEffect(() => {
+    document.documentElement.classList.add("is-combat");
+    document.body.classList.add("is-combat");
+    return () => {
+      document.documentElement.classList.remove("is-combat");
+      document.body.classList.remove("is-combat");
+    };
+  }, []);
 
   if (activeBattle === null) {
     return (

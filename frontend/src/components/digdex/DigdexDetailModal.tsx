@@ -1,6 +1,8 @@
+import React from 'react';
 import { WEAK_MAP, RESIST_MAP, type Element } from '@digiworld/shared/digimon';
 
 import type { DigdexEntry } from '../../lib/api-digdex';
+import { ElementIcon } from '../common/ElementIcon';
 
 export type DigdexDetailModalProps = {
   readonly entry: DigdexEntry;
@@ -36,7 +38,7 @@ export function DigdexDetail({ entry, onClose }: DigdexDetailModalProps): JSX.El
           </div>
           <div className="dmeta">
             <div className="mrow"><span className="mk">Status</span><span className="metpill met">Met</span></div>
-            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}><span className="cd" />{d.template.element}</span></div>
+            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-${el})` } as React.CSSProperties}><ElementIcon element={el} size="xs" />{d.template.element}</span></div>
             <div className="mrow"><span className="mk">Attribute</span><span className="mv">{d.template.attribute}</span></div>
             <div className="mrow"><span className="mk">Stage</span><span className="mv">{d.template.stage}</span></div>
             <div className="mrow"><span className="mk">Type</span><span className="mv">{d.template.type || '—'}</span></div>
@@ -57,7 +59,7 @@ export function DigdexDetail({ entry, onClose }: DigdexDetailModalProps): JSX.El
           </div>
           <div className="dmeta">
             <div className="mrow"><span className="mk">Status</span><span className="metpill unmet">Not met</span></div>
-            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-null)` } as React.CSSProperties}><span className="cd" />???</span></div>
+            <div className="mrow"><span className="mk">Element</span><span className="chip" style={{ '--ec': `var(--el-null)` } as React.CSSProperties}><ElementIcon element="null" size="xs" />???</span></div>
             <div className="mrow"><span className="mk">Attribute</span><span className="mv">???</span></div>
             <div className="mrow"><span className="mk">Stage</span><span className="mv">???</span></div>
             <div className="mrow"><span className="mk">Type</span><span className="mv">—</span></div>

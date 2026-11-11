@@ -25,6 +25,70 @@ import {
 export const SKILL_VFX_TRAJECTORIES = ['instant', 'straight', 'arc', 'homing'] as const;
 export type SkillVfxTrajectory = (typeof SKILL_VFX_TRAJECTORIES)[number];
 
+/**
+ * Named, code-built skill effects (faithful ports of the reference HTML FX).
+ * A skill's `vfxPresetId` may reference one of these instead of a stored
+ * particle preset: the runtime first tries the named code runner, then the
+ * stored-data preset, then falls back to the per-element runner. Kept here so
+ * backend skill validation and the scene3d runner registry agree on the ids
+ * and the admin editor can offer them as choices.
+ */
+export const SKILL_VFX_RANGED_EFFECTS = [
+  'fireball',
+  'frost-spikes',
+  'ice-lance',
+  'tornado',
+  'lightning',
+  'shadow-void',
+  'holy-smite',
+  'tidal-surge',
+  'blade-storm',
+  'stone-fall',
+  'null-pulse',
+  'vine-lash',
+] as const;
+export type SkillVfxRangedEffect = (typeof SKILL_VFX_RANGED_EFFECTS)[number];
+
+/**
+ * Melee basic-attack effects — one per element, routed automatically for
+ * `fight` actions (no vfxPresetId needed).
+ */
+export const SKILL_VFX_MELEE_EFFECTS = [
+  'melee-fire',
+  'melee-water',
+  'melee-plant',
+  'melee-ice',
+  'melee-electricity',
+  'melee-earth',
+  'melee-steel',
+  'melee-wind',
+  'melee-light',
+  'melee-dark',
+  'melee-null',
+] as const;
+export type SkillVfxMeleeEffect = (typeof SKILL_VFX_MELEE_EFFECTS)[number];
+
+/**
+ * All named code effects, ranged + melee combined. A skill's `vfxPresetId` may
+ * reference a ranged effect; melee effects are routed automatically for `fight`
+ * actions (kept in the union so one helper handles every named id).
+ */
+export const SKILL_VFX_NAMED_EFFECTS = [
+  ...SKILL_VFX_RANGED_EFFECTS,
+  ...SKILL_VFX_MELEE_EFFECTS,
+] as const;
+export type SkillVfxNamedEffect = (typeof SKILL_VFX_NAMED_EFFECTS)[number];
+
+/**
+ * How the skill is DELIVERED — purely a visual/effect distinction, it never
+ * affects combat mechanics. `melee` makes the caster advance to face the
+ * receiver and the camera follow that movement; `ranged` keeps the caster in
+ * place and the camera follows the projectile/effect instead. Missing on a
+ * stored preset (legacy files) defaults to `ranged` at read time.
+ */
+export const SKILL_VFX_ATTACK_TYPES = ['ranged', 'melee'] as const;
+export type SkillVfxAttackType = (typeof SKILL_VFX_ATTACK_TYPES)[number];
+
 export type SkillVfxLight = {
   readonly color: number;
   readonly intensity: number;
@@ -48,6 +112,9 @@ export type SkillVfxPreset = {
   readonly id: string;
   readonly name: string;
   readonly element?: Element;
+  /** How the effect is delivered — visual only. See `SKILL_VFX_ATTACK_TYPES`.
+   *  Optional for legacy stored presets; `?? 'ranged'` at read time. */
+  readonly attackType?: SkillVfxAttackType;
   readonly emitters: readonly SkillVfxEmitterSlot[];
   readonly trajectory: SkillVfxTrajectory;
   readonly totalDurationMs: number;
@@ -101,6 +168,7 @@ const SkillVfxEmitterSlotZ: z.ZodType<SkillVfxEmitterSlot> = SkillVfxEmitterSlot
 export const SkillVfxPresetWriteZ = z.object({
   name: z.string().trim().min(1).max(120),
   element: z.enum(ELEMENTS).optional(),
+  attackType: z.enum(SKILL_VFX_ATTACK_TYPES).optional(),
   emitters: z.array(SkillVfxEmitterSlotZ).min(1).max(3),
   trajectory: z.enum(SKILL_VFX_TRAJECTORIES),
   totalDurationMs: z.number().int().min(1).max(5_000),

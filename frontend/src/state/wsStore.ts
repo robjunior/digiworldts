@@ -212,7 +212,7 @@ export const useWsStore = create<WsState>((set) => ({
         } else if (msg.status === 'left') {
           set((state) =>
             state.activeMatchId === msg.view?.id
-              ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null }
+              ? { activeMatchId: null, activeBattle: null, battleEvents: [], battleOutcome: null, battleRewards: null }
               : state,
           );
         }

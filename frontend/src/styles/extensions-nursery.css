@@ -23,7 +23,38 @@
 .nursery-page * { box-sizing: border-box; }
 .nursery-page button { font: inherit; color: inherit; cursor: pointer; background: none; border: 0; }
 
-.nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.nursery-page.main { display: flex; flex-direction: column; min-height: 0; background: var(--bg); position: relative; }
+
+/* ---- Full-page 3D pen ---- */
+.nursery-page .nure-scene { flex: 1 1 auto; min-height: 0; position: relative; overflow: hidden; }
+.pen3d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pen3d__canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
+
+/* ---- Resource pill over the 3D scene (après the world strip) ---- */
+.nursery-page .nure-overlay { position: absolute; top: 16px; left: 16px; z-index: 40; pointer-events: none; }
+.nursery-page .nure-pill { pointer-events: auto; display: flex; align-items: stretch; gap: 0; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip); }
+.nursery-page .nure-pill__stat { display: grid; grid-template-columns: 26px auto; gap: 9px; align-items: center; padding: 11px 14px; border-right: 1px solid var(--hair); --res: var(--ink); }
+.nursery-page .nure-pill__stat[data-res="meat"] { --res: var(--meat); }
+.nursery-page .nure-pill__stat[data-res="data"] { --res: var(--data); }
+.nursery-page .nure-pill__stat[data-res="mons"] { --res: var(--signal); }
+.nursery-page .nure-pill__ic { width: 26px; height: 26px; display: grid; place-items: center; background: var(--bg); border: 1px solid var(--hair); clip-path: var(--notch-sm-clip); color: var(--res); }
+.nursery-page .nure-pill__ic svg { width: 15px; height: 15px; }
+.nursery-page .nure-pill__col { display: flex; flex-direction: column; }
+.nursery-page .nure-pill__k { font: 700 9px/1 var(--font); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.nursery-page .nure-pill__v { font: 800 16px/1.1 var(--font); margin-top: 3px; font-variant-numeric: tabular-nums; color: var(--res); }
+.nursery-page .nure-pill__hatch { display: inline-flex; align-items: center; gap: 7px; padding: 11px 14px; font: 800 10px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--signal2); }
+.nursery-page .nure-pill__hatch:hover { color: var(--ink); }
+.nursery-page .nure-pill__hatch svg { width: 15px; height: 15px; }
+
+/* ---- Hatchery + incubating were moved to the Social Rail (NurseryPanel). ---- */
+
+@media (max-width: 768px) {
+  .nursery-page .nure-overlay { top: 8px; left: 8px; }
+  .nursery-page .nure-pill__stat { padding: 8px 10px; grid-template-columns: 20px auto; gap: 7px; }
+  .nursery-page .nure-pill__ic { width: 20px; height: 20px; }
+  .nursery-page .nure-pill__v { font-size: 13px; }
+  .nursery-page .nure-pill__hatch { padding: 8px 10px; }
+}
 
 
 
@@ -122,6 +153,15 @@
 .nursery-page .collectbtn:hover:not(:disabled) { background: color-mix(in oklab, var(--battle) 88%, var(--ink)); }
 .nursery-page .rempty { color: var(--muted); font-size: 11.5px; padding: 8px 2px; line-height: 1.5; }
 
+/* ── cantos: hatchery (esq) e social (dir) ──────────────────────────────
+   Largura FIXA 336px — igual à da quest bar do lobby. O chrome (fundo, blur,
+   notch, gatilho, animação) vem do CornerBar (styles/corner-bar.css); aqui
+   só a posição e a altura do conteúdo. */
+.nursery-page .nursery-corner{position:absolute;left:22px;bottom:112px;z-index:50;pointer-events:none;width:336px}
+.nursery-page .nursery-corner--right{left:auto;right:22px}
+.nursery-page .nursery-corner>*{pointer-events:auto}
+.nursery-page .nursery-corner .nursery-panel{padding:10px 12px}
+
 /* Toast */
 .nursery-toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--bg); padding: 11px 18px; clip-path: var(--notch-sm); font: 700 12px/1 var(--font); letter-spacing: .02em; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; }
 .nursery-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
@@ -132,9 +172,9 @@
   .nursery-page .egg.ready .espr { animation: none; }
 }
 
-.pen3d { position: relative; width: 100%; height: 100%; min-height: 620px; }
-.pen3d__canvas { display: block; width: 100%; height: 100%; clip-path: var(--notch); background: var(--bg); }
-.pen-menu { position: absolute; pointer-events: auto; z-index: 30; min-width: 220px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: var(--ink); }
+.pen3d { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pen3d__canvas { display: block; width: 100%; height: 100%; background: var(--bg); }
+.pen-menu { position: absolute; pointer-events: auto; z-index: 60; min-width: 220px; background: var(--panel); border: 1px solid var(--hair); clip-path: var(--notch-sm); padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); color: var(--ink); }
 .pen-menu__hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; }
 .pen-menu__stage { padding: 2px 6px; clip-path: var(--notch-sm); font-size: 11px; background: var(--panel2); }
 .pen-menu__btns { display: flex; gap: 6px; margin-bottom: 8px; }

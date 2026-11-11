@@ -8,6 +8,7 @@ import { GameSettingsAdmin } from '../components/admin/GameSettingsAdmin';
 import { NpcsAdmin } from '../components/admin/NpcsAdmin';
 import { OnboardingAdmin } from '../components/admin/OnboardingAdmin';
 import { OverviewTab } from '../components/admin/OverviewTab';
+import { PveWorldAdmin } from '../components/admin/PveWorldAdmin';
 import { QuestsAdmin } from '../components/admin/QuestsAdmin';
 import { BoostersAdmin } from '../components/admin/BoostersAdmin';
 import { SceneSettingsAdmin } from '../components/admin/SceneSettingsAdmin';
@@ -28,6 +29,7 @@ const ADMIN_TABS = [
   { id: 'seasons', label: 'Seasons' },
   { id: 'scraped', label: 'Scraped' },
   { id: 'catalog', label: 'Catalog' },
+  { id: 'pve-world', label: 'PvE World' },
   { id: 'skills', label: 'Skills' },
   { id: 'npcs', label: 'NPCs' },
   { id: 'dialogues', label: 'Dialogues' },
@@ -114,6 +116,8 @@ function AdminTabPanel({ tab }: { readonly tab: AdminTab }): JSX.Element {
       return <ScrapedTable />;
     case 'catalog':
       return <CatalogTable />;
+    case 'pve-world':
+      return <PveWorldAdmin />;
     case 'skills':
       return <SkillsAdmin />;
     case 'npcs':

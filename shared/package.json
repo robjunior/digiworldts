@@ -89,6 +89,10 @@
     "./item-rarity": {
       "types": "./dist/item-rarity.d.ts",
       "import": "./dist/item-rarity.js"
+    },
+    "./pve": {
+      "types": "./dist/pve.d.ts",
+      "import": "./dist/pve.js"
     }
   },
   "files": [

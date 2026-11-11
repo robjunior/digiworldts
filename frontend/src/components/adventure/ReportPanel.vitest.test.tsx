@@ -77,6 +77,7 @@ describe('ReportPanel', () => {
       foundDigimons: [
         { catalogId: 'agumon', name: 'Agumon', stage: 'Rookie', element: 'fire', count: 1 },
       ],
+      itemDrops: [],
       premium: false,
       premiumBonus: { meat: 0, bits: 0, data: 0, netcore: 0, xp: 0 },
     };

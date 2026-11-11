@@ -7,6 +7,7 @@
  */
 import { one, q, run, type SkillCatalogRow } from '../db/index.js';
 import { getSkillVfxPreset } from '../skill-vfx/store.js';
+import { SKILL_VFX_NAMED_EFFECTS } from '@digiworld/shared/skill-vfx';
 import { newId } from '../util/ids.js';
 import { log } from '../util/log.js';
 import {
@@ -79,9 +80,14 @@ export type SkillOutcome =
  * A dangling preset id is invisible at runtime: `playEffect` silently falls back
  * to the element runner, so a typo would look like "the effect just never shows"
  * with nothing to point at. Reject it at the point of writing instead.
+ *
+ * A `vfxPresetId` may reference EITHER a stored particle preset OR a named
+ * code effect (faithful port of a reference FX). Guide: first the shared
+ * named-effect list (cheap, no I/O), then the stored-preset store.
  */
 async function vfxPresetMissing(id: string | undefined): Promise<boolean> {
   if (id === undefined) return false;
+  if ((SKILL_VFX_NAMED_EFFECTS as readonly string[]).includes(id)) return false;
   return (await getSkillVfxPreset(id)) === null;
 }
 

@@ -36,7 +36,7 @@ type EmitterSlot = {
  *   `arc`      — quadratic bezier peaking 1.5 units above the midpoint
  *   `homing`   — ease-out (t' = 1 - (1-t)²), lerps faster early then slows in
  */
-function interpolatePosition(
+export function interpolatePosition(
   trajectory: SkillVfxTrajectory,
   source: THREE.Vector3,
   target: THREE.Vector3,
@@ -78,6 +78,9 @@ export function buildPresetRunner(
   const source = effect.sourcePosition.clone();
   const target = effect.targetPosition.clone();
   const currentPos = new THREE.Vector3();
+  /** Melee delivers ON CONTACT — followers burst at the target (no traveling
+   *  projectile); only ranged follows the trajectory source→target. */
+  const isMelee = (preset.attackType ?? 'ranged') === 'melee';
 
   const slots: EmitterSlot[] = preset.emitters.map((slotCfg) => ({
     emitter: new ParticleEmitter(scene, slotCfg.emitter),
@@ -86,7 +89,7 @@ export function buildPresetRunner(
     spawned: false,
   }));
 
-  const hasFollower = preset.emitters.some((slot) => slot.followTrajectory);
+  const hasFollower = !isMelee && preset.emitters.some((slot) => slot.followTrajectory);
 
   const light = preset.light !== undefined
     ? new THREE.PointLight(preset.light.color, preset.light.intensity, preset.light.distance, 2)
@@ -115,18 +118,25 @@ export function buildPresetRunner(
     const t = Math.min(1, elapsed / totalDurationS);
 
     interpolatePosition(preset.trajectory, source, target, t, currentPos);
+    // Melee emitters spawn at the receiver (contact burst), not mid-air.
+    const meleeCenter = isMelee && elapsed >= impactAtS ? target : source;
 
     for (const slot of slots) {
       if (!slot.spawned && elapsed >= slot.startAtS) slot.spawned = true;
       if (!slot.spawned) continue;
       if (slot.followTrajectory) {
-        slot.emitter.setSpawnCenter(currentPos.x, currentPos.y, currentPos.z);
+        slot.emitter.setSpawnCenter(
+          isMelee ? meleeCenter.x : currentPos.x,
+          isMelee ? meleeCenter.y : currentPos.y,
+          isMelee ? meleeCenter.z : currentPos.z,
+        );
       }
       slot.emitter.tick(dtS);
     }
 
     if (light !== null && lightConfig !== null) {
       if (hasFollower) light.position.copy(currentPos);
+      else light.position.copy(isMelee ? (elapsed >= impactAtS ? target : source) : target);
       const lightT = lightDecayS > 0 ? Math.min(1, elapsed / lightDecayS) : 1;
       light.intensity = lightConfig.intensity * Math.max(0, 1 - lightT);
     }

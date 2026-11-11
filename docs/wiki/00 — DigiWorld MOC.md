@@ -20,7 +20,7 @@ verified-at-commit: HEAD
 > combat, scraped catalog from `api.skullbot.fr` + `wikimon.net`.
 
 Everything in this vault is grounded in the codebase at
-`/mnt/sdc/digiworld`. Follow the FAITHFUL rule from the `obsidian-docs`
+the repository root. Follow the FAITHFUL rule from the `obsidian-docs`
 skill — if a claim isn't citable to a file + line, it doesn't belong here.
 
 ## Architecture
@@ -171,7 +171,7 @@ skill — if a claim isn't citable to a file + line, it doesn't belong here.
 ---
 
 > [!info] Working with these notes
-> The [`obsidian-docs`](../../mnt/sdc/digiworld/.opencode/skills/obsidian-docs/SKILL.md)
+> The [`obsidian-docs`](../../.opencode/skills/obsidian-docs/SKILL.md)
 > skill (project-scope in the DigiWorld repo) defines the conventions —
 > every claim grounded in a `file:line` citation, every type copied
 > verbatim from source, every wikilink resolved, every note carrying a

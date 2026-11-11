@@ -529,6 +529,22 @@ export function validateXref(
     }
   }
 
+  // --- pve_places: explore_pool / expedition_pool catalogId → digimon ---
+  const pvePlaces = env.tables['pve_places'] ?? [];
+  for (const pp of pvePlaces) {
+    const pid = String(pp['id']);
+    for (const poolCol of ['explore_pool', 'expedition_pool'] as const) {
+      const raw = pp[poolCol];
+      const entries = parseJsonArray<{ catalogId?: unknown }>(raw);
+      for (const e of entries) {
+        const catId = e?.catalogId;
+        if (typeof catId === 'string' && digimon && !digimon.ids.has(catId)) {
+          push('pve_places', pid, `pve_places ${pid}: ${poolCol} references unknown digimon "${catId}"`);
+        }
+      }
+    }
+  }
+
   // --- skills_catalog: upgrade_of → skills_catalog, owner_template_id → digimon ---
   for (const s of skillsCatalog) {
     const sid = String(s['id']);
@@ -615,14 +631,29 @@ export function validateXref(
 export type ApplySummary = {
   tables: Record<string, { rows: number; versions: number }>;
   totalVersions: number;
+  /** Rows purged when `reconcile` is enabled, keyed by table name. */
+  purged?: Record<string, number>;
 };
 
 /**
  * Deploy a validated seed artifact into the target DB — one transaction.
  * For every artifact table: UPSERT each row into the content table, record an
  * immutable content_versions snapshot, and point active_versions at it.
+ *
+ * When `opts.reconcile` is true, the same transaction ALSO deletes rows that
+ * content-deploy itself previously deployed (they carry an `active_versions`
+ * pointer for the domain) but are absent from the incoming bundle — so the
+ * bundle-managed subset of each content table becomes an exact mirror of the
+ * artifact ("only clean content"). Boot-seeded rows that content-deploy never
+ * wrote (they have no version pointer) are deliberately left untouched, so a
+ * stale bundle can never delete content the server depends on. Reconcile runs
+ * in reverse CONTENT_TABLES order so FK dependents are deleted before their
+ * parents.
  */
-export async function applySeed(env: { tables: Record<string, Row[]> }): Promise<ApplySummary> {
+export async function applySeed(
+  env: { tables: Record<string, Row[]> },
+  opts?: { reconcile?: boolean },
+): Promise<ApplySummary> {
   // The xref gate is enforced here (not just in the CLI) so apply can never be
   // reached with a broken artifact, regardless of entry point.
   const xrefErrors = validateXref(env);
@@ -634,6 +665,7 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
   const now = Date.now();
   return tx(async (t) => {
     const tables: ApplySummary['tables'] = {};
+    const purged: Record<string, number> = {};
     let totalVersions = 0;
 
     // Iterate in CONTENT_TABLES order to respect FK dependencies
@@ -677,8 +709,153 @@ export async function applySeed(env: { tables: Record<string, Row[]> }): Promise
       totalVersions += rows.length;
     }
 
-    return { tables, totalVersions };
+    // Reconcile pass — purge bundle-managed orphan rows (see docstring for the
+    // safety model). Reverse order so cross-table FK dependents go first; for
+    // tables with a self-referential FK column, delete child rows (leaves)
+    // before their parents so the parent_node_id / similar links never dangle.
+    if (opts?.reconcile) {
+      for (const { name } of [...CONTENT_TABLES].reverse()) {
+        const rows = env.tables[name] ?? [];
+        const pk = pkColumnsOf(name);
+        const bundleKeys = new Set(rows.map((r) => rowKey(r, pk)));
+        const deployed = await t.query<{ ref_id: string }>(
+          `SELECT ref_id FROM active_versions WHERE domain = ?`,
+          [name],
+        );
+        // Collect the orphan ref_ids we must delete (pointer exists, absent from bundle).
+        const orphans = deployed
+          .map((a) => ({ refId: a.ref_id, values: parseRefId(a.ref_id, pk) }))
+          .filter((o) => o.values !== null && !bundleKeys.has(o.refId));
+        if (orphans.length === 0) continue;
+
+        const selfFk = SELF_FK_COLUMN[name];
+        const order = selfFk
+          ? await selfFkDeleteOrder(t, name, selfFk, orphans.map((o) => o.refId), pk)
+          : orphans.map((o) => o.refId);
+
+        const deletedIds = new Set(order);
+        for (const refId of order) {
+          const match = orphans.find((o) => o.refId === refId);
+          if (!match || match.values === null) continue;
+          const where = pk.map((c) => `${qid(c)} = ?`).join(' AND ');
+          await t.run(`DELETE FROM ${qid(name)} WHERE ${where}`, match.values);
+          // Drop the version pointer + history so the ledger matches content reality.
+          await t.run(`DELETE FROM active_versions WHERE domain = ? AND ref_id = ?`, [name, refId]);
+          await t.run(`DELETE FROM content_versions WHERE domain = ? AND ref_id = ?`, [name, refId]);
+        }
+        purged[name] = deletedIds.size;
+      }
+    }
+
+    const result: ApplySummary = { tables, totalVersions };
+    if (opts?.reconcile) result.purged = purged;
+    return result;
   });
+}
+
+/** Decode a version-ledger ref_id (JSON array of PK values) back into row values. */
+function parseRefId(refId: string, pk: readonly string[]): unknown[] | null {
+  if (pk.length === 1) {
+    // Single-column keys are stored as a 1-element JSON array too ([value]).
+  }
+  try {
+    const v = JSON.parse(refId) as unknown;
+    if (Array.isArray(v) && v.length === pk.length) return v;
+  } catch {
+    return null;
+  }
+  // Legacy tolerance: a bare scalar where a scalar PK is expected.
+  if (pk.length === 1) {
+    try {
+      const asJson = JSON.parse(refId);
+      return [asJson];
+    } catch {
+      return [refId];
+    }
+  }
+  return null;
+}
+
+/**
+ * Content tables with a self-referential FK column (a row in the table
+ * references ANOTHER row in the SAME table). During reconcile, a parent row may
+ * itself be purged, so children must be deleted before their parents to avoid
+ * dangling self-FK violations (this is what bit the deploy on
+ * booster_digimon_nodes.parent_node_id when reverse-table order alone was used).
+ *
+ * Tables whose FK points to a DIFFERENT table (dungeon_kits←dungeon_kit_items,
+ * shop_bundles←shop_bundle_items, boosters←booster_*) are intentionally NOT
+ * here — reverse CONTENT_TABLES order already deletes the child table first.
+ */
+const SELF_FK_COLUMN: Readonly<Record<string, string>> = {
+  booster_digimon_nodes: 'parent_node_id',
+};
+
+/**
+ * Order self-referential rows to delete leaves (children) before parents so a
+ * purge never trips the table's own FK. `refIds` are the intersection survivors:
+ * those absent from the bundle. Returns a delete order. A row appears AFTER any
+ * surviving (kept) row is irrelevant — we only ever delete members of `refIds`.
+ */
+async function selfFkDeleteOrder(
+  t: DbAdapter,
+  table: string,
+  fkCol: string,
+  refIds: readonly string[],
+  pk: readonly string[],
+): Promise<string[]> {
+  // Decode each ref_id back into its PK value(s) in a STABLE way for matching.
+  const idToRef = new Map<string, string>();
+  const ids = new Set<string>();
+  for (const ref of refIds) {
+    const values = parseRefId(ref, pk);
+    if (values === null) continue;
+    const key = values.map((v) => String(v)).join('\u0000');
+    idToRef.set(key, ref);
+    ids.add(key);
+  }
+  if (ids.size === 0) return [...refIds];
+  const pk0 = qid(pk[0] ?? 'id');
+  // Build a parent -> children map, counting ONLY children that are themselves
+  // in the delete set (rows the bundle keeps never block a purge).
+  // parentChildren.get(P) = ids of P's children that are DERIVED to-be-deleted.
+  const parentChildren = new Map<string, Set<string>>();
+  const parentRows = await t.query<Record<string, unknown>>(
+    `SELECT ${qid(fkCol)} AS parent, ${pk0} AS child FROM ${qid(table)} WHERE ${qid(fkCol)} IS NOT NULL`,
+  );
+  for (const r of parentRows) {
+    const parent = String(r['parent']);
+    const child = String(r['child']);
+    if (!ids.has(parent) || !ids.has(child)) continue; // only both-to-be-deleted
+    let s = parentChildren.get(parent);
+    if (!s) { s = new Set(); parentChildren.set(parent, s); }
+    s.add(child);
+  }
+  // Iteratively delete nodes that have NO to-be-deleted children still pending.
+  // A child is consumed as soon as IT is emitted; only then does its parent
+  // become a leaf — so 3+ node chains (grandparent→parent→child) are safe.
+  const remaining = new Set(ids);
+  const out: string[] = [];
+  while (remaining.size > 0) {
+    const leaves = [...remaining].filter((id) => {
+      const kids = parentChildren.get(id);
+      if (!kids || kids.size === 0) return true;
+      // only pending children block a parent
+      return [...kids].every((k) => !remaining.has(k));
+    });
+    // Cycle guard (shouldn't happen for a tree/DAG): break arbitrarily — pick a
+    // node and drop its dependency edge so we make progress.
+    if (leaves.length === 0) {
+      leaves.push([...remaining][0]!);
+    }
+    for (const leaf of leaves) {
+      out.push(idToRef.get(leaf)!);
+      remaining.delete(leaf);
+      // The leaf is no longer a pending child of anyone → release its parent.
+      for (const [, kids] of parentChildren) kids.delete(leaf);
+    }
+  }
+  return [...new Set(out)];
 }
 
 /** INSERT a content_versions snapshot + UPSERT the active_versions pointer. */

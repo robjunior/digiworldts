@@ -139,6 +139,9 @@ export class PenSpriteRig {
         const nz = pos.z + (dz / dist) * move;
         this.sprite.setBasePosition(nx, nz);
         this.sprite.setFacingDirection(-1);
+        this.sprite.setMoving(true);
+      } else {
+        this.sprite.setMoving(false);
       }
     } else if (dist < 0.2 || elapsedS >= this.nextTargetAtS) {
       this.targetX = this.bounds.minX + Math.random() * (this.bounds.maxX - this.bounds.minX);
@@ -149,6 +152,7 @@ export class PenSpriteRig {
       const nx = pos.x + (dx / dist) * move;
       const nz = pos.z + (dz / dist) * move;
       this.sprite.setBasePosition(nx, nz);
+      this.sprite.setMoving(true);
       if (Math.abs(dx) > MIN_HORIZONTAL_DELTA_TO_FLIP_FACING) {
         this.sprite.setFacingDirection(dx > 0 ? -1 : 1);
       }

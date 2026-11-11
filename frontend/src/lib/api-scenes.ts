@@ -1,6 +1,7 @@
 import type { Element } from '@digiworld/shared/digimon';
 import type { SceneEntity, SceneListResponse } from '@digiworld/shared/scene';
-import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, type LobbySceneSettings } from '@digiworld/scene3d/scene';
+import { DEFAULT_LOBBY_SCENE, LOBBY_SCENE_NAME, DEFAULT_WORLD_SCENE, WORLD_SCENE_NAME, type LobbySceneSettings, type WorldSceneSettings } from '@digiworld/scene3d/scene';
+import { NURSERY_SCENE_NAME } from '@digiworld/shared/scene';
 
 import { apiFetch } from './api';
 
@@ -52,10 +53,41 @@ export async function getLobbySceneEntity(): Promise<SceneEntity | null> {
     ?? null;
 }
 
+/**
+ * Resolve the World backdrop settings: the SceneEntity with `kind === 'world'`
+ * (falling back to the one named "World"), merged over DEFAULT_WORLD_SCENE.
+ * Returns the built-in defaults when no world scene has been created, so the
+ * world page always renders its globe.
+ */
+export async function getWorldScene(): Promise<WorldSceneSettings> {
+  const scenes = await getScenes(true);
+  const world = scenes.find((s) => s.kind === 'world')
+    ?? scenes.find((s) => s.name.trim().toLowerCase() === WORLD_SCENE_NAME.toLowerCase());
+  const stored = (world?.settings as Readonly<Record<string, unknown>> | undefined)?.world;
+  if (!stored || typeof stored !== 'object') return DEFAULT_WORLD_SCENE;
+  return { ...DEFAULT_WORLD_SCENE, ...(stored as Partial<WorldSceneSettings>) };
+}
+
+/** The SceneEntity currently configured as the world backdrop (kind or name). */
+export async function getWorldSceneEntity(): Promise<SceneEntity | null> {
+  const scenes = await getScenes(true);
+  return scenes.find((s) => s.kind === 'world')
+    ?? scenes.find((s) => s.name.trim().toLowerCase() === WORLD_SCENE_NAME.toLowerCase())
+    ?? null;
+}
+
+/** The SceneEntity currently configured as the nursery backdrop (kind or name). */
+export async function getNurserySceneEntity(): Promise<SceneEntity | null> {
+  const scenes = await getScenes(true);
+  return scenes.find((s) => s.kind === 'nursery')
+    ?? scenes.find((s) => s.name.trim().toLowerCase() === NURSERY_SCENE_NAME.toLowerCase())
+    ?? null;
+}
+
 export type SceneCreateBody = {
   readonly name: string;
   readonly elements: readonly Element[];
-  readonly kind?: 'arena' | 'lobby';
+  readonly kind?: 'arena' | 'lobby' | 'world' | 'nursery';
   readonly settings: Readonly<Record<string, unknown>>;
   readonly useGlbSettings?: boolean;
 };

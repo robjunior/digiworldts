@@ -60,6 +60,7 @@ export type SkillVfxPresetCreateBody = {
   readonly totalDurationMs: number;
   readonly impactAtMs: number;
   readonly element?: SkillVfxPreset['element'];
+  readonly attackType?: SkillVfxPreset['attackType'];
   readonly light?: SkillVfxPreset['light'];
 };
 

@@ -27,4 +27,47 @@ export {
 } from './skill-vfx-resolver';
 export type { SpriteInit, SceneSettings } from './scene';
 export { unitSpriteSheetUrl, unitSpriteStaticUrl, unitDotUrl } from './sprite-rig';
+export {
+  cycleCells,
+  cellRect,
+  resolveSheetLayout,
+  CYCLES12_COLS,
+  CYCLES12_ROWS,
+  CYCLES12_CYCLE_CELLS,
+  DEFAULT_IDLE_CELL,
+  type SheetLayout,
+  type SheetVersion,
+  type SpriteCycle,
+} from './sheet-layout';
 export { prewarmParticleMaterials } from './particles/shaders';
+export {
+  NAMED_RUNNERS,
+  isNamedEffect,
+  isRangedEffect,
+  namedEffectDuration,
+  tryBuildNamedRunner,
+} from './attack-runners/named';
+export { MELEE_RUNNERS, buildMeleeRunner } from './attack-runners/melee';
+export {
+  StatusFxController,
+  createStatusPools,
+  type StatusFxTarget,
+  type AilmentKind,
+} from './attack-runners/status-controller';
+export {
+  buildStatusEffect,
+  cleanseStatuses,
+  STATUS_IMAGES,
+  type StatusEffect,
+  type StatusFxEnv,
+} from './attack-runners/status-fx';
+export { buildDarkVoidRunner } from './attack-runners/dark-void';
+export { buildHolySmiteRunner } from './attack-runners/holy-smite';
+export { buildTidalSurgeRunner } from './attack-runners/tidal-surge';
+export { buildBladeStormRunner } from './attack-runners/blade-storm';
+export { buildStoneFallRunner } from './attack-runners/stone-fall';
+export { buildNullPulseRunner } from './attack-runners/null-pulse';
+export { buildVineLashRunner } from './attack-runners/vine-lash';
+export type { SkillVfxNamedEffect, SkillVfxRangedEffect, SkillVfxMeleeEffect } from '@digiworld/shared/skill-vfx';
+// Audio/SFX subsystem (engine + manifest + spatialization + cue router).
+export * from './sfx';

@@ -1,4 +1,4 @@
-import { skillPlayerPickCount } from '@digiworld/shared/battle';
+import { skillPlayerPickCount, skillTargetScope } from '@digiworld/shared/battle';
 import type { EnemyUnitView, FriendlyUnitView, UnitId } from '@digiworld/shared/battle';
 import type { Element } from '@digiworld/shared/digimon';
 import { useState } from 'react';
@@ -90,6 +90,8 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, on
         {unit.skills.map((skill) => {
           const canAfford = skill.energyCost <= unit.en;
           const disabled = !canAfford;
+          const scope = skillTargetScope(skill);
+          const autoTargeted = scope === 'auto';
           const name = localizedName(skill, locale);
           const description = localizedDescription(skill, locale) ?? `${skill.element} attack · ${skill.power} power`;
           const affinityCue: Affinity = 'none';
@@ -104,7 +106,14 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, on
               onClick={() => {
                 const pickCount = skillPlayerPickCount(skill);
                 if (pickCount === 1) {
-                  onPickSkill(skill.id);
+                  if (autoTargeted) {
+                    // No player-chosen target — the server resolves it (most
+                    // damaged ally, self, all enemies, ...). Cast right away.
+                    const fallbackTargetId = target?.id ?? aliveEnemies[0]?.id;
+                    if (fallbackTargetId !== undefined) onSkill(skill.id, fallbackTargetId);
+                  } else {
+                    onPickSkill(skill.id);
+                  }
                 } else {
                   setMultiPickSkillId(skill.id);
                   setPickedTargets(new Set());
@@ -116,7 +125,7 @@ export function SkillMenu({ unit, target, aliveEnemies, onSkill, onPickSkill, on
                 <div className="mnm">{name}<AffinityCue cue={affinityCue} /></div>
                 <div className="mdesc">{description}</div>
               </div>
-              <div className="mtag" style={{ ['--el' as string]: `var(--el-${skill.element})` }}>{skill.element}</div>
+              <div className="mtag" style={{ ['--el' as string]: `var(--el-${skill.element})` }}>{skill.element}{autoTargeted ? ' · auto' : ''}</div>
               <div className={`men ${canAfford ? '' : 'short'}`}>{skill.energyCost} EN</div>
             </button>
           );

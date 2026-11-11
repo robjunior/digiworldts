@@ -108,7 +108,9 @@ const PingSchema = z.object({ type: z.literal('ping') });
 
 const ActionSchema: z.ZodType<Action> = z.discriminatedUnion('type', [
   z.object({ type: z.literal('fight'), unitId: z.string(), targetId: z.string() }),
-  z.object({ type: z.literal('skill'), unitId: z.string(), skillId: z.string(), targetId: z.string() }),
+  z.object({ type: z.literal('skill'), unitId: z.string(), skillId: z.string(), targetId: z.string(), extraTargetIds: z.array(z.string()).optional() }),
+  z.object({ type: z.literal('capture'), unitId: z.string(), targetId: z.string() }),
+  z.object({ type: z.literal('use_item'), unitId: z.string(), targetId: z.string(), itemId: z.string() }),
   z.object({ type: z.literal('guard'), unitId: z.string() }),
   z.object({ type: z.literal('flee') }),
 ]) as unknown as z.ZodType<Action>;

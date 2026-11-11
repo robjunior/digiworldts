@@ -27,7 +27,7 @@ export function invalidateScenesCache(): void {
 export type SceneCreateBody = {
   readonly name: string;
   readonly elements: readonly Element[];
-  readonly kind?: 'arena' | 'lobby';
+  readonly kind?: 'arena' | 'lobby' | 'world' | 'nursery';
   readonly settings: Readonly<Record<string, unknown>>;
   readonly useGlbSettings?: boolean;
 };

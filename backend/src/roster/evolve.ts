@@ -18,13 +18,11 @@ import {
 import { getDefaultEquippedForStage } from '../skills/pool.js';
 import { computeMetSet } from '../dex/met.js';
 import { countItem, removeItem } from '../items/grant.js';
-import { hasFlag } from '../flags/repo.js';
-import { rarityFromRankOrCommon, type Rarity } from '@digiworld/shared/item-rarity';
-import { applyRarityEvolutionBonus } from './rarity-bonus.js';
 import { log } from '../util/log.js';
+import { essenceIdFor, coreIdFor, sigilIdFor, rarityForStage } from '../evolution/items.js';
 
 const SQL_SELECT_MON = `SELECT * FROM player_roster WHERE id = ? AND user_id = ?`;
-const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = ?, stage_pools = ?, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
+const SQL_SWAP_CATALOG = `UPDATE player_roster SET catalog_id = ?, nickname = ?, xp = 0, evolution_history = ?, equipped_skill_ids = ?, stage_pools = ?, signature_skill_id = NULL, updated_at = ? WHERE id = ? AND user_id = ? AND catalog_id = ?`;
 
 function freezeCurrentStagePool(row: RosterRow, currentStage: Stage): StagePools {
   const priorPools = row.stage_pools
@@ -79,6 +77,8 @@ export type EvolutionOption = {
   requiredItemName: string | null;
   requiredItemQty: number;
   itemQtyAvailable: number;
+  /** All items required for this evolution (essence + core + sigil). */
+  requiredItems?: { itemId: string; name: string; qty: number; available: number }[];
 };
 
 export type EvolutionGate = {
@@ -119,42 +119,41 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
   const metSet = await computeMetSet(userId);
 
   const edges = current.evolvesInto ?? [];
-  const itemIdsNeeded = new Set<string>();
-  for (const edge of edges) {
-    if (edge.requiredItemId !== undefined) itemIdsNeeded.add(edge.requiredItemId);
-  }
-  const itemCounts = new Map<string, number>();
-  for (const itemId of itemIdsNeeded) {
-    itemCounts.set(itemId, await countItem(userId, itemId));
-  }
-  const itemNames = new Map<string, string>();
-  if (itemIdsNeeded.size > 0) {
-    const ids = Array.from(itemIdsNeeded);
-    const placeholders = ids.map(() => '?').join(', ');
-    const rows = await q<{ readonly id: string; readonly name: string }>(
-      `SELECT id, name FROM shop_items WHERE id IN (${placeholders})`,
-      ...ids,
-    );
-    for (const row of rows) itemNames.set(row.id, row.name);
-  }
 
+  // Every evolution requires 3 items derived from the TARGET digimon:
+  //   1. Elemental Essence (element of target)
+  //   2. Rarity Core (rarity of target's stage)
+  //   3. Archetype Sigil (type of target)
   const options: EvolutionOption[] = [];
   for (const edge of edges) {
     const target = templateById.get(edge.targetId);
     if (!target) continue;
     const req = resolveEdgeRequirements(edge, target.stage);
-    const itemQtyAvailable = req.requiredItemId === null ? 0 : itemCounts.get(req.requiredItemId) ?? 0;
-    const requiredItemName = req.requiredItemId === null ? null : itemNames.get(req.requiredItemId) ?? req.requiredItemId;
+
+    // Compute the 3 required items for this target
+    const essenceId = essenceIdFor(target.element);
+    const coreId = coreIdFor(rarityForStage(target.stage));
+    const sigilId = sigilIdFor(target.type ?? 'unknown');
+
+    const [essenceQty, coreQty, sigilQty] = await Promise.all([
+      countItem(userId, essenceId),
+      countItem(userId, coreId),
+      countItem(userId, sigilId),
+    ]);
+
+    const [essenceName, coreName, sigilName] = await Promise.all([
+      one<{ name: string }>('SELECT name FROM shop_items WHERE id = ?', essenceId).then(r => r?.name ?? essenceId),
+      one<{ name: string }>('SELECT name FROM shop_items WHERE id = ?', coreId).then(r => r?.name ?? coreId),
+      one<{ name: string }>('SELECT name FROM shop_items WHERE id = ?', sigilId).then(r => r?.name ?? sigilId),
+    ]);
 
     let reason: EvolveReason | undefined;
     if (req.requiredAttribute !== null && current.attribute !== req.requiredAttribute) reason = 'attribute-mismatch';
     else if (row.level < req.requiredLevel) reason = 'level-too-low';
     else if (row.mood < req.requiredMood) reason = 'no-mood';
-    // Content pipeline: EVERY evolution requires a chosen item. An edge with no
-    // assigned item is blocked (the admin unlocks paths by creating items and
-    // assigning them to edges — see digimon-content-deploy skill).
-    else if (req.requiredItemId === null) reason = 'no-item-assigned';
-    else if (itemQtyAvailable < req.requiredItemQty) reason = 'missing-item';
+    else if (essenceQty < 1) reason = 'missing-item';
+    else if (coreQty < 1) reason = 'missing-item';
+    else if (sigilQty < 1) reason = 'missing-item';
 
     const option: EvolutionOption = {
       catalogId: target.id,
@@ -166,10 +165,15 @@ export async function getEvolutionOptions(monId: string, userId: string): Promis
       requiredLevel: req.requiredLevel,
       requiredMood: req.requiredMood,
       requiredAttribute: req.requiredAttribute,
-      requiredItemId: req.requiredItemId,
-      requiredItemName,
-      requiredItemQty: req.requiredItemQty,
-      itemQtyAvailable,
+      requiredItemId: essenceId,
+      requiredItemName: essenceName,
+      requiredItemQty: 1,
+      itemQtyAvailable: essenceQty,
+      requiredItems: [
+        { itemId: essenceId, name: essenceName, qty: 1, available: essenceQty },
+        { itemId: coreId, name: coreName, qty: 1, available: coreQty },
+        { itemId: sigilId, name: sigilName, qty: 1, available: sigilQty },
+      ],
     };
     if (reason !== undefined) option.reason = reason;
     options.push(option);
@@ -227,20 +231,13 @@ export async function evolveRoster(
   const newNickname = row.nickname === current.name ? target.name : row.nickname;
   const now = Date.now();
 
-  let consumedRarity: Rarity | null = null;
-  let applyBonusEnabled = false;
-  if (selectedOption.requiredItemId !== null) {
-    const itemRow = await one<{ rarity: number }>('SELECT rarity FROM shop_items WHERE id = ?', selectedOption.requiredItemId);
-    if (itemRow) {
-      consumedRarity = rarityFromRankOrCommon(itemRow.rarity);
-      applyBonusEnabled = consumedRarity !== 'common' && await hasFlag(userId, 'rarity-bonuses');
-    }
-  }
+  // Consume all 3 required items (essence + core + sigil)
+  const requiredItems = selectedOption.requiredItems ?? [];
+  if (requiredItems.length === 0) return { ok: false, error: 'no-items-assigned' };
 
   const equippedDefaults = await getDefaultEquippedForStage(
     target.element,
     target.stage,
-    applyBonusEnabled ? consumedRarity ?? undefined : undefined,
   );
   const equippedJson = JSON.stringify(equippedDefaults);
 
@@ -253,12 +250,9 @@ export async function evolveRoster(
       const stagePoolsJson = JSON.stringify(frozenPools);
       const swap = await t.run(SQL_SWAP_CATALOG, [target.id, newNickname, historyJson, equippedJson, stagePoolsJson, now, monId, userId, current.id]);
       if (swap.changes === 0) throw new Error('race-conflict');
-      if (selectedOption.requiredItemId !== null) {
-        const removed = await removeItem(userId, selectedOption.requiredItemId, selectedOption.requiredItemQty, now, t);
+      for (const item of requiredItems) {
+        const removed = await removeItem(userId, item.itemId, item.qty, now, t);
         if (!removed) throw new Error('missing-item');
-      }
-      if (applyBonusEnabled && consumedRarity !== null) {
-        await applyRarityEvolutionBonus(monId, userId, consumedRarity, now, t);
       }
     });
   } catch (e) {
@@ -271,8 +265,7 @@ export async function evolveRoster(
     from: current.id,
     to: target.id,
     nickname: newNickname,
-    ...(selectedOption.requiredItemId !== null ? { consumedItemId: selectedOption.requiredItemId, consumedItemQty: selectedOption.requiredItemQty } : {}),
-    ...(applyBonusEnabled && consumedRarity !== null ? { rarityBonus: consumedRarity } : {}),
+    consumedItems: requiredItems.map((i) => `${i.itemId}×${i.qty}`),
   });
   return { ok: true, monId, fromCatalogId: current.id, toCatalogId: target.id, nickname: newNickname, level: row.level, stage: target.stage };
 }

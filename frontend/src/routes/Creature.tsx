@@ -7,6 +7,7 @@ import type { Attribute, Element, Stage, TemplateDigimon } from '@digiworld/shar
 import { RenameDialog } from '../components/roster/RenameDialog';
 import { ResistanceChart } from '../components/roster/ResistanceChart';
 import { SkillEditor } from '../components/roster/SkillEditor';
+import { ElementIcon } from '../components/common/ElementIcon';
 import { EvolutionChain } from '../components/roster/EvolutionChain';
 import { EvoConditions, EvoLine, pastLine } from '../components/roster/EvolveDialog';
 import type { ActivityByMon, RosterMon } from '../components/roster/types';
@@ -24,7 +25,6 @@ import {
   evolveRosterMon,
   getEvolutionGate,
   getTrainingStatus,
-  removeFromParty,
   renameRosterMon,
   reviveRosterMon,
   setPartySlot,
@@ -132,11 +132,6 @@ export function Creature(): JSX.Element {
     mutationFn: ({ monId: id, slot }: { readonly monId: string; readonly slot: number }) => setPartySlot(id, slot),
     onSuccess: () => { setMessage('Party updated.'); invalidate(); },
     onError: (error) => setMessage(error instanceof Error ? error.message : 'party update failed'),
-  });
-  const rmPartyMutation = useMutation({
-    mutationFn: removeFromParty,
-    onSuccess: () => { setMessage('Removed from party.'); invalidate(); },
-    onError: (error) => setMessage(error instanceof Error ? error.message : 'party remove failed'),
   });
 
   const partyBySlot = useMemo<readonly (RosterMon | null)[]>(() => {
@@ -274,34 +269,31 @@ export function Creature(): JSX.Element {
         <div className="hero">
           <div className="splash"><img src={`/assets/digimon/${mon.catalogId}/portrait.webp`} alt={mon.nickname} onError={(ev) => { ev.currentTarget.style.opacity = '0.15'; }} /></div>
           <div className="wash" />
-          <span className="cap">{template?.name ?? mon.catalogId}</span>
           <div className="hinfo">
-            <div className="kick">{stage} · {cap(e)}</div>
             <h2>{mon.nickname}</h2>
             <p className="tpl">{template?.name ?? mon.catalogId} &nbsp;/&nbsp; Attribute <b>{attribute}</b> · {cap(e)}</p>
             <div className="meta">
               <div className="cell"><div className="lbl">Level</div><div className="val">{mon.level}</div></div>
-              <div className="cell"><div className="lbl">Element</div><div className="val el">{cap(e)}</div></div>
+              <div className="cell"><div className="lbl">Element</div><div className="val el"><ElementIcon element={currentElement} size="sm" />{cap(e)}</div></div>
               <div className="cell"><div className="lbl">Stage</div><div className="val">{stage}</div></div>
               <div className="cell"><div className="lbl">Mood</div><div className="val">{mon.mood}%</div></div>
             </div>
             <div className="status-row">
               <span className={`statchip ${mon.status}${down ? ' is-down' : ''}`}><span className="dot" />{down ? `DOWN · ${formatRemaining(mon.reviveAt, now)}` : typeof mon.slot === 'number' ? `In party · slot ${mon.slot + 1}` : 'Resting'}</span>
-              <span className="statchip"><span className="dot" style={{ background: 'var(--gold)' }} />XP {Math.round(mon.xp)} / {mon.xpNext}</span>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
                 <button className="rl-action-btn rl-action-btn--rename" type="button" onClick={() => setRenameMon(mon)}>Rename</button>
                 {down ? (
                   <button className="rl-action-btn rl-action-btn--revive" type="button" onClick={() => reviveMutation.mutate(mon.id)}>Revive</button>
                 ) : null}
-                {typeof mon.slot === 'number' ? (
-                  <button className="rl-action-btn rl-action-btn--party" type="button" disabled={rmPartyMutation.isPending} onClick={() => rmPartyMutation.mutate(mon.slot as number)}>In party · {mon.slot + 1} · remove</button>
-                ) : (
+                {typeof mon.slot !== 'number' ? (
                   <button className="rl-action-btn rl-action-btn--party" type="button" disabled={partyMutation.isPending || down || mon.status === 'nursery'} onClick={addToParty}>Add to Party</button>
-                )}
+                ) : null}
               </div>
             </div>
             <div className="cr-xp">
               <span className="xp-fill" style={{ width: `${xpPct(mon)}%` }} />
+              <span className="xp-num">{Math.round(mon.xp)} <i>/</i> {mon.xpNext}</span>
+              <span className="xp-level">LV {mon.level}</span>
             </div>
           </div>
         </div>

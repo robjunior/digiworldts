@@ -57,6 +57,10 @@ export type PendingHatchEntry = {
   babyDot: string;
   hatchAt: number;
   ready: boolean;
+  /** True for a mystery egg: the pushed species is hidden until it hatches. The
+   *  server still knows the rolled target internally (needed to hatch), but the
+   *  view returns masked fields so the UI/pen show a mystery egg. */
+  mystery: boolean;
 };
 
 export type NurseryDataResponse = {
@@ -73,7 +77,7 @@ export type HatchStartResponse =
   | { ok: false; error: 'not-enough-data' | 'template-missing' | 'no-path' | 'unknown' };
 
 export type MixHatchResponse =
-  | { ok: true; pending: PendingHatchEntry; rolledCatalogId: string; totalWeight: number }
+  | { ok: true; pending: PendingHatchEntry; totalWeight: number; hasMystery: boolean }
   | { ok: false; error: 'no-data' | 'no-path' };
 
 /**

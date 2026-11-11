@@ -23,13 +23,23 @@ export function PendingEgg({ entry, busy, onCollect }: PendingEggProps): JSX.Ele
   const ready = remaining <= 0;
 
   return (
-    <div className={`egg ${ready ? 'ready' : ''}`} data-egg={entry.id}>
+    <div className={`egg ${ready ? 'ready' : ''} ${entry.mystery ? 'mystery' : ''}`} data-egg={entry.id}>
       <span className="espr">
-        <DigimonSprite catalogId={entry.babyCatalogId} />
+        {entry.mystery || entry.babyCatalogId === '' ? (
+          <span className="eespr" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 3c4 0 7 3 7 7 0 4.5-3.5 8-7 11-3.5-3-7-6.5-7-11 0-4 3-7 7-7z" />
+            </svg>
+          </span>
+        ) : (
+          <DigimonSprite catalogId={entry.babyCatalogId} />
+        )}
       </span>
       <div className="emid">
-        <div className="en">{entry.babyName}</div>
-        <div className="esub">→ {entry.targetName} · {entry.targetStage}</div>
+        <div className="en">{entry.mystery || entry.babyName === '' ? '???' : entry.babyName}</div>
+        <div className="esub">
+          {entry.mystery ? 'Mystery egg · hatches into a hidden species' : `→ ${entry.targetName} · ${entry.targetStage}`}
+        </div>
       </div>
       {ready ? (
         <button type="button" className="collectbtn" disabled={busy} onClick={() => onCollect(entry)}>Hatch!</button>

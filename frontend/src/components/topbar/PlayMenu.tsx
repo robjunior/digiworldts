@@ -1,38 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { useT } from '../../hooks/useLocale';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useWsStore } from '../../state/wsStore';
 
 type GameMode = {
   readonly id: string;
-  readonly label: string;
-  readonly meta: string;
+  readonly labelKey: string;
+  readonly descKey: string;
+  readonly to?: string;
   readonly live?: boolean;
 };
 
 const GAME_MODES: readonly GameMode[] = [
-  { id: 'ranked', label: 'Ranked', meta: '3v3 · ELO', live: true },
-  { id: 'casual', label: 'Casual', meta: '3v3 · Unranked' },
-  { id: 'tournament', label: 'Tournament', meta: 'Single Elim', live: true },
-  { id: 'training', label: 'Training', meta: 'vs CPU' },
+  { id: 'ranked', labelKey: 'topbar.mode.ranked', descKey: 'topbar.mode.ranked.desc', live: true },
+  { id: 'normal', labelKey: 'topbar.mode.normal', descKey: 'topbar.mode.normal.desc' },
+  { id: 'world', labelKey: 'topbar.mode.world', descKey: 'topbar.mode.world.desc', to: '/world' },
 ];
 
 /**
  * Universal JOGAR button, replaces the logo in the shared topbar.
  *
- * Idle: flashes "JOGAR"; click opens a downward menu of game modes.
- * Picking a mode joins the real matchmaking queue, closes the menu, and
- * routes to the lobby. The queue lives in the global wsStore, so it keeps
- * running while the user roams any page (collection, farm, …).
+ * Idle: flashes \"JOGAR\"; click opens a full-screen mode menu (animated top
+ * down, columns with self-explanatory descriptions). Picking a PvP mode joins
+ * the real matchmaking queue, closes the menu, and routes to the lobby. The
+ * queue lives in the global wsStore, so it keeps running while the user roams
+ * any page (collection, farm, …). \"O Mundo\" routes to the PvE world instead of
+ * joining a queue.
  *
- * Waiting/matched: becomes a "Queue" button; clicking cancels the queue
- * (or jumps to the arena when a match is found). The shared TopBar is only
+ * Waiting/matched: becomes a \"Queue\" button; clicking cancels the queue (or
+ * jumps to the arena when a match is found). The shared TopBar is only
  * rendered inside AppShell, so this button never appears during battle.
  */
 export function PlayMenu(): JSX.Element {
   const { send } = useWebSocket();
   const navigate = useNavigate();
+  const t = useT();
   const queue = useWsStore((s) => s.queue);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -42,18 +46,11 @@ export function PlayMenu(): JSX.Element {
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (e: MouseEvent): void => {
-      if (rootRef.current === null) return;
-      if (e.target instanceof Node && rootRef.current.contains(e.target)) return;
-      setOpen(false);
-    };
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
@@ -72,13 +69,17 @@ export function PlayMenu(): JSX.Element {
     setOpen((cur) => !cur);
   };
 
-  const pickMode = (): void => {
+  const pickMode = (mode: GameMode): void => {
     setOpen(false);
+    if (mode.to) {
+      void navigate(mode.to);
+      return;
+    }
     send({ type: 'queue', join: true });
     void navigate('/');
   };
 
-  const label = waiting ? 'Queue' : matched ? 'Match' : 'Jogar';
+  const label = waiting ? 'Queue' : matched ? 'Match' : t('topbar.nav.play');
   const stateClass = matched ? 'is-matched' : waiting ? 'is-waiting' : 'is-idle';
 
   return (
@@ -96,28 +97,42 @@ export function PlayMenu(): JSX.Element {
         {!waiting && !matched ? <ChevronIcon /> : null}
       </button>
 
-      <div
-        className={`play-drop${open ? ' open' : ''}`}
-        role="menu"
-        aria-label="Game modes"
-        data-od-id="play-drop"
-      >
-        <div className="play-drop-hd">Selecionar modo</div>
-        {GAME_MODES.map((mode) => (
-          <button type="button" className="play-drop-item" role="menuitem" key={mode.id} onClick={pickMode}>
-            <span className="pdi-ic" aria-hidden="true">
-              <ModeIcon id={mode.id} />
-            </span>
-            <span className="pdi-tx">
-              <span className="pdi-lb">
-                {mode.label}
-                {mode.live ? <span className="pdi-live">LIVE</span> : null}
-              </span>
-              <span className="pdi-mt">{mode.meta}</span>
-            </span>
-          </button>
-        ))}
-      </div>
+      {open ? (
+        <div className="play-menu-overlay" role="dialog" aria-modal="true" aria-label="Game modes" data-od-id="play-mega">
+          <button type="button" className="ov-veil" aria-label="Fechar" onClick={() => setOpen(false)} />
+          <section className="ov-panel">
+            <header className="ov-head">
+              <span className="ov-kicker">{t('topbar.menu.play.kicker')}</span>
+              <h2 className="ov-title">{t('topbar.menu.play.title')}</h2>
+              <p className="ov-sub">{t('topbar.menu.play.sub')}</p>
+              <button type="button" className="ov-close" aria-label="Fechar" onClick={() => setOpen(false)}>
+                <CloseIcon />
+              </button>
+            </header>
+            <div className="ov-cols">
+              {GAME_MODES.map((mode) => (
+                <button
+                  type="button"
+                  className="ov-card"
+                  role="menuitem"
+                  key={mode.id}
+                  data-od-id={`play-mode-${mode.id}`}
+                  onClick={() => pickMode(mode)}
+                >
+                  <span className="ov-card-ic" aria-hidden="true">
+                    <ModeIcon id={mode.id} />
+                  </span>
+                  <span className="ov-card-lb">
+                    {t(mode.labelKey)}
+                    {mode.live ? <span className="ov-live">LIVE</span> : null}
+                  </span>
+                  <span className="ov-card-desc">{t(mode.descKey)}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -146,15 +161,21 @@ function SpinnerIcon(): JSX.Element {
   );
 }
 
+function CloseIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
 function ModeIcon({ id }: { readonly id: string }): JSX.Element {
   const path =
     id === 'ranked'
       ? 'M12 2l3 6h6l-5 4 2 6-6-4-6 4 2-6-5-4h6z'
-      : id === 'casual'
+      : id === 'normal'
         ? 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z'
-        : id === 'tournament'
-          ? 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z'
-          : 'M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83';
+        : 'M12 2C7 4 3 10 3 15a9 9 0 0 0 18 0c0-5-4-11-9-13zm0 11a3 3 0 1 1 0 6 3 3 0 0 1 0-6z';
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
       <path d={path} />

@@ -35,6 +35,7 @@ type FriendsResponse = {
 type NavLeaf = {
   readonly key: string;
   readonly to: string;
+  readonly desc?: string;
 };
 
 type NavItem =
@@ -47,14 +48,14 @@ const NAV_ITEMS: readonly NavItem[] = [
     kind: 'parent',
     key: 'topbar.nav.town',
     children: [
-      { key: 'nav.factory', to: '/factory' },
-      { key: 'nav.farm', to: '/farm' },
-      { key: 'nav.nursery', to: '/nursery' },
-      { key: 'nav.training', to: '/training' },
+      { key: 'nav.factory', to: '/factory', desc: 'topbar.mode.factory.desc' },
+      { key: 'nav.farm', to: '/farm', desc: 'topbar.mode.farm.desc' },
+      { key: 'nav.nursery', to: '/nursery', desc: 'topbar.mode.nursery.desc' },
+      { key: 'nav.training', to: '/training', desc: 'topbar.mode.training.desc' },
     ],
   },
   { kind: 'link', key: 'nav.roster', to: '/roster' },
-  { kind: 'link', key: 'topbar.nav.explore', to: '/adventure' },
+  { kind: 'link', key: 'topbar.nav.world', to: '/world' },
   { kind: 'link', key: 'topbar.nav.inventory', to: '/items' },
   { kind: 'link', key: 'topbar.nav.shop', to: '/shop' },
 ];
@@ -292,25 +293,42 @@ export function TopBar(): JSX.Element | null {
                   {t(item.key)}
                   <span className="tnav-caret" aria-hidden="true" />
                 </button>
-                {townOpen && (
-                  <div className="tnav-submenu" role="menu">
-                    {item.children.map((child) => (
-                      <button
-                        key={child.key}
-                        type="button"
-                        role="menuitem"
-                        className="tnav-subitem"
-                        aria-current={navActive(pathname, child.to) ? 'page' : undefined}
-                        onClick={() => {
-                          setTownOpen(false);
-                          navigate(child.to);
-                        }}
-                      >
-                        {t(child.key)}
-                      </button>
-                    ))}
+                {townOpen ? (
+                  <div className="tnav-menu-overlay" role="dialog" aria-modal="true" aria-label={t(item.key)} data-od-id="city-mega">
+                    <button type="button" className="ov-veil" aria-label="Fechar" onClick={() => setTownOpen(false)} />
+                    <section className="ov-panel">
+                      <header className="ov-head">
+                        <span className="ov-kicker">{t('topbar.menu.play.kicker')}</span>
+                        <h2 className="ov-title">{t('topbar.menu.city.title')}</h2>
+                        <p className="ov-sub">{t('topbar.menu.city.sub')}</p>
+                        <button type="button" className="ov-close" aria-label="Fechar" onClick={() => setTownOpen(false)}>
+                          <CloseIcon />
+                        </button>
+                      </header>
+                      <div className="ov-cols">
+                        {item.children.map((child, i) => (
+                          <button
+                            key={child.key}
+                            type="button"
+                            role="menuitem"
+                            className="ov-card"
+                            aria-current={navActive(pathname, child.to) ? 'page' : undefined}
+                            onClick={() => {
+                              setTownOpen(false);
+                              navigate(child.to);
+                            }}
+                          >
+                            <span className="ov-card-ic" aria-hidden="true">
+                              <TownIcon index={i} />
+                            </span>
+                            <span className="ov-card-lb">{t(child.key)}</span>
+                            {child.desc ? <span className="ov-card-desc">{t(child.desc)}</span> : null}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
                   </div>
-                )}
+                ) : null}
               </div>
             );
           }
@@ -452,6 +470,28 @@ function BellIcon(): JSX.Element {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
       <path d="M10 21h4" />
+    </svg>
+  );
+}
+
+function CloseIcon(): JSX.Element {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function TownIcon({ index }: { readonly index: number }): JSX.Element {
+  const path = [
+    'M3 21V10l9-7 9 7v11h-6v-7H9v7z',
+    'M12 22V8m0 0L8 10m4-2l4 2M5 22h14',
+    'M4 22V6m0 0l4-4m-4 4L8 6m-4 0L0 2',
+    'M12 3v6m0 0l3-3m-3 3L9 6m3 3v1m0 13V15',
+  ][index % 4];
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden="true">
+      <path d={path} />
     </svg>
   );
 }

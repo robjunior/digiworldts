@@ -34,7 +34,8 @@ const SQL_UPSERT_DATA = `
   INSERT INTO player_species_data (user_id, catalog_id, percent, kills, updated_at)
        VALUES (?, ?, ?, 1, ?)
     ON CONFLICT(user_id, catalog_id) DO UPDATE
-       SET percent = LEAST(100, player_species_data.percent + excluded.percent),
+       SET percent = CASE WHEN player_species_data.percent + excluded.percent > 100 THEN 100
+                          ELSE player_species_data.percent + excluded.percent END,
            kills = player_species_data.kills + 1,
            updated_at = excluded.updated_at
 `;
@@ -151,7 +152,11 @@ function toPendingView(row: PendingHatchRow, catalog: readonly TemplateDigimon[]
   const path = hatchPathTo(row.target_catalog, catalog);
   const babyId = path?.babyId ?? row.rookie_catalog;
   const baby = templateById.get(babyId);
-  return {
+  // Mystery eggs hide the rolled species: the view returns masked fields so the
+  // UI/pen show a mystery egg until collect. The row still keeps the true target
+  // (needed to hatch), flagged via chip_items.
+  const mystery = isMysteryChip(row.chip_items);
+  const base: PendingHatchEntry = {
     id: row.id,
     targetCatalogId: row.target_catalog,
     targetName: target?.name ?? row.target_catalog,
@@ -161,7 +166,25 @@ function toPendingView(row: PendingHatchRow, catalog: readonly TemplateDigimon[]
     babyDot: baby?.assets.dot ?? `/assets/digimon/${babyId}/dot.gif`,
     hatchAt: row.hatch_at,
     ready: row.hatch_at <= now,
+    mystery,
   };
+  if (!mystery) return base;
+  return {
+    ...base,
+    targetCatalogId: '',
+    targetName: 'Mystery Egg',
+    targetStage: '?',
+    babyCatalogId: '',
+    babyName: '',
+    babyDot: '',
+    mystery: true,
+  };
+}
+
+const MYSTERY_CHIP = 'mystery';
+
+function isMysteryChip(chip: string | null): boolean {
+  return chip === MYSTERY_CHIP;
 }
 
 export async function listSpeciesData(userId: string): Promise<SpeciesDataRow[]> {
@@ -188,12 +211,19 @@ export async function startDirectHatch(userId: string, catalogId: string): Promi
 }
 
 export type MixHatchResult =
-  | { ok: true; pending: PendingHatchView; rolledCatalogId: string; totalWeight: number }
+  | { ok: true; pending: PendingHatchView; rolledCatalogId: string | undefined; totalWeight: number; hasMystery: boolean }
   | { ok: false; error: 'no-data' | 'no-path' };
 
-export async function startMixHatch(userId: string): Promise<MixHatchResult> {
+export async function startMixHatch(userId: string, selectedCatalogIds?: readonly string[]): Promise<MixHatchResult> {
   const dataRows = await listSpeciesData(userId);
-  const entries = dataRows.filter((r) => r.percent > 0);
+  // Pool = only the species the player selected (percent > 0); without a
+  // selection it rolls over ALL collected data (legacy "mix everything").
+  const inSelection = selectedCatalogIds && selectedCatalogIds.length > 0
+    ? new Set(selectedCatalogIds)
+    : null;
+  const entries = dataRows.filter((r) => r.percent > 0 && (inSelection === null || inSelection.has(r.catalog_id)));
+  const selected = inSelection === null ? null : inSelection;
+  const consumeIds = inSelection === null ? null : entries.map((r) => r.catalog_id);
   const totalWeight = entries.reduce((sum, r) => sum + r.percent, 0);
   if (entries.length === 0 || totalWeight === 0) return { ok: false, error: 'no-data' };
   let roll = Math.random() * totalWeight;
@@ -206,9 +236,32 @@ export async function startMixHatch(userId: string): Promise<MixHatchResult> {
   const catalog = loadCatalog().digimons;
   const path = hatchPathTo(picked.catalog_id, catalog);
   if (!path) return { ok: false, error: 'no-path' };
-  const started = await insertPending(userId, path, () => runZeroAll(userId));
+  // Zero ONLY the data that went into the egg. A selected roll is a MYSTERY egg
+  // (chip marks it); legacy all-data mix stays revealed for compat.
+  const mystery = selected !== null;
+  const started = await insertPending(
+    userId,
+    path,
+    mystery ? () => runZeroIds(userId, consumeIds ?? []) : () => runZeroAll(userId),
+    mystery ? MYSTERY_CHIP : null,
+  );
   if (!started.ok) return { ok: false, error: 'no-path' };
-  return { ok: true, pending: started.pending, rolledCatalogId: picked.catalog_id, totalWeight };
+  return {
+    ok: true,
+    pending: started.pending,
+    // Mystery: do NOT leak the rolled species back to the client.
+    hasMystery: mystery,
+    rolledCatalogId: mystery ? undefined : picked.catalog_id,
+    totalWeight,
+  };
+}
+
+async function runZeroIds(userId: string, catalogIds: readonly string[]): Promise<(t: DbAdapter) => Promise<void>> {
+  return async (t: DbAdapter): Promise<void> => {
+    for (const catalogId of catalogIds) {
+      await t.run(SQL_ZERO_DATA, [Date.now(), userId, catalogId]);
+    }
+  };
 }
 
 async function runZeroSingle(userId: string, catalogId: string): Promise<(t: DbAdapter) => Promise<void>> {
@@ -223,14 +276,14 @@ async function runZeroAll(userId: string): Promise<(t: DbAdapter) => Promise<voi
   };
 }
 
-async function insertPending(userId: string, path: HatchPath, cleanup: () => Promise<(t: DbAdapter) => Promise<void>>): Promise<HatchStartResult> {
+async function insertPending(userId: string, path: HatchPath, cleanup: () => Promise<(t: DbAdapter) => Promise<void>>, chip: string | null = null): Promise<HatchStartResult> {
   const catalog = loadCatalog().digimons;
   const now = Date.now();
   const id = newId('hatch');
   const runCleanup = await cleanup();
   await tx(async (t) => {
     await runCleanup(t);
-    await t.run(SQL_INSERT_PENDING, [id, userId, path.targetId, path.rookieId, null, now + HATCH_DURATION_MS, now]);
+    await t.run(SQL_INSERT_PENDING, [id, userId, path.targetId, path.rookieId, chip, now + HATCH_DURATION_MS, now]);
   });
   const row = await one<PendingHatchRow>(SQL_SELECT_PENDING_BY_ID, id, userId);
   if (!row) return { ok: false, error: 'unknown' };

@@ -10,6 +10,11 @@ describe('resolveSceneModelUrl', () => {
     expect(resolveSceneModelUrl(sceneUrl, fallback)).toBe(sceneUrl);
   });
 
+  it('passes seeded backend arena paths through (content-deploy /assets/arenas)', () => {
+    const seeded = '/assets/arenas/arena.glb';
+    expect(resolveSceneModelUrl(seeded, fallback)).toBe(seeded);
+  });
+
   it('rejects traversal and remote URLs in favor of the fallback', () => {
     expect(resolveSceneModelUrl('../scene.glb', fallback)).toBe(fallback);
     expect(resolveSceneModelUrl('https://example.invalid/scene.glb', fallback)).toBe(fallback);

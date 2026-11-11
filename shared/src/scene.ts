@@ -13,7 +13,13 @@ import type { TimeOfDayConfig, WeatherConfig } from './weather.js';
     * validator is the source of truth for allowed keys. Rendering code casts
     * this to `Partial<SceneSettings>` on the frontend after fetch.
     */
-export type SceneKind = 'arena' | 'lobby';
+export type SceneKind = 'arena' | 'lobby' | 'world' | 'nursery';
+
+/** SceneEntity.name the World screen looks up when no scene has kind 'world'. */
+export const WORLD_SCENE_NAME = 'World';
+
+/** SceneEntity.name the Nursery page looks up when no scene has kind 'nursery'. */
+export const NURSERY_SCENE_NAME = 'Nursery';
 
 export type SceneEntity = {
    readonly id: string;
@@ -21,12 +27,15 @@ export type SceneEntity = {
    readonly elements: readonly Element[];
    readonly settings: Readonly<Record<string, unknown>>;
    /**
-    * What consumes this scene: `arena` (default) drives combat lighting/camera/
-    * fog; `lobby` renders the home-screen 3D backdrop (party pedestals, floor,
-    * motes) from `settings.lobby` + optional `modelFile`. Lobby lookup prefers
-    * `kind === 'lobby'` and falls back to the scene named "Lobby".
-    */
-   readonly kind?: SceneKind;
+      * What consumes this scene: `arena` (default) drives combat lighting/camera/
+      * fog; `lobby` renders the home-screen 3D backdrop (party pedestals, floor,
+      * motes) from `settings.lobby` + optional `modelFile`; `world` renders the
+      * world/globe page's 3D backdrop from `settings.world` + optional `modelFile`
+      * (the navigable globe is the centerpiece, the GLB is the environment).
+      * Lobby lookup prefers `kind === 'lobby'` and falls back to the scene named
+      * "Lobby"; world lookup prefers `kind === 'world'` then the scene named "World".
+      */
+     readonly kind?: SceneKind;
   /**
      * When true, this scene's GLB defines the look: combat renders using whatever
      * the GLB itself defines — its embedded lights, materials, environment — and

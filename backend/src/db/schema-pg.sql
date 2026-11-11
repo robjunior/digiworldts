@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS player_roster (
 );
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS evolution_history TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS equipped_skill_ids TEXT;
+ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS signature_skill_id TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS stage_pools TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_stage TEXT;
 ALTER TABLE player_roster ADD COLUMN IF NOT EXISTS nursery_evolve_at BIGINT;
@@ -158,9 +159,12 @@ CREATE TABLE IF NOT EXISTS resources (
 CREATE TABLE IF NOT EXISTS player_wallet (
   user_id       TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   credits       INTEGER NOT NULL DEFAULT 0 CHECK (credits >= 0),
-  streak_day    INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 7),
+  streak_day    INTEGER NOT NULL DEFAULT 0 CHECK (streak_day BETWEEN 0 AND 30),
   last_claim_at BIGINT,
+  longest_streak INTEGER NOT NULL DEFAULT 0,
   premium_until BIGINT,
+  total_cycles  INTEGER NOT NULL DEFAULT 0,
+  season        INTEGER NOT NULL DEFAULT 1,
   updated_at    BIGINT NOT NULL
 );
 

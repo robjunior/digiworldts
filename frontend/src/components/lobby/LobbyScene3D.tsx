@@ -25,6 +25,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { SpriteRig } from '@digiworld/scene3d/sprite-rig';
 import { createLightShaft, type LightShaftHandle } from '@digiworld/scene3d/volumetric-light';
+import { lobbyPartyGround, resolveLobbyFog, clampLobbyExposure, lobbyHdrCompensation, resolveStageLightIntensity } from '@digiworld/scene3d/lobby-settings';
 import type { LobbySceneSettings, SceneSettings } from '@digiworld/scene3d/scene';
 
 import { unitSpriteSheetUrl } from '../../lib/asset-preload';
@@ -48,6 +49,9 @@ type Props = {
   /** Editor lighting for the scene (lighting knobs, reutilizados do subset da
    *  arena) — aplicado quando o GLB não dirige a iluminação. */
   readonly lighting?: Partial<SceneSettings>;
+  /** Host persistence: false = cena montada mas oculta (outra página) —
+   *  o loop para de renderizar frames, mas nada é descartado/reconstruído. */
+  readonly visible?: boolean;
   readonly onOpenCreature?: (monId: string) => void;
 };
 
@@ -89,13 +93,23 @@ function normalizeLobbyGlbLights(root: THREE.Object3D): void {
   });
 }
 
-export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, onOpenCreature }: Props): JSX.Element {
+export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighting, visible = true, onOpenCreature }: Props): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const labelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const fallbackRef = useRef<HTMLDivElement | null>(null);
   const partySyncRef = useRef<() => void>(() => undefined);
   const partyRef = useRef<Props['party']>(party);
   partyRef.current = party;
+  const visibleRef = useRef(visible);
+  visibleRef.current = visible;
+
+  // Fingerprint de CONTEÚDO da cena — e não identidade de objeto das props:
+  // os refetches periódicos do editor devolvem objetos novos com o mesmo
+  // conteúdo, e antes cada um derrubava/reconstruía a cena inteira (GLB
+  // re-parseado, sprites recriados) a cada 5s e a cada retorno ao lobby.
+  // Com a key de conteúdo a cena só reconstrói quando algo REAL mudou
+  // (modelFile, useGlbSettings ou qualquer knob de settings/lighting).
+  const sceneKey = `${modelUrl ?? ''}\u0001${useGlbSettings === true}\u0001${JSON.stringify(settings)}\u0001${JSON.stringify(lighting ?? null)}`;
 
   useEffect(() => {
     try {
@@ -117,8 +131,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // Embedded arena lights are authored in candela; keep the lobby in a
-    // cinematic range instead of clipping the floor to white.
-    renderer.toneMappingExposure = Math.min(lighting?.exposure ?? 0.28, 0.30);
+    // cinematic range instead of clipping the floor to white. Honours the
+    // FULL editor range (0.2..2.5) — the old Math.min(x, 0.30) froze the knob
+    // for every value above 0.30. The HDR compensations (sprite brightness,
+    // stage pool, shafts) scale inversely via lobbyHdrCompensation, so the
+    // sprites keep their tune at any exposure while the arena responds.
+    const exposure = clampLobbyExposure(lighting?.exposure);
+    renderer.toneMappingExposure = exposure;
     // Projeção de sombras reais (o SpriteRig projeta o contorno do digimon via
     // customDepthMaterial+alpha; sem shadowMap habilitado nada projetava).
     renderer.shadowMap.enabled = true;
@@ -158,13 +177,23 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     camera.lookAt(stageCenterX, camCenterY, stageCenterZ);
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
+    // Bloom + volumetric sao configuracoes COMUNS: leem do top-level (lighting)
+    // com fallback pro settings.lobby legado (cenas antigas persistiram la).
+    const Ltop = lighting ?? {};
+    const bloomStrength = Ltop.bloomStrength ?? settings.bloomStrength ?? 0.3;
+    const bloomRadius = Ltop.bloomRadius ?? settings.bloomRadius ?? 0.45;
+    const bloomThreshold = Ltop.bloomThreshold ?? settings.bloomThreshold ?? 0.9;
+    const bloomEnabled = Ltop.bloomEnabled ?? settings.bloomEnabled ?? true;
+    const volIntensity = Ltop.volumetricIntensity ?? settings.volumetricIntensity ?? 2;
+    const volSoftness = Ltop.volumetricSoftness ?? settings.volumetricSoftness ?? 0.55;
+    const volDistanceBlur = Ltop.volumetricDistanceBlur ?? settings.volumetricDistanceBlur ?? 0.65;
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(host.clientWidth, host.clientHeight),
-      settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3,
-      settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45,
-      settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9,
+      bloomStrength !== undefined ? Math.min(bloomStrength, 0.35) : 0.3,
+      bloomRadius !== undefined ? Math.min(bloomRadius, 0.5) : 0.45,
+      bloomThreshold !== undefined ? Math.max(bloomThreshold, 0.85) : 0.9,
     );
-    bloomPass.enabled = settings.bloomEnabled !== false;
+    bloomPass.enabled = bloomEnabled !== false;
     composer.addPass(bloomPass);
     //    useGlbSettings e o GLB traz as dele — política do loadArenaModelBare) ─
     const L = lighting ?? {};
@@ -206,7 +235,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     // exposure). Intensidade em HDR pra ler com a cena escura.
     const stage = new THREE.SpotLight(
       0xfff1d8,
-      (settings.stageLightIntensity ?? 0) * 1.35,
+      resolveStageLightIntensity(settings.stageLightIntensity) * 1.35 * lobbyHdrCompensation(exposure),
       0,
       0.62,
       0.5,
@@ -238,10 +267,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       stage.target.updateMatrixWorld();
     };
     seatStageLight();
-    // névoa do cenário (do editor) — afasta o horizonte do GLB
-    if (L.fogEnabled !== false) {
-      scene.fog = new THREE.Fog(L.fogColor ?? 0x1e2a44, L.fogNear ?? 14, L.fogFar ?? 70);
-    }
+    // névoa do cenário (do editor) — afasta o horizonte do GLB. Modo
+    // linear/exp2/height honorado via resolveLobbyFog (o front ANTES
+    // ignorava fogMode e renderizava só Fog linear — scene exp2 (Lobby)
+    // aparecia sem névoa no front enquanto o preview ficava enevoado).
+    scene.fog = resolveLobbyFog(L);
 
     // optional GLB environment — o cenário É o GLB (nunca um conjunto procedural)
     let glbRoot: THREE.Group | null = null;
@@ -425,7 +455,11 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         // Iluminação simulada estilo Octopath: o sprite (MeshBasic) é não-luz
         // e o tonemapping ACES no low exposure apaga ele — multiplicar o
         // albedo do sheet mantém os digimons legíveis/brilhantes na cena.
-        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(settings.digimonBrightness ?? 1.8, 0));
+        // Escala inversa com o exposure (lobbyHdrCompensation) para o knob
+        // de exposição dirigir a arena sem estourar/apagar os sprites.
+        (rig.mesh.material as THREE.MeshBasicMaterial).color.setScalar(
+          Math.max(settings.digimonBrightness ?? 1.8, 0) * lobbyHdrCompensation(exposure),
+        );
         if (label !== null && label !== undefined) {
           label.hidden = false;
         }
@@ -440,74 +474,49 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
     };
 
     // ── piso da arena: topo do `hdd_plattertop` do GLB ──────────────────
-    // Todo GLB de lobby carrega esse elemento (o prato do HDD); o topo dele é
-    // a altura do piso onde a party apoia. Medido em WORLD coords (pós escala/
-    // posição do root) — por isso updateMatrixWorld antes do Box3.
-    function platterOrigin(root: THREE.Group): { y: number; x: number; z: number } | null {
-      root.updateMatrixWorld(true);
-      let top: { y: number; x: number; z: number } | null = null;
-      root.traverse((obj) => {
-        if (!/hdd_plattertop/i.test(obj.name)) return;
-        const bounds = new THREE.Box3().setFromObject(obj);
-        const center = bounds.getCenter(new THREE.Vector3());
-        const candidate = { y: bounds.max.y, x: center.x, z: center.z };
-        if (Number.isFinite(candidate.y) && (top === null || candidate.y > top.y)) top = candidate;
-      });
-      return top;
-    }
-
-    /** Senta a party/pedestais/holos/câmera no topo exato do `hdd_plattertop`.
-     *  Se o GLB é inválido de lobby (sem o platter pra apoiar os digimons),
-     *  FALLBACK para a regra anterior das cenas 3D: party em partyHeight,
-     *  câmera padrão, o GLB só como ambiente. */
+    // O piso real da party vem de lobbyPartyGround (shared lobby-settings):
+    // platter (arena) OU o maior piso do modelo (biome/lodge). Medido em
+    // WORLD coords (pós escala/posição do root) — updateMatrixWorld antes.
+    /** Senta a party/pedestais/holos/câmera no piso real do GLB (topo do
+     *  `hdd_plattertop` numa arena, OU o maior piso do modelo num biome/lodge).
+     *  Se nenhum piso é detectável, FALLBACK para partyHeight. */
     function fitPartyToPlatter(root: THREE.Group): void {
-      const platter = platterOrigin(root);
-      if (platter === null) {
-        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — usa como backdrop (partyHeight)');
-        stageCenterX = 0;
-        stageCenterZ = 0;
-        groundY = settings.partyHeight ?? 0;
-        key.target.position.set(stageCenterX, groundY, stageCenterZ);
-        key.target.updateMatrixWorld(true);
-
-        // Biome/lodge GLBs are environments, not arena stages. Their geometry
-        // has no authored party floor and can sit between the camera and the
-        // sprites when left at the arena transform. Reframe these models as a
-        // distant backdrop; arena GLBs keep the field transform above.
+      // Uma GLB de arena tem o hdd_plattertop (piso real da party) e mantém o
+      // campo transform do load. Biomes/lodges (forest_biome, dark_lodge...)
+      // NÃO têm platter — mas também são campos com piso real (Ground_* /
+      // *_Floor / Floor_*). Eles são renormalizados para 34/sourceSpan (os
+      // knobs arenaSpan/arenaOffset são tune para a arena e explodiriam o
+      // modelo) e a party apoia NO TOPO do maior piso do modelo, centrada —
+      // não num backdrop 26u atrás (que deixava os digimons flutuando ~15u na
+      // frente do piso visível). A mesma regra vive em lobbyPartyGround
+      // (scene3d/src/lobby-settings.ts), usada pelo LobbyScene3D E pelo
+      // ScenePreview.
+      const probe = lobbyPartyGround(root);
+      if (probe !== null && probe.kind === 'platter') {
+        stageCenterX = probe.x;
+        stageCenterZ = probe.z;
+        groundY = probe.y;
+      } else if (probe !== null) {
+        // Biome/lodge: reset o transform do load (arena-tuned), normaliza e
+        // re-mede o piso no modelo já normalizado.
         root.position.set(0, 0, 0);
+        root.scale.setScalar(1);
         root.updateMatrixWorld(true);
         const sourceBox = new THREE.Box3().setFromObject(root);
         const sourceSpan = Math.max(sourceBox.getSize(new THREE.Vector3()).length(), 1);
-        root.scale.multiplyScalar(34 / sourceSpan);
+        root.scale.setScalar(34 / sourceSpan);
         root.updateMatrixWorld(true);
-        const backdropBox = new THREE.Box3().setFromObject(root);
-        const backdropCenter = backdropBox.getCenter(new THREE.Vector3());
-        const viewTarget = new THREE.Vector3(0, groundY + partyH / 2, 0);
-        const viewDirection = viewTarget.clone().sub(cameraBase).normalize();
-        const backdropWorldCenter = viewTarget.clone().addScaledVector(viewDirection, 26);
-        root.position.set(
-          backdropWorldCenter.x - backdropCenter.x,
-          backdropWorldCenter.y - backdropCenter.y,
-          backdropWorldCenter.z - backdropCenter.z,
-        );
-        root.updateMatrixWorld(true);
-
-        camCenterY = groundY + (lighting?.camLookAtY ?? 0);
-        cameraBase.y = camCenterY + Math.sin(cameraElevation) * cameraDistance;
-        for (const p of pedestals) {
-          p.ring.position.y = GROUND_Y + 0.01 + groundY;
-          p.glow.position.y = GROUND_Y + 0.005 + groundY;
-        }
-        for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
-        for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
-        seatStageLight();
-        rebuildLightShafts();
-        applyFan();
-        return;
+        const ground = lobbyPartyGround(root) ?? { kind: 'bbox', y: 0, x: 0, z: 0 };
+        stageCenterX = ground.x;
+        stageCenterZ = ground.z;
+        groundY = ground.y;
+        console.warn('[LobbyScene3D] GLB do lobby sem hdd_plattertop — party no piso do modelo (34/sourceSpan)');
+      } else {
+        console.warn('[LobbyScene3D] GLB do lobby sem piso detectável — usa partyHeight');
+        stageCenterX = 0;
+        stageCenterZ = 0;
+        groundY = settings.partyHeight ?? 0;
       }
-      stageCenterX = platter.x;
-      stageCenterZ = platter.z;
-      groundY = platter.y;
       key.target.position.set(stageCenterX, groundY, stageCenterZ);
       key.target.updateMatrixWorld(true);
       camCenterY = groundY + (lighting?.camLookAtY ?? 0);
@@ -518,7 +527,8 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       }
       for (const holo of holos) holo.position.y = GROUND_Y + 1.8 + groundY;
       for (const rig of rigs.values()) rig.setArenaBaselineY(groundY);
-      // reassenta a luz de palco + feixes volumétricos no piso real (platter)
+      // reassenta a luz de palco + feixes volumétricos no piso real (platter
+      // OU piso do biome — o modelo já está normalizado)
       seatStageLight();
       rebuildLightShafts();
       applyFan();
@@ -537,13 +547,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
      *  pra ler mesmo sob o low exposure do tonemapping. */
     function rebuildLightShafts(): void {
       clearLightShafts();
-      const vol = settings.volumetricIntensity ?? 1;
+      const vol = volIntensity;
       if (vol <= 0) return;
       const fog = scene.fog as THREE.Fog | null;
       const fogColor = new THREE.Color(fog?.color ?? 0x1e2a44);
       const fogNear = fog?.near ?? 14;
       const fogFar = fog?.far ?? 70;
-      const exposure = renderer.toneMappingExposure || 1;
+      // o uniforme de exposição do shader = exposição efetiva (clamp do knob);
+      // a intensidade já vem compensada via lobbyHdrCompensation(exposure).
       const fwd = new THREE.Vector3();
       const addShaft = (
         from: THREE.Vector3,
@@ -558,13 +569,13 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
         if (h < 0.5) return;
         const handle = createLightShaft({
           color,
-          intensity: strength * vol,
+          intensity: strength * vol * lobbyHdrCompensation(exposure),
           position: from,
           forward: dir,
           angle,
           length: h,
-          softness: settings.volumetricSoftness ?? 0.55,
-          distanceBlur: settings.volumetricDistanceBlur ?? 0.65,
+          softness: volSoftness,
+          distanceBlur: volDistanceBlur,
           fogColor,
           fogNear,
           fogFar,
@@ -626,6 +637,14 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       const dt = Math.min(clock.getDelta(), 0.05);
       const elapsed = clock.elapsedTime;
 
+      // Host persistence: fora do lobby a cena fica montada mas oculta —
+      // não renderiza frames (GPU livre), porém nada é descartado; o
+      // retorno ao lobby retoma exatamente de onde estava.
+      if (!visibleRef.current) {
+        raf = requestAnimationFrame(loop);
+        return;
+      }
+
       // Camera is always the editor-controlled cinematic camera so the front
       // and admin preview never diverge because of an authored GLB camera.
       const activeCam = camera;
@@ -641,10 +660,10 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       // smooth camera look target around the resolved platter center
       camera.lookAt(stageCenterX + yaw * 1.5, camCenterY + pitch * 2, stageCenterZ);
 
-      bloomPass.enabled = settings.bloomEnabled !== false;
-      bloomPass.strength = settings.bloomStrength !== undefined ? Math.min(settings.bloomStrength, 0.35) : 0.3;
-      bloomPass.radius = settings.bloomRadius !== undefined ? Math.min(settings.bloomRadius, 0.5) : 0.45;
-      bloomPass.threshold = settings.bloomThreshold !== undefined ? Math.max(settings.bloomThreshold, 0.85) : 0.9;
+      bloomPass.enabled = bloomEnabled !== false;
+      bloomPass.strength = bloomStrength !== undefined ? Math.min(bloomStrength, 0.35) : 0.3;
+      bloomPass.radius = bloomRadius !== undefined ? Math.min(bloomRadius, 0.5) : 0.45;
+      bloomPass.threshold = bloomThreshold !== undefined ? Math.max(bloomThreshold, 0.85) : 0.9;
 
       for (const rig of rigs.values()) rig.update(dt, elapsed, activeCam.quaternion);
       // mantém o uniforme de câmera dos volumes de luz em sync (drift)
@@ -776,7 +795,7 @@ export function LobbyScene3D({ settings, party, modelUrl, useGlbSettings, lighti
       return undefined;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings, modelUrl, useGlbSettings, lighting]);
+  }, [sceneKey]);
 
   // Party changes → live re-sync (the scene mounts once; this effect reuses it)
   useEffect(() => {

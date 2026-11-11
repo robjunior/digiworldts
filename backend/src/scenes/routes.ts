@@ -12,11 +12,13 @@ import { requireAdmin, requireAuth } from '../auth/routes.js';
 import { getCluster } from '../cluster/index.js';
 import { log } from '../util/log.js';
 import { LobbySceneSettingsZ } from './lobby-schema.js';
+import { WorldSceneSettingsZ } from './world-schema.js';
 import { config } from '../config.js';
 import { writeSceneRevision, MAX_SCENE_GLB_BYTES, MAX_SCENE_PROJECT_BYTES } from './assets.js';
 import { resolve } from 'node:path';
 
 export { LobbySceneSettingsZ } from './lobby-schema.js';
+export { WorldSceneSettingsZ } from './world-schema.js';
 
 import {
   copySceneEntry,
@@ -25,7 +27,9 @@ import {
   getScene,
   listScenes,
   LobbySceneAlreadyAssignedError,
+  NurserySceneAlreadyAssignedError,
   updateSceneEntry,
+  WorldSceneAlreadyAssignedError,
 } from './store.js';
 
 const SCENES_CHANNEL = 'scene:scenes:updated';
@@ -89,6 +93,14 @@ export const ArenaSettingsZ = z.object({
   fillIntensity: z.number().min(0).max(4).optional(),
   exposure: z.number().min(0).max(4).optional(),
   dustOpacity: z.number().min(0).max(1).optional(),
+  // Common post-processing / atmosphere — present in EVERY scene kind.
+  volumetricIntensity: z.number().min(0).max(8).optional(),
+  volumetricSoftness: z.number().min(0).max(1).optional(),
+  volumetricDistanceBlur: z.number().min(0).max(1).optional(),
+  bloomEnabled: z.boolean().optional(),
+  bloomStrength: z.number().min(0).max(5).optional(),
+  bloomRadius: z.number().min(0.05).max(2).optional(),
+  bloomThreshold: z.number().min(0.5).max(2).optional(),
   camElevDeg: z.number().min(0).max(89).optional(),
   camYawDeg: z.number().min(-180).max(180).optional(),
   camDist: z.number().min(1).max(80).optional(),
@@ -103,12 +115,13 @@ export const ArenaSettingsZ = z.object({
   modelFile: SceneAssetUrlZ.optional(),
   editorProjectFile: SceneProjectUrlZ.optional(),
   lobby: LobbySceneSettingsZ.optional(),
+  world: WorldSceneSettingsZ.optional(),
 }).strict();
 
 const SceneCreateZ = z.object({
   name: z.string().trim().min(1).max(120),
   elements: z.array(z.enum(ELEMENTS)).max(ELEMENTS.length),
-  kind: z.enum(['arena', 'lobby']).optional(),
+  kind: z.enum(['arena', 'lobby', 'world', 'nursery']).optional(),
   settings: ArenaSettingsZ,
   useGlbSettings: z.boolean().optional(),
   weather: WeatherConfigZ.nullish(),
@@ -211,6 +224,12 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
       if (err instanceof LobbySceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
+      if (err instanceof WorldSceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      if (err instanceof NurserySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
       throw err;
     }
     await broadcastScenesUpdated();
@@ -227,7 +246,7 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
     const patch: {
       name?: string;
       elements?: readonly Element[];
-      kind?: 'arena' | 'lobby';
+      kind?: 'arena' | 'lobby' | 'world' | 'nursery';
       settings?: Readonly<Record<string, unknown>>;
       useGlbSettings?: boolean;
       weather?: WeatherConfig | null;
@@ -245,6 +264,12 @@ export const scenesPlugin: FastifyPluginAsync = async (app) => {
       scene = await updateSceneEntry(req.params.id, patch);
     } catch (err) {
       if (err instanceof LobbySceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      if (err instanceof WorldSceneAlreadyAssignedError) {
+        return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
+      }
+      if (err instanceof NurserySceneAlreadyAssignedError) {
         return reply.code(409).send({ error: err.code, sceneId: err.existingSceneId });
       }
       throw err;

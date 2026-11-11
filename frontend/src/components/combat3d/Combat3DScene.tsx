@@ -103,10 +103,26 @@ type SceneResolution = {
 };
 
 export type Combat3DSceneHandle = {
-  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: { readonly onImpact?: () => void; readonly vfxPresetId?: string }): void;
+  /** Returns the effect id, or `null` when the scene rejected the cast (e.g.
+   *  the target sprite is missing) — in that case `onImpact` never fires. */
+  playEffect(element: AnimatedElement, sourceId: UnitId | null, targetId: UnitId, opts?: {
+    readonly onImpact?: () => void;
+    readonly vfxPresetId?: string;
+    readonly attackKind?: 'basic' | 'skill';
+  }): string | null;
+  /** Reconcile the persistent 3D status/ailment effects on a unit to match its
+   *  current ailment set. Effects attach to the unit and persist until the
+   *  matching ailment disappears. Pass the unit's current ailments (by kind). */
+  syncAilments(unitId: UnitId, ailments: readonly { readonly kind: string; readonly turnsLeft: number }[]): void;
+  /** Halt all status effects on a unit (downed/removed). */
+  clearAilments(unitId: UnitId): void;
   screenPositionOf(unitId: UnitId): { readonly x: number; readonly y: number } | null;
   getSettings(): SceneSettings | null;
   applySettings(patch: Partial<SceneSettings>): void;
+  /** Frame a digimon (the one whose turn it is). null returns to the default shot. */
+  focusUnit(unitId: UnitId | null): void;
+  /** Clear the turn-focus and abort any live cast camera sequence. */
+  resetCamera(): void;
 };
 
 type SceneProps = {
@@ -515,8 +531,18 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
   useImperativeHandle(ref, () => ({
     playEffect(element, sourceId, targetId, opts) {
       const manager = getManager();
+      if (manager === null) return null;
+      return manager.playEffect(element, sourceId, targetId, opts ?? {});
+    },
+    syncAilments(unitId, ailments) {
+      const manager = getManager();
       if (manager === null) return;
-      manager.playEffect(element, sourceId, targetId, opts ?? {});
+      manager.syncAilments(unitId, ailments);
+    },
+    clearAilments(unitId) {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.clearAilments(unitId);
     },
     screenPositionOf(unitId) {
       const manager = getManager();
@@ -531,10 +557,20 @@ export const Combat3DScene = forwardRef<Combat3DSceneHandle, SceneProps>(functio
     applySettings(patch) {
       getManager()?.applySettings(patch);
     },
+    focusUnit(unitId) {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.focusUnit(unitId);
+    },
+    resetCamera() {
+      const manager = getManager();
+      if (manager === null) return;
+      manager.resetCamera();
+    },
   }), []);
 
   return (
-    <div className="c3d-canvas-host" ref={containerRef}>
+    <div className="c3d-canvas-host" id="c3d-canvas-host" ref={containerRef}>
       <canvas className="c3d-canvas" ref={canvasRef} aria-hidden="true" />
     </div>
   );

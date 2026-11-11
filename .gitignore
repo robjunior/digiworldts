@@ -99,3 +99,10 @@ tmp/
 # volume in docker; never source.
 frontend/public/assets/arenas/
 backend/seed-export/
+
+backend/data/*.db.bak*
+backend/data/*.bak-*
+
+# local editor/tool session files (machine-specific paths)
+data/tileset/digiworld.tiled-session
+frontend/src/styles/lobby-css-test.html

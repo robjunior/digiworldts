@@ -4,12 +4,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 
 import type {
+  SkillVfxAttackType,
   SkillVfxEmitterSlot,
   SkillVfxLight,
   SkillVfxPreset,
   SkillVfxTrajectory,
 } from '@digiworld/shared/skill-vfx';
-import { SKILL_VFX_TRAJECTORIES } from '@digiworld/shared/skill-vfx';
+import { SKILL_VFX_ATTACK_TYPES, SKILL_VFX_TRAJECTORIES } from '@digiworld/shared/skill-vfx';
 import { ELEMENTS, type Element } from '@digiworld/shared/digimon';
 import type { ParticleEmitterConfig } from '@digiworld/shared/weather';
 
@@ -57,6 +58,7 @@ type EditablePreset = Omit<SkillVfxPreset, 'createdAt' | 'updatedAt'>;
 const DEFAULT_PRESET: EditablePreset = {
   id: 'new-preset',
   name: 'New Skill VFX Preset',
+  attackType: 'ranged',
   emitters: [{ emitter: { ...DEFAULT_EMITTER }, startAtMs: 0, followTrajectory: true }],
   trajectory: 'straight',
   totalDurationMs: 900,
@@ -296,6 +298,7 @@ export function AdminSkillVfxEditor(): JSX.Element {
       totalDurationMs: editing.totalDurationMs,
       impactAtMs: editing.impactAtMs,
       ...(editing.element !== undefined ? { element: editing.element } : {}),
+      ...(editing.attackType !== undefined ? { attackType: editing.attackType } : {}),
       ...(editing.light !== undefined ? { light: editing.light } : {}),
     };
     if (selectedId !== null && presets.find((p) => p.id === selectedId) !== undefined) {
@@ -552,6 +555,25 @@ export function AdminSkillVfxEditor(): JSX.Element {
                           </option>
                         ))}
                       </select>
+                    </label>
+                    <label>
+                      <div style={{ fontSize: 12, marginBottom: 2 }}>Delivery</div>
+                      <select
+                        className="admin-credit-input"
+                        value={editing.attackType ?? 'ranged'}
+                        onChange={(e) => updateField('attackType', e.target.value as SkillVfxAttackType)}
+                      >
+                        {SKILL_VFX_ATTACK_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t === 'melee' ? 'Melee — caster advances to face the receiver' : 'Ranged — effect/projectile travels to the receiver'}
+                          </option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                        {editing.attackType === 'melee'
+                          ? 'Purely visual. The caster walks up to the target; camera follows. Emitters with "Follow trajectory" off + Start At ≈ Impact read as an on-contact burst; a source emitter (Start At 0) is the swing/charge-up.'
+                          : 'Purely visual. The caster stays put and the camera follows the projectile along the trajectory, then holds on the receiver.'}
+                      </div>
                     </label>
                     <label>
                       <div style={{ fontSize: 12, marginBottom: 2 }}>

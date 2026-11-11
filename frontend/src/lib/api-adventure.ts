@@ -43,6 +43,12 @@ export type AdventureFoundDigimon = {
   readonly count: number;
 };
 
+export type AdventureItemDrop = {
+  readonly itemId: string;
+  readonly itemName: string;
+  readonly qty: number;
+};
+
 export type AdventureReport = {
   readonly encounters: readonly AdventureEncounter[];
   readonly wins: number;
@@ -51,6 +57,7 @@ export type AdventureReport = {
   readonly xpDeltas: readonly AdventureXpDelta[];
   readonly koedMonIds: readonly string[];
   readonly foundDigimons: readonly AdventureFoundDigimon[];
+  readonly itemDrops: readonly AdventureItemDrop[];
   readonly premium: boolean;
   readonly premiumBonus: { readonly meat: number; readonly bits: number; readonly data: number; readonly netcore: number; readonly xp: number };
 };

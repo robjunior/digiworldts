@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Action, BattleView, FriendlyUnitView } from '@digiworld/shared/battle';
 import type { CommandMode } from '../combat/CommandPanel';
-import { AUTOBATTLE_DELAY_MS, readAutobattlePref, writeAutobattlePref, pickAutoAction } from './combat3dConfig';
+import { AUTOBATTLE_DELAY_MS, TURN_ADVANCE_DELAY_MS, readAutobattlePref, writeAutobattlePref, pickAutoAction } from './combat3dConfig';
 
 /**
  * Drives the autobattle toggle for PvE matches. Picks and dispatches an action
@@ -43,7 +43,9 @@ export function useAutobattle(
     if (action === null) return;
 
     turnKeyRef.current = turnKey;
-    const timerId = window.setTimeout(() => onDispatch(action), AUTOBATTLE_DELAY_MS);
+    // Breathing room between turns: the debounce PLUS the post-hit pause, so
+    // the auto player doesn't fire the instant the previous turn ends.
+    const timerId = window.setTimeout(() => onDispatch(action), AUTOBATTLE_DELAY_MS + TURN_ADVANCE_DELAY_MS);
     return () => window.clearTimeout(timerId);
   }, [enabled, activeBattle, actor, commandMode, onDispatch]);
 

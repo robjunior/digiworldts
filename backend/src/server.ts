@@ -36,6 +36,7 @@ import { farmPlugin } from './farm/routes.js';
 import { backfillStarterFactoriesForExistingUsers, seedFarmRecipes } from './farm/engine.js';
 import { seedSkillsCatalogV2 } from './skills/seed-catalog.js';
 import { rosterPlugin } from './roster/routes.js';
+import { teamsPlugin } from './teams/routes.js';
 import { boosterPlugin } from './boosters/routes.js';
 import { adminPlugin } from './admin/routes.js';
 import { seedInitialBlueprints } from './admin/blueprints.js';
@@ -62,6 +63,7 @@ import { marketPlugin } from './market/routes.js';
 import { coinMarketPlugin } from './market/coins.js';
 import { digdexPlugin } from './dex/routes.js';
 import { adventurePlugin } from './adventure/routes.js';
+import { pveWorldPlugin } from './world/routes.js';
 import { chatPlugin } from './chat/routes.js';
 import { pruneExpired, pruneOldLoginAttempts } from './auth/session.js';
 import { hydrateActiveMatches } from './battle/routes.js';
@@ -229,6 +231,19 @@ async function main(): Promise<void> {
     maxAge: '1y',
   });
 
+  // Seeded arena GLBs — written by `content:deploy --apply` (assetManifest)
+  // into the shared arendata volume (`arenasDir`). A scene/default may point
+  // modelFile at `/assets/arenas/<file>.glb` to serve the seedable copy. No
+  // immutable cache: the arena GLB is meant to be replaced on deploy.
+  if (existsSync(config.paths.arenasDir)) {
+    await app.register(fastifyStatic, {
+      root: config.paths.arenasDir,
+      prefix: '/assets/arenas/',
+      decorateReply: false,
+      wildcard: false,
+    });
+  }
+
   if (existsSync(config.paths.frontendDistDir)) {
     await app.register(fastifyStatic, {
       root: config.paths.frontendDistDir,
@@ -246,6 +261,7 @@ async function main(): Promise<void> {
   await app.register(authPlugin);
   await app.register(oauthPlugin);
   await app.register(rosterPlugin);
+  await app.register(teamsPlugin);
   await app.register(boosterPlugin);
   await app.register(farmPlugin);
   await app.register(adminPlugin);
@@ -268,6 +284,7 @@ async function main(): Promise<void> {
   await app.register(coinMarketPlugin);
   await app.register(digdexPlugin);
   await app.register(adventurePlugin);
+  await app.register(pveWorldPlugin);
   await app.register(chatPlugin);
   await app.register(battlePlugin);
   await app.register(lobbyPlugin);
@@ -362,3 +379,4 @@ main().catch((err: unknown) => {
   log.error('server.boot.fail', { err: err instanceof Error ? err.stack ?? err.message : String(err) });
   process.exit(1);
 });
+

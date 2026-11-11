@@ -1,8 +1,11 @@
 import { memo, useEffect, useState } from "react";
 
 import {
+  DEFAULT_IDLE_CELL,
+  resolveSheetLayout,
   unitSpriteSheetUrl,
   unitSpriteStaticUrl,
+  type SheetLayout,
 } from "@digiworld/scene3d";
 
 const portraitUrl = (catalogId: string) =>
@@ -14,10 +17,6 @@ const ALPHA_MIN = 24;
 const PAD_PX = 1;
 /** Vertical offset applied after centering (positive = move down). Fixes top cropping. */
 const OFFSET_Y = 2;
-/** Number of cells per row in the sprite sheet grid (2 cols). */
-const SHEET_COLS = 2;
-/** Number of cells per column in the sprite sheet grid (2 rows). */
-const SHEET_ROWS = 2;
 /** Hard cap on the number of cached frame promises. LRU evicts the oldest. */
 const MAX_CACHE_SIZE = 500;
 /** Max trimmed output side in px; guards against pathological huge sprites. */
@@ -28,15 +27,17 @@ type DigimonSpriteVariant = "sprite" | "portrait";
 type DigimonSpriteProps = {
   /** Catalog id, e.g. `skb-317` (or the integer form `317`). */
   readonly catalogId: string;
-  /** Which visual to show: 'sprite' = trimmed static frame; 'portrait' = full portrait art. */
+  /** Which visual to show: 'sprite' = trimmed frame; 'portrait' = full portrait art. */
   readonly variant?: DigimonSpriteVariant;
   /** Extra class names merged onto the <img>. */
   readonly className?: string;
   /** Accessible label; defaults to empty (decorative). */
   readonly alt?: string;
-  /** Frame index into the walk animation cell grid (0-based). Use 0 for static sprites.
-   *   Walk cycles typically use frames 0..3 for a 4-frame animation.
-   *   Defaults to 0 (first cell). */
+  /**
+   * Explicit 0-based cell index into the sheet grid. When omitted, the sheet's
+   * resting/idle frame is chosen automatically (frame 0 on legacy 2×2 sheets,
+   * the first happy frame on new 3×4 twelve-frame sheets).
+   */
   readonly frameIndex?: number;
 };
 
@@ -50,19 +51,22 @@ function loadImage(url: string): Promise<HTMLImageElement> {
 }
 
 /**
- * Draw `(sx, sy, sw, sh)` from `img`, trim transparent margins, center the
- * remaining silhouette in a tight square, export as a PNG data URL. Returns
- * null when the canvas is unavailable or the region is fully transparent.
- * @param sx Source x offset (pixels) - use with sprite sheets to select specific cells
- * @param sy Source y offset (pixels) - use with sprite sheets to select specific cells
+ * Draw the sheet region for a cell (using the sheet's real layout), trim
+ * transparent margins, center the remaining silhouette in a tight square,
+ * export as a PNG data URL. Returns null when the canvas is unavailable or the
+ * region is fully transparent.
  */
 function trimCenterExport(
   img: HTMLImageElement,
-  sx: number,
-  sy: number,
-  sw: number,
-  sh: number,
+  layout: SheetLayout,
+  cell: number,
 ): string | null {
+  const col = cell % layout.cols;
+  const row = Math.floor(cell / layout.cols);
+  const sx = col * layout.cellW;
+  const sy = row * layout.cellH;
+  const sw = layout.cellW;
+  const sh = layout.cellH;
   const region = document.createElement("canvas");
   region.width = sw;
   region.height = sh;
@@ -119,39 +123,48 @@ function trimCenterExport(
 }
 
 /**
- * Cell size is derived from the sheet's ACTUAL pixel dimensions, never
- * hardcoded, so a user-supplied 32x32 sheet (16x16 cells) slices the same way
- * as the authored 64x64 sheets (32x32 cells). A hardcoded 32px cell would
- * collapse a 32x32 sheet into a single frame and freeze the walk cycle.
+ * Cell size and grid are derived from the sheet's ACTUAL pixel dimensions via
+ * the shared `resolveSheetLayout` (square → legacy 2×2, non-square → new 3×4),
+ * so user-supplied 32×32 sheets, authored 64×64 sheets, and the upcoming
+ * twelve-frame sheets all slice correctly.
  */
-function cellSizeOf(img: HTMLImageElement): { cellW: number; cellH: number } {
-  const w = img.naturalWidth || 64;
-  const h = img.naturalHeight || 64;
-  return {
-    cellW: Math.max(1, Math.floor(w / SHEET_COLS)),
-    cellH: Math.max(1, Math.floor(h / SHEET_ROWS)),
-  };
+function layoutOf(img: HTMLImageElement): SheetLayout {
+  return resolveSheetLayout(img.naturalWidth || 64, img.naturalHeight || 64);
 }
 
 async function extractSingleFrame(
   catalogId: string,
-  frameIndex = 0,
+  frameIndex: number,
 ): Promise<string | null> {
+  // Resolve which cell to show: an explicit frameIndex wins; otherwise the
+  // layout's resting/idle frame (happy on the new twelve-frame sheets).
+  let cell = frameIndex;
+  let layout: SheetLayout | null = null;
+
+  const pickCell = (img: HTMLImageElement): number => {
+    const l = layoutOf(img);
+    layout = l;
+    const explicit = !Number.isNaN(frameIndex) && frameIndex >= 0;
+    return explicit ? (frameIndex % (l.cols * l.rows)) : DEFAULT_IDLE_CELL[l.version];
+  };
+
   try {
     const img = await loadImage(unitSpriteStaticUrl(catalogId));
-    const { cellW, cellH } = cellSizeOf(img);
-    const cellX = (frameIndex % SHEET_COLS) * cellW;
-    const cellY = Math.floor(frameIndex / SHEET_COLS) * cellH;
-    return trimCenterExport(img, cellX, cellY, cellW, cellH);
+    const l = layoutOf(img);
+    layout = l;
+    cell = !Number.isNaN(frameIndex) && frameIndex >= 0 ? (frameIndex % (l.cols * l.rows)) : DEFAULT_IDLE_CELL[l.version];
+    const out = trimCenterExport(img, l, cell);
+    if (out !== null) return out;
   } catch {
-    /* static cell missing — try slicing it off the 2×2 sheet */
+    /* static cell missing — try slicing it off the sheet */
   }
   try {
     const img = await loadImage(unitSpriteSheetUrl(catalogId));
-    const { cellW, cellH } = cellSizeOf(img);
-    const cellX = (frameIndex % SHEET_COLS) * cellW;
-    const cellY = Math.floor(frameIndex / SHEET_COLS) * cellH;
-    return trimCenterExport(img, cellX, cellY, cellW, cellH);
+    const l = layoutOf(img);
+    let c: number;
+    if (layout !== null) c = cell; // keep the static-path resolution
+    else c = !Number.isNaN(frameIndex) && frameIndex >= 0 ? (frameIndex % (l.cols * l.rows)) : DEFAULT_IDLE_CELL[l.version];
+    return trimCenterExport(img, l, c);
   } catch {
     if (import.meta.env.DEV) {
       console.warn(
@@ -165,7 +178,7 @@ async function extractSingleFrame(
 /** catalogId:frameIndex → extracted-frame promise; shared across every mounted instance. */
 const frameCache = new Map<string, Promise<string | null>>();
 
-function frameFor(catalogId: string, frameIndex = 0): Promise<string | null> {
+function frameFor(catalogId: string, frameIndex: number): Promise<string | null> {
   const key = `${catalogId}:${frameIndex}`;
   const existing = frameCache.get(key);
   if (existing !== undefined) {
@@ -192,9 +205,10 @@ function frameFor(catalogId: string, frameIndex = 0): Promise<string | null> {
  * never through a raw asset URL. Guarantees exactly ONE digimon, alpha-trimmed
  * and centered, regardless of how the source cell was packed:
  *   1. static cell (`/assets/sprites-static/<id>.png`) → trim + center
- *   2. walk cell sliced from the 2×2 sheet (`/assets/sprites/<id>.png`)
+ *   2. a resting/idle cell sliced from the sheet (`/assets/sprites/<id>.png`)
  *   3. hidden (layout never breaks)
- * - 'portrait' variant passes the full portrait art through untouched.
+ * The sheet layout is auto-detected (legacy 2×2 vs new 3×4 twelve-frame), and
+ * the default cell is the sheet's resting pose.
  */
 export const DigimonSprite = memo(function DigimonSprite({
   catalogId,
@@ -208,7 +222,7 @@ export const DigimonSprite = memo(function DigimonSprite({
   );
   const [hidden, setHidden] = useState(false);
 
-useEffect(() => {
+  useEffect(() => {
     setHidden(false);
     if (variant === "portrait") {
       setSrc(portraitUrl(catalogId));
@@ -216,7 +230,7 @@ useEffect(() => {
     }
     let alive = true;
     setSrc(null);
-    void frameFor(catalogId, frameIndex ?? 0).then((url) => {
+    void frameFor(catalogId, frameIndex ?? -1).then((url) => {
       if (alive) setSrc(url);
     });
     return () => {
